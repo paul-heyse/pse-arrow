@@ -6,104 +6,138 @@ use crate::{ModelError, malformed};
 use pse_ids::ContentHash;
 use std::collections::{BTreeMap, BTreeSet};
 
+crate::projection_struct! {
 /// Exact comparison premises chosen before observing outcomes.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct AdviceCohort {
+    projection: { name: "NumericalAdviceCohort", rust_path: crate::strategy::advice::AdviceCohort,
+        version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Original problem and physical/provider interpretation.
-    pub original: ContentHash,
+    pub original: ContentHash => { tag: 1, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Equivalent permitted profile family; explicit settings remain constraints.
-    pub profiles: ContentHash,
+    pub profiles: ContentHash => { tag: 2, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Original branch permission and actual start policy.
-    pub branch_start: ContentHash,
+    pub branch_start: ContentHash => { tag: 3, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Original accuracy and assurance requirements.
-    pub accuracy: ContentHash,
+    pub accuracy: ContentHash => { tag: 4, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Declared exposure/allocation design, including placement and interval meaning.
-    pub exposure: ContentHash,
+    pub exposure: ContentHash => { tag: 5, direction: crate::boundary_projection::Direction::Both, rules: [] };
 }
+}
+crate::projection_enum! {
 /// Lower is better, within the exact cohort and one metric only.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum AdviceMetric {
+    projection: { name: "NumericalAdviceMetric", rust_path: crate::strategy::advice::AdviceMetric,
+        version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Native execution only; excludes queue, preparation, assessment and publication.
-    NativeExecutionNanoseconds,
+    NativeExecutionNanoseconds => 1;
     /// Fresh original physical feasibility divided by declared tolerance.
-    OriginalNormalizedResidual,
+    OriginalNormalizedResidual => 2;
 }
+}
+crate::projection_enum! {
 /// Distinct outcomes are retained, including competing interruptions.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum AdviceOutcome {
+    projection: { name: "NumericalAdviceOutcome", rust_path: crate::strategy::advice::AdviceOutcome,
+        version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Completed original-qualified observation with a measured metric.
-    Complete,
+    Complete => 1;
     /// Finite enclosing allowance exhausted.
-    BudgetExhausted,
+    BudgetExhausted => 2;
     /// Local governing policy ended the attempt.
-    PolicyPreempted,
+    PolicyPreempted => 3;
     /// External cancellation.
-    Cancelled,
+    Cancelled => 4;
     /// Infrastructure interrupted observation.
-    InfrastructureInterrupted,
+    InfrastructureInterrupted => 5;
     /// Terminal numerical failure.
-    NumericalFailure,
+    NumericalFailure => 6;
     /// Observation or original assessment is incomplete.
-    Partial,
+    Partial => 7;
 }
+}
+crate::projection_struct! {
 /// One actual observation in a declared matched exposure.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AdviceObservation {
+    projection: { name: "NumericalAdviceObservation", rust_path: crate::strategy::advice::AdviceObservation,
+        version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Exact admitted comparison premises.
-    pub cohort: AdviceCohort,
+    pub cohort: AdviceCohort => { tag: 1, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Declared matched exposure identity.
-    pub matched: ContentHash,
+    pub matched: ContentHash => { tag: 2, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Exact immutable candidate identity.
-    pub candidate: ContentHash,
+    pub candidate: ContentHash => { tag: 3, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Original execution identity.
-    pub attempt: ContentHash,
+    pub attempt: ContentHash => { tag: 4, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Actual observation disposition.
-    pub outcome: AdviceOutcome,
+    pub outcome: AdviceOutcome => { tag: 5, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Missing is unknown, never zero. Censored values cannot rank candidates.
-    pub value: Option<f64>,
+    pub value: Option<f64> => { tag: 6, direction: crate::boundary_projection::Direction::Both,
+        rules: [crate::boundary_projection::LocalRule::Float64Domain(crate::boundary_projection::Float64Domain::NonnegativeFinite)] };
 }
+}
+crate::projection_enum! {
 /// Descriptive support, not a causal estimator or a speed claim.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AdviceSupport {
+    projection: { name: "NumericalAdviceSupport", rust_path: crate::strategy::advice::AdviceSupport,
+        version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Every declared candidate has a complete metric for every matched exposure.
     CompleteMatched {
         /// Number of complete matched exposures.
-        pairs: usize,
-    },
+        pairs: usize => { tag: 1, direction: crate::boundary_projection::Direction::Both, rules: [] };
+    } => 1;
     /// Incomplete support preserves the original order.
-    BaselineTie,
+    BaselineTie => 2;
 }
+}
+crate::projection_struct! {
 /// Full immutable body retained with effective settings, including all excluded outcomes.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FrozenAdvice {
+    projection: { name: "NumericalFrozenAdvice", rust_path: crate::strategy::advice::FrozenAdvice,
+        version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Exact admitted comparison premises.
-    pub cohort: AdviceCohort,
+    pub cohort: AdviceCohort => { tag: 1, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// One declared descriptive metric.
-    pub metric: AdviceMetric,
+    pub metric: AdviceMetric => { tag: 2, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Complete original candidate order.
-    pub baseline: Vec<ContentHash>,
+    pub baseline: Vec<ContentHash> => { tag: 3, direction: crate::boundary_projection::Direction::Both,
+        rules: [crate::boundary_projection::LocalRule::Length { min: 1, max: Self::MAX_CANDIDATES as u64 }] };
     /// Actual frozen candidate order.
-    pub ordered: Vec<ContentHash>,
+    pub ordered: Vec<ContentHash> => { tag: 4, direction: crate::boundary_projection::Direction::Both,
+        rules: [crate::boundary_projection::LocalRule::Length { min: 1, max: Self::MAX_CANDIDATES as u64 }] };
     /// Actual retained observations, including exclusions.
-    pub observations: Vec<AdviceObservation>,
+    pub observations: Vec<AdviceObservation> => { tag: 5, direction: crate::boundary_projection::Direction::Both,
+        rules: [crate::boundary_projection::LocalRule::Length { min: 0, max: Self::MAX_OBSERVATIONS as u64 }] };
     /// Support established by the retained comparison.
-    pub support: AdviceSupport,
+    pub support: AdviceSupport => { tag: 6, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Original allowances for applicability checking; advice never widens them.
-    pub limits: WorkLimits,
+    pub limits: WorkLimits => { tag: 7, direction: crate::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl FrozenAdvice {
     /// Finite candidate inventory capacity.
@@ -160,17 +194,10 @@ impl FrozenAdvice {
         self.ordered.iter().position(|id| *id == candidate)
     }
     fn comparison(&self) -> Result<(Vec<ContentHash>, AdviceSupport), ModelError> {
-        self.limits.validate()?;
+        crate::boundary_projection::ValidateProjection::validate_projection(self)
+            .map_err(|error| malformed(&error.to_string()))?;
         let candidates: BTreeSet<_> = self.baseline.iter().copied().collect();
-        if self.baseline.is_empty()
-            || self.baseline.len() > Self::MAX_CANDIDATES
-            || candidates.len() != self.baseline.len()
-            || self.observations.len() > Self::MAX_OBSERVATIONS
-            || self
-                .observations
-                .iter()
-                .any(|o| o.value.is_some_and(|v| !v.is_finite() || v < 0.0))
-        {
+        if candidates.len() != self.baseline.len() {
             return Err(malformed(
                 "advice requires bounded distinct candidates and finite nonnegative observed metrics",
             ));
@@ -303,5 +330,76 @@ mod tests {
         advice.ordered.reverse();
         assert!(advice.validate().is_err());
         assert!(!advice.applies(&cohort(), &advice.baseline, advice.limits));
+    }
+
+    #[test]
+    fn frozen_advice_projection_retains_excluded_observations_and_rechecks_claims() {
+        use crate::boundary_projection::{
+            ProjectionGraph, ProjectionRecord, ValidateProjection as _,
+        };
+        let original = frozen(AdviceOutcome::InfrastructureInterrupted, true);
+        let bytes = serde_json::to_vec(&original).unwrap();
+        let decoded =
+            FrozenAdvice::from_projection_fields(original.into_projection_fields()).unwrap();
+        decoded.validate_projection().unwrap();
+        decoded.validate().unwrap();
+        assert_eq!(serde_json::to_vec(&decoded).unwrap(), bytes);
+        assert!(
+            decoded
+                .observations
+                .iter()
+                .all(|observation| observation.outcome == AdviceOutcome::InfrastructureInterrupted)
+        );
+        assert_eq!(decoded.support, AdviceSupport::BaselineTie);
+        let mut forged = decoded;
+        forged.support = AdviceSupport::CompleteMatched { pairs: 1 };
+        let forged = FrozenAdvice::from_projection_fields(forged.into_projection_fields()).unwrap();
+        assert!(
+            forged.validate().is_err(),
+            "decoding asserted support grants no comparison evidence"
+        );
+        let mut graph = ProjectionGraph::default();
+        graph
+            .register::<super::super::CompositionRequest>()
+            .unwrap();
+        for name in [
+            "NumericalConnectedPath",
+            "NumericalWorkLimits",
+            "NumericalFrozenAdvice",
+            "NumericalAdviceCohort",
+            "NumericalAdviceObservation",
+            "NumericalAdviceSupport",
+        ] {
+            assert!(
+                graph.definitions().contains_key(name),
+                "missing actual owner {name}"
+            );
+        }
+    }
+
+    #[test]
+    fn composition_projection_preserves_unknown_and_explicit_zero_work_counters() {
+        use crate::boundary_projection::{ProjectionRecord, ValidateProjection as _};
+        let original = super::super::CompositionRequest {
+            limits: Some(WorkLimits {
+                attempts: 1,
+                evaluations: Some(0),
+                iterations: None,
+                factorizations: Some(0),
+                proof_steps: None,
+            }),
+            ..Default::default()
+        };
+        let bytes = serde_json::to_vec(&original).unwrap();
+        let mut decoded = super::super::CompositionRequest::from_projection_fields(
+            original.into_projection_fields(),
+        )
+        .unwrap();
+        decoded.validate_projection().unwrap();
+        decoded.validate().unwrap();
+        assert_eq!(serde_json::to_vec(&decoded).unwrap(), bytes);
+        decoded.limits.as_mut().unwrap().attempts = 0;
+        assert!(decoded.validate_projection().is_err());
+        assert!(decoded.validate().is_err());
     }
 }

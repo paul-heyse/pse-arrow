@@ -7,6 +7,9 @@ from __future__ import annotations
 import json
 import unittest
 
+from pyomo.environ import Constraint, Var, value
+from pyomo.opt import TerminationCondition
+
 from oracles.ordinary_recycle import (
     build_recycle,
     observations,
@@ -14,8 +17,6 @@ from oracles.ordinary_recycle import (
     overheated_observations,
     solve_recycle,
 )
-from pyomo.environ import Constraint, Var, value
-from pyomo.opt import TerminationCondition
 
 
 class OrdinaryRecycleReferenceTests(unittest.TestCase):

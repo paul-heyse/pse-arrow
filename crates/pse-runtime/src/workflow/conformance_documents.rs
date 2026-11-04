@@ -10,6 +10,8 @@ use pse_model::{
 };
 use serde::{Deserialize, Serialize};
 
+const MAXIMUM_MANIFEST_BYTES: u64 = 16 << 20;
+
 /// Execution settings shared by all selected authored fixtures in one campaign.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -137,17 +139,25 @@ impl ConformanceManifest {
     /// or a missing diagnostic profile. No fixture or solver is started.
     pub fn load(path: &std::path::Path) -> Result<Self, WorkflowError> {
         use std::io::Read as _;
-        const MAXIMUM_BYTES: u64 = 16 << 20;
         let file = std::fs::File::open(path)
             .map_err(|error| contract(format!("{}: {error}", path.display())))?;
         let mut bytes = Vec::new();
-        file.take(MAXIMUM_BYTES + 1)
+        file.take(MAXIMUM_MANIFEST_BYTES + 1)
             .read_to_end(&mut bytes)
             .map_err(|error| contract(error.to_string()))?;
-        if bytes.len() as u64 > MAXIMUM_BYTES {
+        if bytes.len() as u64 > MAXIMUM_MANIFEST_BYTES {
             return Err(contract("conformance manifest extent"));
         }
-        let text = std::str::from_utf8(&bytes).map_err(|error| contract(error.to_string()))?;
+        Self::from_bytes(&bytes, path)
+    }
+    /// Admit already captured campaign bytes with the same strict interpretation as loading.
+    /// # Errors
+    /// The same bounded syntax, version, settings and path refusals as [`Self::load`].
+    pub(crate) fn from_bytes(bytes: &[u8], path: &std::path::Path) -> Result<Self, WorkflowError> {
+        if bytes.len() as u64 > MAXIMUM_MANIFEST_BYTES {
+            return Err(contract("conformance manifest extent"));
+        }
+        let text = std::str::from_utf8(bytes).map_err(|error| contract(error.to_string()))?;
         #[derive(Deserialize)]
         struct Header {
             version: u32,
@@ -254,6 +264,23 @@ mod tests {
             error.contains("unsupported conformance manifest version 2"),
             "{error}"
         );
+    }
+    #[test]
+    fn captured_manifest_uses_the_same_strict_owner_without_rereading() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::create_dir(directory.path().join("model")).unwrap();
+        std::fs::write(directory.path().join("model/package.toml"), "").unwrap();
+        let path = directory.path().join("campaign.toml");
+        let original = b"version = 1\n[settings]\nversion = 1\nmemory_limit_bytes = 1024\n[[runs]]\nversion = 1\nname = 'first'\npackage = 'model'\nphysical = 'model'\n";
+        std::fs::write(&path, "version = 2\n").unwrap();
+        let admitted = ConformanceManifest::from_bytes(original, &path).unwrap();
+        assert_eq!(admitted.runs[0].name, "first");
+        assert!(ConformanceManifest::load(&path).is_err());
+        let unknown = String::from_utf8(original.to_vec()).unwrap().replace(
+            "memory_limit_bytes = 1024",
+            "memory_limit_bytes = 1024\nunknown = true",
+        );
+        assert!(ConformanceManifest::from_bytes(unknown.as_bytes(), &path).is_err());
     }
     #[test]
     fn manifest_context_admission_preserves_relative_paths_and_names() {

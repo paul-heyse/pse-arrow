@@ -187,12 +187,29 @@ fn numerical_campaign_variants_are_explicit_and_change_only_selected_controls() 
 }
 
 /// Load exact document bytes; unlike the acceptance seed helper, no tests are removed.
-fn documents(root: &Path) -> TestResult<BTreeMap<String, Vec<u8>>> {
-    fn visit(root: &Path, directory: &Path, out: &mut BTreeMap<String, Vec<u8>>) -> TestResult<()> {
+pub(super) fn documents(root: &Path) -> TestResult<BTreeMap<String, Vec<u8>>> {
+    documents_with(root, &mut |path| Ok(std::fs::read(path)?))
+}
+
+/// Walk the same admitted document population with an explicit original-byte reader.
+pub(super) fn documents_with(
+    root: &Path,
+    read: &mut impl FnMut(&Path) -> TestResult<Vec<u8>>,
+) -> TestResult<BTreeMap<String, Vec<u8>>> {
+    fn visit(
+        root: &Path,
+        directory: &Path,
+        out: &mut BTreeMap<String, Vec<u8>>,
+        read: &mut impl FnMut(&Path) -> TestResult<Vec<u8>>,
+    ) -> TestResult<()> {
         for entry in std::fs::read_dir(directory)? {
-            let path = entry?.path();
+            let entry = entry?;
+            if entry.file_type()?.is_symlink() {
+                return Err("reference source documents cannot traverse symlinks".into());
+            }
+            let path = entry.path();
             if path.is_dir() {
-                visit(root, &path, out)?;
+                visit(root, &path, out, read)?;
             } else if matches!(
                 path.extension().and_then(|s| s.to_str()),
                 Some("toml" | "yaml" | "yml" | "pse" | "parquet")
@@ -201,14 +218,34 @@ fn documents(root: &Path) -> TestResult<BTreeMap<String, Vec<u8>>> {
                     .strip_prefix(root)?
                     .to_str()
                     .ok_or_else(|| std::io::Error::other("non-UTF8 reference document path"))?;
-                out.insert(relative.replace('\\', "/"), std::fs::read(&path)?);
+                out.insert(relative.replace('\\', "/"), read(&path)?);
             }
         }
         Ok(())
     }
     let mut out = BTreeMap::new();
-    visit(root, root, &mut out)?;
+    if std::fs::symlink_metadata(root)?.file_type().is_symlink() {
+        return Err("reference source root cannot be a symlink".into());
+    }
+    visit(root, root, &mut out, read)?;
     Ok(out)
+}
+
+type CapturedDocuments<'a> = (
+    &'a BTreeMap<String, Vec<u8>>,
+    &'a mut Option<Arc<pse_columnar::AllocationLease>>,
+);
+
+/// Select package-relative views of the captured checkout bytes without filesystem reads.
+pub(super) fn captured_package_sources<'a>(
+    files: &'a BTreeMap<String, Vec<u8>>,
+    name: &str,
+) -> impl Iterator<Item = (&'a str, &'a [u8])> + Clone + use<'a> {
+    let prefix = format!("packages/reference/{name}/");
+    files.iter().filter_map(move |(path, bytes)| {
+        path.strip_prefix(prefix.as_str())
+            .map(|relative| (relative, bytes.as_slice()))
+    })
 }
 
 async fn package(
@@ -216,6 +253,7 @@ async fn package(
     source: &SourceRun,
     root: &Path,
     canonical: bool,
+    mut captured: Option<CapturedDocuments<'_>>,
 ) -> TestResult<(Runtime, ModelingPackage, tempfile::TempDir)> {
     let spill = tempfile::tempdir()?;
     let positive = |value| {
@@ -263,7 +301,35 @@ async fn package(
     let token = pse_columnar::CancellationToken::new();
     let pool = shared.pool();
     let validation = runtime.validation_context();
+    if let Some((files, owner)) = captured.as_mut() {
+        let bytes = files
+            .iter()
+            .try_fold(1usize << 20, |total, (path, bytes)| {
+                total
+                    .checked_add(path.capacity())?
+                    .checked_add(bytes.capacity())?
+                    .checked_add(1024)
+            })
+            .ok_or("captured ordinary source allocation extent")?;
+        **owner = Some(
+            shared
+                .math()
+                .reserve("ordinary-reference:original-inputs", bytes)?,
+        );
+    }
     let load = |name: &str| -> TestResult<_> {
+        if let Some((files, _)) = &captured {
+            return Ok(
+                pse_admission::authoring_driver::document::load_package_sources_owned(
+                    captured_package_sources(files, name),
+                    &registry,
+                    Default::default(),
+                    &pool,
+                    &token,
+                    &validation,
+                )?,
+            );
+        }
         Ok(
             pse_admission::authoring_driver::document::load_package_documents_owned(
                 &documents(&root.join(name))?,
@@ -313,7 +379,7 @@ pub(super) async fn reference_seed_package() -> TestResult<(
         .find(|r| r.name == "seed")
         .ok_or_else(|| std::io::Error::other("reference seed closure absent"))?;
     // Recycle/CSTR reference controls execute locally and retain no canonical data.
-    let (runtime, package, spill) = package(&manifest.settings, source, &root, false).await?;
+    let (runtime, package, spill) = package(&manifest.settings, source, &root, false, None).await?;
     Ok((runtime, package, spill, preparation))
 }
 
@@ -334,7 +400,8 @@ pub(super) async fn ordinary_source_package() -> TestResult<(
         .clone();
     source.dependencies.push(source.package.clone());
     source.package = "data/ordinary-bt".into();
-    let (runtime, package, spill) = package(&manifest.settings, &source, &root, false).await?;
+    let (runtime, package, spill) =
+        package(&manifest.settings, &source, &root, false, None).await?;
     Ok((
         runtime,
         package,
@@ -355,6 +422,14 @@ pub(super) async fn ordinary_delivery_package(
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/reference");
     let manifest = Manifest::load(&root.join("conformance.toml"))?;
     let preparation = numerical_preparation(&manifest.settings)?;
+    let source = ordinary_delivery_source(&manifest)?;
+    let (runtime, package, spill) =
+        package(&manifest.settings, &source, &root, canonical, None).await?;
+    Ok((runtime, package, spill, preparation))
+}
+
+/// Derive the original delivery package closure from its current seed declaration.
+pub(super) fn ordinary_delivery_source(manifest: &Manifest) -> TestResult<SourceRun> {
     let mut source = manifest
         .runs
         .iter()
@@ -371,8 +446,33 @@ pub(super) async fn ordinary_delivery_package(
         }
     }
     source.package = "ordinary-delivery".into();
-    let (runtime, package, spill) = package(&manifest.settings, &source, &root, canonical).await?;
-    Ok((runtime, package, spill, preparation))
+    Ok(source)
+}
+
+#[cfg(feature = "solver-ipopt")]
+/// Capture once, then admit the same original bytes through the normal package loader.
+pub(super) async fn ordinary_delivery_reference_package() -> TestResult<(
+    Runtime,
+    ModelingPackage,
+    tempfile::TempDir,
+    crate::workflow::PreparationSettings,
+    ordinary_reference::OriginalInputs,
+)> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()?;
+    let mut inputs = ordinary_reference::OriginalInputs::capture(&root)?;
+    let source = ordinary_delivery_source(&inputs.manifest)?;
+    let preparation = numerical_preparation(&inputs.manifest.settings)?;
+    let (runtime, package, spill) = package(
+        &inputs.manifest.settings,
+        &source,
+        &root.join("packages/reference"),
+        false,
+        Some((&inputs.files, &mut inputs.owner)),
+    )
+    .await?;
+    Ok((runtime, package, spill, preparation, inputs))
 }
 
 #[derive(Clone, Serialize)]
@@ -1057,7 +1157,7 @@ async fn guarded_regional_pr_product_characterization_uses_actual_stage_programs
         .iter()
         .find(|r| r.name == "seed")
         .ok_or_else(|| std::io::Error::other("reference seed closure absent"))?;
-    let (runtime, package, _spill) = package(&manifest.settings, source, &root, true).await?;
+    let (runtime, package, _spill) = package(&manifest.settings, source, &root, true, None).await?;
     let services = runtime.execution_services();
     let fixture = DeclarationId::from(SemanticId::parse_hex("01a0eecf2935721c9fc3aaab14032e96")?);
     let cancel = crate::CancelSource::new();
@@ -1326,7 +1426,7 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
         .iter()
         .find(|r| r.name == "seed")
         .ok_or_else(|| std::io::Error::other("reference seed closure absent"))?;
-    let (runtime, package, _spill) = package(&manifest.settings, source, &root, true).await?;
+    let (runtime, package, _spill) = package(&manifest.settings, source, &root, true, None).await?;
     let services = runtime.execution_services();
     let fixture = DeclarationId::from(SemanticId::parse_hex("01a0eecf2935721c9fc3aaab14032e96")?);
     let cancel = crate::CancelSource::new();

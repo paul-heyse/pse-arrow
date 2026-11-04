@@ -166,9 +166,9 @@ impl ModelingPackage {
         cancel: &CancelSource,
     ) -> Result<ModelingInspection, WorkflowError> {
         self.check_service_bindings(services)?;
-        if request.limit == 0 || request.limit > 128 {
-            return Err(contract("inspection page limit must be between one and128"));
-        }
+        pse_model::boundary_projection::ValidateProjection::validate_projection(request).map_err(
+            |error| WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error)),
+        )?;
         modeling::documents::bound_observation(
             self.admit_declared_request(
                 services,
@@ -179,11 +179,12 @@ impl ModelingPackage {
             )
             .await?
             .inspection(
+                services,
                 OperationSource::of(self),
                 request.preparation.clone(),
                 request.offset,
                 request.limit,
-            ),
+            )?,
         )
     }
     /// Prepare authored topology using the same declared admission as other hosts.

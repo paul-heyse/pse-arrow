@@ -685,7 +685,7 @@ async fn workbench_public_cohort_retains_population_compares_value_variants_and_
         .await
         .unwrap();
     let headers = frozen
-        .header_page(StudyCohortPageRequest {
+        .header_page(StudyCohortHeaderRequest {
             maximum: 4,
             cursor: None,
         })

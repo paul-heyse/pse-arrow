@@ -914,3 +914,764 @@ The advanced capabilities most easily overlooked are dynamic channel endpoint me
 Its principal limits are equally important: HTTP/2 flow control does not guarantee bounded application memory, transport cancellation does not establish exactly-once behavior, interceptors do not replace general middleware, and basic endpoint balancing does not constitute complete service-mesh management.
 
 Overall: Tonic 0.14.8 is a substantial, modular gRPC foundation for Rust. Its most important architectural benefit is the ability to combine standard RPC contracts, networking, streaming, middleware, and protocol services without individually implementing the machinery that connects them.
+
+# Tonic 0.14 — Technical Capability Addendum
+
+Supplement to: Tonic — Comprehensive Rust Library Capability Reference\
+Base version: `tonic` 0.14.8\
+Research date: November 3, 2026\
+Scope: Additional functionality, advanced integration mechanisms, operational semantics, and version-sensitive corrections. Existing coverage is not repeated.
+
+Version boundary: Tonic 0.14.9 was released October 29, 2026, following the original reference's October 28 research date. The additions below concern the established 0.14.x architecture, with functionality introduced in 0.14.9 identified separately. The `tonic-xds` companion remains independently versioned and experimental.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+## 1. Generated service code with custom codecs
+
+Extends original §§3.2–3.4.
+
+### 1.1 Codec substitution without replacing service generation
+
+`tonic_prost_build::Builder::codec_path(...)` allows generated gRPC client and server code to instantiate a specified codec type rather than the default `tonic_prost::ProstCodec`.
+
+This creates an additional integration path between conventional Prost-based code generation and fully manual service generation:
+
+| Mechanism                                     | Schema and service definition                         | Codec selection             | Consequence                                                           |
+| --------------------------------------------- | ----------------------------------------------------- | --------------------------- | --------------------------------------------------------------------- |
+| `tonic_prost_build::Builder`                  | Protobuf descriptors and Prost generation             | `Builder::codec_path`       | Retains generated service infrastructure while substituting the codec |
+| `tonic_build::manual`                         | Rust-defined service and method metadata              | `MethodBuilder::codec_path` | Generates service adapters without requiring `.proto` source          |
+| `tonic::client::Grpc` / `tonic::server::Grpc` | Application-provided dispatch and handler integration | Codec supplied directly     | Uses generic gRPC protocol machinery without generated service stubs  |
+
+The first path is particularly valuable when service schemas remain Protobuf-defined but message encoding requires customization. The generated clients, servers, routes, and handler contracts can be retained instead of being recreated.
+
+Important boundary: `codec_path` changes the codec referenced in generated code; it does not automatically change Prost's generated Rust message types or transform a Protobuf schema into another serialization schema. The substituted `Codec` must provide encoder and decoder item types compatible with the generated method signatures. Both peers must also agree on the actual wire representation.
+
+For fully independent message models, manual generation allows each method to specify its Rust input and output types and codec path. `MethodBuilder` also controls the Rust method name, wire route name, and streaming cardinality through `client_streaming` and `server_streaming`.
+
+Sources:
+
+- Prost service generation: `https://docs.rs/tonic-prost-build/latest/tonic_prost_build/struct.Builder.html`
+- Manual method generation: `https://docs.rs/tonic-build/latest/tonic_build/manual/struct.MethodBuilder.html`&#x20;
+
+  [image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+  Rust+1
+
+
+
+### 1.2 Additional generated-code controls
+
+Three further `tonic-prost-build` controls are relevant to generated API structure and documentation:
+
+- `emit_package(bool)` controls package information in the generated representation through Prost's corresponding configuration.
+- `disable_comments(paths)` selectively suppresses generated documentation comments, useful when upstream Protobuf comments produce invalid Rust documentation tests or otherwise unsuitable generated docs.
+- `skip_debug(paths)` delegates control of generated `Debug` implementations to Prost. This affects generated type capabilities rather than gRPC protocol behavior.
+
+These controls supplement `type_attribute`, `extern_path`, and `proto_path`, but operate at different boundaries: API documentation, generated trait implementations, package representation, and type identity. `compile_with_config` also permits a custom Prost configuration; its documentation states that the builder's `disable_comments` settings are ignored when that custom configuration supplies its own settings.
+
+Sources:
+
+- `https://docs.rs/tonic-prost-build/latest/tonic_prost_build/struct.Builder.html`
+- `https://docs.rs/tonic-prost-build/latest/tonic_prost_build/struct.Config.html`&#x20;
+
+  [image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+  Rust+1
+
+
+
+## 2. Low-level RPC service contracts and alternative transports
+
+Extends original §§3.4, 6.2, and 7.2.
+
+The principal interface separating Tonic's RPC client dispatcher from its underlying transport is `tonic::client::GrpcService<ReqBody>`.
+
+### 2.1 `GrpcService` is more general than `Channel`
+
+`GrpcService` describes a service accepting `http::Request<ReqBody>` and returning an HTTP response containing an appropriate asynchronous body. It exposes Tower-style readiness and request submission through `poll_ready` and `call`, together with associated response-body, error, and future types.
+
+A blanket implementation makes compatible Tower `Service` implementations usable as gRPC services.
+
+`tonic::client::Grpc<T>` then provides the RPC-specific machinery over that service:
+
+- Checks service readiness with `ready()`.
+- Constructs RPC requests using a codec and fully qualified `PathAndQuery`.
+- Implements unary, client-streaming, server-streaming, and bidirectional-streaming dispatch.
+- Handles gRPC message encoding, decoding, compression configuration, message limits, and status translation.
+
+`Grpc::with_origin` separately allows an explicit URI origin. The origin supplies scheme and authority, while the method-specific gRPC path supplies the request path.
+
+Architectural implication: The underlying service need not be Tonic's default `Channel`. A specialized connection manager, routing service, proxy, or transport adapter can participate as long as it satisfies the required HTTP/Tower contracts. This is also how the experimental `tonic-xds` companion integrates with generated clients.
+
+A custom socket connector and a custom `GrpcService` are different extension layers. The former supplies network IO to Tonic's existing channel implementation; the latter can replace or wrap more of the request-carrying service machinery.
+
+Sources:
+
+- `https://docs.rs/tonic/latest/tonic/client/trait.GrpcService.html`
+- `https://docs.rs/tonic/latest/tonic/client/struct.Grpc.html`&#x20;
+
+  [image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+  Rust+1
+
+
+
+### 2.2 Server handler traits
+
+The corresponding server-side interface family consists of:
+
+- `UnaryService<R>`
+- `ClientStreamingService<R>`
+- `ServerStreamingService<R>`
+- `StreamingService<R>`
+
+Each defines the handler's accepted request representation, associated response representation, and asynchronous result type. Unary handlers return one `Response<T>` or `Status`; streaming handlers additionally define the output stream type.
+
+`tonic::server::Grpc<C>` accepts these services and a compatible HTTP request body, then implements the relevant gRPC method operation with the selected codec.
+
+An important detail is that `UnaryService` has a blanket implementation for compatible Tower `Service<Request<R>>` implementations. Ordinary Tower services can therefore participate directly in unary RPC handling when their request, response, future, and error types meet the contract.
+
+This separation permits custom gRPC dispatch, specialized request routing, or nonstandard handler adapters without reimplementing message framing or the four RPC execution modes.
+
+The distinction remains between application-message handlers and HTTP-level middleware. A handler trait receives decoded application messages; a surrounding Tower HTTP layer sees the protocol request/response representation. They cannot be substituted without accounting for encoding, decoding, and body ownership.
+
+Sources:
+
+- `https://docs.rs/tonic/latest/tonic/server/struct.Grpc.html`
+- `https://docs.rs/tonic/latest/tonic/server/trait.UnaryService.html`
+- `https://docs.rs/tonic/latest/tonic/server/trait.ClientStreamingService.html`
+- `https://docs.rs/tonic/latest/tonic/server/trait.ServerStreamingService.html`
+- `https://docs.rs/tonic/latest/tonic/server/trait.StreamingService.html`&#x20;
+
+  [image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+  Rust+1
+
+
+
+## 3. Codec framing and allocation contracts
+
+Extends original §§3.4 and 8.5.
+
+### 3.1 Message framing is outside the codec
+
+Tonic separates the gRPC transport envelope from serialization of the application message.
+
+`Encoder::encode(item, &mut EncodeBuf)` writes the serialized application message. Tonic subsequently handles the gRPC message envelope, including the compression flag and message-length prefix.
+
+`Decoder::decode(&mut DecodeBuf)` receives the bytes for an individual, already-framed message. The documentation explicitly guarantees that its input contains the complete message payload; the codec is not responsible for reading the gRPC frame length.
+
+The relevant interfaces are:
+
+| Interface                  | Responsibility                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| `Codec`                    | Associates distinct encode/decode message types and creates encoder/decoder instances |
+| `Encoder::encode`          | Serializes one application message                                                    |
+| `Decoder::decode`          | Deserializes one complete application message                                         |
+| `EncodeBuf`                | `bytes::BufMut`-compatible output buffer, including `reserve()`                       |
+| `DecodeBuf`                | `bytes::Buf`-compatible view of received message bytes                                |
+| `Encoder::buffer_settings` | Specifies encoding-buffer construction and growth policy                              |
+| `Decoder::buffer_settings` | Specifies decoding-buffer construction and growth policy                              |
+
+An implementation that adds another gRPC envelope inside `Encoder::encode` would duplicate protocol framing. Conversely, a custom codec need not reimplement HTTP/2 framing, stream multiplexing, or gRPC message-boundary detection.
+
+The `Buf` and `BufMut` abstractions are relevant for avoiding unnecessary intermediate copies. They allow serialization libraries to operate against Tonic's supplied buffers, although actual allocation and copying behavior depends on the serializer, message representation, and buffer implementation. There is no universal zero-copy guarantee.
+
+Sources:
+
+- `https://docs.rs/tonic/latest/tonic/codec/trait.Encoder.html`
+- `https://docs.rs/tonic/latest/tonic/codec/trait.Decoder.html`
+- `https://docs.rs/tonic/latest/tonic/codec/struct.EncodeBuf.html`
+- `https://docs.rs/tonic/latest/tonic/codec/struct.DecodeBuf.html`&#x20;
+
+  [image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+  Rust+3
+
+
+
+### 3.2 Interaction with buffering and streaming latency
+
+The original reference describes the encoding-buffer growth size and streaming yield threshold. The additional architectural point is that these policies are supplied through the codec interfaces themselves.
+
+This makes the codec an extension boundary for both serialization and associated buffer behavior.
+
+The distinctions are:
+
+- Message serialization cost depends on how the codec traverses and materializes the application message.
+- Buffer growth controls allocation behavior during serialization.
+- The streaming yield threshold influences how promptly accumulated encoded data is made available downstream.
+- HTTP/2 flow-control windows govern subsequent transport transmission, not the codec's internal allocation strategy.
+
+A codec can therefore influence allocation frequency and batching without replacing Tonic's transport. However, a codec-level batch is not an additional RPC message: Tonic preserves the individual framed messages within the outbound byte stream.
+
+The exposed mechanisms are useful for workload-specific encoding policies, especially high-frequency small messages or comparatively large binary payloads. They do not eliminate the need for bounded upstream producers or appropriate message-size limits.
+
+## 4. Streaming input contracts and lifecycle semantics
+
+Extends original §§4.2–4.4.
+
+### 4.1 Outbound and inbound streams have different item types
+
+Generated Tonic clients accept outbound streaming inputs through `IntoStreamingRequest`.
+
+Its associated stream type must implement:
+
+`Stream<Item = Message> + Send + 'static`
+
+The trait supports both an ordinary stream and a stream wrapped in `tonic::Request`, so request metadata and timeout configuration remain available without requiring every call site to construct a wrapper.
+
+This is different from inbound `tonic::Streaming<T>` and generated server output streams, which expose fallible stream items:
+
+| Direction                | Typical item representation | Error semantics                                                |
+| ------------------------ | --------------------------- | -------------------------------------------------------------- |
+| Client outbound request  | `Message`                   | Producer failures are not directly represented as stream items |
+| Client inbound response  | `Result<Message, Status>`   | RPC failure may surface during stream consumption              |
+| Server inbound request   | `Result<Message, Status>`   | Transport/decoding errors can occur while reading              |
+| Server outbound response | `Result<Message, Status>`   | Handler can terminate with an explicit gRPC status             |
+
+This asymmetry matters when an outbound source is itself a fallible data pipeline. A `Stream<Item = Result<Message, E>>` is not automatically an acceptable generated-client request stream. Upstream failures require explicit handling, such as terminating production and cancelling the RPC when appropriate.
+
+Simply ending the outbound stream normally is not equivalent to signalling an RPC failure. Normal completion can communicate that the client has finished sending messages while leaving the server free to finish processing and return its result.
+
+Source: `https://docs.rs/tonic/latest/tonic/trait.IntoStreamingRequest.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+### 4.2 Connection shutdown is not application cancellation
+
+Tonic exposes transport-level shutdown and connection-lifetime controls, but these have different effects.
+
+`Server::serve_with_shutdown` and `Server::serve_with_incoming_shutdown` accept a shutdown future. For the latter, completion of the signal causes the incoming connection stream to be dropped; when that source is `TcpIncoming`, dropping it closes the listening socket. The server then waits for previously accepted connections to close.
+
+In effect, graceful shutdown separates three events: stopping new accepts, draining existing connections and RPCs, and completing server termination. It does not imply that all active handlers finish immediately.
+
+This distinction is especially important for server-streaming and bidirectional-streaming calls. A stream that remains active indefinitely can prolong draining unless its own lifecycle is bounded or explicitly terminated.
+
+`max_connection_age` provides a separate mechanism: retiring an individual HTTP/2 connection after a configured lifetime. `max_connection_age_grace` then limits how long that connection can continue after age-triggered graceful shutdown begins. After the grace period, the server can forcibly terminate the connection.
+
+Critical limitation: `max_connection_age_grace` only takes effect when `max_connection_age` is configured and reached. It is not a general shutdown deadline for `serve_with_shutdown`.
+
+Similarly, a request timeout, HTTP/2 reset, dropped handler future, and application-defined cancellation token are not interchangeable. Transport interruption does not guarantee that independently spawned work stops or that previously completed side effects are reversed.
+
+These facilities support controlled connection retirement and service draining, but applications requiring bounded shutdown for persistent sessions still need an appropriate lifecycle policy at the handler and task levels.
+
+Source: `https://docs.rs/tonic/latest/tonic/transport/struct.Server.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+## 5. Additional TLS trust and protocol-negotiation mechanisms
+
+Extends original §§7.3–7.4 and 10.1.
+
+### 5.1 Certificate trust activation
+
+`ClientTlsConfig` separates the availability of trust-store implementations from their activation in a particular client configuration.
+
+| Configuration API      | Function                                                               |
+| ---------------------- | ---------------------------------------------------------------------- |
+| `with_native_roots()`  | Enables trusted certificates from the host platform                    |
+| `with_webpki_roots()`  | Enables the packaged WebPKI roots                                      |
+| `with_enabled_roots()` | Activates root stores made available by enabled `tls-*-roots` features |
+| `ca_certificate(s)`    | Adds explicitly supplied CA certificates                               |
+| `trust_anchor(s)`      | Adds individual trust anchors                                          |
+| `domain_name()`        | Specifies the name used for server-certificate verification            |
+| `identity()`           | Supplies the client certificate identity for mTLS                      |
+
+Enabling `tls-native-roots` or `tls-webpki-roots` at compile time makes the corresponding configuration available. The `with_*_roots` methods activate those stores for the `ClientTlsConfig` instance.
+
+The distinction matters because a client with a TLS implementation but no suitable trust roots does not automatically have the certificate-validation behavior needed to authenticate an arbitrary remote server.
+
+Certificate-name verification is a separate concern from certificate-chain trust. A certificate may chain to a trusted authority while failing to authenticate the intended server name.
+
+### 5.2 ALPN behavior and custom verification
+
+`ClientTlsConfig::assume_http2(bool)` addresses a specific interoperability case: a server supports HTTP/2 but does not negotiate it using ALPN. When enabled, the connector assumes HTTP/2 support despite the missing negotiation signal.
+
+This mechanism does not change the application protocol or make an HTTP/1-only server gRPC-compatible. It also does not disable TLS certificate validation.
+
+The lower-level `Endpoint::tls_config_with_verifier` is a different extension point. It replaces Rustls's default server-certificate verifier, so the root-selection methods intended for the default verifier cannot be combined with it. SNI configuration, client identity, handshake timeout, key logging, and `assume_http2` remain applicable.
+
+This is significant for environments using specialized certificate policies: the custom verifier assumes responsibility for the security properties normally enforced by the default verifier.
+
+Sources:
+
+- `https://docs.rs/tonic/latest/tonic/transport/channel/struct.ClientTlsConfig.html`
+- `https://docs.rs/tonic/latest/tonic/transport/channel/struct.Endpoint.html`&#x20;
+
+  [image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+  Rust+1
+
+
+
+### 5.3 TLS diagnostics and server handshake policy
+
+Both client and server TLS configurations expose handshake timeout controls. These are distinct from connection-establishment, RPC, and propagated deadline limits.
+
+`ClientTlsConfig::use_key_log()` and `ServerTlsConfig::use_key_log()` enable key logging using the `SSLKEYLOGFILE` environment-variable mechanism. This can support protocol inspection of encrypted traffic during controlled diagnostics, but generated key logs contain sensitive cryptographic material.
+
+`ServerTlsConfig::ignore_client_order(bool)` also controls whether server cipher preferences take precedence over the client's ordering.
+
+These settings operate at the TLS layer, not within request metadata, Tower middleware, or application authorization. Their availability does not imply that Tonic provides a full certificate-management or rotation service.
+
+Source: `https://docs.rs/tonic/latest/tonic/transport/server/struct.ServerTlsConfig.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+## 6. Compression behavior by RPC shape
+
+Corrects original §8.3.
+
+`Response::disable_compression()` does not provide a universal per-response compression override for every RPC cardinality.
+
+Its documented behavior is:
+
+| RPC form                          | Effect of `Response::disable_compression()`                    |
+| --------------------------------- | -------------------------------------------------------------- |
+| Unary                             | Disables compression of that response                          |
+| Client-streaming, single response | Disables compression of that response                          |
+| Server-streaming                  | Does not override the stream's configured response compression |
+| Bidirectional-streaming           | Does not override the stream's configured response compression |
+
+For streaming responses, the response messages remain governed by the server's compression configuration.
+
+This is consequential for streams carrying already-compressed binary content, variable-sized messages, or latency-sensitive updates. The presence of a `Response<Stream>` wrapper does not establish a separate compression decision for each item emitted by that stream.
+
+The distinction is between configuring supported compression at the RPC service layer and opting out of compression for a particular single-message response. The latter mechanism is not available for streaming response messages through this API.
+
+Source: `https://docs.rs/tonic/latest/tonic/struct.Response.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+## 7. `tonic-xds`: experimental xDS-driven client routing
+
+Extends original §§2.1, 5.3, and 11.4.
+
+Companion version: `tonic-xds` 0.1.0-alpha.4, released September 23, 2026. This is a separately published alpha crate, not a feature incorporated into Tonic's standard `Channel`.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+### 7.1 Relationship to Tonic's transport architecture
+
+`tonic-xds` provides xDS-based service discovery, routing, and load balancing for Tonic clients.
+
+Its most important integration type is `XdsChannelGrpc`, which implements `tonic::client::GrpcService`. It can therefore serve as the underlying request service for generated Tonic clients without changing their application-level RPC contracts.
+
+The distinction from Tonic's built-in balancing is substantial:
+
+| Capability             | Core Tonic `Channel`                                | `tonic-xds` alpha companion                                 |
+| ---------------------- | --------------------------------------------------- | ----------------------------------------------------------- |
+| Endpoint membership    | Static lists or externally supplied `Change` events | Endpoints discovered from an xDS control plane              |
+| Routing                | Basic endpoint-level balancing                      | Domain, path, and header matching                           |
+| Traffic distribution   | Tower balancing across configured endpoints         | Weighted cluster selection and endpoint balancing           |
+| Control-plane protocol | None built in                                       | ADS with LDS/RDS/CDS/EDS resources                          |
+| Retry integration      | No complete built-in gRPC retry policy              | xDS-related retry-policy machinery and classification hooks |
+| Security               | Endpoint TLS and client identities                  | Control-plane credentials and xDS-configured data-plane TLS |
+
+The important architectural extension is that endpoint discovery, routing decisions, and traffic distribution can be expressed through standardized control-plane resources rather than being implemented as separate application-specific registries.
+
+This does not make all xDS or service-mesh behavior automatically available. The crate's supported feature set is narrower than the entire Envoy/xDS specification, and its alpha status is material.
+
+### 7.2 Discovery and routing machinery
+
+`XdsChannelBuilder` constructs an xDS-capable channel using an `XdsChannelConfig` and an `XdsUri`, typically of the form `xds:///service-name`.
+
+Bootstrap configuration can be supplied as a typed builder, parsed JSON, or through the standard `GRPC_XDS_BOOTSTRAP` and `GRPC_XDS_BOOTSTRAP_CONFIG` environment variables.
+
+The documented implementation supports:
+
+- ADS state-of-the-world discovery and the LDS/RDS/CDS/EDS resource cascade.
+- Route selection using domains, paths, and request headers, including case-insensitive header matching.
+- Weighted traffic splitting between clusters.
+- Client-side power-of-two-choices endpoint balancing.
+- Control-plane TLS/mTLS and upstream data-plane TLS.
+
+`XdsChannelConfig` additionally distinguishes eager environment-based bootstrap loading from implicit loading at channel construction. This controls when bootstrap errors become visible.
+
+It also exposes separate ADS request and response message-size controls, which are especially relevant when an xDS management server distributes large resource sets. These limits concern the control-plane stream, not the payload sizes of application RPCs.
+
+Sources:
+
+- `https://docs.rs/tonic-xds/latest/tonic_xds/`
+- `https://docs.rs/tonic-xds/latest/tonic_xds/struct.XdsChannelConfig.html`&#x20;
+
+  [image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+  Rust+1
+
+
+
+### 7.3 Advanced extension boundaries
+
+The crate exposes interfaces beyond its default channel builder.
+
+| Interface                               | Extension responsibility                                         |
+| --------------------------------------- | ---------------------------------------------------------------- |
+| `Connector`                             | Establishes endpoint connections                                 |
+| `MakeConnector`                         | Creates connectors from cluster-specific xDS configuration       |
+| `PreRouteInterceptor`                   | Intercepts requests before xDS route selection                   |
+| `RetryClassifier`                       | Determines whether an attempt outcome is retryable               |
+| `RetryClassifierFactory`                | Compiles route-specific retry conditions into classifiers        |
+| `MetricsRecorder`                       | Supplies a backend for operational measurements                  |
+| `RouteConfigMetadata` / `TypedMetadata` | Exposes metadata attached to xDS resources                       |
+| `TonicCallCredentials`                  | Supplies per-stream credentials for the ADS control-plane stream |
+
+These interfaces permit routing, transport security, observability, and retry classification to be customized independently.
+
+In particular, `RetryClassifier` is deliberately narrower than a complete retry engine: the classifier evaluates whether an outcome is retryable, while policy machinery manages attempt limits, backoff, and body replay. This separation is consequential because replaying a request requires different safeguards from selecting another endpoint.
+
+`TonicCallCredentials` also has an important security and lifecycle boundary. The documented implementation attaches credentials when establishing or reestablishing the ADS stream, requires a secure channel, and does not refresh credentials mid-stream.
+
+Source: `https://docs.rs/tonic-xds/latest/tonic_xds/`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+### 7.4 TLS rotation and supported-feature limits
+
+The alpha implementation distinguishes control-plane and data-plane TLS.
+
+For the ADS connection, configured certificate files can be refreshed periodically, with new values used on subsequent connections.
+
+Data-plane TLS requires an appropriate crypto-provider feature (`tls-ring` or `tls-aws-lc`), bootstrap certificate-provider configuration, and an upstream TLS context in the cluster's xDS configuration. The built-in certificate-provider implementation is `file_watcher`.
+
+Changes to a cluster's TLS transport-socket configuration rebuild its connector. New connections use the updated configuration, while existing established TLS sessions continue.
+
+The documentation identifies least-request load balancing as planned, not supported. It also notes that the `google_default` bootstrap credential type can be parsed for forward compatibility but is not implemented.
+
+This distinction prevents treating the crate as a complete implementation of every gRFC associated with xDS. The supported features, platform dependencies, and alpha API should be evaluated separately from the mature Tonic protocol stack.
+
+Source: `https://docs.rs/tonic-xds/latest/tonic_xds/`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+## 8. Status conversion and error-source preservation
+
+Extends original §8.2.
+
+Tonic's `Status` provides more than constructors for protocol status codes. It also contains conversion facilities for integrating transport errors, HTTP responses, and gRPC status metadata.
+
+### 8.1 Converting underlying errors to gRPC status
+
+`Status::from_error` examines an error's source chain for recognized failures, including existing `Status` objects and HTTP/2 or Hyper errors. When no recognized mapping is available, it produces `UNKNOWN`.
+
+`Status::try_from_error` provides a fallible alternative: rather than always manufacturing a status, it returns the original error if conversion is unavailable.
+
+The API explicitly cautions that the error-downcasting behavior of `try_from_error` has no stability guarantee. Consequently, its exact classification should not be treated as a permanent, comprehensive mapping from arbitrary Rust error types to gRPC codes.
+
+`Status::set_source` can attach an underlying Rust error to a status. This preserves local diagnostic causality, but does not mean the complete Rust error chain is serialized to remote clients.
+
+That distinction is useful for middleware error recovery: a service can expose a controlled protocol code and message while retaining richer local diagnostic information.
+
+### 8.2 HTTP response conversion
+
+Three additional methods are useful at the HTTP/gRPC boundary:
+
+| Method                    | Purpose                                             |
+| ------------------------- | --------------------------------------------------- |
+| `Status::from_header_map` | Extracts an available gRPC status from HTTP headers |
+| `Status::add_header`      | Writes status information into a header map         |
+| `Status::into_http`       | Constructs an HTTP response representing the status |
+
+These operations are relevant to generic HTTP services, middleware error handling, and custom dispatch adapters.
+
+They are not general HTTP-to-gRPC error translators. In particular, constructing an HTTP response from a gRPC status does not define an application's REST error representation, and an HTTP 200 response does not necessarily indicate gRPC success.
+
+The gRPC completion status may be carried in trailers, after the initial HTTP response headers. This remains important for streaming diagnostics and for middleware that classifies outcomes before the response body has finished.
+
+Source: `https://docs.rs/tonic/latest/tonic/struct.Status.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+## 9. Health-check protocol semantics and version differences
+
+Extends original §9.1.
+
+### 9.1 Unknown services behave differently under `Check` and `Watch`
+
+The gRPC health-checking protocol makes a distinction between checking a service's current status and subscribing to its future status.
+
+For an unknown service, `Check` returns the gRPC status `NOT_FOUND`.
+
+`Watch`, by contrast, initially sends `SERVICE_UNKNOWN` without terminating the stream. If the service subsequently becomes known, the server can publish the new serving status over the existing stream.
+
+This distinction is significant for dynamically initialized services. `Watch` can represent the transition from an unknown service to a known, serving service without requiring the client to repeatedly establish a new subscription.
+
+It also affects reconnection semantics. The upstream protocol specification states that a client receiving `UNIMPLEMENTED` from `Watch` should treat the method as unsupported, whereas other terminations generally call for retry with appropriate exponential backoff.
+
+These are protocol-defined behaviors, not guarantees that the application will automatically transition reported health when a dependency or internal subsystem changes.
+
+Sources:
+
+- `https://docs.rs/tonic-health/latest/tonic_health/server/struct.HealthService.html`
+- `https://github.com/grpc/grpc-proto/blob/master/grpc/health/v1/health.proto`&#x20;
+
+  [image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+  Rust+1
+
+
+
+### 9.2 The upstream protocol's `List` method
+
+The current upstream `grpc.health.v1.Health` schema includes an additional `List` RPC.
+
+`List` returns a snapshot of the health statuses of available services. The protocol explicitly describes this snapshot as non-atomic and permits a `RESOURCE_EXHAUSTED` response when too many services are present.
+
+That is distinct from `Check`, which examines one named service, and `Watch`, which subscribes to changes for one service.
+
+There is an important implementation-version distinction: the `tonic-health` 0.14.6 documentation examined exposes `Check` and `Watch`, but not `List`. The crate's documentation also cautions that it may not implement every feature of the upstream specification.
+
+Consequently, the existence of `List` in the official health schema should not be interpreted as proof that every `tonic-health` release exposes it. The implementation must be verified against the particular companion-crate version.
+
+Sources:
+
+- `https://github.com/grpc/grpc-proto/blob/master/grpc/health/v1/health.proto`
+- `https://docs.rs/tonic-health/latest/tonic_health/server/struct.HealthService.html`&#x20;
+
+  [image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+  GitHub+1
+
+
+
+## 10. Independent RPC inspection and interoperability validation
+
+Extends original §§9.2 and 11.1.
+
+Tonic's generated Protobuf descriptors and reflection service can also support independent invocation and inspection of RPC endpoints.
+
+The relevant tooling belongs outside Tonic itself.
+
+### 10.1 `grpcurl`
+
+`grpcurl` is a command-line gRPC client that can discover service definitions and invoke RPCs without requiring the application to provide a generated Rust client.
+
+Its schema information can come from server reflection, local `.proto` files, or compiled descriptor sets.
+
+This makes it useful for independently examining service discovery, RPC routing, request/response serialization, metadata behavior, TLS configuration, and returned gRPC statuses.
+
+The important distinction is that `grpcurl` operates against the exposed gRPC contract. It cannot infer arbitrary application semantics, and it cannot automatically decode messages serialized by an incompatible custom codec.
+
+Source: `https://github.com/fullstorydev/grpcurl`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### 10.2 `buf curl`
+
+`buf curl` provides a related but broader interface for invoking schema-described RPCs.
+
+It supports Connect, gRPC, and gRPC-Web, with the protocol explicitly selected when the default Connect behavior is inappropriate.
+
+Notable capabilities include:
+
+| Mechanism                            | Significance                                                                  |
+| ------------------------------------ | ----------------------------------------------------------------------------- |
+| `--protocol grpc`                    | Invokes standard gRPC rather than Connect                                     |
+| `--http2-prior-knowledge`            | Supports plaintext HTTP/2 connections without an HTTP/1.1 upgrade             |
+| Reflection discovery                 | Retrieves service schemas from a running endpoint                             |
+| `--reflect-protocol`                 | Selects gRPC reflection v1 or v1alpha                                         |
+| `--schema`                           | Supplies a schema independently of server reflection                          |
+| `--list-services` / `--list-methods` | Inspects available service and method definitions                             |
+| JSON request bodies                  | Uses the Protobuf schema to translate JSON input into binary request messages |
+| Streaming invocation                 | Supports streaming RPCs, including client-streaming requests                  |
+
+The `--schema` option is particularly useful because it accepts Buf schema inputs such as local workspaces, binary descriptor images, and modules from the Buf Schema Registry.
+
+For reflection, `buf curl` attempts the newer v1 protocol before falling back to v1alpha. Reflection itself requires bidirectional streaming, so it cannot operate over HTTP/1.1 alone.
+
+The presence of `buf curl` support for gRPC-Web streaming should not be confused with standard browser-client support for every streaming cardinality. Command-line tooling and browser transports have different capabilities.
+
+Source: `https://buf.build/docs/curl/usage/`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://buf.build\&sz=32)
+
+Buf Docs
+
+
+
+### 10.3 Reusable descriptor artifacts
+
+Combining `tonic_prost_build::Builder::file_descriptor_set_path`, `tonic-reflection`, and external inspection tools creates a reusable contract artifact.
+
+The same descriptor set can support compiled Rust bindings, server reflection, and independent RPC invocation. This reduces the need for separate descriptions of the same RPC interface.
+
+Descriptor completeness matters. When compiling schema artifacts through `protoc`, the `--include_imports` flag includes dependency descriptors that may be necessary to reconstruct referenced message types. `--include_source_info` additionally retains source-level metadata where required.
+
+This is a schema-level reuse mechanism, not a guarantee that every tool will understand a service using a nonstandard serialization codec.
+
+Source: `https://buf.build/docs/reference/descriptors/`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://buf.build\&sz=32)
+
+Buf Docs
+
+
+
+### 10.4 Upstream interoperability test facilities
+
+The gRPC project maintains a shared interoperability test specification covering behavior beyond basic request success.
+
+Relevant test families include empty messages, unary and streaming RPCs, compression, metadata propagation, status mapping, cancellation, TLS, and unimplemented services or methods.
+
+Tonic's upstream repository also contains an `interop` implementation intended to exercise many of these gRPC behaviors.
+
+This provides a useful distinction between API-level inspection and protocol interoperability testing. A service might successfully respond to a unary `grpcurl` request while still having issues with half-closing, cancellation, compression flags, metadata trailers, or streaming completion.
+
+The existence of the shared test specification does not establish that Tonic implements every optional test case. The selected release's interoperability implementation is the appropriate source for determining actual coverage.
+
+Sources:
+
+- `https://grpc.github.io/grpc/core/md_doc_interop-test-descriptions.html`
+- `https://github.com/grpc/grpc-rust/tree/v0.14.x/interop`&#x20;
+
+  [image](https://www.google.com/s2/favicons?domain=https://grpc.github.io\&sz=32)
+
+  grpc.github.io+1
+
+
+
+## 11. Routing preparation and client recovery boundaries
+
+Extends original §§5.3 and 6.2.
+
+### 11.1 `Routes::prepare()`
+
+`tonic::service::Routes` exposes `prepare()`, which invokes Axum router-internal preparation intended to improve routing performance.
+
+This is distinct from adding routes, wrapping services with Tower layers, or establishing network connections.
+
+Its purpose is to prepare the router's internal matching structures. It does not alter RPC contracts, automatically generate alternative HTTP endpoints, or replace service-level middleware.
+
+The API does not establish a universal quantitative performance gain. Any benefit depends on the router structure and workload.
+
+Source: `https://docs.rs/tonic/latest/tonic/service/struct.Routes.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+### 11.2 Endpoint balancing, readiness, and retry are separate operations
+
+Tonic's built-in `Channel` supports dynamic endpoint membership, but three important behaviors remain distinct.
+
+Membership: An external component supplies available endpoints through the `tower::discover::Change` mechanism. A change in membership is not itself an application-level health event or retry instruction.
+
+Readiness: Tower readiness determines whether a service can accept requests through the associated service interface. It does not guarantee that a request subsequently succeeds, nor that the server will remain available throughout a long-running RPC.
+
+Recovery: An RPC may fail after reaching the server. Retrying is a separate decision involving operation semantics, request replayability, deadlines, retry limits, and possible duplicate side effects.
+
+This separation matters when combining Tonic channels with load shedding, admission control, or dynamic service discovery. A replacement endpoint can improve availability, but it does not establish whether replaying a failed operation is safe.
+
+The experimental `tonic-xds` integration adds standardized discovery, routing, and retry-policy mechanisms above these lower-level abstractions. It does not remove the need to understand the application semantics of repeated operations.
+
+Sources:
+
+- `https://docs.rs/tonic/latest/tonic/transport/struct.Channel.html`
+- `https://docs.rs/tonic/latest/tonic/client/trait.GrpcService.html`
+- `https://docs.rs/tonic-xds/latest/tonic_xds/`&#x20;
+
+  [image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+  Rust+1
+
+
+
+## 12. Tonic 0.14.9 release delta
+
+Supplement to original §§5.5, 6.3, and 10.3. This functionality postdates the guide's pinned 0.14.8 release.
+
+Tonic 0.14.9 was published October 29, 2026. Its release notes identify an addition to client HTTP/2 reset configuration and a fix to HTTP/1 connection timeout handling.
+
+### 12.1 Client HTTP/2 reset-stream controls
+
+Three additional `Endpoint` configuration methods are exposed.
+
+| Method                                               | Function                                                                                 |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `http2_max_concurrent_reset_streams(usize)`          | Controls the maximum number of locally reset streams retained in HTTP/2 state            |
+| `http2_reset_stream_duration(Duration)`              | Controls how long locally reset streams are remembered                                   |
+| `http2_max_local_error_reset_streams(Option<usize>)` | Limits local error resets before closing the connection with `GOAWAY(ENHANCE_YOUR_CALM)` |
+
+These settings are related but operate at different boundaries.
+
+When a stream is reset locally, HTTP/2 can retain information about the reset stream so that subsequent frames for it can be ignored. The maximum-retained-stream count and retention duration control that remembered state.
+
+If a reset stream has been forgotten, frames arriving for it can count toward the local error-reset limit. Reaching that limit can trigger connection termination with `GOAWAY`.
+
+This is relevant to high-volume cancellation, connection protection, and interactions with peers that continue transmitting frames after a stream has been reset.
+
+The controls are not application-level concurrency limits and do not govern the maximum number of successful simultaneous RPCs.
+
+`http2_max_local_error_reset_streams` also accepts `None` to disable its limit. The documentation cautions that the limit protects against misbehaving peers and should only be disabled for trusted connections.
+
+Sources:
+
+- `https://github.com/grpc/grpc-rust/releases/tag/tonic-v0.14.9`
+- `https://docs.rs/tonic/latest/tonic/transport/struct.Endpoint.html`&#x20;
+
+  [image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+  GitHub+1
+
+
+
+### 12.2 HTTP/1 header-read timeout correction
+
+The release also fixes a server behavior involving HTTP/1 connections: Tonic now supplies the connection timer needed for Hyper's header-read timeout to apply.
+
+This matters chiefly where Tonic is configured to accept HTTP/1 requests, such as deployments using `tonic-web` with HTTP/1.1 support.
+
+The correction concerns HTTP connection handling, not a new gRPC RPC deadline or application handler timeout. It should not be conflated with `Server::timeout`, `Request::set_timeout`, or TLS-handshake timeout.
+
+Source: `https://github.com/grpc/grpc-rust/releases/tag/tonic-v0.14.9`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Addendum scope complete. These additions preserve the original guide's distinction between Tonic's core protocol implementation, its optional transport, generated service machinery, Tower interfaces, and independently versioned ecosystem components. They also make explicit where wire-level compatibility, request lifecycle, compression behavior, or operational guarantees depend on more than the existence of an API.

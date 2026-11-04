@@ -2618,6 +2618,205 @@ async fn stored_value_definition(runtime: &Runtime, count: u32) -> StudyDefiniti
         .unwrap()
 }
 
+#[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
+#[tokio::test]
+async fn canonical_issued_study_retry_preserves_original_population_and_refuses_changed_intent() {
+    let runtime = durable_runtime();
+    let cancel = crate::CancelSource::new();
+    let (physical, modeling) = sources("package issued_study { case fixed { param x:Scalar=2; } }");
+    let package = runtime
+        .package_from_sources(
+            std::slice::from_ref(&modeling),
+            runtime
+                .physical_from_sources(&physical, &cancel)
+                .await
+                .unwrap(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let case = package
+        .declarations(&runtime.preparation_services())
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|declaration| declaration.name == "fixed")
+        .unwrap()
+        .declaration_id;
+    let points = [7, 11]
+        .into_iter()
+        .map(|key| {
+            let mut point = point(case, key, Vec::new(), StartPolicy::Fresh);
+            if let OperationRequest::DeclaredCase(operation) = &mut point.operation {
+                operation.settings.backend = Some(pse_backend_native::solve::Backend::Kinsol);
+            }
+            point
+        })
+        .collect();
+    let admitted = package
+        .admit_study(
+            &runtime.execution_services(),
+            &StudyInputs::Explicit(points),
+            &StudyOutputDemand::Full {},
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let definition = runtime.record_study(&admitted, &cancel).await.unwrap();
+    let issued = IssuedStudyIdentity {
+        study: pse_operations::mint_id(),
+        operation: "original-issued-study".into(),
+        submission: pse_ids::ContentHash::from_bytes([7; 32]),
+    };
+    let handle = runtime
+        .start_issued_study(definition.clone(), issued.clone(), &cancel)
+        .await
+        .unwrap();
+    assert_eq!(handle.study_id(), issued.study);
+    let original = runtime
+        .canonical_store()
+        .unwrap()
+        .canonical_study_summary(&issued.study.to_string())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(original.active);
+    let parent = runtime
+        .canonical_store()
+        .unwrap()
+        .canonical_run(&original.run)
+        .await
+        .unwrap()
+        .unwrap();
+    let request = StudyCreationRequest::read(parent.request.as_slice()).unwrap();
+    assert_eq!(request.issued.as_ref(), Some(&issued));
+    assert_eq!(request.parent, issued.parent_run());
+    let original_definitions = runtime
+        .canonical_store()
+        .unwrap()
+        .study_definition_page(&issued.study.to_string(), None)
+        .await
+        .unwrap();
+    let original_points = runtime
+        .canonical_store()
+        .unwrap()
+        .study_point_page(&issued.study.to_string(), None)
+        .await
+        .unwrap();
+    assert_eq!(original_definitions.len(), 2);
+    assert_eq!(original_points.len(), 2);
+    for (ordinal, expected) in [OccurrenceKey(7), OccurrenceKey(11)]
+        .into_iter()
+        .enumerate()
+    {
+        let original = &original_points[ordinal];
+        assert_eq!(original.ordinal, ordinal as u64);
+        assert_eq!(original.study, issued.study.to_string());
+        assert_eq!(original.policy().unwrap().key, expected);
+        assert_eq!(original_definitions[ordinal].ordinal, original.ordinal);
+        assert_eq!(
+            original_definitions[ordinal].policy,
+            original.policy().unwrap()
+        );
+    }
+    assert_ne!(original_points[0].key, original_points[1].key);
+    assert_ne!(original_points[0].run, original_points[1].run);
+    drop(handle);
+
+    // The new frontend has no retained creation handle or definition cache. It uses the
+    // same exact caller envelope and the canonical owner's original reconciliation path.
+    let reopened = durable_runtime();
+    let resumed = reopened
+        .start_issued_study(definition.clone(), issued.clone(), &cancel)
+        .await
+        .unwrap();
+    assert_eq!(resumed.study_id(), issued.study);
+    let replayed_definitions = reopened
+        .canonical_store()
+        .unwrap()
+        .study_definition_page(&issued.study.to_string(), None)
+        .await
+        .unwrap();
+    let replayed_points = reopened
+        .canonical_store()
+        .unwrap()
+        .study_point_page(&issued.study.to_string(), None)
+        .await
+        .unwrap();
+    assert_eq!(replayed_definitions.len(), original_definitions.len());
+    for (original, replayed) in original_definitions.iter().zip(&replayed_definitions) {
+        assert_eq!(original.ordinal, replayed.ordinal);
+        assert_eq!(original.policy.key, replayed.policy.key);
+        assert_eq!(original.descriptor, replayed.descriptor);
+        assert_eq!(original.policy, replayed.policy);
+        assert_eq!(original.admission, replayed.admission);
+        assert_eq!(original.admitted_seed_need, replayed.admitted_seed_need);
+    }
+    assert_eq!(replayed_points.len(), original_points.len());
+    for (original, replayed) in original_points.iter().zip(&replayed_points) {
+        assert_eq!(original.key, replayed.key);
+        assert_eq!(original.run, replayed.run);
+        assert_eq!(original.study, replayed.study);
+        assert_eq!(original.ordinal, replayed.ordinal);
+        assert_eq!(original.occurrence, replayed.occurrence);
+        assert_eq!(original.policy, replayed.policy);
+    }
+
+    let mut changed = issued.clone();
+    changed.submission = pse_ids::ContentHash::from_bytes([8; 32]);
+    assert!(
+        reopened
+            .start_issued_study(definition.clone(), changed, &cancel)
+            .await
+            .is_err()
+    );
+    let mut changed_definition = definition.clone();
+    changed_definition.points[0].policy.attempt_limit += 1;
+    assert!(
+        reopened
+            .start_issued_study(changed_definition, issued.clone(), &cancel)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        reopened
+            .canonical_store()
+            .unwrap()
+            .canonical_study_summary(&issued.study.to_string())
+            .await
+            .unwrap()
+            .unwrap(),
+        original
+    );
+
+    let separate = IssuedStudyIdentity {
+        study: pse_operations::mint_id(),
+        ..issued.clone()
+    };
+    let separate_handle = reopened
+        .start_issued_study(definition, separate.clone(), &cancel)
+        .await
+        .unwrap();
+    let separate_points = reopened
+        .canonical_store()
+        .unwrap()
+        .study_point_page(&separate.study.to_string(), None)
+        .await
+        .unwrap();
+    assert_ne!(separate.parent_run(), issued.parent_run());
+    assert_eq!(separate_points.len(), original_points.len());
+    for (new, original) in separate_points.iter().zip(&original_points) {
+        assert_eq!(new.study, separate.study.to_string());
+        assert_eq!(new.ordinal, original.ordinal);
+        assert_eq!(new.occurrence, original.occurrence);
+        assert_eq!(new.policy().unwrap().key, original.policy().unwrap().key);
+        assert_ne!(new.key, original.key);
+        assert_ne!(new.run, original.run);
+    }
+    resumed.cancel().await.unwrap();
+    separate_handle.cancel().await.unwrap();
+}
+
 #[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn stored_study_creation_reuses_one_basis_for_thousand_value_occurrences() {

@@ -95,6 +95,16 @@ annotation engineering_scale exchanger.area(kind=reference_difference,value=1{m^
 annotation engineering_scale cost.area(kind=reference_difference,value=1{m^2});
 annotation engineering_scale costed_area(kind=reference_difference,value=1{m^2});
 annotation engineering_scale exchanger.coefficient(kind=reference_difference,value=100{W/(m^2*K)});
+// Monetary resolution uses the existing shared engineering fraction and actual
+// SSLW arithmetic at this authored reference geometry and pressure. These fixed
+// premises do not depend on the solved area or assert a purchase-price error bound.
+param cost_reference_area:Area=1{m^2};
+param cost_reference_pressure:Pressure=101325{Pa};
+let cost_reference_area_count:Scalar=cost_reference_area/costing.square_foot();
+let cost_reference_base:CapitalCost=costing.currency_unit()*costing.base_amount(cost_reference_area_count*costing.oversize_factor(cost.oversize),costing.design_coefficients[cost.design].constant,costing.design_coefficients[cost.design].linear,costing.design_coefficients[cost.design].quadratic);
+let cost_reference_capital:CapitalCost=cost_reference_base*costing.material_amount(cost_reference_area_count,cost.material)*costing.pressure_factor((cost_reference_pressure-costing.atmospheric_pressure())/costing.hundred_psi())*costing.length_factor[cost.tubes];
+annotation engineering_scale cost.base_cost_per_unit(kind=magnitude,value=cost_reference_base);
+annotation engineering_scale cost.capital_cost(kind=magnitude,value=cost_reference_capital);
 // These requirements protect actual energy consumers. They do not assert an
 // ideal or EOS heat-capacity response for the relational-density PR state.
 annotation energy_context exchanger.hot.inlet.h(numerical_policy.power,recycle_flash.exposure_bound(exchanger.hot.inlet.flow,numerical_policy.molar_flow),exchanger.hot.inlet.energy_flow,exchanger.hot.inlet.flow);

@@ -35,6 +35,13 @@ mod ordinary_delivery_tests;
     feature = "solver-root-isolation",
     feature = "solver-ipopt"
 ))]
+mod ordinary_reference;
+#[cfg(all(
+    test,
+    feature = "solver-kinsol",
+    feature = "solver-root-isolation",
+    feature = "solver-ipopt"
+))]
 mod precision_tests;
 #[cfg(test)]
 mod process_edit_tests;
@@ -115,6 +122,11 @@ pub(super) mod assessment;
 pub(super) mod documents;
 mod project_comparison;
 mod project_preparation;
+mod providers;
+pub use providers::{
+    ProviderInspectionEntry, ProviderInspectionOutput, ProviderInspectionPage,
+    ProviderInspectionRequest,
+};
 pub(super) mod results;
 mod views;
 use super::{

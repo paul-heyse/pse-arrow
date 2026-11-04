@@ -1432,3 +1432,886 @@ These URLs point to the v0.9.2 release or its corresponding API documentation ra
 | Benchmarks and measurement methodology | [https://github.com/anthropics/buffa/tree/v0.9.2/benchmarks](https://github.com/anthropics/buffa/tree/v0.9.2/benchmarks?utm_source=chatgpt.com)                                           |
 
 The most useful deeper investigations are the generated representation rules in `CodeGenConfig`, the borrowed-view lifetime model, the reflection bridge/vtable implementations, the typed-extension registry, and the shared descriptor-pool mechanism. Together, these explain most of the consequential distinctions between Buffa and a conventional generated-protobuf serialization library.
+
+# Buffa 0.9.2 — Capability Reference Addendum
+
+Research date: November 3, 2026\
+Target release: Buffa 0.9.2, September 3, 2026\
+Companion document: Buffa 0.9.2 — Comprehensive Rust Library and Toolchain Overview
+
+This addendum documents additional runtime, reflection, code-generation, interoperability, and diagnostic capabilities not developed in the main reference. It also clarifies consequential implementation constraints and version boundaries. All capabilities described as available refer to the tagged v0.9.2 release unless explicitly qualified.
+
+## 1. Advanced serialization: bounded output, working-memory reuse, and segmented buffers
+
+Extends original §§2.4–2.6 and 3.4.
+
+### 1.1 Atomic, budget-constrained encoding
+
+Buffa provides output-budget enforcement independently of its protobuf-wide maximum message size.
+
+The `Message` and `ViewEncode` traits expose:
+
+| API                                                     | Functionality                                                         |
+| ------------------------------------------------------- | --------------------------------------------------------------------- |
+| `try_encode_bounded(max_bytes, sink)`                   | Encodes only when the complete message fits the specified byte budget |
+| `try_encode_bounded_with_cache(max_bytes, cache, sink)` | Same operation using a reusable `SizeCache`                           |
+| `try_encoded_len()`                                     | Computes encoded size without panicking on the protobuf size limit    |
+| `try_encode_with_cache(...)`                            | Fallible serialization with caller-managed size-cache storage         |
+| `SizeCachePool::try_encode_bounded(...)`                | Budget-constrained encoding with pooled cache storage                 |
+| `SizeCachePool::try_encode_view_bounded(...)`           | Equivalent operation for borrowed message views                       |
+
+The important guarantee is failure atomicity with respect to the sink. The encoder completes its size computation and verifies the output budget before starting the write pass.
+
+Consequently, an encoding operation that fails its size check does not leave a partially encoded message in an existing output buffer.
+
+Two errors have distinct meanings:
+
+- `EncodeError::MessageTooLarge`: the encoded message exceeds the protobuf limit of \\(2^{31}-1\\) bytes.
+- `EncodeError::ExceedsBudget`: the message satisfies the protobuf limit but exceeds the caller's lower budget.
+
+The protobuf-wide limit takes precedence when both would be exceeded. Successful bounded encoding returns the encoded body length as `u32`, excluding any framing prefix added by another layer.
+
+This is useful for bounded network frames, message queues with maximum payload sizes, storage records, and interfaces that must reject oversized messages without corrupting a reusable output sink.
+
+It also removes the need for a separate application-managed temporary serialization buffer solely to establish that the output fits.
+
+Important distinction: `DecodeOptions::with_max_message_size` governs incoming data. Bounded encoding governs output production. Neither replaces the other.
+
+Tagged source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa/src/message.rs`
+
+### 1.2 `SizeCachePool`: amortizing serialization working-memory allocation
+
+The main guide explains Buffa's external two-pass `SizeCache`. The complementary `SizeCachePool` addresses repeated serialization workloads in which constructing a fresh cache causes unnecessary heap allocation.
+
+A `SizeCache` stores its first 16 nested-message size slots inline. Only messages whose size-traversal requirements exceed this capacity allocate a spill buffer.
+
+A `SizeCachePool` retains and reuses those spill buffers across encoding operations.
+
+Its principal operations are:
+
+| API                                                  | Behavior                                                                |
+| ---------------------------------------------------- | ----------------------------------------------------------------------- |
+| `SizeCachePool::new(max_buffers, max_capacity)`      | Creates a bounded pool of reusable spill buffers                        |
+| `SizeCachePool::sequential(max_capacity)`            | Specialized pool retaining at most one buffer                           |
+| `acquire()` / `release()`                            | Explicitly check out and return a `SizeCache`                           |
+| `encode()` / `encode_view()`                         | Encode owned messages or views with automatic cache checkout and return |
+| `encoded_len()` / `try_encoded_len()`                | Compute lengths using reusable working memory                           |
+| `try_encode()` / `try_encode_view()`                 | Fallible pooled serialization                                           |
+| `try_encode_bounded()` / `try_encode_view_bounded()` | Combine allocation reuse with output-budget enforcement                 |
+
+Two independent bounds control retention:
+
+- `max_buffers` limits how many spill buffers the pool holds.
+- `max_capacity` limits each retained buffer's capacity, measured in `u32` size-cache slots.
+
+An oversized spill buffer is shrunk when released rather than being retained indefinitely at its peak capacity. Conversely, setting the capacity too low can cause every encode to regrow the buffer and every release to shrink it, negating the benefit.
+
+The pool does not introduce global synchronization or hidden serialization state. It is caller-owned, works with `alloc` without requiring `std`, and can be scoped to a worker, thread, connection, or request.
+
+When pooling matters: repeated encoding of deeply nested messages, large repeated-submessage collections, or message structures with many length-delimited descendants.
+
+When it offers little benefit: messages requiring no spill allocation, or workloads where a single manually reused `SizeCache` already provides sufficient reuse. Pooling does not reduce the work of walking the message itself; it amortizes allocation of the size-cache spill buffer.
+
+Tagged source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa/src/size_cache.rs`
+
+### 1.3 `Rope::with_backing`: preserving borrowed wire-buffer segments
+
+The existing guide describes `Rope` as a segmented encoding sink. An additional mechanism connects Buffa's borrowed-view representation to genuinely buffer-sharing output.
+
+`Rope::with_backing(bytes::Bytes)` associates a reference-counted input buffer with the output rope.
+
+When encoding a borrowed slice, the rope checks whether the slice lies within that original backing buffer. If it does, and the slice meets the segmentation threshold, the rope can retain the slice through `Bytes::slice_ref` rather than copying its contents.
+
+The available controls include:
+
+- `Rope::with_min_segment(size)`: sets the minimum slice size eligible for segmentation; the default is 4 KiB.
+- `Rope::with_backing(bytes)`: establishes the source buffer eligible for zero-copy slice capture.
+- `Rope::into_segments()`: produces ordered `Bytes` segments.
+- `Rope::segment_count()` and `len()`: expose the output's physical segmentation and logical length.
+- `Rope::to_contiguous_bytes()`: explicitly flattens the result, copying when necessary.
+
+This mechanism is different from using a `Bytes`-backed owned protobuf field. A borrowed message view normally contains `&str` and `&[u8]` references. Those slices do not independently own the underlying allocation.
+
+The backing-aware rope gives the encoder a way to recover safe reference-counted ownership of eligible portions of the original input buffer.
+
+Borrowed-buffer forwarding path
+
+Incoming `bytes::Bytes`
+
+Reference-counted wire buffer
+
+Generated `MessageView`
+
+Borrowed field inspection
+
+`ViewEncode` → `Rope::with_backing`
+
+Re-encode with eligible payload slices retained
+
+`Vec<Bytes>` or `RopeBuf`
+
+Segmented network or I/O output
+
+The companion `RopeBuf` implements `bytes::Buf` over a completed rope. Its `From<Rope>` implementation transfers the segments into the buffer, and its `chunks_vectored` implementation exposes multiple outstanding segments as `IoSlice` values when `std` is enabled.
+
+This can simplify integration with consumers accepting chunked buffers, vectored I/O, or multiple transport frames.
+
+The zero-copy benefit has several limits:
+
+- The backing buffer must be the allocation from which the borrowed view was decoded. Unrelated or modified slices are copied normally.
+- Small fields and encoded field headers still involve writes into the rope's contiguous tail.
+- The wire representation is regenerated, so original field ordering and byte-for-byte identity are not guaranteed.
+- The receiving transport must preserve segmentation for the avoided copies to remain avoided end to end.
+- Segments can retain the original backing allocation, increasing its lifetime and potentially retaining more memory than the visible slice occupies.
+
+Thus Buffa can avoid large payload copies during inspection-and-forwarding, but this is not automatically a zero-copy implementation of the complete network stack.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Tagged source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa/src/encode_sink.rs`
+
+### 1.4 Reader-oriented decoding and frame-boundary enforcement
+
+With `std` enabled, `DecodeOptions` also accepts `std::io::Read` sources:
+
+- `decode_reader<M>(&mut reader)` reads through EOF before decoding a complete message.
+- `decode_length_delimited_reader<M>(&mut reader)` reads a varint size prefix and exactly one framed message.
+
+These APIs are separate from `bytes::Buf` decoding and establish a direct integration with ordinary Rust readers.
+
+For length-delimited streams, the reader checks the claimed frame length before reading its body. It also avoids immediately allocating the full declared size: initial capacity is capped at 64 KiB and grows as bytes actually arrive.
+
+This prevents an input containing a very large declared length but no corresponding payload from immediately forcing an equivalently large allocation.
+
+`without_reader_size_limit()` relaxes the read-until-EOF reader limit; it does not remove the protobuf-wide message-size limit from length-delimited record decoding.
+
+Both reader APIs buffer the serialized input before performing ordinary message decoding. They are therefore convenient framing and I/O adapters, not streaming field-by-field parsers with constant memory requirements.
+
+Tagged source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa/src/message.rs`
+
+## 2. Descriptor pools, schema discovery, and dynamic message processing
+
+Extends original §7.
+
+### 2.1 Transactional descriptor-pool expansion
+
+`DescriptorPool` supports incremental addition of compiled protobuf schemas through:
+
+`DescriptorPool::add_file_descriptor_set(&mut self, set)`
+
+This is distinct from constructing an entirely new pool through `DescriptorPool::decode`.
+
+The method registers additional message, enum, service, and extension declarations and links them to previously registered definitions. It supports multiple descriptor sets contributing to one coherent runtime schema.
+
+Its key guarantees and tradeoffs are:
+
+- Transactional mutation: new descriptors are staged against a clone of the existing pool. A linking or validation failure leaves the original pool unchanged.
+- Idempotent file registration: files already registered under the same filename are skipped rather than re-added.
+- Stable existing indices: successful additions append new entries without renumbering existing message and enum descriptors.
+- Batching advantage: each addition containing new files deep-clones the existing pool, so loading many files together is more efficient than repeated single-file additions.
+
+This is useful for assembling descriptor corpora from independent schema modules or incrementally discovered definitions.
+
+It does not, by itself, implement live schema replacement. Existing filenames are skipped, and a pool already shared through `Arc` requires an appropriate ownership or replacement strategy before it can be mutated.
+
+The distinction between pool expansion and schema evolution is significant: adding new definitions is supported, but replacing existing definitions while preserving the identity of all previously issued descriptors is not implied.
+
+### 2.2 Descriptor-pool construction limits and validation
+
+Beyond ordinary binary message limits, `DescriptorPool` validates a descriptor corpus's internal structure.
+
+Relevant checks include duplicate symbols, invalid or reserved field numbers, conflicting field declarations, reserved enum values, invalid oneof references, malformed map entries, unresolved type references, and invalid extension ranges.
+
+Two implementation limits deserve explicit mention:
+
+| Constraint                            | v0.9.2 behavior                                   |
+| ------------------------------------- | ------------------------------------------------- |
+| Maximum fully qualified symbol length | 512 bytes (`MAX_SYMBOL_LEN`)                      |
+| Maximum fields per message            | 65,535, reflecting the pool's `u16` field indices |
+
+These limits bound aspects of linked-schema materialization that are not necessarily controlled by the incoming descriptor-set byte count.
+
+`DescriptorPool::decode_with_options(bytes, &DecodeOptions)` allows caller-specified decode limits. This is especially useful for large trusted descriptor sets whose materialized descriptor objects exceed the ordinary 32 MiB element-memory budget.
+
+The tagged implementation makes an important distinction between trusted and untrusted descriptor input: a compiler-produced descriptor corpus may legitimately need a larger budget, whereas externally supplied descriptor bytes should retain appropriately restrictive limits.
+
+A successfully linked pool is not equivalent to a complete `.proto` compiler pass. Source parsing and the full compiler validation process remain responsibilities of `protoc` or Buf.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+Tagged source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/pool.rs`
+
+### 2.3 Runtime schema discovery for reflection services
+
+`DescriptorPool` retains the original `FileDescriptorProto` objects in addition to its linked descriptors.
+
+It provides several lookup operations that can eliminate custom schema-indexing infrastructure:
+
+| API                                     | Capability                                                                                       |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `file_by_name(name)`                    | Retrieve the original descriptor for a named `.proto` file                                       |
+| `file_containing_symbol(full_name)`     | Resolve the source file declaring a message, nested message, enum, service, method, or extension |
+| `service_by_name(full_name)`            | Resolve a service declaration                                                                    |
+| `extension_by_name(full_name)`          | Resolve a registered extension declaration                                                       |
+| `extension_for(extendee, number)`       | Find an extension by the extendee message and field number                                       |
+| `extensions_of(extendee)`               | Enumerate an extendee's registered extensions in field-number order                              |
+| `messages()` / `enums()` / `services()` | Enumerate linked schema definitions                                                              |
+
+The symbol-to-file lookup is particularly relevant to the standard gRPC server-reflection operation `FindFileContainingSymbol`.
+
+`file_containing_symbol` includes methods and extensions, not merely top-level message declarations.
+
+Combined with retained raw file descriptors, these operations supply much of the schema-indexing machinery needed by server reflection, generic protocol explorers, API discovery services, and tooling that distributes descriptor definitions to other processes.
+
+Buffa does not itself become a gRPC server-reflection transport through these methods. The RPC service implementation and transport remain separate concerns.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+### 2.4 Direct reflective mutation
+
+`DynamicMessage` is not limited to reflection through immutable field access.
+
+It exposes mutable accessors:
+
+- `field_by_number_mut(number) -> Option<&mut Value>`
+- `field_mut(&FieldDescriptor) -> Option<&mut Value>`
+
+These permit mutation of an already-present field's value without converting the entire message to a different representation.
+
+A nested message can be visited recursively through `Value::Message`; repeated and map fields can likewise be traversed through their dynamic collection representations.
+
+The important distinction is between mutating an existing value and assigning a new field value.
+
+`field_mut` returns `None` for an absent field. To insert or replace fields using descriptor-aware validation, the `ReflectMessageMut` interface exposes `set` and `try_set`.
+
+`DynamicMessage` implements checked mutation behavior that can detect foreign field descriptors and values whose runtime shape does not match the declared protobuf field kind.
+
+By contrast, directly replacing a value through an `&mut Value` returned by `field_mut` bypasses this validation. The encoder defensively skips certain invalid stored values, so direct mutation should not be treated as guaranteeing that all subsequent serialization operations retain the intended information.
+
+Generated reflection is asymmetric in v0.9.2: `Reflectable::reflect()` exposes a read-only reflective handle for generated messages. A general generated `reflect_mut()` entry point is not released. A caller needing generic reflective mutation of generated data can materialize a `DynamicMessage`, modify it, and convert it back, with the associated conversion costs.
+
+Tagged sources:
+
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/dynamic.rs`
+
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/message.rs`
+
+### 2.5 Dynamic `Any`, custom options, and generated-type bridging
+
+`DynamicMessage` provides specialized operations that work through descriptor identity rather than compile-time Rust types.
+
+| API                             | Capability                                                                                               |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `pack_any()`                    | Wrap a dynamic message in a descriptor-backed `google.protobuf.Any`                                      |
+| `unpack_any()`                  | Resolve an `Any` type URL against the pool and decode its payload                                        |
+| `from_options(pool, options)`   | Convert a generated protobuf options message into a reflective dynamic representation                    |
+| `try_from_message()`            | Convert a statically generated message into a dynamic message, resolving its descriptor by `MessageName` |
+| `try_from_message_with_index()` | Equivalent conversion with an explicitly supplied message index                                          |
+| `to_message<M>()`               | Convert dynamic data into a generated Rust message through protobuf encoding and decoding                |
+
+`pack_any()` requires the pool to contain the `google.protobuf.Any` descriptor. `unpack_any()` requires the pool to contain the embedded message type.
+
+Custom options are a particularly important capability interaction.
+
+A descriptor's `options()` accessor returns a generated options message. Custom protobuf options may be preserved there as extension wire data that is not directly accessible as a known generated field.
+
+`DynamicMessage::from_options` reinterprets those options against the descriptor pool, allowing registered custom options to be resolved and read by extension descriptor.
+
+This supports descriptor-driven processors that inspect externally defined schema annotations without requiring separately generated Rust accessors for every custom option.
+
+Pool identity and compatibility matter. Reflective field descriptors belong to their originating pool, and a structurally similar field from another pool is not automatically the same descriptor object.
+
+When dynamic values cross pool boundaries, Buffa can adopt compatible nested messages by re-encoding and decoding them into the destination pool. This preserves the ability to compose certain cross-crate reflective values, but the conversion is not free.
+
+A runtime schema engine using these capabilities can perform inspection, transformation, annotation interpretation, and typed conversion without maintaining a second protobuf descriptor representation.
+
+Source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/dynamic.rs`
+
+## 3. ProtoJSON policy, format-specific limits, and diagnostic safety
+
+Extends original §§9–10 and §12.
+
+### 3.1 `JsonParseOptions`: unknown enum handling
+
+`JsonParseOptions` provides a v0.9.2 parsing policy not developed in the main guide:
+
+`ignore_unknown_enum_values(bool)`
+
+The setting controls what happens when JSON contains an enum name that the generated schema does not recognize.
+
+With the option disabled, the unknown value is a parse error. With it enabled, the `std` implementation provides the following behavior:
+
+| Location       | Unknown enum name                               |
+| -------------- | ----------------------------------------------- |
+| Singular field | Replaced with the default enum value            |
+| Repeated field | Unknown element skipped                         |
+| Map value      | Entry containing the unknown enum value skipped |
+
+The `no_std` implementation has a narrower capability: unknown singular enum values can be replaced by the default, but repeated and map-container filtering is unavailable, so those unknown entries remain errors.
+
+This setting addresses a different problem from `strict_extension_keys(true)`, which governs bracketed extension names such as `"[pkg.option]"`.
+
+It is also distinct from binary protobuf's unknown open-enum handling, which preserves unrecognized numeric values rather than interpreting unknown JSON strings.
+
+An unknown enum string and an unknown numeric enum value are not interchangeable compatibility cases.
+
+Tagged source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa/src/json.rs`
+
+### 3.2 Generated versus dynamic JSON parsing strictness
+
+There is a consequential asymmetry between generated-message JSON parsing and the reflective dynamic decoder.
+
+| JSON parsing path                                 | Treatment of ordinary unknown fields                              |
+| ------------------------------------------------- | ----------------------------------------------------------------- |
+| Generated message Serde deserialization           | Ignores unknown ordinary fields by default                        |
+| `DynamicMessage::from_json`                       | Rejects unknown fields by default                                 |
+| `DynamicMessage::from_json_ignoring_unknown`      | Discards unknown fields                                           |
+| `DynamicMessageSeed::ignore_unknown_fields(true)` | Configures unknown-field tolerance for seed-based deserialization |
+
+The lenient dynamic behavior propagates to nested messages, repeated elements, and map values.
+
+It does not relax every protobuf JSON constraint. Duplicate keys, conflicting oneof members, and malformed values on known fields remain errors.
+
+`DynamicMessageSeed` is the lower-level interface for integrating descriptor-aware deserialization with arbitrary compatible Serde deserializers. It carries the descriptor pool and message index into the parsing operation.
+
+Unlike ordinary `Deserialize`, this requires schema context supplied externally to the Rust type being deserialized.
+
+This distinction is useful in generic JSON-processing systems where the expected protobuf message type is selected at runtime.
+
+### 3.3 Resource limits differ by format and direction
+
+The main guide correctly distinguishes binary decode limits from JSON parsing limits. Several additional qualifications are important.
+
+Generated ProtoJSON parsing is not bounded by `DecodeOptions`. In particular, the binary element-memory budget does not automatically apply when Serde materializes repeated messages or maps from JSON.
+
+Reflective JSON parsing in v0.9.2 also does not expose an equivalent configurable element-memory budget through `DynamicMessageSeed`. Its tagged configuration consists of descriptor context and unknown-field handling. Resource-budget APIs described in newer development documentation must not be attributed to this release.
+
+Reflective JSON serialization does enforce a nesting limit. `DynamicMessage` uses `buffa::RECURSION_LIMIT`, including nested messages discovered by expanding `google.protobuf.Any` payloads.
+
+This distinction matters because an `Any` message can appear shallow at the wire level while containing another serialized `Any`, which in turn contains another.
+
+Ordinary binary message-depth validation cannot detect the full depth of an opaque nested-`Any` chain.
+
+Buffa's generated `Any` expansion has a separate limit:
+
+`buffa::type_registry::MAX_ANY_EXPANSION_DEPTH`
+
+In v0.9.2 this is 100. The response to exceeding it differs by format:
+
+- ProtoJSON serialization returns an error.
+- Textproto falls back to an unexpanded `type_url`/`value` representation.
+
+The limit is independent of a caller's `DecodeOptions::with_recursion_limit`.
+
+Textproto materialization has its own element-memory control. `decode_from_str_with_element_memory_limit` permits adjustment independently of the binary decoder.
+
+Together, these facilities provide different contracts for binary input, JSON input, text input, and schema-aware serialization. They do not constitute a single interchangeable resource-governance system.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+Tagged sources:
+
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/json.rs`
+
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa/src/type_registry.rs`
+
+### 3.4 Standard protobuf `debug_redact` support
+
+Buffa's generated `Debug` implementations recognize the standard protobuf field option:
+
+```
+string credential = 1 [debug_redact = true];
+```
+
+Such fields print an unquoted `[REDACTED]` marker rather than the contained value.
+
+The behavior applies across generated owned messages, generated views, oneof representations, and reflective `DynamicMessage` debugging.
+
+A generated type containing a redacted field uses a specialized `Debug` implementation rather than an ordinary Rust derive, so it can avoid printing the redacted field's value.
+
+This is diagnostic redaction, not a serialization or authorization mechanism.
+
+Binary protobuf, ProtoJSON, and textproto serialization retain the field's actual value. Application logging that serializes messages through one of those formats does not automatically inherit `Debug` redaction.
+
+Similarly, copying a field into an unrelated object and debugging that object is outside Buffa's field-option guarantee.
+
+The feature reduces the need for manually implemented `Debug` across protobuf-generated types, but it does not replace controls governing which data an application may log, persist, or transmit.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/docs/guide.md`
+
+## 4. Protobuf semantic helpers, extensions, and typed identity
+
+Extends original §§2.1, 6, 8, and 9.
+
+### 4.1 `MessageName`: protobuf identity independent of wire encoding
+
+Generated message types implement `buffa::MessageName`, exposing four associated constants:
+
+| Constant    | Meaning                                                        |
+| ----------- | -------------------------------------------------------------- |
+| `PACKAGE`   | Protobuf package name                                          |
+| `NAME`      | Message name relative to the package, including nesting levels |
+| `FULL_NAME` | Fully qualified protobuf message name                          |
+| `TYPE_URL`  | Conventional `type.googleapis.com/...` type URL                |
+
+`MessageName` is a standalone trait rather than a supertrait of `Message`.
+
+Consequently, a handwritten external Rust type can implement protobuf identity without necessarily implementing Buffa's binary codec.
+
+This separation is useful for type registries, schema routing, event envelopes, and metadata systems that need protobuf type names independently of serialization.
+
+It also prevents conflating Rust module paths with protobuf type identity: code-generation naming options or `extern_path` mappings may change Rust paths without changing `FULL_NAME`.
+
+### 4.2 `Any` typed access and URL matching
+
+The tagged v0.9.2 `buffa-types::Any` helper implementation provides:
+
+| API                               | Behavior                                                        |
+| --------------------------------- | --------------------------------------------------------------- |
+| `Any::pack(message, type_url)`    | Encodes a message with an explicitly supplied type URL          |
+| `Any::try_pack(...)`              | Fallible alternative for oversized messages                     |
+| `Any::unpack_if<T>(expected_url)` | Decodes only if the stored URL exactly matches the supplied URL |
+| `Any::unpack_unchecked<T>()`      | Attempts decoding without validating type identity              |
+| `Any::is_type(url)`               | Checks exact URL equality                                       |
+| `Any::type_url()`                 | Returns the stored type URL                                     |
+
+The distinction between URL checking and message decoding is important.
+
+`unpack_unchecked<T>()` verifies the payload's wire decodability as `T`, but does not verify that the envelope identifies `T`.
+
+Protobuf wire compatibility can allow different message definitions to decode the same bytes. Successful decoding is therefore not evidence of matching declared type identity.
+
+Conversely, `unpack_if<T>()` performs an exact URL comparison. A semantically equivalent type URL using a different prefix will not match merely because its final protobuf type name is identical.
+
+The release's helper API should not be confused with newer development-branch conveniences such as `pack_message` and `unpack_message`, which are not present in the tagged `any_ext.rs` implementation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+Tagged source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa-types/src/any_ext.rs`
+
+### 4.3 Well-known dynamic-value construction
+
+The `Value`, `Struct`, and `ListValue` implementations in `buffa-types` provide direct helpers for constructing and examining protobuf's JSON-like value model.
+
+Examples of their API families include:
+
+- `Value::null`, `is_null`, and typed `as_*` accessors.
+- `Value::from` conversions for supported primitive Rust values.
+- `Struct::new`, `from_fields`, `insert`, and `get`.
+- `ListValue::from_values`, `iter`, `len`, and `is_empty`.
+
+These helpers permit the assembly of protobuf `Struct` and `Value` messages without manually constructing the generated oneof variants.
+
+The benefit is distinct from `DynamicMessage`: `Struct` and `Value` are concrete protobuf-defined types representing JSON-like data. They do not preserve arbitrary externally supplied protobuf field identities and scalar types in the way descriptor-backed `DynamicMessage` does.
+
+`FieldMask` likewise provides `from_paths`, `contains`, `iter`, `len`, and `is_empty`.
+
+In v0.9.2, `FieldMask::contains` performs exact case-sensitive path membership, not hierarchical path coverage. A stored path such as `user` does not make `contains("user.name")` true.
+
+Methods such as `covers`, `overlaps`, `normalize`, `union`, and `intersection` appearing in newer source material should not be attributed to the tagged v0.9.2 implementation.
+
+Tagged sources:
+
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa-types/src/value_ext.rs`
+
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa-types/src/field_mask_ext.rs`
+
+### 4.4 Default-aware and fallible extension operations
+
+`ExtensionSet` includes two additional behaviors beyond ordinary get/set/clear.
+
+Default-aware retrieval: `extension_or_default(&extension)` returns the declared proto2 default if a singular extension is absent, or the Rust type's default if no protobuf default was declared.
+
+This does not make an absent field present. `extension()` continues to distinguish explicit presence.
+
+Fallible writes: `try_set_extension(&extension, value)` supports encoding a replacement extension value without panicking merely because its serialized message exceeds the protobuf size limit.
+
+The implementation stages the encoded extension in temporary unknown-field storage and only updates the carrier after encoding succeeds. An encoding failure leaves earlier occurrences intact.
+
+There are further semantic distinctions:
+
+- `has_extension` checks field-number presence, not whether the retained bytes form a valid value for the extension's codec.
+- `extension()` may return an absent-style result for malformed singular extension data or exhausted decoding budgets, rather than exposing a dedicated parsing error.
+- The extension decoder shares its decode budget across that extension's retained wire records.
+- Using an extension whose declared extendee does not match the message remains a programming error and can panic, even with `try_set_extension`.
+
+These behaviors matter for schema-aware tooling because presence, a successful value decode, and a declared default are three distinct states.
+
+Source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa/src/extension.rs`
+
+### 4.5 Proto2 defaults and enum iteration
+
+Two smaller generated-model capabilities complete the original guide's discussion of protobuf semantics.
+
+Proto2 scalar `[default = ...]` declarations influence the generated message's Rust `Default` implementation. Required scalar fields use bare Rust types and are serialized even when they hold the default value, rather than being suppressed as implicit-presence fields.
+
+A generated Rust field's current value should not be mistaken for evidence of its original wire presence; this is particularly relevant when interpreting legacy required-field semantics.
+
+For generated enums, the `Enumeration::values()` method returns a static slice of primary variants in protobuf declaration order.
+
+Aliases represented by associated constants are not additional Rust enum variants and do not appear in this slice.
+
+This allows generic enum enumeration without depending on debugging output, string parsing, or an independently maintained list of variants.
+
+Source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/docs/guide.md`
+
+## 5. Code-generation extensibility and distribution
+
+Extends original §§4–5.
+
+### 5.1 Companion generated files through `apply_companions`
+
+An easily overlooked code-generation extension point is:
+
+`buffa_codegen::apply_companions`
+
+The `GeneratedFileKind` enum includes a `Companion` variant intended for source files produced by another generator but distributed alongside Buffa-generated message code.
+
+A custom generator can create `GeneratedFile` entries with:
+
+- `kind = GeneratedFileKind::Companion`
+- a target protobuf package
+- a sibling output filename
+- the additional Rust source content
+
+`apply_companions` finds the corresponding package's `PackageMod` file and appends an `include!` directive for the companion at package scope.
+
+This allows another code generator to add service stubs, implementation traits, dispatch adapters, or other schema-derived Rust definitions without rewriting Buffa's generated source or maintaining parallel module-tree logic.
+
+The integration contract has several constraints:
+
+- The companion's package must match a generated `PackageMod` for automatic inclusion.
+- Companion filenames must follow the sibling-file convention and avoid collisions with Buffa's own generated filenames.
+- The operation is not idempotent: applying the same companion twice emits duplicate includes.
+- A companion whose package has no generated module is retained in the file collection but is not automatically included.
+- Companion items appear at the generated package root, not in Buffa's reserved `__buffa` module.
+
+This is particularly useful for generating additional service interfaces from the same descriptor corpus while leaving the message runtime and protobuf compiler backend unchanged.
+
+It is not itself a complete gRPC or ConnectRPC service generator. It is the composition mechanism through which such a generator can participate in Buffa's output layout.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+Tagged source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa-codegen/src/lib.rs`
+
+### 5.2 Code-generation diagnostics as structured output
+
+`generate_with_diagnostics()` provides a lower-level alternative to ordinary code generation, returning both generated artifacts and code-generation warnings.
+
+This allows build infrastructure to inspect warnings programmatically rather than depending exclusively on textual compiler output.
+
+Examples of relevant diagnostics include unmatched feature-override paths and references to types that were excluded from generation without adequate external mappings.
+
+The distinction is useful when code generation is embedded in larger schema-processing tools: emitted source and generation diagnostics can participate in separate workflows.
+
+`SharedCorpusContext`, described in the original guide, complements this interface by avoiding repeated schema-global analysis when multiple generation operations share the same descriptor corpus.
+
+### 5.3 Build-tool descriptor decoding budgets
+
+The protobuf compiler plugin and the Cargo build integration use a different element-memory budget from ordinary runtime decoding.
+
+The default code-generation budget in v0.9.2 is 1 GiB, intended to accommodate wide descriptor structures and large schemas while still rejecting excessively expensive or corrupted inputs.
+
+The plugin accepts:
+
+`element_memory_limit=<bytes|unlimited>`
+
+The shared environment variable is:
+
+`BUFFA_ELEMENT_MEMORY_LIMIT`
+
+The environment variable is the configuration route for `buffa-build`; plugin options take precedence when both are supplied.
+
+The compiler plugin must obtain its parameter string from the incoming `CodeGeneratorRequest` before it can determine the desired budget. Buffa handles this by scanning the request wire data for the parameter field before performing the full descriptor materialization.
+
+This avoids the need to perform an unbounded preliminary decode merely to discover the decode limit.
+
+The distinction between the 1 GiB tooling budget and the 32 MiB default runtime element-memory budget should remain explicit. They protect different workloads and are not interchangeable settings.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+Tagged source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa-codegen/src/lib.rs`
+
+### 5.4 Buf SDK distribution and packaging constraints
+
+Buffa supports another distribution model besides local `build.rs` execution or checking generated Rust source into a repository.
+
+For compatible Buf Schema Registry modules, consumers can use pre-generated Rust SDK crates from Buf's Cargo registry.
+
+This delegates protobuf generation and packaging to the schema-publishing infrastructure. The consuming Rust project uses generated crate dependencies instead of invoking Buffa's generator during its own build.
+
+It is an external Buf service capability, not an independent feature of the Buffa runtime.
+
+The local packaging plugin also has specific constraints. When using `protoc-gen-buffa-packaging` to assemble a module tree from Buf-generated source:
+
+- The packaging plugin requires `strategy: all`.
+- It expects the per-proto source/stitcher layout, not `file_per_package=true`.
+- Package exclusions must be coordinated with the main generator.
+- Shared descriptor-pool generation requires matching options and matching input corpora across both plugins.
+
+These are compatibility requirements for composing generator outputs, rather than protobuf wire-format constraints.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+Tagged source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/docs/guide.md`
+
+### 5.5 External shared descriptor-pool roots
+
+At the lower-level `CodeGenConfig` interface, `shared_descriptor_pool_root` permits an explicitly specified Rust path to the shared descriptor-pool root.
+
+This removes the assumption that the root must be reached through the module-tree generator's conventional relative `super::` path.
+
+The configured path must be absolute (`::...`) or crate-relative (`crate::...`), because it is reused from generated packages at potentially different module depths.
+
+It is valid only when shared descriptor-pool generation is enabled.
+
+This extension point matters for custom code-generation frameworks that coordinate several separately emitted Rust modules and choose their own enclosing module hierarchy.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+Tagged source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa-codegen/src/lib.rs`
+
+## 6. Custom storage: field-position-dependent integration constraints
+
+Extends original §11.
+
+Buffa's pluggable storage traits permit specialized Rust representations, but the required integration surface depends on where a custom type appears in the protobuf schema.
+
+### 6.1 Custom representations inside maps
+
+A `string_type` rule applies to protobuf string positions within its targeted field, including map keys and values.
+
+For a `map<string, string>` field, one field-scoped representation rule affects both the key and value string slots.
+
+The map container itself remains independently configurable through `map_type`.
+
+Custom map keys must also satisfy the container's ordering or hashing constraints:
+
+| Container           | Relevant key requirements                        |
+| ------------------- | ------------------------------------------------ |
+| `HashMap`           | `Hash + Eq`                                      |
+| `BTreeMap`          | `Ord`                                            |
+| Custom `MapStorage` | The storage implementation's required key traits |
+
+A custom string used in a map may additionally require Serde and `Arbitrary` implementations when the corresponding generated capabilities are enabled.
+
+Unlike singular string fields, several optional, repeated, oneof, and map configurations serialize custom values through their own Serde implementations.
+
+### 6.2 Rust coherence and generated auxiliary traits
+
+Under vtable reflection, custom repeated elements and map key/value types may need `ReflectElement` or `ReflectMapKey` implementations.
+
+For certain custom byte representations, ProtoJSON also introduces element-specific adapter requirements.
+
+Buffa's code generator can emit these implementations for appropriate crate-local types. It cannot override Rust's orphan rules by implementing a foreign trait for an unrelated foreign type.
+
+A local newtype therefore does more than adapt binary storage: it provides a legal target for generated cross-cutting trait implementations.
+
+This explains why an external storage type that works as a singular field may fail to compile when used as a repeated element or map key with JSON or reflection enabled.
+
+The primary design distinction is not simply `String` versus a compact alternative. It is which generated functionality must operate on that representation and which crate owns the relevant Rust type.
+
+Source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/docs/guide.md`
+
+## 7. Version, feature, and publication boundaries
+
+Clarifies original §§1, 5, 7, and 12.
+
+### 7.1 Descriptor reflection is not uniformly `std`-dependent
+
+The tagged `buffa-descriptor` crate separates the descriptor runtime's `reflect` feature from its `std` feature.
+
+Its feature declaration is:
+
+```
+reflect = []
+```
+
+The lower-level descriptor and dynamic reflection code uses `alloc` facilities in several places, rather than requiring `std` throughout.
+
+By contrast, generated reflection in v0.9.2 requires `std` because the generated embedded descriptor-pool accessor uses `std::sync::OnceLock`.
+
+`buffa-types/reflect` also enables `std` and the descriptor reflection dependency.
+
+There is therefore a real distinction among:
+
+- Descriptor pool and dynamic reflection support.
+- Generated `Reflectable` implementations.
+- Well-known-type reflection integrations.
+- Convenience APIs explicitly gated by `std`, such as dynamic `from_json` and `to_json`.
+
+The tagged source and feature declarations establish these separate boundaries. They should not be collapsed into a blanket statement that all descriptor reflection requires `std`. This review did not independently compile every `no_std + alloc` feature combination.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+Source:\
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/Cargo.toml`
+
+### 7.2 Descriptor message types require feature forwarding
+
+`buffa-descriptor` independently gates generated implementations for:
+
+`views`, `json`, `text`, and `arbitrary`.
+
+A protobuf schema importing `descriptor.proto` only to declare custom options does not necessarily require `buffa-descriptor` as a runtime message dependency.
+
+However, when generated messages contain descriptor message types as ordinary fields, the corresponding feature implementations must be available on `buffa-descriptor`.
+
+For example, generating JSON for a message that contains `FileDescriptorProto` requires the descriptor type's JSON implementation, not merely JSON enabled on the surrounding message.
+
+Descriptor enum types can generally be referenced without enabling these optional message implementations.
+
+This is an additional cross-crate feature-forwarding boundary alongside the `buffa-types/reflect` dependency described in the main guide.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+### 7.3 Embedded descriptors omit source-code annotations
+
+Generated reflection exposes `FILE_DESCRIPTOR_SET_BYTES`, but the embedded set has its `source_code_info` removed.
+
+The generated descriptor set covers the generation corpus and applicable imports rather than being a minimal per-package source-descriptor artifact.
+
+It is therefore suitable for runtime message identity and schema inspection, but it does not preserve source comments and source-location metadata needed by all documentation or source-analysis tools.
+
+Those applications require a separately produced descriptor set retaining source information.
+
+The shared-pool mechanism deduplicates descriptor data; it does not restore omitted source metadata.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### 7.4 Unpublished and development-only functionality
+
+The v0.9.2 repository contains useful implementations and examples that are not separately published production crates.
+
+| Component or feature                                                                    | Release classification                          | Consequence                                                                      |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------- |
+| `buffa-yaml`                                                                            | In-tree, `publish = false`                      | YAML adapter exists in the tagged repository but is not a published v0.9.2 crate |
+| `buffa-smolstr`                                                                         | Unpublished example/reference crate             | Demonstrates `ProtoString` integration; not a normal published dependency        |
+| `buffa-proto-options`                                                                   | Not part of tagged v0.9.2 workspace             | Do not treat as a released companion                                             |
+| `FieldMask::normalize`, `covers`, `union`, `intersection`                               | Absent from tagged implementation               | Do not import newer FieldMask APIs into v0.9.2 documentation                     |
+| `deny_unknown_json_fields`, `preserve_unknown_fields_in`, `skip_debug` codegen controls | Absent from tagged v0.9.2 `buffa-build::Config` | Development-branch documentation must not be used as the released API contract   |
+| `LinkOptions` and newer descriptor-linking controls                                     | Not part of the tagged v0.9.2 pool interface    | Do not assume later import-visibility configuration exists in this release       |
+
+The in-tree `buffa-yaml` adapter is worth noting as a development capability. It routes Buffa's protobuf-aware JSON Serde implementations through a YAML carrier, retaining ProtoJSON-oriented field and value behavior rather than implementing a wholly independent protobuf YAML semantic model.
+
+Its limitations include missing specialized protoyaml features and the ordinary resource risks associated with YAML anchor and alias expansion.
+
+For v0.9.2, however, it belongs in a clearly marked unpublished integration note rather than the principal package catalog.
+
+The v0.9.2 workspace declares Rust 1.75 as its minimum supported Rust version. Optional dependencies and generated-code feature combinations introduce additional compatibility requirements that should be evaluated independently from that workspace-level declaration.
+
+Tagged manifests:
+
+`https://github.com/anthropics/buffa/blob/v0.9.2/buffa-yaml/Cargo.toml`
+
+`https://github.com/anthropics/buffa/blob/v0.9.2/examples/buffa-smolstr/Cargo.toml`
+
+`https://github.com/anthropics/buffa/blob/v0.9.2/Cargo.toml`
+
+## 8. Capability interactions and architectural implications
+
+The additional capabilities strengthen four areas of Buffa's architecture.
+
+| Capability combination                                        | What the library provides                                                                                                                           | Important boundary                                                                                      |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Borrowed views + backing-aware rope + bounded encoding        | Inspects incoming protobuf data and re-encodes it into size-constrained segmented buffers while retaining eligible payload slices                   | Logical re-encoding does not guarantee byte-identical forwarding; transport may flatten segments        |
+| DescriptorPool + DynamicMessage + custom options              | Supports dynamic schema discovery, field-level transformation, extension interpretation, and conversion between generated and runtime-defined types | Requires compatible descriptor corpora and careful handling of pool identity                            |
+| Codegen diagnostics + shared corpus context + companion files | Enables external generation infrastructure to reuse Buffa's schema analysis, add Rust artifacts, and integrate diagnostics with generation outputs  | Buffa does not itself provide every downstream service or framework generator                           |
+| Custom storage + generated reflection/JSON adapters           | Allows physical Rust representation to differ from protobuf wire identity while retaining multiple generated execution interfaces                   | Supported combinations depend on field position, trait availability, Rust coherence, and crate features |
+
+A common theme across these mechanisms is the separation of responsibilities that might otherwise become entangled in a custom protobuf implementation:
+
+Schema semantics remain defined by protobuf descriptors. Representation can be owned, borrowed, or dynamic. Serialization policy can govern size and buffer reuse. Introspection can use linked descriptors. Generation can combine Buffa output with other schema-derived Rust artifacts.
+
+These mechanisms can be composed selectively. Their value is not conditional on using every advanced capability simultaneously; in many cases the useful optimization is confined to one boundary, such as message output, schema discovery, or custom field storage.
+
+## 9. Additional primary-source references
+
+The following sources supplement the original guide's reference map. All URLs are pinned to the v0.9.2 tag.
+
+| Subject                                        | Primary source                                                                            |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Bounded encoding and reader decoding           | `https://github.com/anthropics/buffa/blob/v0.9.2/buffa/src/message.rs`                    |
+| Size-cache internals and pooling               | `https://github.com/anthropics/buffa/blob/v0.9.2/buffa/src/size_cache.rs`                 |
+| Rope, backing-aware encoding, vectored buffers | `https://github.com/anthropics/buffa/blob/v0.9.2/buffa/src/encode_sink.rs`                |
+| Dynamic message mutation and `Any`             | `https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/dynamic.rs` |
+| Dynamic JSON parsing and serialization         | `https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/json.rs`    |
+| Linked descriptor pools                        | `https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/pool.rs`            |
+| Reflective access and mutation traits          | `https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/message.rs` |
+| Typed extension machinery                      | `https://github.com/anthropics/buffa/blob/v0.9.2/buffa/src/extension.rs`                  |
+| Codegen companion output and configuration     | `https://github.com/anthropics/buffa/blob/v0.9.2/buffa-codegen/src/lib.rs`                |
+| Protobuf `Any` helpers                         | `https://github.com/anthropics/buffa/blob/v0.9.2/buffa-types/src/any_ext.rs`              |
+| Field-mask helpers                             | `https://github.com/anthropics/buffa/blob/v0.9.2/buffa-types/src/field_mask_ext.rs`       |
+| Version-specific integration guide             | `https://github.com/anthropics/buffa/blob/v0.9.2/docs/guide.md`                           |
+
+These additions complete the most consequential gaps identified in the original reference without changing its overarching architectural model or substituting development-branch behavior for the released v0.9.2 API.

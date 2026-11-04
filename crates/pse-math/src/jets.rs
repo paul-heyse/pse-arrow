@@ -127,7 +127,8 @@ impl ProductValues<'_> {
 
 pse_model::projection_struct! {
 /// Explicit resource allowance for one compiled body and its worker.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct EvaluationLimits {
     projection: { name: "MathEvaluationLimits", version: 1, direction: pse_model::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };

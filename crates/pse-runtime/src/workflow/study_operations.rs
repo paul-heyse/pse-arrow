@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Reconstructable study operations dispatch through their existing operation owners.
+use super::horizon::WindowWire;
 use super::{
     AdvancedStep, Arrival, DeclaredProcedure, Horizon, HorizonController, HorizonEstimator,
     HorizonInput, HorizonSignal, ModelingPackage, ModelingSimulation, ModelingSolvePreparation,
@@ -23,23 +24,29 @@ use pse_model::scalars::PositiveCount;
 use pse_model::study::{ScientificFacts, SeedNeed, SeedRole};
 use pse_modeling::Limits;
 use std::{collections::BTreeMap, sync::Arc};
+mod intent;
+pub use intent::{ControllerMove, ControllerPrediction, EstimatorMeasurement};
 
 pub(in crate::workflow) type StudyBindingKey = (ContentHash, Vec<String>, Vec<SemanticId>);
 
+pse_model::projection_struct! {
 /// Exact source/context required when reconstructing an operation from stored bundles.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct OperationSource {
+    projection: { name: "OperationSource", rust_path: crate::workflow::OperationSource, version: 1,
+        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Frozen research attribution consumed by this exact operation.
-    pub research: Option<super::ResearchSource>,
+    pub research: Option<super::ResearchSource> => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Original effective-time and recorded-cut selection, if explicitly selected.
-    pub context: Option<pse_operations::canonical_contexts::ContextSelection>,
+    pub context: Option<pse_operations::canonical_contexts::ContextSelection> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Immutable modeling revision, including included scientific data.
-    pub revision: pse_ids::roles::SourceRevisionHash,
+    pub revision: pse_ids::roles::SourceRevisionHash => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Complete admitted physical context identity.
-    pub physical_context: ContentHash,
+    pub physical_context: ContentHash => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl OperationSource {
     /// Capture the selected immutable operation inputs.
@@ -67,16 +74,18 @@ impl OperationSource {
     }
 }
 
+pse_model::projection_struct! {
 /// Serialization of the existing compiler/expansion controls, with no second defaults.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PreparationSettings {
-    /// Existing evaluator profile, encoded through its complete remote projection.
-    #[serde(with = "ProfileWire")]
-    #[schemars(with = "ProfileWire")]
-    pub compiler: Profile,
+    projection: { name: "PreparationSettings", rust_path: crate::workflow::PreparationSettings, version: 1,
+        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    /// Existing evaluator profile, encoded by its actual source declaration.
+    pub compiler: Profile => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Existing expansion admission limits.
-    pub limits: Limits,
+    pub limits: Limits => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl PreparationSettings {
     /// Runtime-owned default compiler policy under explicitly selected expansion limits.
@@ -87,76 +96,22 @@ impl PreparationSettings {
         }
     }
 }
-#[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(remote = "Profile", deny_unknown_fields)]
-#[schemars(rename = "StudyCompilerProfile")]
-struct ProfileWire {
-    #[serde(with = "OptimizationWire")]
-    #[schemars(with = "OptimizationWire")]
-    optimization: pse_math::library::Optimization,
-    #[serde(with = "EvaluationWire")]
-    #[schemars(with = "EvaluationWire")]
-    evaluation: pse_math::jets::EvaluationLimits,
-    /// Per-case sparse assembly and complete numerical-worker admission limits.
-    assembly: pse_math::assembly::AssemblyLimits,
-    /// Conservative shared domain/class construction work, not measured operations.
-    class_proof_work: usize,
-}
-#[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(remote = "pse_math::library::Optimization", deny_unknown_fields)]
-struct OptimizationWire {
-    cores: usize,
-    horner_iterations: usize,
-    cpe_iterations: usize,
-    evaluator: pse_math::library::Evaluator,
-}
-#[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(remote = "pse_math::jets::EvaluationLimits", deny_unknown_fields)]
-struct EvaluationWire {
-    derivative_components: usize,
-    operations: usize,
-    scratch_bytes: usize,
-    provider_calls: usize,
-}
-/// One authored solve operation under its admitted route and existing settings document.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct CaseOperation {
-    /// Authored case identity.
-    pub case: DeclarationId,
-    /// Route captured from the declaration's admission.
-    pub route: ModelingAnalysisRoute,
-    /// Complete existing solve settings.
-    pub settings: SolveSettings,
-}
-/// One authored integrated simulation and its pending physical controls.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct SimulationOperation {
-    /// Authored integration case.
-    pub case: DeclarationId,
-    /// Pending physical integration controls; absence requests authored controls.
-    pub settings: Option<super::PhysicalSimulationRequest>,
-}
-/// One authored fit selection; experiment data stays in the pinned source revision.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct FitOperation {
-    /// Existing authored fit identity.
-    pub fit: FitId,
-    /// Pending physical experiment controls, admitted against each actual experiment.
-    pub settings: super::PhysicalFitRequest,
-}
+include!("study_operations/declarations.rs");
 
+pse_model::projection_struct! {
 /// Serializes the existing horizon signal vocabulary without replacing its semantics.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct HorizonBinding {
+    projection: { name: "HorizonBinding", rust_path: crate::workflow::HorizonBinding, version: 1,
+        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Controller case target path, resolved by the horizon owner.
-    pub target: String,
+    pub target: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Existing horizon signal.
-    pub signal: HorizonSignalDocument,
+    pub signal: HorizonSignalDocument => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_model::projection_enum! {
 /// Physically typed public signal intent; canonical numerical signals are admitted once.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(
@@ -166,151 +121,66 @@ pub struct HorizonBinding {
     deny_unknown_fields
 )]
 pub enum HorizonSignalDocument {
+    projection: { name: "HorizonSignalDocument", rust_path: crate::workflow::HorizonSignalDocument, version: 1,
+        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Existing measured plant output.
-    Measured(SemanticId),
+    Measured(SemanticId) => 1;
     /// Existing estimated case path.
-    Estimated(String),
+    Estimated(String) => 2;
     /// Existing driven input index.
-    Applied(usize),
+    Applied(usize) => 3;
     /// Physically typed desired values, admitted against the controller target.
-    Trajectory(Vec<super::BindingQuantity>),
+    Trajectory(Vec<super::BindingQuantity>) => 4;
 }
+}
+pse_model::projection_struct! {
 /// A plant input projected into the existing horizon owner.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct HorizonInputDocument {
+    projection: { name: "HorizonInputDocument", rust_path: crate::workflow::HorizonInputDocument, version: 1,
+        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Existing plant parameter identity.
-    pub parameter: SemanticId,
+    pub parameter: SemanticId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Initial held quantity with complete physical meaning.
-    pub initial: super::BindingQuantity,
+    pub initial: super::BindingQuantity => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
 }
-/// Serializable controller inputs; package/prepared analysis handles are reconstructed.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct ControllerOperation {
-    /// Existing simultaneous controller case.
-    pub case: CaseOperation,
-    /// Existing signal binding intent.
-    pub bindings: Vec<HorizonBinding>,
-    /// Existing move path/input-index mapping.
-    pub moves: Vec<(String, usize)>,
-    /// Existing advanced-step prediction mapping; absence means full solves.
-    pub predictions: Option<Vec<(String, String)>>,
 }
+
+pse_model::projection_struct! {
 /// Existing estimator window input intent.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EstimatorInput {
+    projection: { name: "EstimatorInput", rust_path: crate::workflow::EstimatorInput, version: 1,
+        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Driven input index.
-    pub input: usize,
+    pub input: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Existing whole-window or per-period bindings.
     #[serde(with = "WindowWire")]
     #[schemars(with = "WindowWire")]
-    pub binding: WindowInput,
+    pub binding: WindowInput => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
 }
-#[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(
-    remote = "WindowInput",
-    tag = "kind",
-    content = "value",
-    rename_all = "snake_case",
-    deny_unknown_fields
-)]
-enum WindowWire {
-    Constant(String),
-    Periods(Vec<String>),
 }
+pse_model::projection_struct! {
 /// Existing arrival cost intent with a checked finite initial prior.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ArrivalDocument {
+    projection: { name: "ArrivalDocument", rust_path: crate::workflow::ArrivalDocument, version: 1,
+        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Existing prior case path.
-    pub prior: String,
+    pub prior: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Existing next-prior solution path.
-    pub next: String,
+    pub next: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Initial prior quantity with complete physical meaning.
-    pub initial: super::BindingQuantity,
+    pub initial: super::BindingQuantity => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
 }
-/// Serializable estimator inputs for the existing horizon owner.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct EstimatorOperation {
-    /// Existing simultaneous estimator case.
-    pub case: CaseOperation,
-    /// Existing estimation window.
-    pub window: usize,
-    /// Existing measurement-to-case-path mapping.
-    pub measurements: Vec<(SemanticId, Vec<String>)>,
-    /// Existing driven-input mapping.
-    pub inputs: Vec<EstimatorInput>,
-    /// Existing arrival prior mapping.
-    pub arrival: Vec<ArrivalDocument>,
 }
-/// Reconstructable closed-loop operation in one pinned source/context.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct HorizonOperation {
-    /// Existing authored plant simulation.
-    pub plant: SimulationOperation,
-    /// Existing positive physical sample period in seconds.
-    pub period: pse_model::scalars::Tolerance,
-    /// Existing closed-loop sample count.
-    pub steps: PositiveCount,
-    /// Driven plant inputs.
-    pub inputs: Vec<HorizonInputDocument>,
-    /// Optional existing estimator.
-    pub estimator: Option<EstimatorOperation>,
-    /// Optional existing controller.
-    pub controller: Option<ControllerOperation>,
-}
-/// Supported operation owner selection, with no arbitrary closure or second engine.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(
-    tag = "kind",
-    content = "request",
-    rename_all = "snake_case",
-    deny_unknown_fields
-)]
-pub enum OperationRequest {
-    /// Existing authored algebraic solve owner.
-    DeclaredCase(CaseOperation),
-    /// Existing authored integration owner.
-    Simulation(SimulationOperation),
-    /// Existing shared-parameter fitting owner.
-    Fit(FitOperation),
-    /// Existing closed-loop horizon owner.
-    Horizon(Box<HorizonOperation>),
-}
+
 /// Registry-owned expected products; these roles never assert result availability.
 pub use pse_model::generated::enums::StudyResultRole;
-/// Canonical horizon assignments admitted in the selected physical context.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct AdmittedHorizonValues {
-    /// Canonical plant parameter assignments in declared input order.
-    pub inputs: Vec<super::AdmittedBindingEntry>,
-    /// Canonical estimator priors in declared arrival order.
-    pub arrival: Vec<super::AdmittedBindingEntry>,
-    /// Canonical controller trajectory values by declared binding index.
-    pub trajectories: BTreeMap<usize, Vec<super::AdmittedBindingEntry>>,
-}
-/// Immutable request recorded by a study occurrence and replayed by either executor.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct StudyOperation {
-    /// Interpretation of this operation descriptor.
-    pub version: Version<8>,
-    /// Explicit occurrence detail retained independently of original completion.
-    pub output: super::StudyOutputDemand,
-    /// Exact source/context reconstruction precondition.
-    pub source: OperationSource,
-    /// Complete preparation controls using existing owners' remote projections.
-    pub preparation: PreparationSettings,
-    /// Existing operation-owned input document.
-    pub operation: OperationRequest,
-    /// Canonical physical assignments; required for every horizon descriptor.
-    pub admitted_horizon: Option<AdmittedHorizonValues>,
-}
+
 /// Prepared operation products; only the existing operation supervisors execute these.
 #[derive(Clone, Debug)]
 pub enum PreparedStudyOperation {
@@ -782,12 +652,21 @@ impl OperationPreparation<'_> {
                         package: package.clone(),
                         analysis: execution.analysis,
                         bindings,
-                        moves: control.moves.clone(),
+                        moves: control
+                            .moves
+                            .iter()
+                            .map(|movement| (movement.path.clone(), movement.input))
+                            .collect(),
                         advanced: control
                             .predictions
                             .as_ref()
                             .map(|predictions| AdvancedStep {
-                                predictions: predictions.clone(),
+                                predictions: predictions
+                                    .iter()
+                                    .map(|prediction| {
+                                        (prediction.binding.clone(), prediction.predictor.clone())
+                                    })
+                                    .collect(),
                             }),
                     })
                 } else {
@@ -830,7 +709,11 @@ impl OperationPreparation<'_> {
                         package: package.clone(),
                         analysis: execution.analysis,
                         window: estimate.window,
-                        measurements: estimate.measurements.clone(),
+                        measurements: estimate
+                            .measurements
+                            .iter()
+                            .map(|measurement| (measurement.output, measurement.paths.clone()))
+                            .collect(),
                         inputs: estimate
                             .inputs
                             .iter()
@@ -1716,6 +1599,49 @@ mod study_operation_unit {
             serde_json::from_value::<PreparationSettings>(incomplete).is_err(),
             "complete compiler policy has no serialized assembly default"
         );
+    }
+
+    #[test]
+    fn operation_request_projects_all_four_actual_native_families() {
+        use pse_model::boundary_projection::{ProjectionGraph, Shape};
+        let graph = ProjectionGraph::of::<OperationRequest>().unwrap();
+        let Shape::Alternatives(alternatives) = &graph.definitions()["OperationRequest"].shape
+        else {
+            panic!("actual operation alternatives")
+        };
+        assert_eq!(
+            alternatives
+                .iter()
+                .map(|alternative| (alternative.name.as_str(), alternative.tag))
+                .collect::<Vec<_>>(),
+            vec![
+                ("DeclaredCase", 1),
+                ("Simulation", 2),
+                ("Fit", 3),
+                ("Horizon", 4)
+            ]
+        );
+        for owner in [
+            "SolveSettings",
+            "NativeBackendSettings",
+            "SolveControls",
+            "NumericalPolicy",
+            "PhysicalSimulationRequest",
+            "PhysicalFitRequest",
+            "FitOptimizer",
+            "CaseOperation",
+            "SimulationOperation",
+            "FitOperation",
+            "HorizonOperation",
+            "ControllerMove",
+            "ControllerPrediction",
+            "EstimatorMeasurement",
+        ] {
+            assert!(
+                graph.definitions().contains_key(owner),
+                "missing actual owner {owner}"
+            );
+        }
     }
 
     #[test]

@@ -87,7 +87,7 @@ fn rpc_timeout(
             deadline
                 .checked_duration_since(now)
                 .filter(|remaining| !remaining.is_zero())
-            .ok_or_else(|| WorkerError::from(ProviderError::Deadline))
+                .ok_or_else(|| WorkerError::from(ProviderError::Deadline))
         })
         .transpose()
 }

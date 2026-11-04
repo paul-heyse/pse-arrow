@@ -4,7 +4,8 @@
 
 mod session;
 pub use session::{
-    EngineeringPhysicalOutput, EngineeringResultOutput, EngineeringService, EngineeringServiceError,
+    EngineeringModelingOutput, EngineeringPhysicalOutput, EngineeringResultOutput,
+    EngineeringService, EngineeringServiceError, EngineeringStudyOutput,
 };
 
 /// Source-generated wire messages, constraints and independent client/service bindings.

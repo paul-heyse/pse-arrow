@@ -119,6 +119,12 @@ Use the repository's targeted compile/test routes during implementation. Selecte
 P4 population is complete. Later P5/P6 consumers may use an accepted subset without
 claiming all P4 complete.
 
+**Current status, 2026-11-04:** execution is authorized to resume after the Proto scope.
+E01/E02 remain in progress and E03–E06 planned. The source-owned simulation/integration
+declarations added by 64i do not deliver additional inventory, distributed/cyclic physics
+or dynamic acceptance. The native ten-fixture inventory run, energy/phase closure,
+distributed/cyclic consumers and matched trajectories below remain unrun/open.
+
 ### Stopped implementation checkpoint
 
 **2026-11-03 — stopped by instruction. Implemented:** distinct element-stock typing,

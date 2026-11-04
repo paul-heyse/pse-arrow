@@ -3,85 +3,178 @@
 //! Public bounded study browsing and immutable cohort analysis over protected original results.
 use super::{RetainedDataServices, Runtime, WorkflowError, contract};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
+use pse_model::boundary_projection::{Direction, LocalRule, ValidateProjection as _};
 pub use pse_operations::canonical_study_workbench::{
     CapturedStudyRow, StudyCohortMember, StudyWorkbenchFilter, StudyWorkbenchHeader,
 };
 use std::sync::Arc;
 
+const COHORT_STUDIES: LocalRule = LocalRule::UnsignedRange { min: 1, max: 64 };
+const COHORT_MEMBERS: LocalRule = LocalRule::UnsignedRange {
+    min: 1,
+    max: pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS as u64,
+};
+const COHORT_PAGE: LocalRule = LocalRule::UnsignedRange { min: 1, max: 256 };
+const MAXIMUM_COHORT_HEADERS: u64 = 64;
+const COHORT_HEADER_PAGE: LocalRule = LocalRule::UnsignedRange {
+    min: 1,
+    max: MAXIMUM_COHORT_HEADERS,
+};
+fn cohort_studies_schema(schema: &mut schemars::Schema) {
+    use schemars::transform::Transform as _;
+    let mut rule = COHORT_STUDIES;
+    rule.transform(schema);
+}
+fn cohort_members_schema(schema: &mut schemars::Schema) {
+    use schemars::transform::Transform as _;
+    let mut rule = COHORT_MEMBERS;
+    rule.transform(schema);
+}
+fn cohort_page_schema(schema: &mut schemars::Schema) {
+    use schemars::transform::Transform as _;
+    let mut rule = COHORT_PAGE;
+    rule.transform(schema);
+}
+fn cohort_header_page_schema(schema: &mut schemars::Schema) {
+    use schemars::transform::Transform as _;
+    let mut rule = COHORT_HEADER_PAGE;
+    rule.transform(schema);
+}
 pub use pse_operations::canonical_control::{
     StudyWorkbenchCursor, StudyWorkbenchPage, StudyWorkbenchRequest,
 };
+pse_model::projection_struct! {
 /// One complete bounded population selected before any analytical payload work.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyCohortRequest {
+    projection: { name: "StudyCohortRequest", rust_path: crate::workflow::StudyCohortRequest,
+        version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Exact native predicates.
-    pub filter: StudyWorkbenchFilter,
+    pub filter: StudyWorkbenchFilter => { tag: 1, direction: Direction::Both, rules: [] };
     /// Capture refuses if more studies match; maximum 64.
-    pub maximum_studies: usize,
+    #[schemars(transform = cohort_studies_schema)]
+    pub maximum_studies: usize => { tag: 2, direction: Direction::Both, rules: [COHORT_STUDIES] };
     /// Capture refuses if complete selected population exceeds this or the declared cohort admission bound.
-    pub maximum_members: usize,
+    #[schemars(transform = cohort_members_schema)]
+    pub maximum_members: usize => { tag: 3, direction: Direction::Both, rules: [COHORT_MEMBERS] };
 }
+}
+pse_model::projection_struct! {
 /// Historical acknowledgement of a complete native cut. Identifiers grant no read permission.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyCohortReceipt {
+    projection: { name: "StudyCohortReceipt", rust_path: crate::workflow::StudyCohortReceipt,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Exact issuing canonical database.
-    pub issuing_store: String,
+    pub issuing_store: String => { tag: 1, direction: Direction::Output, rules: [] };
     /// Exact capture identity; a serialized receipt is not its live capability.
-    pub capture: String,
+    pub capture: String => { tag: 2, direction: Direction::Output, rules: [] };
     /// Original immutable selection.
-    pub request: StudyCohortRequest,
+    pub request: StudyCohortRequest => { tag: 3, direction: Direction::Output, rules: [LocalRule::Required] };
     /// Exact original header population.
-    pub header_count: u64,
+    pub header_count: u64 => { tag: 4, direction: Direction::Output, rules: [] };
     /// Complete occurrence population, including every unavailable member.
-    pub member_count: u64,
+    pub member_count: u64 => { tag: 5, direction: Direction::Output, rules: [] };
     /// True only after exact native complete capture settlement.
-    pub complete: bool,
+    pub complete: bool => { tag: 6, direction: Direction::Output, rules: [] };
 }
+}
+pse_model::projection_struct! {
 /// Capture-bound keyset continuation, never a floating membership selection.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyCohortCursor {
+    projection: { name: "StudyCohortCursor", rust_path: crate::workflow::StudyCohortCursor,
+        version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Issuing canonical database.
-    pub issuing_store: String,
+    pub issuing_store: String => { tag: 1, direction: Direction::Both, rules: [] };
     /// Exact retained cut.
-    pub capture: String,
+    pub capture: String => { tag: 2, direction: Direction::Both, rules: [] };
     /// Last consumed global capture position.
-    pub after: u64,
+    pub after: u64 => { tag: 3, direction: Direction::Both, rules: [] };
 }
+}
+pse_model::projection_struct! {
 /// An explicitly bounded page request against a live retained capture.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyCohortPageRequest {
-    /// Header pages admit 1..=64; member/classification pages admit 1..=256.
-    pub maximum: usize,
+    projection: { name: "StudyCohortPageRequest", rust_path: crate::workflow::StudyCohortPageRequest,
+        version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
+    /// Member/classification pages admit 1..=256.
+    #[schemars(transform = cohort_page_schema)]
+    pub maximum: usize => { tag: 1, direction: Direction::Input, rules: [COHORT_PAGE] };
     /// Original capture-bound position, absent for the first page.
-    pub cursor: Option<StudyCohortCursor>,
+    pub cursor: Option<StudyCohortCursor> => { tag: 2, direction: Direction::Input, rules: [] };
 }
+}
+pse_model::projection_struct! {
+/// A finite compact header request against the original live capture.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StudyCohortHeaderRequest {
+    projection: { name: "StudyCohortHeaderRequest", rust_path: crate::workflow::StudyCohortHeaderRequest,
+        version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
+    /// One through64 original headers, checked before the canonical read.
+    #[schemars(transform = cohort_header_page_schema)]
+    pub maximum: usize => { tag: 1, direction: Direction::Input, rules: [COHORT_HEADER_PAGE] };
+    /// Original capture-bound position, absent for the first page.
+    pub cursor: Option<StudyCohortCursor> => { tag: 2, direction: Direction::Input, rules: [] };
+}
+}
+pse_model::projection_struct! {
 /// One bounded immutable header prefix with its actual retained allocation.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyCohortHeaderPage {
+    projection: { name: "StudyCohortHeaderPage", rust_path: crate::workflow::StudyCohortHeaderPage,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Original compact scientific context, in stable capture order.
-    pub headers: Vec<CapturedStudyRow<StudyWorkbenchHeader>>,
+    pub headers: Vec<CapturedStudyRow<StudyWorkbenchHeader>> => { tag: 1, direction: Direction::Output, rules: [LocalRule::Length { min: 0, max: MAXIMUM_COHORT_HEADERS }] };
     /// Exact next position, absent only at the captured count.
-    pub next: Option<StudyCohortCursor>,
+    pub next: Option<StudyCohortCursor> => { tag: 2, direction: Direction::Output, rules: [] };
+    @local {
     #[serde(skip)]
     #[schemars(skip)]
-    pub(super) _owner: Option<Arc<MemoryReservation>>,
+    pub(super) _owner: Option<Arc<MemoryReservation>> = None
+        => check: |_, _| Ok::<(), pse_model::boundary_projection::ValidationError>(());
+    }
 }
+}
+impl StudyCohortHeaderPage {
+    /// Keep the original selected page allocation alive through boundary encoding.
+    #[must_use]
+    pub fn payload_owner(&self) -> Option<Arc<MemoryReservation>> {
+        self._owner.clone()
+    }
+}
+pse_model::projection_struct! {
 /// One bounded immutable occurrence prefix, including original unavailable facts.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyCohortMemberPage {
+    projection: { name: "StudyCohortMemberPage", rust_path: crate::workflow::StudyCohortMemberPage,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Original occurrences; global positions differ from within-study ordinals.
-    pub members: Vec<CapturedStudyRow<StudyCohortMember>>,
+    pub members: Vec<CapturedStudyRow<StudyCohortMember>> => { tag: 1, direction: Direction::Output, rules: [LocalRule::Length { min: 0, max: 256 }] };
     /// Exact next position, absent only at the captured count.
-    pub next: Option<StudyCohortCursor>,
+    pub next: Option<StudyCohortCursor> => { tag: 2, direction: Direction::Output, rules: [] };
+    @local {
     #[serde(skip)]
     #[schemars(skip)]
-    pub(super) _owner: Option<Arc<MemoryReservation>>,
+    pub(super) _owner: Option<Arc<MemoryReservation>> = None
+        => check: |_, _| Ok::<(), pse_model::boundary_projection::ValidationError>(());
+    }
+}
+}
+impl StudyCohortMemberPage {
+    /// Keep the original selected page allocation alive through boundary encoding.
+    #[must_use]
+    pub fn payload_owner(&self) -> Option<Arc<MemoryReservation>> {
+        self._owner.clone()
+    }
 }
 /// One bounded NDJSON export line; the receipt is written only after every page.
 #[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -360,12 +453,9 @@ impl RetainedDataServices {
         &self,
         request: StudyCohortRequest,
     ) -> Result<FrozenStudyCohort, WorkflowError> {
-        if !(1..=64).contains(&request.maximum_studies)
-            || !(1..=pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS)
-                .contains(&request.maximum_members)
-        {
-            return Err(contract("cohort narrow selection outside public admission"));
-        }
+        request.validate_projection().map_err(|error| {
+            WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
+        })?;
         let activity = self.admit_activity()?;
         activity
             .scope(async {
@@ -453,7 +543,7 @@ impl FrozenStudyCohort {
         loop {
             cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
             let page = cancel
-                .until_cancelled(self.header_page(StudyCohortPageRequest {
+                .until_cancelled(self.header_page(StudyCohortHeaderRequest {
                     maximum: 64,
                     cursor,
                 }))
@@ -501,21 +591,17 @@ impl FrozenStudyCohort {
     }
     fn after(
         &self,
-        request: &StudyCohortPageRequest,
+        cursor: Option<&StudyCohortCursor>,
         count: u64,
-        maximum: usize,
     ) -> Result<Option<u64>, WorkflowError> {
-        if request.maximum == 0 || request.maximum > maximum {
-            return Err(contract("cohort page allowance outside bounds"));
-        }
-        if let Some(cursor) = &request.cursor
+        if let Some(cursor) = cursor
             && (cursor.issuing_store != self.receipt.issuing_store
                 || cursor.capture != self.receipt.capture
                 || cursor.after >= count)
         {
             return Err(contract("cohort cursor issuer or exact capture differs"));
         }
-        Ok(request.cursor.as_ref().map(|cursor| cursor.after))
+        Ok(cursor.map(|cursor| cursor.after))
     }
     fn next(&self, last: Option<u64>, count: u64) -> Option<StudyCohortCursor> {
         last.filter(|last| last.checked_add(1).is_some_and(|next| next < count))
@@ -528,9 +614,12 @@ impl FrozenStudyCohort {
     /// Read one immutable original header page under this retained capability.
     pub async fn header_page(
         &self,
-        request: StudyCohortPageRequest,
+        request: StudyCohortHeaderRequest,
     ) -> Result<StudyCohortHeaderPage, WorkflowError> {
-        let after = self.after(&request, self.receipt.header_count, 64)?;
+        request.validate_projection().map_err(|error| {
+            WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
+        })?;
+        let after = self.after(request.cursor.as_ref(), self.receipt.header_count)?;
         let response = super::connected_results::pooled_response_owner(
             &self.services.pool(),
             "study-workbench:captured-headers",
@@ -574,11 +663,10 @@ impl FrozenStudyCohort {
         &self,
         request: StudyCohortPageRequest,
     ) -> Result<StudyCohortMemberPage, WorkflowError> {
-        let after = self.after(
-            &request,
-            self.receipt.member_count,
-            pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS,
-        )?;
+        request.validate_projection().map_err(|error| {
+            WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
+        })?;
+        let after = self.after(request.cursor.as_ref(), self.receipt.member_count)?;
         let response = super::connected_results::pooled_response_owner(
             &self.services.pool(),
             "study-workbench:captured-members",
@@ -677,7 +765,7 @@ impl FrozenStudyCohort {
     ) -> Result<StudyCohortRelation, WorkflowError> {
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
         let headers = self
-            .header_page(StudyCohortPageRequest {
+            .header_page(StudyCohortHeaderRequest {
                 maximum: 64,
                 cursor: None,
             })
@@ -843,6 +931,49 @@ fn compatible_rows(rows: &[CapturedStudyRow<StudyWorkbenchHeader>]) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cohort_header_and_member_page_allowances_match_their_native_readers() {
+        for maximum in [1, 64] {
+            StudyCohortHeaderRequest {
+                maximum,
+                cursor: None,
+            }
+            .validate_projection()
+            .unwrap();
+        }
+        for maximum in [0, 65, 256] {
+            let error = StudyCohortHeaderRequest {
+                maximum,
+                cursor: None,
+            }
+            .validate_projection()
+            .unwrap_err();
+            assert!(
+                matches!(error, pse_model::boundary_projection::ValidationError::Rule {
+                path, rule: "unsigned.range", ..
+            } if path == "maximum")
+            );
+        }
+        StudyCohortPageRequest {
+            maximum: 256,
+            cursor: None,
+        }
+        .validate_projection()
+        .unwrap();
+        assert!(
+            StudyCohortPageRequest {
+                maximum: 257,
+                cursor: None
+            }
+            .validate_projection()
+            .is_err()
+        );
+        let schema = serde_json::to_value(schemars::schema_for!(StudyCohortHeaderRequest)).unwrap();
+        assert_eq!(schema["properties"]["maximum"]["minimum"], 1);
+        assert_eq!(schema["properties"]["maximum"]["maximum"], 64);
+    }
+
     #[test]
     fn project_analysis_export_preserves_exact_ipc_empty_and_existing_file_rules() {
         use datafusion::arrow::{

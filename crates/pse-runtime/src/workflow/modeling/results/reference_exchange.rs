@@ -74,11 +74,13 @@ mod tests {
         let before = runtime.preparation_services().pool().reserved();
         let actual = result.reference_observations(&[selection]).unwrap();
         assert_eq!(actual.len(), 1);
+        assert_eq!(actual[0].id, selection.output);
+        assert_eq!(actual[0].quantity, row.quantity_id);
+        assert_eq!(actual[0].unit, row.unit_id);
         assert_eq!(actual[0].value.to_bits(), row.value.to_bits());
-        assert!(
-            (actual[0].value - 300.0).abs() < 1e-10,
-            "independently specified temperature root"
-        );
+        // Extraction preserves the accepted original's exact value and physical
+        // correspondence. Independent output accuracy consumes the frozen source
+        // engineering budgets in the ordinary-reference journeys.
         let physical = package
             .physical_context()
             .quantities()

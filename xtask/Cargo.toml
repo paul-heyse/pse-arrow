@@ -98,7 +98,11 @@ product-schemas = [
   "dep:pse-operations",
 ]
 package-fixtures = ["physical-admission", "product-schemas", "dep:parquet"]
-property-coolprop = ["package-fixtures", "pse-runtime/property-coolprop", "pse-backend-native/coolprop"]
+property-coolprop = [
+  "package-fixtures",
+  "pse-runtime/property-coolprop",
+  "pse-backend-native/coolprop",
+]
 
 [dependencies]
 buffa.workspace = true

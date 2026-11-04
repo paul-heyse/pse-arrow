@@ -16,68 +16,25 @@ use pse_math::convexity::ConvexityPolicy;
 use pse_model::{document::Version, numerics::NumericalPolicy, scalars::FiniteBound};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// The settings of one solve. The version is required; every other field takes the
-/// default of [`SolverProfile::default`] when absent.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct SolveSettings {
-    /// Compiler stable block identities and admitted native realization overrides.
-    /// Validated against the actual compiler scope even when direct execution wins;
-    /// applied only if the governing policy selects the block mechanism.
-    #[serde(default)]
-    #[schemars(
-        with = "pse_ids::document::KeyedMap<pse_structural::incidence::BlockId, BlockSolveOverride>"
-    )]
-    pub block_overrides: BTreeMap<pse_structural::incidence::BlockId, BlockSolveOverride>,
-    /// Maximum independent ready blocks; actual capacity is admitted by the existing owner.
-    #[serde(default = "defaults::block_workers")]
-    pub block_workers: usize,
-    /// Document version.
-    pub version: Version<5>,
-    /// Requested composition; omission chooses automatic resolution without replacement starts.
-    #[serde(default)]
-    pub composition: pse_model::strategy::CompositionRequest,
-    /// Explicit reconstruction evidence class and finite refinement allowances.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reconstruction: Option<pse_backend_native::derived::ReconstructionAccuracy>,
-    /// Mathematical purpose.
-    #[serde(default = "defaults::intent")]
-    pub intent: SolveIntent,
-    /// An explicitly selected eligible backend; absent is deterministic routing.
-    #[serde(default)]
-    pub backend: Option<Backend>,
-    /// Typed settings of one backend; absent is the routed backend's native defaults.
-    #[serde(default)]
-    pub settings: Option<BackendSettings>,
-    /// Library presolve policy.
-    #[serde(default = "defaults::presolve")]
-    pub presolve: PolicyKind,
-    /// Native presolve options; an explicit policy only.
-    #[serde(default)]
-    pub presolve_options: Options,
-    /// Passes that may not silently become unavailable; an explicit policy only.
-    #[serde(default)]
-    pub required_passes: BTreeSet<Pass>,
-    /// Shared finite attempt controls.
-    #[serde(default = "defaults::controls")]
-    pub controls: Controls,
-    /// ID-keyed numerical requirements and acceptance budgets.
-    #[serde(default)]
-    pub numerics: NumericalPolicy,
-    /// Absolute eigenvalue budget of a numerical convexity assessment; with the relative
-    /// budget, it permits numerical assessment, and absent both, only exact certification.
-    #[serde(default)]
-    pub convexity_absolute: Option<f64>,
-    /// Relative eigenvalue budget of a numerical convexity assessment.
-    #[serde(default)]
-    pub convexity_relative: Option<f64>,
-    /// Physical parameter sensitivities at a regular square Root or optimizing candidate;
-    /// absent computes none. An absent request is not encoded, so a document without
-    /// one keeps its identity.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sensitivity: Option<SensitivityRequest>,
-}
+include!("settings/declarations.rs");
 
+const MINIMUM_SENSITIVITY_IDENTITIES: usize = 1;
+const SENSITIVITY_IDENTITIES_RULE: pse_model::boundary_projection::LocalRule =
+    pse_model::boundary_projection::LocalRule::Length {
+        min: MINIMUM_SENSITIVITY_IDENTITIES as u64,
+        max: u64::MAX,
+    };
+fn sensitivity_identities_schema(schema: &mut schemars::Schema) {
+    // This owner knows the field is an array; generic Length also applies to strings/maps.
+    match SENSITIVITY_IDENTITIES_RULE {
+        pse_model::boundary_projection::LocalRule::Length { min, max } => {
+            schema.ensure_object().insert("minItems".into(), min.into());
+            schema.ensure_object().insert("maxItems".into(), max.into());
+        }
+        _ => *schema = schemars::Schema::from(false),
+    }
+}
+pse_model::projection_struct! {
 /// Physical parameter sensitivities at a regular square Root or an optimization's local
 /// solution (ADR-0144; ADR-0118). Roots use qualified equality Jacobian response;
 /// optimization uses KKT-point analysis. Results use original physical coordinates and
@@ -85,18 +42,23 @@ pub struct SolveSettings {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SensitivityRequest {
+    projection: { name: "NativeSensitivityRequest", rust_path: crate::math::settings::SensitivityRequest,
+        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Declared parameters of the solved case by identity, in the order results report
     /// them; at least one, none repeated.
-    pub parameters: Vec<pse_ids::SemanticId>,
+    #[schemars(transform = sensitivity_identities_schema)]
+    pub parameters: Vec<pse_ids::SemanticId> => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [SENSITIVITY_IDENTITIES_RULE] };
     /// Also compute the reduced Hessian over the parameters: the second derivative of the
     /// optimal value.
     #[serde(default)]
-    pub reduced_hessian: bool,
+    pub reduced_hessian: bool => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Also propagate a fit's parameter covariance through the sensitivities to named
     /// variables (Plan 22 S4); absent propagates none and is not encoded.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub propagation: Option<Propagation>,
+    pub propagation: Option<Propagation> => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_model::projection_struct! {
 /// Propagation of a parameter covariance to solved variables, `Σ_y = J·Σ_θ·Jᵀ` with `J` the
 /// step's parametric sensitivities (Plan 22 S4; ADR-0118 items 1 and 11). The result holds
 /// while the sensitivities do: its validity is theirs, and the covariance's, which a fit
@@ -104,65 +66,85 @@ pub struct SensitivityRequest {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Propagation {
+    projection: { name: "NativeCovariancePropagation", rust_path: crate::math::settings::Propagation,
+        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// The covariance to propagate, as a fit run published it.
-    pub covariance: ParameterCovariance,
+    pub covariance: ParameterCovariance => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Solved variables of the case by identity, in the order of the result; at least one,
     /// none repeated.
-    pub outputs: Vec<pse_ids::SemanticId>,
+    #[schemars(transform = sensitivity_identities_schema)]
+    pub outputs: Vec<pse_ids::SemanticId> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [SENSITIVITY_IDENTITIES_RULE] };
 }
+}
+pse_model::projection_struct! {
 /// A parameter covariance as `runtime.parameter_covariances` publishes it.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ParameterCovariance {
+    projection: { name: "NativeParameterCovariance", rust_path: crate::math::settings::ParameterCovariance,
+        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Covariance input interpretation; required before decoding its body.
-    pub version: Version<1>,
+    pub version: Version<1> => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// A qualified fit reference or explicit external statistical assumptions.
-    pub origin: CovarianceOrigin,
+    pub origin: CovarianceOrigin => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// The fitted parameters by identity, in the order of `values`.
-    pub parameters: Vec<pse_ids::SemanticId>,
+    #[schemars(transform = sensitivity_identities_schema)]
+    pub parameters: Vec<pse_ids::SemanticId> => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [SENSITIVITY_IDENTITIES_RULE] };
     /// `Σ_θ` row-major, in the parameters' units.
-    pub values: Vec<FiniteBound>,
+    pub values: Vec<FiniteBound> => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Positive coordinate scales in those same units, in parameter order.
     /// Fit inputs use their recorded scales; external inputs declare their scales.
-    pub scales: Vec<FiniteBound>,
+    pub scales: Vec<FiniteBound> => { tag: 5, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Complete quantity contracts and representation units, in parameter order.
-    pub parameter_quantities: Vec<pse_ids::SemanticId>,
+    pub parameter_quantities: Vec<pse_ids::SemanticId> => { tag: 6, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Representation unit of each matrix row/column and its coordinate scale.
-    pub parameter_units: Vec<pse_ids::SemanticId>,
+    pub parameter_units: Vec<pse_ids::SemanticId> => { tag: 7, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     // Deserialization cannot create evidence. A fit payload is reconciled against
     // actual immutable results before this process-local authority is issued.
+    @local {
     #[serde(skip)]
     #[schemars(skip)]
-    pub(crate) verified: Option<std::sync::Arc<VerifiedFitCovariance>>,
+    pub(crate) verified: Option<std::sync::Arc<VerifiedFitCovariance>> = None
+        => check: |_, _| Ok::<(), pse_model::boundary_projection::ValidationError>(());
+    }
+}
 }
 
+pse_model::projection_struct! {
 /// Exact canonical selection of the fit that owns the covariance.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FitCovarianceRecord {
+    projection: { name: "NativeFitCovarianceRecord", rust_path: crate::math::settings::FitCovarianceRecord,
+        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Native canonical run key.
-    pub run: String,
+    pub run: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Exact native attempt key; latest-result substitution is not allowed.
-    pub attempt: String,
+    pub attempt: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_model::projection_enum! {
 /// Statistical provenance is independent of matrix admissibility.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CovarianceOrigin {
+    projection: { name: "NativeCovarianceOrigin", rust_path: crate::math::settings::CovarianceOrigin,
+        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Resolve or reconcile actual qualified fit content and its local validity.
     QualifiedFit {
         /// Scientific run identity, checked against the selected actual fit.
-        run_id: pse_model::generated::identities::RunId,
+        run_id: pse_model::generated::identities::RunId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
         /// Absent only for a still-owned in-process fit; a decoded reference then refuses.
-        record: Option<FitCovarianceRecord>,
-    },
+        record: Option<FitCovarianceRecord> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    } => 1;
     /// Caller-declared covariance with uncertified statistical provenance.
     External {
         /// Attribution label; it never identifies a certified fit.
-        label: String,
+        label: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
         /// Explicit statistical assumptions of this external input.
-        assumptions: Vec<String>,
-    },
+        assumptions: Vec<String> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    } => 2;
+}
 }
 
 #[derive(Debug)]
@@ -172,6 +154,85 @@ pub(crate) struct VerifiedFitCovariance {
     pub(crate) physical: pse_ids::ContentHash,
     pub(crate) validity: pse_model::generated::structures::LocalValidity,
     pub(crate) _owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+}
+
+#[cfg(test)]
+mod covariance_projection_tests {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "source-owned passive covariance codec controls"
+    )]
+    use super::*;
+    use pse_model::boundary_projection::{
+        ProjectionGraph, ProjectionRecord, ValidateProjection as _,
+    };
+
+    #[test]
+    fn covariance_projection_preserves_native_bytes_without_granting_fit_proof() {
+        let parameter = pse_ids::SemanticId::from_bytes([1; 16]);
+        let mut covariance = ParameterCovariance::external(
+            vec![parameter],
+            vec![pse_ids::SemanticId::from_bytes([2; 16])],
+            vec![pse_ids::SemanticId::from_bytes([3; 16])],
+            vec![FiniteBound::try_new(2.0).unwrap()],
+            vec![FiniteBound::try_new(1.0).unwrap()],
+            "external".into(),
+            vec!["declared".into()],
+        );
+        covariance.origin = CovarianceOrigin::QualifiedFit {
+            run_id: pse_model::generated::identities::RunId::from_bytes([4; 16]),
+            record: Some(FitCovarianceRecord {
+                run: "original-fit".into(),
+                attempt: "original-attempt".into(),
+            }),
+        };
+        covariance.admit().unwrap();
+        let original = serde_json::to_vec(&covariance).unwrap();
+        let fields = covariance.into_projection_fields();
+        let decoded = ParameterCovariance::from_projection_fields(fields).unwrap();
+        decoded.validate_projection().unwrap();
+        assert_eq!(serde_json::to_vec(&decoded).unwrap(), original);
+        assert!(decoded.verified.is_none());
+        assert!(
+            decoded.verified_fit().is_err(),
+            "portable matrix data cannot grant actual fit qualification"
+        );
+        assert!(
+            !<ParameterCovariance as ProjectionRecord>::FIELD_LAYOUT
+                .iter()
+                .any(|(_, field)| *field == "verified")
+        );
+        let mut graph = ProjectionGraph::default();
+        graph.register::<ParameterCovariance>().unwrap();
+        assert!(
+            !graph
+                .definitions()
+                .keys()
+                .any(|name| name.contains("VerifiedFit"))
+        );
+    }
+
+    #[test]
+    fn sensitivity_projection_preserves_native_defaults_and_nonempty_identity_contract() {
+        let parameter = pse_ids::SemanticId::from_bytes([5; 16]);
+        let value = serde_json::json!({ "parameters": [parameter] });
+        let native: SensitivityRequest = serde_json::from_value(value).unwrap();
+        native.validate_projection().unwrap();
+        assert!(!native.reduced_hessian);
+        assert!(native.propagation.is_none());
+        assert_eq!(
+            serde_json::to_value(&native).unwrap(),
+            serde_json::json!({ "parameters": [parameter], "reduced_hessian": false })
+        );
+        let schema = serde_json::to_value(schemars::schema_for!(SensitivityRequest)).unwrap();
+        assert_eq!(schema["properties"]["parameters"]["minItems"], 1);
+        let empty = SensitivityRequest {
+            parameters: Vec::new(),
+            ..native
+        };
+        assert!(empty.validate_projection().is_err());
+        assert!(empty.admit(SolveIntent::Root).is_err());
+    }
 }
 impl PartialEq for ParameterCovariance {
     fn eq(&self, other: &Self) -> bool {
@@ -227,7 +288,7 @@ impl ParameterCovariance {
     pub fn admit(&self) -> Result<(), ProblemError> {
         let n = self.parameters.len();
         let distinct: BTreeSet<_> = self.parameters.iter().collect();
-        if n == 0
+        if n < MINIMUM_SENSITIVITY_IDENTITIES
             || distinct.len() != n
             || n.checked_mul(n) != Some(self.values.len())
             || self.scales.len() != n
@@ -267,7 +328,9 @@ impl SensitivityRequest {
             return Err(ProblemError::Contract("a root response supports parameter sensitivities; reduced Hessians and covariance propagation require optimization".into()));
         }
         let distinct: BTreeSet<_> = self.parameters.iter().collect();
-        if self.parameters.is_empty() || distinct.len() != self.parameters.len() {
+        if self.parameters.len() < MINIMUM_SENSITIVITY_IDENTITIES
+            || distinct.len() != self.parameters.len()
+        {
             return Err(ProblemError::Contract(
                 "a sensitivity request names at least one parameter, none repeated".into(),
             ));
@@ -280,7 +343,7 @@ impl SensitivityRequest {
                 .parameters
                 .iter()
                 .any(|p| !distinct.contains(p))
-                || outputs.is_empty()
+                || outputs.len() < MINIMUM_SENSITIVITY_IDENTITIES
                 || outputs.len() != propagation.outputs.len()
             {
                 return Err(ProblemError::Contract(
@@ -292,21 +355,6 @@ impl SensitivityRequest {
     }
 }
 
-/// Native realization and finite work controls of one compiler-issued block.
-/// Physical numerical meaning, intent, branch permission and authored start stay inherited.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct BlockSolveOverride {
-    /// Explicit eligible backend; omission uses contextual Auto selection.
-    #[serde(default)]
-    pub backend: Option<Backend>,
-    /// Typed settings admitted against this actual block.
-    #[serde(default)]
-    pub settings: Option<BackendSettings>,
-    /// Optional finite controls within the original aggregate allowance.
-    #[serde(default)]
-    pub controls: Option<Controls>,
-}
 impl BlockSolveOverride {
     #[cfg(any(feature = "solver-kinsol", test))]
     pub(crate) fn apply(&self, original: &SolverProfile) -> Result<SolverProfile, ProblemError> {

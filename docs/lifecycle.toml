@@ -6655,7 +6655,12 @@ status_column = 1
 path = "docs/plans/64-process-simulator-target.md"
 name = "proto-improvement-dispositions"
 heading = "Proto improvement dispositions"
-headers = ["Finding reference", "Disposition", "Decision / work owner", "Required evidence or trigger"]
+headers = [
+  "Finding reference",
+  "Disposition",
+  "Decision / work owner",
+  "Required evidence or trigger",
+]
 kind = "finding"
 id_column = 0
 id_pattern = '^(I[0-9]+)'
@@ -6849,7 +6854,7 @@ kind = "depends-on"
 path = "docs/plans/65-proto-integrated-target.md"
 name = "package-state"
 heading = "Package state"
-headers = ["ID","Status","Prerequisites","Completion"]
+headers = ["ID", "Status", "Prerequisites", "Completion"]
 kind = "packet"
 id_column = 0
 id_pattern = '^(P[0-9]+)'
@@ -6860,7 +6865,12 @@ status_column = 1
 path = "docs/plans/65a-contract-foundations-and-generation.md"
 name = "package-state"
 heading = "Packages and readiness"
-headers = ["Package","Status","Consumes → delivers","Migration, deletion and targeted acceptance"]
+headers = [
+  "Package",
+  "Status",
+  "Consumes → delivers",
+  "Migration, deletion and targeted acceptance",
+]
 kind = "packet"
 id_column = 0
 id_pattern = '^(A[0-9]+)'
@@ -6871,7 +6881,12 @@ status_column = 1
 path = "docs/plans/65b-representation-validation-and-interpretation.md"
 name = "package-state"
 heading = "Packages"
-headers = ["Package","Status","Inputs → deliverable","Migration/deletion and targeted acceptance"]
+headers = [
+  "Package",
+  "Status",
+  "Inputs → deliverable",
+  "Migration/deletion and targeted acceptance",
+]
 kind = "packet"
 id_column = 0
 id_pattern = '^(B[0-9]+)'
@@ -6882,7 +6897,7 @@ status_column = 1
 path = "docs/plans/65c-storage-projections-and-history.md"
 name = "package-state"
 heading = "Packages and dependencies"
-headers = ["ID","Status","Prerequisite","Result and completion obligation"]
+headers = ["ID", "Status", "Prerequisite", "Result and completion obligation"]
 kind = "packet"
 id_column = 0
 id_pattern = '^(C[0-9]+)'
@@ -6893,7 +6908,12 @@ status_column = 1
 path = "docs/plans/65d-local-operations-and-services.md"
 name = "package-state"
 heading = "Packages"
-headers = ["ID","Status","Prerequisite","Delivered behavior, migration and discriminating acceptance"]
+headers = [
+  "ID",
+  "Status",
+  "Prerequisite",
+  "Delivered behavior, migration and discriminating acceptance",
+]
 kind = "packet"
 id_column = 0
 id_pattern = '^(D[0-9]+)'
@@ -6904,7 +6924,7 @@ status_column = 1
 path = "docs/plans/65e-scientific-portability-and-execution.md"
 name = "package-state"
 heading = "Packages and migration"
-headers = ["ID","State","Prerequisite","Delivery and targeted acceptance"]
+headers = ["ID", "State", "Prerequisite", "Delivery and targeted acceptance"]
 kind = "packet"
 id_column = 0
 id_pattern = '^(E[0-9]+)'
@@ -6915,7 +6935,7 @@ status_column = 1
 path = "docs/plans/65f-diagnostics-and-result-delivery.md"
 name = "package-state"
 heading = "Packages"
-headers = ["ID","State","Prerequisite","Delivery and targeted acceptance"]
+headers = ["ID", "State", "Prerequisite", "Delivery and targeted acceptance"]
 kind = "packet"
 id_column = 0
 id_pattern = '^(F[0-9]+)'
@@ -6926,7 +6946,7 @@ status_column = 1
 path = "docs/plans/65g-code-intelligence-and-client-tooling.md"
 name = "package-state"
 heading = "Packages and acceptance"
-headers = ["ID","State","Prerequisite","Delivery and targeted acceptance"]
+headers = ["ID", "State", "Prerequisite", "Delivery and targeted acceptance"]
 kind = "packet"
 id_column = 0
 id_pattern = '^(G[0-9]+)'
@@ -6937,7 +6957,7 @@ status_column = 1
 path = "docs/plans/65h-integration-and-qualification.md"
 name = "package-state"
 heading = "Package state"
-headers = ["ID","Status","Prerequisites","Completion"]
+headers = ["ID", "Status", "Prerequisites", "Completion"]
 kind = "packet"
 id_column = 0
 id_pattern = '^(H[0-9]+)'
@@ -6970,7 +6990,12 @@ status_column = 1
 path = "docs/plans/65-proto-integrated-target.md"
 name = "improvement-dispositions"
 heading = "Improvement recommendation dispositions"
-headers = ["Recommendation", "Disposition", "Work owner", "Completion or settling evidence"]
+headers = [
+  "Recommendation",
+  "Disposition",
+  "Work owner",
+  "Completion or settling evidence",
+]
 kind = "finding"
 id_column = 0
 id_pattern = '^(I[0-9]+)'

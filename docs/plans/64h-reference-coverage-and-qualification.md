@@ -53,8 +53,8 @@ Reuse existing case/source declarations, conformance/reference exchange and reta
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | H01 | in-progress | Accepted RC01 scope and current case/register sources | [Source/configuration crosswalk](64h-required-process-population.md) supplies D–G selections and gaps; full inherited/parameterized population, recursive closure and exact executable environment remain open |
-| H02 | in-progress | H01 first-case slice; ordinary-data and formulation selection from 64b/64c | Actual independent ordinary thermodynamic configuration and input/datum controls work; complete process construction, output correspondence and candidate controls remain open |
-| H03 | planned | H02; complete native A–C journeys and consumed F01/F02/F03 contracts | Packet D establishes complete outputs, intended failure correspondence, original physical checks and exact retained readback |
+| H02 | in-progress | H01 first-case slice; ordinary-data and formulation selection from 64b/64c | Independent ordinary property, three exchanger and recycle/intended-failure reference construction tested; complete native/reference correspondence and candidate mismatch controls remain open |
+| H03 | in-progress | H02; complete native A–C journeys and consumed F01/F02/F03 contracts | Binary case/output producers and source-custody controls implemented; five complete native/reference cases, mismatch controls, original physical checks and retained canonical readback remain unqualified |
 | H04 | planned | H01 population; selected 64d–64g scientific capabilities | Configuration, property, unit, workflow and extension acceptance closes each delivered family at its actual scope |
 | H05 | planned | Selected H03/H04 outcomes; applicable C07/G08 corrections; original execution/persistence owners | Relevant assembled native/operational journeys, interruption and deployment support claims are qualified without duplicating other plans' status |
 | H06 | planned | Selected quality-equivalent cases and a concrete benefit/capacity question | Representative cold/reuse/structural/study/trajectory measurements answer the claim with original failures and conditions retained |
@@ -167,6 +167,38 @@ expected failed-stage solver warning and numerical candidate remain attributed d
 No native differential comparison is established by these reference-only tests. Complete
 native/reference input/output mapping, negative controls across all five cases and original
 canonical readback remain H02/H03 work.
+
+### Proto reference implementation checkpoint — 2026-11-04
+
+**Implemented:** source-owned case/input and output contracts, generated binary exchange,
+an independent Python producer, and the native ordinary-case comparison path. The native
+path captures the exact manifest/source bytes before admission, uses those same bytes for
+construction, verifies source identity, and retains custody through bounded encoding,
+foreign execution and returned diagnostics. Output budgets are frozen from original
+quantity/unit and analytically meaningful numerical contexts before candidate/reference
+values are read; native solver convergence does not supply comparison allowances.
+
+**Tested, scoped:** the earlier seven independent IDAES/Pyomo/Ipopt oracle controls above
+establish reference construction, not native agreement. The later 36-test native runtime
+selector includes `workflow::modeling::ordinary_reference::tests` and
+`reference_exchange::tests`: original source/extent/custody, numeric-context and selected
+scalar metadata/unknown-field/refusal controls passed with the then-linked runtime graph,
+zero failures against zero. This does not execute the five complete scientific comparisons
+or qualify later service/session changes.
+
+**Not run:** complete binary native/reference comparisons for `exchanger_design`,
+`exchanger_rating`, `exchanger_arithmetic`, `ideal_recycle` and
+`overheated_recycle_failure`; the independent binary mutation/mismatch suite using their
+fresh retained contracts; and original canonical report/readback acceptance. The existing
+Python structural controls and generated contracts do not substitute for those runs.
+Explicitly prepare/select the isolated reference interpreter and retained-contract output
+directory before executing the comparison tests. The now-expanded ordinary Python test
+population requires those native-produced inputs; the historical seven-test result is
+not a pass for the expanded population.
+
+H01's complete inherited/parameterized population, recursive artifact closure and exact
+executable prerequisites remain open. H04–H07 retain their original family, operational,
+measurement and final scope-end obligations. No full H package is completed by this checkpoint.
 
 ## H04 — Close configurations and scientific workflows
 

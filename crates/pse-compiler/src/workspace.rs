@@ -56,7 +56,8 @@ pub fn physical_identity(
 }
 pse_model::projection_struct! {
 /// Consumed compilation controls, separate from semantic preparation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Profile {
     projection: { name: "CompilerProfile", version: 1, direction: pse_model::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };

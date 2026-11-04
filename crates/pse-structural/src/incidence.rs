@@ -73,25 +73,50 @@ pub struct Part {
 #[serde(transparent)]
 pub struct BlockId(pub pse_ids::ContentHash);
 impl pse_model::boundary_projection::ProjectionType for BlockId {
-    fn projection(graph: &mut pse_model::boundary_projection::ProjectionGraph)
-        -> Result<pse_model::boundary_projection::TypeRef, pse_model::boundary_projection::ProjectionError>
-    {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
         use pse_model::boundary_projection::{Direction, Field, LocalRule, Shape};
-        graph.declare::<Self>("StructuralBlockId", file!(), 1, Direction::Both, &[], &[], |graph|
-            Ok(Shape::Record(vec![Field::of::<pse_ids::ContentHash>(graph, "id", 1,
-                Direction::Both, vec![LocalRule::Required])?])))
+        graph.declare::<Self>(
+            "StructuralBlockId",
+            file!(),
+            1,
+            Direction::Both,
+            &[],
+            &[],
+            |graph| {
+                Ok(Shape::Record(vec![Field::of::<pse_ids::ContentHash>(
+                    graph,
+                    "id",
+                    1,
+                    Direction::Both,
+                    vec![LocalRule::Required],
+                )?]))
+            },
+        )
     }
 }
 impl pse_model::boundary_projection::ProjectionRecord for BlockId {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
     type Fields = (pse_ids::ContentHash,);
-    fn into_projection_fields(self) -> Self::Fields { (self.0,) }
-    fn from_projection_fields((id,): Self::Fields) -> Result<Self, pse_model::boundary_projection::AdapterError> { Ok(Self(id)) }
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (id,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(id))
+    }
 }
 impl pse_model::boundary_projection::ValidateProjection for BlockId {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
-    fn validate_at(&self, _: &str) -> Result<(), pse_model::boundary_projection::ValidationError> { Ok(()) }
+    fn validate_at(&self, _: &str) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl BlockId {
     /// Canonicalize membership before framing; layout order is not identity.

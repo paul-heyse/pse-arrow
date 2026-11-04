@@ -291,14 +291,12 @@ async fn scientific_equipment_joint_exchanger_fit_recovers_shared_coefficient_fr
     let source_policy = &executed.problem.numerics.policy;
     let experiment = executed.problem.declaration.experiments[0].experiment_id;
     let mut retained = source_policy.clone();
-    modeling::retain_experiment_numerics(&mut retained, source_policy, experiment, &[])
-        .unwrap();
+    modeling::retain_experiment_numerics(&mut retained, source_policy, experiment, &[]).unwrap();
     assert_eq!(retained.engineering_rules, source_policy.engineering_rules);
     let mut conflicting = source_policy.clone();
     conflicting.engineering_rules[0].physical_allowance = Some(123.0);
     assert!(
-        modeling::retain_experiment_numerics(&mut retained, &conflicting, experiment, &[])
-            .is_err()
+        modeling::retain_experiment_numerics(&mut retained, &conflicting, experiment, &[]).is_err()
     );
     assert_original_physics(&executed);
     let fitted = report(&executed.result);

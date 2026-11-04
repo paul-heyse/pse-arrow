@@ -15,7 +15,7 @@ use std::{
 };
 
 /// Count serialization without retaining a second descriptor, and stop at the bound.
-pub(in crate::workflow) fn document_extent(
+pub(crate) fn document_extent(
     value: &impl serde::Serialize,
     limit: usize,
 ) -> Result<usize, WorkflowError> {
@@ -56,35 +56,51 @@ pub(in crate::workflow) fn document_extent(
     Ok(counter.bytes)
 }
 
+pse_model::projection_struct! {
 /// A finite structural dimension. Alternatives are edits against the one admitted base.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceChoice {
+    projection: { name: "StudySourceChoice", rust_path: crate::workflow::SourceChoice,
+        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Ordered alternatives; ordering is part of ordinal reconstruction.
-    pub alternatives: Vec<SourceDelta>,
+    pub alternatives: Vec<SourceDelta> => { tag: 1, direction: pse_model::boundary_projection::Direction::Both,
+        rules: [pse_model::boundary_projection::LocalRule::Length { min: 1, max: super::MAXIMUM_STUDY_POINTS as u64 }] };
 }
+}
+pse_model::projection_struct! {
 /// One selected Cartesian ordinal and its explicit scientific intent.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SelectedStudyVariant {
+    projection: { name: "SelectedStudyVariant", rust_path: crate::workflow::SelectedStudyVariant,
+        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Last-choice-fast mixed-radix ordinal, independent of visible occurrence order.
-    pub ordinal: u64,
+    pub ordinal: u64 => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Operation, physically typed assignments, dependencies and original start policy.
-    pub point: StudyPoint,
+    pub point: StudyPoint => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_model::projection_struct! {
 /// Immutable finite structural alternatives, without Cartesian materialization.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyVariants {
+    projection: { name: "StudyVariants", rust_path: crate::workflow::StudyVariants,
+        version: 2, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Descriptor interpretation.
-    pub version: Version<2>,
+    pub version: Version<2> => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Complete admitted base source and physical identity.
-    pub source: OperationSource,
+    pub source: OperationSource => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Independent structural dimensions, applied in declared order.
-    pub choices: Vec<SourceChoice>,
+    pub choices: Vec<SourceChoice> => { tag: 3, direction: pse_model::boundary_projection::Direction::Both,
+        rules: [pse_model::boundary_projection::LocalRule::Length { min: 1, max: 64 }] };
     /// Explicit selected ordinals in original visible occurrence order.
-    pub selected: Vec<SelectedStudyVariant>,
+    pub selected: Vec<SelectedStudyVariant> => { tag: 4, direction: pse_model::boundary_projection::Direction::Both,
+        rules: [pse_model::boundary_projection::LocalRule::Length { min: 1, max: super::MAXIMUM_STUDY_POINTS as u64 }] };
 }
+}
+pse_model::projection_enum! {
 /// Supported study inputs share the executor; neither form expands the other.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(
@@ -94,19 +110,26 @@ pub struct StudyVariants {
     deny_unknown_fields
 )]
 pub enum StudyInputs {
+    projection: { name: "StudyInputs", rust_path: crate::workflow::StudyInputs,
+        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Explicit operation points admitted at the input boundary.
-    Explicit(Vec<StudyPoint>),
+    Explicit(Vec<StudyPoint> => { rules: [pse_model::boundary_projection::LocalRule::Length { min: 0, max: super::MAXIMUM_STUDY_POINTS as u64 }] }) => 1;
     /// Structural variants admitted only when their selected occurrence becomes ready.
-    Lazy(Box<StudyVariants>),
+    Lazy(Box<StudyVariants>) => 2;
 }
+}
+pse_model::projection_struct! {
 /// Frozen lazy input and its common output demand, retained once per study.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LazyStudyDefinition {
+    projection: { name: "LazyStudyDefinition", rust_path: crate::workflow::LazyStudyDefinition,
+        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Bounded immutable reconstructible science.
-    pub variants: StudyVariants,
+    pub variants: StudyVariants => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Original completion/detail demand.
-    pub output: StudyOutputDemand,
+    pub output: StudyOutputDemand => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl StudyVariants {
     /// Validate finite descriptor/cardinality and ordinals without constructing a variant.

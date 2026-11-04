@@ -25,6 +25,13 @@ after targeted proof. Preserve exact-parent ordering, physical interpretation, f
 reports, scoped producer permission, actual invalidation and native custody. Completion of old C
 packages does not close the new migration, nor require keeping the old production mechanism.
 
+**Current status, 2026-11-04:** C01–C09 remain complete for the original native delivery
+and its recorded qualification. I/J have a tested narrow declared-case service/client slice;
+the full Study/model/provider generated transport, operation-family migration and protected
+readback acceptance remain open. The expanded engineering world currently fails maintained
+CEL preflight under I. Those obligations stay with I/J and G08/H; they are not silently
+included in C's historical complete status or its earlier static/native test results.
+
 ## Resulting engineering behavior
 
 **Implemented and Tested:** one native path lets an engineer inspect selected process structure, edit an admitted definition/case, prepare and run supported operations, and inspect physical outputs or full failures. [64b](64b-native-scientific-intake.md) supplies Packet A's ordinary science; this companion supplies B/C and the native side of D, whose matched reference/closeout owner is [64h](64h-reference-coverage-and-qualification.md). The [coordinator](64-process-simulator-target.md) owns source baseline `1acd8c83c`, rule decisions and F01–F06 dispositions.

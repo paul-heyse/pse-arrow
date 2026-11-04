@@ -3,138 +3,201 @@
 //! Passive bounded study telemetry: exact per-attempt streams, never a study execution owner.
 use super::{
     ProgressCheckpointDocument, ProgressEventDocument, RetainedDataServices, Runtime,
-    StudyCohortMemberPage, StudyCohortPageRequest, StudyCohortReceipt, StudyCohortRequest,
-    StudyWorkbenchFilter, StudyWorkbenchHeader, WorkflowError, contract,
+    StudyCohortHeaderRequest, StudyCohortMemberPage, StudyCohortPageRequest, StudyCohortReceipt,
+    StudyCohortRequest, StudyWorkbenchFilter, StudyWorkbenchHeader, WorkflowError, contract,
 };
 use pse_columnar::CancellationToken;
+use pse_model::boundary_projection::{Direction, LocalRule, ValidateProjection as _};
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
+const OBSERVED_MEMBERS: LocalRule = LocalRule::UnsignedRange { min: 1, max: 64 };
+const OBSERVED_EVENTS: LocalRule = LocalRule::UnsignedRange { min: 1, max: 512 };
+const MAXIMUM_OBSERVED_SOURCES: usize = 64;
+const OBSERVED_SOURCES: LocalRule = LocalRule::Length {
+    min: 0,
+    max: MAXIMUM_OBSERVED_SOURCES as u64,
+};
+const OBSERVED_EVENT_OFFSET: LocalRule = LocalRule::UnsignedRange { min: 0, max: 512 };
+fn observed_members_schema(schema: &mut schemars::Schema) {
+    use schemars::transform::Transform as _;
+    let mut rule = OBSERVED_MEMBERS;
+    rule.transform(schema);
+}
+fn observed_events_schema(schema: &mut schemars::Schema) {
+    use schemars::transform::Transform as _;
+    let mut rule = OBSERVED_EVENTS;
+    rule.transform(schema);
+}
+fn observed_sources_schema(schema: &mut schemars::Schema) {
+    use schemars::transform::Transform as _;
+    let mut rule = OBSERVED_SOURCES;
+    rule.transform(schema);
+}
+fn observed_offset_schema(schema: &mut schemars::Schema) {
+    use schemars::transform::Transform as _;
+    let mut rule = OBSERVED_EVENT_OFFSET;
+    rule.transform(schema);
+}
+pse_model::projection_struct! {
 /// Selected study and bounded observation allowance. These controls never govern science.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct StudyObservationRequest {
+    projection: { name: "StudyObservationRequest", rust_path: crate::workflow::StudyObservationRequest,
+        version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Exact existing study key.
-    pub study: String,
+    pub study: String => { tag: 1, direction: Direction::Both, rules: [] };
     /// Maximum complete selected point population, from one through 64.
-    pub maximum_members: usize,
+    #[schemars(transform = observed_members_schema)]
+    pub maximum_members: usize => { tag: 2, direction: Direction::Both, rules: [OBSERVED_MEMBERS] };
     /// Maximum events returned per poll, from one through 512.
-    pub maximum_events: usize,
+    #[schemars(transform = observed_events_schema)]
+    pub maximum_events: usize => { tag: 3, direction: Direction::Both, rules: [OBSERVED_EVENTS] };
+}
 }
 impl StudyObservationRequest {
     pub(crate) fn validate(&self) -> Result<(), WorkflowError> {
-        if !(1..=64).contains(&self.maximum_members) || !(1..=512).contains(&self.maximum_events) {
-            return Err(contract("observer capture allowance outside bounds"));
-        }
-        Ok(())
+        self.validate_projection().map_err(|error| {
+            WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
+        })
     }
 }
+pse_model::projection_struct! {
 /// Original immutable selection binds a cursor independently from mutable metadata revisions.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct StudyObservationContext {
+    projection: { name: "StudyObservationContext", rust_path: crate::workflow::StudyObservationContext,
+        version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Exact parent execution.
-    pub run: String,
+    pub run: String => { tag: 1, direction: Direction::Both, rules: [] };
     /// Exact original source revision.
-    pub source: String,
+    pub source: String => { tag: 2, direction: Direction::Both, rules: [] };
     /// Exact original physical source.
-    pub physical_revision: Option<String>,
+    pub physical_revision: Option<String> => { tag: 3, direction: Direction::Both, rules: [] };
     /// Original physical interpretation.
-    pub physical_identity: Option<String>,
+    pub physical_identity: Option<String> => { tag: 4, direction: Direction::Both, rules: [] };
     /// Original frozen engineering context.
-    pub context: Option<String>,
+    pub context: Option<String> => { tag: 5, direction: Direction::Both, rules: [] };
 }
+}
+pse_model::projection_struct! {
 /// Position in one exact attempt, with separate native source and durable batch clocks.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyObservationPosition {
+    projection: { name: "StudyObservationPosition", rust_path: crate::workflow::StudyObservationPosition,
+        version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Exact original execution.
-    pub run: String,
+    pub run: String => { tag: 1, direction: Direction::Both, rules: [] };
     /// Exact original attempt; retries create another position.
-    pub attempt: String,
+    pub attempt: String => { tag: 2, direction: Direction::Both, rules: [] };
     /// Actual canonical attempt generation.
-    pub attempt_generation: u64,
+    pub attempt_generation: u64 => { tag: 3, direction: Direction::Both, rules: [] };
     /// Actual point metadata revision, absent for parent summary.
-    pub metadata_revision: Option<u64>,
+    pub metadata_revision: Option<u64> => { tag: 4, direction: Direction::Both, rules: [] };
     /// Actual numerical source generation, unavailable for remote live observations.
-    pub source_generation: Option<u64>,
+    pub source_generation: Option<u64> => { tag: 5, direction: Direction::Both, rules: [] };
     /// Last actually observed source sequence; never a timestamp.
-    pub source_sequence: u64,
+    pub source_sequence: u64 => { tag: 6, direction: Direction::Both, rules: [] };
     /// Next immutable terminal progress batch.
-    pub batch: u64,
+    pub batch: u64 => { tag: 7, direction: Direction::Both, rules: [] };
     /// Next event inside that batch.
-    pub offset: usize,
+    #[schemars(transform = observed_offset_schema)]
+    pub offset: usize => { tag: 8, direction: Direction::Both, rules: [OBSERVED_EVENT_OFFSET] };
     /// Highest consumed durable append sequence, distinct from source sequence.
-    pub durable_sequence: Option<i64>,
+    pub durable_sequence: Option<i64> => { tag: 9, direction: Direction::Both, rules: [] };
     /// Terminal history was exhausted under its original reader.
-    pub history_complete: bool,
+    pub history_complete: bool => { tag: 10, direction: Direction::Both, rules: [] };
 }
+}
+pse_model::projection_struct! {
 /// Portable reconnect coordinates; decoding grants no result or cancellation authority.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyObservationCursor {
+    projection: { name: "StudyObservationCursor", rust_path: crate::workflow::StudyObservationCursor,
+        version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Exact canonical issuer.
-    pub issuing_store: String,
+    pub issuing_store: String => { tag: 1, direction: Direction::Both, rules: [] };
     /// Exact original observation selection and limits.
-    pub request: StudyObservationRequest,
+    pub request: StudyObservationRequest => { tag: 2, direction: Direction::Both, rules: [LocalRule::Required] };
     /// Exact scientific and engineering context.
-    pub context: StudyObservationContext,
+    pub context: StudyObservationContext => { tag: 3, direction: Direction::Both, rules: [LocalRule::Required] };
     /// Original parent and retry sources; older attempts remain present.
-    pub sources: Vec<StudyObservationPosition>,
+    #[schemars(transform = observed_sources_schema)]
+    pub sources: Vec<StudyObservationPosition> => { tag: 4, direction: Direction::Both, rules: [OBSERVED_SOURCES] };
 }
+}
+pse_model::projection_enum! {
 /// Explicit continuity statement for one selected source in this poll.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum StudyObservationContinuity {
+    projection: { name: "StudyObservationContinuity", rust_path: crate::workflow::StudyObservationContinuity,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Actual contiguous available source history after the captured position.
-    CatchUp,
+    CatchUp => 1;
     /// Prefix or intervening samples are unavailable; current state is a resynchronization.
-    GapCurrentResync,
+    GapCurrentResync => 2;
     /// No local numeric telemetry owner exists for this ongoing remote attempt.
-    LiveNumericsUnavailable,
+    LiveNumericsUnavailable => 3;
     /// Selected attempt has no retained numerical history.
-    HistoryUnavailable,
+    HistoryUnavailable => 4;
 }
+}
+pse_model::projection_struct! {
 /// A source-local page; ordering across sources has no global causal interpretation.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyObservedSource {
+    projection: { name: "StudyObservedSource", rust_path: crate::workflow::StudyObservedSource,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Exact original run/attempt position after this page.
-    pub position: StudyObservationPosition,
+    pub position: StudyObservationPosition => { tag: 1, direction: Direction::Output, rules: [] };
     /// Actual source continuity, independent from scientific outcome.
-    pub continuity: StudyObservationContinuity,
+    pub continuity: StudyObservationContinuity => { tag: 2, direction: Direction::Output, rules: [] };
     /// Original whole numerical observations in their original source order.
-    pub events: Vec<ProgressEventDocument>,
+    pub events: Vec<ProgressEventDocument> => { tag: 3, direction: Direction::Output, rules: [LocalRule::Length { min: 0, max: 512 }] };
     /// Current live checkpoint when the local original owner is attached.
-    pub checkpoint: Option<ProgressCheckpointDocument>,
+    pub checkpoint: Option<ProgressCheckpointDocument> => { tag: 4, direction: Direction::Output, rules: [] };
     /// Original terminal writer coverage when available.
-    pub coverage: Option<super::ProgressCoverage>,
+    pub coverage: Option<super::ProgressCoverage> => { tag: 5, direction: Direction::Output, rules: [] };
     /// Original canonical refusal when retained terminal history is unavailable.
-    pub history_refusal: Option<String>,
+    pub history_refusal: Option<String> => { tag: 6, direction: Direction::Output, rules: [] };
 }
+}
+pse_model::projection_struct! {
 /// One explicitly bounded observer status page; never a complete analytical document.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyObservationStatus {
+    projection: { name: "StudyObservationStatus", rust_path: crate::workflow::StudyObservationStatus,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Exact historical native cut and counts.
-    pub receipt: StudyCohortReceipt,
+    pub receipt: StudyCohortReceipt => { tag: 1, direction: Direction::Output, rules: [] };
     /// The one explicitly selected study header.
-    pub header: StudyWorkbenchHeader,
+    pub header: StudyWorkbenchHeader => { tag: 2, direction: Direction::Output, rules: [] };
     /// One bounded original member page (observer admission remains at64).
-    pub members: StudyCohortMemberPage,
+    pub members: StudyCohortMemberPage => { tag: 3, direction: Direction::Output, rules: [] };
+    @local {
     #[serde(skip)]
     #[schemars(skip)]
-    _custody: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
+    _custody: Option<Arc<dyn std::fmt::Debug + Send + Sync>> = None
+        => check: |_, _| Ok::<(), pse_model::boundary_projection::ValidationError>(());
+    }
+}
 }
 async fn status_page(
     cohort: super::FrozenStudyCohort,
 ) -> Result<StudyObservationStatus, WorkflowError> {
     let headers = cohort
-        .header_page(StudyCohortPageRequest {
+        .header_page(StudyCohortHeaderRequest {
             maximum: 1,
             cursor: None,
         })
@@ -163,16 +226,34 @@ async fn status_page(
         _custody: Some(Arc::new((headers._owner, cohort))),
     })
 }
+pse_model::projection_struct! {
 /// One bounded read-only poll and its exact reconnect position.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyObservationPage {
+    projection: { name: "StudyObservationPage", rust_path: crate::workflow::StudyObservationPage,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Canonical compact status with actual point metadata revisions.
-    pub status: StudyObservationStatus,
+    pub status: StudyObservationStatus => { tag: 1, direction: Direction::Output, rules: [] };
     /// Bounded selected owner observations.
-    pub sources: Vec<StudyObservedSource>,
+    pub sources: Vec<StudyObservedSource> => { tag: 2, direction: Direction::Output, rules: [OBSERVED_SOURCES] };
     /// Exact next reconnect position.
-    pub cursor: StudyObservationCursor,
+    pub cursor: StudyObservationCursor => { tag: 3, direction: Direction::Output, rules: [] };
+}
+}
+impl StudyObservationPage {
+    /// Retain the actual native frozen cut and selected metadata while encoding this page.
+    /// A decoded portable page has no original custody and gains no result capability here.
+    #[must_use]
+    pub fn payload_owner(&self) -> Option<Arc<dyn pse_columnar::PayloadOwner>> {
+        if self.status._custody.is_none() && self.status.members.payload_owner().is_none() {
+            return None;
+        }
+        Some(Arc::new((
+            self.status._custody.clone(),
+            self.status.members.payload_owner(),
+        )))
+    }
 }
 /// Observer resources contain no study handle, worker, cancellation lease or dispatch route.
 #[derive(Debug)]
@@ -228,6 +309,9 @@ impl RetainedDataServices {
         let issuer = self.canonical_store()?.issuing_store()?.to_owned();
         let cursor = match cursor {
             Some(cursor) => {
+                cursor.validate_projection().map_err(|error| {
+                    WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
+                })?;
                 if cursor.issuing_store != issuer
                     || cursor.request != request
                     || cursor.context != selected
@@ -236,13 +320,9 @@ impl RetainedDataServices {
                         "observer cursor issuer or exact selection differs",
                     ));
                 }
-                if cursor.sources.len() > 64 {
-                    return Err(contract("observer cursor source bound"));
-                }
                 let mut keys = std::collections::BTreeSet::new();
                 for source in &cursor.sources {
                     if !keys.insert((&source.run, &source.attempt))
-                        || source.offset > 512
                         || source.run != selected.run
                             && !status
                                 .members
@@ -386,7 +466,9 @@ impl StudyObserver {
                 .canonical_attempt_page(&run, None, generation)
                 .await?;
             // Refuse an incomplete retry population rather than silently dropping earlier attempts.
-            if page.len() == 64 || attempts.len() + page.len() > 64 {
+            if page.len() == MAXIMUM_OBSERVED_SOURCES
+                || attempts.len() + page.len() > MAXIMUM_OBSERVED_SOURCES
+            {
                 return Err(contract(
                     "observer attempt population exceeds bound; narrower observation required",
                 ));

@@ -156,10 +156,14 @@ pub use study_demand::{
     CompactStudyResult, StudyDetailDemand, StudyMemberDemand, StudyOutputDemand,
 };
 mod study_variants;
+#[cfg(feature = "engineering-service")]
+pub(crate) use study_variants::document_extent as bounded_study_document_extent;
 pub use study_variants::{
     LazyStudyDefinition, SelectedStudyVariant, SourceChoice, StudyInputs, StudyVariants,
 };
 mod study;
+mod study_issuance;
+pub use study_issuance::{IssuedStudyIdentity, StudyCreationRequest};
 mod study_diagnostics;
 pub use study_diagnostics::{
     ManagedDetailOwner, ManagedDetailReference, ManagedDetailReferenceState, ManagedDetailRefusal,
@@ -183,10 +187,11 @@ pub use study::{
     StudyPointDefinition, StudyPointPolicy, StudyRequest, StudyResults, StudyStatus,
 };
 pub use study_operations::{
-    AdmittedHorizonValues, ArrivalDocument, CaseOperation, ControllerOperation, EstimatorInput,
-    EstimatorOperation, FitOperation, HorizonBinding, HorizonInputDocument, HorizonOperation,
-    HorizonSignalDocument, OperationRequest, OperationSource, PreparationSettings,
-    PreparedStudyOperation, SimulationOperation, StudyOperation, StudyResultRole,
+    AdmittedHorizonValues, ArrivalDocument, CaseOperation, ControllerMove, ControllerOperation,
+    ControllerPrediction, EstimatorInput, EstimatorMeasurement, EstimatorOperation, FitOperation,
+    HorizonBinding, HorizonInputDocument, HorizonOperation, HorizonSignalDocument,
+    OperationRequest, OperationSource, PreparationSettings, PreparedStudyOperation,
+    SimulationOperation, StudyOperation, StudyResultRole,
 };
 pub(crate) mod numerics;
 mod objectives;
@@ -269,11 +274,16 @@ mod projects_consumer_tests;
 pub(crate) use modeling::PackageAdmission;
 pub use modeling::documents::{
     ConformanceControls, DeclarationEdit, DeclarationInventory, DiagnosticSamplesControls,
-    InspectionConnection, InspectionExecution, InspectionInstance, InspectionLineage,
-    InspectionMember, InspectionPopulation, InspectionPort, JacobianDiagnosticControls,
-    KnowledgeControls, LinearDiagnosticControls, ModelingDeclarationPage,
-    ModelingDeclarationRequest, ModelingInspection, ModelingInspectionRequest,
-    PureConformanceControls, SourceDelta, SourceDocumentDelta, SourceFitDelta,
+    InspectionConnection, InspectionDomain, InspectionExecution, InspectionInstance,
+    InspectionLineage, InspectionMember, InspectionPopulation, InspectionPort,
+    JacobianDiagnosticControls, KnowledgeControls, LinearDiagnosticControls,
+    ModelingDeclarationPage, ModelingDeclarationRequest, ModelingInspection,
+    ModelingInspectionRequest, PureConformanceControls, SourceDelta, SourceDocumentDelta,
+    SourceFitDelta,
+};
+pub use modeling::{
+    ProviderInspectionEntry, ProviderInspectionOutput, ProviderInspectionPage,
+    ProviderInspectionRequest,
 };
 pub use projects::{
     ProjectDraftDelta, ProjectDraftDocuments, ProjectDraftSaveIntent, ProjectReference,
@@ -1570,10 +1580,11 @@ mod study_workbench;
 pub use study_workbench::{
     CapturedStudyRow, FrozenStudyCohort, StudyCohortAvailability, StudyCohortClassification,
     StudyCohortClassificationPage, StudyCohortCursor, StudyCohortExportRecord,
-    StudyCohortHeaderPage, StudyCohortMember, StudyCohortMemberPage, StudyCohortPageRequest,
-    StudyCohortReceipt, StudyCohortRelation, StudyCohortRequest, StudyCohortScanProgress,
-    StudyCohortScanState, StudyKpiAnalysis, StudyKpiExport, StudyKpiRequest, StudyWorkbenchCursor,
-    StudyWorkbenchFilter, StudyWorkbenchHeader, StudyWorkbenchPage, StudyWorkbenchRequest,
+    StudyCohortHeaderPage, StudyCohortHeaderRequest, StudyCohortMember, StudyCohortMemberPage,
+    StudyCohortPageRequest, StudyCohortReceipt, StudyCohortRelation, StudyCohortRequest,
+    StudyCohortScanProgress, StudyCohortScanState, StudyKpiAnalysis, StudyKpiExport,
+    StudyKpiRequest, StudyWorkbenchCursor, StudyWorkbenchFilter, StudyWorkbenchHeader,
+    StudyWorkbenchPage, StudyWorkbenchRequest,
 };
 
 mod attempt_observation;

@@ -34,7 +34,7 @@ use local::{
 };
 pub(crate) mod reload;
 
-fn checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
+pub(super) fn checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
     if cancel.token().is_cancelled() {
         Err(crate::math::MathRuntimeError::Cancelled.into())
     } else if cancel

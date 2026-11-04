@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Paul Heyse
 """Independent foreign-runtime controls over the generated reference contract."""
 
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 from google.protobuf import descriptor_pb2
 from google.protobuf.message import DecodeError

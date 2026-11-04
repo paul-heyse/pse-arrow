@@ -18,7 +18,10 @@ workspace = true
 
 [features]
 engineering-service = ["dep:http-body"]
-property-coolprop = ["pse-backend-native/coolprop", "pse-quantity/reference-package-projection"]
+property-coolprop = [
+  "pse-backend-native/coolprop",
+  "pse-quantity/reference-package-projection",
+]
 force-validate = [
   "pse-admission/force-validate",
   "pse-columnar/force-validate",
@@ -155,6 +158,7 @@ pse-operations.workspace = true
 chrono.workspace = true
 
 [dev-dependencies]
+base64.workspace = true
 proptest.workspace = true
 uuid.workspace = true
 pse-operations = { workspace = true, features = ["test-support"] }
@@ -170,7 +174,9 @@ kind = "lib"
 required-features = ["property-coolprop"]
 ownership = "preparation-only"
 inputs = ["scientific-worker"]
-scope.tests = ["scientific_worker::measurements::complete_water_calls_measure_fresh_and_reused_bindings_with_actual_reap"]
+scope.tests = [
+  "scientific_worker::measurements::complete_water_calls_measure_fresh_and_reused_bindings_with_actual_reap",
+]
 
 [[package.metadata.pse.test-fixtures]]
 id = "prepared-scientific-worker-equipment"
@@ -390,6 +396,7 @@ scope.tests = [
   "workflow::study_operations::study_operation_admission_tests::durable_origin_local_lazy_simulation_constructs_only_selected_occurrences_without_recording",
   "workflow::study_operations::study_operation_admission_tests::durable_origin_local_simulation_keeps_original_full_and_compact_results_without_recording",
   "workflow::study_tests::canonical_lazy_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement",
+  "workflow::study_tests::canonical_issued_study_retry_preserves_original_population_and_refuses_changed_intent",
   "workflow::study_tests::canonical_same_runtime_concurrent_claims_preserve_distinct_native_publication",
   "workflow::study_tests::canonical_study_cancel_preserves_distinct_unattempted_outcomes",
   "workflow::study_tests::canonical_study_cancellation_after_summary_close_fences_success",
@@ -471,6 +478,20 @@ target = "reference_covariance_exchange"
 kind = "test"
 ownership = "preparation-only"
 inputs = ["covariance-reference-python"]
+
+[[package.metadata.pse.test-fixtures]]
+id = "ordinary-reference-python"
+target = "pse_runtime"
+kind = "lib"
+ownership = "preparation-only"
+inputs = ["ordinary-reference-python"]
+scope.tests = [
+  "workflow::modeling::ordinary_delivery_tests::ordinary_reference_exchanger_design_binary_comparison",
+  "workflow::modeling::ordinary_delivery_tests::ordinary_reference_exchanger_rating_binary_comparison",
+  "workflow::modeling::ordinary_delivery_tests::ordinary_reference_exchanger_arithmetic_binary_comparison",
+  "workflow::modeling::ordinary_delivery_tests::ordinary_reference_ideal_recycle_binary_comparison",
+  "workflow::modeling::ordinary_delivery_tests::ordinary_reference_overheated_recycle_binary_comparison",
+]
 
 [[package.metadata.pse.test-fixtures]]
 id = "degeneracy-reference-python"

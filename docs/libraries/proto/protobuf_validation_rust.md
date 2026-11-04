@@ -943,3 +943,1084 @@ Buffa-specific implementation
 - Buffa implementation and code-generation guide: `https://github.com/anthropics/buffa/blob/main/docs/guide.md`
 
 The most consequential finding is that Rust now has both a hybrid Prost/Buffa validation architecture and a separate Buffa-native CEL compilation architecture. Both can enforce the same `buf.validate` schema vocabulary, but their execution models, reflection dependencies, error types, borrowed-message support, and code-generation boundaries are materially different.
+
+# Addendum: Advanced Protobuf Validation Capabilities in Rust
+
+Companion to: Protobuf Validation in Rust: prost-protovalidate, Build-Time Validation, and Prost/Buffa Integration
+
+Research date: November 3, 2026\
+Version scope: `prost-protovalidate`, `prost-protovalidate-build`, and `prost-protovalidate-types` 0.6.0; `protovalidate-buffa` 0.7.2; Buf Protovalidate schema v1.2.2 where supported by these Rust releases.
+
+This addendum extends the original reference with capabilities and semantic distinctions not developed there. It focuses on schema verification, generation-time integration, advanced validation semantics, diagnostic interoperability, and compatibility boundaries. Existing explanations of the core validation engines, standard rule families, runtime bridging, and general performance model are not repeated.
+
+## 1. Schema-level verification and validation completeness
+
+### 1.1 Buf's `PROTOVALIDATE` lint rule
+
+Protovalidate constraints are executable schema metadata. Consequently, correctness has two distinct dimensions: whether the constraints themselves are valid and whether a particular message satisfies them.
+
+Buf's `PROTOVALIDATE` lint rule performs static analysis of the first dimension, independently of the Rust runtime validator or generated validator implementations. It is included in Buf's `STANDARD` lint category.
+
+The rule checks considerably more than protobuf option syntax.
+
+| Constraint category       | Static verification capabilities                                                                                       |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| CEL expressions           | Compilation and type checking; permitted `bool` and `string` results; valid identifiers and error-message declarations |
+| Type-specific rules       | Compatibility between the annotated field type and selected constraint family                                          |
+| Contradictory rules       | Detection of certain unsatisfiable combinations, such as simultaneous `contains` and `not_contains` for the same value |
+| Redundant rules           | Detection of certain constraints rendered unnecessary by stronger constraints                                          |
+| Presence and ignore       | Invalid combinations of `required`, `IGNORE_IF_ZERO_VALUE`, `IGNORE_ALWAYS`, oneof membership, and extensions          |
+| Repeated values           | Valid cardinality bounds, compatible item constraints, and supported `unique` element types                            |
+| Maps                      | Valid key/value rules, supported key types, and compatible `min_pairs`/`max_pairs`                                     |
+| Message-level constraints | Valid CEL and mutually exclusive message-level options                                                                 |
+
+CEL rules receive additional structural checks:
+
+- Expressions must compile to an acceptable return type.
+- Boolean-returning rules require a failure message; string-returning rules must not provide a redundant static failure message.
+- Full `Rule` identifiers must be nonempty, syntactically valid, and unique within the relevant field or message rule collection.
+- Shorthand `cel_expression` entries are compiled and type-checked without requiring explicit identifiers.
+
+These checks substantially reduce the need to discover malformed constraints through failed runtime validator initialization or generated-code compilation. They do not establish that arbitrary sets of cross-field CEL conditions are jointly satisfiable; the documented contradiction analysis is narrower than general-purpose constraint solving.
+
+Composition with Rust validation. Schema linting, native code generation, and runtime validation establish different properties:
+
+| Mechanism                                               | Property established                                                                          | Important limitation                                                                            |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `buf lint` / `PROTOVALIDATE`                            | Constraint definitions pass the linter's static checks                                        | Does not prove that a particular Rust backend implements every constraint                       |
+| `prost-protovalidate-build::fail_on_runtime_only(true)` | A native validator is not accepted when its message requires unsupported execution mechanisms | Does not replace general schema linting                                                         |
+| Runtime `Validator` with prepared descriptors           | Referenced evaluator definitions can be compiled and interpreted by the configured engine     | Compilation alone does not establish that actual message values are valid                       |
+| `Validate::validate()` or `Validator::validate()`       | An individual message satisfies the constraints actually executed                             | Does not establish compatibility with earlier validation policies or external application state |
+
+The resulting distinction is between schema correctness, backend coverage, and data validity. A system can establish each separately without implementing a private validation-language compiler.
+
+Primary sources:
+
+`https://buf.build/docs/lint/rules/`
+
+`https://buf.build/docs/lint/`
+
+`https://docs.rs/prost-protovalidate-build/0.6.0/prost_protovalidate_build/struct.Builder.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://buf.build\&sz=32)
+
+Buf Docs+2
+
+### 1.2 Validation-policy evolution is separate from protobuf compatibility
+
+Protobuf schema compatibility does not imply validation-policy compatibility.
+
+For example, changing a `string.min_len` constraint from 3 to 8 leaves the protobuf wire encoding unchanged, yet changes which messages are accepted. Similarly, introducing `required`, restricting an enum's allowed values, or changing a cross-field CEL expression can reject previously valid data.
+
+Buf's built-in breaking-change rules intentionally exclude custom options because their semantics are application-defined. This includes changes to validation constraints encoded as custom protobuf options.
+
+Three compatibility dimensions therefore remain separate:
+
+| Dimension                                      | Typical verification                                                                     |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Binary/JSON and generated-source compatibility | `buf breaking` with `WIRE`, `WIRE_JSON`, `PACKAGE`, or `FILE` rules                      |
+| Internal constraint validity                   | `PROTOVALIDATE` linting                                                                  |
+| Compatibility of accepted message values       | Semantic rule comparison, representative-message testing, or custom compatibility checks |
+
+Validation-policy compatibility is also directional. A stronger rule can preserve the validity of all newly accepted messages under an older validator while rejecting values that the older validator accepted. A relaxed rule has the opposite compatibility characteristics.
+
+This matters when producers and consumers evolve independently. A producer using a weaker policy may generate messages that a stricter consumer rejects, even though the schema remains wire-compatible.
+
+An additional mechanism is available through Buf check plugins, which can implement custom lint or breaking-change rules that inspect protobuf options. They enable domain-specific compatibility analysis without modifying the standard protobuf compiler or implementing an independent schema parser.
+
+However, general CEL implication is not readily decidable for arbitrary expressions under all environments. A custom plugin can reliably enforce selected syntactic or policy restrictions without necessarily proving semantic equivalence between arbitrary old and new CEL programs.
+
+Primary sources:
+
+`https://buf.build/docs/breaking/rules/`
+
+`https://buf.build/docs/breaking/`
+
+`https://buf.build/docs/lint/`
+
+[image](https://www.google.com/s2/favicons?domain=https://buf.build\&sz=32)
+
+Buf Docs+2
+
+## 2. Advanced validation-schema semantics
+
+### 2.1 Shorthand CEL through `cel_expression`
+
+Protovalidate supports both full CEL rule definitions and the shorter `cel_expression` annotation on fields and messages.
+
+```
+message Operation {
+  uint64 requested = 1;
+  uint64 available = 2;
+
+  option (buf.validate.message).cel_expression =
+    "this.requested <= this.available";
+}
+```
+
+Unlike a full `Rule`, `cel_expression` does not require an explicitly authored `id` or `message`. Protovalidate derives its rule identity from the expression itself.
+
+This distinction affects more than schema brevity:
+
+- Full `Rule` definitions allow stable, domain-specific rule identifiers independent of the underlying expression.
+- Shorthand expressions simplify local constraints but couple diagnostic identity to expression text.
+- Changing an expression can therefore change its diagnostic identifier even when the conceptual business rule remains the same.
+- Both forms require CEL support in the Rust execution backend.
+
+The Prost-Protovalidate 0.6.0 runtime recognizes both forms. With CEL disabled, attempting to validate a message containing either form returns a `CompilationError` instead of silently ignoring the expression.
+
+Full rules consequently remain useful where stable diagnostic IDs, localization, or downstream rule identification matter. Shorthand rules are useful when concise schema-local constraints are more valuable than separately maintained identities.
+
+Sources:
+
+`https://protovalidate.com/schemas/custom-rules/`
+
+`https://docs.rs/prost-protovalidate/0.6.0/prost_protovalidate/`
+
+[image](https://www.google.com/s2/favicons?domain=https://javadoc.io\&sz=32)
+
+javadoc.io+2
+
+### 2.2 Virtual oneofs and decoded-message information
+
+Protovalidate's message-level `oneof` constraints offer capabilities beyond protobuf's native `oneof` representation.
+
+A virtual oneof can include independently declared fields, including repeated and map fields. Unlike a native oneof, it does not change the protobuf message's storage representation.
+
+Two semantics are especially important.
+
+Implicit presence. For fields that do not track presence, the zero value counts as unset when evaluating virtual-oneof membership. For repeated fields and maps, the relevant zero values are empty collections.
+
+Multiple values on the wire. Native protobuf oneof decoding generally retains the last encountered alternative when multiple alternatives appear in serialized input. A validator operating on the decoded native oneof cannot reconstruct those earlier assignments.
+
+With independent fields, a virtual oneof can observe multiple populated members after decoding and reject the combination. This provides stronger decoded-message validation for such cases, although it is not a general raw-wire auditing mechanism.
+
+Virtual-oneof membership also implicitly establishes `IGNORE_IF_ZERO_VALUE` for its member fields unless explicitly overridden. Unpopulated alternatives therefore do not ordinarily fail their own field constraints simply because another alternative was selected.
+
+The distinction is useful whenever alternatives must remain independently addressable in the protobuf representation but still satisfy a one-of constraint.
+
+Source:
+
+`https://protovalidate.com/schemas/standard-rules/`
+
+`https://github.com/bufbuild/protovalidate/blob/main/proto/protovalidate/buf/validate/validate.proto`
+
+[image](https://www.google.com/s2/favicons?domain=https://protovalidate.com\&sz=32)
+
+Protovalidate+1
+
+### 2.3 Presence-aware ignore behavior
+
+The original guide distinguishes `IGNORE_UNSPECIFIED`, `IGNORE_IF_ZERO_VALUE`, and `IGNORE_ALWAYS`. One qualification is particularly important:
+
+`IGNORE_IF_ZERO_VALUE` does not cause an explicitly present optional scalar with a zero value to bypass its validation rules.
+
+The canonical schema defines this option as a no-op for fields that track presence, where its behavior is equivalent to `IGNORE_UNSPECIFIED`.
+
+| Field representation                | Value/state       | Effect of `IGNORE_IF_ZERO_VALUE` |
+| ----------------------------------- | ----------------- | -------------------------------- |
+| Implicit-presence `string`          | `""`              | Skip field validation            |
+| Explicit-presence `optional string` | Absent            | Skip ordinary field validation   |
+| Explicit-presence `optional string` | Present with `""` | Validate the present value       |
+| Implicit-presence numeric           | `0`               | Skip field validation            |
+| Explicit-presence numeric           | Present with `0`  | Validate the present value       |
+| Repeated/map                        | Empty collection  | Skip its field-level constraints |
+
+The distinction persists even when two values appear identical in a generated Rust API. Validation semantics depend on protobuf presence information, not simply on whether a scalar equals its default.
+
+`IGNORE_ALWAYS` is stronger: it suppresses the field's validation rules, including `required`, and can suppress traversal into the validation rules of a referenced message.
+
+Source:
+
+`https://github.com/bufbuild/protovalidate/blob/main/proto/protovalidate/buf/validate/validate.proto`
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+### 2.4 Reversed numeric ranges as exclusion constraints
+
+Protovalidate deliberately supports reversed lower/upper numeric bounds. They are interpreted as an exclusion interval rather than an ordinary conjunction with no possible satisfying value.
+
+For example:
+
+```
+int32 allowed = 1 [
+  (buf.validate.field).int32 = {
+    gt: 10
+    lt: 5
+  }
+];
+```
+
+This accepts values strictly below 5 or strictly above 10. Values from 5 through 10 fail.
+
+The capability can replace a simple CEL disjunction when an allowed domain consists of two unbounded ranges separated by a forbidden interval.
+
+The exact boundary behavior depends on the chosen inclusive or exclusive operators (`gt`, `gte`, `lt`, `lte`). The result should not be simplified to an ordinary Rust expression that combines both comparisons with `&&`.
+
+Importantly, Buf's static linter recognizes this standard-rule convention; reversed bounds are not automatically classified as an invalid contradiction.
+
+Source:
+
+`https://protovalidate.com/reference/rules/`
+
+[image](https://www.google.com/s2/favicons?domain=https://protovalidate.com\&sz=32)
+
+Protovalidate
+
+### 2.5 Additional standard-rule functionality
+
+Several further rule capabilities have architectural significance.
+
+| Capability                                   | Semantics and implications                                                                                               |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `cel_expression`                             | Expression-only CEL annotations, with derived rule identity                                                              |
+| `example` fields                             | Schema-embedded example values that do not enforce validity; potentially useful for documentation and fixture generation |
+| `string.len`, `min_len`, `max_len`           | Measure Unicode code points rather than UTF-8 bytes                                                                      |
+| `string.len_bytes`, `min_bytes`, `max_bytes` | Measure encoded UTF-8 byte length                                                                                        |
+| `protobuf_fqn`                               | Validates a fully qualified protobuf name without a leading dot                                                          |
+| `protobuf_dot_fqn`                           | Validates a fully qualified protobuf name requiring the historical leading-dot form                                      |
+| `well_known_regex`                           | Includes predefined HTTP-header-name and HTTP-header-value validation                                                    |
+| `string.strict`                              | Controls strict versus permissive behavior for supported HTTP-header regular expressions                                 |
+
+Character counts are not the same as byte counts, and neither necessarily equals the number of user-perceived grapheme clusters. For example, Unicode combining marks can make a visually single character consist of multiple code points.
+
+The string-length distinctions therefore affect what is being constrained: Unicode text length, encoded storage size, or a higher-level display property not directly implemented by these standard rules.
+
+`example` annotations can make validation schemas more informative to code generators and documentation tools, but they should not be confused with test cases or guarantees. Their values are advisory, and validators do not use them to determine validity.
+
+The protobuf-FQN rules also reflect a historical versus modern protobuf naming distinction. A descriptor-processing system that uses leading-dot absolute names has a different syntactic requirement from one that uses names such as `google.protobuf.Timestamp` without the leading dot.
+
+Sources:
+
+`https://protovalidate.com/reference/rules/`
+
+`https://github.com/bufbuild/protovalidate/releases`
+
+[image](https://www.google.com/s2/favicons?domain=https://protovalidate.com\&sz=32)
+
+Protovalidate+2
+
+## 3. Runtime validator lifecycle and configuration
+
+### 3.1 Preloaded descriptors and closed-world validation
+
+`prost-protovalidate::Validator` normally prepares evaluators lazily and caches compiled rules. Version 0.6.0 additionally supports a more restrictive configuration combining:
+
+- `ValidatorOption::MessageDescriptors`
+- `ValidatorOption::DisableLazy`
+
+`MessageDescriptors` supplies descriptors whose evaluators should be prepared during validator construction. `DisableLazy` prevents the validator from accepting a previously unregistered message type by compiling a new evaluator on demand.
+
+An unknown message type then causes a compilation error.
+
+This establishes a meaningful distinction between two execution models:
+
+| Model                      | Behavior                                                       |
+| -------------------------- | -------------------------------------------------------------- |
+| Lazy descriptor discovery  | Prepare constraints as message types are encountered           |
+| Closed descriptor registry | Restrict validation to a known, preloaded set of message types |
+
+The second model is useful where an unexpected message type should be interpreted as a configuration mismatch rather than as an invitation to compile additional validation logic.
+
+It can also move some compilation work out of steady-state request processing.
+
+However, closed-world compilation is not an authorization mechanism. It establishes membership in a configured validation-schema set, not whether a caller is permitted to submit a message of that type.
+
+`AdditionalDescriptorSetBytes` provides a related but distinct capability: additional encoded descriptors for resolving custom or proprietary validation-rule extensions. The presence of those descriptors does not automatically select every message type for validation or authorize unknown constraints.
+
+Source:
+
+`https://docs.rs/prost-protovalidate/0.6.0/prost_protovalidate/enum.ValidatorOption.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+### 3.2 Per-call validation context
+
+The `ValidationOption` enum supports three per-invocation controls, independently of the validator's construction-time defaults.
+
+| Option                          | Per-call behavior                                                  |
+| ------------------------------- | ------------------------------------------------------------------ |
+| `ValidationOption::FailFast`    | Stops collecting violations after the first encountered failure    |
+| `ValidationOption::Filter(...)` | Overrides which message and field branches are validated           |
+| `ValidationOption::NowFn(...)`  | Supplies the current-time function for time-relative rules and CEL |
+
+Per-call `NowFn` is particularly relevant when the same compiled validator is reused across requests with different logical evaluation times.
+
+It permits deterministic testing, replay, and evaluation relative to an externally supplied clock context without recompiling all rule expressions or constructing separate validators for each time context.
+
+The clock function is a Rust `Arc<dyn Fn() -> Timestamp + Send + Sync>`. Its exact output is still the caller's responsibility.
+
+A filtered invocation similarly changes the scope of the assertion: a successful result means that the selected constraints passed. It does not imply that the entire message satisfies the unfiltered schema.
+
+Source:
+
+`https://docs.rs/prost-protovalidate/0.6.0/prost_protovalidate/enum.ValidationOption.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+### 3.3 Unknown constraint options and schema-version forward compatibility
+
+`ValidatorOption::AllowUnknownFields` permits constraint messages to contain unknown fields without rejecting them solely for that reason.
+
+This mechanism addresses a common version-skew scenario: the `.proto` compiler and schema registry may recognize a newer `buf.validate` option that the Rust validator does not yet implement.
+
+Allowing unknown fields can preserve compatibility with older constraint consumers. It is important, however, not to interpret this as semantic compatibility.
+
+If a new rule affects validity but the older validator does not recognize or execute it, successful validation cannot establish compliance with that newer rule.
+
+Consequently, three conditions must be kept distinct:
+
+1. A constraint can be represented in a descriptor.
+2. A validator can parse or tolerate that descriptor.
+3. A validator can enforce the constraint's actual semantics.
+
+Only the third establishes validation coverage.
+
+This distinction becomes particularly important when interoperating with evolving shared protobuf schemas or independently versioned language implementations.
+
+Source:
+
+`https://docs.rs/prost-protovalidate/0.6.0/prost_protovalidate/enum.ValidatorOption.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+## 4. Native validation generation: additional interfaces and constraints
+
+### 4.1 Descriptor input, type-location mapping, and output control
+
+`prost-protovalidate-build::Builder` exposes integration interfaces beyond its conventional file-based `build.rs` workflow.
+
+| Interface                            | Role                                                                     | Architectural significance                                                                      |
+| ------------------------------------ | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `file_descriptor_set_bytes(Vec<u8>)` | Supplies encoded descriptors directly in memory                          | Allows generation from externally prepared descriptor sets without requiring another input file |
+| `file_descriptor_set_path(...)`      | Loads a descriptor set from a filesystem path                            | Integrates with standard `prost-build` and other descriptor-producing tools                     |
+| `extern_path(proto_path, rust_path)` | Maps protobuf package paths to external Rust modules                     | Keeps validation implementations compatible with message types generated or defined elsewhere   |
+| `out_dir(...)`                       | Overrides the output directory                                           | Supports alternate generated-file placement                                                     |
+| `backend(Backend)`                   | Selects the Prost or Buffa Rust representation                           | Separates descriptor-based validation analysis from generated-message representation            |
+| `fail_on_runtime_only(true)`         | Rejects unsupported native-generation requirements                       | Makes native coverage a build-time requirement                                                  |
+| `runtime_bridge(true)`               | Generates runtime-delegating implementations for unsupported constraints | Provides a uniform `Validate` interface when using the Buffa backend                            |
+
+The important distinction is between protobuf schema identity and Rust type identity.
+
+A descriptor identifies a message by its protobuf fully qualified name. Generated Rust code must additionally know where that message's Rust type resides.
+
+For Prost, `extern_path` can supply this mapping:
+
+```
+prost_protovalidate_build::Builder::new()
+    .file_descriptor_set_bytes(descriptor_bytes)
+    .extern_path(".example.shared", "::shared_proto::example::shared")
+    .compile()?;
+```
+
+This is an illustrative configuration, not an executed example. The `extern_path` mapping must agree with the corresponding `prost-build` configuration and the actual Rust module structure.
+
+Without such alignment, a descriptor can be perfectly valid while the generated validator references a nonexistent or incorrect Rust type.
+
+This mechanism is particularly useful when protobuf definitions and their validation implementations have separate generation or publication boundaries.
+
+Source:
+
+`https://docs.rs/prost-protovalidate-build/0.6.0/prost_protovalidate_build/struct.Builder.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+### 4.2 Native-generation completeness versus implicit runtime fallback
+
+The builder's default handling of unsupported rules is deliberately diagnostic: it skips the affected implementation and emits a Cargo warning.
+
+That behavior must not be confused with a runtime fallback automatically installed into the application.
+
+Three distinct outcomes exist:
+
+| Builder configuration        | Outcome for a runtime-only message                                  |
+| ---------------------------- | ------------------------------------------------------------------- |
+| Default                      | No generated `Validate` implementation; diagnostic warning          |
+| `fail_on_runtime_only(true)` | Build-time failure                                                  |
+| Buffa `runtime_bridge(true)` | Generated `Validate` implementation delegates to runtime validation |
+
+For the default Prost backend, the dynamic validator remains a separate API and execution path. It does not automatically implement `Validate` for messages that native generation skipped.
+
+The generator also accounts for nested dependencies. If native validation of a parent message would require traversing a child whose constraints cannot be fully generated, the parent can also become runtime-only.
+
+This prevents an especially dangerous partial-generation behavior: producing a successful validation result from generated checks that omitted constraints reachable through nested messages.
+
+Completeness here is relative to the generator's supported rule set. It does not establish that validation is actually invoked on every incoming message or that a service has no alternative unchecked input path.
+
+Source:
+
+`https://docs.rs/prost-protovalidate-build/0.6.0/prost_protovalidate_build/`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+### 4.3 Runtime-bridge output constraints
+
+The Buffa runtime bridge introduces a dependency between generated source placement and descriptor embedding.
+
+When `runtime_bridge(true)` is enabled, generated code embeds the descriptor set through `include_bytes!` using a path derived from Cargo's `OUT_DIR`.
+
+Consequently:
+
+- The generated bridge requires the `prost-protovalidate` reflection feature, plus CEL support when CEL rules are present.
+- The generated validation source and embedded descriptor set must remain compatible with the expected `OUT_DIR` layout.
+- Combining the runtime bridge with a custom `out_dir` for compiled generated code is explicitly unsupported.
+- `runtime_bridge(true)` and `fail_on_runtime_only(true)` are mutually exclusive. The builder reports `Error::ConflictingOptions` if both are enabled.
+
+These are compilation and packaging constraints, not simply runtime performance considerations.
+
+There is also a semantic distinction in errors: the lower-level runtime bridge can return compilation or evaluation errors separately from ordinary validation violations. The generated `Validate` trait has a narrower `Result<(), ValidationError>` contract.
+
+Where preserving the original error categories matters, the lower-level bridge interface remains relevant.
+
+Source:
+
+`https://docs.rs/prost-protovalidate-build/0.6.0/prost_protovalidate_build/struct.Builder.html`
+
+`https://docs.rs/prost-protovalidate/0.6.0/prost_protovalidate/bridge/struct.RuntimeBridge.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+## 5. Independent Buffa validator generation: output architecture and extension points
+
+The dedicated `protoc-gen-protovalidate-buffa` generator exposes a richer code-generation interface than the original guide describes.
+
+These capabilities belong to the independent `protovalidate-buffa` ecosystem, not to `prost-protovalidate-build::Backend::Buffa`.
+
+### 5.1 Field-name compatibility through `idiomatic_field_names`
+
+Buffa supports optional idiomatic Rust field naming. The validation generator must apply corresponding conventions so its generated field accesses match those of the message generator.
+
+The option is:
+
+`idiomatic_field_names=true`
+
+It can be specified on both `protoc-gen-buffa` and `protoc-gen-protovalidate-buffa`.
+
+Buffa's naming logic accounts for collisions across the descriptor set, including imported definitions. Because generated validation code accesses concrete fields, a mismatch between these naming conventions can produce uncompilable implementations.
+
+The validator generator distinguishes two naming domains:
+
+- Rust field and accessor names: Follow the Buffa representation and its naming options.
+- Protobuf schema names: Remain authoritative for CEL expressions and structured validation field paths.
+
+This separation is valuable: Rust-specific naming normalization need not alter schema-authored CEL semantics or external diagnostic field identifiers.
+
+Oneof enum and variant naming is unaffected by this option.
+
+The project documents using `strategy: all` for both generators when consistent global naming and collision analysis are required.
+
+Source:
+
+`https://github.com/mathematic-inc/protovalidate-buffa#quick-start`
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+### 5.2 Packaging and output-layout controls
+
+The generator provides two independent output controls:
+
+- `packaging`: Whether generated module/package scaffolding is emitted.
+- `file_per_package`: Whether validators are consolidated by protobuf package or emitted separately for each source file.
+
+Their combinations produce four layouts.
+
+| `packaging` | `file_per_package` | Validator files                         | Generated module files |
+| ----------- | ------------------ | --------------------------------------- | ---------------------- |
+| `true`      | `false`            | One `.rs` per source proto              | Yes                    |
+| `false`     | `false`            | One `.validate.rs` per source proto     | No                     |
+| `true`      | `true`             | One `.rs` per protobuf package          | Yes                    |
+| `false`     | `true`             | One `.validate.rs` per protobuf package | No                     |
+
+The defaults are `packaging=true` and `file_per_package=false`.
+
+The distinction affects the shape of the generated Rust module tree, not the underlying validation language.
+
+Packaging enabled delegates more Rust module construction to the plugin.
+
+Packaging disabled avoids generating `mod.rs` scaffolding and allows validation implementations to be mounted alongside separately generated messages, including inside modules whose structure is managed by other tooling.
+
+Per-package generation consolidates validator implementations for multiple source files that share a protobuf package. This can reduce generated-module fragmentation, provided both the message generator and validator generator use compatible layouts.
+
+A representative Buf configuration is:
+
+```
+version: v2
+plugins:
+  - local: protoc-gen-buffa
+    out: gen/proto
+    strategy: all
+    opt:
+      - file_per_package=true
+
+  - local: protoc-gen-protovalidate-buffa
+    out: gen/proto
+    strategy: all
+    opt:
+      - packaging=false
+      - file_per_package=true
+```
+
+With this arrangement, a package such as `example.v1` can produce both `example.v1.rs` and `example.v1.validate.rs` for inclusion within the same Rust module.
+
+Additional documented behaviors matter:
+
+- The generator emits validators for message types even when they contain no validation annotations.
+- Packages containing only enums or services do not require validator includes.
+- The package hierarchy must remain consistent for cross-package references.
+- `proto_module` has no effect when `packaging=false`.
+- Switching layouts does not automatically delete generated files left by an earlier configuration.
+
+These capabilities allow validation generation to be composed with different Rust module-packaging strategies without modifying the protobuf schema.
+
+Source:
+
+`https://github.com/mathematic-inc/protovalidate-buffa#include-validators-beside-message-types`
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+### 5.3 In-process generator integration
+
+The independent Buffa generator also exposes programmatic generation mechanisms.
+
+Its documented internal pipeline separates descriptor scanning from Rust rendering:
+
+- `scan::gather` analyzes a `CodeGeneratorRequest` and collects validation information.
+- `emit::render` renders generated validator code.
+- `emit::render_with_options` supports explicit output-layout configuration.
+- `emit::Options` carries settings such as `packaging`, `file_per_package`, and `proto_module`.
+
+Generator parameters, including field-naming options, can be supplied through `CodeGeneratorRequest.parameter`.
+
+For example, the project's documented rendering options include:
+
+```
+emit::Options {
+    packaging: false,
+    file_per_package: true,
+    ..Default::default()
+}
+```
+
+This decomposition makes the generator useful beyond a standalone `protoc` executable. It potentially allows a larger schema-processing system to coordinate descriptor analysis, code generation, and source packaging in one process.
+
+The interface is also a coupling point: these APIs are part of the generator implementation, not an independent language-neutral validation specification. Consumers using them directly depend on the generator's Rust API stability.
+
+Source:
+
+`https://github.com/mathematic-inc/protovalidate-buffa#quick-start`
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+### 5.4 Generated CEL execution, borrowed views, and error categories
+
+Buffa's dedicated validation generator translates CEL rules into Rust rather than relying on a runtime interpreter.
+
+That introduces several consequential characteristics beyond the basic static-versus-dynamic comparison:
+
+Compilation-time analysis. The generator can identify certain malformed rule/type combinations, unknown CEL field references, and invalid virtual-oneof specifications during generation.
+
+Owned and borrowed execution. Generated validators can operate on Buffa's owned messages and borrowed views, avoiding an ownership conversion solely for validation.
+
+Structured error-category preservation. `protovalidate-buffa::ValidationError` contains distinct fields for ordinary violations, compilation diagnostics, and evaluation diagnostics:
+
+```
+pub struct ValidationError {
+    pub violations: Vec<Violation>,
+    pub compile_error: Option<String>,
+    pub runtime_error: Option<String>,
+}
+```
+
+The latter two categories permit failures that cannot correctly be represented as a violated user-authored constraint.
+
+For example, an operation that attempts regex matching against invalid UTF-8 may encounter an evaluation precondition failure rather than a normal pattern mismatch.
+
+This also demonstrates a limitation of generated validation: eliminating a runtime CEL interpreter does not eliminate every possible evaluation error. Generated operations still have runtime preconditions.
+
+The ConnectRPC adapter treats compilation and evaluation diagnostics as internal errors, even when ordinary violations are also present. It does not classify all unsuccessful validations as client-side invalid arguments.
+
+Source:
+
+`https://docs.rs/protovalidate-buffa/0.7.2/protovalidate_buffa/`
+
+`https://github.com/mathematic-inc/protovalidate-buffa#error-model`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+## 6. RPC validation contracts and diagnostic interoperability
+
+### 6.1 Tonic's `ValidateRequest` applies to generated `Validate` implementations
+
+The `prost-protovalidate` Tonic extension has a narrower contract than a general-purpose descriptor-driven validation middleware.
+
+Its implementation is:
+
+```
+impl<T: Validate> ValidateRequest for tonic::Request<T>
+```
+
+Calling `request.validate_inner()` invokes the `Validate` implementation of the contained message. It does not automatically discover a descriptor, construct a dynamic validator, or interpret CEL rules independently.
+
+This creates an important execution distinction:
+
+| Validation mechanism                   | Tonic integration behavior                                                                                        |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Native Prost `Validate` implementation | `request.validate_inner()` invokes the generated checks                                                           |
+| Prost message requiring runtime CEL    | Requires an explicit `Validator::validate()` call unless another compatible `Validate` implementation is supplied |
+| Buffa-generated bridge implementation  | Exposes `Validate` through the bridge, subject to the bridge's runtime dependencies                               |
+| Client-streaming or bidirectional RPC  | Individual decoded stream messages require validation                                                             |
+
+The dynamic `Validator::validate()` API operates on `prost_reflect::ReflectMessage`; the generated `Validate` trait is a separate interface.
+
+A message that supports reflection does not thereby implement `Validate`.
+
+This is a consequential distinction when a protobuf schema mixes messages eligible for native generation with messages requiring runtime-only constraints.
+
+The Tonic helper guarantees that the particular `Validate` implementation is invoked. It does not guarantee that every protobuf message is covered by one.
+
+Source:
+
+`https://docs.rs/prost-protovalidate/0.6.0/prost_protovalidate/tonic/trait.ValidateRequest.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+### 6.2 Internal validation diagnostics versus public RPC errors
+
+Validation results can contain three different classes of information:
+
+1. User-value violations: A constraint was evaluated successfully but rejected a message value.
+2. Constraint compilation failures: A rule definition, descriptor, or CEL expression could not be prepared.
+3. Evaluation failures: A rule encountered an invalid runtime precondition or another failure that is not an ordinary value violation.
+
+The distinction matters at an RPC boundary.
+
+The first category ordinarily corresponds to an invalid request argument. The other two can indicate server-owned schema or evaluator defects and should not automatically be attributed to the client.
+
+The Prost-Protovalidate Tonic integration maps ordinary validation failures to `INVALID_ARGUMENT`, while compilation and runtime errors map to `INTERNAL` with generic messages.
+
+However, ordinary violation messages are not necessarily safe for unrestricted public disclosure.
+
+Protovalidate allows string-valued CEL expressions to construct dynamic failure messages. Such expressions can include or derive information from rejected input.
+
+The Tonic adapter uses the formatted `ValidationError` as the public status message. When `tonic-types` is enabled, it additionally emits individual `google.rpc.BadRequest` details containing descriptions.
+
+The safety of those public messages therefore depends partly on the validation rules that produced them.
+
+This qualification is important even though the library already protects compilation and evaluation errors from direct exposure.
+
+Source:
+
+`https://docs.rs/prost-protovalidate/0.6.0/prost_protovalidate/tonic/`
+
+`https://protovalidate.com/schemas/custom-rules/`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+### 6.3 Buffa's bounded public error representation
+
+The independent `protovalidate-buffa` implementation provides a more restrictive default error-publication policy.
+
+Its `ValidationError::into_connect_error()` conversion distinguishes ordinary violations from validator defects.
+
+| Diagnostic condition                   | RPC status         | Public detail                     |
+| -------------------------------------- | ------------------ | --------------------------------- |
+| Ordinary violations only               | `invalid_argument` | Bounded `buf.validate.Violations` |
+| Compilation or evaluation error        | `internal`         | No validation detail              |
+| Mixed violations and evaluator defects | `internal`         | No validation detail              |
+| Empty `ValidationError`                | `internal`         | No validation detail              |
+
+The presence of an evaluator defect takes precedence over ordinary violations, even when both are recorded.
+
+Public violation details intentionally omit free-form rule messages and map-key values, including numeric and boolean map keys.
+
+The remaining fields can preserve:
+
+- Schema-authored rule identifiers.
+- Protobuf field names, field numbers, and available field types.
+- Repeated-field indexes.
+- Structural field and rule paths.
+- The `for_key` indicator distinguishing map-key failures from other failures.
+
+An omitted map-key selector can therefore preserve the general schema location while no longer identifying the exact offending map entry.
+
+This is an intentional loss of diagnostic specificity in exchange for reducing rejected-data exposure.
+
+Bounded serialization. The implementation limits an individual public `buf.validate.Violations` detail to 4,096 encoded protobuf bytes.
+
+The serializer retains the longest prefix of complete violations that fits within the limit. It does not shorten individual rule identifiers or paths to squeeze more violations into the available budget.
+
+If a violation cannot fit, that violation and all following violations are omitted. The RPC status remains `invalid_argument`.
+
+The canonical `buf.validate.Violations` schema does not carry a truncation flag. Consequently, clients must treat the received collection as potentially incomplete even when decoding succeeds.
+
+The 4-KiB budget provides headroom against typical gRPC metadata limits, but it is not a guarantee that the entire status envelope, metadata, and additional details fit within a transport-specific limit.
+
+Source:
+
+`https://github.com/mathematic-inc/protovalidate-buffa#wire-defaults-and-diagnostic-fidelity`
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+### 6.4 Feature tiers for canonical diagnostics and JSON
+
+`protovalidate-buffa` exposes several optional Cargo features that separate validation execution from diagnostic transport.
+
+| Configuration              | Capability                                                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Default features           | Includes ConnectRPC integration                                                                                    |
+| `default-features = false` | Core validation runtime without the optional ConnectRPC, base64, and generated diagnostic-schema dependencies      |
+| `features = ["protos"]`    | Enables canonical `buf.validate` diagnostic representations and conversion without requiring transport integration |
+| `features = ["json"]`      | Enables `protos` and protobuf JSON support for generated diagnostic types                                          |
+| `connect`                  | Provides ConnectRPC integration and enables the `protos` functionality it requires                                 |
+
+The `protos` feature exposes the generated canonical validation schema through `protovalidate_buffa::proto`.
+
+`ValidationError::to_proto()` then provides a protobuf diagnostic representation without requiring the validation result to be converted into an RPC status.
+
+This conversion is deliberately more complete than the default public error representation. It can preserve violation messages and map-key values, making it suitable for trusted internal inspection but potentially sensitive.
+
+It also cannot encode every error category. Compilation and evaluation diagnostics remain on the Rust `ValidationError`, because the canonical `buf.validate.Violations` schema has no corresponding fields.
+
+The `json` feature adds protobuf JSON support through Buffa's JSON helpers. This should not be confused with enabling ConnectRPC's JSON transport: the two are independent capabilities.
+
+The generated diagnostic-schema Rust types are checked into the upstream project. Ordinary downstream builds therefore do not require recompiling those protobuf definitions with `protoc`.
+
+Source:
+
+`https://github.com/mathematic-inc/protovalidate-buffa#typed-client-decoding`
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+### 6.5 Typed error-detail decoding across Connect and gRPC
+
+The independent Buffa runtime provides:
+
+```
+decode_violations(&ErrorDetail)
+```
+
+This is a client-side decoder for canonical `buf.validate.Violations` details.
+
+It accepts recognized representations of the message's type identity, including the bare type name and URLs ending in `/buf.validate.Violations`.
+
+Its behavior distinguishes unrelated details from malformed matching details:
+
+| Input condition                                | Result                  |
+| ---------------------------------------------- | ----------------------- |
+| Unrelated error-detail type                    | `Ok(None)`              |
+| Recognized and valid violations detail         | `Ok(Some(...))`         |
+| Recognized type with malformed protobuf/base64 | `DecodeViolationsError` |
+| Recognized type exceeding resource limits      | `DecodeViolationsError` |
+| Recognized detail with no violations           | `DecodeViolationsError` |
+
+The decoder accepts padded and unpadded standard base64, tolerates unknown protobuf fields, and does not depend on the optional human-readable `debug` field.
+
+Its documented resource bounds are:
+
+| Resource                    | Limit       |
+| --------------------------- | ----------- |
+| Base64 input                | 5,464 bytes |
+| Decoded protobuf payload    | 4,096 bytes |
+| Repeated/map element memory | 1 MiB       |
+
+Buffa's normal recursion and unknown-field limits also apply.
+
+The decoder preserves messages and map keys received from peers, even though the corresponding server-side implementation omits them in its default public output. This is important: a decoder's input trust model is independent of the sender's redaction policy.
+
+The same canonical protobuf diagnostic type supports Connect's JSON error details and gRPC status details. This reduces the need for custom, transport-specific validation-error parsers.
+
+Source:
+
+`https://github.com/mathematic-inc/protovalidate-buffa#typed-client-decoding`
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+### 6.6 Diagnostic identity and information loss without reflection
+
+`prost-protovalidate` preserves the principal textual fields of generated violations:
+
+- `field_path()`
+- `rule_path()`
+- `rule_id()`
+- `message()`
+
+However, their presence does not imply that the generated result contains the complete descriptor-backed metadata available during runtime reflection.
+
+Without the `reflect` feature, `Violation::to_proto()` emits rule-path elements with names but without descriptor-derived `field_number` and `field_type` metadata.
+
+Similarly, generated validation results do not automatically provide the reflection-enriched field and rule descriptors or dynamic field/rule values.
+
+This creates a distinction between:
+
+Textual diagnostic compatibility: Consumers can identify a failed field or rule by a string path or ID.
+
+Descriptor-enriched diagnostic compatibility: Consumers can use protobuf field numbers, descriptor types, and dynamic values to connect a violation to its schema definition.
+
+The second can be more useful for tooling that processes evolving schemas, traverses nested structures, or needs to interpret violations independently of a particular generated Rust representation.
+
+A consumer that receives only the textual representation should not infer descriptor identities that were never included.
+
+Source:
+
+`https://docs.rs/prost-protovalidate/0.6.0/prost_protovalidate/struct.Violation.html`
+
+`https://docs.rs/prost-protovalidate/0.6.0/prost_protovalidate/`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+## 7. Legacy validation migration and schema dependency management
+
+### 7.1 `protoc-gen-validate` migration
+
+Buf provides `protovalidate-migrate` to convert schemas using the older `protoc-gen-validate` (PGV) annotations into the modern `buf.validate` model.
+
+The migration tool is maintained alongside the upstream Protovalidate project and supports incremental conversion rather than requiring an immediate replacement of every existing annotation.
+
+| Option                    | Function                                                               |
+| ------------------------- | ---------------------------------------------------------------------- |
+| Default migration         | Adds equivalent Protovalidate annotations alongside PGV annotations    |
+| `--replace-protovalidate` | Regenerates existing Protovalidate annotations from legacy definitions |
+| `--remove-legacy`         | Removes old PGV annotations                                            |
+| `--legacy-import`         | Overrides the legacy validation import path                            |
+| `--protovalidate-import`  | Overrides the new validation-schema import path                        |
+| `--write` / `-w`          | Writes changes to the source files                                     |
+| `--output` / `-o`         | Writes transformed output to another location                          |
+
+The principal architectural concern is semantic equivalence.
+
+Several legacy constructs changed meaning or representation:
+
+| Legacy PGV functionality           | Protovalidate equivalent or distinction                         |
+| ---------------------------------- | --------------------------------------------------------------- |
+| `validate.rules` field annotations | Consolidated into `buf.validate.field`                          |
+| Legacy oneof `required`            | `buf.validate.oneof.required`                                   |
+| Message-skipping rules             | `IGNORE_ALWAYS` on the relevant message field                   |
+| Legacy `ignore_empty`              | `IGNORE_IF_ZERO_VALUE`, subject to the new presence semantics   |
+| Legacy field `required`            | Modern `required`, with explicitly clarified presence semantics |
+| `map.no_sparse`                    | No direct equivalent; removed                                   |
+
+The migration guide also distinguishes PGV's code-generation model from Protovalidate's normal runtime-reflection model.
+
+Rust's `prost-protovalidate-build` and `protoc-gen-protovalidate-buffa` provide additional native-generation implementations, but those are separate projects from the official language migration tooling.
+
+The important implication is that an annotation migration is not simply a mechanical renaming exercise. A converted schema may require semantic validation against representative message values, particularly where legacy field-presence and skipping behavior mattered.
+
+Primary source:
+
+`https://buf.build/docs/migration-guides/migrate-from-protoc-gen-validate/`
+
+[image](https://www.google.com/s2/favicons?domain=https://buf.build\&sz=32)
+
+Protovalidate
+
+### 7.2 Reproducible schema dependencies through the Buf Schema Registry
+
+The protobuf validation schema, Rust runtime validator, message generator, and validation generator can all have independent version lifecycles.
+
+Buf publishes the canonical Protovalidate definitions as a schema-registry module:
+
+`buf.build/bufbuild/protovalidate`
+
+A Buf module can declare that dependency in `buf.yaml`; `buf.lock` records the resolved commit and content digest, including transitive dependencies.
+
+This offers several useful mechanisms:
+
+| Mechanism               | Capability                                                              |
+| ----------------------- | ----------------------------------------------------------------------- |
+| Module dependency       | Resolve the shared `buf.validate` definitions without private vendoring |
+| Label reference         | Select a named schema release or moving label                           |
+| Commit pin              | Select an immutable schema snapshot                                     |
+| `buf.lock`              | Record exact resolved dependencies and cryptographic digests            |
+| Dependency verification | Reject downloaded dependencies that do not match their recorded digests |
+| Dependency cache        | Reuse already fetched schema modules for offline operations             |
+
+A reproducible descriptor compilation does not, by itself, establish runtime semantic compatibility.
+
+For example, `prost-protovalidate` 0.6.0 uses a schema vocabulary aligned with Protovalidate v1.2.2. A separately resolved newer schema could introduce options that its Rust evaluator does not implement.
+
+This introduces a multi-dimensional compatibility surface:
+
+1. Schema definitions and option field numbers.
+2. Rust types representing those options.
+3. Evaluator support for their semantics.
+4. Validation generator support for the selected message representation.
+5. Runtime feature flags enabling required execution machinery.
+
+A successful protobuf compilation establishes the first part of this chain, not all five.
+
+The Buf module lock and the Rust dependency lock consequently protect different parts of the system. Neither can substitute for the other's coverage.
+
+Source:
+
+`https://buf.build/docs/bsr/module/dependency-management/`
+
+[image](https://www.google.com/s2/favicons?domain=https://buf.build\&sz=32)
+
+Buf Docs
+
+### 7.3 Version alignment with Buffa and ConnectRPC
+
+The independent Buffa validation ecosystem is sensitive to the precise representation generated by Buffa.
+
+For the published `protovalidate-buffa` 0.7.2 generation, the upstream project documents compatibility with Buffa 0.9.1, ConnectRPC 0.9, and Rust 1.88 or newer.
+
+Generated validator code directly references Buffa's owned-message and view representations. A change to the message runtime's generated field layout, enum representation, or borrowed-view interface can therefore break source-level compatibility without changing protobuf wire compatibility.
+
+This is especially relevant because Buffa remains pre-1.0, so minor-version updates can introduce breaking changes.
+
+The `connect` feature also introduces a transitive Buffa dependency through ConnectRPC. If the validation runtime and RPC runtime depend on incompatible Buffa versions, multiple incompatible generated-message runtime types can coexist in the dependency graph.
+
+Accordingly, binary protobuf compatibility must not be mistaken for compatibility among:
+
+- `buffa` message-generation output;
+- `protoc-gen-protovalidate-buffa` generated code;
+- `protovalidate-buffa` validation runtime;
+- `connectrpc` request/view representations.
+
+Source:
+
+`https://github.com/mathematic-inc/protovalidate-buffa#compatibility`
+
+`https://docs.rs/crate/protovalidate-buffa/0.7.2`
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+## 8. Conformance, verification, and evidence boundaries
+
+### 8.1 Upstream conformance is distinct from continuous integration
+
+Both Rust validation projects report passing all 2,872 cases in their respective pinned upstream Protovalidate conformance suites.
+
+The reported suites cover proto2, proto3, and Editions 2023.
+
+These results are meaningful because they test complex combinations of protobuf value semantics, constraint types, and diagnostic behavior against a common upstream contract.
+
+However, the independent Buffa project's documentation makes an important distinction:
+
+- Its routine CI executes workspace tests and Clippy.
+- Full upstream conformance is documented as a local or pre-release verification procedure rather than a test automatically executed on every commit.
+
+The published conformance result therefore establishes reported behavior for the tested implementation and pinned harness, not continuous verification of every subsequent development revision.
+
+The Prost-Protovalidate project likewise identifies a pinned schema and conformance harness, with its own update and regression procedures.
+
+The two reported results should not be interpreted as evidence that the libraries share Rust APIs, execution overhead, or identical behavior on every future schema revision.
+
+Sources:
+
+`https://github.com/mathematic-inc/protovalidate-buffa#conformance-testing`
+
+`https://github.com/zs-dima/prost-protovalidate`
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+### 8.2 Generated/runtime parity is an additional verification dimension
+
+A single validation language can be implemented through multiple execution architectures:
+
+- Runtime CEL interpretation and descriptor traversal.
+- Native generation of standard-rule checks.
+- Native generation of CEL expressions.
+- Wire-serialization bridges from one protobuf runtime to another.
+
+Each implementation introduces different opportunities for semantic divergence.
+
+For example, byte-pattern rules applied to invalid UTF-8 can produce a runtime evaluation error in one engine and an ordinary constraint violation in another.
+
+Such a difference may not affect whether the input is accepted, but it does affect error classification, diagnostic transport, and the information available to callers.
+
+The Prost-Protovalidate project documents generated-versus-runtime parity checks covering cases such as numeric boundaries, nested messages, presence, map paths, well-known types, and virtual oneofs.
+
+This is a separate concern from both schema validity and language conformance.
+
+A useful conceptual separation is:
+
+| Verification class          | Question answered                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------------- |
+| Schema lint                 | Are the declared constraints structurally and semantically well-formed under the linter's checks? |
+| Upstream conformance        | Does an implementation satisfy the tested Protovalidate reference cases?                          |
+| Backend parity              | Do alternative execution backends classify the same values and errors equivalently?               |
+| Cross-version compatibility | Does the implementation remain compatible with a newer schema or runtime?                         |
+| Integration correctness     | Is validation invoked at the intended boundary, with errors mapped appropriately?                 |
+
+These verification classes establish different guarantees. Passing one cannot automatically substitute for the others.
+
+Source:
+
+`https://github.com/zs-dima/prost-protovalidate/blob/main/CHANGELOG.md`
+
+`https://github.com/mathematic-inc/protovalidate-buffa#conformance-testing`
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+## 9. Architectural synthesis: validation as a schema-governed compilation pipeline
+
+The additional functionality reveals an architectural capability beyond choosing between reflection and generated checks.
+
+Protobuf validation can operate as a schema-governed compilation pipeline whose rule definitions, execution specialization, diagnostics, and transport integration are independently controlled.
+
+The relevant native mechanisms compose as follows:
+
+| Architectural concern                     | Existing mechanism                                                          | Bespoke functionality potentially avoided                                     |
+| ----------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Constraint definition                     | `buf.validate` annotations, standard rules, CEL, reusable predefined rules  | Duplicated validation logic encoded independently in each consumer            |
+| Constraint verification                   | Buf `PROTOVALIDATE` lint                                                    | Custom rule-definition syntax and type checkers                               |
+| Schema identity and dependency management | Descriptor sets, BSR modules, `buf.lock`                                    | Private descriptor registries and dependency bookkeeping                      |
+| Native execution specialization           | Prost-Protovalidate generator or Buffa CEL compiler                         | Handwritten static field validators and custom CEL-to-Rust translation        |
+| Runtime interpretation                    | `Validator`, descriptor registration, compiled-rule caching                 | Custom dynamic rule dispatch and evaluator lifecycle management               |
+| Execution completeness                    | Runtime-only classification, build failure policies, Buffa runtime bridging | Ad hoc unsupported-rule fallback mechanisms                                   |
+| Generated-code integration                | `extern_path`, backend selection, generator output-layout controls          | Manual reconciliation of package paths and generated implementation locations |
+| Diagnostic representation                 | `Violation`, `FieldPath`, `buf.validate.Violations`                         | Custom hierarchical error-path schemas                                        |
+| Error transport                           | Tonic `BadRequest`, Buffa canonical Connect/gRPC details                    | Transport-specific diagnostic encoding and decoding                           |
+| Confidentiality and resource bounds       | Buffa's bounded/redacted public diagnostics                                 | Some bespoke error-detail redaction and payload-size enforcement              |
+| Semantic verification                     | Upstream conformance and backend parity tests                               | Entirely private validation-equivalence test frameworks                       |
+
+There are also important limits to this composition.
+
+A schema linter cannot establish every possible semantic invariant. Generated code does not guarantee that validation is invoked. Schema compatibility does not imply validation-policy compatibility. Reflection-free execution can sacrifice descriptor-enriched diagnostic information. Native CEL generation can eliminate interpreter overhead but remains dependent on the compiler's support for the CEL semantic model.
+
+Likewise, neither standard rules nor CEL automatically enforce invariants dependent on external database state, transactional isolation, authorization, or concurrent operations.
+
+The most significant design opportunity is therefore not necessarily replacing runtime validation with generated validation. It is the ability to preserve a single schema-level definition of constraints while independently choosing verification, execution, representation, and diagnostic policies according to the relevant requirements.
+
+That separation can reduce custom machinery without conflating properties that are fundamentally different: protobuf encoding validity, schema correctness, constraint enforcement, diagnostic completeness, transport safety, and application-level consistency.

@@ -138,32 +138,36 @@ impl StudyCandidatesQuery {
 
 const STUDY_SUMMARY_COLUMNS: &str = "key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal";
 
+pse_model::projection_struct! {
 /// Actual bounded study discovery fields, without scientific metadata or occurrence descriptors.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StudySummary {
+    projection: { name: "CanonicalStudySummary", rust_path: crate::canonical_studies::StudySummary,
+        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Exact retained study key.
-    pub key: String,
+    pub key: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Exact parent scientific execution.
-    pub run: String,
+    pub run: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Selected scientific problem.
-    pub problem: String,
+    pub problem: String => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Exact primary source revision.
-    pub revision: String,
+    pub revision: String => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Admitted implementation interpretation.
-    pub interpretation: String,
+    pub interpretation: String => { tag: 5, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Requested occurrence count.
-    pub point_count: u64,
+    pub point_count: u64 => { tag: 6, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Exact immutable ingestion cursor.
-    pub next_ordinal: u64,
+    pub next_ordinal: u64 => { tag: 7, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Complete membership has been activated.
-    pub active: bool,
+    pub active: bool => { tag: 8, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Persistent cancellation authority.
-    pub cancelled: bool,
+    pub cancelled: bool => { tag: 9, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Current scoped study authority generation.
-    pub generation: u64,
+    pub generation: u64 => { tag: 10, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// The owning parent summary has concluded the study.
-    pub terminal: bool,
+    pub terminal: bool => { tag: 11, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+}
 }
 /// Actual bounded derived maintenance, distinct from scientific settlement.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

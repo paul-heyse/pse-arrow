@@ -8,7 +8,7 @@ use super::{
 use pse_ids::SemanticId;
 use pse_model::generated::{
     enums::{AttemptState, StudyPointState, StudyState},
-    identities::{RunId, StudyId},
+    identities::StudyId,
 };
 pub use pse_model::study::{PointAttemptOutcome, PointOutcome};
 use pse_model::{
@@ -706,6 +706,31 @@ impl Runtime {
         definition: StudyDefinition,
         cancel: &crate::CancelSource,
     ) -> Result<StudyHandle, WorkflowError> {
+        self.start_recorded_study_owned(definition, None, cancel)
+            .await
+    }
+
+    /// Submit or reconcile the exact original caller-issued study through native creation.
+    /// The existing canonical owner checks the complete original population on every resume.
+    /// # Errors
+    /// Changed submission/science, unsupported ownership, source and canonical refusals propagate.
+    pub async fn start_issued_study(
+        &self,
+        definition: StudyDefinition,
+        issued: super::IssuedStudyIdentity,
+        cancel: &crate::CancelSource,
+    ) -> Result<StudyHandle, WorkflowError> {
+        issued.validate()?;
+        self.start_recorded_study_owned(definition, Some(issued), cancel)
+            .await
+    }
+
+    async fn start_recorded_study_owned(
+        &self,
+        definition: StudyDefinition,
+        issued: Option<super::IssuedStudyIdentity>,
+        cancel: &crate::CancelSource,
+    ) -> Result<StudyHandle, WorkflowError> {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
@@ -747,7 +772,11 @@ impl Runtime {
                     .await?;
                 // Binding/role admission reuses structure. Explicit starts also validate
                 // compatibility against one prepared target before study activation.
-                let study_id: StudyId = pse_operations::mint_id();
+                let study_id: StudyId = issued
+                    .as_ref()
+                    .map_or_else(pse_operations::mint_id, |identity| identity.study);
+                let original_request =
+                    super::StudyCreationRequest::new(study_id, &definition, issued)?;
                 let key = study_id.to_string();
                 let mut admitted_seeds = BTreeMap::new();
                 let mut seed_lane = super::study_operations::StudyPreparationLane::new();
@@ -840,7 +869,7 @@ impl Runtime {
                 seed_lane.close().await?;
                 drop(admission);
                 creation_checkpoint(cancel)?;
-                let run_id: RunId = pse_operations::mint_id();
+                let run_id = original_request.parent;
                 let run = format!("run:{run_id}");
                 let physical_revision =
                     creation_input(cancel, self.canonical_store()?.revision(&physical.revision))
@@ -862,13 +891,7 @@ impl Runtime {
                     key: run.into(),
                     revision: revision.clone(),
                     sources: vec![physical_revision.clone()],
-                    request: document(&(
-                        1_u8,
-                        study_id,
-                        run_id,
-                        pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &definition)
-                            .map_err(|error| contract(error.to_string()))?,
-                    ))?,
+                    request: document(&original_request)?,
                     source_selection: source_selection.clone(),
                     attestation: attestation.clone(),
                 };
@@ -896,7 +919,7 @@ impl Runtime {
                     .enumerate()
                     .map(|(index, policy)| {
                         creation_checkpoint(cancel)?;
-                        let point_run: RunId = pse_operations::mint_id();
+                        let point_run = super::study_issuance::occurrence_run(study_id, policy.key);
                         let descriptor = match &definition.variants {
                             Some(_) => document(&VariantOccurrence { variant: index })?,
                             None => {
@@ -2567,44 +2590,56 @@ impl StudyHandle {
     }
 }
 
+pse_model::projection_struct! {
 /// Authored policy choices; seed consumption is supplied only by operation admission.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyPointPolicy {
+    projection: { name: "StudyPointPolicy", rust_path: crate::workflow::StudyPointPolicy,
+        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Requested occurrence identity.
-    pub key: pse_model::study::OccurrenceKey,
+    pub key: pse_model::study::OccurrenceKey => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Explicit ordering and scientific-result dependencies.
-    pub dependencies: Vec<pse_model::study::Dependency>,
+    pub dependencies: Vec<pse_model::study::Dependency> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Explicit start/seed selection.
-    pub start: pse_model::study::StartPolicy,
+    pub start: pse_model::study::StartPolicy => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Maximum tries including the first.
-    pub attempt_limit: u32,
+    pub attempt_limit: u32 => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [pse_model::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u32::MAX as u64 }] };
+}
 }
 
+pse_model::projection_struct! {
 /// One point of a study to start.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyPoint {
+    projection: { name: "StudyPoint", rust_path: crate::workflow::StudyPoint,
+        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Supported existing operation and its complete inputs.
-    pub operation: OperationRequest,
+    pub operation: OperationRequest => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Existing preparation controls, serialized without a second default authority.
-    pub preparation: PreparationSettings,
+    pub preparation: PreparationSettings => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Submitted physical assignments, admitted once before any point is scheduled.
-    pub overlay: PointOverlay,
+    pub overlay: PointOverlay => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Occurrence identity and explicit dependency/start policy.
-    pub policy: StudyPointPolicy,
+    pub policy: StudyPointPolicy => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+}
 }
 
+pse_model::projection_struct! {
 /// Raw request admitted once into the immutable executable definition.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyRequest {
+    projection: { name: "StudyRequest", rust_path: crate::workflow::StudyRequest,
+        version: 8, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Document version.
-    pub version: Version<8>,
+    pub version: Version<8> => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Explicit original-summary and occurrence-detail demand.
-    pub output: super::StudyOutputDemand,
+    pub output: super::StudyOutputDemand => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Explicit points or a bounded immutable lazy structural input.
-    pub inputs: super::StudyInputs,
+    pub inputs: super::StudyInputs => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+}
 }
 
 /// A durable study to start.
@@ -2620,25 +2655,30 @@ pub struct StudyPlan {
 
 const STUDY_DEFINITION_VERSION: u32 = 14;
 
+pse_model::projection_struct! {
 /// Version 14 of a study's definition: the store's `definition` document and the content of
 /// the study's request identity.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyDefinition {
+    projection: { name: "StudyDefinition", rust_path: crate::workflow::StudyDefinition,
+        version: STUDY_DEFINITION_VERSION, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Frozen research ancestry consumed by original study admission.
-    pub research: Option<super::ResearchSource>,
+    pub research: Option<super::ResearchSource> => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Exact historical source context selected before admission, never a latest query.
-    pub context: Option<pse_operations::canonical_contexts::ContextSelection>,
+    pub context: Option<pse_operations::canonical_contexts::ContextSelection> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Document version.
-    pub version: Version<STUDY_DEFINITION_VERSION>,
+    pub version: Version<STUDY_DEFINITION_VERSION> => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// The source bundle of the physical package.
-    pub physical: super::PhysicalSource,
+    pub physical: super::PhysicalSource => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// The exact immutable canonical modeling revision.
-    pub modeling_revision: String,
+    pub modeling_revision: String => { tag: 5, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Lazy science retained once; when present explicit admitted points are empty.
-    pub variants: Option<super::LazyStudyDefinition>,
+    pub variants: Option<super::LazyStudyDefinition> => { tag: 6, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// The explicit admitted points, in index order.
-    pub points: Vec<StudyPointDefinition>,
+    pub points: Vec<StudyPointDefinition> => { tag: 7, direction: pse_model::boundary_projection::Direction::Both,
+        rules: [pse_model::boundary_projection::LocalRule::Length { min: 0, max: MAXIMUM_STUDY_POINTS as u64 }] };
+}
 }
 
 /// Scientific descriptors shared by local execution and recorded transport.
@@ -2686,18 +2726,22 @@ impl LocalStudy {
     }
 }
 
+pse_model::projection_struct! {
 /// One point of a study's definition.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyPointDefinition {
+    projection: { name: "StudyPointDefinition", rust_path: crate::workflow::StudyPointDefinition,
+        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Reconstructable admitted descriptor of one existing operation.
-    pub operation: StudyOperation,
+    pub operation: StudyOperation => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// The hash of the point's value bindings.
-    pub binding_hash: pse_ids::roles::BindingHash,
+    pub binding_hash: pse_ids::roles::BindingHash => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Canonical physically admitted member assignments; original paths are attribution.
-    pub binding: AdmittedBinding,
+    pub binding: AdmittedBinding => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Shared occurrence/dependency/start policy.
-    pub policy: PointPolicy,
+    pub policy: PointPolicy => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl StudyDefinition {
     /// Read a current durable definition, refusing historical contracts before their

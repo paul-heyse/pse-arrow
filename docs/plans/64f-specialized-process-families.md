@@ -153,3 +153,21 @@ The earlier five provider controls and their final-rerun limitation are owned by
 Backend rerun, xtask provider/caller controls and broader F02–F07 native/reference
 acceptance were not run. Clippy and other follow-ups were explicitly skipped under the
 [coordinator checkpoint](64-process-simulator-target.md#d-through-g-implementation-checkpoint).
+
+### Current steam integration checkpoint — 2026-11-04
+
+Execution has resumed under the coordinator's complete-Plan64 authorization. F01/F02
+remain in progress, F03–F07 planned. The earlier stopped run above is historical evidence.
+The latest selected equipment run was
+`scripts/pse test pse-runtime --lib --features engineering-service,native-study-tests,product-reader,property-coolprop,solver-kinsol -E 'test(/^workflow::modeling::steam_tests::authored_/)'`
+on prepared local Linux through the native correctness route: **0 passed, 6 failed against
+zero**, all before equipment science during duplicate Water CAS package admission.
+This includes three direct pump/turbine cases and their three prepared-worker counterparts.
+
+The uncommitted steam-source correction retains one authoritative typed Water CAS fact,
+separate provider-source provenance and the required wrong-CAS refusal. Fresh captured
+scientific inputs and the six-case rerun remain required; the correction is not a tested
+equipment repair. [64k's checkpoint](64k-prepared-scientific-workers.md#current-implementation-checkpoint--2026-11-04)
+owns worker transport/process evidence and remaining matched-placement acceptance.
+Neither the passing water-property transport controls nor passive Proto metadata establish
+configured power-family or broader specialist acceptance.

@@ -190,7 +190,8 @@ const MAX_HORNER_ITERATIONS: usize = 1000;
 const MAX_CPE_ITERATIONS: usize = 32;
 pse_model::projection_struct! {
 /// Explicit optimizer controls; no target-dependent or unbounded defaults.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Optimization {
     projection: { name: "MathOptimization", version: 1, direction: pse_model::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };

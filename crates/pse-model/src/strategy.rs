@@ -95,6 +95,7 @@ impl StartRules {
         !(self.policy == StartPolicy::NoPriorStart && inherited) && self.recovery.contains(&origin)
     }
 }
+crate::projection_struct! {
 /// Explicit originating path/sheet and the consumed transport/orientation witnesses.
 /// Supplying identities is not proof: the responsible path owner validates the products.
 #[derive(
@@ -102,25 +103,34 @@ impl StartRules {
 )]
 #[serde(deny_unknown_fields)]
 pub struct ConnectedPath {
+    projection: { name: "NumericalConnectedPath", rust_path: crate::strategy::ConnectedPath,
+        version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Original connected path identity.
-    pub path: ContentHash,
+    pub path: ContentHash => { tag: 1, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Selected root sheet; a shared regime label alone is insufficient.
-    pub sheet: ContentHash,
+    pub sheet: ContentHash => { tag: 2, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Transport evidence between the source and target bindings.
-    pub transport: ContentHash,
+    pub transport: ContentHash => { tag: 3, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Path tangent/transport orientation evidence.
-    pub orientation: ContentHash,
+    pub orientation: ContentHash => { tag: 4, direction: crate::boundary_projection::Direction::Both, rules: [] };
 }
+}
+crate::projection_struct! {
 /// Root-selection meaning retained by every proposal and correction.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct BranchPolicy {
+    projection: { name: "NumericalBranchRequest", rust_path: crate::strategy::BranchPolicy,
+        version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Any qualified root, or continuation on a declared connected sheet.
-    pub kind: BranchKind,
+    pub kind: BranchKind => { tag: 1, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Required precisely for the connected policy.
-    pub connected: Option<ConnectedPath>,
+    pub connected: Option<ConnectedPath> => { tag: 2, direction: crate::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl BranchPolicy {
     /// A task imposing no connected-path obligation.
@@ -144,6 +154,7 @@ impl BranchPolicy {
         }
     }
 }
+crate::projection_struct! {
 /// Additional finite work allowances. None imposes no additional counter cap under the
 /// enclosing finite ExecutionScope; it never denotes an observed zero or a new deadline.
 /// Every supplied counter is finite; Some(0) expressly prohibits that operation.
@@ -152,27 +163,27 @@ impl BranchPolicy {
 )]
 #[serde(deny_unknown_fields)]
 pub struct WorkLimits {
+    projection: { name: "NumericalWorkLimits", rust_path: crate::strategy::WorkLimits,
+        version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Maximum executions, including the first attempt. A task requires at least one.
-    pub attempts: u64,
+    pub attempts: u64 => { tag: 1, direction: crate::boundary_projection::Direction::Both,
+        rules: [crate::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
     /// Evaluations admitted by the charging owner, including rejected trials.
-    pub evaluations: Option<u64>,
+    pub evaluations: Option<u64> => { tag: 2, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Native/library iterations, where the operation exposes them.
-    pub iterations: Option<u64>,
+    pub iterations: Option<u64> => { tag: 3, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Numerical factor constructions, distinct from structural analysis/setup reuse.
-    pub factorizations: Option<u64>,
+    pub factorizations: Option<u64> => { tag: 4, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Verification/proof operations accounted by their owning verifier.
-    pub proof_steps: Option<u64>,
+    pub proof_steps: Option<u64> => { tag: 5, direction: crate::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl WorkLimits {
     /// Validate the enclosing execution allowance; zero work counters remain meaningful.
     pub fn validate(&self) -> Result<(), ModelError> {
-        if self.attempts == 0 {
-            Err(crate::malformed(
-                "numerical task requires a positive finite attempt allowance",
-            ))
-        } else {
-            Ok(())
-        }
+        crate::boundary_projection::ValidateProjection::validate_projection(self)
+            .map_err(|error| crate::malformed(&error.to_string()))
     }
 }
 /// Actual observations. Unknown counters remain None; these are neither allowances nor
@@ -447,21 +458,26 @@ pub struct Mechanism {
 }
 /// Registry-owned requested numerical composition.
 pub use crate::generated::enums::NumericalCompositionPolicy as CompositionPolicy;
+crate::projection_struct! {
 /// Hard caller constraints retained by automatic and explicitly declared composition.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CompositionRequest {
+    projection: { name: "NumericalCompositionRequest", rust_path: crate::strategy::CompositionRequest,
+        version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Automatic resolution or explicit declaration binding.
-    pub policy: CompositionPolicy,
+    pub policy: CompositionPolicy => { tag: 1, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Original root-selection contract.
-    pub branch: BranchPolicy,
+    pub branch: BranchPolicy => { tag: 2, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Additional finite counters; absent retains the admitted caller controls.
-    pub limits: Option<WorkLimits>,
+    pub limits: Option<WorkLimits> => { tag: 3, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Permitted later start origins. Empty grants no replacement origin.
-    pub recovery: Vec<StartOrigin>,
+    pub recovery: Vec<StartOrigin> => { tag: 4, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Full frozen descriptive body; absent leaves the complete baseline policy.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub advice: Option<advice::FrozenAdvice>,
+    pub advice: Option<advice::FrozenAdvice> => { tag: 5, direction: crate::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl Default for CompositionRequest {
     fn default() -> Self {

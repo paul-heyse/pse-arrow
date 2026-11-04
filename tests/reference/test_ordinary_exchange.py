@@ -6,12 +6,13 @@ from __future__ import annotations
 
 import math
 import os
-from pathlib import Path
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from google.protobuf import message_factory
 from google.protobuf.message import Message
+
 from oracles import ordinary_exchange as exchange
 from proto_exchange import reference_type
 
@@ -114,11 +115,15 @@ class OrdinaryExchangeUnitTests(unittest.TestCase):
             witness["energy transport residual"] = math.nan
             return witness
 
-        with patch.object(
-            exchange.ordinary_recycle, "overheated_observations", side_effect=changed
+        with (
+            patch.object(
+                exchange.ordinary_recycle,
+                "overheated_observations",
+                side_effect=changed,
+            ),
+            self.assertRaisesRegex(RuntimeError, "physical contradiction"),
         ):
-            with self.assertRaisesRegex(RuntimeError, "physical contradiction"):
-                exchange._reference_outputs(exchange.CASE_NAMES[-1])
+            exchange._reference_outputs(exchange.CASE_NAMES[-1])
 
 
 class OrdinaryExchangeBinaryTests(unittest.TestCase):
@@ -142,7 +147,8 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
     def contract(self, case: str) -> Message:
         return self.contract_type.FromString(
             (
-                self.contract_directory / f"{case.split('.')[-1]}.contract.bin"
+                self.contract_directory
+                / f"{case.rsplit('.', maxsplit=1)[-1]}.contract.bin"
             ).read_bytes()
         )
 
@@ -290,15 +296,15 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
         self,
     ) -> None:
         contract = self.contract(exchange.CASE_NAMES[-1])
-        with patch.object(
-            exchange.ordinary_recycle,
-            "overheated_failure",
-            side_effect=RuntimeError("missing solver or setup failure"),
+        with (
+            patch.object(
+                exchange.ordinary_recycle,
+                "overheated_failure",
+                side_effect=RuntimeError("missing solver or setup failure"),
+            ),
+            self.assertRaisesRegex(RuntimeError, "missing solver"),
         ):
-            with self.assertRaisesRegex(RuntimeError, "missing solver"):
-                exchange.produce_reference(
-                    self.descriptors, contract.SerializeToString()
-                )
+            exchange.produce_reference(self.descriptors, contract.SerializeToString())
 
 
 if __name__ == "__main__":

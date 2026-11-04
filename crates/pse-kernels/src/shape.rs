@@ -3,39 +3,67 @@
 //! Logical indexed arrays map to the existing ordered scalar ABI without inventing coordinates.
 use super::*;
 use std::collections::BTreeSet;
+
+const MAXIMUM_LOGICAL_PORTS: usize = 4096;
+const MINIMUM_SHAPE_AXES: usize = 1;
+const MAXIMUM_SHAPE_AXES: usize = 16;
+const MAXIMUM_SHAPE_CELLS: usize = MAXIMUM_SCALAR_PORTS;
+const LOGICAL_PORTS_RULE: pse_model::boundary_projection::LocalRule =
+    pse_model::boundary_projection::LocalRule::Length {
+        min: 0,
+        max: MAXIMUM_LOGICAL_PORTS as u64,
+    };
+const SHAPE_AXES_RULE: pse_model::boundary_projection::LocalRule =
+    pse_model::boundary_projection::LocalRule::Length {
+        min: MINIMUM_SHAPE_AXES as u64,
+        max: MAXIMUM_SHAPE_AXES as u64,
+    };
+const SHAPE_CELLS_RULE: pse_model::boundary_projection::LocalRule =
+    pse_model::boundary_projection::LocalRule::Length {
+        min: 0,
+        max: MAXIMUM_SHAPE_CELLS as u64,
+    };
+pse_model::projection_struct! {
 /// One logical argument or result array. Sparse or ragged coordinates are explicit.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProviderShape {
+    projection: { name: "KernelProviderShape", rust_path: crate::ProviderShape,
+        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Semantic logical argument/result identity.
-    pub id: SemanticId,
+    pub id: SemanticId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Required] };
     /// Ordered domain identities.
-    pub axes: Vec<SemanticId>,
+    pub axes: Vec<SemanticId> => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [SHAPE_AXES_RULE] };
     /// Ordered coordinate tuples; no membership is inferred from observed values.
-    pub coordinates: Vec<Vec<SemanticId>>,
+    pub coordinates: Vec<Vec<SemanticId>> => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [SHAPE_CELLS_RULE] };
     /// Scalar port IDs in coordinate order.
-    pub cells: Vec<SemanticId>,
+    pub cells: Vec<SemanticId> => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [SHAPE_CELLS_RULE] };
 }
+}
+pse_model::projection_struct! {
 /// Logical shape metadata; unlisted scalar ports retain their scalar meaning.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ProviderShapes {
+    projection: { name: "KernelProviderShapes", rust_path: crate::ProviderShapes,
+        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Logical shapes over the provider's input ports.
-    pub inputs: Vec<ProviderShape>,
+    pub inputs: Vec<ProviderShape> => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [LOGICAL_PORTS_RULE] };
     /// Logical shapes over the provider's output ports.
-    pub outputs: Vec<ProviderShape>,
+    pub outputs: Vec<ProviderShape> => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [LOGICAL_PORTS_RULE] };
+}
 }
 impl ProviderShapes {
     pub(super) fn validate(&self, inputs: &[Port], outputs: &[Port]) -> Result<(), ProviderError> {
         for (shapes, ports) in [(&self.inputs, inputs), (&self.outputs, outputs)] {
             let mut names = BTreeSet::new();
             let mut assigned = BTreeSet::new();
-            if shapes.len() > 4096 {
+            if shapes.len() > MAXIMUM_LOGICAL_PORTS {
                 return Err(ProviderError::Limit("logical provider ports"));
             }
             for s in shapes {
                 if !names.insert(s.id)
-                    || s.axes.is_empty()
-                    || s.axes.len() > 16
-                    || s.cells.len() > 4096
+                    || s.axes.len() < MINIMUM_SHAPE_AXES
+                    || s.axes.len() > MAXIMUM_SHAPE_AXES
+                    || s.cells.len() > MAXIMUM_SHAPE_CELLS
                     || s.cells.len() != s.coordinates.len()
                     || s.coordinates.iter().any(|c| c.len() != s.axes.len())
                     || s.coordinates.iter().collect::<BTreeSet<_>>().len() != s.coordinates.len()
@@ -101,5 +129,46 @@ impl ProviderShapes {
                         .sum::<usize>()
             })
             .sum()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pse_model::boundary_projection::ValidateProjection;
+
+    #[test]
+    fn logical_shape_projection_preserves_native_limits_and_refusal_categories() {
+        let mut shape = ProviderShape {
+            id: pse_ids::named_id(SemanticId::NIL, "logical-port"),
+            axes: vec![pse_ids::named_id(SemanticId::NIL, "axis"); MAXIMUM_SHAPE_AXES],
+            coordinates: Vec::new(),
+            cells: Vec::new(),
+        };
+        shape.validate_projection().unwrap();
+        ProviderShapes {
+            inputs: vec![shape.clone()],
+            outputs: Vec::new(),
+        }
+        .validate(&[], &[])
+        .unwrap();
+        shape.axes.push(shape.axes[0]);
+        assert!(shape.validate_projection().is_err());
+        assert!(matches!(
+            ProviderShapes { inputs: vec![shape.clone()], outputs: Vec::new() }.validate(&[], &[]),
+            Err(ProviderError::Contract(reason)) if reason == "invalid logical provider shape"
+        ));
+        shape.axes.clear();
+        assert!(shape.validate_projection().is_err());
+
+        let shapes = ProviderShapes {
+            inputs: vec![shape; MAXIMUM_LOGICAL_PORTS + 1],
+            outputs: Vec::new(),
+        };
+        assert!(shapes.validate_projection().is_err());
+        assert!(matches!(
+            shapes.validate(&[], &[]),
+            Err(ProviderError::Limit("logical provider ports"))
+        ));
     }
 }

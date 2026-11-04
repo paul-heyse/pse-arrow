@@ -1148,3 +1148,884 @@ All URLs below are direct, independently accessible references.
 | Buffa protobuf implementation          | [https://github.com/anthropics/buffa](https://github.com/anthropics/buffa?utm_source=chatgpt.com)                                                                                               |
 
 Overall: The distinguishing capabilities of ConnectRPC Rust 0.9.x are its combined Connect/gRPC/gRPC-Web protocol implementation, close integration with Buffa's owned and borrowed message representations, generated statically typed service contracts, Tower-native composability, and first-party operational services. The health and reflection crates are particularly useful because they integrate established interoperability standards directly into that same runtime, avoiding custom implementations while retaining explicit control over service availability, schema publication and resource usage.
+
+# ConnectRPC for Rust — Advanced Capabilities and Corrections Addendum
+
+Research date: November 3, 2026\
+Version scope: `connectrpc` 0.9.1; `connectrpc-build`, `connectrpc-codegen`, `connectrpc-health`, and `connectrpc-reflection` 0.9.0\
+Companion document: ConnectRPC for Rust — Comprehensive Library and Ecosystem Overview, October 31, 2026
+
+This addendum supplements the existing reference with additional capabilities, implementation mechanisms, and consequential semantic distinctions. It addresses runtime transport behavior, service composition, connection lifecycle, resource management, interceptor capabilities, encoding efficiency, generation constraints, and testing interfaces.
+
+All APIs described as available target the published 0.9.x releases. Development-branch functionality is distinguished explicitly. The addendum avoids restating the existing treatment of basic RPC operations, Buffa message types, code-generation workflows, health checking, and reflection.
+
+## 1. Protocol semantics and resource-limit corrections
+
+### 1.1 Connect GET: side-effect freedom versus idempotency
+
+Connect HTTP GET eligibility requires a unary RPC whose protobuf method option declares `NO_SIDE_EFFECTS`:
+
+```
+rpc GetRecord(GetRecordRequest) returns (GetRecordResponse) {
+  option idempotency_level = NO_SIDE_EFFECTS;
+}
+```
+
+This is stronger than declaring an operation `IDEMPOTENT`.
+
+| Protobuf idempotency level | Meaning                                                                    | Eligible for Connect GET            |
+| -------------------------- | -------------------------------------------------------------------------- | ----------------------------------- |
+| `IDEMPOTENCY_UNKNOWN`      | No declared idempotency guarantee                                          | No                                  |
+| `IDEMPOTENT`               | Repeating the operation has the same intended effect as performing it once | No, not solely from this annotation |
+| `NO_SIDE_EFFECTS`          | Operation is semantically safe, equivalent to an HTTP safe method          | Yes, for unary methods              |
+
+An idempotent state-changing operation may be safe to retry under an appropriate policy without being suitable for HTTP GET.
+
+The Rust server automatically recognizes eligible GET requests. Generated Rust client methods do not currently select GET automatically; callers requiring GET must use a client implementation or lower-level request path that explicitly supports the Connect GET encoding. gRPC and gRPC-Web calls remain POST-based.
+
+GET also introduces requirements beyond RPC method metadata:
+
+- Cacheability depends on HTTP response directives such as `Cache-Control`; GET alone does not guarantee caching.
+- Shared caches require particular attention to authenticated or user-specific responses.
+- Stable request serialization improves cache-key consistency. Semantically equivalent messages may not necessarily produce byte-identical URLs across all codecs or implementations.
+- Long encoded messages can encounter intermediary URL-length restrictions.
+- GET-specific behavior must be distinguished at the HTTP layer because `RequestContext` does not directly expose the HTTP method. Tower middleware can retain `http::Method` in request extensions for handlers.
+
+This makes GET useful for query-style RPCs exposed through caches and general HTTP infrastructure, but it does not turn arbitrary protobuf operations into safely cacheable resources.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://connectrpc.com\&sz=32)
+
+Connect+1
+
+
+
+Sources:
+
+[https://connectrpc.com/docs/protocol/](https://connectrpc.com/docs/protocol/?utm_source=chatgpt.com)
+
+[https://connectrpc.com/docs/rust/get-requests-and-caching/](https://connectrpc.com/docs/rust/get-requests-and-caching/?utm_source=chatgpt.com)
+
+### 1.2 Distinct scopes of request-body, message, and element-memory limits
+
+The three `Limits` controls apply to different stages of processing:
+
+| Control                      | Default | What it bounds                                                     |
+| ---------------------------- | ------- | ------------------------------------------------------------------ |
+| `with_max_request_body_size` | 4 MiB   | Whole received body for unary and server-streaming requests        |
+| `with_max_message_size`      | 4 MiB   | Individual decoded message size, including decompression expansion |
+| `with_element_memory_limit`  | 32 MiB  | Decode-time element allocation amplification                       |
+
+The critical distinction is that the whole-request-body limit does not cap the total accumulated size of a client-streaming or bidirectional-streaming RPC.
+
+Unary and server-streaming methods receive one request message, so the dispatcher can apply a total body limit during reception. Client-streaming and bidirectional methods receive an incrementally consumed sequence of messages; applying the same total body ceiling would eliminate their ability to transfer arbitrarily long streams of individually valid messages.
+
+Consequently:
+
+- A client stream may transfer many individually valid messages whose combined size exceeds the unary request-body limit.
+- Each message remains subject to the message-size and relevant decode-memory limits.
+- Total upload quotas, maximum message counts, and cumulative application-resource budgets remain separate concerns.
+- A stream can continue consuming resources indefinitely unless cancellation, execution deadlines, or other lifecycle controls terminate it.
+
+Streaming RPCs also have a different authentication-cost profile. In 0.9.1, an interceptor normally sees a streaming call after the dispatcher has begun processing its input, but not after the entire client stream has been collected. The runtime may already have read or decompressed a small number of messages. By contrast, an HTTP-level Tower layer can reject the request before consuming the body.
+
+A `Router::with_route_limits` override replaces the entire route's limit profile; it does not merge individual settings with the service defaults. Generated monomorphic dispatchers do not provide that per-route override facility.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+2
+
+
+
+Source: [https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md?utm_source=chatgpt.com)
+
+### 1.3 JSON decoding does not provide identical pre-allocation protection
+
+Buffa's element-memory budget primarily protects against element amplification, where small wire encodings cause disproportionately large in-memory collections.
+
+For binary protobuf, the 0.9.x budget is enforced during view or message decoding, including interceptor decoding. Repeated elements, maps, strings, and bytes are charged according to the relevant element footprint.
+
+JSON follows a different processing path. The implementation uses `serde_json` to materialize an owned representation before the relevant view-decoding budget is consulted. The budget therefore provides less protection against allocations occurring during JSON parsing.
+
+The distinction applies to server-side request decoding and client-side response decoding. A configured 32 MiB element budget must not be interpreted as a universal peak-memory ceiling, and an individual very large byte payload may not exhaust the element-count budget even though it consumes considerable memory.
+
+The effective resource boundary is the combination of message-size ceilings, element-memory limits, HTTP transport concurrency, and application-level resource management. JSON and binary protobuf do not provide identical allocation guarantees under the same settings.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Source: [https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md?utm_source=chatgpt.com)
+
+### 1.4 gRPC-Web runtime support versus browser-client support
+
+ConnectRPC Rust implements the four RPC cardinalities at the server/runtime level. This should not be interpreted as identical support across all clients speaking related protocols.
+
+The standard `grpc-web` JavaScript browser implementation supports unary and server-streaming calls, but not client-streaming or bidirectional-streaming calls. Its server-streaming support also depends on the wire-format mode supported by that implementation.
+
+Browser restrictions on request-body streaming independently constrain what a Fetch-based client can do, even when the underlying RPC protocol or native Rust transport supports a streaming operation.
+
+For cross-platform compatibility, distinguish three layers:
+
+1. RPC schema cardinality: the operations declared by the protobuf service.
+2. Server/protocol runtime: the operations ConnectRPC Rust can dispatch.
+3. Client and HTTP transport: which operations a particular browser, proxy, or native client can actually perform.
+
+A service can expose a bidirectional method through the Rust runtime without making that method usable by a conventional browser gRPC-Web client.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+Sources:
+
+[https://github.com/grpc/grpc-web/blob/master/README.md](https://github.com/grpc/grpc-web/blob/master/README.md?utm_source=chatgpt.com)
+
+[https://connectrpc.com/docs/protocol/](https://connectrpc.com/docs/protocol/?utm_source=chatgpt.com)
+
+## 2. Dispatch architecture and composable service registration
+
+### 2.1 Generated monomorphic dispatch versus dynamic routing
+
+ConnectRPC exposes a lower-level `Dispatcher` abstraction beneath its HTTP service. Two dispatcher strategies are available in 0.9.1.
+
+Generated service-specific dispatch. A generated `FooServiceServer<T>` implements `Dispatcher` and can be passed directly to `ConnectRpcService::new`. It uses statically generated procedure matching and concrete handler dispatch, avoiding the dynamic router's string-key lookup and type-erased handler dispatch.
+
+Dynamic service routing. `Router` also implements `Dispatcher`, but maintains registrations by procedure path. It supports independently registered services, runtime composition, per-route limits, and route introspection.
+
+These are alternative implementations of the same RPC dispatch boundary, not alternative wire protocols.
+
+| Dimension                   | Generated `FooServiceServer<T>`     | `Router`                                    |
+| --------------------------- | ----------------------------------- | ------------------------------------------- |
+| Procedure dispatch          | Generated service-specific matching | Dynamic lookup by procedure path            |
+| Registered service set      | Fixed by generated service type     | Composed from multiple registrations        |
+| Static method metadata      | Generated directly                  | Attached during generated registration      |
+| Per-route limits            | No; service-wide limits apply       | Yes, through `with_route_limits`            |
+| Runtime router merging      | Not intrinsic                       | Supported                                   |
+| Primary extension mechanism | Generated trait implementation      | Service registration and low-level handlers |
+
+Both can use the surrounding `ConnectRpcService` machinery for protocol negotiation, codecs, interception, deadline enforcement, and HTTP transport integration.
+
+The dynamic approach is not intrinsically preferable. It supplies modularity and registration flexibility at the cost of an additional dispatch layer. The generated approach is useful when a small, statically known service benefits from minimizing that machinery.
+
+The `dispatcher` module also exposes `Chain`, which composes dispatchers by trying one and falling through to another when a procedure is not found. This enables dispatcher composition without requiring every service to be converted into registrations in one dynamic router. A custom implementation of `Dispatcher` is another extension point for specialized routing.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Sources:
+
+[https://docs.rs/connectrpc/latest/connectrpc/dispatcher/index.html](https://docs.rs/connectrpc/latest/connectrpc/dispatcher/index.html?utm_source=chatgpt.com)
+
+[https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md?utm_source=chatgpt.com)
+
+### 2.2 Router merging, conflict semantics, and modular registration
+
+`Router` provides several forms of composition:
+
+| API                  | Behavior                                                    |
+| -------------------- | ----------------------------------------------------------- |
+| `add_service`        | Registers a generated service's procedures                  |
+| `merge`              | Combines routers, consuming the inputs                      |
+| `merge_in_place`     | Adds another router to an existing router                   |
+| `merge_routers`      | Combines a collection of routers                            |
+| `try_merge`          | Fallible merge with structured collision reporting          |
+| `try_merge_in_place` | Fallible in-place merge with transactional failure behavior |
+| `allow_overrides`    | Enables last-wins replacement of duplicate procedure paths  |
+
+By default, registering a procedure path already present in the destination causes a panic. The fallible variants instead return `RouterMergeError`, exposing the conflicting procedure paths.
+
+`try_merge_in_place` is particularly consequential: its collision check is transactional, so the destination remains unchanged if the merge fails. This avoids partially registering a service collection after discovering a conflict.
+
+`allow_overrides` is an explicit departure from collision protection. It is a property of the destination router, not a transferable policy from whichever source router happens to be merged. Last-wins semantics can be useful for intentionally replacing registrations, but can also hide accidental duplicate service definitions.
+
+The normal `add_service` path relies on a generated `ServiceRegister` implementation. Where a single concrete Rust type implements multiple generated service traits, the marker type may be ambiguous. The corresponding generated `FooServiceExt::register` method provides explicit service selection.
+
+These behaviors make the router a useful native service-composition registry, including for modular libraries and dynamically assembled server components, without requiring a second handwritten procedure registry.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Source: [https://docs.rs/connectrpc/latest/connectrpc/router/struct.Router.html](https://docs.rs/connectrpc/latest/connectrpc/router/struct.Router.html?utm_source=chatgpt.com)
+
+### 2.3 Router introspection, attached specifications, and replacement hazards
+
+The `Router` API includes `methods()`, `has_method()`, and `with_spec()`.
+
+`methods()` and `has_method()` inspect actually registered procedures. This is different from gRPC reflection, which exposes descriptor information, and different from the health registry, which tracks application-declared serving status.
+
+`with_spec()` allows a low-level manually registered route to carry the same `Spec` metadata as generated registrations. It connects manually assembled handlers to interceptors and instrumentation that rely on procedure identity, streaming cardinality, or idempotency information.
+
+Generated service registration already attaches the corresponding specifications, so manual attachment is principally relevant to lower-level registration.
+
+Two constraints are important:
+
+- `with_route_limits()` requires the procedure to have already been registered. It installs a complete `Limits` profile rather than overriding individual fields of the global profile.
+- Overriding an existing registration can discard the previously attached per-route limits. Route configuration therefore belongs to the effective registration, not merely to the path string.
+
+The combination of `methods()`, `has_method()`, `with_spec()`, and fallible merging permits consistency checks against expected procedure contracts without requiring reflection to be exposed on the network.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Source: [https://docs.rs/connectrpc/latest/connectrpc/router/struct.Router.html](https://docs.rs/connectrpc/latest/connectrpc/router/struct.Router.html?utm_source=chatgpt.com)
+
+## 3. Client transport, load management, and connection lifecycle
+
+### 3.1 `SharedHttp2Connection`: readiness-aware, shareable HTTP/2 transport
+
+The released client module distinguishes the general-purpose pooled `HttpClient` from the dedicated HTTP/2 transport family.
+
+`Http2Connection` establishes a dedicated HTTP/2 connection. Calling `.shared(max_pending)` produces a cloneable `SharedHttp2Connection`, allowing generated clients to share one transport handle without an application-managed mutex around all RPC invocations.
+
+The shared transport includes a connection/reconnection state machine and meaningful Tower readiness reporting.
+
+By contrast, `HttpClient` wraps Hyper's general HTTP client pool and reports `poll_ready` as always ready. This is adequate for many clients but less informative to Tower load balancers that use readiness and pending-request estimates.
+
+A minimal illustration:
+
+```
+let conn = Http2Connection::connect_plaintext(uri.clone())
+    .await?
+    .shared(1024);
+
+let config = ClientConfig::new(uri)
+    .with_protocol(Protocol::Grpc);
+
+let client_a = FirstServiceClient::new(conn.clone(), config.clone());
+let client_b = SecondServiceClient::new(conn, config);
+```
+
+The `shared(1024)` argument configures the shared transport's pending-request capacity; it is not an RPC payload-size limit.
+
+Scaling across connections. A single HTTP/2 connection can encounter contention in the `h2` transport implementation even when individual RPC handlers are inexpensive. ConnectRPC's documentation describes using multiple `SharedHttp2Connection` instances, with either explicit request distribution or `tower::balance::p2c::Balance` and `tower::load::PendingRequests`, to spread load.
+
+The key distinction is between connection pooling and load-aware dispatch:
+
+- A pool can maintain reusable HTTP connections.
+- A readiness-aware balancer can choose among connections using information about their current capacity or outstanding work.
+- An always-ready transport does not, by itself, expose the same load signal.
+
+`SharedHttp2Connection` is therefore an important native foundation for multi-connection gRPC clients. Its benefit is conditional: workloads dominated by downstream service time, network latency, or application computation may not be constrained by a single connection's internal contention.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Source: [https://docs.rs/connectrpc/latest/connectrpc/client/index.html](https://docs.rs/connectrpc/latest/connectrpc/client/index.html?utm_source=chatgpt.com)
+
+### 3.2 Dedicated HTTP/2 connection configuration
+
+`Http2ConnectionBuilder` provides transport-level controls distinct from RPC method options:
+
+- Connection-establishment deadlines and per-address TCP connection timeouts.
+- HTTP/2 keepalive interval, timeout, and idle behavior.
+- Initial stream and connection flow-control window sizes.
+- Adaptive flow-control window management.
+- Additional Hyper HTTP/2 settings through `h2_settings`.
+- Source-address binding through `local_address(IpAddr)`.
+
+The connection-establishment budget encompasses DNS resolution, TCP connection, TLS establishment where applicable, and HTTP/2 setup. The documented defaults are 20 seconds overall and 5 seconds per TCP address attempt. These are not whole-RPC execution deadlines.
+
+`local_address` binds the built-in TCP connector to a particular source IP address. This is valuable on multi-homed hosts and for network paths where source addresses determine routing or access controls. Its behavior is limited to the built-in TCP connector, rather than applying automatically to arbitrary custom connectors or Unix-domain sockets.
+
+Flow-control configuration interacts with memory use and throughput. Larger HTTP/2 windows permit more data in flight but can increase buffering requirements; adaptive windows attempt to respond to observed transport conditions. Neither setting replaces per-message RPC resource limits.
+
+The API is therefore an important bridge between application-level RPC semantics and lower-level Hyper/Tokio networking behavior.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Source: [https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md?utm_source=chatgpt.com)
+
+### 3.3 Server connection retirement and transport resource controls
+
+The standalone `Server` exposes connection-level resource governance that operates independently of `Limits` and `DeadlinePolicy`.
+
+| Control                            | Behavior                                                     |
+| ---------------------------------- | ------------------------------------------------------------ |
+| `with_max_connection_age`          | Retires connections after an age threshold                   |
+| `with_max_connection_age_grace`    | Bounds the grace interval after connection retirement begins |
+| `with_max_requests_per_connection` | Retires a connection after a configured number of requests   |
+| `with_max_connection_idle`         | Reclaims idle connections                                    |
+| `with_max_concurrent_streams`      | Controls concurrent HTTP/2 streams per connection            |
+| `with_http2_keepalive_interval`    | Configures HTTP/2 keepalive probes                           |
+| `with_http2_keepalive_timeout`     | Controls keepalive failure detection                         |
+| `with_header_read_timeout`         | Bounds initial incomplete request/handshake behavior         |
+| `with_http2_adaptive_window`       | Controls adaptive HTTP/2 flow-control windows                |
+
+Connection retirement differs from server shutdown. An HTTP/2 connection that reaches its configured maximum age can receive GOAWAY, allowing the client to establish another connection while the server continues accepting new traffic. For HTTP/1.1, the comparable behavior involves disabling persistence and closing the connection appropriately.
+
+The age limit incorporates jitter, reducing the risk that many connections retire simultaneously. The grace interval permits existing work to drain before forced connection closure. Request-count retirement provides another independent trigger for connection recycling.
+
+Idle retirement also differs from keepalive. Idle retirement reclaims connections that are not carrying active work; keepalive detects peers that have become unreachable or unresponsive.
+
+Security-sensitive handshake behavior. The 0.9.1 security fix made the default 30-second header-read timeout effective for connections that send no bytes or stall partway through the HTTP/2 preface. Without effective early connection timeouts, a peer can hold transport resources without submitting an RPC that reaches the dispatcher.
+
+These mechanisms operate at different scopes:
+
+- `Limits`: request and message consumption.
+- `DeadlinePolicy`: RPC execution and streaming timing.
+- Server connection controls: sockets, HTTP/2 sessions, idle resources, and connection retirement.
+
+No single mechanism subsumes the others.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Sources:
+
+[https://docs.rs/connectrpc/latest/connectrpc/server/index.html](https://docs.rs/connectrpc/latest/connectrpc/server/index.html?utm_source=chatgpt.com)
+
+[https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md?utm_source=chatgpt.com)
+
+### 3.4 TLS-aware hosting and trusted peer identity
+
+With the applicable `axum` and `server-tls` features, `connectrpc::axum::serve_tls` provides rustls-backed Axum hosting and propagates transport-derived information to RPC request contexts.
+
+The relevant types and accessors are:
+
+| API                            | Information                                          |
+| ------------------------------ | ---------------------------------------------------- |
+| `PeerAddr`                     | Connection peer socket address                       |
+| `PeerCerts`                    | Presented TLS client certificate chain               |
+| `RequestContext::peer_addr()`  | Optional typed peer address                          |
+| `RequestContext::peer_certs()` | Optional typed certificate chain                     |
+| `RequestContext::extensions()` | Other request-scoped data inserted by the HTTP stack |
+
+This permits transport-level identity to participate in RPC authorization and auditing without modifying the protobuf contract or trusting arbitrary caller-supplied metadata.
+
+The trust boundary requires precision:
+
+- A presented certificate is not, by itself, proof of an authorized application identity. TLS verification and application authorization remain separate.
+- Peer socket addresses may identify a reverse proxy rather than the ultimate caller.
+- A custom Hyper accept loop must propagate trusted peer metadata into request extensions explicitly if it requires the same behavior.
+- Application middleware can attach its own verified principal or identity information to `http::Extensions`, which the RPC handler can inspect through `RequestContext`.
+
+This makes TLS hosting, Tower identity middleware, and typed `RequestContext` accessors complementary rather than interchangeable.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Sources:
+
+[https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md?utm_source=chatgpt.com)
+
+[https://github.com/connectrpc/connect-rust/tree/v0.9.1/examples/mtls-identity](https://github.com/connectrpc/connect-rust/tree/v0.9.1/examples/mtls-identity?utm_source=chatgpt.com)
+
+## 4. Protocol-aware middleware and encoding mechanisms
+
+### 4.1 Protocol-correct errors before RPC dispatch
+
+`ConnectError::into_http_response(request_headers)` is an important integration facility for Tower middleware that needs to reject an RPC before the dispatcher reads its body.
+
+It converts a `ConnectError` into an `http::Response<ConnectRpcBody>` using protocol information from the inbound request headers.
+
+| Detected protocol | Error representation                                    |
+| ----------------- | ------------------------------------------------------- |
+| Connect unary     | Appropriate HTTP error status and JSON error body       |
+| Connect streaming | HTTP 200 with a terminal `EndStreamResponse` envelope   |
+| gRPC              | HTTP 200 with gRPC status metadata                      |
+| gRPC-Web          | HTTP 200 with the corresponding gRPC-Web status framing |
+
+An HTTP middleware layer can therefore reject unauthenticated clients, apply request admission policy, or enforce coarse authorization without constructing three separate protocol encoders.
+
+This is consequential because a generic HTTP 401 or 403 response does not have the same meaning to every RPC client. A gRPC client expects its protocol's status representation; returning an arbitrary HTTP response can produce a transport error instead of the intended `Unauthenticated` or `PermissionDenied` RPC status.
+
+The method derives protocol selection from the request headers. Missing or unrecognized content types fall back to a Connect-unary JSON error response. This fallback is appropriate for ordinary HTTP rejection but should not be mistaken for fully negotiated RPC behavior.
+
+The architectural separation is:
+
+- Tower middleware determines whether the request should be admitted before costly body processing.
+- `ConnectError::into_http_response` preserves the appropriate wire-level error contract.
+- RPC interceptors handle policies that require generated method metadata or decoded message contents.
+
+This combination avoids both early request-body processing and bespoke multiprotocol rejection logic.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Source: [https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md?utm_source=chatgpt.com)
+
+### 4.2 Interceptor composition, typed response substitution, and invocation replay
+
+The interceptor layer provides several advanced facilities beyond simple observation and validation.
+
+Closure-based construction. `unary_interceptor` and `streaming_interceptor` allow interceptors to be created from closures without defining a separate struct and trait implementation. For stateful interceptors shared among multiple services, `with_interceptor_arc(Arc<dyn Interceptor>)` reuses an existing instance.
+
+Registration order is outermost-first: the first registered interceptor observes the inbound request first and the outbound result last. With no interceptors registered, the dispatch path avoids constructing the interception machinery.
+
+Typed response substitution. `Payload::from_message` constructs a response payload from a typed message with deferred encoding in the selected codec. An interceptor can return it without invoking the handler or inner interceptors:
+
+```
+if let Some(reply) = cache.lookup(&key) {
+    return Ok(Response::new(
+        Payload::from_message(reply, req.payload.format())
+    ));
+}
+
+next.run(req).await
+```
+
+Illustrative fragment; the surrounding interceptor supplies `req`, `next`, and `cache`.
+
+This supports cached responses, synthetic replies, and policy-controlled substitutions while retaining the runtime's normal protocol encoding and metadata handling. Unlike replacing an HTTP body with raw bytes, the interceptor does not need a parallel protobuf framing implementation.
+
+Controlled re-execution. `Next` implements `Clone`, while `UnaryRequest::try_clone()` provides a way to duplicate an invocation's request context and payload for another run through the remaining interceptor chain and handler.
+
+This can implement retry-like behavior within a server process. It is not equivalent to replaying a transport operation: it invokes application code again. Such repetition is appropriate only when the method's idempotency and side-effect behavior permit it. The declared `Spec::idempotency_level` can help evaluate eligibility but does not replace application correctness.
+
+Streaming interception. `intercept_streaming` runs once when the stream is established. Per-message inspection or transformation requires adapting the inbound `PayloadStream` or outbound stream with `futures::Stream` combinators. This permits lazy message transformation and backpressure-preserving composition without introducing a second application streaming protocol.
+
+The distinction between a once-per-stream hook and per-message processing matters for auditing, validation, quotas, and policies that depend on the total number of messages. A policy checked only at stream establishment cannot enforce a cumulative per-message constraint unless it also wraps the stream.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Source: [https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md?utm_source=chatgpt.com)
+
+### 4.3 Segmented protobuf encoding and transport-level copy avoidance
+
+The 0.9.0 runtime introduced a substantial optimization through `Encodable::encode_segments` and the `EncodedBody` representation.
+
+For eligible protobuf-binary responses, the encoder can retain large field buffers by reference count and pass them through the HTTP body layer without copying their contents into one contiguous encoded-message allocation.
+
+The mechanism is more specific than merely returning an `OwnedView`.
+
+1. The encoder produces protobuf framing fragments and one or more reference-counted field segments.
+2. Segments at or above the 16 KiB framing threshold can be emitted as separate HTTP body frames.
+3. Smaller framing fragments, including protobuf tags and length prefixes, are accumulated into a batch buffer.
+4. The resulting protobuf wire bytes remain equivalent to contiguous serialization, even though their HTTP body segmentation differs.
+
+The optimization's applicability depends on the response representation, RPC shape, codec, and compression state.
+
+| Response path                                         | Segmented-field behavior                                                         |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Server-streaming and bidirectional protobuf responses | Eligible for `encode_segments`                                                   |
+| Client-streaming unary response                       | Eligible for segmented encoding                                                  |
+| gRPC or gRPC-Web unary response                       | Eligible for segmented encoding                                                  |
+| Connect-protocol unary response                       | Uses contiguous encoding                                                         |
+| Owned message body                                    | Encodes contiguously, although whole-buffer framing may still avoid another copy |
+| `OwnedView` exposing large fields                     | Can benefit from reference-counted segments                                      |
+| JSON response                                         | Uses the JSON encoding path, not segmented protobuf encoding                     |
+| Calls passing through an RPC interceptor              | Unary segmented encoding is not retained on that path                            |
+| Compressed response                                   | Requires a contiguous representation for compression                             |
+
+The compression interaction is particularly important.
+
+The default `CompressionPolicy` compresses responses from 1 KiB when an accepted encoding is available. Therefore, a sufficiently large view-backed response may be compressed instead of retaining its segmented encoding. The runtime must then consolidate the message before compression, which can introduce more work than ordinary contiguous serialization.
+
+`Response::compress(false)` permits an individual response to avoid this. `CompressionPolicy::with_min_size` provides a broader threshold adjustment.
+
+These controls can matter when large protobuf fields already contain compressed data or when bandwidth is inexpensive relative to memory-copy and compression costs. They should not be interpreted as a universal preference for disabling compression: smaller network transfers may outweigh encoding overhead in network-constrained workloads.
+
+Custom dispatcher compatibility. The 0.9.0 change also affected lower-level code implementing `Dispatcher` directly. Streaming results use `EncodedStream`, containing `EncodedBody` items, rather than simply a stream of `Bytes`. `EncodedBody::into_contiguous()` provides an explicit conversion back to a single buffer when required.
+
+Generated handlers do not need to manage these representations manually, but custom dispatchers and RPC test doubles may need to accommodate the richer body type.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+Sources:
+
+[https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md?utm_source=chatgpt.com)
+
+[https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md?utm_source=chatgpt.com)
+
+## 5. Client-side resource controls and streaming correctness
+
+### 5.1 Response decode limits at client and invocation scopes
+
+The released client API provides configurable decode-memory limits that mirror an important part of the server's request protection.
+
+| Scope                | Message-size control                          | Element-memory control                            |
+| -------------------- | --------------------------------------------- | ------------------------------------------------- |
+| Client-wide defaults | `ClientConfig::with_default_max_message_size` | `ClientConfig::with_default_element_memory_limit` |
+| Individual RPC       | `CallOptions::with_max_message_size`          | `CallOptions::with_element_memory_limit`          |
+
+Per-call settings override the corresponding client defaults while leaving other default settings intact.
+
+The element-memory budget applies to incoming responses across unary, client-streaming, server-streaming, and bidirectional calls. It constrains the element footprint of protobuf decoding, not simply the serialized byte count.
+
+An over-budget response produces `ResourceExhausted`, making the failure distinguishable from malformed message data or a transport problem. The diagnostic identifies the relevant limit that can be adjusted.
+
+As established in §1.3, the protection is codec-dependent. Binary protobuf enforces the element budget during decoding; JSON may already have materialized an owned message through `serde_json` before the element budget is checked.
+
+For streaming clients, these limits protect individual decoded messages. They are not cumulative limits on every message received over the lifetime of a stream. Aggregate memory consumption also depends on how many decoded messages the application retains or processes concurrently.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+Sources:
+
+[https://docs.rs/connectrpc/latest/connectrpc/client/struct.ClientConfig.html](https://docs.rs/connectrpc/latest/connectrpc/client/struct.ClientConfig.html?utm_source=chatgpt.com)
+
+[https://docs.rs/connectrpc/latest/connectrpc/client/struct.CallOptions.html](https://docs.rs/connectrpc/latest/connectrpc/client/struct.CallOptions.html?utm_source=chatgpt.com)
+
+### 5.2 Asynchronous client-stream production and transport backpressure
+
+In 0.9.0, generated client-streaming methods adopted an asynchronous request-stream interface.
+
+`ClientRequestStream<Req>` accepts a `Stream<Item = Req> + Send + 'static`. This enables request messages to be produced as needed instead of requiring an eagerly available collection or a synchronous iterator.
+
+The stream directly backs the HTTP request body, so the transport polls it as capacity becomes available. This allows HTTP/2 flow control to propagate backpressure to an upstream producer.
+
+The resulting execution model is:
+
+```
+Asynchronous message producer
+        ↓
+ClientRequestStream<Req>
+        ↓
+Protobuf encoding and framing
+        ↓
+HTTP request body / HTTP/2 flow control
+        ↓
+Remote streaming handler
+```
+
+The library handles the transport-facing consumption of the stream. Application code still determines whether its own producer and any intermediate channels have bounded capacity.
+
+A producer using an unbounded queue can accumulate substantial memory even if the HTTP transport itself applies backpressure. The benefits are strongest when the entire chain uses bounded channels or lazy streams.
+
+`connectrpc::stream_iter` provides the corresponding adapter for an existing collection, avoiding a separate asynchronous producer when the messages are already available.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+Source: [https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md?utm_source=chatgpt.com)
+
+### 5.3 Bidirectional half-close and cancellation semantics
+
+`BidiStream::into_split()` returns independently owned `BidiSendHalf` and `BidiRecvHalf` handles.
+
+The distinction between closing one direction and canceling the RPC is fundamental:
+
+| Action                                 | Semantics                               |
+| -------------------------------------- | --------------------------------------- |
+| `BidiSendHalf::close_send()`           | Ends the request-message stream cleanly |
+| Dropping `BidiSendHalf`                | Also closes the sending direction       |
+| Continuing to read from `BidiRecvHalf` | Allows subsequent server responses      |
+| Dropping `BidiRecvHalf`                | Cancels the RPC                         |
+
+This enables independent sender and receiver tasks without adding an application-level mutex around the entire duplex stream.
+
+However, true response-dependent full-duplex operation requires an appropriate HTTP/2 transport. On HTTP/1.1, a response may not become available until request upload completion, even when the RPC API exposes the same bidirectional abstraction.
+
+Half-close should also not be confused with acknowledgement or durable acceptance. Successfully completing the local sending direction does not establish that the remote application has processed and committed every submitted message.
+
+The 0.9.1 resource fix further clarifies the cancellation boundary. When a handler stops reading a client-streaming or bidirectional request, the runtime no longer retains an incomplete body reader indefinitely. It drains or discards a bounded amount before releasing the HTTP/2 stream or closing the HTTP/1.x connection as appropriate.
+
+This prevents premature handler completion from leaving abandoned uploads indefinitely attached to transport resources. It does not provide transactional delivery semantics or automatic recovery of partially processed streams.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+Source: [https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md?utm_source=chatgpt.com)
+
+### 5.4 Terminal stream state, sticky errors, and trailers
+
+`ServerStream::message()` distinguishes a successful stream termination from any terminal failure:
+
+- `Ok(Some(message))`: another message was received.
+- `Ok(None)`: the protocol's successful termination conditions were satisfied.
+- `Err(error)`: decoding, transport, deadline, or remote RPC termination failed.
+
+An error is terminal and sticky. Repeated calls to `message()` return the same terminal error; they do not reinterpret a failed stream as a cleanly completed one.
+
+`ServerStream::error()` exposes the recorded terminal failure after the fact, while `ServerStream::trailers()` exposes termination metadata once it has been received.
+
+This matters for streams where an application has already consumed useful messages before the server reports a failure. Those previously received messages are real, but the overall RPC did not finish successfully.
+
+Missing or malformed protocol termination metadata is not silently converted into a successful end of stream. A truncated Connect stream missing its end envelope, or a gRPC response without valid terminal status, therefore remains distinguishable from success.
+
+The separation permits consumers to inspect partial results, terminal diagnostics, and trailers while retaining an unambiguous success criterion.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Source: [https://docs.rs/connectrpc/latest/connectrpc/client/struct.ServerStream.html](https://docs.rs/connectrpc/latest/connectrpc/client/struct.ServerStream.html?utm_source=chatgpt.com)
+
+### 5.5 Deadline budgeting for downstream RPCs
+
+`RequestContext::time_remaining()` provides a saturating `Option<Duration>` representing the remaining request deadline.
+
+Unlike manually subtracting timestamps, it accounts for elapsed time and avoids underflow. A missing deadline returns `None`, rather than implying an arbitrary default budget.
+
+The value can be used to construct downstream client options:
+
+```
+if let Some(remaining) = ctx.time_remaining() {
+    let budget = remaining.saturating_sub(
+        Duration::from_millis(50)
+    );
+
+    options = options.with_timeout(budget);
+}
+```
+
+Illustrative fragment; the margin is application-specific.
+
+This connects server-side deadline enforcement to client-side timeout propagation.
+
+The remaining budget is not a guarantee that the downstream call can finish, nor does it automatically reserve enough time for response encoding, network transfer, or local cleanup. It is a useful basis for deriving a bounded downstream call budget while preserving explicit responsibility for application-level commit and cancellation semantics.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Source: [https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md?utm_source=chatgpt.com)
+
+### 5.6 Lower-level unary GET client API
+
+Although generated clients do not select Connect GET automatically, the released client module includes `call_unary_get`.
+
+This supplies a lower-level path for invoking an eligible unary method using the Connect GET protocol. It complements the server's GET support and provides a distinction between protocol capability and generated-client convenience.
+
+The operation remains subject to the protobuf method's `NO_SIDE_EFFECTS` requirement and the HTTP caching and intermediary considerations discussed in §1.1.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Source: [https://docs.rs/connectrpc/latest/connectrpc/client/index.html](https://docs.rs/connectrpc/latest/connectrpc/client/index.html?utm_source=chatgpt.com)
+
+## 6. Code generation, testing, and release compatibility
+
+### 6.1 Descriptor decoding for very large schemas
+
+The 0.9.0 code-generation tools use a larger Buffa element-memory budget when decoding compiler-produced descriptor sets.
+
+The default tooling budget is 1 GiB, rather than the ordinary runtime default of 32 MiB. This reflects an important trust and workload distinction: large descriptor sets are expected during code generation, whereas runtime protobuf messages may originate from untrusted peers.
+
+Two configuration mechanisms are available.
+
+| Mechanism                               | Scope                                                         | Example                                             |
+| --------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------- |
+| `BUFFA_ELEMENT_MEMORY_LIMIT`            | All participating Buffa-based generation tools in the process | `BUFFA_ELEMENT_MEMORY_LIMIT=4294967296 cargo build` |
+| `element_memory_limit` generator option | The individual plugin receiving that option                   | `element_memory_limit=4294967296`                   |
+
+Both accept a byte count or `unlimited`.
+
+The environment variable is particularly useful with `buf generate`, where multiple plugins process the same schema and need compatible budgets. It is also the available override for `connectrpc-build`, which does not receive a `protoc` plugin-option string in the same way.
+
+The per-plugin option is more selective, but every generator that needs a higher limit must receive its own configuration.
+
+A finite large budget preserves an important diagnostic: malformed or unexpectedly amplified descriptor data produces an explicit failure rather than exhausting process memory.
+
+Runtime reflection remains separate. Increasing the generation budget does not change the memory budget used when `connectrpc-reflection` initializes a `Reflector`. Excessively large runtime descriptor sets can produce `ReflectionError::ElementBudget`.
+
+This is especially consequential where generation and reflection use the same schema but have different exposure and resource expectations. The schema can be valid for generation while still exceeding the reflection initialization budget.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+Sources:
+
+[https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md?utm_source=chatgpt.com)
+
+[https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md?utm_source=chatgpt.com)
+
+### 6.2 Protobuf Edition 2024
+
+`protoc-gen-connect-rust` 0.9.0 advertises Protobuf Edition 2024 as its maximum supported edition.
+
+This enables the generator to accept service definitions using `edition = "2024"` rather than rejecting them during compiler-plugin negotiation.
+
+The edition introduced capabilities such as `enforce_naming_style` and `default_symbol_visibility`, but those are principally interpreted and enforced by `protoc`. The ConnectRPC service generator receives the resulting descriptors and does not require a different RPC execution model for those features.
+
+This is a compatibility distinction rather than a new runtime service capability. It matters when schema compilation evolves independently of Rust service implementation and publishing workflows.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Source: [https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md?utm_source=chatgpt.com)
+
+### 6.3 Direct handler testing without an HTTP server
+
+Generated service handlers are ordinary Rust trait methods and can be exercised directly without constructing a network listener, HTTP/2 connection, or protobuf-framed HTTP request.
+
+The relevant construction APIs are:
+
+| API                           | Testing role                                                  |
+| ----------------------------- | ------------------------------------------------------------- |
+| `RequestContext::new`         | Constructs a request context from headers                     |
+| `ServiceRequest::from_parts`  | Combines a borrowed Buffa message view with its backing bytes |
+| `StreamMessage::from_message` | Creates an owned streaming message from a typed message       |
+| `futures::stream::iter`       | Produces a deterministic inbound test stream                  |
+| `Encodable::encode`           | Converts an opaque handler response into bytes for assertions |
+
+An important Rust type-system detail is that generated handler traits can return `ServiceResult<impl Encodable<M>>`. Even if the concrete implementation returns a familiar owned message, code invoking the method through the generated trait may see the opaque `Encodable` return type.
+
+Consequently, direct tests may need to encode the response through `Encodable::encode` and decode it into the expected message type before asserting on fields.
+
+This is different from a test whose only purpose is validating a domain function that happens to be called by a handler.
+
+The layering provides several distinct test surfaces:
+
+- Direct handler calls exercise application behavior and typed request/response handling.
+- `ConnectRpcService` tests exercise dispatch, interceptors, limits, and protocol negotiation.
+- Generated-client tests using an injected `ClientTransport` exercise client behavior without necessarily opening a real socket.
+- Network tests exercise HTTP transport, TLS, proxy behavior, and real interoperability.
+
+These layers should not be treated as equivalent evidence. A direct handler test does not verify protocol framing, while a transport test may obscure which failure originated in application logic.
+
+The generated-client abstraction and `ServiceTransport` adapter provide a way to introduce Tower-compatible test transports without replacing generated RPC method implementations.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+Sources:
+
+[https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md?utm_source=chatgpt.com)
+
+[https://docs.rs/connectrpc/latest/connectrpc/client/index.html](https://docs.rs/connectrpc/latest/connectrpc/client/index.html?utm_source=chatgpt.com)
+
+### 6.4 Generated return types and `refining_impl_trait` diagnostics
+
+The generated service traits use return-position `impl Trait` in traits to permit owned messages and alternative encodable representations.
+
+An implementation returning `ServiceResult<ConcreteResponse>` can refine a trait return declared as `ServiceResult<impl Encodable<ResponseType>>`. Rust may emit `refining_impl_trait_internal` or `refining_impl_trait_reachable` warnings because the implementation exposes a more concrete return type.
+
+This is intentional in the ConnectRPC generation model, not necessarily evidence that the handler signature is incorrect.
+
+The tagged guide documents narrowly allowing the relevant refining-impl-trait lint for these generated implementations. This is worth recording because it prevents attempts to rewrite otherwise valid handler signatures to match the much more verbose generated trait declaration.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Source: [https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md?utm_source=chatgpt.com)
+
+### 6.5 Cargo feature boundaries and independently generated bindings
+
+The 0.9.1 runtime has a feature layout that materially affects dependency composition:
+
+| Feature        | Default  | Capability boundary                              |
+| -------------- | -------- | ------------------------------------------------ |
+| `json`         | Enabled  | Protobuf JSON message encoding and decoding      |
+| `gzip`, `zstd` | Enabled  | Bundled compression providers                    |
+| `client`       | Disabled | Native client HTTP transports                    |
+| `client-tls`   | Disabled | TLS-enabled client transport                     |
+| `server`       | Disabled | Built-in Hyper server                            |
+| `server-tls`   | Disabled | TLS-enabled server support                       |
+| `tls`          | Disabled | Convenience combination of client and server TLS |
+| `axum`         | Disabled | Axum routing integration                         |
+
+A small protocol-only or custom-transport build does not need to include every networking feature. However, Cargo feature unification remains additive across the dependency graph.
+
+For protobuf-binary-only builds, both message generation and runtime configuration must disable JSON support consistently. Disabling default features also disables the default compression features, so selected compression algorithms must be explicitly re-enabled if needed.
+
+The 0.9.0 release also establishes a hard generated-code compatibility boundary with Buffa 0.9. Buffa's size-arithmetic changes mean bindings produced by older code generators may no longer compile against the new runtime. Independently generated message crates referenced through `extern_path` must likewise use compatible Buffa-generated representations.
+
+This is different from a protobuf schema compatibility issue: the same `.proto` contract can remain valid while its generated Rust representations need regeneration for the newer library APIs.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+Sources:
+
+[https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md?utm_source=chatgpt.com)
+
+[https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/CHANGELOG.md?utm_source=chatgpt.com)
+
+## 7. Version-specific boundaries and capability interactions
+
+### 7.1 Do not substitute development-branch APIs for the 0.9.1 release
+
+The upstream repository's `main` branch contains work beyond the tagged 0.9.1 runtime. In particular, development-branch interfaces such as `intercept_head` and newer connection-management abstractions must not be described as released 0.9.1 functionality without an independently verified release.
+
+For the version covered here, early HTTP-layer authorization is provided by Tower middleware, with protocol-correct rejection available through `ConnectError::into_http_response`. The released interceptor model remains `intercept_unary` and `intercept_streaming`.
+
+This distinction is particularly important for a pre-1.0 Rust library whose development documentation can describe APIs not yet present in the corresponding published crate.
+
+Sources:
+
+[https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md](https://github.com/connectrpc/connect-rust/blob/v0.9.1/docs/guide.md?utm_source=chatgpt.com)
+
+[https://github.com/connectrpc/connect-rust/blob/main/docs/guide.md](https://github.com/connectrpc/connect-rust/blob/main/docs/guide.md?utm_source=chatgpt.com)
+
+### 7.2 Consequential capability combinations
+
+Several of the added capabilities become more significant when considered together:
+
+| Capability combination                                               | Resulting architectural option                                           | Important boundary                                                          |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| `SharedHttp2Connection` + Tower load balancing + transport readiness | Multiple managed gRPC connections with load-aware dispatch               | Connection-level signals do not measure application capacity directly       |
+| `Router::try_merge` + `methods()` + generated `Spec`                 | Collision-checked service assembly and registered-procedure inspection   | Runtime registration remains separate from reflection descriptors           |
+| Tower admission middleware + `ConnectError::into_http_response`      | Early rejection with protocol-correct errors                             | Middleware must choose errors from trusted request information              |
+| `OwnedView` + `Encodable::encode_segments` + compression controls    | Reduced copying for eligible protobuf responses                          | JSON, compression, and certain unary/interceptor paths remain contiguous    |
+| `Limits` + client decode budgets + streaming backpressure            | Resource controls on both sides of an RPC                                | Per-message ceilings are not aggregate stream quotas                        |
+| `RequestContext::time_remaining()` + `CallOptions::with_timeout`     | Explicit propagation of residual deadline budgets                        | Application cancellation and commit semantics remain independent            |
+| Large-schema generation budget + runtime reflection budget           | Independent limits for trusted generation and runtime schema publication | Raising one budget does not change the other                                |
+| TLS peer metadata + request extensions + interceptors                | Typed, transport-derived identity available to RPC policies              | Authentication, certificate verification, and authorization remain separate |
+
+The overarching distinction is that ConnectRPC's advanced functionality is distributed across generated service contracts, the dispatcher, RPC interceptors, Tower HTTP services, protobuf representation, client transport, and the hosting layer.
+
+Those layers are deliberately composable, but their guarantees are not interchangeable. In particular, a message-size limit is not a stream quota; a TLS peer certificate is not an authorization decision; a borrowed protobuf view is not automatically an allocation-free HTTP response; and a generated service declaration is not automatically a live runtime or reflection registration.
+
+Understanding these boundaries reveals where existing library mechanisms can replace custom RPC infrastructure while preserving precise control over performance, protocol correctness, resource consumption, and operational behavior.
+
+End of addendum — scoped to the published ConnectRPC Rust 0.9.x API family.

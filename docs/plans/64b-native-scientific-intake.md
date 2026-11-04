@@ -22,6 +22,13 @@ document/fit ownership and source/physical interpretation; they never admit inde
 science. 64i owns complete consumer migration and deletion of replaced adapters, with original
 source checks retained and affected paths requalified. H owns independent reference exchange.
 
+**Current status, 2026-11-04:** B01–B05 remain complete for the original native intake
+delivery. Source-owner projections and the narrow engineering source/edit client have
+targeted passing evidence; full consumer migration and expanded generated validation remain
+in progress under I/J. H's new binary case/input exchange still needs complete matched
+native/reference acceptance. This retained plan's complete status does not qualify those
+new representations or the current changed checkout.
+
 ## Purpose and foundation
 
 **Proposed:** deliver Packet A's complete selected-source → Rust interpretation/extraction → typed native delta → ordinary admission → guarded SurrealDB publication → ordinary consuming case → exact reopened readback journey. The [coordinator](64-process-simulator-target.md) owns scope, shared decisions and review dispositions; this companion owns B01–B05 and intake evidence. Authoring source is `1acd8c83c`; no acquisition or numerical execution was performed to create this plan.

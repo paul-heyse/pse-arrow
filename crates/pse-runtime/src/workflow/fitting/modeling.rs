@@ -623,9 +623,7 @@ impl ModelingPackage {
                     uncertainty.admit()?;
                 }
                 if profile.solver.intent != SolveIntent::Optimize
-                    || !profile.rank_tolerance.is_finite()
-                    || !(0.0..1.0).contains(&profile.rank_tolerance)
-                    || profile.rank_tolerance == 0.0
+                    || !documents::RANK_TOLERANCE_DOMAIN.contains(profile.rank_tolerance)
                     || profile.max_cells == 0
                     || d.experiments.is_empty()
                     || d.parameters.is_empty()

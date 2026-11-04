@@ -29,6 +29,31 @@ fn descriptor(n: usize, m: usize) -> ProviderSpec {
     }
 }
 
+#[test]
+fn provider_extent_projection_preserves_native_limits_and_refusal_categories() {
+    use pse_model::boundary_projection::ValidateProjection;
+
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let mut spec = descriptor(MAXIMUM_SCALAR_PORTS, MINIMUM_PROVIDER_OUTPUTS);
+    spec.id = pse_ids::named_id(SemanticId::NIL, "extent-provider");
+    spec.validate(&registry).unwrap();
+    spec.validate_projection().unwrap();
+
+    spec.inputs.push(spec.inputs[0].clone());
+    assert!(spec.validate_projection().is_err());
+    assert!(
+        matches!(spec.validate(&registry), Err(ProviderError::Contract(reason))
+        if reason == "provider registration capacity")
+    );
+    spec.inputs.pop();
+    spec.outputs.clear();
+    assert!(spec.validate_projection().is_err());
+    assert!(
+        matches!(spec.validate(&registry), Err(ProviderError::Contract(reason))
+        if reason == "empty outputs or duplicate identities")
+    );
+}
+
 #[derive(Debug)]
 struct Controlled {
     mode: Arc<AtomicU8>,

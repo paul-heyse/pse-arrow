@@ -818,3 +818,659 @@ The following are direct primary documentation and upstream sources for deeper i
 | Upstream releases and development status | [https://github.com/tokio-rs/prost/releases](https://github.com/tokio-rs/prost/releases?utm_source=chatgpt.com)                                                                 |
 
 Overall: Prost 0.14.4 is a capable, relatively minimal Protobuf implementation whose advanced value comes from configurable Rust code generation, buffer-oriented binary processing, descriptor interoperability, and well-defined extension boundaries. The major caveats for advanced systems are its static generated-message model, ordinary unknown-field loss, lack of released Protobuf Editions support, and the fact that full reflection, ProtoJSON, and RPC execution belong to companion libraries rather than its core.
+
+# Prost 0.14.4 — Technical Capability Addendum
+
+Target: Prost 0.14.4 (stable)\
+Research date: November 3, 2026\
+Scope: Additional capabilities, semantic distinctions, and version-specific limitations identified through review of the existing Prost reference and upstream documentation.
+
+This addendum supplements the original guide without repeating its established architecture, core APIs, or ecosystem coverage. It concentrates on less obvious functionality and the distinctions between Protocol Buffers specifications, Prost's generated Rust representations, and its actual runtime behavior.
+
+## 1. Proto2 required-field semantics and decode completeness
+
+### 1.1 Rust representation does not establish wire presence
+
+Prost generates an ordinary Rust value `T` for a Proto2 `required` field, rather than `Option<T>`. This provides a non-optional field in the Rust type system but does not establish that the field was present in the encoded input.
+
+In Prost 0.14.4, `Message::decode` constructs a default message and invokes `merge` over the input. The generated field-merging machinery updates encountered fields, but there is no final, general-purpose pass validating that every Proto2 required field appeared.
+
+Consequently, successful wire decoding of an ordinary generated Prost message does not necessarily establish Proto2 message initialization completeness. A missing required scalar can remain at its Rust default or configured default, and a decoded representation need not expose whether the field was supplied.
+
+This is distinct from the Protobuf specification, under which a well-formed Proto2 message must contain its required fields. The specification also strongly discourages new uses of `required`, because changing such fields is difficult to do compatibly.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+2
+
+
+
+### 1.2 Architectural consequences
+
+Three kinds of validity need to be distinguished:
+
+| Validation level    | Meaning                                                                     | Prost 0.14.4 behavior                              |
+| ------------------- | --------------------------------------------------------------------------- | -------------------------------------------------- |
+| Wire validity       | Tags, wire types, lengths, varints, and field payloads can be decoded       | Performed by the binary decoder                    |
+| Schema completeness | Required fields are present and Protobuf semantic constraints are satisfied | Not comprehensively enforced by generated decoding |
+| Domain validity     | Values satisfy application-specific invariants                              | Outside Prost's responsibility                     |
+
+The distinction also affects interoperability. A message accepted by Prost may be considered uninitialized or invalid by another implementation enforcing Proto2 required-field completeness.
+
+Furthermore, decoding a missing required value into an ordinary Rust value and then re-encoding can erase evidence of the original omission. This makes post-decoding inspection insufficient for reconstructing every aspect of the input's validity.
+
+For systems requiring strict Proto2 conformance, validation needs access to the relevant schema and sufficient information about field occurrence. Once generated decoding has collapsed missing and default-valued states, that distinction cannot always be recovered.
+
+Sources:
+
+`https://docs.rs/prost/0.14.4/prost/trait.Message.html`
+
+`https://docs.rs/prost/0.14.4/src/prost/message.rs.html`
+
+`https://docs.rs/prost-derive/0.14.4/src/prost_derive/field/message.rs.html`
+
+`https://protobuf.dev/programming-guides/proto2/`
+
+## 2. Explicit Proto2 defaults versus Rust presence
+
+Proto2 permits explicit scalar and enum defaults:
+
+```
+syntax = "proto2";
+
+message Settings {
+  optional int32 batch_size = 1 [default = 100];
+}
+```
+
+Prost generates an optional Rust field carrying the field's default in its derive annotation:
+
+```
+#[prost(int32, optional, tag = "1", default = "100")]
+pub batch_size: Option<i32>,
+```
+
+For a message decoded without field 1, the Rust representation remains `None`, not `Some(100)`.
+
+This is an important difference between:
+
+- Presence: Whether the field was explicitly supplied.
+- Declared default: The logical value used when an unset field is read under Proto2 semantics.
+- Stored Rust value: The actual `Option<T>` contained in the generated structure.
+
+Prost preserves the first distinction through `Option`, while recording the second in generated annotations. It does not automatically materialize declared defaults into absent optional fields. The behavior was reported in upstream issue #584, which remained open at the research date.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+### 2.1 Consequences for default-aware processing
+
+For the example above, `None`, `Some(100)`, and `Some(0)` are three distinct Rust states. They cannot be collapsed without potentially changing presence semantics.
+
+An absent field and an explicitly transmitted default may have the same effective logical value, but different presence and reserialization behavior.
+
+There is also an asymmetry between ordinary generated scalar fields and descriptor-driven processing. A schema-aware system can inspect `FieldDescriptorProto.default_value`; ordinary runtime `Option<T>` fields do not provide a generic accessor that evaluates declared defaults.
+
+This matters when processing existing Proto2 contracts, particularly those using nonzero defaults to represent protocol configuration.
+
+Sources:
+
+`https://github.com/tokio-rs/prost/issues/584`
+
+`https://docs.rs/prost-build/0.14.4/src/prost_build/code_generator.rs.html`
+
+`https://protobuf.dev/programming-guides/field_presence/`
+
+## 3. Open and closed enum semantics, symbolic names, and aliases
+
+### 3.1 Protobuf enum openness is schema-dependent
+
+The Protobuf specification distinguishes two enum behaviors:
+
+| Behavior              | Open enum                               | Closed enum                                             |
+| --------------------- | --------------------------------------- | ------------------------------------------------------- |
+| Unknown numeric value | Stored directly in the field            | Treated as an unknown field                             |
+| Field presence        | Unknown value can count as present      | Unknown value does not establish known-field presence   |
+| Repeated enum values  | Unknown values remain in the collection | Unknown values are separated into unknown-field storage |
+| Default syntax        | Proto3                                  | Proto2                                                  |
+
+The distinction is not merely representational. For a repeated closed enum, a conforming decoder removes unrecognized numbers from the typed collection and retains them in unknown-field storage. Re-encoding can therefore change their position relative to recognized values.
+
+Prost's generated representation does not implement this distinction fully. Both Proto2 and Proto3 generated enum fields use an `i32` representation capable of retaining unknown numbers.
+
+This is well aligned with open-enum semantics but differs from the specified closed-enum behavior of Proto2. For example, a generated Proto2 enum field can retain an unrecognized integer directly rather than treating it as an unset field whose wire value belongs to unknown-field storage.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://protobuf.dev\&sz=32)
+
+Protocol Buffers Documentation+1
+
+
+
+A typed enum getter can additionally hide the unknown value by returning its defined default. The underlying integer field remains necessary when unrecognized values must be distinguished from legitimate defaults.
+
+The distinction is consequential for mixed-language Protobuf interfaces, validators, migration tooling, and relays that must preserve the semantics of older Proto2 contracts.
+
+Sources:
+
+`https://protobuf.dev/programming-guides/enum/`
+
+`https://docs.rs/prost/0.14.4/prost/`
+
+### 3.2 Generated enum string-name interfaces
+
+`prost-build` generates two useful inherent methods on enum types:
+
+| Method                                       | Function                                                                |
+| -------------------------------------------- | ----------------------------------------------------------------------- |
+| `as_str_name(&self) -> &'static str`         | Returns the original Protobuf symbolic name                             |
+| `from_str_name(value: &str) -> Option<Self>` | Resolves an original Protobuf symbolic name to a generated enum variant |
+
+These are distinct from the `Enumeration` derive's numeric conversion functionality.
+
+For example, an enum value written as `STATUS_RUNNING` in Protobuf can become the Rust variant `Status::Running` while retaining `STATUS_RUNNING` as its symbolic protocol name.
+
+The string helpers use the Protobuf names without Rust casing or prefix transformations. They are useful when integrating generated types with descriptor metadata, symbolic registries, or schema-aware serialization logic.
+
+They are not complete ProtoJSON serializers. Nor does a successful `TryFrom<i32>` imply that every original symbolic alias for that integer has been retained in the generated Rust type.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+### 3.3 Enum alias normalization
+
+Protobuf supports multiple symbolic names for the same numeric enum value when `allow_alias = true`.
+
+Prost's generator handles this by tracking numeric values already encountered. A later enumerator using an existing number is skipped.
+
+Consequently, the generated Rust enum contains one variant for each distinct integer, with the first encountered declaration determining the retained symbolic name.
+
+For example, if `ACTIVE` and `RUNNING` both represent integer `1`, the generated Rust enum need not contain both variants. The generated `as_str_name()` and `from_str_name()` methods operate over the retained mappings.
+
+This is a meaningful difference between numeric value preservation and schema declaration preservation.
+
+The complete set of declared aliases remains available in the original enum descriptor, including `EnumDescriptorProto.value`. Systems requiring alias-aware documentation, source-schema reconstruction, or symbolic compatibility analysis should use that descriptor information rather than treating the generated Rust enum as a lossless representation of the declaration.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+Source:
+
+`https://docs.rs/prost-build/0.14.4/src/prost_build/code_generator.rs.html`
+
+## 4. Packed repeated-field encoding and a Prost 0.14.4 defect
+
+### 4.1 Packed encoding depends on schema semantics
+
+Packable repeated scalar and enum fields support two binary representations.
+
+Unpacked encoding writes a field key for each element. Packed encoding writes a length-delimited payload containing multiple elements without repeating the field key.
+
+The default differs by schema syntax: Proto2 generally defaults to unpacked encoding, while Proto3 defaults to packed encoding for packable repeated fields.
+
+Strings, bytes, and embedded messages are not packable repeated scalar fields.
+
+Importantly, Protobuf parsers must accept both packed and unpacked representations of a packable repeated field, including multiple packed segments in the same message. This permits representation changes without necessarily breaking binary decoding.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://protobuf.dev\&sz=32)
+
+Protocol Buffers Documentation
+
+
+
+### 4.2 Incorrect implicit packing when other field options are present
+
+Prost 0.14.4 has a confirmed code-generation defect affecting Proto3 repeated packable fields with field options but no explicitly specified `packed` option.
+
+Consider:
+
+```
+syntax = "proto3";
+
+message Measurements {
+  repeated int32 readings = 1 [deprecated = true];
+}
+```
+
+The declared field has an unrelated option, so its descriptor contains a `FieldOptions` message. However, the `packed` member remains unset.
+
+The 0.14.4 generator checks the presence of `FieldOptions` and then reads its `packed()` accessor. That accessor returns `false` when the option is absent, instead of applying the syntax-dependent Proto3 default.
+
+The generated Rust annotation can therefore contain `packed = "false"` even though the `.proto` declaration did not disable packing.
+
+The mechanism is visible in the published 0.14.4 generator source.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+### 4.3 Compatibility and release status
+
+The resulting wire representation is typically valid and interoperable: the affected repeated field is encoded unpacked, and conforming parsers accept that representation.
+
+The immediate consequences concern encoded size and the difference between declared schema defaults and generator behavior. Workloads containing large repeated numeric collections may be especially sensitive to the additional field keys.
+
+Explicitly specifying `[packed = true]` avoids reliance on the affected implicit-default path.
+
+Upstream PR #1399 corrected the fallback by distinguishing an explicitly assigned `packed = false` from an absent `packed` option.
+
+The fix was merged on July 3, 2026, after Prost 0.14.4 was released on June 7, 2026. It is therefore a merged upstream fix, not part of the released 0.14.4 capability contract.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Sources:
+
+`https://github.com/tokio-rs/prost/pull/1399`
+
+`https://docs.rs/prost-build/0.14.4/src/prost_build/code_generator.rs.html`
+
+`https://protobuf.dev/programming-guides/encoding/`
+
+## 5. Message merging, duplicate fields, and mutation guarantees
+
+### 5.1 Merge behavior depends on field cardinality and type
+
+Protobuf permits multiple occurrences of a singular field within encoded data. Its parser rules determine how these occurrences combine.
+
+| Field category                    | Protobuf merge behavior                                                                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Singular scalar, string, or bytes | Last encountered value wins                                                                                                                 |
+| Singular embedded message         | Message contents merge recursively                                                                                                          |
+| Repeated field                    | Elements accumulate in encounter order                                                                                                      |
+| Repeated packed field             | Packed segments contribute additional elements                                                                                              |
+| Map                               | Entries are merged by key; later values for a key take precedence                                                                           |
+| `oneof`                           | Encountering a different alternative replaces the active alternative; repeated occurrences of the same message-valued alternative may merge |
+
+These rules explain why `Message::merge` is useful beyond simple decoding. Concatenating compatible serialized messages can represent their Protobuf merge operation, subject to the documented wire semantics.
+
+In particular, embedded messages are not necessarily replaced wholesale when their field occurs again. Their component fields can be merged according to the same rules.
+
+Source: `https://protobuf.dev/programming-guides/encoding/`
+
+### 5.2 `Message::merge` is not transactional
+
+Prost's implementation processes fields sequentially, invoking `merge_field` to modify the target message.
+
+If an earlier field is decoded successfully but a later field is malformed, the decoder may already have mutated the target before returning `DecodeError`.
+
+No transactional rollback is provided.
+
+This creates a distinction between two operations:
+
+`Message::decode` creates a fresh default instance and returns the new value only on success. Its partially decoded instance is not returned on failure.
+
+`Message::merge` operates on an existing mutable instance. A failed merge can leave that instance partially changed.
+
+For error-sensitive state management, this difference matters more than the similarity of the two method names. Atomic replacement semantics would require decoding into separate state and committing only after success, rather than relying on `merge` to preserve the original object on error.
+
+The nontransactional conclusion follows from the published implementation, not from a separately documented atomicity guarantee.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+Source:
+
+`https://docs.rs/prost/0.14.4/src/prost/message.rs.html`
+
+## 6. Additional descriptor-driven compilation and generation mechanisms
+
+### 6.1 `Config::skip_protoc_run()`
+
+Beyond `compile_fds`, Prost provides a second path for generating Rust directly from an existing descriptor artifact.
+
+`Config::skip_protoc_run()` changes the behavior of `compile_protos()` so that `file_descriptor_set_path()` identifies an existing binary descriptor set to consume rather than an output to generate.
+
+Illustrative configuration:
+
+```
+let mut config = prost_build::Config::new();
+
+config
+    .file_descriptor_set_path("schema/descriptors.bin")
+    .skip_protoc_run()
+    .compile_protos(&["schema.proto"], &["proto"])?;
+```
+
+With this configuration, `protoc` is not executed by `prost-build`. The `protos` and `includes` arguments to `compile_protos` are ignored in this mode.
+
+The descriptor-set path becomes mandatory; the configuration cannot infer a preexisting artifact without it.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+This differs from `compile_fds`, which accepts an already decoded `prost_types::FileDescriptorSet` value.
+
+The two mechanisms support different integration boundaries. `skip_protoc_run` is useful when an upstream build process supplies a binary descriptor artifact. `compile_fds` is useful when Rust code already possesses the descriptor representation, including after programmatic schema compilation or preprocessing.
+
+The descriptor still needs to contain the definitions and dependencies required for generation. Source information is also relevant: retaining it enables source comments and declaration-location metadata to inform generated documentation.
+
+Sources:
+
+`https://docs.rs/prost-build/0.14.4/prost_build/struct.Config.html`
+
+`https://docs.rs/prost-build/0.14.4/src/prost_build/config.rs.html`
+
+### 6.2 `Module`: reusable Rust module-path semantics
+
+`prost_build::Module` is a public abstraction representing a Rust module path derived from a Protobuf package.
+
+Its interfaces include:
+
+| Interface                    | Capability                                                                              |
+| ---------------------------- | --------------------------------------------------------------------------------------- |
+| `from_protobuf_package_name` | Converts a Protobuf package into a Rust module path, including snake-case normalization |
+| `from_parts`                 | Constructs a module path from explicit components                                       |
+| `parts`                      | Iterates its normalized components                                                      |
+| `to_file_name_or`            | Produces Prost-compatible generated filenames, using a fallback for the empty package   |
+| `len`, `is_empty`            | Inspects module-path structure                                                          |
+
+This is particularly significant because `Config::generate()` accepts `Vec<(Module, FileDescriptorProto)>` and returns `HashMap<Module, String>`.
+
+The generator therefore exposes more than a string-to-string source transformation: it preserves structured module identity at the output boundary.
+
+A custom code-generation host can use the same package normalization and output conventions as Prost without replicating those rules. That is useful for code-generation plugins, build-system integrations, and pipelines that combine generated messages with other source artifacts.
+
+The boundary remains explicit: `Module` represents a Rust namespace path, not a Protobuf schema descriptor or runtime message registry.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Sources:
+
+`https://docs.rs/prost-build/0.14.4/prost_build/struct.Module.html`
+
+`https://docs.rs/prost-build/0.14.4/prost_build/struct.Config.html`
+
+### 6.3 Compiler sourcing as an independent build decision
+
+There are several distinct ways to supply the schema-compilation stage without changing Prost's message runtime:
+
+| Compiler arrangement                    | Capability and dependency boundary                                                           |
+| --------------------------------------- | -------------------------------------------------------------------------------------------- |
+| System or explicitly specified `protoc` | Uses an external executable selected through environment or `Config::protoc_executable()`    |
+| `protobuf-src`                          | Builds a vendored Protobuf/compiler distribution and supplies its `protoc()` executable path |
+| `protoc-bin-vendored`                   | Supplies packaged compiler executables and standard include paths                            |
+| `protox`                                | Compiles Protobuf sources using a Rust implementation and returns descriptors                |
+| Precompiled descriptor artifact         | Separates schema parsing from the Rust generation step altogether                            |
+
+The distinction between `protobuf-src` and `protoc-bin-vendored` is important: the former builds compiler source, whereas the latter distributes prebuilt compiler executables.
+
+Likewise, `protox` is a compiler implementation, not merely another method for finding `protoc`.
+
+The major benefit of separating these mechanisms is that compiler selection, schema parsing, and Rust source generation can be controlled independently. This makes it possible to keep one schema compilation process authoritative while producing multiple generated outputs from its descriptors.
+
+Different compilers may have different schema-feature support and diagnostics, so descriptor interchange does not imply perfect compiler equivalence.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+3
+
+
+
+Sources:
+
+`https://docs.rs/prost-build/0.14.4/prost_build/`
+
+`https://docs.rs/protobuf-src/latest/protobuf_src/`
+
+`https://docs.rs/protoc-bin-vendored/latest/protoc_bin_vendored/`
+
+`https://docs.rs/protox/0.10.0/protox/`
+
+## 7. Automatic tag inference for manually derived messages
+
+`prost-derive` supports automatic field-number inference for handwritten Rust message definitions.
+
+When explicit `tag` annotations are omitted, fields are numbered sequentially in declaration order, starting at 1.
+
+An explicitly supplied tag can advance the sequence, allowing gaps to be represented without annotating every subsequent field.
+
+This reduces derive annotation overhead, but the field-number inference is based on Rust declaration structure rather than a separately maintained Protobuf schema.
+
+The difference is consequential because field numbers establish wire identity.
+
+Consider a Rust type with three automatically numbered fields. Inserting another field before the second field can change the inferred tags of subsequent fields even when those fields retain their Rust names and types.
+
+The resulting messages may remain syntactically valid Protobuf while associating existing field numbers with different meanings.
+
+Thus, tag inference is a convenience for deriving messages, not an independent schema-stability mechanism. For long-lived protocol contracts, explicit field-number assignments preserve identity independently of Rust field ordering.
+
+The inference capability is documented directly in the Prost 0.14.4 reference.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Source:
+
+`https://docs.rs/prost/0.14.4/prost/#tag-inference-for-existing-types`
+
+## 8. Descriptor fidelity, presence metadata, and synthetic oneofs
+
+### 8.1 Descriptors preserve distinctions not visible in generated Rust types
+
+A `FileDescriptorSet` carries structural information that the generated representation may normalize or omit.
+
+Examples include declared enum aliases, explicit field defaults, source declaration details, field options, and synthetic compiler representations of presence semantics.
+
+This is a reason to distinguish descriptor-based schema analysis from reflection over the properties of generated Rust values.
+
+A generated message is intended primarily to represent data. A descriptor can instead represent details about how the data contract was declared.
+
+### 8.2 Proto3 `optional` and synthetic oneofs
+
+Proto3 optional fields have a particularly important descriptor representation.
+
+For compatibility with older descriptor-processing implementations, `protoc` represents an explicitly optional Proto3 field as belonging to a synthetic `oneof`.
+
+The descriptor includes `FieldDescriptorProto.proto3_optional = true`, and the synthetic oneof contains that field as its sole member.
+
+These synthetic oneofs do not represent application-defined unions. They are descriptor-level machinery for expressing explicit field presence.
+
+Prost's generator recognizes this distinction. It handles fields marked `proto3_optional` as ordinary optional fields rather than emitting a Rust `Oneof` enum for their synthetic grouping.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+This matters for descriptor-processing tools that enumerate `oneof_decl`. Counting every descriptor oneof as an application-defined union can produce incorrect schema models, generated interfaces, or documentation.
+
+### 8.3 Existing `prost-reflect` interfaces provide normalized schema interpretation
+
+Several methods in `prost-reflect` 0.16.5 provide higher-level access to these distinctions:
+
+| Reflection interface                   | Capability                                                              |
+| -------------------------------------- | ----------------------------------------------------------------------- |
+| `FieldDescriptor::supports_presence()` | Determines whether absent and default-valued states are distinguishable |
+| `FieldDescriptor::default_value()`     | Evaluates the schema-defined default, including Proto2 custom defaults  |
+| `FieldDescriptor::is_required()`       | Identifies required fields                                              |
+| `FieldDescriptor::is_packed()`         | Reports the effective packed representation                             |
+| `FieldDescriptor::cardinality()`       | Distinguishes optional, required, and repeated cardinalities            |
+| `OneofDescriptor::is_synthetic()`      | Identifies oneofs introduced for Proto3 optional semantics              |
+
+These methods permit schema-aware tooling to work with interpreted descriptor semantics without repeatedly implementing low-level option and syntax resolution.
+
+The distinction is especially useful when combining generated Rust message processing with a richer metadata layer. It also avoids mistaking generated Rust defaults or normalized enum variants for complete descriptions of their original Protobuf declarations.
+
+This is companion-library functionality; ordinary Prost-generated messages do not acquire these descriptor methods automatically.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Sources:
+
+`https://docs.rs/prost-types/0.14.4/prost_types/struct.FieldDescriptorProto.html`
+
+`https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.FieldDescriptor.html`
+
+`https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.OneofDescriptor.html`
+
+`https://protobuf.dev/programming-guides/field_presence/`
+
+## 9. Rust source compatibility and generated deprecation behavior
+
+### 9.1 Protobuf wire evolution and Rust API evolution are separate contracts
+
+Protobuf's field-number-based compatibility rules do not establish source-level compatibility for generated Rust code.
+
+Prost generates ordinary public Rust structs and enums. Changes to the schema can therefore change their Rust declarations even when the changes remain wire-compatible.
+
+For example, adding an optional field to a message is generally a compatible Protobuf schema evolution. However, downstream Rust code constructing the generated type with an exhaustive struct literal may stop compiling because it must now initialize the new field.
+
+Similarly, adding an enum value can introduce a new generated Rust variant. Exhaustive matches over the generated enum may then require updating, even if binary decoding of the new numeric value remains compatible with older readers.
+
+This distinction also applies to source-level name changes, generated-module organization, and configuration choices such as enum prefix retention.
+
+The relevant compatibility layers are the Protobuf wire contract, the generated Rust type contract, and any additional JSON or RPC contract that exposes symbolic field or enum names.
+
+When those layers need different evolution policies, they cannot be treated as interchangeable simply because they originate from one `.proto` definition.
+
+Source: `https://protobuf.dev/programming-guides/dos-donts/`
+
+### 9.2 Deprecation annotations generated from schemas
+
+`prost-build` recognizes the Protobuf `deprecated` option on relevant field and enum-value descriptors.
+
+In Prost 0.14.4, the generator emits Rust `#[deprecated]` attributes for affected generated declarations, including message fields, enum variants, and applicable oneof variants.
+
+This makes schema deprecation visible to Rust compiler diagnostics without requiring an independent deprecation registry or bespoke source postprocessor.
+
+The mechanism is useful for communicating schema lifecycle information to downstream consumers, but it does not prevent decoding or encoding deprecated fields. Deprecation remains an API-use diagnostic, not a binary compatibility enforcement mechanism.
+
+There is also a noteworthy interaction with the packed-field issue described in §4: a field annotated `[deprecated = true]` can encounter the affected implicit-packing path because that option makes its descriptor's `FieldOptions` present.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+1
+
+
+
+The published 0.14.4 `Config` API does not provide a dedicated `ignore_deprecated_attribute` configuration method. That mechanism should not be attributed to the stable version merely because it has been discussed upstream.
+
+Sources:
+
+`https://docs.rs/prost-build/0.14.4/src/prost_build/code_generator.rs.html`
+
+`https://docs.rs/prost-build/0.14.4/prost_build/struct.Config.html`
+
+## 10. Additional runtime and well-known-type distinctions
+
+### 10.1 Native representation of `google.protobuf.Empty`
+
+Prost implements `Message` and `Name` directly for the Rust unit type `()`.
+
+This corresponds to `google.protobuf.Empty` and provides a compact representation for message contracts that carry no declared fields.
+
+The implementation has an empty encoded representation, and its field-merging behavior skips encountered unknown fields.
+
+The `Name` implementation identifies the type as `google.protobuf.Empty`, including its standard type URL.
+
+This means the unit type can participate in generic operations constrained by `Message` and `Name`, including typed message processing and `Any` identity handling, without requiring an independently generated empty struct.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+Source:
+
+`https://docs.rs/prost/0.14.4/src/prost/types.rs.html`
+
+### 10.2 Scalar wrapper representations
+
+Prost also implements well-known wrapper-message behavior for ordinary Rust types.
+
+The implementations cover `bool`, standard signed and unsigned integer types, floating-point types, `String`, `Vec<u8>`, and `bytes::Bytes`, corresponding to their `google.protobuf.*Value` wrapper identities.
+
+These are actual `Message` and `Name` implementations, not merely conversions to separately defined wrapper structs.
+
+The distinction matters when designing generic interfaces over known Protobuf messages. An ordinary scalar Rust value can carry the appropriate wrapper-message identity, while a containing field can use `Option<T>` to distinguish the presence of the wrapper message from its absence.
+
+The wrappers also retain their Protobuf serialization semantics. Their message-body encoding is not the same operation as encoding a bare scalar field inside an arbitrary enclosing message.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+Source:
+
+`https://docs.rs/prost/0.14.4/src/prost/types.rs.html`
+
+### 10.3 Internal encoding interfaces are not equivalent to a public codec-extension framework
+
+`prost::Message` includes lower-level implementation methods such as `encode_raw` and `merge_field`, in addition to its higher-level encoding and decoding methods.
+
+These methods support Prost's generated and derived implementations. The documentation marks relevant methods as hidden and describes them as intended for message implementors.
+
+Prost also exposes wire-encoding utilities and buffer-oriented primitives, but their presence should not be interpreted as a guarantee that all internal encoding machinery constitutes an independently versioned, stable plugin interface.
+
+For specialized codecs, there is an important distinction between implementing a compatible `Message` type and depending directly on internal derive or encoding implementation details.
+
+Similarly, selecting `bytes::Bytes` changes the stored representation of byte fields and may improve sharing or cloning behavior. It does not provide universal zero-copy decoding, because the result still depends on the source buffer, decoder path, and surrounding message representation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+1
+
+
+
+Sources:
+
+`https://docs.rs/prost/0.14.4/prost/trait.Message.html`
+
+`https://docs.rs/prost/0.14.4/prost/encoding/`
+
+## 11. Capability interactions and architectural implications
+
+The additions above reveal several useful combinations and constraints not fully developed in the main guide.
+
+| Combined mechanisms                                     | Capability or consequence                                                                                                                                    |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Proto2 defaults + `Option<T>` + descriptors             | Preserve field presence separately from its effective schema-defined value                                                                                   |
+| Generated enums + descriptors                           | Use compact typed numeric representations while retaining original aliases and symbolic declarations for schema analysis                                     |
+| `Message::merge` + Protobuf merge rules                 | Accumulate compatible message content without reparsing an application-specific intermediate representation, while accounting for partial mutation on errors |
+| Precompiled descriptors + `skip_protoc_run`             | Reuse externally produced schema artifacts through Prost's standard build-generation workflow                                                                |
+| `Module` + `Config::generate`                           | Reuse Prost's package-to-Rust namespace conventions in custom code-generation hosts                                                                          |
+| `proto3_optional` + synthetic-oneof recognition         | Model explicit presence correctly without generating artificial application-level unions                                                                     |
+| `prost-reflect` presence/default APIs + static messages | Separate schema interpretation from typed data processing rather than reimplementing descriptor semantics                                                    |
+| Schema deprecation + generated Rust attributes          | Surface compatible schema lifecycle information through compiler diagnostics                                                                                 |
+| Packed-field defaults + explicit field options          | Exposes a concrete Prost 0.14.4 generator limitation that can affect encoded representation despite preserving binary decodability                           |
+
+The central distinction is between wire-level information, schema-level information, and generated Rust representation.
+
+Prost's static message model intentionally does not preserve every distinction available in its source descriptors or original wire input. Its greatest strengths—ordinary Rust types, compact encoding, and configurable compile-time generation—remain compatible with a richer descriptor-driven architecture, but they do not eliminate those semantic boundaries.
+
+For advanced integrations, understanding precisely which information is available at each layer is essential to preserving compatibility, avoiding unnecessary custom infrastructure, and choosing where schema interpretation should occur.

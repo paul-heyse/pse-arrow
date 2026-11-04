@@ -47,7 +47,7 @@ async fn ordinary_delivery_admits_complete_source_and_process_definitions() -> T
 )]
 async fn execute(name: &str, expected: bool) -> TestResult {
     if std::env::var_os(crate::tooling::capture::SOURCE_RECORDING_REQUEST_ENV).is_none() {
-        return execute_journey(name, expected, &mut None).await;
+        return execute_journey(name, expected, &mut None, false).await;
     }
     let root = crate::observation::process_diagnostics()
         .hub()
@@ -67,7 +67,7 @@ async fn execute(name: &str, expected: bool) -> TestResult {
         .map_or_else(|| root.context(), |recording| recording.context());
     let result = pse_diagnostics::observation::scope(
         Some(context),
-        execute_journey(name, expected, &mut recording),
+        execute_journey(name, expected, &mut recording, false),
     )
     .await;
     root.finish(if result.is_ok() {
@@ -88,9 +88,17 @@ async fn execute_journey(
     name: &str,
     expected: bool,
     recording: &mut Option<crate::tooling::capture::SourceRecordingSession>,
+    independent_reference: bool,
 ) -> TestResult {
-    let (runtime, package, _spill, preparation) =
-        pr_jacobian_tests::ordinary_delivery_package(false).await?;
+    let (runtime, package, _spill, preparation, reference_inputs) = if independent_reference {
+        let (runtime, package, spill, preparation, inputs) =
+            pr_jacobian_tests::ordinary_delivery_reference_package().await?;
+        (runtime, package, spill, preparation, Some(inputs))
+    } else {
+        let (runtime, package, spill, preparation) =
+            pr_jacobian_tests::ordinary_delivery_package(false).await?;
+        (runtime, package, spill, preparation, None)
+    };
     let services = runtime.execution_services();
     let rows = package.declarations(services.preparation()).await?;
     let interval_claim = rows
@@ -215,6 +223,20 @@ async fn execute_journey(
                         .declaration_id
                         .as_id(),
                 )?;
+                if independent_reference {
+                    ordinary_reference::check(
+                        name,
+                        &package,
+                        case,
+                        declared.analysis.instance,
+                        result,
+                        false,
+                        services.preparation(),
+                        reference_inputs
+                            .as_ref()
+                            .ok_or("original reference snapshot absent")?,
+                    )?;
+                }
             } else {
                 let failure = report
                     .failure
@@ -239,6 +261,20 @@ async fn execute_journey(
                 assert_overheated_contradiction(
                     attempt.result.as_ref().map_err(|cause| cause.to_string())?,
                 )?;
+                if independent_reference {
+                    ordinary_reference::check(
+                        name,
+                        &package,
+                        case,
+                        declared.analysis.instance,
+                        attempt.result.as_ref().map_err(|cause| cause.to_string())?,
+                        true,
+                        services.preparation(),
+                        reference_inputs
+                            .as_ref()
+                            .ok_or("original reference snapshot absent")?,
+                    )?;
+                }
                 let original = package
                     .prepare_analysis(services.preparation(), &declared.analysis, &cancel)
                     .await?;
@@ -266,6 +302,20 @@ async fn execute_journey(
             assert_original_checks(&result)?;
             assert_unknown_caloric_interval(&result, interval_claim)?;
             check_exchanger_reports(&result.reports, name == "ordinary_arithmetic_closure")?;
+            if independent_reference {
+                ordinary_reference::check(
+                    name,
+                    &package,
+                    case,
+                    declared.analysis.instance,
+                    &result,
+                    false,
+                    services.preparation(),
+                    reference_inputs
+                        .as_ref()
+                        .ok_or("original reference snapshot absent")?,
+                )?;
+            }
             if name == "ordinary_rating" {
                 let model = &result.prepared.model.model.compiled().model;
                 let symbol = |suffix: &str| {
@@ -1094,6 +1144,27 @@ async fn ordinary_delivery_exchanger_rating_reuses_physical_definition() -> Test
 #[tokio::test]
 async fn ordinary_delivery_compatible_closure_preserves_side_balances() -> TestResult {
     execute("ordinary_arithmetic_closure", true).await
+}
+
+#[tokio::test]
+async fn ordinary_reference_exchanger_design_binary_comparison() -> TestResult {
+    execute_journey("ordinary_exchanger", true, &mut None, true).await
+}
+#[tokio::test]
+async fn ordinary_reference_exchanger_rating_binary_comparison() -> TestResult {
+    execute_journey("ordinary_rating", true, &mut None, true).await
+}
+#[tokio::test]
+async fn ordinary_reference_exchanger_arithmetic_binary_comparison() -> TestResult {
+    execute_journey("ordinary_arithmetic_closure", true, &mut None, true).await
+}
+#[tokio::test]
+async fn ordinary_reference_ideal_recycle_binary_comparison() -> TestResult {
+    execute_journey("ordinary_recycle", true, &mut None, true).await
+}
+#[tokio::test]
+async fn ordinary_reference_overheated_recycle_binary_comparison() -> TestResult {
+    execute_journey("ordinary_overheated", false, &mut None, true).await
 }
 
 #[cfg(feature = "canonical-tests")]

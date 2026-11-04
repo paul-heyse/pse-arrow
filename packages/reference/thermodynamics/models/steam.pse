@@ -11,10 +11,9 @@
 // and applies the identical enthalpy offset to native internal energy.
 // Values/analytic partials use one explicit T,rhomolar state. No phase is imposed
 // during physical evaluation; mismatched, critical and two-phase trials refuse.
-@id("64d03000000000000000000000000074") entity kind fluid_source extends provenance.source {
-@id("64d03000000000000000000000000075") attribute cas:Id<chemistry.cas>;
-}
-@id("64d03000000000000000000000000006") entity fluid_source iapws_water {title="IAPWS95 water through exact CoolProp8 HEOS data and explicit ideal-gas stock reference translation; original formulation https://iapws.org/public/documents/k3PSK/IAPWS95-2018.pdf; fixed release ae81610e7d23efc57f9d051c8e70a4d66e87537f",cas=Id<chemistry.cas>("7732-18-5")}
+// The publication is provenance; only the catalogue species owns its chemical ID.
+@id("64d03000000000000000000000000006") entity provenance.source iapws_water {title="IAPWS95 water through exact CoolProp8 HEOS data and explicit ideal-gas stock reference translation; original formulation https://iapws.org/public/documents/k3PSK/IAPWS95-2018.pdf; fixed release ae81610e7d23efc57f9d051c8e70a4d66e87537f"}
+@id("64d03000000000000000000000000076") constant water_cas:Id<chemistry.cas>=Id<chemistry.cas>("7732-18-5") provenance(iapws_water,provenance.Role.published);
 @id("64d03000000000000000000000000007") fn liquid_pressure(T:Temperature,rho:Density)->Pressure external "coolprop8-water-liquid" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "0893df81d6f6faddbf7366978c4ada9b0b691ce06959bb2bcd95e8362a0bd879" output 0 derivatives 2 source analytic smoothness 2;
 @id("64d03000000000000000000000000008") fn liquid_enthalpy(T:Temperature,rho:Density)->MolarEnthalpy external "coolprop8-water-liquid" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "0893df81d6f6faddbf7366978c4ada9b0b691ce06959bb2bcd95e8362a0bd879" output 1 derivatives 2 source analytic smoothness 2;
 @id("64d03000000000000000000000000009") fn liquid_entropy(T:Temperature,rho:Density)->MolarEntropy external "coolprop8-water-liquid" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "0893df81d6f6faddbf7366978c4ada9b0b691ce06959bb2bcd95e8362a0bd879" output 2 derivatives 2 source analytic smoothness 2;
@@ -26,7 +25,7 @@
 @id("64d0300000000000000000000000000f") fn supercritical_entropy(T:Temperature,rho:Density)->MolarEntropy external "coolprop8-water-supercritical" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "23a36dfd43bd0546b2e755868d91c8104c5f86c5c1f274f5ed4fb1f76aedc7eb" output 2 derivatives 2 source analytic smoothness 2;
 @id("64d03000000000000000000000000010") interface WaterState extends equilibrium.EntropyThermoPackage {
 @id("64d03000000000000000000000000070") param water:chemistry.species;
-@id("64d03000000000000000000000000071") require (if present(water.cas) then (if water.cas==iapws_water.cas then 0 else 1) else 1)==0 : "HEOS Water state requires an explicitly identified water component";
+@id("64d03000000000000000000000000071") require (if present(water.cas) then (if water.cas==water_cas then 0 else 1) else 1)==0 : "HEOS Water state requires an explicitly identified water component";
 @id("64d03000000000000000000000000011") override param components:Set<chemistry.species>={water};
 @id("64d03000000000000000000000000012") param selected_phase:chemistry.phase;
 @id("64d03000000000000000000000000013") override param phases:Set<chemistry.phase>={selected_phase};

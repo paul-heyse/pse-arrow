@@ -579,6 +579,8 @@ frames! {
         /// Current operation-specific production and consumption contracts; earlier bytes remain frozen.
         /// Canonical modeling revision inputs for an immutable study.
         DurableStudyRequestV5 => "pse.durable.study_request.v5",
+        /// Original study execution coordinates, framed by study identity, native role and occurrence key.
+        StudyExecutionCoordinateV1 => "pse.study.execution-coordinate.v1",
         /// Prior operation-specific study inputs; canonical revisions use V5.
         DurableStudyRequestV4 => "pse.durable.study_request.v4",
         /// The value bindings of one durable study point (Plan 22 O7).

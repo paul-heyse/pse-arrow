@@ -23,6 +23,12 @@ shared meanings, [64j](64j-engineering-services-and-clients.md) the engineering 
 route enduring changes before implementation. No global protobuf-first science authority,
 required Python product or remote solving is selected.
 
+**Current status, 2026-11-04:** complete Proto execution and then all remaining Plan64
+scope are authorized. A02–A04 remain complete as design/disposition work; this does not
+close their downstream implementation obligations. A01 still depends on H01's complete
+finite configuration/input population. I/J/K own the implemented Proto slices and remaining
+integration/acceptance; no new A package completion is inferred from their source metadata.
+
 ## Target and assessed foundations
 
 **Proposed:** settle the scope and consumed meanings needed by Plan64 without creating a universal simulator IR or moving legitimate runtime binding into the compiler. The [coordinator](64-process-simulator-target.md) owns accepted RC decisions, source baseline `1acd8c83c`, finding correspondence and independent plan boundaries. This companion owns A01–A04 state.

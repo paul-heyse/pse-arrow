@@ -176,8 +176,8 @@ replay and original-owner qualification, even if early nonpersistent service wor
 
 ## Package state
 
-Every package starts **planned**. The coordinator owns cross-plan disposition; these rows own
-J progress. Local acceptance names intended tests, not tests already written or run.
+The coordinator owns cross-plan disposition; these rows own J progress. A tested narrow
+slice does not complete a package whose full consumer migration or acceptance is open.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
@@ -186,7 +186,7 @@ J progress. Local acceptance names intended tests, not tests already written or 
 | J03 | in-progress | J02 plus working native edit/preparation/study handlers. | Inspect/edit/prepare/submit/status/cancel/read products work end to end. Typed owner/client tests include add/replace/delete/retain, stale parent, missing/default distinctions, intended science failure, duplicate original request and changed-request conflict. Remove replaced B/C adapters/callers/fixtures together. |
 | J04 | in-progress | J03's original operation ownership and retained reads. | Observational progress, reconnect, bounded observer release and shutdown work. Drop observation while work continues, reconnect to the original run, lose a submit ACK, request cancellation and prove actual settlement separately. No automatic submit replay; remove duplicated polling/status translations where replaced. |
 | J05 | in-progress | 64i's producer-selection slice plus J03/J04 real responses. | Runtime/client I06 producer/encode/consume paths use selected responses. Selected/full/empty and malformed nested read tests cover continuation, retained buffer release, extent refusal, cancellation and partial output. Delete duplicated projection/extent passes only with equivalent protection. No latency/memory benefit claim without whole-lifetime measurement. |
-| J06 | planned | All functional J scope, working selected 64d–64g cases and consumed G08 capture/publication slices. | Independent client delivery is qualified and handed off. Assembled inspect/edit/prepare/study/readback journey includes original physical checks, failed siblings, protected products, disconnect/reconnect, duplicate/cancel/lost ACK and shutdown. Delete any remaining replaced route; reconcile support and permissions with 64h H05/H07. |
+| J06 | in-progress | All functional J scope, working selected 64d–64g cases and consumed G08 capture/publication slices. | Narrow declared-case client journey tested; full Study lifecycle and simulation/fit/horizon client tests are drafted but unlinked and unrun. Complete their integration, original physical checks, failed siblings, protected products, disconnect/reconnect, duplicate/cancel/lost ACK and shutdown; delete replaced routes and reconcile 64h H05/H07. |
 
 J01 and 64i's first contract slice proceed together; neither waits for a universal catalogue.
 J02 can develop against that implemented slice while later schema families proceed. J03's
@@ -197,7 +197,7 @@ provider availability field should project its existing owner without a new disp
 An E/F distributed/cyclic case challenges actual axes/events/capability inspection and retained
 products; advertising an event never implies unsupported integrator sensitivities.
 
-## Current implementation checkpoint — 2026-11-03
+## Current implementation checkpoint — 2026-11-04
 
 Shared library handlers now serve the project CLI and generated engineering transport.
 Source admission, exact-parent file edits, selected declaration headers, original source-file
@@ -221,10 +221,36 @@ Independent review identified self-referencing dependency/shutdown, preparation-
 same-PID executable replacement, ephemeral result-attempt matching and aggregate ingress
 accounting gaps. Corrections and focused controls remain in this implementation slice;
 the earlier passing controls do not establish those corrected behaviors.
-The initial run frontend covers declared algebraic cases; actual StudyRequest preparation,
-issued canonical study creation, all serializable operation families, bounded study/cohort
-products and native modeling/provider inspection remain required J scope. An algebraic
-journey does not close these obligations or qualify the broader D–G scientific families.
+The initial run frontend covers declared algebraic cases. The following expansion is now
+present in the working tree, with acceptance boundaries that differ from that passing run:
+
+- **Implemented in linked native source:** full Study request/definition metadata and
+  source-owned service declarations; original issued-Study/occurrence identity and changed
+  request refusal; Study preparation/submission, observations and bounded protected cohort
+  products; native model/domain and provider inspection. The earlier 36-test runtime
+  selector exercised operation/settings projection and pure Study identity controls before
+  the latest session/inspection expansion. The full graph subsequently compiled for
+  engineering generation, but the new native database and inspection controls have not run.
+- **Drafted, not integrated:** new Study and inspection RPC modules and their generated
+  inspection tests. These files are not linked into the current transport/test modules.
+  Expanded descriptor publication currently fails the [64i maintained CEL preflight](64i-engineering-contracts-and-validation.md#current-implementation-checkpoint--2026-11-04).
+  Their presence is not a usable full Study service or a passing generated-client test.
+- **Drafted, not integrated or run:** J06's three-phase generated Rust client test
+  `prepared_engineering_study_client_three_phase_original_owner_journey` and
+  `prepared_engineering_study_client_simulation_fit_and_horizon_keep_original_physics`.
+  The keeper's explicit original NativeStudyWorker allocation/start-gate controls are
+  implemented in source but need compilation and tests. Fresh application/worker images,
+  explicit fixtures and actual submit → frontend retirement/replacement → recovery →
+  original-worker completion remain required. This Study worker is distinct from 64k's
+  water-property worker.
+
+Remaining J work is expanded generation and RPC linkage, latest native/session/provider
+controls, keeper preparation/lifecycle controls, both J06 client journeys and G08-backed
+protected readback, followed by remaining migration/deletion and enduring publication.
+Provider inspection's newly added closed-caller and pre-clone storage-bound controls are
+unrun. Client physical assertions consume original resolved numerical contexts and units;
+solver stopping criteria do not establish output accuracy. No J package is yet complete,
+and the algebraic journey does not qualify the broader D–G scientific families.
 
 ## Verification and completion
 
@@ -252,9 +278,8 @@ through settlement and G08-backed protected study readback. Publish enduring con
 the coordinator's architecture/ADR route and retire completed planning material by the existing
 lifecycle policy. At close, record built behavior, a mistake corrected and deliberate deviations.
 
-**Current checkpoint:** Full execution is authorized. The CLI delegates to the shared native
-project handler. Source-owned engineering service contracts and the original-operation
-session core are implemented; generated transport, full editing/readback migration and
-acceptance controls remain in progress. Disk exhaustion interrupted initial generation;
-the maintainer cleared build output, requiring cold preparation and affected reruns.
-J01–J06 completion and quantitative performance benefits remain unestablished.
+**Current conclusion:** Full execution is authorized. J01–J06 remain in progress, with
+the tested declared-case delivery and the unfinished full Study delivery distinguished above.
+The earlier disk interruption was followed by explicit host/provider preparation and affected
+reruns; it is not the current generation failure. Complete client delivery and quantitative
+performance benefits remain unestablished.

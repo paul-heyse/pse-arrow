@@ -9,8 +9,9 @@ use buffa_descriptor::generated::{
     descriptor::FileDescriptorSet,
 };
 use pse_codegen::codegen::{GeneratedTree, boundary_projection, provenance};
-use pse_model::boundary_projection::{ProjectionGraph, Service};
+use pse_model::boundary_projection::{ProjectionGraph, Service, TypeRef};
 use std::{
+    collections::BTreeSet,
     io::Write as _,
     path::{Component, Path, PathBuf},
     process::{Command, Stdio},
@@ -55,7 +56,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         "crate::host_operations::engineering::generated::pb",
         &imports,
     )?;
-    let adapter_roots = [
+    let mut adapter_roots = BTreeSet::from([
         "PreparationDiscoveryRequest",
         "PreparationDiscoveryReport",
         "StructuralValue",
@@ -63,7 +64,22 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         "OriginalSourceFile",
         "PhysicalInspectionRequest",
         "PhysicalInspectionDocument",
-    ];
+    ]);
+    for service in graph.services().values() {
+        for method in &service.methods {
+            for owner in [&method.input, &method.output] {
+                let TypeRef::Named(name) = owner else {
+                    bail!(
+                        "{}.{}: native service adapter requires its named source owner",
+                        service.name,
+                        method.name
+                    );
+                };
+                adapter_roots.insert(name.as_str());
+            }
+        }
+    }
+    let adapter_roots = adapter_roots.into_iter().collect::<Vec<_>>();
     let adapters = boundary_projection::native_adapters(
         &graph,
         &adapter_roots,
@@ -126,7 +142,8 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     tree.roots.extend(engineering.roots);
     tree.files.extend(engineering.files);
     tree.relationships.extend(engineering.relationships);
-    let reference_graph = pse_model::reference_exchange::reference_projection()?;
+    let mut reference_graph = pse_model::reference_exchange::reference_projection()?;
+    reference_graph.register::<pse_runtime::reference_exchange::ReferenceCaseContract>()?;
     let mut reference = projection(
         root,
         &reference_graph,
@@ -136,9 +153,10 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         "crate::reference_exchange::generated::pb",
         &imports,
     )?;
+    let reference_roots = ["ReferenceEnvelope", "ReferenceCaseContract"];
     let reference_adapters = boundary_projection::native_adapters_retaining_wire(
         &reference_graph,
-        &["ReferenceEnvelope"],
+        &reference_roots,
         "crate::reference_exchange::generated::pb::pse::reference::v1",
         "pse_runtime",
     )?;
@@ -148,23 +166,30 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         "native-adapters.rs",
         reference_adapters.as_bytes(),
     )?;
-    reference
-        .relationships
-        .push(provenance::SourceRelationship {
-            declaration_key: "ReferenceEnvelope".into(),
-            declaration_kind: "native_projection_adapters".into(),
-            source_path: Some("crates/pse-model/src/reference_exchange.rs".into()),
-            source_symbol: Some("reference_projection".into()),
-            source_role: "typed_owner".into(),
-            source_identity: None,
-            generator_path: "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs".into(),
-            generator_symbol: "native_adapters_retaining_wire".into(),
-            output_path: "crates/pse-runtime/src/generated/reference-exchange/native-adapters.rs"
-                .into(),
-            direction: Some("Both".into()),
-            contract_sections: vec!["blueprint §4.7".into()],
-            basis: "declared".into(),
-        });
+    for name in reference_roots {
+        let owner = reference_graph
+            .definitions()
+            .get(name)
+            .context("reference adapter owner absent")?;
+        reference
+            .relationships
+            .push(provenance::SourceRelationship {
+                declaration_key: name.into(),
+                declaration_kind: "native_projection_adapters".into(),
+                source_path: Some(owner.source.into()),
+                source_symbol: Some(owner.rust_type.into()),
+                source_role: "typed_owner".into(),
+                source_identity: None,
+                generator_path: "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs"
+                    .into(),
+                generator_symbol: "native_adapters_retaining_wire".into(),
+                output_path:
+                    "crates/pse-runtime/src/generated/reference-exchange/native-adapters.rs".into(),
+                direction: Some(format!("{:?}", owner.direction)),
+                contract_sections: vec!["blueprint §4.7".into()],
+                basis: "declared".into(),
+            });
+    }
     reference.files.extend(
         provenance::sidecar(&producer("pse.reference.v1"), &reference.relationships)?.files,
     );

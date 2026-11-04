@@ -13,7 +13,7 @@ doc_topics: [current-work, design, validation]
 
 ## Purpose and authorization
 
-**Proposed:** deliver reusable native process science and coherent engineering operations over the existing authored system, then close a finite expanded IDAES process-capability population. This series captures the integrated [target review](../design_review/reviews/design_review_process_simulator_target_2026-11-02.md), its [recommendation audit](../design_review/reviews/audits/design_review_process_simulator_target_2026-11-02_audit.md), and the [high-level package](../process-simulator-design/index.md). The maintainer authorized plan authoring on 2026-11-02 and selected full P0–P7 coverage with staged detail. Subsequent instructions authorize 64a's design/disposition work and 64b/64c's native implementation and reference handoff; later production packages retain their own authorization boundary.
+**Proposed:** deliver reusable native process science and coherent engineering operations over the existing authored system, then close a finite expanded IDAES process-capability population. This series captures the integrated [target review](../design_review/reviews/design_review_process_simulator_target_2026-11-02.md), its [recommendation audit](../design_review/reviews/audits/design_review_process_simulator_target_2026-11-02_audit.md), and the [high-level package](../process-simulator-design/index.md). The maintainer authorized plan authoring on 2026-11-02 and selected full P0–P7 coverage with staged detail. Subsequent execution instructions authorize completion of all Proto-related scope first, followed by the entire remaining Plan64 scope. The companion package tables own implementation and acceptance state; authorization does not establish completion.
 
 **Interface-checked:** authoring starts at `1acd8c83ca8f9e6f6e9b5e9c9cbf98e299d574b8`. The integrated review and current source retain scientific/runtime mechanisms inspected at `dcbb1c459`; the intervening commit publishes the recommendation audit. Concurrent skill and library-leverage drafts are excluded. Core3.4, efficiency heuristics1.0, ProcessSimulator1.5, test-assessment1.2 and the selected binding apply. No new broad audit, numerical execution or benefit measurement is claimed.
 
@@ -43,14 +43,15 @@ Read source at `crates/pse-runtime/src/workflow/modeling.rs`, `modeling/declared
 
 ## Confirmed rule changes
 
-### Proto integration scope accepted for planning — 2026-11-03
+### Proto integration scope and authorization
 
 The maintainer selected all six recommendations in the
 [Proto improvement review](../plan_improvement_reviews/plan64-proto-integration-and-extensibility-2026-11-03.md)
 for full planning integration, including breaking replacements of delivered B/C interfaces.
 Both the local engineering service and local scientific worker are working-delivery targets,
-not design-only investigations. This authoring instruction does not authorize their production
-implementation. Existing D–G execution and failure closeout retain their prior authorization.
+not design-only investigations. The initial authoring instruction was followed by explicit
+authorization to implement the complete Proto scope and then the entire remaining Plan64
+scope. Earlier D–G closeout failures remain obligations of their existing owners.
 
 The baseline is `2550fa665` after scientific/capture integration at `480628c1e`, with the
 remaining capture/native-service tests and D–G checkpoint edits still in progress. Their
@@ -222,7 +223,55 @@ No active-plan reference by the scoped DA-062/DA-063 IDs was found during prepar
 
 A–D complete only when ordinary source closure, edits, full success/failure journeys, producer permission, exact readback and complete matched reference outputs pass their own discriminators. P7 closes every mandatory finite population item with accepted evidence, zero failures and truthful public support limits. Missing required prerequisites fail selected runs; unattempted work never counts as a pass. Twelve domain witnesses and 55 notebook families are planning inputs, not the final denominator.
 
-**Current checkpoint — 2026-11-03:** A02/A03/A04 design and disposition work is complete;
+### Current completion and remaining scope — 2026-11-04
+
+The implementation baseline is `1de457d87` plus the current uncommitted Plan64 integration
+work. Source drafts, compiled owners, generated publication and actual-process acceptance
+are distinguished below; no percentage or package completion is inferred from file counts.
+
+- **Completed:** A02–A04's design/disposition work and B01–B05/C01–C09's original native
+  delivery, within their recorded evidence. The new Proto migrations of those surfaces
+  remain owned by I/J; the retained B/C outcomes do not qualify the changed checkout.
+- **Implemented and targeted Tested slices:** source-owned projection and local-rule
+  machinery, complete authored registry row declarations, exact numeric/duration/physical
+  value handling and passive scientific metadata in [64i](64i-engineering-contracts-and-validation.md#current-implementation-checkpoint--2026-11-04);
+  a declared-case engineering client/service slice in [64j](64j-engineering-services-and-clients.md#current-implementation-checkpoint--2026-11-04);
+  and prepared water-worker transport, native custody and actual-process controls in
+  [64k](64k-prepared-scientific-workers.md#current-implementation-checkpoint--2026-11-04).
+  Each owner distinguishes its passing snapshot from later unverified source changes.
+- **Proto integration still required:** repair the expanded engineering descriptor's
+  maintained CEL preflight failure for `HighsSettings.sparse_start`; regenerate and
+  integrate full Study/model/provider RPCs and all selected operation families; prove
+  original Study identity, frontend replacement, protected cohorts and native settlement;
+  complete the worker equipment and independent binary reference comparisons. I01–I06
+  remain scheduled, with their resolution criteria unchanged.
+- **Remaining scientific scope:** A01/H01's complete finite population and input closure;
+  D's remaining property/reaction/equipment and HDA/methanol integrations; E's native
+  inventory, distributed/cyclic and derivative acceptance; F's configured power,
+  gas-solid, capture/membrane, TSA/SOC and network families; G's remaining inference,
+  uncertainty, surrogate/discrete, control/multiperiod and assessment consumers, plus
+  G08's failing capture controls and legacy retirement. Their companion tables retain
+  the exact package and configuration obligations. Proto metadata does not implement
+  those scientific families.
+- **Remaining assembled acceptance:** H02/H03's native/reference correspondence and
+  negative controls, H04/H05's family/operational acceptance, applicable H06 measurements
+  and H07's full scope-end checks, enduring publication and final evidence reconciliation.
+  No comprehensive qualification of the current checkout has passed.
+
+The worker, independent Rust client and reference-exchange journeys are acceptance for
+the Proto additions using real Plan64 science. They also contribute to H's functional
+qualification at their exact scope; they do not close all D–G families. Scientific output
+assertions must consume the original quantity/unit and analytically meaningful engineering
+error budgets. Scaled solver stopping tolerances and a successful termination are separate
+facts, not certificates of physical output error.
+
+Next work is the I generation failure and J integration, followed by the selected K/H
+scientific journeys and affected consumer deletion. Complete the remaining A–H scope after
+the Proto delivery. Plan65 remains separately proposed and is not included in this execution.
+
+### Completed B/C evidence checkpoint — 2026-11-03
+
+A02/A03/A04 design and disposition work is complete;
 A01 remains in progress pending H01's exact finite population. B/C native implementation
 and selected scientific acceptance are integrated under their companion package tables.
 Ordinary recycle/rejection, exchanger design and same-case design-to-rating, compatible
@@ -266,8 +315,8 @@ its failures and unrun obligations remain open until corrected and verified. Cur
 Proto implementation checkpoints live in 64i/64j/64k. Complete that integrated scope
 first, then continue the existing A–H package owners and the finite scientific population.
 
-**2026-11-03 — stopped at the maintainer's request.** This implementation wave is
-partial. No further fixes, tests or diagnostics are running. The independent agent's
+**Historical closeout, 2026-11-03 — stopped at the maintainer's request.** That implementation wave was
+partial and its fixes, tests and diagnostics stopped. The independent agent's
 proto/extensibility plan additions retain their own scope; they were not implemented
 or qualified by this wave. The D/E/F/G package tables remain open, and their closeout
 sections own the detailed passing evidence, failures and next obligations:
@@ -293,7 +342,7 @@ passed ten targets before the later source-only corrections; that is not a final
 generated-output comparison or a clean-tree qualification. No comprehensive static
 or functional pass is claimed for this checkout.
 
-All task-owned build/test/debug sessions are terminal. Worktrees were reconciled and
+At that closeout, all task-owned build/test/debug sessions were terminal. Worktrees were reconciled and
 removed; the unused unintegrated Plan59 parser-provenance draft is preserved on its
 original branch at `3d7096c15`, rather than reintroducing retired production code.
 The shared sccache daemon was left running for other agents; it is not an active test

@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Paul Heyse
 """Isolated entry to the independent ordinary-process binary producer."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # -I deliberately excludes the current directory and PYTHONPATH. Only this
 # explicitly selected reference-tool directory enters the isolated interpreter.

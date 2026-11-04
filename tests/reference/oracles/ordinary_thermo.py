@@ -31,7 +31,7 @@ from idaes.models.properties.modular_properties.phase_equil.forms import (
     fugacity,
     log_fugacity,
 )
-from idaes.models.properties.modular_properties.pure import Perrys, RPP5
+from idaes.models.properties.modular_properties.pure import RPP5, Perrys
 from idaes.models.properties.modular_properties.state_definitions import FTPx
 from pyomo.core.expr.numeric_expr import NumericValue
 from pyomo.environ import Param, exp, units, value

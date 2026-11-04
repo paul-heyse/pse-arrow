@@ -101,13 +101,23 @@ pub struct AdvancedStep {
     pub predictions: Vec<(String, String)>,
 }
 
+pse_model::projection_enum! {
+    @serde_remote {
+        /// The original tagged study-input JSON binding, emitted from the native variants.
+        #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+        #[serde(remote = "WindowInput", tag = "kind", content = "value", rename_all = "snake_case", deny_unknown_fields)]
+        pub enum WindowWire;
+    }
 /// How an estimator's model takes a driven input over its window.
 #[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub enum WindowInput {
+    projection: { name: "HorizonWindowInput", rust_path: crate::workflow::WindowInput, version: 1,
+        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// One case value for the whole window; the input must have been constant over it.
-    Constant(String),
+    Constant(String) => 1;
     /// One case value per period of the window, oldest first.
-    Periods(Vec<String>),
+    Periods(Vec<String>) => 2;
+}
 }
 
 /// The arrival cost of one estimated state: a prior on the window's free initial state.

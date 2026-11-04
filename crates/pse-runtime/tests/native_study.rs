@@ -53,6 +53,21 @@ use std::{
 // Its known positive root is 2, regardless of the value retained by the runtime.
 const SQUARE: &str = "package local { test square fixture { dof 0; } { param p:Scalar=4; var x:Scalar; eq root:x*x==p; annotation start x(1); } }";
 
+fn assert_original_square_solution(value: f64, tolerance: Option<f64>) {
+    let allowance = tolerance.expect("original published variable error budget");
+    assert!(value.is_finite() && value >= 0.0);
+    assert!(allowance.is_finite() && allowance > 0.0);
+    assert!(
+        (value - 2.0).abs() <= allowance,
+        "original positive-root error: {value}, allowance={allowance}"
+    );
+    // If |x-2| <= e, then |x²-4| = |x-2||x+2| <= e(4+e).
+    assert!(
+        (value * value - 4.0).abs() <= allowance * (4.0 + allowance),
+        "analytically propagated original residual: {value}, allowance={allowance}"
+    );
+}
+
 fn service() -> NativeCanonicalService {
     let environment = std::env::vars_os().collect();
     let helper = PathBuf::from(
@@ -476,11 +491,7 @@ fn value<'a>(runtime: &'a Runtime, run: &'a str, attempt: &'a str) -> BoxFuture<
             for row in view.rows().unwrap() {
                 if !row.parameter && !row.fixed {
                     let x = row.value.unwrap();
-                    assert!((x - 2.).abs() <= 1e-7, "independent positive root: {x}");
-                    assert!(
-                        (x * x - 4.).abs() <= 1e-6,
-                        "original equation residual: {x}"
-                    );
+                    assert_original_square_solution(x, row.tolerance);
                     variables += 1;
                 }
             }
@@ -745,8 +756,7 @@ fn journey<'a>(
                 .unwrap();
                 for row in view.rows().unwrap() {
                     if !row.parameter && !row.fixed {
-                        assert!((row.value.unwrap() - 2.0).abs() <= 1e-7);
-                        assert!((row.value.unwrap() * row.value.unwrap() - 4.0).abs() <= 1e-6);
+                        assert_original_square_solution(row.value.unwrap(), row.tolerance);
                         unknowns += 1;
                     }
                 }

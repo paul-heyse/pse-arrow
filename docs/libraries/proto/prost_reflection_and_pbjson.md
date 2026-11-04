@@ -938,3 +938,771 @@ The most consequential distinction is that reflection and generated JSON are com
 | `prost-reflect` release history          | [https://github.com/andrewhickman/prost-reflect/blob/main/CHANGELOG.md](https://github.com/andrewhickman/prost-reflect/blob/main/CHANGELOG.md?utm_source=chatgpt.com)                                       |
 
 Verification note: This reference is based on published crate documentation, upstream source, release history, and the protobuf specification as available on October 31, 2026. No local builds, execution tests, conformance suite, or performance measurements were conducted. The `pbjson-types` `Any` limitation is explicitly documented upstream; the `FieldMask` concern is identified from the released generator configuration and should be treated as source-based inference rather than an independently executed test.
+
+# Addendum — Prost Reflection and Protobuf JSON
+
+Companion reference: Prost Reflection and Protobuf JSON — Rust Library Reference (October 31, 2026)
+
+Research date: November 3, 2026\
+Version scope: `prost-reflect` 0.16.5, `prost-reflect-build` 0.16.1, `prost-reflect-derive` 0.16.1, `pbjson` / `pbjson-build` / `pbjson-types` 0.9.0, and their `prost` 0.14 integration.
+
+This addendum supplies advanced functionality, implementation semantics, and interoperability qualifications not fully developed in the original reference. Section references indicate where the material extends or corrects the corresponding discussion. All described library APIs target published releases unless explicitly identified as development work.
+
+## A1. Reflection-enabled code generation: descriptor binding and compilation lifecycle
+
+Extends original §4 and §9.3.
+
+### A1.1 Descriptor-source configuration is mandatory
+
+`prost-reflect-build::Builder` has two ways to make descriptor metadata available to generated `ReflectMessage` implementations. At least one must be configured explicitly.
+
+| API                               | Generated implementation                                                                            | Architectural consequence                                                                                                              |
+| --------------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `descriptor_pool(expr)`           | Uses an expression resolving to a `DescriptorPool`                                                  | An application-owned pool supplies schema metadata; its construction, lifetime, and schema composition can be controlled independently |
+| `file_descriptor_set_bytes(expr)` | References encoded descriptor bytes and uses automatic registration with the global descriptor pool | Avoids a separately declared application-owned pool, but uses process-global descriptor registration                                   |
+
+The configured expression is emitted into generated Rust attributes. It must therefore be valid in the context of the generated message types, not merely in `build.rs`.
+
+The published implementation returns an `io::Error` if neither option is configured. This is significant because the 0.16.1 `Builder` method documentation includes an abbreviated `Builder::new().compile_protos(...)` example that omits both settings; that example is insufficient as written.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+A minimal descriptor-bytes arrangement is:
+
+```
+// build.rs
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    prost_reflect_build::Builder::new()
+        .file_descriptor_set_bytes("crate::FILE_DESCRIPTOR_SET_BYTES")
+        .compile_protos(&["proto/example.proto"], &["proto"])?;
+    Ok(())
+}
+
+// Crate root
+const FILE_DESCRIPTOR_SET_BYTES: &[u8] =
+    include_bytes!(concat!(
+        env!("OUT_DIR"),
+        "/file_descriptor_set.bin"
+    ));
+```
+
+The `descriptor_pool` alternative can instead refer to a lazily initialized static pool. Its expression should resolve to a reusable pool rather than decoding a descriptor set repeatedly.
+
+An important interaction follows from the global-pool alternative: the global registry does not provide arbitrary schema replacement. Descriptor files already registered under the same file name are skipped, so descriptor provenance and schema-version conflicts remain relevant even when registration is automatic.
+
+### A1.2 `configure()` performs compilation-related work
+
+The builder exposes three entry points, but they do not simply represent three syntactic variants of one generation step.
+
+`compile_protos()` delegates to `compile_protos_with_config()` using a new `prost_build::Config`.
+
+`compile_protos_with_config()` first calls `configure()`, then calls `Config::skip_protoc_run().compile_protos(...)` to generate Rust code using the already compiled descriptor artifact.
+
+`configure()` itself calls `Config::file_descriptor_set_path(...).compile_protos(...)`, reads the resulting descriptor bytes, creates a `DescriptorPool`, and enumerates message descriptors to attach `#[derive(::prost_reflect::ReflectMessage)]` plus the required reflection attributes.
+
+Therefore, `configure()` is not a purely in-memory configuration operation. It performs a compilation step to obtain schema metadata before configuring the final generation path. Its documented ability to leave the caller in control of subsequent generation does not mean it avoids initial compilation work.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+This matters when composing reflection generation with:
+
+- Additional `prost-build` type and field attributes.
+- Externally generated descriptors or customized code-generation stages.
+- Nonstandard output locations or multiple generated packages.
+- Cargo rebuild dependencies and build-script side effects.
+- Other generators consuming the same descriptor artifact, including `pbjson-build`.
+
+The builder also overrides `prost_build::Config::file_descriptor_set_path()` with its own configured path. Consequently, the effective descriptor artifact location must be understood at the `prost-reflect-build` level.
+
+Source:
+
+[https://docs.rs/prost-reflect-build/0.16.1/src/prost_reflect_build/lib.rs.html](https://docs.rs/prost-reflect-build/0.16.1/src/prost_reflect_build/lib.rs.html?utm_source=chatgpt.com)
+
+### A1.3 Reflection can be derived independently of `prost-reflect-build`
+
+The `prost_reflect::ReflectMessage` derive macro is available through the `derive` feature. `prost-reflect-build` is a convenience integration for automatically applying that derive to generated messages; it is not the only supported mechanism.
+
+For an existing type implementing `prost::Message`, reflection can be attached directly:
+
+```
+#[derive(prost::Message, prost_reflect::ReflectMessage)]
+#[prost_reflect(
+    descriptor_pool = "crate::DESCRIPTOR_POOL",
+    message_name = "example.Event"
+)]
+pub struct Event {
+    #[prost(string, tag = "1")]
+    pub name: String,
+}
+```
+
+The derive requires the fully qualified protobuf message name and a descriptor source. It does not infer the protobuf descriptor solely from the Rust struct's fields.
+
+This creates two independent extension mechanisms:
+
+1. Generation-time attachment: `prost-reflect-build` injects reflection derives and attributes across generated message types.
+2. Type-level attachment: The derive macro supplies reflection for individual Rust message implementations, including those not produced by that specific builder.
+
+Both supply the `ReflectMessage` interface, not direct dynamic field indexing over the generated Rust struct. Field-by-field reflective mutation still requires the dynamic representation or other type-specific access machinery.
+
+There is also a documentation inconsistency: portions of the published derive documentation call the bytes attribute `file_descriptor_pool_bytes`, while the current builder implementation emits `file_descriptor_set_bytes`. The latter is the attribute implemented and used by the released generator.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+Sources:
+
+[https://docs.rs/prost-reflect/0.16.5/prost_reflect/trait.ReflectMessage.html](https://docs.rs/prost-reflect/0.16.5/prost_reflect/trait.ReflectMessage.html?utm_source=chatgpt.com)
+
+[https://docs.rs/crate/prost-reflect-derive/0.16.1/source/](https://docs.rs/crate/prost-reflect-derive/0.16.1/source/?utm_source=chatgpt.com)
+
+## A2. Dynamic message transformation and wire-level information preservation
+
+Extends original §§3.1–3.5 and §9.1.
+
+### A2.1 Mutable traversal of fields and extensions
+
+`DynamicMessage` provides bulk traversal and in-place mutation interfaces beyond individual field getters and setters.
+
+| API family                   | Relevant methods                                                                  | Additional capability                                                               |
+| ---------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Populated-field traversal    | `fields()`, `fields_mut()`                                                        | Inspect or mutate all semantically present ordinary fields                          |
+| Extension traversal          | `extensions()`, `extensions_mut()`                                                | Apply equivalent operations to populated extension fields                           |
+| Nested value access          | `Value::as_message_mut()`, `as_list_mut()`, `as_map_mut()`                        | Traverse and modify nested messages, repeated values, and maps                      |
+| Scalar mutation              | `as_i32_mut()`, `as_string_mut()`, `as_bytes_mut()`, `as_enum_number_mut()`, etc. | Mutate values through typed references without reconstructing the enclosing message |
+| Ownership transfer           | `take_field()`, `take_fields()`, `take_extension()`, `take_extensions()`          | Remove values while obtaining ownership of their representations                    |
+| Schema-sensitive validation  | `is_valid_for_field()`, `is_valid_for_extension()`                                | Test whether a candidate value matches the protobuf type of the destination         |
+| Default-sensitive comparison | `is_default_for_field()`, `is_default_for_extension()`                            | Evaluate defaults using the relevant field or extension definition                  |
+
+These capabilities enable generic schema-aware transformations with substantially less per-message boilerplate. A transformation can enumerate fields, inspect each descriptor, traverse its dynamic value, and apply type-dependent operations without generating application-specific visitors for every message type.
+
+The important distinction is between type compatibility and message presence. `Value::is_default_for_field()` evaluates whether a value equals the descriptor-defined default; `DynamicMessage::has_field()` determines semantic presence under protobuf's field rules. A present explicit-presence field can contain its default value. Neither predicate is a substitute for the other.
+
+In-place mutation also does not eliminate the requirement to preserve field invariants. For example, modifying a nested `Value::List` or `Value::Map` directly requires maintaining element and key/value compatibility with its descriptor. The type-sensitive accessors provide structured access, not arbitrary mutation safety for every subsequently constructed value.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+[https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.DynamicMessage.html](https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.DynamicMessage.html?utm_source=chatgpt.com)
+
+[https://docs.rs/prost-reflect/0.16.5/prost_reflect/enum.Value.html](https://docs.rs/prost-reflect/0.16.5/prost_reflect/enum.Value.html?utm_source=chatgpt.com)
+
+### A2.2 Draining iterators have partial-consumption semantics
+
+`take_fields()`, `take_extensions()`, and `take_unknown_fields()` return iterators that progressively remove values from the message.
+
+For each method, the documentation states that dropping the iterator before full consumption leaves the number of removed fields unspecified.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+This is an important ownership and mutation property:
+
+- Merely obtaining the iterator should not be interpreted as an atomic operation that has already removed every matching value.
+- Stopping iteration early may leave a partially modified message.
+- An error or early return during traversal can therefore produce a different message state from full consumption.
+- Fully consuming the iterator is necessary when the operation requires the complete set of values to be removed.
+
+The methods provide efficient ownership-based access to stored values; they do not provide transactional transformation, rollback, or all-or-nothing guarantees.
+
+For fallible bulk transformations, the distinction between iterating mutable references and consuming values is consequently important. A transformation that must preserve the original message on failure requires its own state-management semantics.
+
+### A2.3 `UnknownField` exposes protobuf wire structure
+
+`UnknownField` is more than an opaque payload retained for later re-encoding. It is a public representation of an unrecognized protobuf wire field with independent inspection and encoding operations.
+
+| Method           | Information or operation                                                   |
+| ---------------- | -------------------------------------------------------------------------- |
+| `number()`       | Original protobuf field number                                             |
+| `wire_type()`    | Wire encoding category encountered during decoding                         |
+| `encoded_len()`  | Length of its encoded wire representation                                  |
+| `encode()`       | Serialize the unknown field independently                                  |
+| `decode()`       | Decode an unknown field including its tag                                  |
+| `decode_value()` | Decode a field value after its number and wire type have already been read |
+| `Display`        | Render an inferred protobuf text-format-style diagnostic representation    |
+
+`decode()` and `decode_value()` use the `prost` decoding context and buffer interfaces. `encode()` writes through `BufMut`, allowing the field to be incorporated into other wire-level output machinery.
+
+This permits several operations without implementing a separate complete protobuf decoder: counting unknown field numbers, observing wire types, extracting unknown wire records, preserving opaque data during schema transitions, and displaying unfamiliar payloads for diagnostics.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Wire type is not semantic type. A `LengthDelimited` field may represent a string, bytes, a nested protobuf message, or packed repeated scalar values. The wire encoding alone does not establish the intended interpretation.
+
+This limitation also applies to `UnknownField`'s text rendering. Its formatter may infer plausible structures from bytes, but inferred structure is not schema-validated meaning.
+
+Nor does unknown-field preservation establish byte-for-byte identity of a whole message after decoding and re-encoding. Protobuf permits multiple binary encodings of equivalent logical messages, and encoding order is not a universal canonicalization guarantee.
+
+Source:
+
+[https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.UnknownField.html](https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.UnknownField.html?utm_source=chatgpt.com)
+
+### A2.4 Transcoding into generated `prost` messages can discard information
+
+`DynamicMessage` preserves unknown binary fields, but ordinary generated `prost` message types do not generally retain unrecognized field data.
+
+This creates an important asymmetry:
+
+Conceptual information-flow boundary, not an assertion about exact byte preservation.
+
+`DynamicMessage::transcode_to<T>()` serializes the dynamic representation and decodes it into the requested generated type. Unrecognized fields are not normally retained in that generated instance; transcoding it back cannot recreate the discarded data.
+
+This distinction affects schema evolution, opaque-message forwarding, and tooling that must preserve fields introduced by newer producers.
+
+Three separate cases should not be conflated:
+
+| Case                       | Relevant behavior                                                                               |
+| -------------------------- | ----------------------------------------------------------------------------------------------- |
+| Unknown field number       | `DynamicMessage` can preserve its wire representation                                           |
+| Unknown numeric enum value | Can remain represented numerically where the enum semantics permit it                           |
+| Unknown JSON property      | Cannot be retained as an arbitrary protobuf unknown wire field by these ProtoJSON deserializers |
+
+The upstream `prost` project has an open proposal to add unknown-field support to generated messages, but that proposal is not part of the reviewed stable release. The observation here applies to ordinary released `prost` types, not to hypothetical future support.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Source:
+
+[https://github.com/tokio-rs/prost/pull/1340](https://github.com/tokio-rs/prost/pull/1340?utm_source=chatgpt.com)
+
+## A3. Advanced descriptor inspection, source provenance, and options interpretation
+
+Extends original §§2.1–2.3 and §9.3.
+
+### A3.1 Descriptor paths provide a bridge to original `.proto` declarations
+
+Most descriptor types expose `path()`, an integer path locating the element within the original `FileDescriptorProto` tree.
+
+The path can be compared against `SourceCodeInfo.Location.path` entries in compiled descriptor metadata. When source information is included, the corresponding location can supply declaration spans and comments.
+
+The descriptor APIs additionally expose underlying protobuf descriptor structures through methods such as `message_descriptor_proto()`, `enum_descriptor_proto()`, `field_descriptor_proto()`, and `parent_file_descriptor_proto()`.
+
+Together, these offer three views of a schema element:
+
+1. A resolved semantic handle, including field type, parent relationships, and options.
+2. Its underlying descriptor-proto structure, preserving the schema's serialized metadata model.
+3. A path into optional source-location metadata.
+
+This combination supports schema-aware documentation, source-to-descriptor navigation, structured metadata indexing, provenance tracking, and more informative diagnostics without building an independent `.proto` parser solely for declaration discovery.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+The source mapping has important constraints. Descriptor `path()` identifies an element structurally even when no source locations are available. `SourceCodeInfo` is optional, and its absence means that source spans or comments cannot be recovered from the descriptor set alone. The bundled well-known-type descriptors also omit source information.
+
+A generic schema inspector can therefore remain functional without source metadata, while source-aware capabilities degrade independently.
+
+Sources:
+
+[https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.MessageDescriptor.html](https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.MessageDescriptor.html?utm_source=chatgpt.com)
+
+[https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.FileDescriptor.html](https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.FileDescriptor.html?utm_source=chatgpt.com)
+
+### A3.2 Custom options require both information preservation and interpretation
+
+The descriptor-pool loading distinction already covered in the main reference is important: decoding descriptor bytes directly can preserve custom-option extension data that an intermediate `prost_types` representation might discard.
+
+A second distinction concerns how options are represented before they have been interpreted.
+
+`prost-reflect` supports interpretation of `uninterpreted_options` in descriptor options metadata. However, the published release history documents that values supplied through `UninterpretedOption.aggregate_value` are ignored if the `text-format` feature is disabled.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Consequently, obtaining complete machine-readable annotations depends on more than one condition:
+
+- The relevant custom-option extension definitions must be available.
+- The option values must survive descriptor ingestion.
+- The representation of any uninterpreted option must be supported by the enabled features.
+- The resulting `DynamicMessage` options must be interpreted with the appropriate extension descriptors.
+
+The `text-format` dependency is particularly consequential for tooling that consumes descriptors produced through heterogeneous compilation paths. Standard interpreted options may work even while specific aggregate-valued uninterpreted options remain unavailable.
+
+The library interprets option structures; it does not supply a general evaluation or policy-enforcement engine for their domain-specific meaning.
+
+### A3.3 Extension metadata and extension values have distinct scopes
+
+There are two useful directions of extension discovery:
+
+- `MessageDescriptor::child_extensions()` finds extensions declared inside a particular message.
+- `MessageDescriptor::extensions()` finds extensions targeting that message within the parent descriptor pool, including extensions declared elsewhere.
+
+This distinction avoids confusing an extension's declaration location with the message that the extension modifies.
+
+On the value side, `DynamicMessage` supports dynamically decoded extension values and mutable traversal. Its ProtoJSON implementation also supports extension round-tripping, as documented in the upstream changelog.
+
+These mechanisms make descriptor-defined extensions available to generic inspection and conversion without requiring separately generated Rust accessors for every extension. The applicable extension declarations must still be present in the schema environment.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+1
+
+
+
+Source:
+
+[https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.MessageDescriptor.html](https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.MessageDescriptor.html?utm_source=chatgpt.com)
+
+### A3.4 Additional descriptor and value APIs
+
+Several smaller APIs complement the existing reference's descriptor inventory.
+
+| API                                                  | Capability not fully developed in the original                                           |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `DescriptorPool::decode_file_descriptor_proto()`     | Ingest one encoded descriptor file while preserving encoded extension-option information |
+| `DescriptorPool::get_file_by_name()`                 | Resolve a specific source file from the pool                                             |
+| `DescriptorPool::add_global_file_descriptor_proto()` | Register a descriptor file with the process-wide global pool                             |
+| `FieldDescriptor::is_group()`                        | Distinguish legacy proto2 group encoding from ordinary length-delimited message encoding |
+| `FieldDescriptor::is_required()`                     | Inspect requiredness independently of generalized presence support                       |
+| `Kind::wire_type()`                                  | Obtain the expected underlying protobuf wire-encoding category                           |
+| `Value::is_valid_for_extension()`                    | Validate type compatibility for dynamic extension assignment                             |
+| `Value::default_value_for_field()`                   | Construct a value reflecting field-specific defaults and cardinality                     |
+
+These capabilities are useful where generic processing must distinguish physical encoding, field cardinality, schema defaults, and extension behavior. In particular, `Kind::wire_type()` is not sufficient for describing the exact encoded representation of every field: group encoding and packed repeated fields require field-level metadata.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+3
+
+
+
+[https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.DescriptorPool.html](https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.DescriptorPool.html?utm_source=chatgpt.com)
+
+[https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.FieldDescriptor.html](https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.FieldDescriptor.html?utm_source=chatgpt.com)
+
+## A4. ProtoJSON deserialization and enum identity
+
+Extends original §§5.2, 6.3, and 8.
+
+### A4.1 Permissive JSON parsing can discard enum information
+
+`prost-reflect::DeserializeOptions::deny_unknown_fields(false)` affects more than unknown JSON field names.
+
+The upstream 0.15.1 release notes confirm that this option also allows unrecognized enum names to be ignored during JSON deserialization. This behavior remains part of the reviewed 0.16.5 release.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+This creates distinct information-loss cases:
+
+| Input situation            | Semantic consequence                                                                                                               |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Unknown JSON property      | Permissive parsing skips data not recognized by the current message schema                                                         |
+| Unknown symbolic enum name | Permissive parsing can ignore an unrecognized enum value                                                                           |
+| Unknown numeric enum value | Protobuf's numeric enum representation provides a different compatibility path, subject to the enum's openness and parser behavior |
+| Unknown binary field       | The reflective binary decoder can retain the original wire field                                                                   |
+
+The `pbjson-build` family exposes related but separately configured behavior. `ignore_unknown_fields()` skips unknown JSON properties, while `ignore_unknown_enum_variants()` permits unknown enum variants to be replaced by the enum's default.
+
+Replacing an unknown enum value with the default is not equivalent to preserving its identity or representing it as an unknown numeric value. It can collapse distinct input states into the same application-visible value.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+This distinction matters when generated and dynamic JSON paths operate on the same message schema. Matching their acceptance policies does not automatically guarantee equivalent information preservation.
+
+Sources:
+
+[https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.DeserializeOptions.html](https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.DeserializeOptions.html?utm_source=chatgpt.com)
+
+[https://docs.rs/pbjson-build/0.9.0/pbjson_build/struct.Builder.html](https://docs.rs/pbjson-build/0.9.0/pbjson_build/struct.Builder.html?utm_source=chatgpt.com)
+
+[https://github.com/andrewhickman/prost-reflect/blob/main/CHANGELOG.md](https://github.com/andrewhickman/prost-reflect/blob/main/CHANGELOG.md?utm_source=chatgpt.com)
+
+### A4.2 Duplicate JSON field names and oneof conflicts
+
+ProtoJSON permits two names for an ordinary protobuf field: its original `.proto` field name and its JSON name.
+
+Consequently, semantic duplication can occur even without identical JSON keys.
+
+Consider:
+
+```
+{
+  "eventId": "123",
+  "event_id": "456"
+}
+```
+
+If `event_id` is a protobuf field whose JSON name is `eventId`, these are two representations of the same field, not independent properties.
+
+Another conflict occurs when a JSON object includes more than one member of a protobuf `oneof`.
+
+The current ProtoJSON specification requires serializers not to emit duplicate logical fields. Parsers should implement last-value-wins semantics when the input representation retains sufficient ordering information; where this cannot be implemented correctly, they must reject the ambiguous input rather than arbitrarily selecting a value.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://protobuf.dev\&sz=32)
+
+Protocol Buffers Documentation
+
+
+
+This is different from assuming that all JSON objects are maps whose duplicate keys have already been resolved before protobuf deserialization begins.
+
+`prost-reflect` has an additional implementation-specific refinement: since 0.15.1, its JSON deserializer accepts multiple oneof members when only one is non-null. The changelog explicitly excludes the special handling of `google.protobuf.Value` and `google.protobuf.NullValue` from that relaxation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+This reflects another ProtoJSON principle: for ordinary message fields, JSON `null` ordinarily means unset, rather than an explicitly present application value.
+
+A parser that first materializes JSON into a schema-free map may lose the ordering and duplicate-key information necessary to reproduce all ProtoJSON conflict semantics. Direct deserialization from a JSON token stream and deserialization from an intermediate JSON value tree are therefore not necessarily equivalent for malformed or ambiguous inputs.
+
+Source:
+
+[https://protobuf.dev/programming-guides/json/](https://protobuf.dev/programming-guides/json/?utm_source=chatgpt.com)
+
+### A4.3 Enum aliases: numeric identity differs from symbolic identity
+
+Protobuf permits enum aliases through `option allow_alias = true`. Multiple named symbols can then share a numeric value.
+
+For example:
+
+```
+enum Status {
+  option allow_alias = true;
+
+  STATUS_UNSPECIFIED = 0;
+  STATUS_OLD = 1;
+  STATUS_NEW = 1;
+}
+```
+
+The official ProtoJSON specification requires serializers to emit the first declared symbolic name for a numeric value, while parsers accept any declared alias.
+
+Thus, a value of `1` serializes canonically as `"STATUS_OLD"` for the definition above. Reordering the alias declarations changes the canonical serialized symbol without changing its protobuf numeric identity. The specification explicitly uses this behavior to support staged enum renaming.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://protobuf.dev\&sz=32)
+
+Protocol Buffers Documentation
+
+
+
+There is a consequential distinction in the reflection API:
+
+`EnumDescriptor::get_value(number)` returns a matching `EnumValueDescriptor`, but its documentation states that the returned alias is unspecified when multiple names share the same number.
+
+`EnumDescriptor::get_value_by_name(name)` resolves individual symbols, while `values()` permits enumeration of the declarations.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+A schema tool that needs canonical ProtoJSON output should therefore not assume that a call to `get_value(number)` alone supplies the canonical first-declared symbolic name.
+
+This API ambiguity does not independently prove that `prost-reflect`'s own JSON serializer violates the specification. That would require examining the complete version-specific serialization path or executing an alias-focused conformance case.
+
+Source:
+
+[https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.EnumDescriptor.html](https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.EnumDescriptor.html?utm_source=chatgpt.com)
+
+### A4.4 ProtoJSON mapping is not byte-canonical JSON serialization
+
+The phrase canonical protobuf JSON mapping describes how protobuf values are mapped to JSON, including field naming, integer strings, enum representations, and well-known-type encodings.
+
+It does not provide a universal guarantee that logically equivalent messages will produce byte-identical JSON text.
+
+`prost-reflect::Value::Map` is represented as a Rust `HashMap<MapKey, Value>`. Generated messages can instead use map representations such as `HashMap` or `BTreeMap`, depending on generation settings.
+
+Map iteration order, serializer implementation details, and formatting choices can affect output bytes independently of the protobuf message's logical value.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+A `BTreeMap` representation can reduce one source of ordering variability, but it is not a complete canonicalization scheme.
+
+The distinction has implications for content addressing, digital signatures, reproducible snapshots, and serialized-payload equality. Systems requiring a stable byte representation need an explicitly defined serialization/canonicalization procedure beyond ProtoJSON type conformance.
+
+Source:
+
+[https://protobuf.dev/programming-guides/json/](https://protobuf.dev/programming-guides/json/?utm_source=chatgpt.com)
+
+## A5. Well-known-type conformance and update semantics
+
+Extends original §§7.1–7.3 and §8.
+
+### A5.1 `pbjson-types::Timestamp` does not emit the specified canonical UTC suffix
+
+The original guide identifies gaps in the `Any` and `FieldMask` implementations. The released `Timestamp` implementation has an additional source-verifiable discrepancy.
+
+The protobuf definition specifies that a JSON serializer should output timestamps in UTC with the `Z` suffix.
+
+`pbjson-types` 0.9.0 instead converts its `Timestamp` to `chrono::DateTime<Utc>` and serializes the value using `DateTime::to_rfc3339()`.
+
+Its released source test explicitly expects:
+
+```
+"2016-11-08T16:07:09+00:00"
+```
+
+The canonical protobuf form of the same timestamp is:
+
+```
+"2016-11-08T16:07:09Z"
+```
+
+Both express the same instant under RFC 3339, but the first does not follow the prescribed canonical ProtoJSON representation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+1
+
+
+
+This is specifically a serialization canonicalization discrepancy. It does not establish that the timestamp is interpreted incorrectly.
+
+The code also uses Chrono timestamp conversion to determine representability. The published implementation does not visibly enforce the complete protobuf `Timestamp` domain of years 0001 through 9999 independently of Chrono's supported range. This is an additional potential conformance difference inferred from source, rather than an independently demonstrated failing test.
+
+More generally, these are separate properties of a well-known-type implementation:
+
+- Whether a protobuf value is within its defined semantic range.
+- Whether JSON parsing accepts all and only the required input forms.
+- Whether JSON serialization emits the canonical required representation.
+- Whether serialization followed by deserialization preserves the represented value.
+
+Successful RFC 3339 parsing or formatting alone establishes none of the remaining properties.
+
+Sources:
+
+[https://docs.rs/crate/pbjson-types/0.9.0/source/src/timestamp.rs](https://docs.rs/crate/pbjson-types/0.9.0/source/src/timestamp.rs?utm_source=chatgpt.com)
+
+[https://protobuf.dev/reference/protobuf/google.protobuf/](https://protobuf.dev/reference/protobuf/google.protobuf/?utm_source=chatgpt.com)
+
+### A5.2 `FieldMask` connects schema-defined paths with partial updates
+
+`google.protobuf.FieldMask` represents a set of field paths. Its JSON representation is distinct from its application semantics.
+
+This distinction becomes particularly important for fields with implicit presence.
+
+Under implicit-presence merge semantics, a default-valued source field is ordinarily omitted from the merge. A sender therefore cannot express a request to overwrite an existing value with zero merely by supplying an implicit-presence scalar whose value is zero.
+
+A separate field mask can indicate that a particular destination field is intended to participate in the update, including when its requested value is the default.
+
+The protobuf field-presence documentation identifies `FieldMask` as an external mechanism for this situation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://protobuf.dev\&sz=32)
+
+Protocol Buffers Documentation
+
+
+
+However, the capabilities remain separate:
+
+- `pbjson-types::FieldMask` represents the protobuf field-mask message.
+- ProtoJSON serialization converts field-mask paths to the specified string format.
+- `prost-reflect` can inspect message field descriptors and manipulate corresponding dynamic values.
+- None of these operations alone supplies a complete, policy-aware field-mask patch implementation.
+
+Applying a mask requires interpretation relative to a particular target message schema, including path resolution and update semantics. The existence of matching names in a mask and message descriptor is not equivalent to applying a valid update.
+
+### A5.3 Some valid protobuf field names cannot round-trip through FieldMask JSON
+
+The protobuf specification recognizes a non-round-trippable class of field-mask paths.
+
+The binary `FieldMask` representation uses protobuf field-name paths, conventionally in `snake_case`. Its JSON mapping converts these to `lowerCamelCase`.
+
+This conversion is not invertible for every legal name. For example, `x_0` becomes `x0`, which cannot be unambiguously converted back to the original name. Consecutive, leading, or trailing underscores can cause similar ambiguities.
+
+Unlike ordinary message-field JSON parsing, the `FieldMask` JSON parser does not necessarily have a message descriptor defining which fields the paths refer to. It therefore cannot resolve these ambiguities by consulting the target schema.
+
+The protobuf specification explicitly documents this limitation. Some newer edition-specific compiler rules reject problematic naming patterns to reduce the ambiguity.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://protobuf.dev\&sz=32)
+
+Protocol Buffers Documentation
+
+
+
+This is a protocol-level round-trip limitation, separate from the `pbjson-types` implementation gap already documented in the original guide.
+
+Source:
+
+[https://protobuf.dev/programming-guides/json/](https://protobuf.dev/programming-guides/json/?utm_source=chatgpt.com)
+
+### A5.4 Not all non-round-tripping well-known types indicate a library defect
+
+The official ProtoJSON specification also acknowledges that certain valid protobuf value states cannot be faithfully expressed in JSON.
+
+For example, `google.protobuf.Value` uses a floating-point representation for JSON numbers. Protobuf can represent floating-point `NaN`, positive infinity, and negative infinity, but arbitrary JSON numbers do not have equivalent representations for those values.
+
+A serializer may need to reject such a value or produce an output that does not round-trip as the original protobuf value.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://protobuf.dev\&sz=32)
+
+Protocol Buffers Documentation
+
+
+
+This distinguishes three sources of interoperability limits:
+
+1. Protocol limitations: The JSON mapping fundamentally cannot represent certain protobuf states without loss.
+2. Library implementation gaps: The specified mapping exists, but the selected library does not fully implement it.
+3. Configuration-induced differences: The library implements a mapping but has been configured to emit or accept a non-default representation.
+
+These should not be grouped into one undifferentiated claim of serialization compatibility.
+
+## A6. Editions, diagnostics, and feature-independent inspection
+
+Extends original §§3.6, 10.2, 10.3, and 10.4.
+
+### A6.1 Edition 2023 support is not established in the released stack
+
+`prost-reflect` 0.16.5 exposes `Syntax::Proto2` and `Syntax::Proto3`; its public `Syntax` enum has no Editions variant.
+
+The underlying `prost` project's Edition 2023 implementation remains in an open upstream pull request at the research date. The proposed implementation introduces feature-based behavior resolution and changes involving explicit/implicit presence and open/closed enums. The proposal itself characterizes support as partial.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Therefore, the existence of Editions-related descriptor types in `prost-types` or `pbjson-types` does not establish complete Editions support in any of the following:
+
+- `.proto` compilation through the released `prost-build` toolchain.
+- Reflection of Edition-dependent semantic behavior.
+- Generated Rust representations and binary encoding.
+- Generated or dynamic ProtoJSON serialization.
+
+The principal architectural issue is that newer protobuf Editions express semantics through resolved feature settings, rather than the earlier syntax distinction alone.
+
+These settings affect field presence, enum openness, encoding rules, and related behavior. Correctly representing the descriptor structure without interpreting its resolved features may produce incorrect message semantics.
+
+Edition 2023 implementation work should therefore be distinguished from released functionality until the relevant capability is available and verified across the actual compilation, reflection, and serialization layers.
+
+Sources:
+
+[https://docs.rs/prost-reflect/0.16.5/prost_reflect/enum.Syntax.html](https://docs.rs/prost-reflect/0.16.5/prost_reflect/enum.Syntax.html?utm_source=chatgpt.com)
+
+[https://github.com/tokio-rs/prost/pull/1347](https://github.com/tokio-rs/prost/pull/1347?utm_source=chatgpt.com)
+
+### A6.2 Structured descriptor errors and source-annotated diagnostics
+
+`DescriptorError` provides several layers of information.
+
+Its `file()`, `line()`, `column()`, and `path()` methods expose the file and structural location associated with a descriptor error, when available. Line and column positions are zero-based, and the associated source metadata can be absent.
+
+With the optional `miette` feature, `DescriptorError` implements `miette::Diagnostic`. The `with_source_code()` method allows the original source text to be associated with the error.
+
+However, annotated source diagnostics require the relevant information to be available:
+
+| Input or capability                   | Purpose                                                |
+| ------------------------------------- | ------------------------------------------------------ |
+| `DescriptorError::path()`             | Identify the affected element in descriptor structure  |
+| `SourceCodeInfo`                      | Associate descriptor elements with source spans        |
+| `DescriptorError::with_source_code()` | Provide the corresponding original source text         |
+| `miette::Diagnostic`                  | Expose information for structured diagnostic rendering |
+
+The original source text supplied through `with_source_code()` must correspond to the file reported by the error. Without matching source text and descriptor source locations, the error can remain informative but cannot necessarily supply a fully annotated source excerpt.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+This capability complements, rather than replaces, compiler diagnostics from `protoc` or `protox`. Descriptor validation occurs against the metadata supplied to the pool, while schema compilation can additionally diagnose problems in the original language.
+
+Sources:
+
+[https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.DescriptorError.html](https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.DescriptorError.html?utm_source=chatgpt.com)
+
+[https://github.com/andrewhickman/prost-reflect/blob/main/CHANGELOG.md](https://github.com/andrewhickman/prost-reflect/blob/main/CHANGELOG.md?utm_source=chatgpt.com)
+
+### A6.3 Text-format display is available without the full `text-format` feature
+
+The original guide describes protobuf text-format parsing and configurable formatting behind the `text-format` feature.
+
+A less obvious distinction is that `DynamicMessage` and `Value` also implement `std::fmt::Display` using protobuf text-format-style output. These implementations are available even when the full `text-format` feature is disabled.
+
+`UnknownField` likewise implements `Display` for diagnostic inspection. Its rendering may infer structure because unknown wire fields lack complete semantic type information.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+This separates two capabilities:
+
+- Lightweight diagnostic formatting: `Display` implementations usable without enabling the complete text-format subsystem.
+- Full text-format processing: Feature-gated parsing, merging, and configurable output through `DynamicMessage` and `FormatOptions`.
+
+The distinction is useful for libraries that require human-readable diagnostics but do not otherwise need text-format parsing or formatting configuration.
+
+Source:
+
+[https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.DynamicMessage.html](https://docs.rs/prost-reflect/0.16.5/prost_reflect/struct.DynamicMessage.html?utm_source=chatgpt.com)
+
+## A7. Cross-cutting information-preservation boundaries
+
+The capabilities introduced above expose an important general distinction between schema compatibility, semantic preservation, and representation preservation.
+
+| Transformation or operation                               | Important boundary                                                                                             |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Descriptor bytes → `DescriptorPool`                       | Custom options and source metadata depend on descriptor contents and loading path                              |
+| Runtime descriptors → generated reflection implementation | Generated types need a valid descriptor-source expression and matching protobuf name                           |
+| Binary protobuf → `DynamicMessage` → binary protobuf      | Unknown wire fields can be retained, but byte-identical whole-message output is not guaranteed                 |
+| `DynamicMessage` → generated `prost` type                 | Unknown fields may be discarded by the generated decoder                                                       |
+| Dynamic value → JSON → dynamic value                      | ProtoJSON presence rules, unknown values, and special well-known-type representations can affect reversibility |
+| Enum number → symbolic name                               | Aliases can destroy information about which symbolic name was originally supplied                              |
+| `FieldMask` binary → JSON → binary                        | Some legal path names cannot be converted losslessly                                                           |
+| Protobuf value → `pbjson-types` Serde output              | Conformance depends on the exact well-known-type implementation, including canonicalization and range handling |
+| Descriptor metadata → source diagnostic                   | Source spans, comments, and source text must be present and correctly associated                               |
+| Edition-based descriptor → released Rust representation   | Complete resolved-feature semantics are not established in the reviewed stable versions                        |
+
+The practical capability distinction is that `prost-reflect` supplies a rich schema-driven value and metadata model, while `pbjson-build` supplies generated serialization behavior. Neither model automatically makes every intermediate representation lossless.
+
+A shared descriptor set enables both mechanisms to interpret the same schema definitions, but does not eliminate the semantic boundaries introduced by generated representations, JSON mapping, field-presence disciplines, or incomplete implementations of specific protocol features.
+
+The most consequential advanced capability is therefore not merely dynamic inspection or generated JSON serialization in isolation. It is the ability to retain schema intelligence at the points where representation changes could otherwise obscure meaning, while recognizing where that intelligence cannot recover information already discarded.
+
+Verification scope: Public crate APIs, published 0.16.x and 0.9.0 implementation sources, upstream changelogs, protobuf specifications, and open upstream development proposals. The timestamp discrepancy is supported by released source and its published test. No independent compilation, runtime benchmark, or protobuf conformance-suite execution was performed.

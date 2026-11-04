@@ -24,8 +24,14 @@ use std::{
 use tokio::sync::Notify;
 mod contract;
 mod edit;
+mod inspection;
 mod source_read;
+mod study;
+pub use inspection::EngineeringModelingOutput;
 pub use source_read::EngineeringPhysicalOutput;
+pub use study::EngineeringStudyOutput;
+#[cfg(all(test, feature = "canonical-tests", feature = "solver-kinsol"))]
+mod canonical_study_tests;
 
 type OwnerError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -122,6 +128,10 @@ enum Outcome {
         selection: EngineeringPreparedSelection,
     },
     Run(RunHandle),
+    PreparedStudy(Arc<study::PreparedStudy>),
+    Study(crate::workflow::StudyHandle),
+    StudyCohort(Arc<crate::workflow::FrozenStudyCohort>),
+    Released,
     Retained,
     Failed(Arc<EngineeringServiceError>),
 }
@@ -130,6 +140,9 @@ enum Kind {
     Source,
     Preparation,
     Run,
+    StudyPreparation,
+    Study,
+    StudyCohort,
 }
 struct Operation {
     fingerprint: ContentHash,
@@ -137,6 +150,7 @@ struct Operation {
     cancel: CancelSource,
     outcome: Mutex<Outcome>,
     issued: Mutex<Option<EngineeringRunKey>>,
+    issued_study: Mutex<Option<crate::workflow::IssuedStudyIdentity>>,
     changed: Notify,
     _reservation: datafusion::execution::memory_pool::MemoryReservation,
 }
@@ -150,10 +164,16 @@ impl Operation {
             .clone())
     }
     fn publish(&self, outcome: Outcome) -> Result<(), EngineeringServiceError> {
-        *self
+        let mut original = self
             .outcome
             .lock()
-            .map_err(|_| infrastructure("operation lock poisoned"))? = outcome;
+            .map_err(|_| infrastructure("operation lock poisoned"))?;
+        // Local capture release closes admission permanently, including when the
+        // original native freeze finishes after the release acknowledgement.
+        if !matches!(*original, Outcome::Released) {
+            *original = outcome;
+        }
+        drop(original);
         self.changed.notify_waiters();
         Ok(())
     }
@@ -184,7 +204,8 @@ impl Operation {
 /// One explicitly prepared runtime and its retained original source/preparation/run owners.
 ///
 /// Dropping an RPC waiter does not drop these owners. Call [`Self::shutdown`] before
-/// releasing the service; it cancels admitted operations and awaits actual joins/drain.
+/// releasing the service; it cancels frontend-owned work and awaits actual joins/drain.
+/// Durable studies retain their separate original canonical and scientific-worker owners.
 pub struct EngineeringService {
     runtime: Runtime,
     shared: Arc<SharedRuntime>,
@@ -322,6 +343,7 @@ impl EngineeringService {
             cancel: CancelSource::new(),
             outcome: Mutex::new(Outcome::Pending),
             issued: Mutex::new(None),
+            issued_study: Mutex::new(None),
             changed: Notify::new(),
             _reservation: reservation,
         });
@@ -1060,7 +1082,8 @@ impl EngineeringService {
         })
     }
 
-    /// Stop admission, request cancellation, await every original task/run and join native lanes.
+    /// Stop admission, cancel frontend-owned runs, join original creation tasks and native lanes.
+    /// Durable study cancellation remains an explicit command to its canonical owner.
     /// # Errors
     /// Every join/native drain failure is retained independently.
     pub async fn shutdown(&self) -> Result<(), EngineeringServiceError> {
@@ -1075,7 +1098,12 @@ impl EngineeringService {
             }
         };
         for operation in &operations {
-            operation.cancel.cancel();
+            // Canonical study creation retains its original owner through join.
+            // Frontend retirement never becomes a cancellation request for the
+            // durable Study now owned by the canonical service and its worker.
+            if operation.kind != Kind::Study {
+                operation.cancel.cancel();
+            }
             match operation.snapshot() {
                 Ok(Outcome::Run(handle)) => handle.cancel(),
                 Err(error) => failures.push(error),
@@ -1525,7 +1553,7 @@ mod tests {
     fn service() -> (Arc<EngineeringService>, tempfile::TempDir) {
         service_on(None)
     }
-    fn service_on(
+    pub(super) fn service_on(
         store: Option<pse_operations::canonical::CanonicalStore>,
     ) -> (Arc<EngineeringService>, tempfile::TempDir) {
         let spill = tempfile::tempdir().unwrap();
@@ -1592,7 +1620,7 @@ mod tests {
             modeling: vec![EngineeringPackage { files: BTreeMap::from([("package.toml".into(), manifest.into_bytes()),
                 ("models/root.pse".into(), b"package local { test square fixture { dof 0; } { param p:Scalar=4; var x:Scalar; eq root:x*x==p; annotation start x(2); } }".to_vec())]) }] }
     }
-    async fn admitted(service: &Arc<EngineeringService>) -> EngineeringSourceSelection {
+    pub(super) async fn admitted(service: &Arc<EngineeringService>) -> EngineeringSourceSelection {
         let input = source_input();
         let _ = service.admit_source(input.clone()).await.unwrap();
         let original = service.operation(&input.operation, Kind::Source).unwrap();

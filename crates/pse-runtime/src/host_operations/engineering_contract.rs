@@ -5,6 +5,17 @@
 use pse_model::boundary_projection::{Direction, LocalRule, ProjectionError, ProjectionGraph};
 use pse_model::engineering::OPERATION_ID_RULE;
 
+mod inspection;
+mod study;
+pub use inspection::{EngineeringInspectModeling, EngineeringInspectProviders};
+pub use study::{
+    EngineeringCohortRelease, EngineeringFreezeStudyCohort, EngineeringObserveStudy,
+    EngineeringPrepareStudy, EngineeringPreparedStudy, EngineeringReadStudyResult,
+    EngineeringRestoreStudy, EngineeringStudyCohortPage, EngineeringStudyHeaderPage,
+    EngineeringStudyKey, EngineeringStudyResultPage, EngineeringStudyStatus,
+    EngineeringSubmitStudy,
+};
+
 pse_model::projection_struct! {
     #[derive(Clone, Debug)]
     /// Select one retained source for the original typed native discovery request.
@@ -69,6 +80,8 @@ pub fn projection() -> Result<ProjectionGraph, ProjectionError> {
             "InspectPhysical",
         )?
         .effects(pse_model::operation_effects::EffectFacts::OBSERVATION)?;
+    let service = inspection::service(service, &mut graph)?;
+    let service = study::service(service, &mut graph)?;
     graph.service(service)?;
     Ok(graph)
 }

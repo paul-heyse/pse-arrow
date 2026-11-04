@@ -382,7 +382,9 @@ consumers = ["pse-compiler"]
 name = "state-coordinates"
 extends = "bounded-reference"
 roots = ["packages/reference/seed-data"]
-documents = ["packages/reference/seed-data/models/state-coordinate-fixtures.pse"]
+documents = [
+  "packages/reference/seed-data/models/state-coordinate-fixtures.pse",
+]
 consumers = ["pse-compiler"]
 
 [[families]]
@@ -402,7 +404,11 @@ consumers = ["pse-compiler", "pse-runtime"]
 [[families]]
 name = "steam"
 extends = "bounded-reference"
-roots = ["packages/reference/thermodynamics", "packages/reference/process", "packages/reference/seed-data"]
+roots = [
+  "packages/reference/thermodynamics",
+  "packages/reference/process",
+  "packages/reference/seed-data",
+]
 documents = [
   "packages/reference/thermodynamics/models/steam.pse",
   "packages/reference/process/models/steam-equipment.pse",

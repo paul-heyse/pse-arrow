@@ -115,6 +115,15 @@ or assembled scientific qualification is claimed.
 Steam, transport, electrolyte, broader reaction/equipment and integrated process obligations
 remain open under D02–D06.
 
+**Update, 2026-11-04:** D01–D03 remain in progress and D04–D06 planned. Subsequent Proto
+work supplies source-owned provider metadata and an actual prepared Water worker with
+passing process controls, owned by [64k](64k-prepared-scientific-workers.md#current-implementation-checkpoint--2026-11-04).
+It does not close the scientific population. The latest six direct/worker equipment tests
+failed at package admission; an unverified source correction and fresh-input rerun remain
+under [64f's current steam checkpoint](64f-specialized-process-families.md#current-steam-integration-checkpoint--2026-11-04).
+The stopped-wave evidence below retains its original scope. Native state/inventory acceptance,
+broader properties/reactions and integrated equipment/reference coverage remain open.
+
 Keep extraction/database access outside scalar property callbacks. Prepare immutable science once while its premises hold; attempt-owned mutable provider state is not shared between concurrent solves. Prefer native composed evaluation and sparse products where they meet the actual contract; retain necessary independent physical checks for every new numerical state. Repeated assembly, per-scalar crossings and nested pools need justified workload fit, but no cost model or universal streaming requirement follows.
 
 **Planned verification:** targeted owner tests during implementation, selected real native/property/unit/reference integrations at scope end, and 64h assembled finite-population acceptance. Preserve original failed, unavailable and not-run evidence. Performance/robustness gains remain unmeasured until a matched-quality campaign establishes them. No current new scientific conformance status follows from this plan.

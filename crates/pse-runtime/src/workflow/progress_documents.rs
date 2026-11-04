@@ -2,32 +2,37 @@
 // Copyright (c) 2026 Paul Heyse
 //! Owned progress observations preserve integral counters, unavailable evidence and provenance.
 use pse_backend_native::solve::{Event, IncumbentEvent, Metric};
+use pse_model::boundary_projection::Direction;
 use pse_model::diagnostic::Observation;
 use std::collections::BTreeMap;
 
+pse_model::projection_enum! {
 /// Original ordinary telemetry coverage, independent of scientific completion.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ProgressCoverage {
+    projection: { name: "ProgressCoverage", rust_path: crate::workflow::ProgressCoverage,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Historical or recovered executions did not retain original counters.
-    Unknown {},
+    Unknown {} => 1;
     /// Finite sampling counters retained by the original execution owner.
     Sampled {
         /// Callback observations, including events rejected before cloning.
-        observed: u64,
+        observed: u64 => { tag: 1, direction: Direction::Output, rules: [] };
         /// Events admitted to the finite writer queue.
-        queued: u64,
+        queued: u64 => { tag: 2, direction: Direction::Output, rules: [] };
         /// Observations rejected before queue admission.
-        dropped_before_queue: u64,
+        dropped_before_queue: u64 => { tag: 3, direction: Direction::Output, rules: [] };
         /// Events in batches with actual canonical append acknowledgments.
-        acknowledged: u64,
+        acknowledged: u64 => { tag: 4, direction: Direction::Output, rules: [] };
         /// Queued events without an observed append acknowledgment; storage may be uncertain.
-        unacknowledged: u64,
+        unacknowledged: u64 => { tag: 5, direction: Direction::Output, rules: [] };
         /// Writer completion, separate from the scientific outcome.
-        writer: ProgressWriterOutcome,
-    },
+        writer: ProgressWriterOutcome => { tag: 6, direction: Direction::Output, rules: [] };
+    } => 2;
+}
 }
 impl Default for ProgressCoverage {
     fn default() -> Self {
@@ -35,6 +40,7 @@ impl Default for ProgressCoverage {
     }
 }
 
+pse_model::projection_enum! {
 /// Bounded optional writer outcome; none of these authorizes scientific interruption.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -46,44 +52,55 @@ impl Default for ProgressCoverage {
     deny_unknown_fields
 )]
 pub enum ProgressWriterOutcome {
+    projection: { name: "ProgressWriterOutcome", rust_path: crate::workflow::ProgressWriterOutcome,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Every queued event has an actual append acknowledgment.
-    Complete,
+    Complete => 1;
     /// Up-front memory admission refused; no event queue was allocated.
-    MemoryRefused,
+    MemoryRefused => 2;
     /// The writer refused or failed; unacknowledged coverage remains explicit.
-    Failed(ProgressWriterFailure),
+    Failed(ProgressWriterFailure) => 3;
     /// The owned writer task failed to join normally.
-    JoinFailed,
+    JoinFailed => 4;
+}
 }
 
+pse_model::projection_struct! {
 /// Original bounded failure of the optional progress writer.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct ProgressWriterFailure {
+    projection: { name: "ProgressWriterFailure", rust_path: crate::workflow::ProgressWriterFailure,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Exact bounded stage which did not return its promised acknowledgment.
-    pub stage: ProgressWriteStage,
+    pub stage: ProgressWriteStage => { tag: 1, direction: Direction::Output, rules: [] };
+}
 }
 
+pse_model::projection_enum! {
 /// Optional writer failure boundary; queued unacknowledged events remain uncertain.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ProgressWriteStage {
+    projection: { name: "ProgressWriteStage", rust_path: crate::workflow::ProgressWriteStage,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// No original native claim was available for the observed event.
-    Claim {},
+    Claim {} => 1;
     /// Bounded scratch could not be allocated.
-    Allocation {},
+    Allocation {} => 2;
     /// An admitted DTO could not be encoded within its immutable bound.
-    Encoding {},
+    Encoding {} => 3;
     /// The original canonical append did not return an acknowledgment.
-    CanonicalAppend {},
+    CanonicalAppend {} => 4;
     /// An acknowledgment disagreed with original immutable coverage.
-    Acknowledgment {},
+    Acknowledgment {} => 5;
     /// Publication stopped before an original canonical append could be issued.
-    Publication {},
+    Publication {} => 6;
+}
 }
 
 /// Conservative bound for the retained DTO and its escaped JSON representation.
@@ -127,6 +144,7 @@ pub(crate) fn bounded_event(event: &Event, maximum: usize) -> bool {
     true
 }
 
+pse_model::projection_enum! {
 /// Portable observation of one native metric, independent of its backend-specific key.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(
@@ -136,16 +154,19 @@ pub(crate) fn bounded_event(event: &Event, maximum: usize) -> bool {
     deny_unknown_fields
 )]
 pub enum ProgressMetricDocument {
+    projection: { name: "ProgressMetricDocument", rust_path: crate::workflow::ProgressMetricDocument,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Exact integral count or identifier.
-    Integer(i64),
+    Integer(i64) => 1;
     /// Every IEEE real value, with explicit nonfinite evidence when necessary.
-    Real(Observation),
+    Real(Observation) => 2;
     /// Original native explanatory text.
-    Text(String),
+    Text(String) => 3;
     /// Original native Boolean.
-    Boolean(bool),
+    Boolean(bool) => 4;
     /// Canonical reason that no observation was available.
-    Unavailable(pse_model::generated::enums::EvidenceUnavailableReason),
+    Unavailable(pse_model::generated::enums::EvidenceUnavailableReason) => 5;
+}
 }
 impl From<Metric> for ProgressMetricDocument {
     fn from(metric: Metric) -> Self {
@@ -169,22 +190,26 @@ impl From<&Metric> for ProgressMetricDocument {
         }
     }
 }
+pse_model::projection_struct! {
 /// An incumbent in original objective units and its retained native search evidence.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct IncumbentDocument {
+    projection: { name: "IncumbentDocument", rust_path: crate::workflow::IncumbentDocument,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Original objective value.
-    pub objective: f64,
+    pub objective: f64 => { tag: 1, direction: Direction::Output, rules: [] };
     /// Finite native global dual bound, when available.
-    pub dual_bound: Option<f64>,
+    pub dual_bound: Option<f64> => { tag: 2, direction: Direction::Output, rules: [] };
     /// Finite native relative gap, when available.
-    pub gap: Option<f64>,
+    pub gap: Option<f64> => { tag: 3, direction: Direction::Output, rules: [] };
     /// Native nodes explored by this observation.
-    pub nodes: Option<i64>,
+    pub nodes: Option<i64> => { tag: 4, direction: Direction::Output, rules: [] };
     /// Native elapsed seconds by this observation.
-    pub seconds: Option<f64>,
+    pub seconds: Option<f64> => { tag: 5, direction: Direction::Output, rules: [] };
     /// Identity of the stored solution retained for resumption.
-    pub solution_id: Option<pse_ids::SemanticId>,
+    pub solution_id: Option<pse_ids::SemanticId> => { tag: 6, direction: Direction::Output, rules: [] };
+}
 }
 impl From<&IncumbentEvent> for IncumbentDocument {
     fn from(incumbent: &IncumbentEvent) -> Self {
@@ -198,28 +223,32 @@ impl From<&IncumbentEvent> for IncumbentDocument {
         }
     }
 }
+pse_model::projection_struct! {
 /// An owned event from memory or from a durable attempt's selected stream.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProgressEventDocument {
+    projection: { name: "ProgressEventDocument", rust_path: crate::workflow::ProgressEventDocument,
+        version: 2, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Versioned source-coherent progress encoding.
-    pub version: pse_model::document::Version<2>,
+    pub version: pse_model::document::Version<2> => { tag: 1, direction: Direction::Output, rules: [] };
     /// Source-issued identity/family, separate from durable append identity below.
-    pub source: Option<pse_backend_native::solve::EventSource>,
+    pub source: Option<pse_backend_native::solve::EventSource> => { tag: 2, direction: Direction::Output, rules: [] };
     /// Original native phase or callback name.
-    pub phase: String,
+    pub phase: String => { tag: 3, direction: Direction::Output, rules: [] };
     /// Seconds since admitted step execution began.
-    pub elapsed_seconds: f64,
+    pub elapsed_seconds: f64 => { tag: 4, direction: Direction::Output, rules: [] };
     /// Typed original metric values by backend-specific key.
-    pub values: BTreeMap<String, ProgressMetricDocument>,
+    pub values: BTreeMap<String, ProgressMetricDocument> => { tag: 5, direction: Direction::Output, rules: [] };
     /// Typed incumbent evidence when this event reported an incumbent.
-    pub incumbent: Option<IncumbentDocument>,
+    pub incumbent: Option<IncumbentDocument> => { tag: 6, direction: Direction::Output, rules: [] };
     /// Durable producing step; absent for observations retained only in memory.
-    pub step: Option<i32>,
+    pub step: Option<i32> => { tag: 7, direction: Direction::Output, rules: [] };
     /// Sequence in this selected durable stream; absent in memory.
-    pub sequence: Option<i64>,
+    pub sequence: Option<i64> => { tag: 8, direction: Direction::Output, rules: [] };
     /// Durable observation time in Unix microseconds; absent in memory.
-    pub at: Option<i64>,
+    pub at: Option<i64> => { tag: 9, direction: Direction::Output, rules: [] };
+}
 }
 impl From<Event> for ProgressEventDocument {
     fn from(event: Event) -> Self {
@@ -250,23 +279,27 @@ impl From<&Event> for ProgressEventDocument {
     }
 }
 
+pse_model::projection_struct! {
 /// Current source checkpoint and independent issued-event coverage. Reading it never
 /// retains a run's cancellation lease or reconstructs a numerical event from metrics.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProgressCheckpointDocument {
+    projection: { name: "ProgressCheckpointDocument", rust_path: crate::workflow::ProgressCheckpointDocument,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Current checkpoint encoding.
-    pub version: pse_model::document::Version<1>,
+    pub version: pse_model::document::Version<1> => { tag: 1, direction: Direction::Output, rules: [] };
     /// Latest whole retained event; absent on no events or read contention.
-    pub current: Option<ProgressEventDocument>,
+    pub current: Option<ProgressEventDocument> => { tag: 2, direction: Direction::Output, rules: [] };
     /// Source stream generation, independent from durable append sequence.
-    pub generation: u64,
+    pub generation: u64 => { tag: 3, direction: Direction::Output, rules: [] };
     /// Highest sequence issued before the coverage read, including rejected events.
-    pub highest_issued_sequence: u64,
+    pub highest_issued_sequence: u64 => { tag: 4, direction: Direction::Output, rules: [] };
     /// Actual retention/publication losses known at the coverage read.
-    pub dropped: u64,
+    pub dropped: u64 => { tag: 5, direction: Direction::Output, rules: [] };
     /// Whether the copied current event matches the independently observed source head.
-    pub current_is_latest: bool,
+    pub current_is_latest: bool => { tag: 6, direction: Direction::Output, rules: [] };
+}
 }
 
 #[cfg(test)]

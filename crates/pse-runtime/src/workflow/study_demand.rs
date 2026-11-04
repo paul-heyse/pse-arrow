@@ -4,24 +4,30 @@
 //! Explicit occurrence detail. Original completion is mandatory in every mode.
 
 use super::{WorkflowError, contract};
+use pse_model::boundary_projection::{Direction, ValidateProjection as _};
 
+pse_model::projection_enum! {
 /// Detail selected independently of the original completion and assessment.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum StudyOutputDemand {
+    projection: { name: "StudyOutputDemand", rust_path: crate::workflow::StudyOutputDemand,
+        version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Retain the complete original occurrence report and its public relations.
-    Full {},
+    Full {} => 1;
     /// Retain mandatory summaries and only the explicitly bounded selected detail.
     Compact {
         /// Selected detail for usable occurrences, including requested KPI relations.
-        detail: StudyDetailDemand,
+        detail: StudyDetailDemand => { tag: 1, direction: Direction::Both, rules: [] };
         /// Independently bounded detail for failed, flagged or cancelled occurrences.
-        failed_detail: StudyDetailDemand,
-    },
+        failed_detail: StudyDetailDemand => { tag: 2, direction: Direction::Both, rules: [] };
+    } => 2;
+}
 }
 
+pse_model::projection_struct! {
 /// Exact named relations with a finite per-occurrence materialization allowance.
 /// Exceeding the allowance refuses detail capture; it never silently truncates rows.
 #[derive(
@@ -29,16 +35,20 @@ pub enum StudyOutputDemand {
 )]
 #[serde(deny_unknown_fields)]
 pub struct StudyDetailDemand {
+    projection: { name: "StudyDetailDemand", rust_path: crate::workflow::StudyDetailDemand,
+        version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Registry-owned result relations; an empty list requests no detail.
-    pub relations: Vec<String>,
+    pub relations: Vec<String> => { tag: 1, direction: Direction::Both, rules: [] };
     /// Exact scientific members. Selected rows retain every original column.
-    pub members: Vec<StudyMemberDemand>,
+    pub members: Vec<StudyMemberDemand> => { tag: 2, direction: Direction::Both, rules: [] };
     /// Maximum total rows across these relations, including failed detail.
-    pub maximum_rows: u32,
+    pub maximum_rows: u32 => { tag: 3, direction: Direction::Both, rules: [] };
     /// Maximum retained physical detail bytes across these relations.
-    pub maximum_bytes: u64,
+    pub maximum_bytes: u64 => { tag: 4, direction: Direction::Both, rules: [] };
+}
 }
 
+pse_model::projection_enum! {
 /// Registry-typed scientific keys within an occurrence. Run identity is supplied
 /// by the original occurrence rather than accepted from a detail selector.
 #[derive(
@@ -54,37 +64,40 @@ pub struct StudyDetailDemand {
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum StudyMemberDemand {
+    projection: { name: "StudyMemberDemand", rust_path: crate::workflow::StudyMemberDemand,
+        version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
     /// One algebraic variable at its original absolute solve step.
     Variable {
         /// Original absolute solve step.
-        step: i64,
+        step: i64 => { tag: 1, direction: Direction::Both, rules: [] };
         /// Authored variable identity.
-        symbol_id: pse_ids::SemanticId,
-    },
+        symbol_id: pse_ids::SemanticId => { tag: 2, direction: Direction::Both, rules: [] };
+    } => 1;
     /// One algebraic constraint at its original absolute solve step.
     Constraint {
         /// Original absolute solve step.
-        step: i64,
+        step: i64 => { tag: 1, direction: Direction::Both, rules: [] };
         /// Authored constraint identity.
-        row_id: pse_ids::SemanticId,
-    },
+        row_id: pse_ids::SemanticId => { tag: 2, direction: Direction::Both, rules: [] };
+    } => 2;
     /// One fitted parameter.
     FitParameter {
         /// Authored fitted parameter identity.
-        parameter_id: pse_ids::SemanticId,
-    },
+        parameter_id: pse_ids::SemanticId => { tag: 1, direction: Direction::Both, rules: [] };
+    } => 3;
     /// One observation in its original experiment.
     FitObservation {
         /// Original experiment instance identity.
-        experiment_id: pse_model::generated::identities::InstanceId,
+        experiment_id: pse_model::generated::identities::InstanceId => { tag: 1, direction: Direction::Both, rules: [] };
         /// Authored observation identity within that experiment.
-        observation_id: pse_ids::SemanticId,
-    },
+        observation_id: pse_ids::SemanticId => { tag: 2, direction: Direction::Both, rules: [] };
+    } => 4;
     /// The original samples of one trajectory symbol.
     Trajectory {
         /// Authored trajectory symbol identity.
-        symbol_id: pse_ids::SemanticId,
-    },
+        symbol_id: pse_ids::SemanticId => { tag: 1, direction: Direction::Both, rules: [] };
+    } => 5;
+}
 }
 impl StudyMemberDemand {
     fn relation_name(&self) -> &'static str {
@@ -151,6 +164,9 @@ impl StudyOutputDemand {
         &self,
         services: &super::PreparationServices,
     ) -> Result<(), WorkflowError> {
+        self.validate_projection().map_err(|error| {
+            WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
+        })?;
         match self {
             Self::Full {} => Ok(()),
             Self::Compact {

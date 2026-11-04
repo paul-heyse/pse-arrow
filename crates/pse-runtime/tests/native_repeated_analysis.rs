@@ -48,11 +48,11 @@ use pse_runtime::{
         LeasePolicy, ModelingPackage, OperationRequest, OperationSource, OuterAttestation,
         PointOverlay, PreparationSettings, PreparedOperation, PreparedStudyOperation,
         RetainedDataServices, Runtime, RuntimeOperationRequest, SourceDelta,
-        StudyCohortAvailability, StudyCohortPageRequest, StudyCohortRelation, StudyCohortRequest,
-        StudyCohortScanState, StudyDefinition, StudyHandle, StudyInputs, StudyKpiRequest,
-        StudyObservationContinuity, StudyObservationRequest, StudyOutputDemand, StudyPoint,
-        StudyPointPolicy, StudyState, StudyStatus, StudyWorkbenchFilter, WorkerSettings,
-        WorkflowError,
+        StudyCohortAvailability, StudyCohortHeaderRequest, StudyCohortPageRequest,
+        StudyCohortRelation, StudyCohortRequest, StudyCohortScanState, StudyDefinition,
+        StudyHandle, StudyInputs, StudyKpiRequest, StudyObservationContinuity,
+        StudyObservationRequest, StudyOutputDemand, StudyPoint, StudyPointPolicy, StudyState,
+        StudyStatus, StudyWorkbenchFilter, WorkerSettings, WorkflowError,
         sampling::{DesignCoordinate, DesignKind, DesignRequest},
     },
 };
@@ -554,7 +554,7 @@ async fn captured(cohort: &FrozenStudyCohort, qualified: bool) -> serde_json::Va
     assert_eq!(cohort.receipt().header_count, 1);
     assert_eq!(cohort.receipt().member_count, 2);
     let headers = cohort
-        .header_page(StudyCohortPageRequest {
+        .header_page(StudyCohortHeaderRequest {
             maximum: 1,
             cursor: None,
         })

@@ -10,36 +10,48 @@ tokio::task_local! {
     pub(crate) static CONTROL_READBACK_FAILED: bool;
 }
 
+pse_model::projection_struct! {
 /// Authority-bound continuation for live browsing, never a frozen analysis population.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyWorkbenchCursor {
+    projection: { name: "StudyWorkbenchCursor", rust_path: crate::canonical_control::StudyWorkbenchCursor,
+        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Canonical issuing database identity.
-    pub issuing_store: String,
+    pub issuing_store: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Exact original predicates.
-    pub filter: StudyWorkbenchFilter,
+    pub filter: StudyWorkbenchFilter => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Last displayed study key.
-    pub after: String,
+    pub after: String => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_model::projection_struct! {
 /// Bounded live header selection; continuation pages can observe newer metadata.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyWorkbenchRequest {
+    projection: { name: "StudyWorkbenchRequest", rust_path: crate::canonical_control::StudyWorkbenchRequest,
+        version: 1, direction: pse_model::boundary_projection::Direction::Input, reserved_tags: [], reserved_names: [] };
     /// Exact scientific and engineering predicates.
-    pub filter: StudyWorkbenchFilter,
+    pub filter: StudyWorkbenchFilter => { tag: 1, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
     /// Maximum headers, from one through 64.
-    pub maximum: usize,
+    pub maximum: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Input, rules: [pse_model::boundary_projection::LocalRule::UnsignedRange { min: 1, max: 64 }] };
     /// Issuer- and predicate-bound continuation.
-    pub cursor: Option<StudyWorkbenchCursor>,
+    pub cursor: Option<StudyWorkbenchCursor> => { tag: 3, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
 }
+}
+pse_model::projection_struct! {
 /// Live browsing page, explicitly independent from frozen completeness.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyWorkbenchPage {
+    projection: { name: "StudyWorkbenchPage", rust_path: crate::canonical_control::StudyWorkbenchPage,
+        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Compact actual metadata; payloads are unopened.
-    pub headers: Vec<StudyWorkbenchHeader>,
+    pub headers: Vec<StudyWorkbenchHeader> => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// More headers under this predicate, if present.
-    pub next: Option<StudyWorkbenchCursor>,
+    pub next: Option<StudyWorkbenchCursor> => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+}
 }
 
 /// Versioned application request for compact live study headers.

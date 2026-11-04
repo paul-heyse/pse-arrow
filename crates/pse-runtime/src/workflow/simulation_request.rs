@@ -6,27 +6,8 @@ use pse_backend_native::dynamics::{IntegrationControls, Profile};
 use pse_kernels::Port;
 use pse_model::{document::Version, generated::structures::ScientificCoordinateValue};
 
-/// Pending host simulation controls. Physical time stays signed binary64 seconds;
-/// all coordinate-bearing tolerances and characteristic scales carry keys and units.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct PhysicalSimulationRequest {
-    /// Required physical-input interpretation.
-    pub version: Version<1>,
-    /// One controls declaration with physically typed Delta coordinate payloads.
-    pub controls: IntegrationControls<Vec<ScientificCoordinateValue>>,
-    #[serde(skip)]
-    custody: Option<std::sync::Arc<dyn pse_columnar::PayloadOwner>>,
-}
-/// Host fitting settings whose experiment controls still carry physical coordinates.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct PhysicalFitRequest {
-    /// Required physical experiment-input interpretation.
-    pub version: Version<1>,
-    /// One shared fitting-settings declaration, with pending experiment controls.
-    pub settings: super::FitPreparationDocument<PhysicalSimulationRequest>,
-}
+include!("simulation_request/declarations.rs");
+
 impl PhysicalFitRequest {
     /// Wrap the sole fitting-settings declaration in its required physical interpretation.
     pub fn new(settings: super::FitPreparationDocument<PhysicalSimulationRequest>) -> Self {

@@ -98,7 +98,7 @@ def _message(parent: Message, field: str) -> Message:
 def _identity(owner: Message) -> bytes:
     if not owner.HasField("id"):
         raise ValueError("original physical identity is absent")
-    identity = bytes(getattr(owner, "id"))
+    identity = bytes(owner.id)
     if len(identity) != 16 or identity == bytes(16):
         raise ValueError("original physical identity is malformed or nil")
     return identity
@@ -109,7 +109,7 @@ def _optional_identity(parent: Message, field: str) -> bytes | None:
 
 
 def _word(parent: Message, field: str) -> str:
-    return str(getattr(_message(parent, field), "value"))
+    return str(_message(parent, field).value)
 
 
 def _number(parent: Message, field: str) -> float:
@@ -117,7 +117,7 @@ def _number(parent: Message, field: str) -> float:
 
 
 def _dimension(owner: Message) -> tuple[Fraction, ...]:
-    exponents = getattr(_message(owner, "exponents"), "values")
+    exponents = _message(owner, "exponents").values
     if len(exponents) != 8:
         raise ValueError("physical dimension requires all eight declared coordinates")
     result: list[Fraction] = []
@@ -185,7 +185,7 @@ def artifact_paths() -> tuple[str, ...]:
 
 
 def _validate_artifacts(contract: Message) -> None:
-    entries = list(getattr(contract, "artifacts"))
+    entries = list(contract.artifacts)
     paths = [str(entry.path) for entry in entries]
     if len(paths) != len(set(paths)) or set(paths) != set(artifact_paths()):
         raise ValueError(

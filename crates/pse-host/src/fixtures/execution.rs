@@ -420,6 +420,7 @@ fn original_input_variable(input: Input) -> Option<&'static str> {
         Input::WorkerProducerReceipt => Some("PSE_WORKER_PRODUCER_RECEIPT"),
         Input::DeploymentArtifactObservations => Some("PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS"),
         Input::CovarianceReferencePython => Some("PSE_COVARIANCE_REFERENCE_PYTHON"),
+        Input::OrdinaryReferencePython => Some("PSE_ORDINARY_REFERENCE_PYTHON"),
         Input::DegeneracyReferencePython => Some("PSE_DEGENERACY_REFERENCE_PYTHON"),
         Input::SensitivityReferencePython => Some("PSE_SENSITIVITY_REFERENCE_PYTHON"),
         Input::PidReferencePython => Some("PSE_PID_REFERENCE_PYTHON"),

@@ -5,54 +5,7 @@ use super::{FitReport, ProfileChain};
 use pse_model::generated::enums::WithheldReason;
 use pse_model::scalars::PositiveCount;
 
-/// Decoded fit preparation. Native fitting resolves its selected model and experiments.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(
-    deny_unknown_fields,
-    bound(
-        serialize = "Simulation: serde::Serialize",
-        deserialize = "Simulation: serde::Deserialize<'de>"
-    )
-)]
-#[schemars(rename = "FitPreparationDocumentFor{Simulation}")]
-#[schemars(bound = "Simulation: schemars::JsonSchema + serde::Serialize")]
-pub struct FitPreparationDocument<Simulation = crate::workflow::SimulationProfile> {
-    /// Fitting-owned method selection, resolved before scientific effects.
-    #[serde(default)]
-    pub optimizer: super::FitOptimizer,
-    /// Canonical solve settings; their own owner admits cross-field rules.
-    pub solver: crate::math::settings::SolveSettings,
-    /// Native dynamic settings by experiment identity.
-    #[serde(default)]
-    #[schemars(
-        with = "pse_ids::document::KeyedMap<pse_model::generated::identities::InstanceId, Simulation>"
-    )]
-    pub simulations:
-        std::collections::BTreeMap<pse_model::generated::identities::InstanceId, Simulation>,
-    #[serde(
-        default = "FitPreparationDocument::<crate::workflow::SimulationProfile>::default_rank_tolerance"
-    )]
-    #[doc = "Rank tolerance for fit admission."]
-    pub rank_tolerance: f64,
-    #[serde(
-        default = "FitPreparationDocument::<crate::workflow::SimulationProfile>::default_max_cells"
-    )]
-    #[doc = "Maximum native fit workspace cells."]
-    pub max_cells: usize,
-    #[serde(
-        default = "FitPreparationDocument::<crate::workflow::SimulationProfile>::default_derivatives"
-    )]
-    #[doc = "Requested derivative evidence policy."]
-    pub derivatives: super::FitDerivatives,
-    #[serde(
-        default = "FitPreparationDocument::<crate::workflow::SimulationProfile>::default_experiment_workers"
-    )]
-    #[doc = "Finite independent experiment workers, separately from profile chains."]
-    pub experiment_workers: PositiveCount,
-    #[serde(default)]
-    #[doc = "Optional fit uncertainty request."]
-    pub uncertainty: Option<super::FitUncertainty>,
-}
+include!("preparation_declaration.rs");
 impl<Simulation> FitPreparationDocument<Simulation> {
     /// Project experiment controls once without a second fitting-settings declaration.
     pub fn with_simulations<Admitted>(

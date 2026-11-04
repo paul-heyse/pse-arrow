@@ -106,6 +106,16 @@ Migration moves every selected producer and reader of a changed contract togethe
 **Outcome:** Partial implementation. G01/G02/G08 remain open; selected passing
 controls do not qualify the complete P6 population or atomic-capture replacement.
 
+**Current status, 2026-11-04:** G01/G02/G08 remain in progress; G03–G07 remain planned.
+Execution is authorized after the Proto delivery, with G08 prerequisites consumed earlier
+where J needs them. Source-owned fit/horizon/Study contracts and original issued-Study
+identity are being integrated under [64j](64j-engineering-services-and-clients.md#current-implementation-checkpoint--2026-11-04);
+these changes do not implement G's outstanding scientific families. New full client
+journeys are unlinked/unrun and do not qualify protected capture. The stopped-wave stack
+overflows, future-member fixture failure, optimized 10,000-member rerun, migration overlay
+rerun and obsolete Busy-path retirement below remain unresolved. No passing replacement
+or completed G08 is inferred from the separate narrow client tests.
+
 ## G08 — Atomic capture and unrelated liveness
 
 64a assigns the DA-063 production correction here. Replace the cross-RPC open/pending/commit protocol with one bounded transaction that registers a publication witness, evaluates complete selector membership, protects captured results/manifests and records an exact-request receipt atomically. Every membership or captured-metadata writer updates the witness in its own transaction, including insertion/removal and project/branch/research/outcome dependencies. Lease-only renewal does not; cancellation never waits for a pending-capture gate but updates the witness when it changes captured facts. Start conservatively with a global witness; narrowing it requires evidence that all selector dependencies remain covered.

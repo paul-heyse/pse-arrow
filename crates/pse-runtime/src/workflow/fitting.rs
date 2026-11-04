@@ -57,28 +57,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
-/// Fitting owns selection between its residual method and class-specific native NLPs.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    serde::Serialize,
-    serde::Deserialize,
-    schemars::JsonSchema,
-)]
-#[serde(rename_all = "snake_case")]
-pub enum FitOptimizer {
-    /// Use residual LM only when actual preparation establishes its complete eligibility.
-    #[default]
-    Automatic,
-    /// Preserve the requested native NLP portfolio and settings.
-    NativeNlp,
-    /// Require the supported unconstrained residual interpretation before effects.
-    ResidualLm,
-}
+include!("fitting/optimizer_declaration.rs");
 impl FitOptimizer {
     /// Stable requested-method identity.
     pub const fn as_str(self) -> &'static str {
@@ -243,38 +222,8 @@ pub struct FitProfile {
     /// S3); absent derives the covariance alone.
     pub uncertainty: Option<FitUncertainty>,
 }
-/// What a fit derives from its estimate beyond the covariance, which every fit with free
-/// parameters derives (ADR-0118 item 8; Plan 22 S3).
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct FitUncertainty {
-    /// The confidence level of the intervals, below one.
-    pub level: Fraction,
-    /// Also derive profile-likelihood intervals under these controls; absent derives Wald
-    /// intervals alone.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub profile: Option<ProfileControls>,
-    /// Also propagate the covariance to the included observations' predictions,
-    /// `Σ_y = R·Σ_θ·Rᵀ` over the fit's response derivatives (Plan 22 S4); their count
-    /// squared is bounded by the profile's `max_cells`.
-    #[serde(default)]
-    pub predictions: bool,
-}
-/// Controls of the profile-likelihood pin chains (ADR-0118 item 8).
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct ProfileControls {
-    /// Pinned fits at most per chain, refinements and failed fits included.
-    #[serde(default = "ProfileControls::default_points")]
-    pub points: PositiveCount,
-    /// Relative tolerance on the signed-root statistic at a threshold end.
-    #[serde(default = "ProfileControls::default_tolerance")]
-    pub tolerance: Fraction,
-    /// Chains solved at once, each pinned fit on the fit's own threads. Their phase admits
-    /// the team after estimation relinquishes active capacity. Absent uses available cores.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub workers: Option<PositiveCount>,
-}
+include!("fitting/input_declarations.rs");
+
 impl ProfileControls {
     const fn default_points() -> PositiveCount {
         scalar!(PositiveCount(40))
@@ -303,7 +252,7 @@ impl FitUncertainty {
     }
     /// A confidence level below one: at one every interval is unbounded.
     fn admit(&self) -> Result<(), WorkflowError> {
-        if self.level.into_inner() >= 1.0 {
+        if !CONFIDENCE_DOMAIN.contains(self.level.into_inner()) {
             return Err(contract("a fit's confidence level lies below one"));
         }
         Ok(())

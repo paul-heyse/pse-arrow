@@ -80,6 +80,8 @@ pub enum Input {
     DeploymentArtifactObservations,
     /// The separately prepared covariance scientific reference interpreter.
     CovarianceReferencePython,
+    /// The separately prepared ordinary-process independent scientific interpreter.
+    OrdinaryReferencePython,
     /// The separately prepared degeneracy scientific reference interpreter.
     DegeneracyReferencePython,
     /// The separately prepared sensitivity scientific reference interpreter.

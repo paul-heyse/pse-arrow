@@ -166,12 +166,19 @@ impl NativeFrom<u32> for u8 {
     }
 }
 impl NativeInto<u32> for u16 {
-    fn into_wire(self, _: &str) -> Result<u32, AdapterError> { Ok(self.into()) }
+    fn into_wire(self, _: &str) -> Result<u32, AdapterError> {
+        Ok(self.into())
+    }
 }
 impl NativeFrom<u32> for u16 {
     fn from_wire(wire: u32, path: &str) -> Result<Self, AdapterError> {
-        Self::try_from(wire).map_err(|_| refused(path, AdapterFailure::InvalidValue,
-            "uint32 does not fit the actual unsigned 16-bit component"))
+        Self::try_from(wire).map_err(|_| {
+            refused(
+                path,
+                AdapterFailure::InvalidValue,
+                "uint32 does not fit the actual unsigned 16-bit component",
+            )
+        })
     }
 }
 impl NativeInto<i32> for i16 {

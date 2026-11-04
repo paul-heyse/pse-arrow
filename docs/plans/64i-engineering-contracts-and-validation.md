@@ -138,9 +138,9 @@ compilation/evaluation errors, contextual refusals and infrastructure failures s
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| I01 | in-progress | ADR-0239 route; actual registry/Rust owners. Produces owner annotation metadata, resolved descriptors and generated engineering projections | Foundation decision and vertical preparation/action/completion slice below; remove replaced mappings with migrated consumers |
-| I02 | in-progress | Working I01 owner/projection slice. Produces shared local constraints, structured validation and typed exact-parent client editing | Add/replace/remove/inherit plus invalid ingress/outgoing/context cases; remove duplicate envelope checks/string translations |
-| I06 | in-progress | Actual selected producers from C/E/G, consumed I01/I02 projections and service read contracts | Selection before hydration/encoding, bounded lifetime and refusal tests; remove superseded projection/pass only after protections move |
+| I01 | in-progress | ADR-0239 route; actual registry/Rust owners. Produces owner annotation metadata, resolved descriptors and generated engineering projections | Source machinery, registry declarations and narrow generated consumers implemented with targeted tests. Expanded engineering publication fails maintained CEL preflight; complete generation, all selected consumer migrations and replaced-mapping deletion remain. |
+| I02 | in-progress | Working I01 owner/projection slice. Produces shared local constraints, structured validation and typed exact-parent client editing | Native/local rules and narrow exact-parent editing tested. Expanded maintained-validator execution, full operation ingress/outgoing/context controls and remaining duplicate-check/string-translation deletion remain. |
+| I06 | in-progress | Actual selected producers from C/E/G, consumed I01/I02 projections and service read contracts | Narrow headers select before copying; reference codec/source-custody controls pass. Full Study/cohort/model/provider producer-to-client selection, malformed/overflow/interruption controls and safe retirement of replaced passes remain; no measured benefit established. |
 
 ### I01 — Settle metadata emission, then integrate the complete projection slice
 
@@ -197,73 +197,86 @@ output, overflow handling and native callers' protections. Do not simply delete 
 check because a later encoder also visits the response. Canonical pre-allocation wire
 checks, complete observation/capture coverage and G08's atomic transaction remain intact.
 
-## Current implementation checkpoint — 2026-11-03
+## Current implementation checkpoint — 2026-11-04
 
-Execution is authorized for the complete selected Proto scope. Source-owner macros and a
-resolved projection graph now declare stable tags, recursive types, interpretation versions,
-directions and local rules. The Buffa lowering/generation and native shared-rule validation
-are implemented; consumer migration and integrated generation remain underway. The graph
+Complete Proto execution is authorized. The committed foundation reaches `1de457d87`;
+additional runtime/settings/reference integration remains in the working tree. The graph
 stays in `pse-model`, independent of Arrow, Buffa and runtime dependencies.
 
-After the maintainer's `cargo clean`, damaged edits were restored and the native host and
-providers were explicitly prepared again. Foundation tests and complete generation now
-run successfully. Actual preparation/value owners replace the former hand-maintained
-wire projection. The exact-parent file-edit frontend delegates parsing, ownership and CAS
-to the original source owner; compact declaration headers are selected before body copies.
-The registry's selected quantity-type and basis rows now emit their projection metadata
-from the resolved declarations, with explicit source tags and informative field facets.
-Actual physical inspection projects the native quantity/unit/dimension/basis/datum closure;
-checked ratio construction and fixed dimension cardinality survive native adoption.
-The full runtime feature check and focused registry, header, edit and original-report
-controls pass. Independent review found a worker deadline interpretation error and an
-I/O reservation lifetime error; 64k owns their correction and affected verification.
-Complete consumer migration, study/model inspection, assembled acceptance and performance
-benefits remain open. The independent reference environment now includes pinned Protobuf tooling
-for direct consumption of the generated descriptor world; structural controls do not
-establish matched ordinary-process reference qualification.
+**Implemented and targeted Tested:** source-owner macros and the resolved graph declare
+stable tags, recursive types, directions, versions and local rules. Registry generation now
+covers the authored declaration/document/fit and numerical/accuracy/caloric/engineering
+rows from their actual owners. Checked foreign Serde declarations, generic/shared ownership,
+diagnostic vocabulary, nominal identity/hash roles and exact document versions are supported.
+Native settings for all nine serializable backend families and integration controls carry
+source-owned metadata. Signed-zero and finite-interval endpoints, nominal scalar subdomains,
+optional UTF-8 byte limits, standard/positive duration and physical extension storage have
+native and generator controls. Original JSON, Arrow storage and contextual admission remain
+owned by their existing declarations.
 
-The next foundation increment adds checked foreign records by extending their existing
-Serde remote declarations in place, shared ownership without requiring foreign records
-to implement Clone, native generic record access, nominal occurrence/hash/canonical-key
-roles, exact document versions and Duration reconstruction. The original compiler/math
-profile and Diffsol options now supply their own metadata. Native scalar constructors
-and declared integer domains share exact bit/range predicates with the generated rules;
-compiled model and descriptor controls exercise those boundaries. Declared registry
-vocabularies now generate their projection traits directly, replacing the consumer
-selection list. The actual canonical project-context row supplies explicit field tags.
-Full solve/simulation/fit/horizon, authored nested-row and Study graph integration remains
-underway. Executing the maintained validators over those newly consumed domains, complete
-service journeys and independent ordinary-process comparisons remain acceptance work.
+Passive lower scientific Scheme/Type/DomainKey/Carrier metadata and qualified resolved-output
+receipts now expose their source declarations. The passive projection does not grant native
+restoration authority; original qualification/restore checks remain. Targeted model, quantity
+and modeling controls distinguish readable metadata from admissible native restoration.
+Generated core Rust contracts and macro-body owner relocation have been exercised.
 
-The authored declaration/document/fit rows and numerical, accuracy, caloric and engineering
-rows now carry explicit source-owned presentation. Native types and field meanings remain
-on their existing registry trees; source layouts check complete field and alternative
-membership. Nested native tagged payloads use their existing selection and construction
-methods for checked oneof access, retaining original JSON. Named structures retain source
-presentation independently of value/execution identity, and diagnostic vocabulary aliases
-project the actual lower owner's closed string members. Core Rust contracts were regenerated;
-compiled native-row controls cover exact JSON, field domains and invalid overlapping arms.
-The complete runtime settings/operation closure and full service descriptor publication
-remain in progress. These foundation controls do not establish their assembled acceptance.
+**Implemented and Tested at the earlier narrow service snapshot:** preparation/value
+owners replace the former hand-maintained projection; exact-parent file edits use original
+parsing, ownership and CAS; declaration headers select before body copies; physical inspection
+retains quantity/unit/dimension/basis/datum. 64j owns the actual external client evidence.
 
-Exact finite numeric intervals now share their original endpoint inclusion rules between
-native predicates and fixed64/CEL projections. Checked nominal scalars retain their original
-subtypes: a consuming confidence field can require a strict upper endpoint without changing
-the underlying Fraction domain. Source-owned hooks identify these scalars; similarly shaped
-records acquire no numeric meaning. Targeted model and generator controls cover signed zero,
-adjacent represented endpoints, invalid intervals and nested optional nominal values. The
-complete service and Study publication remain integration work.
+**Implemented in source, not accepted as a complete generated delivery:** full numerical,
+solve/simulation/fit/horizon and Study declarations, issued-Study identity and model/provider
+inspection are connected to the expanding graph. A 36-test runtime selector passed the
+then-linked settings, operation, covariance/sensitivity, original-source and reference-codec
+controls before the latest Study/session/inspection additions. It does not qualify those
+later additions. Reference encoding/source custody now has bounded preflight and lifetime
+controls; [64h](64h-reference-coverage-and-qualification.md#proto-reference-implementation-checkpoint--2026-11-04)
+owns the remaining real native/reference correspondence.
 
-Physical bulk coordinates now project their actual registry extension storage, including
-exact magnitude bits and quantity/unit identities. The extension's Arrow storage and native
-JSON remain unchanged; projection validates representation without granting contextual
-physical admission. Positive solver and integrator time limits also share one intrinsic
-native predicate and declared wire rule, while general durations continue to permit zero.
-The checked standard-duration owner supplies the component names; unrelated records do not
-acquire duration meaning by shape. Targeted native and descriptor controls exercise these
-boundaries; compiled maintained validators and service journeys remain acceptance work.
+**Current failing acceptance:** the full-feature engineering generation command compiled
+the runtime/xtask graph, then failed maintained CEL preflight for
+`pse.engineering.v1.HighsSettings.sparse_start`, rule `float64.collection_domain`, with
+`unknown field: value` (one refused rule, zero-failure target). The generated collection
+accessor must match the actual optional map layout without weakening finite-value admission.
+Earlier successful generation covers the earlier descriptor population only. The expanded
+engineering descriptors, adapters, service bindings and documentation are not published and
+accepted merely because their Rust owners compile.
+
+Remaining I work is to repair that lowering and add a maintained-validator regression;
+regenerate the complete selected worlds; integrate and test all consumers, versions and
+outgoing/ingress validation; complete selection/lifetime negative controls through J's real
+responses; and delete every replaced mapping/check after equivalent protection is proven.
+I01/I02/I06 remain in progress. No whole-lifetime performance benefit or assembled scientific
+qualification is established.
 
 ## Verification and handoff
+
+**Tested foundation snapshots, local Linux, zero-failure baseline:** the native correctness
+route `scripts/pse test pse-codegen --lib -E 'test(/^codegen::boundary_projection::tests::/)|test(/^codegen::rust::boundary_nested::tests::/)'`
+passed 21 selected tests. Later passive-owner coverage with
+`scripts/pse test pse-model --lib -E 'test(passive_scheme_projection)|test(passive_resolved_output)|test(intrinsic_pair)|test(explicit_public_alias)|test(mixed_source_alternatives)'`
+passed five selected tests. These are targeted source/descriptor and admission controls;
+unselected tests were not exercised, and the subsequently expanded maintained CEL world
+still has the explicit failure above. They are not a full codegen or service acceptance pass.
+
+**Tested runtime snapshot:** the correctness nextest command below passed 36 selected
+library tests, zero failures against zero, with explicit native preparation and Arrow
+force-validation. It predates the latest full Study/session/inspection additions; the H
+reference checkpoint consumes only its source/custody/codec and numerical-context coverage.
+
+```bash
+scripts/pse-env --native=compiler,solver,klu,isolation -- \
+  scripts/cargo-bin/cargo-pse-correctness nextest run -p pse-runtime --lib \
+  --features engineering-service,property-coolprop,solver-kinsol,solver-ipopt,solver-root-isolation,product-reader,native-study-tests,force-validate \
+  --locked --no-fail-fast -E \
+  'test(workflow::modeling::ordinary_reference::tests)|test(captured_manifest_uses_the_same_strict_owner_without_rereading)|test(study_creation_coordinates_)|test(original_study_creation_request_)|test(provider_inspection_retains_actual_factory_)|test(covariance_projection_preserves_)|test(sensitivity_projection_preserves_)|test(reconstruction_refinement_projection_)|test(named_horizon_intents_preserve_)|test(reference_exchange::tests)|test(actual_native_reports_preserve_physical_meaning_and_refuse_incomplete_selection)|test(actual_solve_settings_projection_)|test(convexity_numeric_inputs_)|test(operation_request_projects_all_four_)|test(preparation_document_preserves_all_existing_controls)|test(study_v8_physical_intent_owns_defaults_)'
+```
+
+**Failed expanded generation:**
+`scripts/pse-env --native=compiler,solver,klu,isolation -- scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --features full-codegen,force-validate --locked -- codegen --only engineering`
+completed Rust compilation, then refused one CEL rule against a zero-failure target, as
+described in the current checkpoint. The generation failure has not been repaired or rerun.
 
 **Proposed:** I01 targeted tests independently specify exact bits (including signed zero),
 IDs, quantity/basis/datum links, Missing versus default, Set/Tuple, ordered rows, directional

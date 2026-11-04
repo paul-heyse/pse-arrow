@@ -10,9 +10,10 @@ import unittest
 from idaes.models.properties.modular_properties.base.generic_property import (
     GenericParameterBlock,
 )
-from idaes.models.properties.modular_properties.pure import Perrys, RPP5
-from oracles.ordinary_thermo import SPECIES, Wagner25, configuration, load_inputs
+from idaes.models.properties.modular_properties.pure import RPP5, Perrys
 from pyomo.environ import ConcreteModel, units, value
+
+from oracles.ordinary_thermo import SPECIES, Wagner25, configuration, load_inputs
 
 
 class OrdinaryThermodynamicReferenceTests(unittest.TestCase):

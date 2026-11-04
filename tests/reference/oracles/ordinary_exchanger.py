@@ -29,6 +29,7 @@ from idaes.models.unit_models.heat_exchanger import (
     delta_temperature_amtd_callback,
     delta_temperature_lmtd_callback,
 )
+from pyomo.core.expr.numeric_expr import NumericValue
 from pyomo.environ import (
     ConcreteModel,
     SolverFactory,
@@ -36,7 +37,6 @@ from pyomo.environ import (
     units,
     value,
 )
-from pyomo.core.expr.numeric_expr import NumericValue
 
 from .ordinary_thermo import SPECIES, configuration
 

@@ -200,7 +200,7 @@ Arrow is consumed. Root owns `just turn-end`; do not insert hygiene or broad cam
 package. K06 selects actual commands after the changed closure is known and reports command,
 mode, scope, zero failure baseline and result; no plan-authoring product qualification is due.
 
-## Current implementation checkpoint — 2026-11-03
+## Current implementation checkpoint — 2026-11-04
 
 The source-owned worker protocol, generated transport, authenticated process custody,
 independently driven I/O and synchronous native-lane proxy are integrated. The actual
@@ -216,12 +216,40 @@ optional deadline and hold admission through both child reap and I/O join; deter
 long-lived-deadline and delayed-I/O controls are added. The expanded 25-test campaign now
 passes, including optional wire/range validation, original-scope RPC timeouts and reordered
 action products. Complete-call timing/accounting was recorded again with actual child reap
-and zero retained reservation afterward. Independent process integration and matched
-equipment journeys remain open. Both measurement campaigns are single-campaign observations,
+and zero retained reservation afterward. The independent process integration now passes
+its three original-process controls: complete water jets across orders/regimes/repeated
+calls, original refusal/cancellation without stale success, and admission retained through
+actual kill/reap. Matched authored equipment journeys were attempted separately and
+remain open. Both measurement campaigns are single-campaign observations,
 not a speedup claim or independent validation of CoolProp; original host/library-load and
 accounted-versus-RSS limitations remain explicit in their retained source recordings.
 
+K01–K04 therefore contain implemented and targeted tested protocol, process and water-proxy
+slices, but their complete package acceptance and final generated-world reconciliation
+remain open. K05 is not complete: the selected three direct and three worker pump/turbine
+tests most recently failed during shared package admission on duplicate Water CAS identity,
+before equipment science executed. The source correction gives the water CAS one
+authoritative typed declaration and retains the wrong-CAS refusal. It has not been verified
+with a freshly captured scientific-input capsule and an equipment rerun. Earlier missing-data
+and predicate failures remain historical attempts, not evidence of a passing repair.
+
+Next work is fresh capsule/image preparation and all six equipment controls; independent
+water/datum/derivative and original equipment-balance evidence; interruption and settled
+cleanup; and the required matched cold/warm complete equipment measurements. The earlier
+single-call observations do not satisfy that full campaign. K06's assembled acceptance,
+scope-end checks, operator/extension guidance and enduring publication remain planned.
+
 ## Verification, migration and completion
+
+**Tested, local Linux after explicit native/worker preparation:**
+`scripts/pse test pse-runtime --lib --features engineering-service,native-study-tests,product-reader,property-coolprop,solver-kinsol -E 'test(scientific_worker::)'`
+passed 25 selected tests, and
+`scripts/pse test pse-runtime:scientific_worker --features engineering-service,native-study-tests,product-reader,property-coolprop,solver-kinsol`
+passed all three actual-process tests. Both used the native correctness route and have
+zero failures against zero; unselected runtime tests were not exercised. They cover the
+source-described process/custody and water-demand controls, not a full equipment campaign.
+The six equipment failures and their actual command are recorded by
+[64f](64f-specialized-process-families.md#current-steam-integration-checkpoint--2026-11-04).
 
 **Proposed verification:** distinguish bit-preserving interchange from independent science.
 Matched placements deliberately share CoolProp and therefore cannot discover its common model
@@ -254,10 +282,8 @@ At closure record **Implemented**, named **Tested** and **Measured** conditions 
 the mistake corrected and deliberate deviations; retire this companion through the coordinator
 only after its enduring meaning and inbound references have owners.
 
-**Current checkpoint:** Full execution is authorized. Source-owned protocol declarations,
-prepared native session custody, executable/process ownership and the local water proxy
-are implemented in source. Generated transport integration and actual-process/equipment
-controls remain in progress. Disk exhaustion interrupted initial generation and targeted
-test recording; the maintainer cleared build output. Cold native preparation and affected
-reruns are required. K01–K06 completion, scientific acceptance and measured benefit remain
-unestablished.
+**Current conclusion:** Full execution is authorized. The worker's generated transport and
+actual-process controls have been exercised after explicit preparation following the earlier
+disk cleanup. The outstanding equipment failure and acceptance are described above;
+actual-process transport is no longer wholly unrun. K01–K05 remain in progress and K06
+planned. Full scientific acceptance and a performance benefit remain unestablished.
