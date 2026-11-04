@@ -22,6 +22,7 @@ pub fn guarded_real_policy() -> ContentHash {
 pse_contract::projection_struct! {
 /// Reuse identity inputs. Ordinary case values and instance identities are excluded.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct BodySpec {
     projection: { name: "MathBodySpec", rust_path: crate::binding::BodySpec, version: 1,
         direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };

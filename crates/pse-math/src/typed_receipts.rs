@@ -6,16 +6,26 @@ use crate::MathError;
 use pse_ids::ContentHash;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+pse_contract::projection_struct! {
+/// Passive complete mathematical receipt. Its fields convey no replay permission.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct Proof {
-    request: ContentHash,
-    branches: Vec<u8>,
+pub struct Proof {
+    projection: { name: "MathematicalProofReceipt", rust_path: crate::typed::receipts::Proof,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    request: ContentHash => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    branches: Vec<u8> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
 /// Untrusted decoded proof data; only strict qualified replay consumes its authority.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProofStream {
-    version: u32,
-    entries: Vec<Proof>,
+    projection: { name: "MathematicalProofStream", rust_path: crate::typed::receipts::ProofStream,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    version: u32 => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: 1 }] };
+    entries: Vec<Proof> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl ProofStream {
     /// Complete owned proof receipt extent, excluding native proof machinery.
@@ -171,5 +181,27 @@ pub(super) fn require_admission() -> Result<(), MathError> {
         ))
     } else {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod projection_tests {
+    use super::*;
+    use pse_contract::boundary_projection::{ConstructionRole, ProjectionGraph, ProjectionRecord, ValidateProjection};
+
+    #[test]
+    fn mathematical_receipt_projection_is_data_and_does_not_start_replay() {
+        let request = ContentHash::from_bytes([27; 32]);
+        let stream = ProofStream { version: 1, entries: vec![Proof { request, branches: vec![7, 2] }] };
+        let original = serde_json::to_vec(&stream).unwrap();
+        let reconstructed = ProofStream::from_projection_fields(stream.into_projection_fields()).unwrap();
+        assert_eq!(serde_json::to_vec(&reconstructed).unwrap(), original);
+        let graph = ProjectionGraph::of::<ProofStream>().unwrap();
+        for name in ["MathematicalProofStream", "MathematicalProofReceipt"] {
+            assert_eq!(graph.definitions()[name].construction, ConstructionRole::Data);
+        }
+        // Even complete decoded original receipt data does not install a replay session.
+        assert_eq!(proof(request, || Ok(vec![9])).unwrap(), vec![9]);
+        assert!(ProofStream { version: 2, entries: vec![] }.validate_projection().is_err());
     }
 }

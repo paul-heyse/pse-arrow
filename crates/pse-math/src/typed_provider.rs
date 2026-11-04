@@ -169,17 +169,21 @@ impl PreparedProviderCall {
             )
     }
 }
+pse_contract::projection_struct! {
 /// Complete prepared provider facts, restored only by their caller-qualified recipe owner.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PreparedProviderCallRecord {
-    identity: ContentHash,
-    registration: pse_kernels::portable::ProviderRecord,
-    partial: Vec<usize>,
-    inputs: Vec<ContractRecord>,
-    input_conversions: Vec<RepresentationConversionRecord>,
-    outputs: Vec<ContractRecord>,
-    output_conversions: Vec<RepresentationConversionRecord>,
+    projection: { name: "MathematicalPreparedProviderCallRecord", rust_path: crate::typed::PreparedProviderCallRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    identity: ContentHash => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    registration: pse_kernels::portable::ProviderRecord => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    partial: Vec<usize> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    inputs: Vec<ContractRecord> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    input_conversions: Vec<RepresentationConversionRecord> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    outputs: Vec<ContractRecord> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    output_conversions: Vec<RepresentationConversionRecord> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 fn identity(value: &PreparedProviderCall) -> ContentHash {
     let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV10);

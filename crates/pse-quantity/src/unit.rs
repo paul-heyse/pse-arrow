@@ -318,17 +318,21 @@ pub struct CanonicalConversionPlan {
     already_canonical: bool,
 }
 
+pse_contract::projection_struct! {
 /// Opaque exact canonical conversion data; decoding grants no physical authority.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CanonicalConversionRecord {
-    quantity: QuantityTypeId,
-    context: crate::QuantityTypeKey,
-    source: UnitId,
-    target: UnitId,
-    scale_bits: u64,
-    offset_bits: u64,
-    already_canonical: bool,
+    projection: { name: "PhysicalCanonicalConversionRecord", rust_path: crate::unit::CanonicalConversionRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    quantity: QuantityTypeId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    context: crate::QuantityTypeKey => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    source: UnitId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    target: UnitId => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    scale_bits: u64 => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [], representation: pse_contract::boundary_projection::Scalar::F64Bits };
+    offset_bits: u64 => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [], representation: pse_contract::boundary_projection::Scalar::F64Bits };
+    already_canonical: bool => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl CanonicalConversionRecord {
     /// Capture the complete already admitted representation plan, without re-resolution.
@@ -487,16 +491,20 @@ impl RepresentationConversionPlan {
     }
 }
 
+pse_contract::projection_struct! {
 /// Opaque complete direct representation data; decoding grants no physical authority.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RepresentationConversionRecord {
-    quantity: QuantityTypeId,
-    context: crate::QuantityTypeKey,
-    source: UnitId,
-    target: UnitId,
-    scale_bits: u64,
-    offset_bits: u64,
+    projection: { name: "PhysicalRepresentationConversionRecord", rust_path: crate::unit::RepresentationConversionRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    quantity: QuantityTypeId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    context: crate::QuantityTypeKey => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    source: UnitId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    target: UnitId => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    scale_bits: u64 => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [], representation: pse_contract::boundary_projection::Scalar::F64Bits };
+    offset_bits: u64 => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [], representation: pse_contract::boundary_projection::Scalar::F64Bits };
+}
 }
 impl RepresentationConversionRecord {
     /// Capture one already admitted direct conversion, with no re-resolution.

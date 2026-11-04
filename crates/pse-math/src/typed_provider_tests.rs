@@ -48,6 +48,22 @@ fn fixture() -> (
     let contract = ResolvedPhysicalContract::named(quantity, IndexSet::new(), &registry).unwrap();
     (registry, descriptor, contract)
 }
+
+#[test]
+fn prepared_provider_record_projection_preserves_data_without_physical_authority() {
+    use pse_contract::boundary_projection::{ConstructionRole, ProjectionGraph, ProjectionRecord};
+    let (registry, descriptor, contract) = fixture();
+    let call = PreparedProviderCall::prepare(&descriptor, &[contract], &[], &registry, &StandardInvariantChecker).unwrap();
+    let record = PreparedProviderCallRecord::capture(&call);
+    let original = serde_json::to_vec(&record).unwrap();
+    let reconstructed = PreparedProviderCallRecord::from_projection_fields(record.into_projection_fields()).unwrap();
+    assert_eq!(serde_json::to_vec(&reconstructed).unwrap(), original);
+    assert!(reconstructed.restore().is_err());
+    let graph = ProjectionGraph::of::<PreparedProviderCallRecord>().unwrap();
+    for name in ["MathematicalPreparedProviderCallRecord", "PhysicalRepresentationConversionRecord", "KernelProviderRecord"] {
+        assert_eq!(graph.definitions()[name].construction, ConstructionRole::Data);
+    }
+}
 #[derive(Debug)]
 struct Identity {
     calls: Arc<AtomicUsize>,

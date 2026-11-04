@@ -25,38 +25,6 @@ impl std::io::Write for ByteCount {
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct SpecWire {
-    definition: ContentHash,
-    structure: ContentHash,
-    physical: ContentHash,
-    admissions: ContentHash,
-    providers: Vec<ContentHash>,
-    policy: ContentHash,
-}
-impl SpecWire {
-    fn capture(value: &BodySpec) -> Self {
-        Self {
-            definition: value.definition,
-            structure: value.structure,
-            physical: value.physical,
-            admissions: value.admissions,
-            providers: value.providers.clone(),
-            policy: value.policy,
-        }
-    }
-    fn restore(&self) -> BodySpec {
-        BodySpec {
-            definition: self.definition,
-            structure: self.structure,
-            physical: self.physical,
-            admissions: self.admissions,
-            providers: self.providers.clone(),
-            policy: self.policy,
-        }
-    }
-}
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 struct Recipe {
     interpretation: String,
     semantic_identity: Option<pse_ids::roles::SemanticBodyHash>,
@@ -74,7 +42,7 @@ struct Recipe {
     occurrence_tokens: BTreeSet<SemanticId>,
     receipts: pse_quantity::resolved::receipts::ReceiptStream,
     proofs: pse_math::typed::receipts::ProofStream,
-    spec: SpecWire,
+    spec: BodySpec,
 }
 fn contract(error: impl std::fmt::Display) -> MathError {
     MathError::Contract(error.to_string())
@@ -140,6 +108,25 @@ fn historical_recipe_interpretation_refuses_before_decoding_old_provider_shape()
     assert!(matches!(Recipe::decode(historical), Err(MathError::Contract(reason))
         if reason == "unsupported admitted recipe interpretation"));
 }
+#[test]
+#[cfg(test)]
+fn native_body_spec_preserves_exact_recipe_json_layout_and_strict_fields() {
+    let hash = |byte| ContentHash::from_bytes([byte; 32]);
+    let spec = BodySpec {
+        definition: hash(1), structure: hash(2), physical: hash(3),
+        admissions: hash(4), providers: vec![hash(5), hash(6)], policy: hash(7),
+    };
+    // Independently spell the retired six-field recipe record's exact emitted order.
+    let expected = format!(
+        "{{\"definition\":\"{}\",\"structure\":\"{}\",\"physical\":\"{}\",\"admissions\":\"{}\",\"providers\":[\"{}\",\"{}\"],\"policy\":\"{}\"}}",
+        hash(1).to_prefixed(), hash(2).to_prefixed(), hash(3).to_prefixed(),
+        hash(4).to_prefixed(), hash(5).to_prefixed(), hash(6).to_prefixed(), hash(7).to_prefixed(),
+    );
+    assert_eq!(serde_json::to_vec(&spec).unwrap(), expected.as_bytes());
+    assert_eq!(serde_json::from_str::<BodySpec>(&expected).unwrap(), spec);
+    let unknown = expected.strip_suffix('}').unwrap().to_owned() + ",\"extra\":0}";
+    assert!(serde_json::from_str::<BodySpec>(&unknown).is_err());
+}
 /// Capture complete owner records transiently, then retain only the exact encoded allocation.
 pub(super) fn capture(
     request: &Request<'_>,
@@ -166,7 +153,7 @@ pub(super) fn capture(
         occurrence_tokens: body.math.occurrence_tokens().clone(),
         receipts,
         proofs,
-        spec: SpecWire::capture(&body.spec),
+        spec: body.spec.clone(),
     };
     recipe.encode()
 }
@@ -193,7 +180,7 @@ pub fn reconstruct_portable(
 ) -> Result<AdmittedBody, MathError> {
     let payload = permit.payload();
     let recipe = Recipe::decode(payload)?;
-    let expected = recipe.spec.restore();
+    let expected = &recipe.spec;
     let limits = BodyLimits {
         slots: recipe.slots,
         occurrences: recipe.occurrences,
@@ -220,7 +207,7 @@ pub fn reconstruct_portable(
                 request.admit_inner(registry, &pse_quantity::infer::NoInvariantFacts, cancelled)
             })
         })?;
-    if body.spec != expected
+    if &body.spec != expected
         || body.quantities != recipe.outputs
         || body.math.checked_members() != &recipe.checked_members
         || body.math.checked_sources() != &recipe.checked_sources
