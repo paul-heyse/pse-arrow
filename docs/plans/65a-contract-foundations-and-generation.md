@@ -110,6 +110,45 @@ extension numbers/names deliberately, validate collisions against the imported w
 retain unknown options where forwarding is the declared operation. The exact option schema
 and allocation are published in A02 before dependent generator/consumer changes.
 
+**Registry facet lowering.** The registry owner publishes
+`pse.schema.v1.registry_field`, a message-valued `google.protobuf.FieldOptions`
+extension allocated at 51066 in
+`crates/pse-schema/proto/pse/schema/v1/field_facets.proto`. Its versioned
+`RegistryFieldFacets` contains typed extension uses, column roles, documentation,
+structure names, unbound quantity references, transfer-context versions, correlated
+references, graph endpoints, collection order/cardinality/uniqueness, integer ranges
+and discriminator-to-payload selections. Extension parameters are a closed oneof:
+enumeration, ordinal target relation, expression grammar, or parameter-free extension.
+Every enum spelling/number must match its native owner. A quantity name remains an
+unresolved reference; this annotation does not manufacture physical quantity semantics.
+
+The existing source-derived metadata map is an internal carrier. The domain lowerer
+uses shared `pse-schema` canonical parsers, also used by native field admission, for
+structured annotations; it neither invents a second JSON interpretation nor rebuilds
+Arrow storage from a projection type. At source rendering, `ReferenceContract::for_contract`
+normalizes scalar foreign keys using the actual native field's nullability. Malformed
+present role, extension, extension parameter or scalar-reference declarations refuse
+instead of disappearing through convenience defaults. Native storage and catalog
+admission remain separate from reading these typed annotations.
+
+Boundary tags agree with the descriptor field number. Nested `BoundaryShape` annotations
+agree with the actual resolved native graph owner, interpretation, direction,
+reservations and alternative name/number population; the descriptor and core owner
+options carry that structure rather than an additional JSON shape annotation. Other
+selected facet keys require a typed owner interpretation before publication and refuse
+with field/key attribution when unsupported. This applies to known but not yet lowered
+facets as well as unknown keys; no annotation is silently omitted.
+
+Buffa 0.9.2 `DescriptorPool` resolves the compiled authored schema closure;
+`DynamicMessage::try_set` checks each named typed field before the common extension
+writer attaches its encoded message payload. The independent domain reader uses
+`DynamicMessage::field_by_number` and rejects unknown selected fields, unknown
+versions/enums, incomplete oneofs and invalid native facet constraints. It supplies
+the shared checker with an explicit domain policy; an unavailable policy remains
+Unknown. These use [Buffa's reflection API](https://docs.rs/buffa-descriptor/0.9.2/buffa_descriptor/struct.DynamicMessage.html)
+and [protobuf message-valued custom options](https://protobuf.dev/programming-guides/proto2/#customoptions),
+not display comments or an untyped metadata bag.
+
 Keep actual source relationships separate. An owner path/type association is not an exact Rust
 source span. Current generated `SourceCodeInfo` entries use placeholder spans and comments for
 owner/version/direction/facets; method effects appear in documentation and an action sidecar.

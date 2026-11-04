@@ -38,6 +38,9 @@ pub(super) fn render(
     let mut recursive = Vec::new();
     let mut field_rules = Vec::new();
     for ((field_name, ty, _), column) in fields.iter().zip(columns) {
+        // Present malformed annotations must not disappear through convenience defaults.
+        column.checked_role()?;
+        column.checked_extension()?;
         let ty = super::semantic::model_type(ty)?;
         if TaggedAlternative::from_field(column.field())?.is_some()
             && BoundaryShape::from_field(column.field())?.is_none()
@@ -80,11 +83,19 @@ pub(super) fn render(
             );
         }
         field_rules.push(!rules.is_empty());
-        let facets = column
+        let mut metadata = column
             .field()
             .metadata()
             .iter()
-            .collect::<std::collections::BTreeMap<_, _>>()
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect::<std::collections::BTreeMap<_, _>>();
+        // Resolve scalar FK nullability at its actual native owner, not from a later wire type.
+        if column.checked_fk()?.is_some()
+            && let Some(reference) = crate::model::ReferenceContract::for_contract(column)?
+        {
+            metadata.insert(crate::model::reference::KEY_REFERENCE.into(), reference.canonical()?);
+        }
+        let facets = metadata
             .into_iter()
             .map(|(key, value)| quote!((#key.into(), #value.into())))
             .collect::<Vec<_>>();

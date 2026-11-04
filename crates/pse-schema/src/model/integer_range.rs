@@ -82,12 +82,8 @@ impl IntegerRange {
                 Ok(None)
             };
         };
-        let [minimum, maximum]: [i64; 2] = serde_json::from_str(text)
-            .map_err(|error| crate::checks::invalid(field.name(), error.to_string()))?;
-        let range = Self { minimum, maximum };
+        let range = Self::parse_metadata(text, field.name())?;
         if field.data_type() != &DataType::Int64
-            || minimum > maximum
-            || range.canonical() != *text
             || (ordinal && range != Self::NONNEGATIVE)
         {
             return Err(crate::checks::invalid(
@@ -96,5 +92,18 @@ impl IntegerRange {
             ));
         }
         Ok(Some(range))
+    }
+
+    /// Parse the canonical interval without claiming native field-width admission.
+    /// # Errors
+    /// Noncanonical metadata or reversed bounds refuses with the source path.
+    pub fn parse_metadata(text: &str, path: &str) -> Result<Self, SchemaError> {
+        let [minimum, maximum]: [i64; 2] = serde_json::from_str(text)
+            .map_err(|error| crate::checks::invalid(path, error.to_string()))?;
+        let value = Self { minimum, maximum };
+        if minimum > maximum || value.canonical() != text {
+            return Err(crate::checks::invalid(path, "integer domain requires canonical ordered bounds"));
+        }
+        Ok(value)
     }
 }

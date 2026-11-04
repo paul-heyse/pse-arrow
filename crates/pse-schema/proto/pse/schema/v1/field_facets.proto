@@ -1,0 +1,124 @@
+syntax = "proto2";
+
+package pse.schema.v1;
+
+import "google/protobuf/descriptor.proto";
+
+// Registry-owned interpretations. These describe source annotations, not native admission.
+message RegistryFieldFacets {
+  optional uint32 metadata_version = 1;
+  optional ExtensionUse extension = 2;
+  optional ColumnRole role = 3;
+  optional string documentation = 4;
+  optional string structure_name = 5;
+  optional QuantityReference quantity = 6;
+  optional uint32 transfer_context_version = 7;
+  optional ReferenceContract reference = 8;
+  optional GraphEndpoint graph_endpoint = 9;
+  optional CollectionContract collection = 10;
+  optional IntegerRange integer_range = 11;
+  optional TaggedAlternative tagged_alternative = 12;
+}
+
+enum ColumnRole {
+  COLUMN_ROLE_UNSPECIFIED = 0;
+  COLUMN_ROLE_KEY = 1;
+  COLUMN_ROLE_REFERENCE = 2;
+  COLUMN_ROLE_MEASURE = 3;
+  COLUMN_ROLE_LABEL = 4;
+  COLUMN_ROLE_PAYLOAD = 5;
+  COLUMN_ROLE_PROVENANCE = 6;
+}
+
+enum SimpleExtension {
+  SIMPLE_EXTENSION_UNSPECIFIED = 0;
+  SIMPLE_EXTENSION_SEMANTIC_ID = 1;
+  SIMPLE_EXTENSION_CONTENT_HASH = 2;
+  SIMPLE_EXTENSION_DIMENSION_VECTOR = 3;
+  SIMPLE_EXTENSION_QUANTITY_VALUE = 4;
+  SIMPLE_EXTENSION_BOUND = 5;
+  SIMPLE_EXTENSION_INDEX_TUPLE = 6;
+  SIMPLE_EXTENSION_SOURCE_SPAN = 7;
+  SIMPLE_EXTENSION_TARGET_PATH = 8;
+}
+
+enum ExpressionGrammar {
+  EXPRESSION_GRAMMAR_UNSPECIFIED = 0;
+  EXPRESSION_GRAMMAR_EXPRESSION = 1;
+  EXPRESSION_GRAMMAR_EQUATION = 2;
+  EXPRESSION_GRAMMAR_PREDICATE = 3;
+  EXPRESSION_GRAMMAR_PROPOSITION = 4;
+  EXPRESSION_GRAMMAR_STATIC = 5;
+  EXPRESSION_GRAMMAR_ANNOTATION_ARGUMENTS = 6;
+  EXPRESSION_GRAMMAR_ANNOTATION_TARGET = 7;
+}
+
+message ExtensionUse {
+  oneof form {
+    SimpleExtension simple = 1;
+    string enumeration = 2;
+    string ordinal_target_relation = 3;
+    ExpressionGrammar expression_grammar = 4;
+  }
+}
+
+message QuantityReference {
+  // An unbound qualified quantity name. Resolved physical metadata has its own owner.
+  optional string qualified_name = 1;
+}
+
+enum GraphEndpoint {
+  GRAPH_ENDPOINT_UNSPECIFIED = 0;
+  GRAPH_ENDPOINT_INCOMING = 1;
+  GRAPH_ENDPOINT_OUTGOING = 2;
+}
+
+enum CollectionOrder {
+  COLLECTION_ORDER_UNSPECIFIED = 0;
+  COLLECTION_ORDER_SEQUENCE = 1;
+  COLLECTION_ORDER_UNORDERED = 2;
+}
+
+message CollectionContract {
+  optional CollectionOrder order = 1;
+  optional int64 minimum = 2;
+  optional int64 maximum = 3;
+  optional bool unique = 4;
+}
+
+message IntegerRange {
+  optional int64 minimum = 1;
+  optional int64 maximum = 2;
+}
+
+enum ReferenceNullPolicy {
+  REFERENCE_NULL_POLICY_UNSPECIFIED = 0;
+  REFERENCE_NULL_POLICY_REQUIRED = 1;
+  REFERENCE_NULL_POLICY_ALL_OR_NONE = 2;
+}
+
+message ReferenceColumn {
+  repeated string source = 1;
+  optional string target = 2;
+}
+
+message ReferenceContract {
+  optional string relation = 1;
+  repeated ReferenceColumn columns = 2;
+  optional ReferenceNullPolicy null_policy = 3;
+}
+
+message AlternativeArm {
+  optional string tag = 1;
+  // Absent for the source owner's explicitly payload-free alternative.
+  optional string payload_field = 2;
+}
+
+message TaggedAlternative {
+  optional string discriminator = 1;
+  repeated AlternativeArm arms = 2;
+}
+
+extend google.protobuf.FieldOptions {
+  optional RegistryFieldFacets registry_field = 51066;
+}

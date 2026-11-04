@@ -293,6 +293,20 @@ impl FieldContract {
             .find(|role| Some(role.as_str()) == self.get(ROLE))
             .unwrap_or(ColumnRole::Payload)
     }
+    /// Read a declared role without treating an unknown present spelling as payload.
+    /// # Errors
+    /// An unrecognized present role refuses with this field's source name.
+    pub fn checked_role(&self) -> Result<ColumnRole, crate::SchemaError> {
+        let Some(value) = self.get(ROLE) else { return Ok(ColumnRole::Payload); };
+        Self::parse_role_metadata(value, self.name())
+    }
+    /// Parse a present role at a source-aware tooling boundary.
+    /// # Errors
+    /// Unknown role spellings refuse rather than acquiring payload semantics.
+    pub fn parse_role_metadata(value: &str, path: &str) -> Result<ColumnRole, crate::SchemaError> {
+        ColumnRole::ALL.into_iter().find(|role| role.as_str() == value)
+            .ok_or_else(|| crate::checks::invalid(path, format!("unknown declared role {value}")))
+    }
     /// Assign a field role.
     #[must_use]
     pub fn with_role(self, role: ColumnRole) -> Self {
@@ -337,6 +351,18 @@ impl FieldContract {
             self.get(FK_RELATION)?,
             self.get(FK_COLUMN)?,
         ))
+    }
+    /// Read a scalar reference without losing malformed present declarations.
+    /// # Errors
+    /// A missing companion or empty relation/column refuses at the native field.
+    pub fn checked_fk(&self) -> Result<Option<ForeignKey<'_>>, crate::SchemaError> {
+        match (self.get(FK_RELATION), self.get(FK_COLUMN)) {
+            (None, None) => Ok(None),
+            (Some(relation), Some(column)) if !relation.is_empty() && !column.is_empty() => {
+                Ok(Some(ForeignKey::new(relation, column)))
+            }
+            _ => Err(crate::checks::invalid(self.name(), "incomplete scalar foreign key")),
+        }
     }
     /// Attach a named reference at any depth.
     #[must_use]
@@ -550,24 +576,18 @@ impl FieldContract {
     }
     /// The domain extension facet; arbitrary non-PSE metadata remains on the native field.
     pub fn extension(&self) -> Option<ExtensionUse<'_>> {
-        Some(match self.get(EXTENSION)? {
-            "pse.semantic_id" => ExtensionUse::SemanticId,
-            "pse.content_hash" => ExtensionUse::ContentHash,
-            "pse.dimension_vector" => ExtensionUse::DimensionVector,
-            "pse.quantity_value" => ExtensionUse::QuantityValue,
-            "pse.bound" => ExtensionUse::Bound,
-            "pse.index_tuple" => ExtensionUse::IndexTuple,
-            "pse.ordinal_ref" => ExtensionUse::OrdinalRef {
-                target: self.get(PARAMETER)?,
-            },
-            "pse.source_span" => ExtensionUse::SourceSpan,
-            "pse.enum" => ExtensionUse::Enum(self.get(PARAMETER)?),
-            "pse.expr_dsl" => {
-                ExtensionUse::ExprDsl(super::ExpressionGrammar::from_name(self.get(PARAMETER)?)?)
-            }
-            "pse.target_path" => ExtensionUse::TargetPath,
-            _ => return None,
-        })
+        self.checked_extension().ok().flatten()
+    }
+    /// Read source extension semantics without hiding an unknown or incomplete annotation.
+    /// # Errors
+    /// Unknown extensions, absent required parameters or orphan parameters refuse.
+    pub fn checked_extension(&self) -> Result<Option<ExtensionUse<'_>>, crate::SchemaError> {
+        let Some(name) = self.get(EXTENSION) else {
+            return if self.get(PARAMETER).is_some() {
+                Err(crate::checks::invalid(self.name(), "extension parameter has no declared extension"))
+            } else { Ok(None) };
+        };
+        ExtensionUse::parse_metadata(name, self.get(PARAMETER), self.name()).map(Some)
     }
     /// A value-type projection for comparison, excluding this field's name, absence and role.
     /// Nested fields remain exact; no second declaration is stored.
@@ -805,4 +825,60 @@ pub fn render_field(field: &Field) -> Result<String, crate::SchemaError> {
 fn canonical_json(value: &impl serde::Serialize) -> Result<String, crate::SchemaError> {
     pse_columnar::native_field::canonical_json(value)
         .map_err(|error| crate::checks::invalid("Arrow declaration", error.to_string()))
+}
+
+#[cfg(test)]
+mod facet_metadata_tests {
+    use super::*;
+    use crate::model::{CollectionContract, IntegerRange, ReferenceContract, ReferenceNullPolicy, TaggedAlternative};
+
+    #[test]
+    fn selected_facet_metadata_refuses_unknown_present_roles_and_extensions() {
+        let base = FieldContract::native(DataType::Utf8).with_name("original_field");
+        assert_eq!(base.checked_role().unwrap(), ColumnRole::Payload);
+        assert!(base.checked_extension().unwrap().is_none());
+        assert!(base.clone().facet(ROLE, "unrecognized").checked_role().unwrap_err().to_string().contains("original_field"));
+        assert!(base.clone().facet(EXTENSION, "pse.unknown").checked_extension().is_err());
+        assert!(base.clone().facet(PARAMETER, "orphan").checked_extension().is_err());
+        assert!(base.clone().facet(EXTENSION, "pse.enum").checked_extension().is_err());
+        assert!(base.clone().facet(EXTENSION, "pse.enum").facet(PARAMETER, "").checked_extension().is_err());
+        assert!(base.clone().facet(EXTENSION, "pse.semantic_id").facet(PARAMETER, "irrelevant").checked_extension().is_err());
+        assert!(matches!(base.clone().facet(EXTENSION, "pse.enum").facet(PARAMETER, "ActualEnum").checked_extension().unwrap(), Some(ExtensionUse::Enum("ActualEnum"))));
+        assert!(matches!(ExtensionUse::parse_metadata("pse.expr_dsl", Some("predicate"), "original_field").unwrap(), ExtensionUse::ExprDsl(super::super::ExpressionGrammar::Predicate)));
+    }
+
+    #[test]
+    fn selected_facet_metadata_parsing_preserves_native_storage_checks() {
+        let collection = CollectionContract::SEQUENCE;
+        assert_eq!(CollectionContract::parse_metadata(&collection.canonical(), "source.items").unwrap(), collection);
+        assert!(CollectionContract::parse_metadata("{\"minimum\":0}", "source.items").is_err());
+        let wrong = collection.annotate(Field::new("not_list", DataType::Boolean, false));
+        assert!(CollectionContract::from_field(&wrong).is_err());
+        let interval = IntegerRange { minimum: -2, maximum: 5 };
+        assert_eq!(IntegerRange::parse_metadata(&interval.canonical(), "source.count").unwrap(), interval);
+        assert!(IntegerRange::parse_metadata("[5,-2]", "source.count").is_err());
+        assert!(IntegerRange::parse_metadata("[-2, 5]", "source.count").is_err());
+        assert!(IntegerRange::from_field(&interval.annotate(Field::new("not_signed", DataType::UInt64, false))).is_err());
+        let tagged = TaggedAlternative::new("kind", [("record".into(), "payload".into())]);
+        assert_eq!(TaggedAlternative::parse_metadata(&tagged.canonical(), "source.choice").unwrap(), tagged);
+        assert!(TaggedAlternative::from_field(&tagged.annotate(Field::new("not_struct", DataType::Utf8, false))).is_err());
+    }
+
+    #[test]
+    fn selected_facet_metadata_reference_null_policy_comes_from_actual_field() {
+        let required = FieldContract::native(DataType::UInt64).with_name("identity").with_fk("authored.original", "id");
+        let present = ReferenceContract::for_contract(&required).unwrap().unwrap();
+        assert_eq!(present.null_policy, ReferenceNullPolicy::Required);
+        let optional = ReferenceContract::for_contract(&required.optional()).unwrap().unwrap();
+        assert_eq!(optional.null_policy, ReferenceNullPolicy::AllOrNone);
+        assert_eq!(ReferenceContract::parse_metadata(&optional.canonical().unwrap(), "source.identity").unwrap(), optional);
+        let mut duplicate = optional;
+        duplicate.columns.push(duplicate.columns[0].clone());
+        assert!(ReferenceContract::parse_metadata(&duplicate.canonical().unwrap(), "source.identity").is_err());
+        let partial = FieldContract::native(DataType::UInt64).with_name("partial")
+            .facet(super::FK_RELATION, "authored.original");
+        assert!(ReferenceContract::for_contract(&partial).unwrap_err().to_string().contains("partial"));
+        let empty = FieldContract::native(DataType::UInt64).with_fk("", "id");
+        assert!(ReferenceContract::for_contract(&empty).is_err());
+    }
 }

@@ -293,6 +293,32 @@ pub enum ExtensionUse<'a> {
 }
 
 impl ExtensionUse<'_> {
+    /// Parse source extension semantics without constructing or admitting an Arrow field.
+    /// # Errors
+    /// Unknown names, absent or empty required parameters and inapplicable parameters refuse.
+    pub fn parse_metadata<'a>(name: &str, parameter: Option<&'a str>, path: &str) -> Result<ExtensionUse<'a>, crate::SchemaError> {
+        let invalid = || crate::checks::invalid(path, format!("unknown or incomplete declared extension {name}"));
+        let required = || parameter.filter(|value| !value.is_empty()).ok_or_else(invalid);
+        let value = match name {
+            "pse.semantic_id" => ExtensionUse::SemanticId,
+            "pse.content_hash" => ExtensionUse::ContentHash,
+            "pse.dimension_vector" => ExtensionUse::DimensionVector,
+            "pse.quantity_value" => ExtensionUse::QuantityValue,
+            "pse.bound" => ExtensionUse::Bound,
+            "pse.index_tuple" => ExtensionUse::IndexTuple,
+            "pse.ordinal_ref" => ExtensionUse::OrdinalRef { target: required()? },
+            "pse.source_span" => ExtensionUse::SourceSpan,
+            "pse.enum" => ExtensionUse::Enum(required()?),
+            "pse.expr_dsl" => ExtensionUse::ExprDsl(super::ExpressionGrammar::from_name(required()?).ok_or_else(invalid)?),
+            "pse.target_path" => ExtensionUse::TargetPath,
+            _ => return Err(invalid()),
+        };
+        if parameter.is_some() && !matches!(value, ExtensionUse::OrdinalRef { .. } | ExtensionUse::Enum(_) | ExtensionUse::ExprDsl(_)) {
+            return Err(invalid());
+        }
+        Ok(value)
+    }
+
     /// Native storage with source-owned presentation for selected engineering boundaries.
     /// The extension's Arrow storage declaration remains unchanged.
     /// # Errors

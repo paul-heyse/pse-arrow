@@ -68,16 +68,11 @@ impl TaggedAlternative {
         let Some(text) = field.metadata().get(KEY_TAGGED_ALTERNATIVE) else {
             return Ok(None);
         };
-        let invalid = |reason| crate::checks::invalid(field.name(), reason);
-        let value: Self = serde_json::from_str(text).map_err(|error| invalid(error.to_string()))?;
+        let invalid = |reason: String| crate::checks::invalid(field.name(), reason);
+        let value = Self::parse_metadata(text, field.name())?;
         let DataType::Struct(fields) = field.data_type() else {
             return Err(invalid("tagged alternative requires struct storage".into()));
         };
-        if value.canonical() != *text || value.arms.is_empty() {
-            return Err(invalid(
-                "tagged alternative requires canonical nonempty arms".into(),
-            ));
-        }
         let tag = fields
             .iter()
             .find(|child| child.name() == &value.discriminator);
@@ -102,5 +97,20 @@ impl TaggedAlternative {
             ));
         }
         Ok(Some(value))
+    }
+
+    /// Parse the canonical selection without claiming native payload/storage admission.
+    /// # Errors
+    /// Noncanonical, empty or self-selecting alternatives refuse with the source path.
+    pub fn parse_metadata(text: &str, path: &str) -> Result<Self, SchemaError> {
+        let invalid = |reason| crate::checks::invalid(path, reason);
+        let value: Self = serde_json::from_str(text).map_err(|error| invalid(error.to_string()))?;
+        if value.canonical() != text || value.discriminator.is_empty() || value.arms.is_empty()
+            || value.arms.keys().any(String::is_empty)
+            || value.payloads().contains(value.discriminator.as_str())
+        {
+            return Err(invalid("tagged alternative requires canonical named nonempty arms".into()));
+        }
+        Ok(value)
     }
 }

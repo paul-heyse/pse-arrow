@@ -79,33 +79,14 @@ impl ReferenceContract {
         let Some(text) = field.metadata().get(KEY_REFERENCE) else {
             return Ok(None);
         };
-        let invalid = |reason| crate::checks::invalid(field.name(), reason);
-        let contract: Self =
-            serde_json::from_str(text).map_err(|error| invalid(error.to_string()))?;
-        if contract.canonical()? != *text
-            || contract.relation.is_empty()
-            || contract.columns.is_empty()
-        {
-            return Err(invalid(
-                "reference requires canonical metadata, a target and a nonempty mapping".into(),
-            ));
-        }
+        let invalid = |reason: String| crate::checks::invalid(field.name(), reason);
+        let contract = Self::parse_metadata(text, field.name())?;
         if FieldContract::from_field(field.clone()).fk().is_some() {
             return Err(invalid(
                 "a field must declare its reference only once".into(),
             ));
         }
-        let mut sources = BTreeSet::new();
-        let mut targets = BTreeSet::new();
         for mapping in &contract.columns {
-            if mapping.target.is_empty()
-                || !sources.insert(&mapping.source)
-                || !targets.insert(&mapping.target)
-            {
-                return Err(invalid(
-                    "reference mappings require distinct source paths and target columns".into(),
-                ));
-            }
             let source = source_field(field, &mapping.source)?;
             if !FieldContract::from_field(source.clone()).admits_exact_key() {
                 return Err(invalid(
@@ -116,16 +97,38 @@ impl ReferenceContract {
         Ok(Some(contract))
     }
 
+    /// Parse canonical source mapping without resolving a native field or catalog.
+    /// # Errors
+    /// Malformed, noncanonical or duplicate mappings refuse with the source path.
+    pub fn parse_metadata(text: &str, path: &str) -> Result<Self, SchemaError> {
+        let invalid = |reason| crate::checks::invalid(path, reason);
+        let contract: Self = serde_json::from_str(text).map_err(|error| invalid(error.to_string()))?;
+        if contract.canonical()? != text || contract.relation.is_empty() || contract.columns.is_empty() {
+            return Err(invalid("reference requires canonical metadata, a target and a nonempty mapping".into()));
+        }
+        let mut sources = BTreeSet::new();
+        let mut targets = BTreeSet::new();
+        for mapping in &contract.columns {
+            if mapping.target.is_empty() || mapping.source.iter().any(String::is_empty)
+                || !sources.insert(&mapping.source) || !targets.insert(&mapping.target)
+            {
+                return Err(invalid("reference mappings require distinct source paths and target columns".into()));
+            }
+        }
+        Ok(contract)
+    }
+
     /// Normalize the scalar convenience declaration and correlated declaration into
     /// one native reference contract. Neither form has a separate execution path.
     ///
     /// # Errors
     /// Rejects an invalid explicit reference declaration.
     pub fn for_contract(field: &FieldContract) -> Result<Option<Self>, SchemaError> {
+        let scalar = field.checked_fk()?;
         if let Some(contract) = Self::from_field(field.field())? {
             return Ok(Some(contract));
         }
-        Ok(field.fk().map(|fk| Self {
+        Ok(scalar.map(|fk| Self {
             relation: fk.relation.into(),
             columns: vec![ReferenceColumn {
                 source: vec![],

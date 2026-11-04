@@ -76,8 +76,8 @@ impl CollectionContract {
         let Some(text) = field.metadata().get(KEY_COLLECTION) else {
             return Ok(None);
         };
-        let invalid = |reason| crate::checks::invalid(field.name(), reason);
-        let value: Self = serde_json::from_str(text).map_err(|error| invalid(error.to_string()))?;
+        let invalid = |reason: String| crate::checks::invalid(field.name(), reason);
+        let value = Self::parse_metadata(text, field.name())?;
         let width = match field.data_type() {
             DataType::List(_)
             | DataType::LargeList(_)
@@ -90,10 +90,7 @@ impl CollectionContract {
                 ));
             }
         };
-        if text != &value.canonical()
-            || value.minimum < 0
-            || value.maximum.is_some_and(|maximum| maximum < value.minimum)
-            || width.is_some_and(|width| {
+        if width.is_some_and(|width| {
                 width < value.minimum || value.maximum.is_some_and(|maximum| width > maximum)
             })
         {
@@ -102,6 +99,20 @@ impl CollectionContract {
             ));
         }
         Ok(Some(value))
+    }
+
+    /// Parse the canonical source facet without claiming native storage admission.
+    /// # Errors
+    /// Noncanonical metadata or an invalid cardinality refuses with the source path.
+    pub fn parse_metadata(text: &str, path: &str) -> Result<Self, SchemaError> {
+        let invalid = |reason| crate::checks::invalid(path, reason);
+        let value: Self = serde_json::from_str(text).map_err(|error| invalid(error.to_string()))?;
+        if text != value.canonical() || value.minimum < 0
+            || value.maximum.is_some_and(|maximum| maximum < value.minimum)
+        {
+            return Err(invalid("invalid collection cardinality or noncanonical metadata".into()));
+        }
+        Ok(value)
     }
 
     /// Check one typed value at a language boundary. Native execution lowers these

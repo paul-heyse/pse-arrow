@@ -90,17 +90,7 @@ impl BoundaryShape {
             return Ok(None);
         };
         let invalid = |reason: &str| crate::checks::invalid(field.name(), reason);
-        let shape: Self = serde_json::from_str(text)
-            .map_err(|_| invalid("malformed nested boundary presentation"))?;
-        if shape.canonical() != *text
-            || shape.source.is_empty()
-            || shape.version == 0
-            || shape.name.as_ref().is_some_and(|name| !identifier(name))
-        {
-            return Err(invalid(
-                "nested presentation requires canonical metadata, source, name and interpretation",
-            ));
-        }
+        let shape = Self::parse_metadata(text, field.name())?;
         if !matches!(field.data_type(), arrow_schema::DataType::Struct(_)) {
             return Err(invalid(
                 "nested record/alternative presentation requires the actual native structure",
@@ -112,15 +102,6 @@ impl BoundaryShape {
             .iter()
             .map(String::as_str)
             .collect::<BTreeSet<_>>();
-        if reserved.len() != shape.reserved_tags.len()
-            || names.len() != shape.reserved_names.len()
-            || reserved.iter().any(|tag| !valid_tag(*tag))
-            || names.iter().any(|name| !identifier(name))
-        {
-            return Err(invalid(
-                "nested presentation has invalid or duplicate reservations",
-            ));
-        }
         let alternative = TaggedAlternative::from_field(native)?;
         let mut tags = BTreeSet::new();
         if let Some(alternative) = alternative {
@@ -174,6 +155,33 @@ impl BoundaryShape {
             }
         }
         Ok(Some(shape))
+    }
+
+    /// Parse source presentation without claiming native structure membership.
+    /// # Errors
+    /// Noncanonical metadata, missing interpretation or invalid reservations refuse.
+    pub fn parse_metadata(text: &str, path: &str) -> Result<Self, SchemaError> {
+        let invalid = |reason| crate::checks::invalid(path, reason);
+        let shape: Self = serde_json::from_str(text)
+            .map_err(|_| invalid("malformed nested boundary presentation"))?;
+        if shape.canonical() != text || shape.source.is_empty() || shape.version == 0
+            || shape.name.as_ref().is_some_and(|name| !identifier(name))
+        {
+            return Err(invalid("nested presentation requires canonical metadata, source, name and interpretation"));
+        }
+        let reserved = shape.reserved_tags.iter().copied().collect::<BTreeSet<_>>();
+        let names = shape.reserved_names.iter().map(String::as_str).collect::<BTreeSet<_>>();
+        let mut alternatives = BTreeSet::new();
+        let mut tags = BTreeSet::new();
+        if reserved.len() != shape.reserved_tags.len() || names.len() != shape.reserved_names.len()
+            || reserved.iter().any(|tag| !valid_tag(*tag)) || names.iter().any(|name| !identifier(name))
+            || shape.alternatives.iter().any(|(name, tag)| name.is_empty() || !valid_tag(*tag)
+                || reserved.contains(tag) || names.contains(name.as_str())
+                || !alternatives.insert(name) || !tags.insert(*tag))
+        {
+            return Err(invalid("nested presentation has invalid or duplicate reservations/alternatives"));
+        }
+        Ok(shape)
     }
 }
 fn identifier(name: &str) -> bool {
