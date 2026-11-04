@@ -113,7 +113,7 @@ impl Fixture {
             report: ReportReference {
                 path: "report.json".into(),
                 sha256: digest(&bytes),
-                bytes: bytes.len() as u64,
+                byte_length: bytes.len() as u64,
             },
             required_capture_complete: true,
         };
@@ -123,7 +123,7 @@ impl Fixture {
             "original frozen fixture",
             ManagedSummary {
                 bundle: None,
-                native_lifetime_pending: false,
+                native_lifetime_pending: Some(false),
                 workflow: Some(WorkflowSummary {
                     terminal,
                     report: report.clone().into_os_string(),

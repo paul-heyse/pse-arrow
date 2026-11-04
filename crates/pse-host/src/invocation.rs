@@ -632,6 +632,27 @@ impl InvocationDirectory {
         self.read_record(record.filename())
     }
     fn read_record<T: DeserializeOwned>(&self, name: &str) -> Result<Option<T>, HostError> {
+        let Some(bytes) = self.read_record_bytes(name)? else { return Ok(None); };
+        serde_json::from_slice(&bytes).map(Some).map_err(|error| {
+            if name == "request.json" {
+                // A private malformed value can itself be a credential. Preserve location
+                // and native category without copying that value into diagnostics.
+                invalid(format!(
+                    "private request decode failed: {:?} at line {}, column {}",
+                    error.classify(),
+                    error.line(),
+                    error.column()
+                ))
+            } else {
+                invalid(format!("owner record decode failed: {error}"))
+            }
+        })
+    }
+    /// Exact bounded original owner-record bytes; fixed records exclude private requests.
+    pub(crate) fn evidence_bytes(&self, record: InvocationEvidence) -> Result<Option<Vec<u8>>, HostError> {
+        self.read_record_bytes(record.filename())
+    }
+    fn read_record_bytes(&self, name: &str) -> Result<Option<Vec<u8>>, HostError> {
         directory(&self.path, false)?;
         let file = match evidence_file(&self.path.join(name)) {
             Err(HostError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -647,20 +668,7 @@ impl InvocationDirectory {
         if bytes.len() as u64 > META_LIMIT {
             return Err(invalid("owner record grew beyond declared bound"));
         }
-        serde_json::from_slice(&bytes).map(Some).map_err(|error| {
-            if name == "request.json" {
-                // A private malformed value can itself be a credential. Preserve location
-                // and native category without copying that value into diagnostics.
-                invalid(format!(
-                    "private request decode failed: {:?} at line {}, column {}",
-                    error.classify(),
-                    error.line(),
-                    error.column()
-                ))
-            } else {
-                invalid(format!("owner record decode failed: {error}"))
-            }
-        })
+        Ok(Some(bytes))
     }
     /// Publish ephemeral private service input. Secrets belong only here, never immutable
     /// metadata, diagnostics or launch records. The supervisor consumes it before readiness.

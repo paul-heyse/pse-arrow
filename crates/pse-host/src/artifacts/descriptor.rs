@@ -27,7 +27,7 @@ pub struct DescriptorIdentity {
     /// Observed change seconds/nanoseconds.
     pub changed: (i64, i64),
 }
-fn identity(file: &File) -> Result<DescriptorIdentity, ArtifactError> {
+pub(crate) fn identity(file: &File) -> Result<DescriptorIdentity, ArtifactError> {
     let metadata = file.metadata()?;
     if !metadata.is_file() {
         return Err(ArtifactError::Range(

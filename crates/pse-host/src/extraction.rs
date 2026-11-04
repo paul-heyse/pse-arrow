@@ -474,6 +474,10 @@ impl NextestSummary {
     pub fn child_exit(&self) -> i32 {
         self.child_exit
     }
+    /// Original waited Nextest status, distinct from a borrowed wrapper's exit.
+    pub fn native_child_exit(&self) -> Option<i32> {
+        self.native_child_exit
+    }
     /// Native exit classification, independent of population reconciliation.
     pub fn child_class(&self) -> NextestExitClass {
         self.child_class

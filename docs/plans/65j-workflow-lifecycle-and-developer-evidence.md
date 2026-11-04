@@ -123,8 +123,8 @@ migrated, retained, or explicitly reported incompatible.
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
 | J01 | in-progress | P01; current test and scientific evidence owners | Shared passive report-observation contract and original terminal matching are implemented in source; remaining population/construction/closure agreement and working generated delivery remain. Compare list/check/test/rustdoc, expected refusal, setup failure, zero match and incomplete capture before A/B interfaces freeze. |
-| J02 | in-progress | J01; working narrow A/B records/options/decode policy; narrow G02 inspector | Native v2 publication commits original inventory content; source-built one-way roots retain complete bytes and diagnostics. First generated bundle, independent binary readback and foreign/malformed/oversized/missing-import controls are implemented and narrowly tested. Full lifecycle/population delivery, intentional-failure-to-exact-rerun journey and retained raw-artifact protection remain. |
-| J03 | in-progress | J02; native failed-test rerun and current listing | Existing native rerun now consumes the shared v2 report/inventory commitment; the representative controlled failure/export/readback/exact-rerun journey passed. Complete changed package/features/identity, absent-evidence and stale-binary controls, and every selected consumer/deletion. Historical outcomes never become present evidence. |
+| J02 | in-progress | J01; working narrow A/B records/options/decode policy; narrow G02 inspector | Current report interpretation three seals original dependency commitments/omissions; source-generated one-way roots support explicit report, selection and full scopes. Independent binary readback and foreign/malformed/oversized/missing-import controls are narrowly tested. Full lifecycle/population delivery and retained raw-artifact protection remain. |
+| J03 | in-progress | J02; native failed-test rerun and current listing | Native rerun consumes authenticated original input and report/inventory commitments. The representative controlled failure/export/readback/exact-rerun journey passed for the earlier selection family; interpretation-three full dependency delivery and its new journey are recorded below. Complete changed package/features/identity, absent-evidence and stale-binary controls, and every selected consumer/deletion. Historical outcomes never become present evidence. |
 | J04 | planned | J02/J03; existing invocation/raw/fixture custody and interpretation policy | Integrate family retention, interruption and cleanup. Test report without inventory, unavailable old policy, corrupt raw capture, active reader and failed release. Preserve fixture lifetime, capture completeness and native settlement separately; delete replaced reference/cleanup translations. |
 | J05 | planned | J02–J04 full population; narrow F02 presentation and G02 reading | Complete list/check/rustdoc/test and exact rerun across assertion failure, passing expected-refusal test, zero match, setup failure, incomplete capture and interruption. Migrate every selected reader and remove replaced maps/fixtures; supply actual limits and population to H. |
 
@@ -321,14 +321,37 @@ the no-replacement operation; the [native publication owner](../../crates/pse-ho
 composes staging and durability. Five selected native host controls passed with zero
 failures and compiler warnings for original-input tampering and these publication invariants.
 
-J03/F03 remains open: current portable selection evidence includes original report and
-inventory, without claiming that referenced runner, compiler, assertion or raw-stream files
-are included. The accepted next cutover uses report interpretation three with once-sealed,
-source-enumerated dependency commitments and original omissions; retries verify the same
-original identities. Full, selection and report scopes must be explicit. Later missing,
-mutated or expired files stay separate from original capture completeness, and legacy
-reports cannot acquire an original full-evidence commitment at read time. Provider,
-executable and live fixture custody remain with their native owners.
+The subsequent J03/F03 source cutover makes report interpretation three the sole current
+writer; terminal protocol one remains separate. Exclusive `Report::publish(&mut self)`
+seals the actual source-enumerated dependencies once after the phase/capture cutoff and
+revalidates those exact promises on publication retries. Immutable original omissions retain
+their typed diagnostic or unsettled disposition. A missing, changed or expired committed
+file later refuses full acquisition; it never changes the original account. The performing
+owner binds the same original input accepted through its live `InputBinding`, excluding
+metadata/control requests, environment bags, executable/provider and live fixture custody.
+
+`--scope report|selection|full` defaults to full. The existing borrowed report root carries
+report or full scope; the existing inventory root carries selection scope. Full includes
+exact input, inventory, raw streams, native JUnit assertion output, reached compiler/discovery
+context, runner configuration and passive fixture outcomes when originally promised. The
+reader checks a bijection between original manifest ordinals and included bytes, complete
+extent/digest identities, original inventory population, and original input interpretation.
+Original omissions remain explicit even if files appear later. Legacy reports one/two remain
+readable in their supported report/selection scopes; neither acquires a historical full
+commitment. The generated decoder still requires the exact compiled descriptor world and
+typed source metadata; acquired bytes construct no native verdict or current readiness.
+
+Nextest configuration producers use the existing atomic 0400 publication owner. Repeated
+construction reuses only the same protected immutable content, checked through the existing
+descriptor reader's whole-file digest/extent and device/inode association; changed or
+unprotected content refuses without replacement or repair. After actual native Nextest exit
+and required capture settlement, the producer finalizes only its declared JUnit regular file:
+NOFOLLOW open, native uid/single-link/path-to-FD identity checks, FD permissions 0400 and sync,
+then hashing and identity recheck. Retained readers never chmod files. These mechanisms use
+the existing `artifacts::read_descriptor` and native publication owners rather than a new
+storage path; the pinned rustix source above describes exclusive publication. Buffa generated
+messages, `MessageField::into_option`, maintained validation and bounded `DecodeOptions`
+continue to provide the wire mechanics described under Concrete library composition.
 
 Discovery failures now retain a source-owned attempt account containing every actual
 version/build/list phase reached, including a failed child or absent capture observations.
@@ -339,8 +362,35 @@ inventory, selected population or rerun eligibility. A known nonzero child with 
 raw capture remains distinct from incomplete capture. Three focused native controls passed
 with zero failures and compiler warnings for original successful-plus-failed capture,
 missing child observations and report adoption of the original failed account. This closes
-the lost-prior-phases source gap; interpretation-three dependency sealing and portable
-full-evidence delivery remain open.
+the lost-prior-phases source gap. The interpretation-three manifest now consumes those
+same actual reached phases, retaining failed/absent child observations separately from
+inventory/population availability.
+
+**Tested, narrow interpretation-three scope:** `scripts/pse check pse-host --all-targets`
+passed with zero errors/warnings. Nineteen selected host controls passed for original
+commitment sealing/retry immutability, authenticated input, exact portable-file bijection,
+original omissions/later file appearance, missing/mutated bytes, legacy/full-scope refusal,
+FD finalization/no read-time repair and hardlink/path replacement refusal. Three additional
+configuration/legacy controls passed for same-inode immutable reuse, changed/unprotected
+configuration refusal and unchanged original incomplete-report meaning. Initial fixture
+failures exposed nonprivate temporary directories, two stale native fixture fields, and
+repeated immutable configuration construction; the fixtures/producers were corrected rather
+than weakening custody guards. Full lifecycle qualification, active-reader retention and
+failed-release behavior remain J04/J05 obligations; no package closes at this checkpoint.
+
+**Tested, interpretation-three developer journey:** the existing flag-gated
+`rerun_controlled_failure_probe` produced one actual failed test with original capture and
+settlement complete. Default-full export included all eighteen originally committed files
+(6,964,203 bytes), including native JUnit assertion evidence, with zero original omissions.
+Independent binary `inspect payload` validated the complete generated family and original
+report/input/inventory associations; it preserved the failed original and its complete
+selected population. Native `inspect test-selection --rerun-failed` retained the exact
+original package/lib/features/test identity while reporting admission/listing unavailable
+at preview. Actual `test --rerun-failed`, with the failure flag absent, rebuilt/listed through
+the existing owner and passed that one identity. All eighteen original commitments and
+report, inventory, JUnit and portable payload digests remained unchanged. This demonstrates
+the bounded failed-original/full-inspection/new-outcome journey; it does not reproduce the
+original runtime environment or qualify interruption, expiry or every J05 population case.
 
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.

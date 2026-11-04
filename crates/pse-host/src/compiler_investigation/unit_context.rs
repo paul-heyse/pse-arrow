@@ -109,10 +109,7 @@ pub fn unit_context(
         .ok_or_else(|| invalid("original workflow terminal is absent"))?;
     let report = workflow_context(
         &captured.report,
-        &id,
-        action,
-        &serde_json::to_value(terminal.terminal.outcome).map_err(std::io::Error::other)?,
-        terminal.terminal.required_capture_complete,
+        &terminal.terminal,
     )?;
     let sha = digest(&captured.report);
     let mut response = Envelope::response(
@@ -165,22 +162,11 @@ pub fn unit_context(
 
 fn workflow_context(
     bytes: &[u8],
-    id: &CliInvocationId,
-    action: Action,
-    outcome: &serde_json::Value,
-    capture_complete: bool,
+    terminal: &crate::test_workflow::execute::TerminalRecord,
 ) -> Result<ReportSource, HostError> {
+    let observation: crate::test_workflow::execute::ReportObservation = serde_json::from_slice(bytes).map_err(std::io::Error::other)?;
+    observation.validate_against(terminal).map_err(|error| HostError::Workflow(Box::new(error)))?;
     let report: ReportSource = serde_json::from_slice(bytes).map_err(std::io::Error::other)?;
-    if report.version != 1
-        || report.invocation != *id
-        || report.action != action
-        || report.outcome != *outcome
-        || report.required_capture_complete != capture_complete
-    {
-        return Err(invalid(
-            "original admission report version, invocation, action or outcome differs from its authenticated terminal",
-        ));
-    }
     if report.selection.is_none() && !report.admission.is_empty() {
         return Err(invalid(
             "original admission groups have no recorded selection",
@@ -202,67 +188,20 @@ mod tests {
             native_capabilities: Default::default(),
         })
         .unwrap();
-        let report = serde_json::json!({"version":1,"invocation":id,"action":"check","outcome":"check_succeeded","selection":{},"admission":[group.clone(),group],"phases":[],"observations":[],"required_capture_complete":true});
+        let report = serde_json::json!({"version":1,"invocation":id,"action":"check","outcome":"check_succeeded","selection":{},"admission":[group.clone(),group],"phases":[],"observations":[],"required_capture_complete":true,"failures":[]});
         let bytes = serde_json::to_vec(&report).unwrap();
-        let original = workflow_context(
-            &bytes,
-            &id,
-            Action::Check,
-            &serde_json::json!("check_succeeded"),
-            true,
-        )
-        .unwrap();
+        use crate::test_workflow::execute::{Outcome, ReportReference, TerminalRecord};
+        let terminal = TerminalRecord { protocol:"pse.test-workflow".into(), version:1, invocation:id, action:Action::Check, outcome:Outcome::CheckSucceeded, required_capture_complete:true, report:ReportReference { path:"report.json".into(), sha256:digest(&bytes), byte_length:bytes.len() as u64 } };
+        let original = workflow_context(&bytes, &terminal).unwrap();
         assert_eq!(original.admission.len(), 2);
-        assert!(
-            workflow_context(
-                &bytes,
-                &CliInvocationId::new(),
-                Action::Check,
-                &serde_json::json!("check_succeeded"),
-                true
-            )
-            .is_err()
-        );
-        assert!(
-            workflow_context(
-                &bytes,
-                &id,
-                Action::Test,
-                &serde_json::json!("check_succeeded"),
-                true
-            )
-            .is_err()
-        );
-        assert!(
-            workflow_context(
-                &bytes,
-                &id,
-                Action::Check,
-                &serde_json::json!("check_failed"),
-                true
-            )
-            .is_err()
-        );
-        assert!(
-            workflow_context(
-                &bytes,
-                &id,
-                Action::Check,
-                &serde_json::json!("check_succeeded"),
-                false
-            )
-            .is_err()
-        );
+        let mut changed = terminal.clone(); changed.invocation=CliInvocationId::new(); assert!(workflow_context(&bytes,&changed).is_err());
+        let mut changed = terminal.clone(); changed.action=Action::Test; assert!(workflow_context(&bytes,&changed).is_err());
+        let mut changed = terminal.clone(); changed.outcome=Outcome::Failed; assert!(workflow_context(&bytes,&changed).is_err());
+        let mut changed = terminal.clone(); changed.required_capture_complete=false; assert!(workflow_context(&bytes,&changed).is_err());
         let mut missing = report;
         missing["selection"] = serde_json::Value::Null;
         assert!(
-            workflow_context(
-                &serde_json::to_vec(&missing).unwrap(),
-                &id,
-                Action::Check,
-                &serde_json::json!("check_succeeded"),
-                true
-            )
+            workflow_context(&serde_json::to_vec(&missing).unwrap(), &terminal)
             .is_err()
         );
     }

@@ -173,6 +173,7 @@ fn terminal_correlation_action_and_complete_capture_are_required() {
     assert_eq!(Action::from_command("run"), None);
     let input = input(Action::Check);
     let root = tempfile::tempdir().unwrap();
+    fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();
     let mut report = Report::new(&input);
     report.outcome = Outcome::CheckSucceeded;
     let terminal = report.publish(root.path()).unwrap();
@@ -393,7 +394,7 @@ async fn actual_workflow_runs_only_the_original_selected_pure_host_test() {
     let input: Input = serde_json::from_slice(&serde_json::to_vec(&input).unwrap()).unwrap();
     assert!(input.request.filters.ignore_default_filter);
     let destination = evidence.path().join("workflow");
-    let report = run(&input, root, &destination, std::env::vars_os().collect())
+    let mut report = run(&input, root, &destination, std::env::vars_os().collect())
         .await
         .unwrap();
     if report.outcome != Outcome::TestsSucceeded {
@@ -437,7 +438,8 @@ async fn actual_workflow_runs_only_the_original_selected_pure_host_test() {
     let readback = read(&wire).unwrap();
     assert_eq!(readback.selected_tests, Some(1));
     assert_eq!(readback.selected_population_complete, Some(true));
-    assert_eq!(readback.report_version, 2);
+    assert_eq!(readback.report_version, 3);
+    assert_eq!(readback.scope, super::super::EvidenceScope::Selection);
     assert!(readback.recorded_manager_settlement.is_none(), "this direct native test has no recorded manager owner");
     let mut changed = wire.clone();
     changed.selected_tests.clear();
@@ -476,7 +478,7 @@ async fn actual_package_workflow_reconciles_selected_tests_beside_an_ignored_onl
     input.request.filters.expressions = vec!["test(=managed::workflow::tests::required_terminal_is_single_complete_correlated_and_never_generic_authority) | test(=managed::workflow::tests::original_report_requires_private_complete_unchanged_bytes_and_waited_status)".into()];
     input.request.filters.ignore_default_filter = true;
     let destination = evidence.path().join("workflow");
-    let report = run(&input, root, &destination, std::env::vars_os().collect())
+    let mut report = run(&input, root, &destination, std::env::vars_os().collect())
         .await
         .unwrap();
     if report.outcome != Outcome::TestsSucceeded {
@@ -539,7 +541,7 @@ async fn actual_check_and_zero_match_listing_keep_distinct_native_outcomes() {
         },
     }]);
     let destination = evidence.path().join("check");
-    let report = run(&input, root, &destination, std::env::vars_os().collect())
+    let mut report = run(&input, root, &destination, std::env::vars_os().collect())
         .await
         .unwrap();
     if report.outcome != Outcome::CheckSucceeded {
@@ -563,7 +565,7 @@ async fn actual_check_and_zero_match_listing_keep_distinct_native_outcomes() {
     input.request.operation = selection::Operation::Test;
     input.request.filters.words = vec![format!("no-such-test-{}", input.invocation)];
     let destination = evidence.path().join("zero-list");
-    let report = run(&input, root, &destination, std::env::vars_os().collect())
+    let mut report = run(&input, root, &destination, std::env::vars_os().collect())
         .await
         .unwrap();
     if report.outcome != Outcome::ZeroMatch {

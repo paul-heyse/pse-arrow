@@ -89,8 +89,8 @@ pub(super) fn resolve(
             let id = store
                 .resolve(&invocation, None)?
                 .ok_or_else(|| WorkflowError::Invalid("rerun invocation is absent".into()))?;
-            let original = crate::managed::workflow::retained_input(&store, &id, Action::Test)?;
             let captured_evidence = crate::test_inventory::captured(&store, id.as_str(), None)?;
+            let original = crate::managed::workflow::retained_input(&store, &id, Action::Test, &captured_evidence.observation)?;
             let historical: HistoricalReport = serde_json::from_slice(&captured_evidence.report)
                 .map_err(crate::discovery::DiscoveryError::from)?;
             if captured_evidence.observation.action != Action::Test {

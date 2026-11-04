@@ -26,6 +26,7 @@ use std::{
     collections::BTreeSet,
     ffi::OsString,
     fs,
+    os::unix::fs::MetadataExt as _,
     path::{Path, PathBuf},
 };
 
@@ -704,11 +705,45 @@ impl Listed {
         let derived = toml::to_string(&configuration).map_err(|error| {
             WorkflowError::Invalid(format!("derived nextest configuration: {error}"))
         })?;
-        let path = self
-            .capture_root
-            .join(format!("group-{group}/nextest-run.toml"));
-        fs::write(&path, derived)?;
+        let path = self.run_configuration_path(group);
+        match crate::invocation::publish_bytes(&path, derived.as_bytes(), None, 0o400) {
+            Ok(()) => {},
+            Err(crate::HostError::Io(error)) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                // Command construction may reuse one immutable derived artifact; it
+                // cannot overwrite a changed policy or repair an unprotected file.
+                let file = crate::test_inventory::open_private(&path)?;
+                let metadata = file.metadata()?;
+                if metadata.nlink() != 1
+                    || metadata.mode() & 0o777 != 0o400
+                    || metadata.len() != derived.len() as u64
+                {
+                    return Err(WorkflowError::Changed(path));
+                }
+                let expected = execute::ContentIdentity::of(derived.as_bytes());
+                let original = crate::artifacts::read_descriptor(
+                    file,
+                    0,
+                    std::num::NonZeroU64::new(expected.byte_length),
+                    Some(&expected.sha256),
+                ).map_err(crate::HostError::from)?;
+                let entry = fs::symlink_metadata(&path)?;
+                if !entry.is_file()
+                    || entry.nlink() != 1
+                    || entry.uid() != rustix::process::geteuid().as_raw()
+                    || entry.dev() != original.identity.device
+                    || entry.ino() != original.identity.inode
+                    || entry.mode() & 0o777 != 0o400
+                {
+                    return Err(WorkflowError::Changed(path));
+                }
+            }
+            Err(error) => return Err(error.into()),
+        }
         Ok(path)
+    }
+    /// Source-owned path shared by the writer and original dependency recorder.
+    pub(crate) fn run_configuration_path(&self, group: usize) -> PathBuf {
+        self.capture_root.join(format!("group-{group}/nextest-run.toml"))
     }
     /// Bind the native completed report; raw output has no lifecycle interpreter.
     pub fn observer(&self, group: usize) -> Result<CompletedObserver, WorkflowError> {

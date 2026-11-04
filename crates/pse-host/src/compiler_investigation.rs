@@ -47,14 +47,10 @@ fn digest(bytes: &[u8]) -> String {
 
 #[derive(Deserialize)]
 struct ReportSource {
-    version: u32,
-    invocation: CliInvocationId,
     action: crate::test_workflow::execute::Action,
     outcome: serde_json::Value,
     admission: Vec<Resolution>,
     selection: Option<serde_json::Value>,
-    #[serde(default)]
-    required_capture_complete: bool,
     phases: Vec<PhaseSource>,
     observations: Vec<GroupSource>,
 }
@@ -164,21 +160,17 @@ fn report(
     store: &InvocationStore,
     selector: &str,
     session: Option<&str>,
-) -> Result<(CliInvocationId, String, PathBuf, ReportSource), HostError> {
+) -> Result<(CliInvocationId, String, PathBuf, ReportSource, crate::test_workflow::execute::ReportObservation), HostError> {
     let crate::test_inventory::CapturedReport {
         id,
         report: bytes,
         parent,
+        observation,
         ..
     } = crate::test_inventory::captured_report(store, selector, session)?;
     let sha = digest(&bytes);
     let report: ReportSource = serde_json::from_slice(&bytes).map_err(std::io::Error::other)?;
-    if report.version != 1 || report.invocation != id {
-        return Err(invalid(
-            "unsupported original report version or invocation association",
-        ));
-    }
-    Ok((id, sha, parent, report))
+    Ok((id, sha, parent, report, observation))
 }
 /// Read original check-failure references through the existing authenticated report owner.
 /// Missing raw/related detail is a next observation, never an automatic compilation.
@@ -190,7 +182,7 @@ pub fn diagnostics(
     limit: NonZeroUsize,
     root: &Path,
 ) -> Result<Envelope<DiagnosticPage>, HostError> {
-    let (id, sha, _, report) = report(store, selector, session)?;
+    let (id, sha, _, report, _) = report(store, selector, session)?;
     let mut records = Vec::new();
     let mut omitted = 0;
     for group in report.observations {
@@ -327,8 +319,9 @@ pub struct DiagnosticEvidence {
 struct Record {
     identity: DescriptorIdentity,
     selected_sha256: String,
+    original_sha256: Option<String>,
 }
-fn read_record(path: &Path, origin: &RecordOrigin) -> Result<(Record, Box<RawValue>), HostError> {
+fn read_record(path: &Path, origin: &RecordOrigin, original: Option<&crate::test_workflow::execute::ContentIdentity>) -> Result<(Record, Box<RawValue>), HostError> {
     if origin.byte_length == 0 {
         return Err(invalid("original compiler record extent is empty"));
     }
@@ -341,8 +334,9 @@ fn read_record(path: &Path, origin: &RecordOrigin) -> Result<(Record, Box<RawVal
         file,
         origin.byte_offset,
         NonZeroU64::new(origin.byte_length),
-        None,
+        original.map(|content| content.sha256.as_str()),
     )?;
+    if original.is_some_and(|content| content.byte_length != observed.identity.bytes) { return Err(invalid("original compiler stream extent differs from its performing commitment")); }
     if observed.byte_range.end != end {
         return Err(invalid("original raw record is missing or truncated"));
     }
@@ -354,6 +348,7 @@ fn read_record(path: &Path, origin: &RecordOrigin) -> Result<(Record, Box<RawVal
         Record {
             identity: observed.identity,
             selected_sha256: observed.selected_sha256,
+            original_sha256: observed.verified_sha256,
         },
         raw,
     ))
@@ -373,7 +368,7 @@ pub fn diagnostic(
             "selected compiler record has an unsupported pipe or exceeds the explicit whole-record decoding allowance",
         ));
     }
-    let (id, sha, parent, report) = report(store, address.invocation.as_str(), None)?;
+    let (id, sha, parent, report, observation) = report(store, address.invocation.as_str(), None)?;
     if sha != address.report_sha256 || id != address.invocation {
         return Err(invalid(
             "original performing report changed since selecting the diagnostic",
@@ -440,7 +435,12 @@ pub fn diagnostic(
         ));
     }
     let path = parent.join(relative);
-    let (artifact, raw) = read_record(&path, &address.origin)?;
+    let original = if observation.version == 3 {
+        let file = observation.evidence.as_ref().and_then(|files| files.iter().find(|file| file.root == crate::test_workflow::execute::EvidenceRoot::Workflow && file.path == phase.stdout && file.role == crate::test_workflow::execute::EvidenceRole::Stdout))
+            .ok_or_else(|| invalid("original compiler stream dependency is absent"))?;
+        Some(file.content.as_ref().ok_or_else(|| invalid("original compiler stream was unavailable at the performing cutoff"))?)
+    } else { None };
+    let (artifact, raw) = read_record(&path, &address.origin, original)?;
     let message: Message = serde_json::from_str(raw.get()).map_err(std::io::Error::other)?;
     let Message::CompilerMessage(native) = message else {
         return Err(invalid(
@@ -808,6 +808,8 @@ pub struct DetailPage<'a> {
     pub address: &'a DiagnosticAddress,
     /// Original exact native JSON record digest.
     pub record_sha256: &'a str,
+    /// Whole original stream commitment when the original report supplied one; legacy absence stays unavailable.
+    pub original_stream_sha256: Option<&'a str>,
     /// Original compiler code when supplied.
     pub code: Option<&'a str>,
     /// Original diagnostic message.
@@ -953,6 +955,7 @@ impl DiagnosticEvidence {
             DetailPage {
                 address: &self.address,
                 record_sha256: &self.artifact.selected_sha256,
+                original_stream_sha256: self.artifact.original_sha256.as_deref(),
                 code: self
                     .native
                     .message
@@ -1144,6 +1147,7 @@ mod tests {
                     changed: (0, 0),
                 },
                 selected_sha256: digest(raw.as_bytes()),
+                original_sha256: None,
             },
             artifact_path: "/original/stdout".into(),
             raw: serde_json::from_str(raw).unwrap(),
@@ -1265,7 +1269,7 @@ mod tests {
             byte_length: raw.len() as u64 + 1,
             ordinal: 3,
         };
-        let (identity, selected) = read_record(&path, &origin).unwrap();
+        let (identity, selected) = read_record(&path, &origin, None).unwrap();
         assert_eq!(selected.get(), raw);
         assert_eq!(
             identity.selected_sha256,
@@ -1273,12 +1277,32 @@ mod tests {
         );
         let alias = directory.path().join("alias");
         std::os::unix::fs::symlink(&path, &alias).unwrap();
-        assert!(read_record(&alias, &origin).is_err());
+        assert!(read_record(&alias, &origin, None).is_err());
         fs::set_permissions(&path, fs::Permissions::from_mode(0o666)).unwrap();
-        assert!(read_record(&path, &origin).is_err());
+        assert!(read_record(&path, &origin, None).is_err());
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
         fs::write(&path, "prefix{}").unwrap();
-        assert!(read_record(&path, &origin).is_err());
+        assert!(read_record(&path, &origin, None).is_err());
+    }
+    #[test]
+    fn original_stream_commitment_refuses_changed_tail_even_when_selected_record_is_unchanged() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("stdout");
+        let raw = record();
+        let original = format!("prefix{raw}\ntail");
+        fs::write(&path, &original).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        let content = crate::test_workflow::execute::ContentIdentity::of(original.as_bytes());
+        let origin = RecordOrigin { stream:OutputStream::Stdout, byte_offset:6, byte_length:raw.len() as u64 + 1, ordinal:3 };
+        let (observed, _) = read_record(&path, &origin, Some(&content)).unwrap();
+        assert_eq!(observed.original_sha256.as_deref(), Some(content.sha256.as_str()));
+        let changed = format!("prefix{raw}\nFAIL");
+        assert_eq!(original.len(), changed.len());
+        fs::write(&path, changed).unwrap();
+        let (legacy, selected) = read_record(&path, &origin, None).unwrap();
+        assert_eq!(selected.get(), raw);
+        assert!(legacy.original_sha256.is_none(), "legacy absence cannot invent an original whole-stream commitment");
+        assert!(read_record(&path, &origin, Some(&content)).is_err());
     }
     #[test]
     fn current_locator_maps_unicode_crlf_and_bom_without_reusing_original_byte_extent() {

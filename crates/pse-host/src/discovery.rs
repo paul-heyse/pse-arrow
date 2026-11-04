@@ -484,7 +484,7 @@ pub async fn list(
         let cargo = crate::correctness::real_cargo_in(environment)?;
         let nextest_configuration = fs::read(checkout.join(".config/nextest.toml"))?;
         let configuration = destination.join("nextest.toml");
-        fs::write(&configuration, &nextest_configuration)?;
+        crate::invocation::publish_bytes(&configuration, &nextest_configuration, None, 0o400)?;
         let mut groups = Vec::new();
         for (index, group) in resolved.plan().groups().iter().enumerate() {
             let group_directory = destination.join(format!("group-{index}"));

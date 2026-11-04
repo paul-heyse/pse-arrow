@@ -282,24 +282,34 @@ pub fn failures(
         },
     );
     response.observation.scope = "retained_native_failure_page".into();
-    response.observation.limitations=vec!["Rows project the frozen original performing report; native XML addresses retain full assertion output, and original raw streams remain separate.".into(),"The full retained report is decoded; page limits bound whole-record output rather than scan cost.".into()];
+    response.observation.limitations=vec!["Rows project the frozen original performing report. Artifact paths are original references; full evidence scope separately reconciles retained bytes with original commitments.".into(),"The full retained report is decoded; page limits bound whole-record output rather than scan cost.".into()];
     Ok(response)
 }
 fn invalid(message: &str) -> HostError {
     HostError::Ownership(format!("test inventory: {message}"))
 }
 pub(crate) fn read_private(path: &Path) -> Result<Vec<u8>, HostError> {
+    read_private_bounded(path, None)
+}
+fn read_private_bounded(path: &Path, maximum: Option<usize>) -> Result<Vec<u8>, HostError> {
     let mut file = open_private(path)?;
     let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes)?;
+    if let Some(maximum) = maximum {
+        if file.metadata()?.len() > maximum as u64 { return Err(invalid("original evidence exceeds the selected portable extent")); }
+        file.take(maximum.saturating_add(1) as u64).read_to_end(&mut bytes)?;
+        if bytes.len() > maximum { return Err(invalid("original evidence grew beyond the selected portable extent")); }
+    } else { file.read_to_end(&mut bytes)?; }
     Ok(bytes)
 }
 /// One custody rule for publication, current live validation and retained adoption.
 pub(crate) fn read_original_inventory(workflow: &Path) -> Result<Vec<u8>, HostError> {
+    read_original_inventory_bounded(workflow, None)
+}
+fn read_original_inventory_bounded(workflow: &Path, maximum: Option<usize>) -> Result<Vec<u8>, HostError> {
     checked_parent(workflow)?;
     let inventory = workflow.join("inventory");
     checked_parent(&inventory)?;
-    read_private(&inventory.join("inventory.json"))
+    read_private_bounded(&inventory.join("inventory.json"), maximum)
 }
 /// Open original private evidence once so ranged consumers retain the checked descriptor.
 pub(crate) fn open_private(path: &Path) -> Result<fs::File, HostError> {
@@ -440,7 +450,7 @@ pub fn frozen(
         context: context.into(),
     })
 }
-fn checked_parent(path: &Path) -> Result<(), HostError> {
+pub(crate) fn checked_parent(path: &Path) -> Result<(), HostError> {
     let metadata = fs::symlink_metadata(path)?;
     if !metadata.is_dir()
         || metadata.uid() != rustix::process::geteuid().as_raw()
@@ -523,16 +533,20 @@ pub(crate) fn captured(
     selector: &str,
     session: Option<&str>,
 ) -> Result<CapturedEvidence, HostError> {
+    captured_at_limit(store, selector, session, None)
+}
+pub(crate) fn captured_at_limit(store: &InvocationStore, selector: &str, session: Option<&str>, maximum: Option<usize>) -> Result<CapturedEvidence, HostError> {
     let CapturedReport {
-        id, report, parent, observation, original,
-    } = captured_report(store, selector, session)?;
+        id, report, parent, observation, original, ..
+    } = captured_report_at_limit(store, selector, session, maximum)?;
     if observation.inventory.as_deref() != Some("inventory/inventory.json")
     {
         return Err(invalid(
             "original report has no supported inventory association",
         ));
     }
-    let bytes = read_original_inventory(&parent)?;
+    let remaining = maximum.map(|maximum| maximum.checked_sub(report.len()).ok_or_else(|| invalid("original report exceeds the selected portable extent"))).transpose()?;
+    let bytes = read_original_inventory_bounded(&parent, remaining)?;
     observation.validate_inventory(&bytes)
         .map_err(|error| HostError::Workflow(Box::new(error)))?;
     let sha = digest(&bytes);
@@ -564,11 +578,15 @@ pub(crate) struct CapturedReport {
     pub parent: std::path::PathBuf,
     pub original: Envelope<ManagedSummary>,
     pub observation: crate::test_workflow::execute::ReportObservation,
+    /// Explicit report-only or full dependency account, without selection authority.
+    pub scope: crate::test_workflow::execute::EvidenceScope,
+    /// Exact bytes for the original report's committed dependencies only.
+    pub files: Vec<crate::test_workflow::execute::CapturedFile>,
 }
 impl pse_contract::boundary_projection::ProjectionType for CapturedReport {
     fn projection(graph: &mut pse_contract::boundary_projection::ProjectionGraph) -> Result<pse_contract::boundary_projection::TypeRef, pse_contract::boundary_projection::ProjectionError> {
         use pse_contract::boundary_projection::{Direction, Field, Shape};
-        let root = graph.declare::<Self>("CapturedWorkflowReport", file!(), 1, Direction::Output, &[], &[], |graph| {
+        let root = graph.declare::<Self>("CapturedWorkflowReport", file!(), 2, Direction::Output, &[], &[], |graph| {
             Ok(Shape::Record(vec![
                 Field::of::<CliInvocationId>(graph, "invocation", 1, Direction::Output, vec![])?,
                 Field::of::<Vec<u8>>(graph, "report_original", 2, Direction::Output, vec![])?,
@@ -576,6 +594,8 @@ impl pse_contract::boundary_projection::ProjectionType for CapturedReport {
                 Field::of::<crate::test_workflow::execute::TerminalRecord>(graph, "terminal", 4, Direction::Output, vec![])?,
                 Field::of::<Option<crate::envelope::Settlement>>(graph, "recorded_manager_settlement", 5, Direction::Output, vec![])?,
                 Field::of::<Option<bool>>(graph, "recorded_native_lifetime_pending", 6, Direction::Output, vec![])?,
+                Field::of::<crate::test_workflow::execute::EvidenceScope>(graph, "scope", 7, Direction::Output, vec![])?,
+                Field::of::<Vec<crate::test_workflow::execute::CapturedFile>>(graph, "files", 8, Direction::Output, vec![])?,
             ]))
         })?;
         graph.public_path::<Self>(&root, "crate::test_inventory::CapturedReport")?;
@@ -584,18 +604,19 @@ impl pse_contract::boundary_projection::ProjectionType for CapturedReport {
     }
 }
 impl pse_contract::boundary_projection::ProjectionObservationRecord for CapturedReport {
-    const VERSION: u32 = 1;
-    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "invocation"), (2, "report_original"), (3, "report_observation"), (4, "terminal"), (5, "recorded_manager_settlement"), (6, "recorded_native_lifetime_pending")];
-    type Fields = (CliInvocationId, Vec<u8>, crate::test_workflow::execute::ReportObservation, crate::test_workflow::execute::TerminalRecord, Option<crate::envelope::Settlement>, Option<bool>);
+    const VERSION: u32 = 2;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "invocation"), (2, "report_original"), (3, "report_observation"), (4, "terminal"), (5, "recorded_manager_settlement"), (6, "recorded_native_lifetime_pending"), (7, "scope"), (8, "files")];
+    type Fields = (CliInvocationId, Vec<u8>, crate::test_workflow::execute::ReportObservation, crate::test_workflow::execute::TerminalRecord, Option<crate::envelope::Settlement>, Option<bool>, crate::test_workflow::execute::EvidenceScope, Vec<crate::test_workflow::execute::CapturedFile>);
     fn observation_fields(&self) -> Result<Self::Fields, pse_contract::boundary_projection::AdapterError> {
         let terminal = self.original.payload.workflow.as_ref().ok_or_else(|| pse_contract::boundary_projection::AdapterError::refused(
             "terminal", pse_contract::boundary_projection::AdapterFailure::InvalidValue, "original workflow terminal is unavailable"))?;
-        Ok((self.id.clone(), self.report.clone(), self.observation.clone(), terminal.terminal.clone(), Some(self.original.settlement), self.original.payload.native_lifetime_pending))
+        Ok((self.id.clone(), self.report.clone(), self.observation.clone(), terminal.terminal.clone(), Some(self.original.settlement), self.original.payload.native_lifetime_pending, self.scope, self.files.clone()))
     }
 }
 impl pse_contract::boundary_projection::ValidateProjection for CapturedReport {
     fn validate_at(&self, path: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> {
-        self.observation.validate_at(&pse_contract::boundary_projection::field_path(path, "report_observation"))
+        self.observation.validate_at(&pse_contract::boundary_projection::field_path(path, "report_observation"))?;
+        self.files.validate_at(&pse_contract::boundary_projection::field_path(path, "files"))
     }
 }
 pub(crate) fn captured_report(
@@ -603,6 +624,9 @@ pub(crate) fn captured_report(
     selector: &str,
     session: Option<&str>,
 ) -> Result<CapturedReport, HostError> {
+    captured_report_at_limit(store, selector, session, None)
+}
+pub(crate) fn captured_report_at_limit(store: &InvocationStore, selector: &str, session: Option<&str>, maximum: Option<usize>) -> Result<CapturedReport, HostError> {
     let id = store
         .resolve(selector, session)?
         .ok_or_else(|| invalid("original invocation is absent"))?;
@@ -623,7 +647,7 @@ pub(crate) fn captured_report(
     let directory = store.directory(&id)?;
     let parent = directory.path().join("workflow");
     checked_parent(&parent)?;
-    let report = read_private(&parent.join("report.json"))?;
+    let report = read_private_bounded(&parent.join("report.json"), maximum)?;
     workflow.terminal.report.validate_content(report.len() as u64, &digest(&report))
         .map_err(|error| HostError::Workflow(Box::new(error)))?;
     let observation: crate::test_workflow::execute::ReportObservation =
@@ -636,7 +660,18 @@ pub(crate) fn captured_report(
         parent,
         original: result,
         observation,
+        scope: crate::test_workflow::execute::EvidenceScope::Report,
+        files: Vec::new(),
     })
+}
+
+pub(crate) fn captured_full_report(store: &InvocationStore, selector: &str, session: Option<&str>, maximum: usize) -> Result<CapturedReport, HostError> {
+    let mut original = captured_report_at_limit(store, selector, session, Some(maximum))?;
+    let files = original.observation.evidence.as_deref().ok_or_else(|| invalid("legacy report has no original full-dependency commitment; report or selection scope remains available"))?;
+    let budget = maximum.checked_sub(original.report.len()).ok_or_else(|| invalid("original report exceeds the selected portable extent"))?;
+    original.files = crate::test_workflow::execute::evidence::capture(&original.parent, files, budget)?;
+    original.scope = crate::test_workflow::execute::EvidenceScope::Full;
+    Ok(original)
 }
 
 /// Read the selected protected original inventory without preparing or verifying executable
@@ -871,7 +906,7 @@ mod tests {
         for name in ["NativeWorkflowReport", "CapturedWorkflowReport", "CapturedWorkflowEvidence"] {
             assert_eq!(graph.definitions()[name].construction, ConstructionRole::ObservationOnly);
         }
-        for name in ["WorkflowReportObservation", "ErrorRecord", "TestIdentity", "InventoryContent", "WorkflowTerminalRecord"] {
+        for name in ["WorkflowReportObservation", "ErrorRecord", "TestIdentity", "ContentIdentity", "WorkflowTerminalRecord"] {
             assert_eq!(graph.definitions()[name].construction, ConstructionRole::Data);
         }
         let Shape::Record(fields) = &graph.definitions()["CapturedWorkflowEvidence"].shape else { panic!("record expected") };

@@ -122,9 +122,13 @@ fn input(
     id: &CliInvocationId,
     command: &str,
 ) -> Result<Input, HostError> {
-    let value = directory
-        .evidence::<Box<RawValue>>(InvocationEvidence::WorkflowInput)?
+    bound_input(directory, binding, id, command).map(|(input, _)| input)
+}
+fn bound_input(directory: &InvocationDirectory, binding: &InputBinding, id: &CliInvocationId, command: &str) -> Result<(Input,Vec<u8>),HostError> {
+    let bytes = directory
+        .evidence_bytes(InvocationEvidence::WorkflowInput)?
         .ok_or_else(|| host(invalid("original workflow input is absent")))?;
+    let value: Box<RawValue> = serde_json::from_slice(&bytes).map_err(host)?;
     if binding.bytes != value.get().len() as u64 || binding.sha256 != digest(value.get().as_bytes())
     {
         return Err(host(invalid(
@@ -132,29 +136,20 @@ fn input(
         )));
     }
     let input: Input = serde_json::from_str(value.get()).map_err(host)?;
-    if input.version != 1
-        || input.invocation != *id
-        || input.action.command() != command
-        || input.bounds.record_bytes == 0
-        || input.bounds.grouping_capacity == 0
-        || input.policy.write.is_zero()
-        || input.policy.drain.is_zero()
-    {
-        return Err(host(invalid(
-            "workflow input version, correlation, action or observation policy is invalid",
-        )));
-    }
-    Ok(input)
+    input.validate_original(id, command).map_err(host)?;
+    Ok((input, bytes))
 }
 /// Read original retained input through its original metadata commitment. This is
 /// observation/selection data, not a fresh admission or a process-control capability.
-pub(crate) fn retained_input(store: &crate::invocation::InvocationStore, id: &CliInvocationId, action: Action) -> Result<Input, HostError> {
+pub(crate) fn retained_input(store: &crate::invocation::InvocationStore, id: &CliInvocationId, action: Action, report: &ReportObservation) -> Result<Input, HostError> {
     let metadata = store.metadata::<Metadata>(id)?;
     if metadata.selection.command != action.command() {
         return Err(host(invalid("retained workflow command differs from requested original action")));
     }
     let binding = metadata.selection.operation.workflow.ok_or_else(|| host(invalid("original workflow input binding is absent")))?;
-    input(&store.directory(id)?, &binding, id, &metadata.selection.command)
+    let (input, bytes) = bound_input(&store.directory(id)?, &binding, id, &metadata.selection.command)?;
+    report.validate_input_bytes(&bytes).map_err(host)?;
+    Ok(input)
 }
 /// Internal entry: authenticate the actual original payload leader before any compilation.
 pub(crate) async fn run(root: PathBuf, id: CliInvocationId) -> Result<i32, HostError> {
@@ -222,9 +217,12 @@ pub(crate) async fn run(root: PathBuf, id: CliInvocationId) -> Result<i32, HostE
         .ok_or_else(|| host(invalid("original workflow input binding is absent")))?;
     let input = input(&directory, &binding, &id, &metadata.selection.command)?;
     let destination = directory.path().join("workflow");
-    let report = crate::test_workflow::execute::run(&input, &root, &destination, environment)
+    let mut report = crate::test_workflow::execute::run(&input, &root, &destination, environment)
         .await
         .map_err(host)?;
+    // Reuse the binding actually accepted at startup. A replacement metadata file
+    // cannot select different input bytes for the original performing commitment.
+    report.input_cutoff = Some(bound_input(&directory, &binding, &id, &metadata.selection.command).map(|(_,bytes)| crate::test_workflow::execute::ContentIdentity::of(&bytes)));
     let terminal = report.publish(&destination).map_err(host)?;
     terminal.validate(&id, input.action).map_err(host)?;
     let status = terminal.helper_exit();
@@ -541,8 +539,9 @@ mod tests {
         let (binding, encoded) = encode_input(&original).unwrap();
         let directory = store.begin(InvocationSpec { invocation_id: id.clone(), command: "test".into(), session: None, parent: None, operation: serde_json::json!({"workflow":binding}), control: PreparedGeneration { generation: "unit.original".into(), protocol: 1, manifest_digest: "a".repeat(64) }, environment_digest: "b".repeat(64), scientific: vec![] }).unwrap();
         directory.publish_evidence(InvocationEvidence::WorkflowInput, &encoded).unwrap();
-        assert_eq!(retained_input(&store, &id, Action::Test).unwrap().profile, "alpha");
-        assert!(retained_input(&store, &id, Action::Check).is_err());
+        let report: ReportObservation = serde_json::from_value(serde_json::json!({"version":2,"invocation":id,"action":"test","outcome":"failed","required_capture_complete":false,"failures":[]})).unwrap();
+        assert_eq!(retained_input(&store, &id, Action::Test, &report).unwrap().profile, "alpha");
+        assert!(retained_input(&store, &id, Action::Check, &report).is_err());
         let path = directory.path().join("workflow-input.json");
         let before = fs::read_to_string(&path).unwrap();
         assert_eq!(before.matches("alpha").count(), 1);
@@ -551,7 +550,7 @@ mod tests {
         fs::write(&path, after).unwrap();
         let merely_parsed: Input = directory.evidence(InvocationEvidence::WorkflowInput).unwrap().unwrap();
         assert_eq!(merely_parsed.profile, "omega", "syntactic correlation alone is weaker than the original commitment");
-        assert!(retained_input(&store, &id, Action::Test).unwrap_err().to_string().contains("byte identity differs"));
+        assert!(retained_input(&store, &id, Action::Test, &report).unwrap_err().to_string().contains("byte identity differs"));
     }
     #[test]
     fn generic_observer_accepts_verb_owned_metadata_without_workflow_decoding() {

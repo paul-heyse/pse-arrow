@@ -529,6 +529,11 @@ fn run_configuration_is_private_and_preserves_original_profile_policy() {
     // Configuration derivation is a pure semantic projection of already captured bytes;
     // original native profile validation/listing belongs to the discovery owner.
     let first = listed.run_configuration(0).unwrap();
+    use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
+    let initial = fs::metadata(&first).unwrap();
+    assert_eq!(initial.mode() & 0o777, 0o400);
+    assert_eq!(listed.run_configuration(0).unwrap(), first);
+    assert_eq!(fs::metadata(&first).unwrap().ino(), initial.ino());
     let mut actual: toml::Value = toml::from_str(&fs::read_to_string(&first).unwrap()).unwrap();
     let expected: toml::Value = toml::from_str(std::str::from_utf8(original).unwrap()).unwrap();
     assert_eq!(
@@ -547,6 +552,13 @@ fn run_configuration_is_private_and_preserves_original_profile_policy() {
         second["profile"]["selected-profile"]["junit"]["path"],
         toml::Value::String(listed.report_path(0).to_str().unwrap().into())
     );
+    fs::set_permissions(&first, fs::Permissions::from_mode(0o600)).unwrap();
+    assert!(listed.run_configuration(0).is_err());
+    assert_eq!(fs::metadata(&first).unwrap().mode() & 0o777, 0o600);
+    fs::write(&first, b"changed original configuration").unwrap();
+    fs::set_permissions(&first, fs::Permissions::from_mode(0o400)).unwrap();
+    assert!(listed.run_configuration(0).is_err());
+    assert_eq!(fs::read(&first).unwrap(), b"changed original configuration");
     listed.inventory.runner_profile = "missing".into();
     assert!(
         listed.run_configuration(0).is_err(),
