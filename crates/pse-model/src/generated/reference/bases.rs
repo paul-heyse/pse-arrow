@@ -158,6 +158,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceBasesRow {
                                         ),
                                         ("pse.domain.identity".into(), "reference_state".into()),
                                         ("pse.domain.role".into(), "payload".into()),
+                                        (
+                                            "pse.semantic.reference".into(),
+                                            "{\"relation\":\"reference.reference_states\",\"columns\":[{\"source\":[],\"target\":\"reference_state_id\"}],\"null_policy\":\"all_or_none\"}"
+                                                .into(),
+                                        ),
                                     ]),
                                 ),
                         ],

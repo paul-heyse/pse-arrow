@@ -142,6 +142,7 @@ macro_rules! project_actions {
                             stringify!($field), $tag, pse_contract::boundary_projection::Direction::Input, vec![])?,
                     )*]))
                 })?;
+            graph.record_effects($wire, EffectFacts::$effect)?;
             Ok((root, EffectFacts::$effect))
         }
     };
@@ -396,6 +397,7 @@ mod tests {
         );
         let owner = &selected.graph.definitions()["PreparationDiscoveryAction"];
         assert_eq!(owner.version, 2);
+        assert_eq!(owner.effects, Some(EffectFacts::OBSERVATION));
         let pse_contract::boundary_projection::Shape::Record(fields) = &owner.shape else {
             panic!("actual selected action record")
         };

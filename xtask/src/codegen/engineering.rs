@@ -3,6 +3,7 @@
 //! Projections of compiled source owners. No authored second wire schema.
 
 use anyhow::{Context, Result, bail};
+use super::contract_metadata::imports;
 use buffa::Message as _;
 use buffa_descriptor::generated::{
     compiler::{CodeGeneratorRequest, CodeGeneratorResponse},
@@ -21,14 +22,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     super::code_intelligence::prepared_plugins(root, &root.join(".local/plan61-tools/bin"))?;
     // These are pinned upstream option definitions, not the host service's meanings.
     let imports = imports(root)?;
-    let mut graph = ProjectionGraph::of::<pse_runtime::scientific_worker::protocol::Request>()?;
-    graph.register::<pse_runtime::scientific_worker::protocol::Response>()?;
-    let service = Service::new("ScientificWorker").unary::<
-        pse_runtime::scientific_worker::protocol::Request,
-        pse_runtime::scientific_worker::protocol::Response,
-    >(&mut graph, "Exchange")?
-    .effects(pse_runtime::scientific_worker::protocol::EXCHANGE_EFFECTS)?;
-    graph.service(service)?;
+    let graph = scientific_graph()?;
     let mut tree = projection(
         root,
         &graph,
@@ -38,16 +32,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         "crate::scientific_worker::generated::pb",
         &imports,
     )?;
-    let graph = pse_runtime::host_operations::engineering_contract::projection()?;
-    let mut graph = graph;
-    graph.register::<pse_runtime::workflow::ModelingDeclarationRequest>()?;
-    graph.register::<pse_runtime::workflow::PreparationDiscoveryReport>()?;
-    graph.register::<pse_runtime::workflow::PhysicalInspectionRequest>()?;
-    graph.register::<pse_runtime::workflow::PhysicalInspectionDocument>()?;
-    let (_, effects) =
-        pse_runtime::host_operations::project::ProjectAction::preparation_discovery_projection(
-            &mut graph,
-        )?;
+    let graph = engineering_graph()?;
     let mut engineering = projection(
         root,
         &graph,
@@ -117,34 +102,13 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
                 basis: "declared".into(),
             });
     }
-    engineering.files.insert(
-        "crates/pse-runtime/src/generated/engineering/action-effects.json".into(),
-        serde_json::to_vec_pretty(&effects)?,
-    );
-    engineering
-        .relationships
-        .push(provenance::SourceRelationship {
-            declaration_key: "ProjectAction::PreparationDiscovery".into(),
-            declaration_kind: "operation_effects".into(),
-            source_path: Some("crates/pse-runtime/src/host_operations/project.rs".into()),
-            source_symbol: Some("ProjectAction::preparation_discovery_projection".into()),
-            source_role: "effect_owner".into(),
-            source_identity: None,
-            generator_path: "xtask/src/codegen/engineering.rs".into(),
-            generator_symbol: "generate".into(),
-            output_path: "crates/pse-runtime/src/generated/engineering/action-effects.json".into(),
-            direction: Some("Input".into()),
-            contract_sections: vec!["blueprint §4.7".into()],
-            basis: "declared".into(),
-        });
     engineering.files.extend(
         provenance::sidecar(&producer("pse.engineering.v1"), &engineering.relationships)?.files,
     );
     tree.roots.extend(engineering.roots);
     tree.files.extend(engineering.files);
     tree.relationships.extend(engineering.relationships);
-    let mut reference_graph = pse_model::reference_exchange::reference_projection()?;
-    reference_graph.register::<pse_runtime::reference_exchange::ReferenceCaseContract>()?;
+    let reference_graph = reference_graph()?;
     let mut reference = projection(
         root,
         &reference_graph,
@@ -200,27 +164,31 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     Ok(tree)
 }
 
-fn imports(root: &Path) -> Result<FileDescriptorSet> {
-    let scratch = tempfile::tempdir()?;
-    let path = scratch.path().join("imports.bin");
-    let output = Command::new("buf")
-        .args(["build", "--as-file-descriptor-set", "-o"])
-        .arg(&path)
-        .current_dir(root.join("crates/pse-host/proto"))
-        .output()?;
-    if !output.status.success() {
-        bail!(
-            "compile pinned validation imports: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
-    let mut set = FileDescriptorSet::decode_from_slice(&std::fs::read(path)?)?;
-    set.file.retain(|file| {
-        file.name
-            .as_deref()
-            .is_some_and(|name| !name.starts_with("pse/"))
-    });
-    Ok(set)
+fn scientific_graph() -> Result<ProjectionGraph> {
+    let mut graph = ProjectionGraph::of::<pse_runtime::scientific_worker::protocol::Request>()?;
+    graph.register::<pse_runtime::scientific_worker::protocol::Response>()?;
+    let service = Service::new("ScientificWorker").unary::<
+        pse_runtime::scientific_worker::protocol::Request,
+        pse_runtime::scientific_worker::protocol::Response,
+    >(&mut graph, "Exchange")?.effects(pse_runtime::scientific_worker::protocol::EXCHANGE_EFFECTS)?;
+    graph.service(service)?;
+    Ok(graph)
+}
+
+fn engineering_graph() -> Result<ProjectionGraph> {
+    let mut graph = pse_runtime::host_operations::engineering_contract::projection()?;
+    graph.register::<pse_runtime::workflow::ModelingDeclarationRequest>()?;
+    graph.register::<pse_runtime::workflow::PreparationDiscoveryReport>()?;
+    graph.register::<pse_runtime::workflow::PhysicalInspectionRequest>()?;
+    graph.register::<pse_runtime::workflow::PhysicalInspectionDocument>()?;
+    pse_runtime::host_operations::project::ProjectAction::preparation_discovery_projection(&mut graph)?;
+    Ok(graph)
+}
+
+fn reference_graph() -> Result<ProjectionGraph> {
+    let mut graph = pse_model::reference_exchange::reference_projection()?;
+    graph.register::<pse_runtime::reference_exchange::ReferenceCaseContract>()?;
+    Ok(graph)
 }
 
 fn projection(
@@ -333,6 +301,58 @@ fn projection(
 
 fn producer(package: &str) -> String {
     package.replace(['.', '_'], "-")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use buffa_descriptor::{DescriptorPool, DynamicMessage, Value};
+    use std::sync::Arc;
+
+    #[test]
+    fn all_selected_world_metadata_has_typed_native_coverage() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let imports = imports(root).unwrap();
+        let mut failures = Vec::new();
+        for (package, file, graph) in [
+            ("pse.scientific_worker.v1", "scientific_worker.proto", scientific_graph().unwrap()),
+            ("pse.engineering.v1", "engineering.proto", engineering_graph().unwrap()),
+            ("pse.reference.v1", "reference.proto", reference_graph().unwrap()),
+        ] {
+            if let Err(error) = boundary_projection::descriptors_with_imports(&graph, package, file, &imports.file) { failures.push(format!("{package}: {error}")); }
+        }
+        assert!(failures.is_empty(), "{failures:?}");
+    }
+
+    #[test]
+    fn original_action_metadata_retains_version_two_observation_separate_from_rpc() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let mut graph = ProjectionGraph::default();
+        pse_runtime::host_operations::project::ProjectAction::preparation_discovery_projection(&mut graph).unwrap();
+        graph.register::<pse_runtime::host_operations::engineering_contract::EngineeringDiscoverPreparation>().unwrap();
+        graph.register::<pse_runtime::workflow::PreparationDiscoveryReport>().unwrap();
+        let native = pse_runtime::host_operations::engineering_contract::projection().unwrap();
+        let method = native.services().values().flat_map(|service| &service.methods).find(|method| method.name == "DiscoverPreparation").unwrap().clone();
+        graph.service(Service { name: "Engineering".into(), methods: vec![method] }).unwrap();
+        let set = boundary_projection::descriptors_with_imports(&graph, "pse.engineering.v1", "engineering.proto", &imports(root).unwrap().file).unwrap();
+        let set = FileDescriptorSet::decode_from_slice(&set.encode_to_vec()).unwrap();
+        let pool = Arc::new(DescriptorPool::new(set.clone()).unwrap());
+        let action = pool.message_by_name("pse.engineering.v1.PreparationDiscoveryAction").unwrap();
+        let options = DynamicMessage::from_options(Arc::clone(&pool), action.options().unwrap()).unwrap();
+        let extension = pool.extension_by_name("pse.contract.v1.message").unwrap();
+        let Value::Message(metadata) = options.field_by_number(extension.field().number()).unwrap() else { panic!("typed message metadata"); };
+        assert_eq!(metadata.field_by_number(3), Some(&Value::U32(2)));
+        let Value::Message(effects) = metadata.field_by_number(6).unwrap() else { panic!("typed source action effects"); };
+        assert_eq!(effects.field_by_number(1), Some(&Value::EnumNumber(1)));
+        assert_eq!(effects.field_by_number(2), Some(&Value::Bool(true)));
+        assert_eq!(effects.field_by_number(3), Some(&Value::Bool(true)));
+        assert_eq!(effects.field_by_number(4), Some(&Value::Bool(false)));
+        let file = set.file.iter().find(|file| file.name.as_deref() == Some("engineering.proto")).unwrap();
+        let method = file.service.iter().flat_map(|service| &service.method).find(|method| method.name.as_deref() == Some("DiscoverPreparation")).unwrap();
+        let options = DynamicMessage::from_options(Arc::clone(&pool), method.options.as_option().unwrap()).unwrap();
+        let extension = pool.extension_by_name("pse.contract.v1.method").unwrap();
+        assert!(matches!(options.field_by_number(extension.field().number()), Some(Value::Message(_))));
+    }
 }
 
 fn plugin_response(

@@ -46,6 +46,13 @@ fn observation_owners_are_borrowed_and_never_have_inverse_native_adapters() {
     assert_eq!(native.observation_fields().unwrap(), (42,));
     assert_eq!(native.recorded, 42, "observation does not consume Drop custody");
     let graph = ProjectionGraph::of::<NativeObservation>().unwrap();
+    let descriptors = descriptors_with_imports(&graph, "pse.observation.v1", "observation.proto", &imports()).unwrap();
+    let file = descriptors.file.iter().find(|file| file.name.as_deref() == Some("observation.proto")).unwrap();
+    assert!(file.source_code_info.as_option().is_none(), "owner provenance does not invent a Rust source span");
+    let encoder = metadata::OptionEncoder::new(&descriptors.file).unwrap();
+    let options = encoder.decode_extension(file.message_type[0].options.as_option().unwrap(), "pse.contract.v1.message").unwrap().unwrap();
+    assert_eq!(options.field_by_number(4), Some(&buffa_descriptor::Value::EnumNumber(2)), "output direction is independently published");
+    assert_eq!(options.field_by_number(5), Some(&buffa_descriptor::Value::EnumNumber(2)), "the native observation role is published explicitly");
     for source in [
         native_adapters(&graph, &["NativeObservation"], "crate::wire", "pse_codegen").unwrap(),
         native_adapters_retaining_wire(&graph, &["NativeObservation"], "crate::wire", "pse_codegen").unwrap(),

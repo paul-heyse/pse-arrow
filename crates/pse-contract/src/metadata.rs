@@ -43,6 +43,8 @@ pub struct MessageMetadata<'a> {
     pub direction: Option<EnumValue<BoundaryDirection>>,
     /// Reconstruction or borrowed observation.
     pub construction: Option<EnumValue<ConstructionRole>>,
+    /// Optional original source action intent, separate from RPC method effects.
+    pub effects: Option<Effects>,
 }
 
 /// Normalized typed field options.
@@ -155,6 +157,9 @@ pub struct Facet<'a> {
     pub policy: &'a str,
     /// Normalized owner-specific data; only that owner interprets it.
     pub value: &'a [u8],
+    /// The matching source-world decoder had this owner's interpretation available.
+    /// A comparison policy cannot replace an unavailable original interpretation.
+    pub interpretation_available: bool,
 }
 
 /// An approved acquisition's borrowed facts; no decoder or runtime dependencies.
@@ -193,18 +198,28 @@ pub trait InterpretationPolicy {
     fn name(&self) -> &str;
     /// Known interoperability metadata versions.
     fn supports_metadata_version(&self, version: u32) -> bool { version == VERSION }
+    /// Available immutable owner interpretation, selected explicitly by the caller.
+    fn supports_interpretation(&self, _subject: &str, _version: u32) -> bool { false }
     /// Explicit old/new owner interpretation relation; changing a version is unknown by default.
     fn interpretation_change(&self, _subject: &str, _old: u32, _new: u32) -> Disposition { Disposition::Unknown }
     /// Owner-specific meaning is unknown without its policy.
     fn check_facet(&self, _facet: &Facet<'_>) -> Disposition { Disposition::Unknown }
     /// A wire-compatible facet change has no automatic semantic compatibility.
     fn compare_facet(&self, _old: &Facet<'_>, _new: &Facet<'_>) -> Disposition { Disposition::Unknown }
+    /// Introducing meaning on an already selected subject needs an owner decision.
+    fn introduced_facet(&self, _new: &Facet<'_>) -> Disposition { Disposition::Unknown }
 }
 
 /// Strict core-only interpretation, refusing selected domain policy it does not own.
 #[derive(Debug)]
-pub struct CorePolicy;
-impl InterpretationPolicy for CorePolicy { fn name(&self) -> &str { "pse.contract.v1/core" } }
+pub struct CorePolicy<'a> {
+    /// Approved owner/version associations, independent of interoperability version.
+    pub interpretations: &'a [(&'a str, u32)],
+}
+impl InterpretationPolicy for CorePolicy<'_> {
+    fn name(&self) -> &str { "pse.contract.v1/core" }
+    fn supports_interpretation(&self, subject: &str, version: u32) -> bool { self.interpretations.contains(&(subject, version)) }
+}
 
 /// Attributed explanation, without fabricated physical source coordinates.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -231,7 +246,9 @@ pub struct Assessment {
 }
 impl Assessment {
     fn new(policy: &impl InterpretationPolicy) -> Self { Self { policy: policy.name().into(), disposition: Disposition::Compatible, findings: vec![] } }
-    fn record(&mut self, file: &str, subject: &str, disposition: Disposition, reason: impl Into<String>) {
+    /// Include an attributed acquisition/interpretation finding with the same
+    /// aggregation rules as the normalized metadata checks.
+    pub fn record(&mut self, file: &str, subject: &str, disposition: Disposition, reason: impl Into<String>) {
         if disposition == Disposition::Compatible { return; }
         if disposition == Disposition::Incompatible || self.disposition == Disposition::Compatible { self.disposition = disposition; }
         self.findings.push(Finding { file: file.into(), subject: subject.into(), disposition, reason: reason.into() });
@@ -252,11 +269,26 @@ impl Assessment {
             EnumValue::Unknown(number) => { self.record(file, subject, Disposition::Unknown, format!("unavailable {name} value {number}")); None }
         }
     }
+    fn effects(&mut self, file: &str, subject: &str, effects: Effects) {
+        let scope = self.enumeration(file, subject, effects.scope, "effect scope");
+        let read_only = self.required(file, subject, effects.read_only, "read_only");
+        self.required(file, subject, effects.idempotent, "idempotent");
+        let destructive = self.required(file, subject, effects.destructive, "destructive");
+        if let (Some(scope), Some(read_only), Some(destructive)) = (scope, read_only, destructive)
+            && !effects_coherent(scope, read_only, destructive) {
+            self.record(file, subject, Disposition::Incompatible, "effect scope conflicts with observation or custody release facts");
+        }
+    }
+}
+
+pub(crate) fn effects_coherent(scope: EffectScope, read_only: bool, destructive: bool) -> bool {
+    read_only == matches!(scope, EffectScope::Observation) && destructive == matches!(scope, EffectScope::RetentionRelease)
 }
 
 /// Check required options, versions, closure, references, allocations and effect coherence.
 pub fn check(world: &World<'_>, policy: &impl InterpretationPolicy) -> Assessment {
     let mut result = Assessment::new(policy);
+    if policy.name().is_empty() { result.record("", "interpretation policy", Disposition::Incompatible, "interpretation policy must have an explicit name"); }
     let mut files = BTreeSet::new();
     for file in world.files {
         if !files.insert(file.name) { result.record(file.name, file.name, Disposition::Incompatible, "duplicate acquisition filename"); }
@@ -280,9 +312,13 @@ pub fn check(world: &World<'_>, policy: &impl InterpretationPolicy) -> Assessmen
             result.version(policy, message.file, message.name, metadata.metadata_version);
             if let Some(owner) = result.required(message.file, message.name, metadata.owner, "native owner")
                 && (owner.rust_type.is_empty() || owner.declaration_file.is_empty()) { result.record(message.file, message.name, Disposition::Incompatible, "empty native owner provenance"); }
-            if result.required(message.file, message.name, metadata.interpretation_version, "interpretation version") == Some(0) { result.record(message.file, message.name, Disposition::Incompatible, "zero interpretation version"); }
+            if let Some(version) = result.required(message.file, message.name, metadata.interpretation_version, "interpretation version") {
+                if version == 0 { result.record(message.file, message.name, Disposition::Incompatible, "zero interpretation version"); }
+                else if !policy.supports_interpretation(message.name, version) { result.record(message.file, message.name, Disposition::Unknown, format!("unavailable owner interpretation {version}")); }
+            }
             result.enumeration(message.file, message.name, metadata.direction, "direction");
             result.enumeration(message.file, message.name, metadata.construction, "construction role");
+            if let Some(effects) = metadata.effects { result.effects(message.file, message.name, effects); }
         }
     }
     selected.clear();
@@ -304,18 +340,14 @@ pub fn check(world: &World<'_>, policy: &impl InterpretationPolicy) -> Assessmen
         if let Some(metadata) = result.required(method.file, method.name, method.metadata, "method metadata") {
             result.version(policy, method.file, method.name, metadata.metadata_version);
             if let Some(effects) = result.required(method.file, method.name, metadata.effects, "owner effects") {
-                let scope = result.enumeration(method.file, method.name, effects.scope, "effect scope");
-                let read_only = result.required(method.file, method.name, effects.read_only, "read_only");
-                result.required(method.file, method.name, effects.idempotent, "idempotent");
-                let destructive = result.required(method.file, method.name, effects.destructive, "destructive");
-                if let (Some(scope), Some(read_only), Some(destructive)) = (scope, read_only, destructive)
-                    && (read_only != matches!(scope, EffectScope::Observation) || destructive != matches!(scope, EffectScope::RetentionRelease)) {
-                    result.record(method.file, method.name, Disposition::Incompatible, "effect scope conflicts with observation or custody release facts");
-                }
+                result.effects(method.file, method.name, effects);
             }
         }
     }
-    for facet in world.facets { result.record(facet.file, facet.subject, policy.check_facet(facet), format!("selected domain interpretation {}", facet.policy)); }
+    for facet in world.facets {
+        let disposition = if facet.interpretation_available { policy.check_facet(facet) } else { Disposition::Unknown };
+        result.record(facet.file, facet.subject, disposition, format!("selected domain interpretation {}", facet.policy));
+    }
     result
 }
 
@@ -332,6 +364,7 @@ pub fn compare(old: &World<'_>, new: &World<'_>, policy: &impl InterpretationPol
             Some(after) => if let (Some(a), Some(b)) = (before.metadata, after.metadata) {
                 if known_changed(a.direction, b.direction) || known_changed(a.construction, b.construction) { result.record(after.file, after.name, Disposition::Incompatible, "direction or construction role changed"); }
                 if a.metadata_version != b.metadata_version { result.record(after.file, after.name, Disposition::Unknown, "metadata version changed"); }
+                if effects_changed(a.effects, b.effects) { result.record(after.file, after.name, Disposition::Incompatible, "source action effects changed"); }
                 if let (Some(a), Some(b)) = (a.interpretation_version, b.interpretation_version) && a != b { result.record(after.file, after.name, policy.interpretation_change(after.name, a, b), "owner interpretation version changed"); }
             }
         }
@@ -355,8 +388,7 @@ pub fn compare(old: &World<'_>, new: &World<'_>, policy: &impl InterpretationPol
                 if before.input != after.input || before.output != after.output { result.record(after.file, after.name, Disposition::Incompatible, "method roots changed"); }
                 if let (Some(a), Some(b)) = (before.metadata, after.metadata) {
                     if a.metadata_version != b.metadata_version { result.record(after.file, after.name, Disposition::Unknown, "method metadata version changed"); }
-                    if let (Some(a), Some(b)) = (a.effects, b.effects)
-                        && (known_changed(a.scope, b.scope) || a.read_only != b.read_only || a.idempotent != b.idempotent || a.destructive != b.destructive) { result.record(after.file, after.name, Disposition::Incompatible, "method effects changed"); }
+                    if effects_changed(a.effects, b.effects) { result.record(after.file, after.name, Disposition::Incompatible, "method effects changed"); }
                 }
             }
         }
@@ -364,7 +396,17 @@ pub fn compare(old: &World<'_>, new: &World<'_>, policy: &impl InterpretationPol
     for before in old.facets {
         match new.facets.iter().find(|after| after.subject == before.subject && after.policy == before.policy) {
             None => result.record(before.file, before.subject, Disposition::Unknown, format!("selected domain interpretation {} removed", before.policy)),
-            Some(after) => result.record(after.file, after.subject, policy.compare_facet(before, after), format!("domain interpretation {} comparison", after.policy)),
+            Some(after) => {
+                let disposition = if before.interpretation_available && after.interpretation_available { policy.compare_facet(before, after) } else { Disposition::Unknown };
+                result.record(after.file, after.subject, disposition, format!("domain interpretation {} comparison", after.policy));
+            }
+        }
+    }
+    for after in new.facets {
+        let existing_subject = old.messages.iter().any(|item| item.name == after.subject) || old.fields.iter().any(|item| item.name == after.subject) || old.methods.iter().any(|item| item.name == after.subject);
+        if existing_subject && !old.facets.iter().any(|before| before.subject == after.subject && before.policy == after.policy) {
+            let disposition = if after.interpretation_available { policy.introduced_facet(after) } else { Disposition::Unknown };
+            result.record(after.file, after.subject, disposition, format!("domain interpretation {} introduced on existing subject", after.policy));
         }
     }
     result
@@ -372,6 +414,14 @@ pub fn compare(old: &World<'_>, new: &World<'_>, policy: &impl InterpretationPol
 
 fn known_changed<T: PartialEq>(old: Option<EnumValue<T>>, new: Option<EnumValue<T>>) -> bool {
     matches!((old, new), (Some(EnumValue::Known(old)), Some(EnumValue::Known(new))) if old != new)
+}
+
+fn effects_changed(old: Option<Effects>, new: Option<Effects>) -> bool {
+    match (old, new) {
+        (Some(old), Some(new)) => known_changed(old.scope, new.scope) || old.read_only != new.read_only || old.idempotent != new.idempotent || old.destructive != new.destructive,
+        (None, None) => false,
+        _ => true,
+    }
 }
 
 #[cfg(test)]

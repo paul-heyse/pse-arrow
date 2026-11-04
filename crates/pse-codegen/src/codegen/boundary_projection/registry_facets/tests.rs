@@ -117,7 +117,7 @@ fn registry_options_refuse_schema_allocation_and_native_vocabulary_drift() {
         let identity = domain.message_type.iter_mut().find(|message| message.name.as_deref() == Some("IdentityContract")).unwrap();
         match alteration {
             "tag" => identity.field[0].number = Some(23),
-            "type" => identity.field[0].r#type = Some(buffa_types::descriptor::field_descriptor_proto::Type::TYPE_BYTES),
+            "type" => identity.field[0].r#type = Some(buffa_descriptor::generated::descriptor::field_descriptor_proto::Type::TYPE_BYTES),
             "field" => { let mut hidden = identity.field[0].clone(); hidden.name = Some("hidden".into()); hidden.json_name = None; hidden.number = Some(23); identity.field.push(hidden); }
             "default" => identity.field[0].default_value = Some("future".into()),
             _ => unreachable!(),

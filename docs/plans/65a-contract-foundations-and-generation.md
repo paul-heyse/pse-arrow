@@ -144,6 +144,18 @@ must select the immutable interpretations they have available. A missing owner i
 or external domain policy remains Unknown. Rust path/file moves remain provenance
 changes. Selected registry facets use their native typed validator; the initial named
 comparison policy conservatively rejects changes to validated domain facet values.
+Introducing a selected facet on an existing field needs an explicit owner-policy
+decision; individual validity does not establish compatibility with the previously
+unannotated field. Borrowed native coverage selects expected owners, fields (including
+alternative payloads) and methods independently of option presence. Stripped annotations
+or removed selected descriptors cannot disappear into a vacuously compatible world;
+inspection without approved coverage remains Unknown for semantic comparison.
+
+The descriptor comparison takes separate old/new source policies. Each domain callback
+validates its decoded value against that value's original acquired pool before
+normalization; the current pool never re-decodes old payloads as a substitute for an
+unavailable original interpretation. The pure checker preserves that availability
+boundary even when bytes are identical and a current policy exists.
 
 **Registry facet lowering.** The registry owner publishes
 `pse.schema.v1.registry_field`, a message-valued `google.protobuf.FieldOptions`

@@ -142,6 +142,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityType
                                         ),
                                         ("pse.domain.identity".into(), "quantity_kind".into()),
                                         ("pse.domain.role".into(), "payload".into()),
+                                        (
+                                            "pse.semantic.reference".into(),
+                                            "{\"relation\":\"reference.quantity_kinds\",\"columns\":[{\"source\":[],\"target\":\"quantity_kind_id\"}],\"null_policy\":\"required\"}"
+                                                .into(),
+                                        ),
                                     ]),
                                 ),
                             pse_contract::boundary_projection::Field::of::<
@@ -162,6 +167,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityType
                                         ("pse.domain.fk.relation".into(), "reference.bases".into()),
                                         ("pse.domain.identity".into(), "basis".into()),
                                         ("pse.domain.role".into(), "payload".into()),
+                                        (
+                                            "pse.semantic.reference".into(),
+                                            "{\"relation\":\"reference.bases\",\"columns\":[{\"source\":[],\"target\":\"basis_id\"}],\"null_policy\":\"all_or_none\"}"
+                                                .into(),
+                                        ),
                                     ]),
                                 ),
                             pse_contract::boundary_projection::Field::of::<
@@ -188,6 +198,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityType
                                         ),
                                         ("pse.domain.identity".into(), "reference_state".into()),
                                         ("pse.domain.role".into(), "payload".into()),
+                                        (
+                                            "pse.semantic.reference".into(),
+                                            "{\"relation\":\"reference.reference_states\",\"columns\":[{\"source\":[],\"target\":\"reference_state_id\"}],\"null_policy\":\"all_or_none\"}"
+                                                .into(),
+                                        ),
                                     ]),
                                 ),
                             pse_contract::boundary_projection::Field::of::<
@@ -265,6 +280,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityType
                                         ("pse.domain.fk.relation".into(), "reference.units".into()),
                                         ("pse.domain.identity".into(), "unit".into()),
                                         ("pse.domain.role".into(), "payload".into()),
+                                        (
+                                            "pse.semantic.reference".into(),
+                                            "{\"relation\":\"reference.units\",\"columns\":[{\"source\":[],\"target\":\"unit_id\"}],\"null_policy\":\"required\"}"
+                                                .into(),
+                                        ),
                                     ]),
                                 ),
                             pse_contract::boundary_projection::Field::of::<

@@ -28,6 +28,8 @@ use pse_schema::error::SchemaError;
 
 mod adapters;
 mod float_collections;
+pub mod metadata;
+mod registry_facets;
 pub use adapters::{native_adapters, native_adapters_retaining_wire};
 
 /// One complete generation closure. The caller owns publication and generated roots.
@@ -52,7 +54,7 @@ fn error(reason: impl Into<String>) -> SchemaError {
     }
 }
 
-/// Lower a graph without external imports. Rules requiring an import refuse explicitly.
+/// Lower a graph without external imports. Required typed metadata imports refuse.
 pub fn descriptors(
     graph: &ProjectionGraph,
     package: &str,
@@ -116,17 +118,20 @@ pub fn descriptors_for_direction(
             }
         }
     }
+    let metadata = metadata::OptionEncoder::new(imports)?;
     let mut lower = Lower {
         graph,
+        metadata: &metadata,
         package,
         direction,
         uses_validation: false,
+        uses_registry: false,
     };
     let mut messages = Vec::new();
-    let mut source_locations = Vec::new();
     for definition in graph.definitions().values() {
         let mut message = DescriptorProto {
             name: Some(definition.name.clone()),
+            options: metadata.message_options(definition)?.into(),
             reserved_range: definition
                 .reserved_tags
                 .iter()
@@ -140,7 +145,7 @@ pub fn descriptors_for_direction(
             ..Default::default()
         };
         match &definition.shape {
-            Shape::Record(fields) => lower.fields(&mut message, fields)?,
+            Shape::Record(fields) => lower.fields(&mut message, fields).map_err(|e| error(format!("{}:{}: {e}", definition.source, definition.rust_type)))?,
             Shape::Alternatives(alternatives) => {
                 message.reserved_name = definition
                     .reserved_names
@@ -169,8 +174,10 @@ pub fn descriptors_for_direction(
                         name: Some(nested_name.clone()),
                         ..Default::default()
                     };
-                    lower.fields(&mut nested, &alternative.fields)?;
+                    lower.fields(&mut nested, &alternative.fields).map_err(|e| error(format!("{}:{}::{}: {e}", definition.source, definition.rust_type, alternative.name)))?;
                     message.nested_type.push(nested);
+                    let mut field_options = FieldOptions::default();
+                    metadata.field_correspondence(&mut field_options, &alternative.name, definition.direction)?;
                     message.field.push(FieldDescriptorProto {
                         name: Some(snake_case(&alternative.name)),
                         number: Some(alternative.tag as i32),
@@ -178,6 +185,7 @@ pub fn descriptors_for_direction(
                         r#type: Some(Type::TYPE_MESSAGE),
                         type_name: Some(format!(".{package}.{}.{}", definition.name, nested_name)),
                         oneof_index: Some(0),
+                        options: field_options.into(),
                         ..Default::default()
                     });
                 }
@@ -203,38 +211,14 @@ pub fn descriptors_for_direction(
                         ..Default::default()
                     },
                 )?;
+                let mut options = field.options.as_option().cloned().unwrap_or_default();
+                metadata.field_correspondence(&mut options, "value", definition.direction)?;
+                field.options = options.into();
                 message.field.push(field);
             }
         }
         qualify_nested(&mut message, package);
         validate_message_names(&message)?;
-        if let Shape::Record(fields) = &definition.shape {
-            for (index, wire) in message.field.iter().enumerate() {
-                if let Some(owner) = fields
-                    .iter()
-                    .find(|field| wire.number == Some(field.tag as i32))
-                {
-                    source_locations.push(descriptor::source_code_info::Location {
-                        path: vec![4, messages.len() as i32, 2, index as i32],
-                        span: vec![0, 0, 0],
-                        leading_comments: Some(format!(
-                            " Rust field: {}.{}\n Original named field facets: {:?}\n",
-                            definition.rust_type, owner.name, owner.named_facets
-                        )),
-                        ..Default::default()
-                    });
-                }
-            }
-        }
-        source_locations.push(descriptor::source_code_info::Location {
-            path: vec![4, messages.len() as i32],
-            span: vec![0, 0, 0],
-            leading_comments: Some(format!(
-                " Rust owner: {}\n Source: {}\n Interpretation version: {}\n Direction: {:?}\n",
-                definition.rust_type, definition.source, definition.version, definition.direction
-            )),
-            ..Default::default()
-        });
         messages.push(message);
     }
     if lower.uses_validation && !files.contains_key("buf/validate/validate.proto") {
@@ -260,6 +244,7 @@ pub fn descriptors_for_direction(
                         output_type: Some(named(&method.output)?),
                         client_streaming: Some(false),
                         server_streaming: Some(method.server_streaming),
+                        options: metadata.method_options(method.effects).map_err(|e| error(format!("{}.{}: {e}", service.name, method.name)))?.into(),
                         ..Default::default()
                     })
                 })
@@ -271,25 +256,31 @@ pub fn descriptors_for_direction(
         name: Some(file_name.into()),
         package: Some(package.into()),
         syntax: Some("proto3".into()),
-        dependency: if lower.uses_validation {
-            vec!["buf/validate/validate.proto".into()]
-        } else {
-            vec![]
-        },
+        dependency: std::iter::once(metadata::CORE_IMPORT.into()).chain(lower.uses_validation.then(|| "buf/validate/validate.proto".into())).chain(lower.uses_registry.then(|| registry_facets::IMPORT.into())).collect(),
         message_type: messages,
         service: services,
-        source_code_info: descriptor::SourceCodeInfo {
-            location: source_locations,
-            ..Default::default()
-        }
-        .into(),
         ..Default::default()
     };
     files.insert(file_name.into(), file);
-    Ok(FileDescriptorSet {
+    let descriptor_set = FileDescriptorSet {
         file: dependency_order(files)?,
         ..Default::default()
-    })
+    };
+    let validators: [(&str, fn(&buffa_descriptor::DynamicMessage) -> Result<(), SchemaError>); 1] = [(registry_facets::EXTENSION, registry_facets::check_option)];
+    let owner_versions = graph.definitions().values().map(|owner| (format!("{package}.{}", owner.name), owner.version)).collect::<Vec<_>>();
+    let interpretations = owner_versions.iter().map(|(name, version)| (name.as_str(), *version)).collect::<Vec<_>>();
+    let names = metadata::native_selection(graph, package, direction);
+    let owners = names.owners.iter().map(String::as_str).collect::<Vec<_>>();
+    let fields = names.fields.iter().map(String::as_str).collect::<Vec<_>>();
+    let methods = names.methods.iter().map(String::as_str).collect::<Vec<_>>();
+    let selection = metadata::NativeSelection { owners: &owners, fields: &fields, methods: &methods };
+    let policy = metadata::TypedPolicy::new(&validators, &interpretations, selection);
+    let selected_extensions = if lower.uses_registry { &[registry_facets::EXTENSION][..] } else { &[] };
+    let assessment = metadata::check_descriptors(&descriptor_set, file_name, &policy, selected_extensions)?;
+    if assessment.disposition != pse_contract::metadata::Disposition::Compatible {
+        return Err(error(format!("semantic metadata rejected by {}: {:?}", assessment.policy, assessment.findings)));
+    }
+    Ok(descriptor_set)
 }
 
 /// Generate owned messages, borrowed views and one complete shared reflection pool.
@@ -480,9 +471,11 @@ pub fn owner_reference(graph: &ProjectionGraph, package: &str) -> String {
 
 struct Lower<'a> {
     graph: &'a ProjectionGraph,
+    metadata: &'a metadata::OptionEncoder,
     package: &'a str,
     direction: Direction,
     uses_validation: bool,
+    uses_registry: bool,
 }
 
 impl Lower<'_> {
@@ -516,6 +509,13 @@ impl Lower<'_> {
                     });
                 }
             }
+            let mut options = lowered.options.as_option().cloned().unwrap_or_default();
+            self.metadata.field_options(&mut options, field)?;
+            if let Some(facets) = registry_facets::field_options(field, self.graph, self.metadata)? {
+                self.metadata.attach(&mut options, registry_facets::EXTENSION, facets)?;
+                self.uses_registry = true;
+            }
+            lowered.options = options.into();
             message.field.push(lowered);
         }
         Ok(())

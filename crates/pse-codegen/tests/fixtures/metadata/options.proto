@@ -1,0 +1,31 @@
+syntax = "proto2";
+package independent.v1;
+import "pse/contract/v1/metadata.proto";
+import "forwarded.proto";
+
+message Request {
+  message Alternative1 {
+    optional string payload = 1 [(pse.contract.v1.field) = { metadata_version: 1 native_field: "payload" direction: DIRECTION_INPUT }];
+  }
+  option (pse.contract.v1.message) = {
+    metadata_version: 1
+    owner: { rust_type: "independent::Request" declaration_file: "src/request.rs" }
+    interpretation_version: 1
+    direction: DIRECTION_BOTH
+    construction_role: CONSTRUCTION_ROLE_DATA
+  };
+  optional string value = 1 [
+    (pse.contract.v1.field) = { metadata_version: 1 native_field: "value" direction: DIRECTION_INPUT },
+    (independent.imports.forwarded) = "opaque-import-preserved"
+  ];
+  optional Alternative1 detail = 2 [(pse.contract.v1.field) = { metadata_version: 1 native_field: "detail" direction: DIRECTION_INPUT }];
+}
+
+service Procedure {
+  rpc Run(Request) returns (Request) {
+    option (pse.contract.v1.method) = {
+      metadata_version: 1
+      effects: { scope: EFFECT_SCOPE_NATIVE_EXECUTION read_only: false idempotent: false destructive: false }
+    };
+  }
+}

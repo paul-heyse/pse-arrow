@@ -39,6 +39,8 @@ message MessageMetadata {
   optional uint32 interpretation_version = 3;
   optional Direction direction = 4;
   optional ConstructionRole construction_role = 5;
+  // Only for an actual source-owned action record, independent of RPC effects.
+  optional Effects effects = 6;
 }
 message FieldMetadata {
   optional uint32 metadata_version = 1;

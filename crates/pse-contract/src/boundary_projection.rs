@@ -269,6 +269,8 @@ pub struct Definition {
     pub native_container: Option<NativeContainer>,
     /// Native construction policy, independent of public input/output direction.
     pub construction: ConstructionRole,
+    /// Original source action intent, independent of service method composition.
+    pub effects: Option<crate::operation_effects::EffectFacts>,
 }
 
 /// One actual unary service boundary, resolved in the same descriptor world.
@@ -674,10 +676,27 @@ impl ProjectionGraph {
             checked_record: false,
             native_container: None,
             construction: ConstructionRole::Data,
+            effects: None,
         };
         validate_definition(&definition, &self.definitions)?;
         self.definitions.insert(name.into(), definition);
         Ok(TypeRef::Named(name.into()))
+    }
+
+    /// Attach original source action effects without inferring service behavior.
+    /// # Errors
+    /// The owner must exist, effect facts must be coherent and repeated source
+    /// registration must retain the same declaration.
+    pub fn record_effects(&mut self, name: &str, effects: crate::operation_effects::EffectFacts) -> Result<(), ProjectionError> {
+        let owner = self.definitions.get_mut(name).ok_or_else(|| ProjectionError::invalid(name, "action effect owner is unresolved"))?;
+        if !crate::metadata::effects_coherent(effects.scope, effects.read_only, effects.destructive) {
+            return Err(ProjectionError::invalid(name, "action effect scope conflicts with observation or custody release facts"));
+        }
+        if owner.effects.is_some_and(|previous| previous != effects) {
+            return Err(ProjectionError::invalid(name, "conflicting original action effect declarations"));
+        }
+        owner.effects = Some(effects);
+        Ok(())
     }
 
     /// Declare borrowed observation access at the actual native owner.

@@ -655,8 +655,10 @@ projection_struct! {
 }
 
 // Import schema only: no host operation or semantic owner is projected from this corpus.
-fn imports() -> Vec<FileDescriptorProto> {
-    FileDescriptorSet::decode_from_slice(include_bytes!(
+pub(super) fn imports() -> Vec<FileDescriptorProto> {
+    static IMPORTS: std::sync::OnceLock<Vec<FileDescriptorProto>> = std::sync::OnceLock::new();
+    IMPORTS.get_or_init(|| {
+    let mut imports = FileDescriptorSet::decode_from_slice(include_bytes!(
         "../../../../pse-host/src/generated/code-intelligence/descriptor.bin"
     ))
     .unwrap()
@@ -667,7 +669,22 @@ fn imports() -> Vec<FileDescriptorProto> {
             .as_deref()
             .is_some_and(|name| name.starts_with("google/") || name.starts_with("buf/"))
     })
-    .collect()
+    .collect::<Vec<_>>();
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    for source in ["crates/pse-contract/proto", "crates/pse-schema/proto"] {
+    let output = std::process::Command::new("buf")
+        .args(["build", source, "--as-file-descriptor-set", "-o", "-"])
+        .current_dir(&root).output().unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let compiled = FileDescriptorSet::decode_from_slice(&output.stdout).unwrap();
+    for file in compiled.file {
+        if let Some(existing) = imports.iter().find(|existing| existing.name == file.name) {
+            assert_eq!(existing, &file, "compiler import identity must be preserved");
+        } else { imports.push(file); }
+    }
+    }
+    imports
+    }).clone()
 }
 
 #[test]
@@ -860,6 +877,8 @@ fn complete_services_generate_one_shared_root_and_reproducible_rust() {
     let mut graph = ProjectionGraph::default();
     let service = Service::new("EngineeringService")
         .unary::<Request, Request>(&mut graph, "Inspect")
+        .unwrap()
+        .effects(pse_contract::operation_effects::EffectFacts::OBSERVATION)
         .unwrap();
     graph.service(service).unwrap();
     let config = default_config("crate::generated::__buffa_fds");

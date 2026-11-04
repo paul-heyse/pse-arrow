@@ -8,6 +8,8 @@ mod physical;
 
 mod code_intelligence;
 #[cfg(feature = "product-schemas")]
+mod contract_metadata;
+#[cfg(feature = "product-schemas")]
 mod engineering;
 mod grpc_wire;
 mod ownership;

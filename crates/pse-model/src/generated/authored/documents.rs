@@ -96,6 +96,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredDocumentsRow 
                                         ),
                                         ("pse.domain.identity".into(), "package".into()),
                                         ("pse.domain.role".into(), "reference".into()),
+                                        (
+                                            "pse.semantic.reference".into(),
+                                            "{\"relation\":\"authored.packages\",\"columns\":[{\"source\":[],\"target\":\"package_id\"}],\"null_policy\":\"required\"}"
+                                                .into(),
+                                        ),
                                     ]),
                                 ),
                             pse_contract::boundary_projection::Field::of::<
