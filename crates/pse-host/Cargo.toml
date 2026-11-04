@@ -57,6 +57,7 @@ workspace = true
 
 [dependencies]
 pse-contract.workspace = true
+pse-contract-proto = { workspace = true, features = ["crossings"] }
 buffa.workspace = true
 buffa-descriptor.workspace = true
 buffa-types.workspace = true

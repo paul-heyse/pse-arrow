@@ -8368,6 +8368,7 @@ dependencies = [
  "protovalidate-buffa",
  "pse-buildinfo",
  "pse-contract",
+ "pse-contract-proto",
  "pse-diagnostics",
  "public-api",
  "pulldown-cmark 0.13.5",
