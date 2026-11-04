@@ -385,6 +385,7 @@ fn digest(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    mod lifecycle;
     use crate::{
         envelope::{Envelope, ErrorRecord, RedactionPolicy},
         managed::result::{ManagedSummary, WorkflowSummary},

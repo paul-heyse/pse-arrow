@@ -14,10 +14,10 @@ fn input(action: Action) -> Input {
         invocation: CliInvocationId::new(),
         action,
         request: selection::Request {
-            operation: if action == Action::Check {
-                selection::Operation::Check
-            } else {
-                selection::Operation::Test
+            operation: match action {
+                Action::Check => selection::Operation::Check,
+                Action::Rustdoc => selection::Operation::Rustdoc,
+                Action::List | Action::Test => selection::Operation::Test,
             },
             scope: selection::Scope::DefaultMembers {
                 features: selection::Features::default(),
@@ -461,6 +461,7 @@ async fn actual_workflow_runs_only_the_original_selected_pure_host_test() {
         serde_json::from_slice(&fs::read(destination.join("inventory/inventory.json")).unwrap())
             .unwrap();
     assert!(inventory.selection.filters().ignore_default_filter);
+    verify_current_rerun_context(&inventory, evidence.path());
     let terminal = report.publish(&destination).unwrap();
     terminal.validate(&input.invocation, Action::Test).unwrap();
     assert_eq!(terminal.helper_exit(), 0);
@@ -528,6 +529,104 @@ async fn actual_workflow_runs_only_the_original_selected_pure_host_test() {
     let mut changed = wire;
     changed.inventory_original.clear();
     assert!(read(&changed).is_err());
+}
+
+/// Challenge current rerun eligibility using the actual native build/list population.
+/// These altered observations are never written over the committed original inventory.
+fn verify_current_rerun_context(original: &crate::discovery::Inventory, scratch: &Path) {
+    let identity = original.selected_tests().pop().unwrap();
+    let selected = original.test(&identity).unwrap();
+    let root = original.selection.groups()[identity.group]
+        .roots()
+        .iter()
+        .find(|root| root.package_id() == identity.package_id)
+        .unwrap();
+    let case = selection::RerunCase {
+        package: root.package_name().into(),
+        target: selection::TargetIntent {
+            name: selected.artifact.cargo.target.name.to_string(),
+            kind: Some(selected.artifact.cargo.target.kind[0].to_string()),
+        },
+        features: selection::Features {
+            defaults: false,
+            all: false,
+            enabled: selected.artifact.cargo.features.iter().cloned().collect(),
+            absent: root.features().absent.clone(),
+        },
+        binary_id: identity.binary_id.clone(),
+        test_name: identity.test_name.clone(),
+    };
+    let fresh = || {
+        let mut current: crate::discovery::Inventory =
+            serde_json::from_slice(&serde_json::to_vec(original).unwrap()).unwrap();
+        current.selection = current.selection.source(
+            selection::SourceBasis::RerunFailed {
+                invocation: CliInvocationId::new(),
+            },
+            vec![case.clone()],
+        );
+        current
+    };
+    test_workflow::source::verify_rerun(&fresh()).unwrap();
+    let mut renamed = serde_json::to_value(fresh()).unwrap();
+    let roots = renamed["selection"]["groups"][identity.group]["roots"]
+        .as_array_mut()
+        .unwrap();
+    let root = roots
+        .iter_mut()
+        .find(|root| root["package_id"] == identity.package_id)
+        .unwrap();
+    root["package_name"] = "absent-current-package".into();
+    let renamed = serde_json::from_value(renamed).unwrap();
+    assert!(test_workflow::source::verify_rerun(&renamed).is_err());
+    let mut changed_features = fresh();
+    changed_features.groups[identity.group]
+        .build
+        .artifacts
+        .iter_mut()
+        .find(|artifact| artifact.executable.captured == selected.artifact.executable.captured)
+        .unwrap()
+        .cargo
+        .features
+        .push("unselected-current-feature".into());
+    assert!(test_workflow::source::verify_rerun(&changed_features).is_err());
+    let mut missing_test = fresh();
+    missing_test.groups[identity.group]
+        .listing
+        .rust_suites
+        .get_mut(&nextest_metadata::RustBinaryId::new(&identity.binary_id))
+        .unwrap()
+        .test_cases
+        .remove(&nextest_metadata::TestCaseName::new(&identity.test_name));
+    assert!(test_workflow::source::verify_rerun(&missing_test).is_err());
+    let mut stale_binary = fresh();
+    let artifact = stale_binary.groups[identity.group]
+        .build
+        .artifacts
+        .iter_mut()
+        .find(|artifact| artifact.executable.captured == selected.artifact.executable.captured)
+        .unwrap();
+    let isolated = scratch.join("stale-current-binary");
+    fs::copy(&artifact.executable.captured, &isolated).unwrap();
+    fs::set_permissions(&isolated, fs::Permissions::from_mode(0o700)).unwrap();
+    use std::io::Write as _;
+    fs::OpenOptions::new()
+        .append(true)
+        .open(&isolated)
+        .unwrap()
+        .write_all(b"changed current executable")
+        .unwrap();
+    artifact.executable.captured = isolated.clone();
+    stale_binary.groups[identity.group]
+        .listing
+        .rust_suites
+        .get_mut(&nextest_metadata::RustBinaryId::new(&identity.binary_id))
+        .unwrap()
+        .binary
+        .binary_path = isolated.to_str().unwrap().into();
+    assert!(test_workflow::source::verify_rerun(&stale_binary).is_err());
+    assert_eq!(original.selected_tests(), vec![identity]);
+    original.verify_executables().unwrap();
 }
 
 #[tokio::test]
@@ -653,4 +752,78 @@ async fn actual_check_and_zero_match_listing_keep_distinct_native_outcomes() {
     assert!(report.observations.is_empty());
     assert!(report.required_capture_complete);
     assert_eq!(report.publish(&destination).unwrap().helper_exit(), 1);
+}
+
+#[tokio::test]
+async fn actual_list_and_rustdoc_preserve_population_and_compiler_meanings() {
+    let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    let evidence = tempfile::tempdir().unwrap();
+    let mut input = input(Action::List);
+    input.request.scope = selection::Scope::Packages(vec![selection::PackageIntent {
+        package: "pse-ids".into(),
+        target: Some(selection::TargetIntent {
+            name: "pse_ids".into(),
+            kind: Some("lib".into()),
+        }),
+        features: selection::Features {
+            defaults: false,
+            ..selection::Features::default()
+        },
+    }]);
+    let destination = evidence.path().join("list");
+    let mut listed = run(
+        &input,
+        checkout,
+        &destination,
+        std::env::vars_os().collect(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(listed.outcome, Outcome::Listed, "{:?}", listed.failures);
+    assert!(listed.selected_tests.is_some_and(|count| count > 0));
+    assert!(listed.inventory.is_some());
+    assert!(
+        listed.observations.is_empty(),
+        "listing executes no assertions"
+    );
+    assert!(listed.required_capture_complete);
+    let terminal = listed.publish(&destination).unwrap();
+    terminal.validate(&input.invocation, Action::List).unwrap();
+    assert_eq!(terminal.helper_exit(), 0);
+
+    input.invocation = CliInvocationId::new();
+    input.action = Action::Rustdoc;
+    input.request.operation = selection::Operation::Rustdoc;
+    let destination = evidence.path().join("rustdoc");
+    let mut documented = run(
+        &input,
+        checkout,
+        &destination,
+        std::env::vars_os().collect(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        documented.outcome,
+        Outcome::CheckSucceeded,
+        "{:?}",
+        documented.failures
+    );
+    assert!(documented.selected_tests.is_none());
+    assert!(documented.inventory.is_none());
+    assert!(documented.required_capture_complete);
+    assert_eq!(documented.observations.len(), 1);
+    assert!(matches!(
+        documented.observations[0],
+        GroupObservation::Check { .. }
+    ));
+    let terminal = documented.publish(&destination).unwrap();
+    terminal
+        .validate(&input.invocation, Action::Rustdoc)
+        .unwrap();
+    assert_eq!(terminal.helper_exit(), 0);
+    assert!(terminal.validate(&input.invocation, Action::Check).is_err());
 }
