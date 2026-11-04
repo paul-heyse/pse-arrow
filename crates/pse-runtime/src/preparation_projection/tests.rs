@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 
 use super::*;
+use crate::engineering_projection::*;
+use pse_contract::boundary_projection::{AdapterError, AdapterFailure};
 use crate::host_operations::engineering::generated::pb::pse::engineering::v1 as wire;
 use buffa::Message;
 use pse_contract::boundary_projection::ProjectionRecord;
@@ -190,7 +192,7 @@ fn outgoing_native_envelope_violation_is_an_internal_producer_failure() {
     assert!(matches!(&error, BoundaryProjectionError::OutgoingNative(
         pse_contract::boundary_projection::ValidationError::Rule { path, rule: "length", .. }) if path == "resident"));
     assert_eq!(
-        pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&ProjectionDiagnosticError::from(error)),
         Some(pse_diagnostics::DiagnosticCode::WorkflowInternal)
     );
 }

@@ -238,7 +238,7 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         .await
         .unwrap();
     let original = selected(&mut client, &original_operation).await;
-    let physical_request = pse_runtime::preparation_projection::encode_physical_inspection_request(
+    let physical_request = pse_runtime::engineering_projection::encode_physical_inspection_request(
         pse_runtime::workflow::PhysicalInspectionRequest {
             query: pse_runtime::workflow::PhysicalInspectionQuery::QuantityNamed {
                 name: "Length".into(),
@@ -259,7 +259,7 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         .unwrap()
         .into_owned();
     let physical =
-        pse_runtime::preparation_projection::decode_physical_inspection_document(physical).unwrap();
+        pse_runtime::engineering_projection::decode_physical_inspection_document(physical).unwrap();
     let pse_runtime::workflow::PhysicalInspectionDocument::Page {
         context,
         count,
@@ -348,7 +348,7 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         path: "models/root.pse".into(),
         maximum_bytes: 1 << 20,
     };
-    let file_request = pse_runtime::preparation_projection::encode_original_source_file_request(
+    let file_request = pse_runtime::engineering_projection::encode_original_source_file_request(
         native_file_request,
     )
     .unwrap();
@@ -363,7 +363,7 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         .unwrap()
         .into_owned();
     let original_file =
-        pse_runtime::preparation_projection::decode_original_source_file(original_file).unwrap();
+        pse_runtime::engineering_projection::decode_original_source_file(original_file).unwrap();
     assert_eq!(original_file.local_revision, replaced.local_revision);
     assert_eq!(original_file.path, "models/root.pse");
     assert_eq!(original_file.body, square(9));
@@ -425,7 +425,7 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         .declaration
         .clone();
     let discovery_request =
-        pse_runtime::preparation_projection::encode_preparation_discovery_request(
+        pse_runtime::engineering_projection::encode_preparation_discovery_request(
             pse_runtime::workflow::PreparationDiscoveryRequest {
                 root: pse_model::generated::identities::DeclarationId::from_id(
                     pse_ids::SemanticId::from_bytes(case.clone().try_into().unwrap()),
@@ -448,7 +448,7 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         .unwrap()
         .into_owned();
     let native_discovery =
-        pse_runtime::preparation_projection::decode_preparation_discovery_report(discovered)
+        pse_runtime::engineering_projection::decode_preparation_discovery_report(discovered)
             .unwrap();
     assert_eq!(native_discovery.revision_id, removed.local_revision);
     assert!(
@@ -473,7 +473,7 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         "original durable presence grants no receiving scientific qualification"
     );
     let final_file_request =
-        pse_runtime::preparation_projection::encode_original_source_file_request(
+        pse_runtime::engineering_projection::encode_original_source_file_request(
             pse_runtime::workflow::OriginalSourceFileRequest {
                 parent: removed.local_revision.clone(),
                 package: pse_ids::SemanticId::from_bytes(package_id().try_into().unwrap()),
@@ -493,7 +493,7 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         .unwrap()
         .into_owned();
     let final_file =
-        pse_runtime::preparation_projection::decode_original_source_file(final_file).unwrap();
+        pse_runtime::engineering_projection::decode_original_source_file(final_file).unwrap();
     assert_eq!(final_file.local_revision, removed.local_revision);
     assert_eq!(
         final_file.body,

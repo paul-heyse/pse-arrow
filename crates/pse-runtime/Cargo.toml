@@ -73,6 +73,7 @@ native-solvers = [
 
 [dependencies]
 pse-contract.workspace = true
+pse-contract-proto = { workspace = true, features = ["crossings"] }
 pse-host.workspace = true
 buffa.workspace = true
 buffa-descriptor.workspace = true

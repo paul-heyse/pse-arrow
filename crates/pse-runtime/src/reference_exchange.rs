@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Bounded generated scientific interchange. This codec never constructs reference answers.
-use crate::projection_support::*;
+use pse_contract_proto::support::*;
+use crate::projection_diagnostics::ProjectionDiagnosticError;
 use pse_model::{reference_exchange as native};
 use pse_contract::{boundary_projection::{AdapterError, AdapterFailure, ValidateProjection as _}};
 
@@ -26,7 +27,12 @@ pub enum ExchangeError {
     Invalid(String),
     /// Original typed local-rule or mechanical-adoption refusal.
     #[error(transparent)]
-    Projection(#[from] BoundaryProjectionError),
+    Projection(#[from] ProjectionDiagnosticError),
+}
+impl From<BoundaryProjectionError> for ExchangeError {
+    fn from(error: BoundaryProjectionError) -> Self {
+        Self::Projection(error.into())
+    }
 }
 pse_diagnostics::impl_diagnostic! {
     ExchangeError,

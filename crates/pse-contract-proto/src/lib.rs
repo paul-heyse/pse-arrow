@@ -16,6 +16,9 @@ use pse_contract::{boundary_projection::{ConstructionRole, Definition, Direction
 use buffa_descriptor::generated::descriptor::{self, FileDescriptorProto, FileDescriptorSet};
 mod error;
 pub use error::{DomainDiagnostic, MetadataError};
+/// Standard mechanical crossings and original maintained-validator refusals.
+#[cfg(feature = "crossings")]
+pub mod support;
 
 fn error(reason: impl Into<String>) -> MetadataError { MetadataError::Invalid { reason: reason.into() } }
 

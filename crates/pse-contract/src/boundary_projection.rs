@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod access;
 mod array;
+mod bytes;
 mod float_collections;
 mod float_domain;
 mod float_interval;
@@ -26,6 +27,7 @@ pub use access::{
     clone_adapter_field, validate_adapted,
 };
 pub use float_collections::NativeContainer;
+pub use bytes::ProjectionBytes;
 pub use float_collections::NominalFloat64;
 pub use float_domain::Float64Domain;
 pub use float_interval::Float64Interval;

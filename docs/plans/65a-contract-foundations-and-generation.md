@@ -167,6 +167,23 @@ newly crossing native failure into a string. Graph lowering and selected domain
 policies stay with codegen/their source owners; the old adapter implementation and
 namespace are removed.
 
+Native crossing mechanics use the same lightweight adapter owner through its opt-in
+`crossings` capability. Buffa's owned messages and `MessageField` preserve presence;
+the maintained validator's `Validate::validate` supplies original field/rule violations
+and compilation/evaluation failures. `BoundaryProjectionError` retains those typed
+causes, distinguishes uncontrolled ingress from outgoing producer failures, and keeps
+consumer diagnostic presentation external. Runtime supplies its local
+`ProjectionDiagnosticError`; native diagnostic owners acquire no wire dependency.
+The source scalar owners implement pure `ProjectionBytes`, so identity widths and
+nominal reconstruction stay with IDs/model rather than foreign transport impls.
+Standard scalar/container mechanics have one owner; generated adapters use that owner
+for both engineering and independent scientific interchange. See the pinned
+[Buffa message API](https://docs.rs/buffa/0.9.2/buffa/trait.Message.html) and
+[maintained validation API](https://docs.rs/protovalidate-buffa/0.7.2/protovalidate_buffa/trait.Validate.html).
+The metadata-only crate does not select the validator capability; actual workspace
+feature unification can still select the validator's Connect support through runtime
+and host consumers.
+
 **Registry facet lowering.** The registry owner publishes
 `pse.schema.v1.registry_field`, a message-valued `google.protobuf.FieldOptions`
 extension allocated at 51066 in

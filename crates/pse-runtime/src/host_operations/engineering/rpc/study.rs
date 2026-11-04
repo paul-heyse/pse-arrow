@@ -15,10 +15,10 @@ macro_rules! owned_unary {
             self.authenticate(&context)?;
             let request = request.to_owned_message();
             adoption::validate(&request)?;
-            let input = crate::preparation_projection::$decode(request).map_err(study::projection_error)?;
+            let input = crate::engineering_projection::$decode(request).map_err(study::projection_error)?;
             let output = self.engine.$native(input).await.map_err(transport)?;
             Ok(connectrpc::Response::new(study::accounted(output,
-                crate::preparation_projection::$encode)?))
+                crate::engineering_projection::$encode)?))
         }
     };
 }
@@ -32,9 +32,9 @@ macro_rules! admission_unary {
             self.authenticate(&context)?;
             let request = request.to_owned_message();
             adoption::validate(&request)?;
-            let input = crate::preparation_projection::$decode(request).map_err(study::projection_error)?;
+            let input = crate::engineering_projection::$decode(request).map_err(study::projection_error)?;
             let output = self.engine.$native(input).await.map_err(transport)?;
-            let message = crate::preparation_projection::encode_engineering_prepared_study(output)
+            let message = crate::engineering_projection::encode_engineering_prepared_study(output)
                 .map_err(study::projection_error)?;
             Ok(connectrpc::Response::new(outgoing::Validated(message)))
         }
@@ -50,11 +50,11 @@ macro_rules! original_unary {
             self.authenticate(&context)?;
             let request = request.to_owned_message();
             adoption::validate(&request)?;
-            let input = crate::preparation_projection::decode_engineering_study_key(request)
+            let input = crate::engineering_projection::decode_engineering_study_key(request)
                 .map_err(study::projection_error)?;
             let output = self.engine.$native(&input).await.map_err(transport)?;
             Ok(connectrpc::Response::new(study::accounted(output,
-                crate::preparation_projection::encode_engineering_study_status)?))
+                crate::engineering_projection::encode_engineering_study_status)?))
         }
     };
 }
@@ -88,7 +88,7 @@ macro_rules! methods {
             let input = wire::key_from_pb(request);
             let output = self.engine.prepared_study_definition(&input).await.map_err(transport)?;
             Ok(connectrpc::Response::new(study::accounted(output,
-                crate::preparation_projection::encode_study_definition)?))
+                crate::engineering_projection::encode_study_definition)?))
         }
 
         async fn observe_study(&self, context: connectrpc::RequestContext,
@@ -97,7 +97,7 @@ macro_rules! methods {
             self.authenticate(&context)?;
             let request = request.to_owned_message();
             adoption::validate(&request)?;
-            let input = crate::preparation_projection::decode_engineering_observe_study(request)
+            let input = crate::engineering_projection::decode_engineering_observe_study(request)
                 .map_err(study::projection_error)?;
             let stream = study::observations(self.engine.clone(), input, context.deadline()).await?;
             Ok(connectrpc::Response::new(stream))
@@ -109,12 +109,12 @@ macro_rules! methods {
             self.authenticate(&context)?;
             let request = request.to_owned_message();
             adoption::validate(&request)?;
-            let input = crate::preparation_projection::decode_engineering_read_study_result(request)
+            let input = crate::engineering_projection::decode_engineering_read_study_result(request)
                 .map_err(study::projection_error)?;
             let cancel = CancelSource::new().with_deadline(context.deadline());
             let output = self.engine.read_study_result(input, &cancel).await.map_err(transport)?;
             Ok(connectrpc::Response::new(study::accounted(output,
-                crate::preparation_projection::encode_engineering_study_result_page)?))
+                crate::engineering_projection::encode_engineering_study_result_page)?))
         }
 
         async fn release_study_cohort<'a>(&'a self, context: connectrpc::RequestContext,
@@ -125,7 +125,7 @@ macro_rules! methods {
             adoption::validate(&request)?;
             let input = wire::key_from_pb(request);
             let output = self.engine.release_study_cohort(&input).map_err(transport)?;
-            let message = crate::preparation_projection::encode_engineering_cohort_release(output)
+            let message = crate::engineering_projection::encode_engineering_cohort_release(output)
                 .map_err(study::projection_error)?;
             Ok(connectrpc::Response::new(outgoing::Validated(message)))
         }
@@ -135,14 +135,14 @@ pub(super) use methods;
 
 pub(super) fn accounted<N, M>(
     output: crate::host_operations::engineering::EngineeringStudyOutput<N>,
-    encode: impl FnOnce(N) -> Result<M, crate::projection_support::BoundaryProjectionError>,
+    encode: impl FnOnce(N) -> Result<M, pse_contract_proto::support::BoundaryProjectionError>,
 ) -> Result<AccountedResponse<M>, ConnectError> {
     let message = encode(output.value).map_err(projection_error)?;
     Ok(AccountedResponse { message, reservation: output.owner, maximum_bytes: output.maximum_bytes })
 }
 
-pub(super) fn projection_error(error: crate::projection_support::BoundaryProjectionError) -> ConnectError {
-    transport(EngineeringServiceError::Owner(Box::new(error)))
+pub(super) fn projection_error(error: pse_contract_proto::support::BoundaryProjectionError) -> ConnectError {
+    transport(EngineeringServiceError::Owner(Box::new(crate::projection_diagnostics::ProjectionDiagnosticError::from(error))))
 }
 
 pub(super) async fn observations(
@@ -159,7 +159,7 @@ pub(super) async fn observations(
                 Ok(output) => {
                     let done = observation_complete(output.value.status.header.terminal,
                         &output.value.sources);
-                    let page = accounted(output, crate::preparation_projection::encode_study_observation_page);
+                    let page = accounted(output, crate::engineering_projection::encode_study_observation_page);
                     let done = done || page.is_err();
                     Some((page, (engine, observer, cancel, true, done)))
                 }

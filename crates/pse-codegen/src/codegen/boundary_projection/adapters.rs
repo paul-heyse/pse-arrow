@@ -471,6 +471,9 @@ impl Generator<'_> {
         raw: bool,
     ) -> Result<String, ProjectionCodegenError> {
         Ok(match ty {
+            TypeRef::Scalar(Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash) => format!(
+                "pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes({value})"
+            ),
             TypeRef::Scalar(scalar) => format!(
                 "native_into::<_, {}>({value}, {path})?",
                 scalar_wire(*scalar)
@@ -507,6 +510,11 @@ impl Generator<'_> {
                 }
             },
             TypeRef::Repeated(inner) | TypeRef::Set(inner) => {
+                if matches!(inner.as_ref(), TypeRef::Scalar(Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash)) {
+                    // Owner-checked byte extraction is infallible. Avoid manufacturing
+                    // unused per-element error paths for that native conversion.
+                    return Ok(format!("items({value}).map(pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes).collect::<Vec<_>>()"));
+                }
                 let converted = if matches!(inner.as_ref(), TypeRef::Scalar(_) | TypeRef::Named(_))
                 {
                     self.encode(
@@ -581,6 +589,9 @@ impl Generator<'_> {
         raw: bool,
     ) -> Result<String, ProjectionCodegenError> {
         Ok(match ty {
+            TypeRef::Scalar(Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash) => format!(
+                "pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes({value}, {path})?"
+            ),
             TypeRef::Scalar(scalar) => format!(
                 "native_from::<_, {}>({value}, {path})?",
                 scalar_wire(*scalar)

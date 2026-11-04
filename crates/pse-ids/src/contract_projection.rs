@@ -11,6 +11,29 @@ macro_rules! scalar { ($($ty:ty => $kind:ident),*) => { $(
  }
 )* }; }
 scalar!(crate::SemanticId => SemanticId, crate::ContentHash => ContentHash);
+macro_rules! identity_bytes { ($($ty:ty),* $(,)?) => { $(
+    impl ProjectionBytes for $ty {
+        fn into_projection_bytes(self) -> Vec<u8> { self.as_bytes().to_vec() }
+        fn from_projection_bytes(bytes: Vec<u8>, path: &str) -> Result<Self, AdapterError> {
+            let bytes = bytes.try_into().map_err(|_| AdapterError::refused(path, AdapterFailure::InvalidValue, "identity byte width does not match its actual nominal owner"))?;
+            Ok(Self::from_bytes(bytes))
+        }
+    }
+)* }; }
+identity_bytes!(crate::SemanticId, crate::ContentHash);
+#[cfg(test)]
+mod byte_tests {
+    use super::*;
+    #[test]
+    fn nominal_byte_access_uses_actual_owner_width_and_source_path() {
+        let id = crate::SemanticId::from_bytes([17; 16]);
+        let bytes = id.into_projection_bytes();
+        assert_eq!(crate::SemanticId::from_projection_bytes(bytes.clone(), "request.id").unwrap(), id);
+        assert!(matches!(crate::SemanticId::from_projection_bytes(bytes[..bytes.len()-1].to_vec(), "request.id"), Err(AdapterError::Refused { path, kind: AdapterFailure::InvalidValue, .. }) if path == "request.id"));
+        let hash = crate::ContentHash::from_bytes([29; 32]);
+        assert_eq!(Box::<crate::ContentHash>::from_projection_bytes(hash.into_projection_bytes(), "hash").unwrap().into_projection_bytes(), hash.as_bytes());
+    }
+}
 impl ValidateProjection for crate::SemanticId {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> {

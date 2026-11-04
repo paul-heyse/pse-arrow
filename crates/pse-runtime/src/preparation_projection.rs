@@ -2,12 +2,12 @@
 // Copyright (c) 2026 Paul Heyse
 //! Generated typed preparation crossings; native preparation retains contextual authority.
 
-use crate::projection_support::*;
-use pse_contract::boundary_projection::{AdapterError, AdapterFailure};
-
-#[path = "generated/engineering/native-adapters.rs"]
-mod generated;
-pub use generated::*;
+use crate::engineering_projection::{
+    decode_preparation_discovery_request, encode_physical_inspection_document,
+    encode_preparation_discovery_report,
+};
+use crate::projection_diagnostics::ProjectionDiagnosticError;
+use pse_contract_proto::support::BoundaryProjectionError;
 
 /// A complete typed physical page plus its original native allocation custody.
 #[derive(Debug)]
@@ -39,10 +39,15 @@ pub fn encode_owned_physical_inspection_document(
 pub enum PreparationDiscoveryProjectionError {
     /// Local wire/native conversion failed before publication.
     #[error(transparent)]
-    Projection(#[from] BoundaryProjectionError),
+    Projection(#[from] ProjectionDiagnosticError),
     /// Original exact-source, contextual, cancellation or infrastructure outcome.
     #[error(transparent)]
     Workflow(#[from] crate::workflow::WorkflowError),
+}
+impl From<BoundaryProjectionError> for PreparationDiscoveryProjectionError {
+    fn from(error: BoundaryProjectionError) -> Self {
+        Self::Projection(error.into())
+    }
 }
 pse_diagnostics::impl_diagnostic! {
     PreparationDiscoveryProjectionError,

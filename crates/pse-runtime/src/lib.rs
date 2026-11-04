@@ -55,11 +55,14 @@ pub mod observation;
 pub mod observation_detail;
 pub use inspection_documents::{ResourceConsumer, TableName};
 pub mod peak;
-/// Typed generated preparation crossings over the actual native semantic owners.
+/// Source-generated engineering crossings over the actual native semantic owners.
+#[cfg(feature = "engineering-service")]
+pub mod engineering_projection;
+/// Native preparation discovery and physical-page custody through shared crossings.
 #[cfg(feature = "engineering-service")]
 pub mod preparation_projection;
-/// Shared mechanics and typed failures for generated native boundary projections.
-pub mod projection_support;
+/// Runtime presentation retaining original shared projection failures.
+pub mod projection_diagnostics;
 /// Source-derived interchange for independently constructed scientific references.
 pub mod reference_exchange;
 /// Explicit local process placement for coherent scientific providers.

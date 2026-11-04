@@ -11,9 +11,9 @@ pub(super) fn validate<M: protovalidate_buffa::Validate>(
         // The pinned library emits bounded canonical buf.validate violation
         // details. Retain these together with the typed outgoing-owner failure.
         let details = failure.clone().into_connect_error().details;
-        let mut error = super::transport(super::EngineeringServiceError::Owner(Box::new(
-            crate::projection_support::BoundaryProjectionError::OutgoingWire(failure),
-        )));
+        let mut error = super::study::projection_error(
+            pse_contract_proto::support::BoundaryProjectionError::OutgoingWire(failure),
+        );
         error.code = connectrpc::ErrorCode::Internal;
         error.details.extend(details);
         error

@@ -184,7 +184,7 @@ impl bindings::EngineeringService for Implementation {
         let selected = request.request.into_option().ok_or_else(|| {
             ConnectError::invalid_argument("the original physical inspection request is required")
         })?;
-        let selected = crate::preparation_projection::decode_physical_inspection_request(selected)
+        let selected = crate::engineering_projection::decode_physical_inspection_request(selected)
             .map_err(|error| transport(EngineeringServiceError::Owner(Box::new(error))))?;
         let cancel = CancelSource::new().with_deadline(context.deadline());
         let output = self
@@ -222,7 +222,7 @@ impl bindings::EngineeringService for Implementation {
         let selected = request.request.into_option().ok_or_else(|| {
             ConnectError::invalid_argument("the original source-file request is required")
         })?;
-        let selected = crate::preparation_projection::decode_original_source_file_request(selected)
+        let selected = crate::engineering_projection::decode_original_source_file_request(selected)
             .map_err(|error| transport(EngineeringServiceError::Owner(Box::new(error))))?;
         let cancel = CancelSource::new().with_deadline(context.deadline());
         let output = self
@@ -237,7 +237,7 @@ impl bindings::EngineeringService for Implementation {
             .await
             .map_err(transport)?;
         let message =
-            crate::preparation_projection::encode_original_source_file(output.document)
+            crate::engineering_projection::encode_original_source_file(output.document)
                 .map_err(|error| transport(EngineeringServiceError::Owner(Box::new(error))))?;
         Ok(connectrpc::Response::new(AccountedResponse {
             message,

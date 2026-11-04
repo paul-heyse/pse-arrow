@@ -1,80 +1,82 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Shared typed scalar/container mechanics for source-generated native boundary adapters.
-
-#[cfg(feature = "engineering-service")]
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
-use std::sync::Arc;
-
+//! Standard typed mechanics for source-generated adapters; no product/native owner dependency.
+use std::{collections::{BTreeMap, BTreeSet}, sync::Arc};
 use pse_contract::boundary_projection::{AdapterError, AdapterFailure, ValidateProjection};
 
-/// A typed crossing refusal, preserving validator compilation/evaluation and rule failures.
+/// Original typed crossing failure; native permission and consumer presentation stay external.
 #[derive(Debug, thiserror::Error)]
 pub enum BoundaryProjectionError {
-    /// Mechanical adoption or the actual owner's native local rule refused.
-    #[error(transparent)]
+    /// Actual native mechanical/local rule refusal.
+    #[error("{0}")]
     Adoption(#[from] AdapterError),
-    /// Original generated validator result, including all field/rule paths and categories.
-    #[error(transparent)]
+    /// Original generated validation failure, with all violations and infrastructure detail.
+    #[error("{0}")]
     WireValidation(#[from] protovalidate_buffa::ValidationError),
-    /// An outgoing native producer violated its shared local envelope.
+    /// Original outgoing native producer envelope violation.
     #[error("outgoing native projection: {0}")]
     OutgoingNative(#[source] pse_contract::boundary_projection::ValidationError),
-    /// An outgoing mapping could not preserve its actual native meaning.
+    /// Original outgoing source correspondence failure.
     #[error("outgoing native adoption: {0}")]
     OutgoingAdoption(#[source] AdapterError),
-    /// Original outgoing wire-rule failure, distinguished from uncontrolled ingress.
+    /// Original outgoing generated validation failure.
     #[error("outgoing wire projection: {0}")]
     OutgoingWire(#[source] protovalidate_buffa::ValidationError),
 }
-pse_diagnostics::impl_diagnostic! {
-    BoundaryProjectionError,
-    code(this) { match this {
-        Self::Adoption(_) => None,
-        Self::OutgoingNative(_) | Self::OutgoingAdoption(_) | Self::OutgoingWire(_) => Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),
-        Self::WireValidation(error) if error.compile_error.is_some() || error.runtime_error.is_some() => Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),
-        Self::WireValidation(_) => Some(pse_diagnostics::DiagnosticCode::WorkflowInput),
-    } },
-    forward(this) { match this { Self::Adoption(error) | Self::OutgoingAdoption(error) => Some(error), Self::OutgoingNative(error) => Some(error), _ => None } },
-    help(_this) { None }, related(_this) { None }, source(_this) { None },
-    facts(this) {
-        let mut facts = pse_diagnostics::DiagnosticFacts::default();
-        if let Self::WireValidation(error) | Self::OutgoingWire(error) = this {
-            if let Some(detail) = &error.compile_error { facts.observe("rule_compilation_error", pse_diagnostics::DiagnosticObservation::Text(detail.clone())); }
-            if let Some(detail) = &error.runtime_error { facts.observe("rule_evaluation_error", pse_diagnostics::DiagnosticObservation::Text(detail.clone())); }
-            for (index, violation) in error.violations.iter().enumerate() {
-                facts.observe(format!("violation_{index}_field_path"), pse_diagnostics::DiagnosticObservation::Text(violation.field.to_string()));
-                facts.observe(format!("violation_{index}_rule_id"), pse_diagnostics::DiagnosticObservation::Text(violation.rule_id.to_string()));
-                facts.observe(format!("violation_{index}_detail"), pse_diagnostics::DiagnosticObservation::Text(violation.message.to_string()));
-            }
+impl miette::Diagnostic for BoundaryProjectionError {
+    fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        let code = match self {
+            Self::Adoption(error) => return miette::Diagnostic::code(error),
+            Self::OutgoingNative(_) | Self::OutgoingAdoption(_) | Self::OutgoingWire(_) => "workflow.internal",
+            Self::WireValidation(error) if error.compile_error.is_some() || error.runtime_error.is_some() => "workflow.internal",
+            Self::WireValidation(_) => "workflow.input",
+        };
+        Some(Box::new(code))
+    }
+    fn diagnostic_source(&self) -> Option<&dyn miette::Diagnostic> {
+        match self {
+            Self::Adoption(error) | Self::OutgoingAdoption(error) => Some(error),
+            Self::OutgoingNative(error) => Some(error),
+            _ => None,
         }
-        facts
     }
 }
-impl pse_model::diagnostic::DiagnosticProjection for BoundaryProjectionError {}
+impl BoundaryProjectionError {
+    /// Original maintained-validator details, never flattened into a rendered message.
+    pub fn wire_validation(&self) -> Option<&protovalidate_buffa::ValidationError> {
+        match self { Self::WireValidation(error) | Self::OutgoingWire(error) => Some(error), _ => None }
+    }
+}
 
-pub(crate) trait NativeInto<W> {
+/// Mechanical native-to-wire correspondence; root validation remains explicit.
+pub trait NativeInto<W> {
+    /// Convert the actual selected native value.
     fn into_wire(self, path: &str) -> Result<W, AdapterError>;
 }
-pub(crate) trait NativeFrom<W>: Sized {
+/// Checked mechanical wire-to-native correspondence, excluding sealed observations.
+pub trait NativeFrom<W>: Sized {
+    /// Construct only this actual declared data value.
     fn from_wire(wire: W, path: &str) -> Result<Self, AdapterError>;
 }
 
-pub(crate) fn native_into<N: NativeInto<W>, W>(value: N, path: &str) -> Result<W, AdapterError> {
+/// Apply one actual native mechanical conversion.
+pub fn native_into<N: NativeInto<W>, W>(value: N, path: &str) -> Result<W, AdapterError> {
     value.into_wire(path)
 }
-pub(crate) fn native_from<N: NativeFrom<W>, W>(value: W, path: &str) -> Result<N, AdapterError> {
+/// Apply one checked actual native inverse.
+pub fn native_from<N: NativeFrom<W>, W>(value: W, path: &str) -> Result<N, AdapterError> {
     N::from_wire(value, path)
 }
-pub(crate) fn child_path(parent: &str, field: &str) -> String {
+/// Attribute a child field using the shared native path convention.
+pub fn child_path(parent: &str, field: &str) -> String {
     pse_contract::boundary_projection::field_path(parent, field)
 }
-pub(crate) fn refused(path: &str, kind: AdapterFailure, reason: &str) -> AdapterError {
+/// Retain a typed native mechanical refusal.
+pub fn refused(path: &str, kind: AdapterFailure, reason: &str) -> AdapterError {
     AdapterError::refused(path, kind, reason)
 }
-#[cfg(feature = "engineering-service")]
-pub(crate) fn unknown_fields(
+/// Refuse adopting binary meaning absent from the actual native owner.
+pub fn unknown_fields(
     fields: &buffa::UnknownFields,
     path: &str,
 ) -> Result<(), AdapterError> {
@@ -88,7 +90,8 @@ pub(crate) fn unknown_fields(
         ))
     }
 }
-pub(crate) fn layout(
+/// Require the actual owner version and stable tuple layout.
+pub fn layout(
     actual_version: u32,
     actual: &[(u32, &str)],
     version: u32,
@@ -105,7 +108,8 @@ pub(crate) fn layout(
         ))
     }
 }
-pub(crate) fn required<T>(value: Option<T>, path: &str) -> Result<T, AdapterError> {
+/// Preserve required presence rather than fabricating a default.
+pub fn required<T>(value: Option<T>, path: &str) -> Result<T, AdapterError> {
     value.ok_or_else(|| {
         refused(
             path,
@@ -115,7 +119,8 @@ pub(crate) fn required<T>(value: Option<T>, path: &str) -> Result<T, AdapterErro
     })
 }
 
-pub(crate) fn encode_root<
+/// Validate the native producer, mechanically convert, then validate outgoing wire.
+pub fn encode_root<
     N: NativeInto<W> + ValidateProjection,
     W: protovalidate_buffa::Validate,
 >(
@@ -131,7 +136,8 @@ pub(crate) fn encode_root<
     Ok(wire)
 }
 
-pub(crate) fn decode_root<
+/// Validate uncontrolled wire, construct actual data, then validate native rules.
+pub fn decode_root<
     N: NativeFrom<W> + ValidateProjection,
     W: protovalidate_buffa::Validate,
 >(
@@ -148,7 +154,7 @@ macro_rules! scalar_identity { ($($ty:ty),* $(,)?) => { $(
     impl NativeInto<$ty> for $ty { fn into_wire(self, _: &str) -> Result<$ty, AdapterError> { Ok(self) } }
     impl NativeFrom<$ty> for $ty { fn from_wire(wire: $ty, _: &str) -> Result<Self, AdapterError> { Ok(wire) } }
 )* }; }
-scalar_identity!(bool, String, u32, u64, i32, i64, Vec<u8>);
+scalar_identity!(bool, String, u32, u64, i32, i64);
 impl NativeInto<u32> for u8 {
     fn into_wire(self, _: &str) -> Result<u32, AdapterError> {
         Ok(self.into())
@@ -239,26 +245,6 @@ impl NativeFrom<u32> for f32 {
         Ok(Self::from_bits(wire))
     }
 }
-impl NativeInto<Vec<u8>> for pse_model::Bytes {
-    fn into_wire(self, _: &str) -> Result<Vec<u8>, AdapterError> {
-        Ok(self.into_vec())
-    }
-}
-impl NativeFrom<Vec<u8>> for pse_model::Bytes {
-    fn from_wire(wire: Vec<u8>, _: &str) -> Result<Self, AdapterError> {
-        Ok(Self::new(wire))
-    }
-}
-macro_rules! identity_bytes { ($($ty:ty),* $(,)?) => { $(
-    impl NativeInto<Vec<u8>> for $ty { fn into_wire(self, _: &str) -> Result<Vec<u8>, AdapterError> { Ok(self.as_bytes().to_vec()) } }
-    impl NativeFrom<Vec<u8>> for $ty {
-        fn from_wire(wire: Vec<u8>, path: &str) -> Result<Self, AdapterError> {
-            let bytes = wire.try_into().map_err(|_| refused(path, AdapterFailure::InvalidValue, "identity byte width does not match its actual nominal owner"))?;
-            Ok(Self::from_bytes(bytes))
-        }
-    }
-)* }; }
-identity_bytes!(pse_ids::SemanticId, pse_ids::ContentHash);
 impl<T: NativeInto<W>, W> NativeInto<W> for Box<T> {
     fn into_wire(self, path: &str) -> Result<W, AdapterError> {
         (*self).into_wire(path)
@@ -270,9 +256,13 @@ impl<T: NativeFrom<W>, W> NativeFrom<W> for Box<T> {
     }
 }
 
-pub(crate) trait ProjectionItems {
+/// Source container extraction, retaining declared order/uniqueness semantics.
+pub trait ProjectionItems {
+    /// Original native element type.
     type Item;
+    /// Original extraction iterator.
     type Items: Iterator<Item = Self::Item>;
+    /// Consume the selected native collection.
     fn projection_items(self) -> Self::Items;
 }
 impl<T> ProjectionItems for Vec<T> {
@@ -303,11 +293,14 @@ impl<T: ProjectionItems> ProjectionItems for Box<T> {
         (*self).projection_items()
     }
 }
-pub(crate) fn items<T: ProjectionItems>(value: T) -> T::Items {
+/// Iterate the original container through its actual owner.
+pub fn items<T: ProjectionItems>(value: T) -> T::Items {
     value.projection_items()
 }
 
-pub(crate) trait FromProjectionItems<T>: Sized {
+/// Checked construction of the actual selected native container.
+pub trait FromProjectionItems<T>: Sized {
+    /// Construct the native container under its checked contract.
     fn from_items(items: Vec<T>, path: &str) -> Result<Self, AdapterError>;
 }
 impl<T> FromProjectionItems<T> for Vec<T> {
@@ -340,15 +333,16 @@ impl<T, C: FromProjectionItems<T>> FromProjectionItems<T> for Box<C> {
         C::from_items(items, path).map(Box::new)
     }
 }
-pub(crate) fn from_items<T, C: FromProjectionItems<T>>(
+/// Construct the actual native collection without silently dropping duplicates.
+pub fn from_items<T, C: FromProjectionItems<T>>(
     items: Vec<T>,
     path: &str,
 ) -> Result<C, AdapterError> {
     C::from_items(items, path)
 }
 
-#[cfg(feature = "engineering-service")]
-pub(crate) fn unique_pairs<K: Ord, V>(
+/// Construct a native map while refusing duplicate projected keys.
+pub fn unique_pairs<K: Ord, V>(
     pairs: Vec<(K, V)>,
     path: &str,
 ) -> Result<BTreeMap<K, V>, AdapterError> {
@@ -365,7 +359,41 @@ pub(crate) fn unique_pairs<K: Ord, V>(
     Ok(map)
 }
 
-#[cfg(feature = "engineering-service")]
-pub(crate) fn wire_map<K, V, M: FromIterator<(K, V)>>(pairs: impl Iterator<Item = (K, V)>) -> M {
+/// Build the declared wire map from original typed pairs.
+pub fn wire_map<K, V, M: FromIterator<(K, V)>>(pairs: impl Iterator<Item = (K, V)>) -> M {
     pairs.collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use miette::Diagnostic;
+
+    #[test]
+    fn original_rule_infrastructure_and_outgoing_failures_remain_distinct() {
+        let ordinary = BoundaryProjectionError::WireValidation(protovalidate_buffa::ValidationError::default());
+        assert_eq!(ordinary.code().unwrap().to_string(), "workflow.input");
+        let original = ordinary.wire_validation().unwrap();
+        let cause = std::error::Error::source(&ordinary).unwrap().downcast_ref::<protovalidate_buffa::ValidationError>().unwrap();
+        assert!(std::ptr::eq(original, cause));
+        for error in [
+            BoundaryProjectionError::WireValidation(protovalidate_buffa::ValidationError { compile_error: Some("original rule compile refusal".into()), ..Default::default() }),
+            BoundaryProjectionError::WireValidation(protovalidate_buffa::ValidationError { runtime_error: Some("original rule precondition refusal".into()), ..Default::default() }),
+            BoundaryProjectionError::OutgoingWire(protovalidate_buffa::ValidationError::default()),
+        ] {
+            assert_eq!(error.code().unwrap().to_string(), "workflow.internal");
+            assert!(error.wire_validation().is_some());
+        }
+    }
+
+    #[test]
+    fn actual_scalar_bits_widths_and_collection_uniqueness_are_preserved() {
+        for bits in [0_u64, (-0.0_f64).to_bits(), 0x7ff8_0000_0000_0042] {
+            let native = native_from::<f64, u64>(bits, "value").unwrap();
+            assert_eq!(native_into::<f64, u64>(native, "value").unwrap(), bits);
+        }
+        assert!(native_from::<u8, u32>(256, "value.octet").is_err());
+        assert!(matches!(from_items::<_, BTreeSet<u64>>(vec![1, 1], "values"), Err(AdapterError::Refused { kind: AdapterFailure::DuplicateKey, .. })));
+        assert!(matches!(unique_pairs(vec![(1, "first"), (1, "second")], "pairs"), Err(AdapterError::Refused { kind: AdapterFailure::DuplicateKey, .. })));
+    }
 }

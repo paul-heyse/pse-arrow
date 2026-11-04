@@ -18,12 +18,16 @@ doctest = false
 [lints]
 workspace = true
 
+[features]
+crossings = ["dep:protovalidate-buffa"]
+
 [dependencies]
 pse-contract.workspace = true
 buffa.workspace = true
 buffa-descriptor.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+protovalidate-buffa = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile.workspace = true

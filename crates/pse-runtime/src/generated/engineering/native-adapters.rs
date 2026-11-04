@@ -24,7 +24,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::AccuracyGoalId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -45,10 +49,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -182,15 +186,16 @@ impl NativeInto<
                     crate::host_operations::engineering::generated::pb::pse::engineering::v1::SourceRevisionHash,
                 >(field_0, &child_path(path, "revision"))?,
             ),
-            context: native_into::<_, Vec<u8>>(field_1, &child_path(path, "context"))?,
+            context: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
             entries: field_2
                 .into_iter()
                 .map(|(key, value)| -> Result<_, AdapterError> {
                     Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::admitted_binding::Field3Entry {
-                        key: native_into::<
-                            _,
-                            Vec<u8>,
-                        >(key, &child_path(path, "entries"))?,
+                        key: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            key,
+                        ),
                         value: buffa::MessageField::some(
                             native_into::<
                                 _,
@@ -228,7 +233,10 @@ impl NativeFrom<
                 required(wire.revision.into_option(), &child_path(path, "revision"))?,
                 &child_path(path, "revision"),
             )?,
-            native_from::<_, Vec<u8>>(wire.context, &child_path(path, "context"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.context,
+                &child_path(path, "context"),
+            )?,
             unique_pairs(
                 wire
                     .entries
@@ -239,10 +247,10 @@ impl NativeFrom<
                             &child_path(path, "entries"),
                         )?;
                         Ok((
-                            native_from::<
-                                _,
-                                Vec<u8>,
-                            >(entry.key, &child_path(path, "entries"))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                entry.key,
+                                &child_path(path, "entries"),
+                            )?,
                             native_from::<
                                 _,
                                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::AdmittedBindingEntry,
@@ -293,7 +301,9 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::AdmittedBindingEntry {
-            member: native_into::<_, Vec<u8>>(field_0, &child_path(path, "member"))?,
+            member: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             quantity: buffa::MessageField::some(
                 native_into::<
                     _,
@@ -346,7 +356,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.member, &child_path(path, "member"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.member,
+                &child_path(path, "member"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::QuantityTypeId,
@@ -725,7 +738,9 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::Array16U8 {
-            values: native_into::<_, Vec<u8>>(field_0, &child_path(path, "values"))?,
+            values: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             ..Default::default()
         })
     }
@@ -746,7 +761,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.values, &child_path(path, "values"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.values,
+                &child_path(path, "values"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -1250,21 +1268,21 @@ impl NativeInto<
                 })
                 .transpose()?
                 .into(),
-            target_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_5, &child_path(path, "target_id"))?,
+            target_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_5,
+            ),
             target_kind: buffa::MessageField::some(
                 native_into::<
                     _,
                     crate::host_operations::engineering::generated::pb::pse::engineering::v1::NumericalTarget,
                 >(field_6, &child_path(path, "target_kind"))?,
             ),
-            quantity_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_7, &child_path(path, "quantity_id"))?,
-            unit_id: native_into::<_, Vec<u8>>(field_8, &child_path(path, "unit_id"))?,
+            quantity_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_7,
+            ),
+            unit_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_8,
+            ),
             subject: buffa::MessageField::some(
                 native_into::<
                     _,
@@ -1428,7 +1446,10 @@ impl NativeFrom<
                     )
                 })
                 .transpose()?,
-            native_from::<_, Vec<u8>>(wire.target_id, &child_path(path, "target_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.target_id,
+                &child_path(path, "target_id"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::NumericalTarget,
@@ -1439,11 +1460,14 @@ impl NativeFrom<
                 )?,
                 &child_path(path, "target_kind"),
             )?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.quantity_id, &child_path(path, "quantity_id"))?,
-            native_from::<_, Vec<u8>>(wire.unit_id, &child_path(path, "unit_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.quantity_id,
+                &child_path(path, "quantity_id"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.unit_id,
+                &child_path(path, "unit_id"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::AccuracyGoalSubject,
@@ -1578,46 +1602,38 @@ for pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequire
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::AuthoredCaloricRequirementsFieldConsumersItem {
-            target_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_0, &child_path(path, "target_id"))?,
-            declaration_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_1, &child_path(path, "declaration_id"))?,
-            power_rule_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_2, &child_path(path, "power_rule_id"))?,
-            actual_flow_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_3, &child_path(path, "actual_flow_id"))?,
+            target_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
+            declaration_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            power_rule_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
+            actual_flow_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_3,
+            ),
             exposure_expression: native_into::<
                 _,
                 String,
             >(field_4, &child_path(path, "exposure_expression"))?,
-            power_quantity_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_5, &child_path(path, "power_quantity_id"))?,
-            power_unit_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_6, &child_path(path, "power_unit_id"))?,
+            power_quantity_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_5,
+            ),
+            power_unit_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_6,
+            ),
             power_allowance: native_into::<
                 _,
                 u64,
             >(field_7, &child_path(path, "power_allowance"))?,
-            exposure_quantity_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_8, &child_path(path, "exposure_quantity_id"))?,
-            exposure_unit_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_9, &child_path(path, "exposure_unit_id"))?,
+            exposure_quantity_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_8,
+            ),
+            exposure_unit_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_9,
+            ),
             aggregate_exposure: native_into::<
                 _,
                 u64,
@@ -1655,43 +1671,46 @@ for pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequire
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.target_id, &child_path(path, "target_id"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.declaration_id, &child_path(path, "declaration_id"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.power_rule_id, &child_path(path, "power_rule_id"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.actual_flow_id, &child_path(path, "actual_flow_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.target_id,
+                &child_path(path, "target_id"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.declaration_id,
+                &child_path(path, "declaration_id"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.power_rule_id,
+                &child_path(path, "power_rule_id"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.actual_flow_id,
+                &child_path(path, "actual_flow_id"),
+            )?,
             native_from::<
                 _,
                 String,
             >(wire.exposure_expression, &child_path(path, "exposure_expression"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.power_quantity_id, &child_path(path, "power_quantity_id"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.power_unit_id, &child_path(path, "power_unit_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.power_quantity_id,
+                &child_path(path, "power_quantity_id"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.power_unit_id,
+                &child_path(path, "power_unit_id"),
+            )?,
             native_from::<
                 _,
                 u64,
             >(wire.power_allowance, &child_path(path, "power_allowance"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.exposure_quantity_id, &child_path(path, "exposure_quantity_id"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.exposure_unit_id, &child_path(path, "exposure_unit_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.exposure_quantity_id,
+                &child_path(path, "exposure_quantity_id"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.exposure_unit_id,
+                &child_path(path, "exposure_unit_id"),
+            )?,
             native_from::<
                 _,
                 u64,
@@ -1759,10 +1778,9 @@ for pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequire
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::AuthoredCaloricRequirementsRow {
-            requirement_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_0, &child_path(path, "requirement_id"))?,
+            requirement_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             instance_id: field_1
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
@@ -1774,21 +1792,21 @@ for pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequire
                 })
                 .transpose()?
                 .into(),
-            target_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_2, &child_path(path, "target_id"))?,
+            target_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
             target_kind: buffa::MessageField::some(
                 native_into::<
                     _,
                     crate::host_operations::engineering::generated::pb::pse::engineering::v1::NumericalTarget,
                 >(field_3, &child_path(path, "target_kind"))?,
             ),
-            quantity_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_4, &child_path(path, "quantity_id"))?,
-            unit_id: native_into::<_, Vec<u8>>(field_5, &child_path(path, "unit_id"))?,
+            quantity_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_4,
+            ),
+            unit_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_5,
+            ),
             source: buffa::MessageField::some(
                 native_into::<
                     _,
@@ -1799,37 +1817,26 @@ for pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequire
                 _,
                 String,
             >(field_7, &child_path(path, "science_revision"))?,
-            science_records: {
-                let current_path = &child_path(path, "science_records");
-                items(field_8)
-                    .enumerate()
-                    .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-            },
+            science_records: items(field_8)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
             response_quantity_id: field_9
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_into::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "response_quantity_id"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
                     )
                 })
                 .transpose()?,
             response_unit_id: field_10
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_into::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "response_unit_id"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
                     )
                 })
                 .transpose()?,
@@ -1841,20 +1848,18 @@ for pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequire
             thermal_quantity_id: field_12
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_into::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "thermal_quantity_id"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
                     )
                 })
                 .transpose()?,
             thermal_unit_id: field_13
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_into::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "thermal_unit_id"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
                     )
                 })
                 .transpose()?,
@@ -1920,10 +1925,10 @@ for pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequire
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.requirement_id, &child_path(path, "requirement_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.requirement_id,
+                &child_path(path, "requirement_id"),
+            )?,
             wire
                 .instance_id
                 .into_option()
@@ -1936,7 +1941,10 @@ for pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequire
                     )
                 })
                 .transpose()?,
-            native_from::<_, Vec<u8>>(wire.target_id, &child_path(path, "target_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.target_id,
+                &child_path(path, "target_id"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::NumericalTarget,
@@ -1947,11 +1955,14 @@ for pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequire
                 )?,
                 &child_path(path, "target_kind"),
             )?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.quantity_id, &child_path(path, "quantity_id"))?,
-            native_from::<_, Vec<u8>>(wire.unit_id, &child_path(path, "unit_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.quantity_id,
+                &child_path(path, "quantity_id"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.unit_id,
+                &child_path(path, "unit_id"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::NumericalSource,
@@ -1971,10 +1982,10 @@ for pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequire
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
-                            native_from::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                value,
+                                &format!("{path}[{index}]", path = current_path),
+                            )?,
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -1984,10 +1995,10 @@ for pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequire
                 .response_quantity_id
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_from::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "response_quantity_id"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &child_path(path, "response_quantity_id"),
+                        )?,
                     )
                 })
                 .transpose()?,
@@ -1995,10 +2006,10 @@ for pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequire
                 .response_unit_id
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_from::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "response_unit_id"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &child_path(path, "response_unit_id"),
+                        )?,
                     )
                 })
                 .transpose()?,
@@ -2012,10 +2023,10 @@ for pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequire
                 .thermal_quantity_id
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_from::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "thermal_quantity_id"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &child_path(path, "thermal_quantity_id"),
+                        )?,
                     )
                 })
                 .transpose()?,
@@ -2023,10 +2034,10 @@ for pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequire
                 .thermal_unit_id
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_from::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "thermal_unit_id"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &child_path(path, "thermal_unit_id"),
+                        )?,
                     )
                 })
                 .transpose()?,
@@ -2092,10 +2103,9 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::AuthoredDocumentsRow {
-            document_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_0, &child_path(path, "document_id"))?,
+            document_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             package_id: buffa::MessageField::some(
                 native_into::<
                     _,
@@ -2115,7 +2125,11 @@ impl NativeInto<
                 .transpose()?,
             content: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, Vec<u8>>(value, &child_path(path, "content"))?)
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
+                    )
                 })
                 .transpose()?,
             ..Default::default()
@@ -2144,10 +2158,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.document_id, &child_path(path, "document_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.document_id,
+                &child_path(path, "document_id"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::PackageId,
@@ -2173,7 +2187,12 @@ impl NativeFrom<
             wire
                 .content
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, Vec<u8>>(value, &child_path(path, "content"))?)
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &child_path(path, "content"),
+                        )?,
+                    )
                 })
                 .transpose()?,
         );
@@ -2218,11 +2237,12 @@ for pse_model::generated::authored::engineering_default_rules::AuthoredEngineeri
                     crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRuleId,
                 >(field_0, &child_path(path, "rule_id"))?,
             ),
-            quantity_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_1, &child_path(path, "quantity_id"))?,
-            unit_id: native_into::<_, Vec<u8>>(field_2, &child_path(path, "unit_id"))?,
+            quantity_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            unit_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
             physical_allowance: field_3
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
@@ -2282,11 +2302,14 @@ for pse_model::generated::authored::engineering_default_rules::AuthoredEngineeri
                 required(wire.rule_id.into_option(), &child_path(path, "rule_id"))?,
                 &child_path(path, "rule_id"),
             )?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.quantity_id, &child_path(path, "quantity_id"))?,
-            native_from::<_, Vec<u8>>(wire.unit_id, &child_path(path, "unit_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.quantity_id,
+                &child_path(path, "quantity_id"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.unit_id,
+                &child_path(path, "unit_id"),
+            )?,
             wire
                 .physical_allowance
                 .map(|value| -> Result<_, AdapterError> {
@@ -2418,21 +2441,21 @@ impl NativeInto<
                 })
                 .transpose()?
                 .into(),
-            target_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_5, &child_path(path, "target_id"))?,
+            target_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_5,
+            ),
             target_kind: buffa::MessageField::some(
                 native_into::<
                     _,
                     crate::host_operations::engineering::generated::pb::pse::engineering::v1::NumericalTarget,
                 >(field_6, &child_path(path, "target_kind"))?,
             ),
-            quantity_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_7, &child_path(path, "quantity_id"))?,
-            unit_id: native_into::<_, Vec<u8>>(field_8, &child_path(path, "unit_id"))?,
+            quantity_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_7,
+            ),
+            unit_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_8,
+            ),
             kind: buffa::MessageField::some(
                 native_into::<
                     _,
@@ -2541,7 +2564,10 @@ impl NativeFrom<
                     )
                 })
                 .transpose()?,
-            native_from::<_, Vec<u8>>(wire.target_id, &child_path(path, "target_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.target_id,
+                &child_path(path, "target_id"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::NumericalTarget,
@@ -2552,11 +2578,14 @@ impl NativeFrom<
                 )?,
                 &child_path(path, "target_kind"),
             )?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.quantity_id, &child_path(path, "quantity_id"))?,
-            native_from::<_, Vec<u8>>(wire.unit_id, &child_path(path, "unit_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.quantity_id,
+                &child_path(path, "quantity_id"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.unit_id,
+                &child_path(path, "unit_id"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringScaleKind,
@@ -2724,10 +2753,9 @@ for pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsI
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::AuthoredFitCasesFieldExperimentsItemBindingsItem {
-            parameter_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_0, &child_path(path, "parameter_id"))?,
+            parameter_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             path: native_into::<_, String>(field_1, &child_path(path, "path"))?,
             ..Default::default()
         })
@@ -2750,10 +2778,10 @@ for pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsI
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.parameter_id, &child_path(path, "parameter_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.parameter_id,
+                &child_path(path, "parameter_id"),
+            )?,
             native_from::<_, String>(wire.path, &child_path(path, "path"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
@@ -2854,10 +2882,9 @@ impl NativeInto<
             time_unit_id: field_7
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_into::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "time_unit_id"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
                     )
                 })
                 .transpose()?,
@@ -2955,10 +2982,10 @@ impl NativeFrom<
                 .time_unit_id
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_from::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "time_unit_id"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &child_path(path, "time_unit_id"),
+                        )?,
                     )
                 })
                 .transpose()?,
@@ -2999,10 +3026,9 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::AuthoredFitCasesFieldParametersItem {
-            symbol_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_0, &child_path(path, "symbol_id"))?,
+            symbol_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             fixed: native_into::<_, bool>(field_1, &child_path(path, "fixed"))?,
             value: native_into::<_, u64>(field_2, &child_path(path, "value"))?,
             lower: field_3
@@ -3043,7 +3069,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.symbol_id, &child_path(path, "symbol_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.symbol_id,
+                &child_path(path, "symbol_id"),
+            )?,
             native_from::<_, bool>(wire.fixed, &child_path(path, "fixed"))?,
             native_from::<_, u64>(wire.value, &child_path(path, "value"))?,
             wire
@@ -11878,10 +11907,9 @@ for pse_model::generated::authored::modeling_declarations::AuthoredModelingDecla
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::AuthoredModelingDeclarationsFieldValueEnumerationMembersItem {
-            member_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_0, &child_path(path, "member_id"))?,
+            member_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             name: native_into::<_, String>(field_1, &child_path(path, "name"))?,
             facets: {
                 let current_path = &child_path(path, "facets");
@@ -11918,7 +11946,10 @@ for pse_model::generated::authored::modeling_declarations::AuthoredModelingDecla
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.member_id, &child_path(path, "member_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.member_id,
+                &child_path(path, "member_id"),
+            )?,
             native_from::<_, String>(wire.name, &child_path(path, "name"))?,
             {
                 let current_path = &child_path(path, "facets");
@@ -19716,10 +19747,9 @@ for pse_model::generated::authored::modeling_declarations::AuthoredModelingDecla
                     crate::host_operations::engineering::generated::pb::pse::engineering::v1::DeclarationId,
                 >(field_0, &child_path(path, "declaration_id"))?,
             ),
-            document_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_1, &child_path(path, "document_id"))?,
+            document_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
             parent_id: field_2
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
@@ -19789,10 +19819,10 @@ for pse_model::generated::authored::modeling_declarations::AuthoredModelingDecla
                 )?,
                 &child_path(path, "declaration_id"),
             )?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.document_id, &child_path(path, "document_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.document_id,
+                &child_path(path, "document_id"),
+            )?,
             wire
                 .parent_id
                 .into_option()
@@ -19884,10 +19914,9 @@ for pse_model::generated::authored::numerical_requirements::AuthoredNumericalReq
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::AuthoredNumericalRequirementsRow {
-            requirement_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_0, &child_path(path, "requirement_id"))?,
+            requirement_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             model_id: field_1
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
@@ -19932,10 +19961,9 @@ for pse_model::generated::authored::numerical_requirements::AuthoredNumericalReq
                 })
                 .transpose()?
                 .into(),
-            target_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_5, &child_path(path, "target_id"))?,
+            target_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_5,
+            ),
             target_kind: buffa::MessageField::some(
                 native_into::<
                     _,
@@ -20000,7 +20028,11 @@ for pse_model::generated::authored::numerical_requirements::AuthoredNumericalReq
                 .into(),
             unit_id: field_13
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, Vec<u8>>(value, &child_path(path, "unit_id"))?)
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
+                    )
                 })
                 .transpose()?,
             coordinates: buffa::MessageField::some(
@@ -20055,10 +20087,10 @@ for pse_model::generated::authored::numerical_requirements::AuthoredNumericalReq
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.requirement_id, &child_path(path, "requirement_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.requirement_id,
+                &child_path(path, "requirement_id"),
+            )?,
             wire
                 .model_id
                 .into_option()
@@ -20107,7 +20139,10 @@ for pse_model::generated::authored::numerical_requirements::AuthoredNumericalReq
                     )
                 })
                 .transpose()?,
-            native_from::<_, Vec<u8>>(wire.target_id, &child_path(path, "target_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.target_id,
+                &child_path(path, "target_id"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::NumericalTarget,
@@ -20183,7 +20218,12 @@ for pse_model::generated::authored::numerical_requirements::AuthoredNumericalReq
             wire
                 .unit_id
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, Vec<u8>>(value, &child_path(path, "unit_id"))?)
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &child_path(path, "unit_id"),
+                        )?,
+                    )
                 })
                 .transpose()?,
             native_from::<
@@ -20227,7 +20267,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::BasisId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -20248,10 +20292,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -20387,7 +20431,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::BindingHash {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -20408,10 +20456,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -20572,10 +20620,9 @@ impl NativeInto<
                     kind: Some(
                         crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::binding_target::Kind::Member(
                             Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::binding_target::Alternative2 {
-                                value: native_into::<
-                                    _,
-                                    Vec<u8>,
-                                >(field_0, &child_path(path, "value"))?,
+                                value: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_0,
+                                ),
                                 ..Default::default()
                             }),
                         ),
@@ -20657,7 +20704,10 @@ impl NativeFrom<
                     path,
                 )?;
                 let fields = (
-                    native_from::<_, Vec<u8>>(wire.value, &child_path(path, "value"))?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.value,
+                        &child_path(path, "value"),
+                    )?,
                 );
                 Ok(
                     <crate::workflow::BindingTarget as pse_contract::boundary_projection::ProjectionAlternative<
@@ -20806,7 +20856,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::BoundIndexId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -20827,10 +20881,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -21243,7 +21297,9 @@ for pse_model::generated::runtime::canonical_project_contexts::RuntimeCanonicalP
                 })
                 .transpose()?,
             deleted: native_into::<_, bool>(field_12, &child_path(path, "deleted"))?,
-            request: native_into::<_, Vec<u8>>(field_13, &child_path(path, "request"))?,
+            request: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_13,
+            ),
             ..Default::default()
         })
     }
@@ -21329,7 +21385,10 @@ for pse_model::generated::runtime::canonical_project_contexts::RuntimeCanonicalP
                 })
                 .transpose()?,
             native_from::<_, bool>(wire.deleted, &child_path(path, "deleted"))?,
-            native_from::<_, Vec<u8>>(wire.request, &child_path(path, "request"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.request,
+                &child_path(path, "request"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -23155,7 +23214,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::DeclarationId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -23176,10 +23239,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -23962,9 +24025,15 @@ impl NativeInto<
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::DiagnosticPhysicalObservation {
             magnitude: native_into::<_, u64>(field_0, &child_path(path, "magnitude"))?,
-            quantity: native_into::<_, Vec<u8>>(field_1, &child_path(path, "quantity"))?,
-            unit: native_into::<_, Vec<u8>>(field_2, &child_path(path, "unit"))?,
-            context: native_into::<_, Vec<u8>>(field_3, &child_path(path, "context"))?,
+            quantity: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            unit: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
+            context: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_3,
+            ),
             ..Default::default()
         })
     }
@@ -23986,9 +24055,18 @@ impl NativeFrom<
         )?;
         let fields = (
             native_from::<_, u64>(wire.magnitude, &child_path(path, "magnitude"))?,
-            native_from::<_, Vec<u8>>(wire.quantity, &child_path(path, "quantity"))?,
-            native_from::<_, Vec<u8>>(wire.unit, &child_path(path, "unit"))?,
-            native_from::<_, Vec<u8>>(wire.context, &child_path(path, "context"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.quantity,
+                &child_path(path, "quantity"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.unit,
+                &child_path(path, "unit"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.context,
+                &child_path(path, "context"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -24979,7 +25057,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::DomainId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -25000,10 +25082,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -25796,14 +25878,12 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringContract {
-            descriptor: native_into::<
-                _,
-                Vec<u8>,
-            >(field_0, &child_path(path, "descriptor"))?,
-            descriptor_sha256: native_into::<
-                _,
-                Vec<u8>,
-            >(field_1, &child_path(path, "descriptor_sha256"))?,
+            descriptor: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
+            descriptor_sha256: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
             semantics: native_into::<
                 _,
                 String,
@@ -25847,11 +25927,14 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.descriptor, &child_path(path, "descriptor"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.descriptor_sha256, &child_path(path, "descriptor_sha256"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.descriptor,
+                &child_path(path, "descriptor"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.descriptor_sha256,
+                &child_path(path, "descriptor_sha256"),
+            )?,
             native_from::<_, String>(wire.semantics, &child_path(path, "semantics"))?,
             {
                 let current_path = &child_path(path, "methods");
@@ -25898,10 +25981,9 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDeclarationHeader {
-            declaration: native_into::<
-                _,
-                Vec<u8>,
-            >(field_0, &child_path(path, "declaration"))?,
+            declaration: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             name: native_into::<_, String>(field_1, &child_path(path, "name"))?,
             ..Default::default()
         })
@@ -25923,10 +26005,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.declaration, &child_path(path, "declaration"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.declaration,
+                &child_path(path, "declaration"),
+            )?,
             native_from::<_, String>(wire.name, &child_path(path, "name"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
@@ -26274,20 +26356,11 @@ impl NativeInto<
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringFailure {
             code: native_into::<_, String>(field_0, &child_path(path, "code"))?,
             message: native_into::<_, String>(field_1, &child_path(path, "message"))?,
-            sources: {
-                let current_path = &child_path(path, "sources");
-                items(field_2)
-                    .enumerate()
-                    .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-            },
+            sources: items(field_2)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
             rule: field_3
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(native_into::<_, String>(value, &child_path(path, "rule"))?)
@@ -26340,10 +26413,10 @@ impl NativeFrom<
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
-                            native_from::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                value,
+                                &format!("{path}[{index}]", path = current_path),
+                            )?,
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -26988,7 +27061,9 @@ impl NativeInto<
                     .map(|(key, value)| -> Result<_, AdapterError> {
                         Ok((
                             native_into::<_, String>(key, &child_path(path, "files"))?,
-                            native_into::<_, Vec<u8>>(value, &child_path(path, "files"))?,
+                            pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                value,
+                            ),
                         ))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -27021,7 +27096,10 @@ impl NativeFrom<
                     .map(|(key, value)| -> Result<_, AdapterError> {
                         Ok((
                             native_from::<_, String>(key, &child_path(path, "files"))?,
-                            native_from::<_, Vec<u8>>(value, &child_path(path, "files"))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                value,
+                                &child_path(path, "files"),
+                            )?,
                         ))
                     })
                     .collect::<Result<Vec<_>, _>>()?,
@@ -27074,7 +27152,9 @@ impl NativeInto<
                 _,
                 String,
             >(field_2, &child_path(path, "expected_local_revision"))?,
-            case: native_into::<_, Vec<u8>>(field_3, &child_path(path, "case"))?,
+            case: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_3,
+            ),
             intent: buffa::MessageField::some(
                 native_into::<
                     _,
@@ -27131,7 +27211,10 @@ impl NativeFrom<
                 wire.expected_local_revision,
                 &child_path(path, "expected_local_revision"),
             )?,
-            native_from::<_, Vec<u8>>(wire.case, &child_path(path, "case"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.case,
+                &child_path(path, "case"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::NativeSolveIntent,
@@ -27281,10 +27364,9 @@ impl NativeInto<
                     crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSourceSelection,
                 >(field_1, &child_path(path, "source"))?,
             ),
-            preparation: native_into::<
-                _,
-                Vec<u8>,
-            >(field_2, &child_path(path, "preparation"))?,
+            preparation: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
             ..Default::default()
         })
     }
@@ -27313,10 +27395,10 @@ impl NativeFrom<
                 required(wire.source.into_option(), &child_path(path, "source"))?,
                 &child_path(path, "source"),
             )?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.preparation, &child_path(path, "preparation"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.preparation,
+                &child_path(path, "preparation"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -27361,7 +27443,9 @@ impl NativeInto<
                 .transpose()?
                 .into(),
             preparation: Some(
-                native_into::<_, Vec<u8>>(field_2, &child_path(path, "preparation"))?,
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_2,
+                ),
             ),
             occurrences: native_into::<
                 _,
@@ -27400,10 +27484,7 @@ impl NativeFrom<
                     )
                 })
                 .transpose()?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
                 required(wire.preparation, &child_path(path, "preparation"))?,
                 &child_path(path, "preparation"),
             )?,
@@ -27808,8 +27889,12 @@ impl NativeInto<
                 _,
                 u64,
             >(field_4, &child_path(path, "maximum_bytes"))?,
-            run: native_into::<_, Vec<u8>>(field_5, &child_path(path, "run"))?,
-            attempt: native_into::<_, Vec<u8>>(field_6, &child_path(path, "attempt"))?,
+            run: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_5,
+            ),
+            attempt: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_6,
+            ),
             ..Default::default()
         })
     }
@@ -27846,8 +27931,14 @@ impl NativeFrom<
                 _,
                 u64,
             >(wire.maximum_bytes, &child_path(path, "maximum_bytes"))?,
-            native_from::<_, Vec<u8>>(wire.run, &child_path(path, "run"))?,
-            native_from::<_, Vec<u8>>(wire.attempt, &child_path(path, "attempt"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.run,
+                &child_path(path, "run"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.attempt,
+                &child_path(path, "attempt"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -28033,10 +28124,9 @@ impl NativeInto<
                 String,
             >(field_0, &child_path(path, "operation"))?,
             expected_preparation: Some(
-                native_into::<
-                    _,
-                    Vec<u8>,
-                >(field_1, &child_path(path, "expected_preparation"))?,
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_1,
+                ),
             ),
             definition: buffa::MessageField::some(
                 native_into::<
@@ -28065,10 +28155,7 @@ impl NativeFrom<
         )?;
         let fields = (
             native_from::<_, String>(wire.operation, &child_path(path, "operation"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
                 required(
                     wire.expected_preparation,
                     &child_path(path, "expected_preparation"),
@@ -28120,12 +28207,16 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringResultPage {
-            run: native_into::<_, Vec<u8>>(field_0, &child_path(path, "run"))?,
+            run: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             relation: native_into::<_, String>(field_1, &child_path(path, "relation"))?,
             start: native_into::<_, u64>(field_2, &child_path(path, "start"))?,
             end: native_into::<_, u64>(field_3, &child_path(path, "end"))?,
             rows: native_into::<_, u64>(field_4, &child_path(path, "rows"))?,
-            ipc: native_into::<_, Vec<u8>>(field_5, &child_path(path, "ipc"))?,
+            ipc: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_5,
+            ),
             ..Default::default()
         })
     }
@@ -28153,12 +28244,18 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.run, &child_path(path, "run"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.run,
+                &child_path(path, "run"),
+            )?,
             native_from::<_, String>(wire.relation, &child_path(path, "relation"))?,
             native_from::<_, u64>(wire.start, &child_path(path, "start"))?,
             native_from::<_, u64>(wire.end, &child_path(path, "end"))?,
             native_from::<_, u64>(wire.rows, &child_path(path, "rows"))?,
-            native_from::<_, Vec<u8>>(wire.ipc, &child_path(path, "ipc"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.ipc,
+                &child_path(path, "ipc"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -28187,7 +28284,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRuleId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -28208,10 +28309,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -28244,8 +28345,12 @@ impl NativeInto<
                 _,
                 String,
             >(field_0, &child_path(path, "operation"))?,
-            run: native_into::<_, Vec<u8>>(field_1, &child_path(path, "run"))?,
-            attempt: native_into::<_, Vec<u8>>(field_2, &child_path(path, "attempt"))?,
+            run: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            attempt: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
             ..Default::default()
         })
     }
@@ -28267,8 +28372,14 @@ impl NativeFrom<
         )?;
         let fields = (
             native_from::<_, String>(wire.operation, &child_path(path, "operation"))?,
-            native_from::<_, Vec<u8>>(wire.run, &child_path(path, "run"))?,
-            native_from::<_, Vec<u8>>(wire.attempt, &child_path(path, "attempt"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.run,
+                &child_path(path, "run"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.attempt,
+                &child_path(path, "attempt"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -28543,7 +28654,11 @@ impl NativeInto<
             >(field_0, &child_path(path, "operation"))?,
             run: field_1
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, Vec<u8>>(value, &child_path(path, "run"))?)
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
+                    )
                 })
                 .transpose()?,
             settled: native_into::<_, bool>(field_2, &child_path(path, "settled"))?,
@@ -28632,7 +28747,12 @@ impl NativeFrom<
             wire
                 .run
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, Vec<u8>>(value, &child_path(path, "run"))?)
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &child_path(path, "run"),
+                        )?,
+                    )
                 })
                 .transpose()?,
             native_from::<_, bool>(wire.settled, &child_path(path, "settled"))?,
@@ -28720,7 +28840,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringScaleId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -28741,10 +28865,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -29050,14 +29174,12 @@ impl NativeInto<
                 _,
                 String,
             >(field_1, &child_path(path, "local_revision"))?,
-            source_revision: native_into::<
-                _,
-                Vec<u8>,
-            >(field_2, &child_path(path, "source_revision"))?,
-            physical_context: native_into::<
-                _,
-                Vec<u8>,
-            >(field_3, &child_path(path, "physical_context"))?,
+            source_revision: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
+            physical_context: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_3,
+            ),
             ..Default::default()
         })
     }
@@ -29088,14 +29210,14 @@ impl NativeFrom<
                 _,
                 String,
             >(wire.local_revision, &child_path(path, "local_revision"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.source_revision, &child_path(path, "source_revision"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.physical_context, &child_path(path, "physical_context"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.source_revision,
+                &child_path(path, "source_revision"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.physical_context,
+                &child_path(path, "physical_context"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -29353,7 +29475,9 @@ impl NativeInto<
             start: native_into::<_, u64>(field_6, &child_path(path, "start"))?,
             end: native_into::<_, u64>(field_7, &child_path(path, "end"))?,
             rows: native_into::<_, u64>(field_8, &child_path(path, "rows"))?,
-            ipc: native_into::<_, Vec<u8>>(field_9, &child_path(path, "ipc"))?,
+            ipc: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_9,
+            ),
             ..Default::default()
         })
     }
@@ -29394,7 +29518,10 @@ impl NativeFrom<
             native_from::<_, u64>(wire.start, &child_path(path, "start"))?,
             native_from::<_, u64>(wire.end, &child_path(path, "end"))?,
             native_from::<_, u64>(wire.rows, &child_path(path, "rows"))?,
-            native_from::<_, Vec<u8>>(wire.ipc, &child_path(path, "ipc"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.ipc,
+                &child_path(path, "ipc"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -29549,12 +29676,15 @@ impl NativeInto<
                 _,
                 String,
             >(field_1, &child_path(path, "preparation_operation"))?,
-            run: native_into::<_, Vec<u8>>(field_2, &child_path(path, "run"))?,
-            attempt: native_into::<_, Vec<u8>>(field_3, &child_path(path, "attempt"))?,
-            expected_preparation: native_into::<
-                _,
-                Vec<u8>,
-            >(field_4, &child_path(path, "expected_preparation"))?,
+            run: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
+            attempt: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_3,
+            ),
+            expected_preparation: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_4,
+            ),
             ..Default::default()
         })
     }
@@ -29586,12 +29716,18 @@ impl NativeFrom<
                 _,
                 String,
             >(wire.preparation_operation, &child_path(path, "preparation_operation"))?,
-            native_from::<_, Vec<u8>>(wire.run, &child_path(path, "run"))?,
-            native_from::<_, Vec<u8>>(wire.attempt, &child_path(path, "attempt"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.expected_preparation, &child_path(path, "expected_preparation"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.run,
+                &child_path(path, "run"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.attempt,
+                &child_path(path, "attempt"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.expected_preparation,
+                &child_path(path, "expected_preparation"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -29634,10 +29770,9 @@ impl NativeInto<
                 String,
             >(field_1, &child_path(path, "preparation_operation"))?,
             expected_preparation: Some(
-                native_into::<
-                    _,
-                    Vec<u8>,
-                >(field_2, &child_path(path, "expected_preparation"))?,
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_2,
+                ),
             ),
             study: buffa::MessageField::some(
                 native_into::<
@@ -29675,10 +29810,7 @@ impl NativeFrom<
                 _,
                 String,
             >(wire.preparation_operation, &child_path(path, "preparation_operation"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
                 required(
                     wire.expected_preparation,
                     &child_path(path, "expected_preparation"),
@@ -29720,7 +29852,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::EntityKindId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -29741,10 +29877,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -29836,7 +29972,9 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::EstimatorMeasurement {
-            output: native_into::<_, Vec<u8>>(field_0, &child_path(path, "output"))?,
+            output: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             paths: {
                 let current_path = &child_path(path, "paths");
                 items(field_1)
@@ -29871,7 +30009,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.output, &child_path(path, "output"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.output,
+                &child_path(path, "output"),
+            )?,
             {
                 let current_path = &child_path(path, "paths");
                 let values = wire
@@ -30152,11 +30293,12 @@ impl NativeInto<
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::ExtensionQuantityValue {
             value: native_into::<_, u64>(field_0, &child_path(path, "value"))?,
-            quantity_type_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_1, &child_path(path, "quantity_type_id"))?,
-            unit_id: native_into::<_, Vec<u8>>(field_2, &child_path(path, "unit_id"))?,
+            quantity_type_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            unit_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
             ..Default::default()
         })
     }
@@ -30178,11 +30320,14 @@ impl NativeFrom<
         )?;
         let fields = (
             native_from::<_, u64>(wire.value, &child_path(path, "value"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.quantity_type_id, &child_path(path, "quantity_type_id"))?,
-            native_from::<_, Vec<u8>>(wire.unit_id, &child_path(path, "unit_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.quantity_type_id,
+                &child_path(path, "quantity_type_id"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.unit_id,
+                &child_path(path, "unit_id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -30842,7 +30987,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::FitId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -30863,10 +31012,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -32084,10 +32233,9 @@ impl NativeInto<
                             .into_iter()
                             .map(|(key, value)| -> Result<_, AdapterError> {
                                 Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::highs_settings::field4_value::Field1Entry {
-                                    key: native_into::<
-                                        _,
-                                        Vec<u8>,
-                                    >(key, &child_path(path, "sparse_start"))?,
+                                    key: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                        key,
+                                    ),
                                     value: native_into::<
                                         _,
                                         u64,
@@ -32164,10 +32312,10 @@ impl NativeFrom<
                                         &child_path(path, "sparse_start"),
                                     )?;
                                     Ok((
-                                        native_from::<
-                                            _,
-                                            Vec<u8>,
-                                        >(entry.key, &child_path(path, "sparse_start"))?,
+                                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                            entry.key,
+                                            &child_path(path, "sparse_start"),
+                                        )?,
                                         native_from::<
                                             _,
                                             u64,
@@ -32271,10 +32419,9 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::HorizonInputDocument {
-            parameter: native_into::<
-                _,
-                Vec<u8>,
-            >(field_0, &child_path(path, "parameter"))?,
+            parameter: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             initial: buffa::MessageField::some(
                 native_into::<
                     _,
@@ -32301,7 +32448,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.parameter, &child_path(path, "parameter"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.parameter,
+                &child_path(path, "parameter"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::BindingQuantity,
@@ -32526,10 +32676,9 @@ impl NativeInto<
                     kind: Some(
                         crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::horizon_signal_document::Kind::Measured(
                             Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::horizon_signal_document::Alternative1 {
-                                value: native_into::<
-                                    _,
-                                    Vec<u8>,
-                                >(field_0, &child_path(path, "value"))?,
+                                value: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_0,
+                                ),
                                 ..Default::default()
                             }),
                         ),
@@ -32696,7 +32845,10 @@ impl NativeFrom<
                     path,
                 )?;
                 let fields = (
-                    native_from::<_, Vec<u8>>(wire.value, &child_path(path, "value"))?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.value,
+                        &child_path(path, "value"),
+                    )?,
                 );
                 Ok(
                     <crate::workflow::HorizonSignalDocument as pse_contract::boundary_projection::ProjectionAlternative<
@@ -33077,10 +33229,9 @@ impl NativeInto<
             solution_id: field_5
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_into::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "solution_id"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
                     )
                 })
                 .transpose()?,
@@ -33140,10 +33291,10 @@ impl NativeFrom<
                 .solution_id
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_from::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "solution_id"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &child_path(path, "solution_id"),
+                        )?,
                     )
                 })
                 .transpose()?,
@@ -33208,9 +33359,15 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionConnection {
-            id: native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?,
-            from: native_into::<_, Vec<u8>>(field_1, &child_path(path, "from"))?,
-            to: native_into::<_, Vec<u8>>(field_2, &child_path(path, "to"))?,
+            id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
+            from: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            to: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
             lineage: buffa::MessageField::some(
                 native_into::<
                     _,
@@ -33237,9 +33394,18 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.id, &child_path(path, "id"))?,
-            native_from::<_, Vec<u8>>(wire.from, &child_path(path, "from"))?,
-            native_from::<_, Vec<u8>>(wire.to, &child_path(path, "to"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.id,
+                &child_path(path, "id"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.from,
+                &child_path(path, "from"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.to,
+                &child_path(path, "to"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionLineage,
@@ -33757,7 +33923,9 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionMember {
-            id: native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?,
+            id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             role: buffa::MessageField::some(
                 native_into::<
                     _,
@@ -33796,7 +33964,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.id, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.id,
+                &child_path(path, "id"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::ModelingDeclarationKind,
@@ -33919,8 +34090,12 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionPort {
-            id: native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?,
-            symbol: native_into::<_, Vec<u8>>(field_1, &child_path(path, "symbol"))?,
+            id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
+            symbol: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
             lineage: buffa::MessageField::some(
                 native_into::<
                     _,
@@ -33947,8 +34122,14 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.id, &child_path(path, "id"))?,
-            native_from::<_, Vec<u8>>(wire.symbol, &child_path(path, "symbol"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.id,
+                &child_path(path, "id"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.symbol,
+                &child_path(path, "symbol"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionLineage,
@@ -33984,7 +34165,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::InstanceId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -34005,10 +34190,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -35253,7 +35438,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::KernelProviderPort {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             quantity: buffa::MessageField::some(
                 native_into::<
                     _,
@@ -35286,10 +35475,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::QuantityTypeId,
@@ -35332,63 +35521,37 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::KernelProviderShape {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
-            axes: {
-                let current_path = &child_path(path, "axes");
-                items(field_1)
-                    .enumerate()
-                    .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-            },
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
+            axes: items(field_1)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
             coordinates: {
                 let current_path = &child_path(path, "coordinates");
                 items(field_2)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::kernel_provider_shape::Field3Value {
-                            value: {
-                                let current_path = &format!(
-                                    "{path}[{index}]",
-                                    path = current_path,
-                                );
-                                items(value)
-                                    .enumerate()
-                                    .map(|(index, value)| -> Result<_, AdapterError> {
-                                        Ok(
-                                            native_into::<
-                                                _,
-                                                Vec<u8>,
-                                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                                        )
-                                    })
-                                    .collect::<Result<Vec<_>, _>>()?
-                            },
+                            value: items(value)
+                                .map(
+                                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                                )
+                                .collect::<Vec<_>>(),
                             ..Default::default()
                         })
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
-            cells: {
-                let current_path = &child_path(path, "cells");
-                items(field_3)
-                    .enumerate()
-                    .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-            },
+            cells: items(field_3)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
             ..Default::default()
         })
     }
@@ -35409,10 +35572,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
             {
                 let current_path = &child_path(path, "axes");
                 let values = wire
@@ -35421,10 +35584,10 @@ impl NativeFrom<
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
-                            native_from::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                value,
+                                &format!("{path}[{index}]", path = current_path),
+                            )?,
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -35454,10 +35617,10 @@ impl NativeFrom<
                                     .enumerate()
                                     .map(|(index, value)| -> Result<_, AdapterError> {
                                         Ok(
-                                            native_from::<
-                                                _,
-                                                Vec<u8>,
-                                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                                value,
+                                                &format!("{path}[{index}]", path = current_path),
+                                            )?,
                                         )
                                     })
                                     .collect::<Result<Vec<_>, _>>()?;
@@ -35476,10 +35639,10 @@ impl NativeFrom<
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
-                            native_from::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                value,
+                                &format!("{path}[{index}]", path = current_path),
+                            )?,
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -35655,11 +35818,21 @@ impl NativeInto<
                     crate::host_operations::engineering::generated::pb::pse::engineering::v1::ExternalDerivativeSource,
                 >(field_1, &child_path(path, "derivative_source"))?,
             ),
-            id: Some(native_into::<_, Vec<u8>>(field_2, &child_path(path, "id"))?),
-            revision: Some(
-                native_into::<_, Vec<u8>>(field_3, &child_path(path, "revision"))?,
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_2,
+                ),
             ),
-            data: Some(native_into::<_, Vec<u8>>(field_4, &child_path(path, "data"))?),
+            revision: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_3,
+                ),
+            ),
+            data: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_4,
+                ),
+            ),
             inputs: {
                 let current_path = &child_path(path, "inputs");
                 items(field_5)
@@ -35747,21 +35920,15 @@ impl NativeFrom<
                 )?,
                 &child_path(path, "derivative_source"),
             )?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
                 required(wire.revision, &child_path(path, "revision"))?,
                 &child_path(path, "revision"),
             )?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
                 required(wire.data, &child_path(path, "data"))?,
                 &child_path(path, "data"),
             )?,
@@ -41142,28 +41309,18 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::ModelingFormulation {
-            omitted: {
-                let current_path = &child_path(path, "omitted");
-                items(field_0)
-                    .enumerate()
-                    .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-            },
+            omitted: items(field_0)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
             elastic: field_1
                 .into_iter()
                 .map(|(key, value)| -> Result<_, AdapterError> {
                     Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::modeling_formulation::Field2Entry {
-                        key: native_into::<
-                            _,
-                            Vec<u8>,
-                        >(key, &child_path(path, "elastic"))?,
+                        key: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            key,
+                        ),
                         value: buffa::MessageField::some(
                             native_into::<
                                 _,
@@ -41202,10 +41359,10 @@ impl NativeFrom<
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
-                            native_from::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                value,
+                                &format!("{path}[{index}]", path = current_path),
+                            )?,
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -41221,10 +41378,10 @@ impl NativeFrom<
                             &child_path(path, "elastic"),
                         )?;
                         Ok((
-                            native_from::<
-                                _,
-                                Vec<u8>,
-                            >(entry.key, &child_path(path, "elastic"))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                entry.key,
+                                &child_path(path, "elastic"),
+                            )?,
                             native_from::<
                                 _,
                                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::StructuralValue,
@@ -46504,20 +46661,11 @@ impl NativeInto<
                     crate::host_operations::engineering::generated::pb::pse::engineering::v1::NativeParameterCovariance,
                 >(field_0, &child_path(path, "covariance"))?,
             ),
-            outputs: {
-                let current_path = &child_path(path, "outputs");
-                items(field_1)
-                    .enumerate()
-                    .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-            },
+            outputs: items(field_1)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
             ..Default::default()
         })
     }
@@ -46556,10 +46704,10 @@ impl NativeFrom<
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
-                            native_from::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                value,
+                                &format!("{path}[{index}]", path = current_path),
+                            )?,
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -46688,7 +46836,11 @@ impl NativeInto<
             ),
             event: field_1
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, Vec<u8>>(value, &child_path(path, "event"))?)
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
+                    )
                 })
                 .transpose()?,
             ..Default::default()
@@ -46721,7 +46873,12 @@ impl NativeFrom<
             wire
                 .event
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, Vec<u8>>(value, &child_path(path, "event"))?)
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &child_path(path, "event"),
+                        )?,
+                    )
                 })
                 .transpose()?,
         );
@@ -48003,20 +48160,11 @@ impl NativeInto<
                     crate::host_operations::engineering::generated::pb::pse::engineering::v1::NativeCovarianceOrigin,
                 >(field_1, &child_path(path, "origin"))?,
             ),
-            parameters: {
-                let current_path = &child_path(path, "parameters");
-                items(field_2)
-                    .enumerate()
-                    .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-            },
+            parameters: items(field_2)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
             values: {
                 let current_path = &child_path(path, "values");
                 items(field_3)
@@ -48045,34 +48193,16 @@ impl NativeInto<
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
-            parameter_quantities: {
-                let current_path = &child_path(path, "parameter_quantities");
-                items(field_5)
-                    .enumerate()
-                    .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-            },
-            parameter_units: {
-                let current_path = &child_path(path, "parameter_units");
-                items(field_6)
-                    .enumerate()
-                    .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-            },
+            parameter_quantities: items(field_5)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
+            parameter_units: items(field_6)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
             ..Default::default()
         })
     }
@@ -48123,10 +48253,10 @@ impl NativeFrom<
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
-                            native_from::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                value,
+                                &format!("{path}[{index}]", path = current_path),
+                            )?,
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -48174,10 +48304,10 @@ impl NativeFrom<
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
-                            native_from::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                value,
+                                &format!("{path}[{index}]", path = current_path),
+                            )?,
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -48191,10 +48321,10 @@ impl NativeFrom<
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
-                            native_from::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                value,
+                                &format!("{path}[{index}]", path = current_path),
+                            )?,
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -48895,20 +49025,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::NativeSensitivityRequest {
-            parameters: {
-                let current_path = &child_path(path, "parameters");
-                items(field_0)
-                    .enumerate()
-                    .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-            },
+            parameters: items(field_0)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
             reduced_hessian: native_into::<
                 _,
                 bool,
@@ -48952,10 +49073,10 @@ impl NativeFrom<
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
-                            native_from::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                value,
+                                &format!("{path}[{index}]", path = current_path),
+                            )?,
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -49350,14 +49471,21 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::NumericalAdviceCohort {
-            original: native_into::<_, Vec<u8>>(field_0, &child_path(path, "original"))?,
-            profiles: native_into::<_, Vec<u8>>(field_1, &child_path(path, "profiles"))?,
-            branch_start: native_into::<
-                _,
-                Vec<u8>,
-            >(field_2, &child_path(path, "branch_start"))?,
-            accuracy: native_into::<_, Vec<u8>>(field_3, &child_path(path, "accuracy"))?,
-            exposure: native_into::<_, Vec<u8>>(field_4, &child_path(path, "exposure"))?,
+            original: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
+            profiles: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            branch_start: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
+            accuracy: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_3,
+            ),
+            exposure: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_4,
+            ),
             ..Default::default()
         })
     }
@@ -49384,14 +49512,26 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.original, &child_path(path, "original"))?,
-            native_from::<_, Vec<u8>>(wire.profiles, &child_path(path, "profiles"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.branch_start, &child_path(path, "branch_start"))?,
-            native_from::<_, Vec<u8>>(wire.accuracy, &child_path(path, "accuracy"))?,
-            native_from::<_, Vec<u8>>(wire.exposure, &child_path(path, "exposure"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.original,
+                &child_path(path, "original"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.profiles,
+                &child_path(path, "profiles"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.branch_start,
+                &child_path(path, "branch_start"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.accuracy,
+                &child_path(path, "accuracy"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.exposure,
+                &child_path(path, "exposure"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -49579,12 +49719,15 @@ impl NativeInto<
                     crate::host_operations::engineering::generated::pb::pse::engineering::v1::NumericalAdviceCohort,
                 >(field_0, &child_path(path, "cohort"))?,
             ),
-            matched: native_into::<_, Vec<u8>>(field_1, &child_path(path, "matched"))?,
-            candidate: native_into::<
-                _,
-                Vec<u8>,
-            >(field_2, &child_path(path, "candidate"))?,
-            attempt: native_into::<_, Vec<u8>>(field_3, &child_path(path, "attempt"))?,
+            matched: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            candidate: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
+            attempt: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_3,
+            ),
             outcome: buffa::MessageField::some(
                 native_into::<
                     _,
@@ -49630,9 +49773,18 @@ impl NativeFrom<
                 required(wire.cohort.into_option(), &child_path(path, "cohort"))?,
                 &child_path(path, "cohort"),
             )?,
-            native_from::<_, Vec<u8>>(wire.matched, &child_path(path, "matched"))?,
-            native_from::<_, Vec<u8>>(wire.candidate, &child_path(path, "candidate"))?,
-            native_from::<_, Vec<u8>>(wire.attempt, &child_path(path, "attempt"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.matched,
+                &child_path(path, "matched"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.candidate,
+                &child_path(path, "candidate"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.attempt,
+                &child_path(path, "attempt"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::NumericalAdviceOutcome,
@@ -50552,16 +50704,18 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::NumericalConnectedPath {
-            path: native_into::<_, Vec<u8>>(field_0, &child_path(path, "path"))?,
-            sheet: native_into::<_, Vec<u8>>(field_1, &child_path(path, "sheet"))?,
-            transport: native_into::<
-                _,
-                Vec<u8>,
-            >(field_2, &child_path(path, "transport"))?,
-            orientation: native_into::<
-                _,
-                Vec<u8>,
-            >(field_3, &child_path(path, "orientation"))?,
+            path: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
+            sheet: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            transport: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
+            orientation: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_3,
+            ),
             ..Default::default()
         })
     }
@@ -50582,13 +50736,22 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.path, &child_path(path, "path"))?,
-            native_from::<_, Vec<u8>>(wire.sheet, &child_path(path, "sheet"))?,
-            native_from::<_, Vec<u8>>(wire.transport, &child_path(path, "transport"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.orientation, &child_path(path, "orientation"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.path,
+                &child_path(path, "path"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.sheet,
+                &child_path(path, "sheet"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.transport,
+                &child_path(path, "transport"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.orientation,
+                &child_path(path, "orientation"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -50670,34 +50833,16 @@ impl NativeInto<
                     crate::host_operations::engineering::generated::pb::pse::engineering::v1::NumericalAdviceMetric,
                 >(field_1, &child_path(path, "metric"))?,
             ),
-            baseline: {
-                let current_path = &child_path(path, "baseline");
-                items(field_2)
-                    .enumerate()
-                    .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-            },
-            ordered: {
-                let current_path = &child_path(path, "ordered");
-                items(field_3)
-                    .enumerate()
-                    .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-            },
+            baseline: items(field_2)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
+            ordered: items(field_3)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
             observations: {
                 let current_path = &child_path(path, "observations");
                 items(field_4)
@@ -50774,10 +50919,10 @@ impl NativeFrom<
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
-                            native_from::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                value,
+                                &format!("{path}[{index}]", path = current_path),
+                            )?,
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -50791,10 +50936,10 @@ impl NativeFrom<
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
-                            native_from::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                value,
+                                &format!("{path}[{index}]", path = current_path),
+                            )?,
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -51944,10 +52089,9 @@ impl NativeInto<
                     crate::host_operations::engineering::generated::pb::pse::engineering::v1::SourceRevisionHash,
                 >(field_2, &child_path(path, "revision"))?,
             ),
-            physical_context: native_into::<
-                _,
-                Vec<u8>,
-            >(field_3, &child_path(path, "physical_context"))?,
+            physical_context: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_3,
+            ),
             ..Default::default()
         })
     }
@@ -51999,10 +52143,10 @@ impl NativeFrom<
                 required(wire.revision.into_option(), &child_path(path, "revision"))?,
                 &child_path(path, "revision"),
             )?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.physical_context, &child_path(path, "physical_context"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.physical_context,
+                &child_path(path, "physical_context"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -52044,19 +52188,24 @@ impl NativeInto<
                 _,
                 String,
             >(field_0, &child_path(path, "local_revision"))?,
-            package: native_into::<_, Vec<u8>>(field_1, &child_path(path, "package"))?,
-            document: native_into::<_, Vec<u8>>(field_2, &child_path(path, "document"))?,
+            package: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            document: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
             path: native_into::<_, String>(field_3, &child_path(path, "path"))?,
             document_version: native_into::<
                 _,
                 String,
             >(field_4, &child_path(path, "document_version"))?,
-            original_hash: native_into::<
-                _,
-                Vec<u8>,
-            >(field_5, &child_path(path, "original_hash"))?,
+            original_hash: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_5,
+            ),
             is_text: native_into::<_, bool>(field_6, &child_path(path, "is_text"))?,
-            body: native_into::<_, Vec<u8>>(field_7, &child_path(path, "body"))?,
+            body: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_7,
+            ),
             ..Default::default()
         })
     }
@@ -52090,19 +52239,28 @@ impl NativeFrom<
                 _,
                 String,
             >(wire.local_revision, &child_path(path, "local_revision"))?,
-            native_from::<_, Vec<u8>>(wire.package, &child_path(path, "package"))?,
-            native_from::<_, Vec<u8>>(wire.document, &child_path(path, "document"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.package,
+                &child_path(path, "package"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.document,
+                &child_path(path, "document"),
+            )?,
             native_from::<_, String>(wire.path, &child_path(path, "path"))?,
             native_from::<
                 _,
                 String,
             >(wire.document_version, &child_path(path, "document_version"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.original_hash, &child_path(path, "original_hash"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.original_hash,
+                &child_path(path, "original_hash"),
+            )?,
             native_from::<_, bool>(wire.is_text, &child_path(path, "is_text"))?,
-            native_from::<_, Vec<u8>>(wire.body, &child_path(path, "body"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.body,
+                &child_path(path, "body"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -52132,7 +52290,9 @@ impl NativeInto<
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::OriginalSourceFileRequest {
             parent: native_into::<_, String>(field_0, &child_path(path, "parent"))?,
-            package: native_into::<_, Vec<u8>>(field_1, &child_path(path, "package"))?,
+            package: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
             path: native_into::<_, String>(field_2, &child_path(path, "path"))?,
             maximum_bytes: native_into::<
                 _,
@@ -52159,7 +52319,10 @@ impl NativeFrom<
         )?;
         let fields = (
             native_from::<_, String>(wire.parent, &child_path(path, "parent"))?,
-            native_from::<_, Vec<u8>>(wire.package, &child_path(path, "package"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.package,
+                &child_path(path, "package"),
+            )?,
             native_from::<_, String>(wire.path, &child_path(path, "path"))?,
             native_from::<
                 _,
@@ -52193,7 +52356,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::PackageId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -52214,10 +52381,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -53185,10 +53352,9 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::PhysicalFormulaFacts {
-            authority: native_into::<
-                _,
-                Vec<u8>,
-            >(field_0, &child_path(path, "authority"))?,
+            authority: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             operation: native_into::<
                 _,
                 String,
@@ -53241,7 +53407,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.authority, &child_path(path, "authority"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.authority,
+                &child_path(path, "authority"),
+            )?,
             native_from::<_, String>(wire.operation, &child_path(path, "operation"))?,
             {
                 let current_path = &child_path(path, "operands");
@@ -53324,10 +53493,9 @@ impl NativeInto<
                         crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::physical_inspection_document::Kind::Page(
                             Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::physical_inspection_document::Alternative1 {
                                 context: Some(
-                                    native_into::<
-                                        _,
-                                        Vec<u8>,
-                                    >(field_0, &child_path(path, "context"))?,
+                                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                        field_0,
+                                    ),
                                 ),
                                 count: native_into::<
                                     _,
@@ -53401,10 +53569,9 @@ impl NativeInto<
                         crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::physical_inspection_document::Kind::Unavailable(
                             Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::physical_inspection_document::Alternative2 {
                                 context: Some(
-                                    native_into::<
-                                        _,
-                                        Vec<u8>,
-                                    >(field_0, &child_path(path, "context"))?,
+                                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                        field_0,
+                                    ),
                                 ),
                                 reason: native_into::<
                                     _,
@@ -53471,10 +53638,7 @@ impl NativeFrom<
                     path,
                 )?;
                 let fields = (
-                    native_from::<
-                        _,
-                        Vec<u8>,
-                    >(
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
                         required(wire.context, &child_path(path, "context"))?,
                         &child_path(path, "context"),
                     )?,
@@ -53546,10 +53710,7 @@ impl NativeFrom<
                     path,
                 )?;
                 let fields = (
-                    native_from::<
-                        _,
-                        Vec<u8>,
-                    >(
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
                         required(wire.context, &child_path(path, "context"))?,
                         &child_path(path, "context"),
                     )?,
@@ -55215,7 +55376,9 @@ impl NativeInto<
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::PhysicalSource {
             revision: native_into::<_, String>(field_0, &child_path(path, "revision"))?,
-            identity: native_into::<_, Vec<u8>>(field_1, &child_path(path, "identity"))?,
+            identity: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
             ..Default::default()
         })
     }
@@ -55237,7 +55400,10 @@ impl NativeFrom<
         )?;
         let fields = (
             native_from::<_, String>(wire.revision, &child_path(path, "revision"))?,
-            native_from::<_, Vec<u8>>(wire.identity, &child_path(path, "identity"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.identity,
+                &child_path(path, "identity"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -58546,10 +58712,9 @@ impl NativeInto<
             configuration: field_2
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_into::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "configuration"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
                     )
                 })
                 .transpose()?,
@@ -58590,10 +58755,10 @@ impl NativeFrom<
                 .configuration
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_from::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "configuration"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &child_path(path, "configuration"),
+                        )?,
                     )
                 })
                 .transpose()?,
@@ -58873,7 +59038,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::QuantityKindId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -58894,10 +59063,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -59121,7 +59290,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::QuantityTypeId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -59142,10 +59315,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -59581,7 +59754,11 @@ impl NativeInto<
             >(field_5, &child_path(path, "include_enthalpy_of_formation"))?,
             subject: field_6
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, Vec<u8>>(value, &child_path(path, "subject"))?)
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
+                    )
                 })
                 .transpose()?,
             ..Default::default()
@@ -59661,7 +59838,12 @@ impl NativeFrom<
             wire
                 .subject
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, Vec<u8>>(value, &child_path(path, "subject"))?)
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &child_path(path, "subject"),
+                        )?,
+                    )
                 })
                 .transpose()?,
         );
@@ -59692,7 +59874,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::ReferenceStateId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -59713,10 +59899,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -60035,7 +60221,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::RunId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -60056,10 +60246,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -60121,10 +60311,9 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificCoordinateValue {
-            coordinate_id: native_into::<
-                _,
-                Vec<u8>,
-            >(field_0, &child_path(path, "coordinate_id"))?,
+            coordinate_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             value: buffa::MessageField::some(
                 native_into::<
                     _,
@@ -60151,10 +60340,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.coordinate_id, &child_path(path, "coordinate_id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.coordinate_id,
+                &child_path(path, "coordinate_id"),
+            )?,
             native_from::<
                 _,
                 crate::host_operations::engineering::generated::pb::pse::engineering::v1::ExtensionQuantityValue,
@@ -60989,7 +61178,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::SolutionId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -61010,10 +61203,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -61879,20 +62072,11 @@ impl NativeInto<
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
-            removals: {
-                let current_path = &child_path(path, "removals");
-                items(field_2)
-                    .enumerate()
-                    .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-            },
+            removals: items(field_2)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
             ..Default::default()
         })
     }
@@ -61955,10 +62139,10 @@ impl NativeFrom<
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
-                            native_from::<
-                                _,
-                                Vec<u8>,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                value,
+                                &format!("{path}[{index}]", path = current_path),
+                            )?,
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -62003,10 +62187,9 @@ impl NativeInto<
                     kind: Some(
                         crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::source_file_change::Kind::Add(
                             Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::source_file_change::Alternative1 {
-                                value: native_into::<
-                                    _,
-                                    Vec<u8>,
-                                >(field_0, &child_path(path, "value"))?,
+                                value: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_0,
+                                ),
                                 ..Default::default()
                             }),
                         ),
@@ -62037,10 +62220,9 @@ impl NativeInto<
                     kind: Some(
                         crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::source_file_change::Kind::Replace(
                             Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::source_file_change::Alternative2 {
-                                value: native_into::<
-                                    _,
-                                    Vec<u8>,
-                                >(field_0, &child_path(path, "value"))?,
+                                value: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_0,
+                                ),
                                 ..Default::default()
                             }),
                         ),
@@ -62123,7 +62305,10 @@ impl NativeFrom<
                     path,
                 )?;
                 let fields = (
-                    native_from::<_, Vec<u8>>(wire.value, &child_path(path, "value"))?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.value,
+                        &child_path(path, "value"),
+                    )?,
                 );
                 Ok(
                     <pse_model::engineering_edit::SourceFileChange as pse_contract::boundary_projection::ProjectionAlternative<
@@ -62150,7 +62335,10 @@ impl NativeFrom<
                     path,
                 )?;
                 let fields = (
-                    native_from::<_, Vec<u8>>(wire.value, &child_path(path, "value"))?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.value,
+                        &child_path(path, "value"),
+                    )?,
                 );
                 Ok(
                     <pse_model::engineering_edit::SourceFileChange as pse_contract::boundary_projection::ProjectionAlternative<
@@ -62288,7 +62476,9 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::SourceFileEdit {
-            package: native_into::<_, Vec<u8>>(field_0, &child_path(path, "package"))?,
+            package: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
             path: native_into::<_, String>(field_1, &child_path(path, "path"))?,
             change: buffa::MessageField::some(
                 native_into::<
@@ -62316,7 +62506,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<_, Vec<u8>>(wire.package, &child_path(path, "package"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.package,
+                &child_path(path, "package"),
+            )?,
             native_from::<_, String>(wire.path, &child_path(path, "path"))?,
             native_from::<
                 _,
@@ -62494,7 +62687,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::SourceRevisionHash {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -62515,10 +62712,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -62646,7 +62843,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::StructuralBlockId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -62667,10 +62868,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -62818,10 +63019,9 @@ impl NativeInto<
                     kind: Some(
                         crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::structural_value::Kind::Coordinate(
                             Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::structural_value::Alternative4 {
-                                id: native_into::<
-                                    _,
-                                    Vec<u8>,
-                                >(field_0, &child_path(path, "id"))?,
+                                id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_0,
+                                ),
                                 bits: native_into::<
                                     _,
                                     u64,
@@ -62944,10 +63144,9 @@ impl NativeInto<
                                         crate::host_operations::engineering::generated::pb::pse::engineering::v1::DeclarationId,
                                     >(field_0, &child_path(path, "enumeration"))?,
                                 ),
-                                member: native_into::<
-                                    _,
-                                    Vec<u8>,
-                                >(field_1, &child_path(path, "member"))?,
+                                member: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_1,
+                                ),
                                 ..Default::default()
                             }),
                         ),
@@ -63475,7 +63674,10 @@ impl NativeFrom<
                     path,
                 )?;
                 let fields = (
-                    native_from::<_, Vec<u8>>(wire.id, &child_path(path, "id"))?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.id,
+                        &child_path(path, "id"),
+                    )?,
                     native_from::<_, u64>(wire.bits, &child_path(path, "bits"))?,
                     native_from::<
                         _,
@@ -63590,7 +63792,10 @@ impl NativeFrom<
                         )?,
                         &child_path(path, "enumeration"),
                     )?,
-                    native_from::<_, Vec<u8>>(wire.member, &child_path(path, "member"))?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.member,
+                        &child_path(path, "member"),
+                    )?,
                 );
                 Ok(
                     <pse_modeling::specialize::Value as pse_contract::boundary_projection::ProjectionAlternative<
@@ -65278,7 +65483,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -65299,10 +65508,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -65542,10 +65751,9 @@ impl NativeInto<
                                     _,
                                     i64,
                                 >(field_0, &child_path(path, "step"))?,
-                                symbol_id: native_into::<
-                                    _,
-                                    Vec<u8>,
-                                >(field_1, &child_path(path, "symbol_id"))?,
+                                symbol_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_1,
+                                ),
                                 ..Default::default()
                             }),
                         ),
@@ -65580,10 +65788,9 @@ impl NativeInto<
                                     _,
                                     i64,
                                 >(field_0, &child_path(path, "step"))?,
-                                row_id: native_into::<
-                                    _,
-                                    Vec<u8>,
-                                >(field_1, &child_path(path, "row_id"))?,
+                                row_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_1,
+                                ),
                                 ..Default::default()
                             }),
                         ),
@@ -65614,10 +65821,9 @@ impl NativeInto<
                     kind: Some(
                         crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::study_member_demand::Kind::FitParameter(
                             Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::study_member_demand::Alternative3 {
-                                parameter_id: native_into::<
-                                    _,
-                                    Vec<u8>,
-                                >(field_0, &child_path(path, "parameter_id"))?,
+                                parameter_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_0,
+                                ),
                                 ..Default::default()
                             }),
                         ),
@@ -65654,10 +65860,9 @@ impl NativeInto<
                                         crate::host_operations::engineering::generated::pb::pse::engineering::v1::InstanceId,
                                     >(field_0, &child_path(path, "experiment_id"))?,
                                 ),
-                                observation_id: native_into::<
-                                    _,
-                                    Vec<u8>,
-                                >(field_1, &child_path(path, "observation_id"))?,
+                                observation_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_1,
+                                ),
                                 ..Default::default()
                             }),
                         ),
@@ -65688,10 +65893,9 @@ impl NativeInto<
                     kind: Some(
                         crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::study_member_demand::Kind::Trajectory(
                             Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::study_member_demand::Alternative5 {
-                                symbol_id: native_into::<
-                                    _,
-                                    Vec<u8>,
-                                >(field_0, &child_path(path, "symbol_id"))?,
+                                symbol_id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_0,
+                                ),
                                 ..Default::default()
                             }),
                         ),
@@ -65747,10 +65951,10 @@ impl NativeFrom<
                 )?;
                 let fields = (
                     native_from::<_, i64>(wire.step, &child_path(path, "step"))?,
-                    native_from::<
-                        _,
-                        Vec<u8>,
-                    >(wire.symbol_id, &child_path(path, "symbol_id"))?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.symbol_id,
+                        &child_path(path, "symbol_id"),
+                    )?,
                 );
                 Ok(
                     <crate::workflow::StudyMemberDemand as pse_contract::boundary_projection::ProjectionAlternative<
@@ -65778,7 +65982,10 @@ impl NativeFrom<
                 )?;
                 let fields = (
                     native_from::<_, i64>(wire.step, &child_path(path, "step"))?,
-                    native_from::<_, Vec<u8>>(wire.row_id, &child_path(path, "row_id"))?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.row_id,
+                        &child_path(path, "row_id"),
+                    )?,
                 );
                 Ok(
                     <crate::workflow::StudyMemberDemand as pse_contract::boundary_projection::ProjectionAlternative<
@@ -65805,10 +66012,10 @@ impl NativeFrom<
                     path,
                 )?;
                 let fields = (
-                    native_from::<
-                        _,
-                        Vec<u8>,
-                    >(wire.parameter_id, &child_path(path, "parameter_id"))?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.parameter_id,
+                        &child_path(path, "parameter_id"),
+                    )?,
                 );
                 Ok(
                     <crate::workflow::StudyMemberDemand as pse_contract::boundary_projection::ProjectionAlternative<
@@ -65845,10 +66052,10 @@ impl NativeFrom<
                         )?,
                         &child_path(path, "experiment_id"),
                     )?,
-                    native_from::<
-                        _,
-                        Vec<u8>,
-                    >(wire.observation_id, &child_path(path, "observation_id"))?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.observation_id,
+                        &child_path(path, "observation_id"),
+                    )?,
                 );
                 Ok(
                     <crate::workflow::StudyMemberDemand as pse_contract::boundary_projection::ProjectionAlternative<
@@ -65875,10 +66082,10 @@ impl NativeFrom<
                     path,
                 )?;
                 let fields = (
-                    native_from::<
-                        _,
-                        Vec<u8>,
-                    >(wire.symbol_id, &child_path(path, "symbol_id"))?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.symbol_id,
+                        &child_path(path, "symbol_id"),
+                    )?,
                 );
                 Ok(
                     <crate::workflow::StudyMemberDemand as pse_contract::boundary_projection::ProjectionAlternative<
@@ -70124,7 +70331,11 @@ impl NativeInto<
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::UnitId {
-            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
             ..Default::default()
         })
     }
@@ -70145,10 +70356,10 @@ impl NativeFrom<
             path,
         )?;
         let fields = (
-            native_from::<
-                _,
-                Vec<u8>,
-            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,

@@ -15,6 +15,10 @@ impl ValidateProjection for crate::Bytes {
         Some(self.as_slice().len())
     }
 }
+impl ProjectionBytes for crate::Bytes {
+    fn into_projection_bytes(self) -> Vec<u8> { self.into_vec() }
+    fn from_projection_bytes(bytes: Vec<u8>, _: &str) -> Result<Self, AdapterError> { Ok(Self::new(bytes)) }
+}
 
 impl crate::diagnostic::DiagnosticProjection for ValidationError {}
 impl crate::diagnostic::DiagnosticProjection for AdapterError {}

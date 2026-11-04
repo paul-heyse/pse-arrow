@@ -671,9 +671,8 @@ mod physical_inspection_unit {
     #[test]
     fn physical_projection_generated_binary_retains_actual_science_and_page_custody() {
         use crate::host_operations::engineering::generated::pb::pse::engineering::v1 as wire;
-        use crate::preparation_projection::{
-            decode_physical_inspection_document, encode_owned_physical_inspection_document,
-        };
+        use crate::engineering_projection::decode_physical_inspection_document;
+        use crate::preparation_projection::encode_owned_physical_inspection_document;
         use buffa::Message as _;
         let context = super::super::tests::physical();
         let baseline = context.pool.reserved();

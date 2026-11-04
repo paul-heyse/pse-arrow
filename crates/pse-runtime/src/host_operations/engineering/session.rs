@@ -101,7 +101,7 @@ fn original<'a>(
     {
         return Some(error);
     }
-    if let Some(error) = error.downcast_ref::<crate::projection_support::BoundaryProjectionError>()
+    if let Some(error) = error.downcast_ref::<crate::projection_diagnostics::ProjectionDiagnosticError>()
     {
         return Some(error);
     }
