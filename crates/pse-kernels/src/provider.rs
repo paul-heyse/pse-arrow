@@ -430,6 +430,82 @@ impl ProviderBinding {
     pub fn supports(&self, demand: &ProviderDemand) -> bool {
         self.worker.supports(demand)
     }
+    /// Exact prepared-demand group capability, without scalar fallback.
+    pub fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
+        self.worker.supports_batch(request)
+    }
+    pub(super) fn batch_inner(
+        &mut self, points: &[&ProviderBatchPoint], request: &PreparedProviderRequest,
+        context: &EvaluationContext<'_>,
+    ) -> Result<ProviderBatchResults, ProviderError> {
+        self.worker.fill_batch(points, request, context)
+    }
+    /// Admit a whole identified frame, then gather independently admitted point inputs for one group.
+    /// A malformed frame has no effects; one bad point never prevents its admitted siblings.
+    pub fn evaluate_batch(
+        &mut self, points: &[ProviderBatchPoint], request: &PreparedProviderRequest,
+        context: &EvaluationContext<'_>,
+    ) -> Result<Vec<ProviderBatchOutcome>, ProviderError> {
+        context.check()?;
+        if request.binding.is_none() {
+            return Err(ProviderError::Contract("provider request has no executable binding".into()));
+        }
+        self.check_prepared(request)?;
+        request.check_context(context)?;
+        if !self.supports_batch(request) {
+            return Err(ProviderError::Contract("provider batch demand unavailable".into()));
+        }
+        let mut ids = std::collections::BTreeSet::new();
+        let mut bytes = 0usize;
+        for point in points {
+            if point.id == SemanticId::NIL || !ids.insert(point.id) {
+                return Err(ProviderError::Contract("provider batch point identities".into()));
+            }
+            bytes = bytes.checked_add(point.bytes()?)
+                .and_then(|n| n.checked_add(size_of::<ProviderBatchOutcome>()))
+                .and_then(|n| n.checked_add(request.extents.bytes().ok()?))
+                .ok_or(ProviderError::Limit("provider batch storage"))?;
+        }
+        if points.is_empty() || bytes > context.max_result_bytes {
+            return Err(ProviderError::Limit("provider batch storage"));
+        }
+        let mut outcomes: Vec<_> = points.iter().map(|point| ProviderBatchOutcome {
+            id: point.id,
+            result: Err(ProviderError::Contract("provider point not admitted".into())),
+        }).collect();
+        let mut eligible = Vec::with_capacity(points.len());
+        let mut ordinals = Vec::with_capacity(points.len());
+        for (ordinal, point) in points.iter().enumerate() {
+            let admission = if point.inputs.len() != self.spec.inputs.len()
+                || point.inputs.iter().any(|x| !x.is_finite()) {
+                Err(ProviderError::Contract("provider binding or physical inputs".into()))
+            } else { request.check_runtime(point.runtime()) };
+            match admission {
+                Ok(()) => { eligible.push(point); ordinals.push(ordinal); }
+                Err(error) => outcomes[ordinal].result = Err(error),
+            }
+        }
+        if eligible.is_empty() { return Ok(outcomes); }
+        let results = self.batch_inner(&eligible, request, context)?;
+        context.check()?;
+        if results.len() != eligible.len() {
+            return Err(ProviderError::Contract("provider batch completion extent".into()));
+        }
+        let extent = request.extents();
+        for (ordinal, result) in ordinals.into_iter().zip(results) {
+            outcomes[ordinal].result = result.and_then(|value| {
+                if value.values.len() != extent.values || value.jacobian.len() != extent.jacobian
+                    || value.hessians.len() != extent.hessians {
+                    return Err(ProviderError::Contract("provider batch point completion extent".into()));
+                }
+                if value.values.iter().chain(&value.jacobian).chain(&value.hessians).any(|x| !x.is_finite()) {
+                    return Err(ProviderError::Trial("nonfinite or incomplete provider batch point".into()));
+                }
+                Ok(value)
+            });
+        }
+        Ok(outcomes)
+    }
     /// Whether the owner can certify its complete derivative context.
     pub fn supports_linearization(&self) -> bool {
         self.linearization_capability

@@ -18,6 +18,7 @@ use pse_kernels::{
     AdmittedProvider, DerivativeOrder, DerivativeSource, EvaluationContext, Port,
     PreparedProviderRequest, Provider, ProviderBinding, ProviderError, ProviderFactory,
     ProviderOutput, ProviderRuntime, ProviderShapes, ProviderSpec, Registration,
+    ProviderBatchPoint, ProviderBatchResults, ProviderDemand, ProviderValues,
 };
 use pse_quantity::{PhysicalName, QuantityRegistry, ReferenceStateKind};
 use sha2::{Digest, Sha256};
@@ -617,7 +618,122 @@ struct WaterWorker {
     state: NativeState,
     factory: WaterFactory,
 }
+fn water_inputs(inputs: &[f64]) -> Result<[f64; 2], ProviderError> {
+    let [temperature, density] = inputs else {
+        return Err(contract("water provider requires T and molar density"));
+    };
+    for (axis, value, lower, upper) in [
+        ("temperature", *temperature, 273.16, 1200.0),
+        ("molar density", *density, 1e-8, 70000.0),
+    ] {
+        if !value.is_finite() || value < lower || value > upper {
+            return Err(ProviderError::OutsideEnvelope { axis: axis.into(), value, lower, upper });
+        }
+    }
+    Ok([*temperature, *density])
+}
+#[derive(Clone, Copy)]
+enum WaterField { Pressure = 0, Enthalpy = 1, Entropy = 2, InternalEnergy = 3, Mechanical = 5 }
+/// One native scientific owner for both scalar and group phase, stability, pressure and datum policy.
+fn qualified_water_values(
+    factory: &WaterFactory, density: f64, phase: i32,
+    mut observe: impl FnMut(WaterField) -> Result<f64, ProviderError>,
+) -> Result<[f64; 3], ProviderError> {
+    if !factory.regime.accepts(phase) {
+        return Err(ProviderError::Trial(format!(
+            "water {:?} provider refuses actual CoolProp phase {phase}", factory.regime)));
+    }
+    let pressure = finite(observe(WaterField::Pressure)?)?;
+    if pressure <= 0.0 || pressure > 100_000_000.0 {
+        return Err(ProviderError::OutsideEnvelope { axis: "pressure".into(), value: pressure,
+            lower: 0.0, upper: 100_000_000.0 });
+    }
+    if finite(observe(WaterField::Mechanical)?)? <= 0.0 {
+        return Err(ProviderError::Trial("water state lacks positive isothermal mechanical response".into()));
+    }
+    let h = finite(observe(WaterField::Enthalpy)?)? + factory.reference.h_offset;
+    let s = finite(observe(WaterField::Entropy)?)? + factory.reference.s_offset;
+    let u = finite(observe(WaterField::InternalEnergy)?)? + factory.reference.h_offset;
+    let mismatch = h - u - pressure / density;
+    if mismatch.abs() > 1e-9 * (1.0 + h.abs() + u.abs() + (pressure / density).abs()) {
+        return Err(terminal("water h/u datum translation violates h=u+p/rho"));
+    }
+    Ok([pressure, h, s])
+}
+/// Reject every missing slot, including private physical guards, before admitting any row.
+fn qualified_water_row(factory: &WaterFactory, density: f64, row: &[f64]) -> Result<[f64; 3], ProviderError> {
+    if row.len() != 6 || row.iter().any(|value| !value.is_finite()) {
+        return Err(ProviderError::Trial("incomplete CoolProp batch point".into()));
+    }
+    let phase = row[4];
+    if phase.fract() != 0.0 || !(0.0..=8.0).contains(&phase) {
+        return Err(ProviderError::Trial("invalid CoolProp batch phase".into()));
+    }
+    qualified_water_values(factory, density, phase as i32, |field| Ok(row[field as usize]))
+}
+#[cfg(test)]
+thread_local! { static BATCH_NATIVE_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
 impl Provider for WaterWorker {
+    fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
+        request.order == DerivativeOrder::Value && matches!(request.demand, ProviderDemand::CompleteJets)
+    }
+    fn fill_batch(&mut self, points: &[&ProviderBatchPoint], request: &PreparedProviderRequest,
+        context: &EvaluationContext<'_>) -> Result<ProviderBatchResults, ProviderError> {
+        context.check()?;
+        if !self.supports_batch(request) { return Err(contract("water batch demand unavailable")); }
+        // Account for Rust input/mapping/output storage and the library's copied input and result matrix.
+        let bytes = points.len().checked_mul(20 * size_of::<f64>() + size_of::<usize>())
+            .ok_or(ProviderError::Limit("water native batch storage"))?;
+        if bytes > context.max_result_bytes { return Err(ProviderError::Limit("water native batch storage")); }
+        let mut results: ProviderBatchResults = points.iter().map(|_| Err(contract("water point not admitted"))).collect();
+        let mut temperatures = Vec::with_capacity(points.len());
+        let mut densities = Vec::with_capacity(points.len());
+        let mut ordinals = Vec::with_capacity(points.len());
+        for (ordinal, point) in points.iter().enumerate() {
+            match water_inputs(&point.inputs) {
+                Ok([temperature, density]) => {
+                    temperatures.push(temperature); densities.push(density); ordinals.push(ordinal);
+                }
+                Err(error) => results[ordinal] = Err(error),
+            }
+        }
+        if ordinals.is_empty() { return Ok(results); }
+        let count = c_long::try_from(ordinals.len()).map_err(|_| ProviderError::Limit("water batch point count"))?;
+        let mut rows = count;
+        let mut columns = 6;
+        let cells = ordinals.len().checked_mul(6).ok_or(ProviderError::Limit("water batch matrix"))?;
+        let mut matrix = vec![f64::NAN; cells];
+        let mut backend = *b"HEOS\0";
+        let fractions = [1.0];
+        // PropsSImulti uses the process-global error slot. Keep exclusive access through retrieval,
+        // never retry a failed group, and never mutate global delimiter/reference configuration.
+        let api = COOLPROP.exclusive_access();
+        let _previous_error = global(&api, c"errstring")?;
+        context.check()?;
+        #[cfg(test)]
+        BATCH_NATIVE_CALLS.with(|calls| calls.set(calls.get() + 1));
+        // SAFETY: checked equal input lengths, checked owned point-major output capacity, mutable
+        // backend bytes and all literals/fractions remain live. The group owns all buffers until return.
+        unsafe { api.PropsSImulti(
+            c"P,Hmolar,Smolar,Umolar,Phase,d(P)/d(Dmolar)|T".as_ptr(),
+            c"T".as_ptr(), temperatures.as_mut_ptr(), count,
+            c"Dmolar".as_ptr(), densities.as_mut_ptr(), count,
+            backend.as_mut_ptr().cast(), c"Water".as_ptr(), fractions.as_ptr(), 1,
+            matrix.as_mut_ptr(), &raw mut rows, &raw mut columns,
+        ); }
+        let detail = global(&api, c"errstring")?;
+        if rows != count || columns != 6 {
+            return Err(terminal(format!("CoolProp batch matrix {rows}x{columns}, expected {count}x6: {detail}")));
+        }
+        context.check()?;
+        for (native, ordinal) in ordinals.into_iter().enumerate() {
+            results[ordinal] = qualified_water_row(&self.factory, densities[native], &matrix[native * 6..native * 6 + 6])
+                .map(|values| ProviderValues { values: request.outputs.iter().map(|&ordinal| values[ordinal]).collect(),
+                    jacobian: vec![], hessians: vec![] });
+        }
+        context.check()?;
+        Ok(results)
+    }
     fn fill(
         &mut self,
         inputs: &[f64],
@@ -627,62 +743,21 @@ impl Provider for WaterWorker {
         context: &EvaluationContext<'_>,
     ) -> Result<(), ProviderError> {
         context.check()?;
-        let [temperature, density] = inputs else {
-            return Err(contract("water provider requires T and molar density"));
-        };
-        for (axis, value, lower, upper) in [
-            ("temperature", *temperature, 273.16, 1200.0),
-            ("molar density", *density, 1e-8, 70000.0),
-        ] {
-            if !value.is_finite() || value < lower || value > upper {
-                return Err(ProviderError::OutsideEnvelope {
-                    axis: axis.into(),
-                    value,
-                    lower,
-                    upper,
-                });
-            }
-        }
+        let [temperature, density] = water_inputs(inputs)?;
         // One shared access guard spans the coherent update, values and jets.
         // It permits independent HEOS states, while excluding global mutation.
         let api = COOLPROP.shared_access();
         let keys = self.factory.keys;
         self.state
-            .update(&api, keys.density_temperature, *density, *temperature)?;
+            .update(&api, keys.density_temperature, density, temperature)?;
         let phase = self.state.phase(&api)?;
-        if !self.factory.regime.accepts(phase) {
-            return Err(ProviderError::Trial(format!(
-                "water {:?} provider refuses actual CoolProp phase {phase}",
-                self.factory.regime
-            )));
-        }
-        let pressure = self.state.output(&api, keys.pressure)?;
-        if pressure <= 0.0 || pressure > 100_000_000.0 {
-            return Err(ProviderError::OutsideEnvelope {
-                axis: "pressure".into(),
-                value: pressure,
-                lower: 0.0,
-                upper: 100_000_000.0,
-            });
-        }
-        if self
-            .state
-            .first(&api, keys.pressure, keys.density, keys.temperature)?
-            <= 0.0
-        {
-            return Err(ProviderError::Trial(
-                "water state lacks positive isothermal mechanical response".into(),
-            ));
-        }
-        let h = self.state.output(&api, keys.h)? + self.factory.reference.h_offset;
-        let s = self.state.output(&api, keys.s)? + self.factory.reference.s_offset;
-        // Private native consistency observation; no public enthalpy-typed u alias.
-        let u = self.state.output(&api, keys.u)? + self.factory.reference.h_offset;
-        let mismatch = h - u - pressure / density;
-        if mismatch.abs() > 1e-9 * (1.0 + h.abs() + u.abs() + (pressure / density).abs()) {
-            return Err(terminal("water h/u datum translation violates h=u+p/rho"));
-        }
-        let values = [pressure, h, s];
+        let values = qualified_water_values(&self.factory, density, phase, |field| match field {
+            WaterField::Pressure => self.state.output(&api, keys.pressure),
+            WaterField::Mechanical => self.state.first(&api, keys.pressure, keys.density, keys.temperature),
+            WaterField::Enthalpy => self.state.output(&api, keys.h),
+            WaterField::Entropy => self.state.output(&api, keys.s),
+            WaterField::InternalEnergy => self.state.output(&api, keys.u),
+        })?;
         let native_outputs = [keys.pressure, keys.h, keys.s];
         let wrt = [keys.temperature, keys.density];
         for (position, ordinal) in request.outputs.iter().copied().enumerate() {
