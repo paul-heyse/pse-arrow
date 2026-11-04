@@ -69,6 +69,29 @@ fn rerun_controlled_failure_probe() {
     );
 }
 
+#[test]
+fn failed_discovery_attempt_preserves_source_phases_without_inventory_or_rerun_grant() {
+    let root = tempfile::tempdir().unwrap();
+    let mut report = Report::new(&input(Action::Test));
+    let phase = Phase { native_stage: Some("build".into()), elapsed_seconds: Some(0.25), kind: PhaseKind::Discovery, group:Some(2), stdout:"group-2/build.stdout".into(), stderr:"group-2/build.stderr".into(), child_exit:Some(17), capture_complete:true,
+        stdout_capture: Some(crate::managed::result::StreamSummary { bytes_read:12, bytes_retained:12, eof:true, complete:true, io_unresolved:false }),
+        stderr_capture: Some(crate::managed::result::StreamSummary { bytes_read:19, bytes_retained:19, eof:true, complete:true, io_unresolved:false }) };
+    let error = crate::discovery::DiscoveryError::Attempt { evidence:root.path().join("inventory"), phases:vec![phase], error:Box::new(crate::discovery::DiscoveryError::Command { stage:"build", exit:17, evidence:root.path().join("inventory/group-2") }) };
+    failed(&mut report, error.into(), root.path());
+    assert_eq!(report.phases.len(), 1);
+    assert_eq!(report.phases[0].stdout, "inventory/group-2/build.stdout");
+    assert_eq!(report.phases[0].child_exit, Some(17));
+    assert_eq!(report.phases[0].stdout_capture.as_ref().unwrap().bytes_retained, 12);
+    assert!(report.required_capture_complete);
+    assert_eq!(report.outcome, Outcome::Failed);
+    assert!(report.inventory.is_none());
+    assert!(report.inventory_content.is_none());
+    assert!(report.selected_tests.is_none());
+    assert_eq!(report.causes.len(), 1);
+    let WorkflowError::Discovery(crate::discovery::DiscoveryError::Attempt { phases, .. }) = &report.causes[0] else { panic!("original native cause") };
+    assert_eq!(phases[0].stdout, "group-2/build.stdout", "original account remains relative to its own source root");
+}
+
 #[tokio::test]
 async fn simultaneous_native_producers_publish_distinct_private_completed_reports() {
     let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))

@@ -3,6 +3,59 @@
 use super::*;
 use serde_json::{Value, json};
 
+fn capture_policy() -> crate::managed::payload::PayloadPolicy {
+    crate::managed::payload::PayloadPolicy { startup: std::time::Duration::from_secs(5), write: std::time::Duration::from_secs(5), drain: std::time::Duration::from_secs(5) }
+}
+#[tokio::test]
+async fn discovery_attempt_keeps_completed_and_failed_original_capture() {
+    let root = tempfile::tempdir().unwrap();
+    let group = root.path().join("group-2");
+    directory(&group).unwrap();
+    let mut phases = Vec::new();
+    let result = async {
+        let mut successful = Command::new("/bin/sh");
+        successful.args(["-c", "printf original-version"]);
+        output(successful, root.path(), "version", capture_policy(), None, &mut phases).await?;
+        let mut failed = Command::new("/bin/sh");
+        failed.args(["-c", "printf original-compiler; printf original-diagnostic >&2; exit 17"]);
+        output(failed, &group, "build", capture_policy(), Some(2), &mut phases).await
+    }.await;
+    let error = finish_attempt(root.path(), phases, result).unwrap_err();
+    assert!(!error.capture_incomplete(), "a known failed child with complete capture is not lost capture");
+    let DiscoveryError::Attempt { evidence, phases, error: cause } = &error else { panic!("original attempt") };
+    assert_eq!(evidence, root.path());
+    assert_eq!(phases.len(), 2);
+    assert_eq!(phases[0].child_exit, Some(0));
+    assert_eq!(phases[0].stdout, "version.stdout");
+    assert_eq!(phases[1].child_exit, Some(17));
+    assert_eq!(phases[1].stdout, "group-2/build.stdout");
+    assert!(phases.iter().all(|phase| phase.capture_complete));
+    assert_eq!(fs::read(root.path().join(&phases[0].stdout)).unwrap(), b"original-version");
+    assert_eq!(fs::read(root.path().join(&phases[1].stderr)).unwrap(), b"original-diagnostic");
+    assert!(matches!(cause.as_ref(), DiscoveryError::Command { stage:"build", exit:17, .. }));
+    let original = std::error::Error::source(&error).unwrap().downcast_ref::<Box<DiscoveryError>>().unwrap();
+    assert!(matches!(original.as_ref(), DiscoveryError::Command { stage:"build", exit:17, .. }));
+    let complete = complete_phases(phases).unwrap();
+    assert_eq!(complete[1].child_exit, 17, "passive complete raw custody does not grant a successful inventory");
+}
+#[tokio::test]
+async fn discovery_attempt_missing_child_does_not_invent_exit_or_stream_completion() {
+    let root = tempfile::tempdir().unwrap();
+    let mut phases = Vec::new();
+    let command = Command::new(root.path().join("absent-original-tool"));
+    let result = output(command, root.path(), "version", capture_policy(), None, &mut phases).await;
+    let error = finish_attempt(root.path(), phases, result).unwrap_err();
+    assert!(error.capture_incomplete());
+    let DiscoveryError::Attempt { phases, error, .. } = error else { panic!("original attempt") };
+    assert_eq!(phases.len(), 1);
+    assert!(phases[0].child_exit.is_none());
+    assert!(!phases[0].capture_complete);
+    assert!(phases[0].stdout_capture.is_none());
+    assert!(phases[0].stderr_capture.is_none());
+    assert!(matches!(*error, DiscoveryError::Capture { .. }));
+    assert!(complete_phases(&phases).is_err());
+}
+
 fn binary(name: &str) -> Value {
     json!({"binary-id":format!("alpha::{name}"),"binary-name":name,"package-id":"path+file:///workspace/alpha#0.1.0","kind":"test","binary-path":format!("/captured/{name}"),"build-platform":"target"})
 }

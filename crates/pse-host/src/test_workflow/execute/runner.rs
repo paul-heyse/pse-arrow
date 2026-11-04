@@ -78,12 +78,30 @@ fn record_phase<O: ChunkObserver>(
         report.failure(failure);
     }
 }
-fn failed(report: &mut Report, error: WorkflowError) {
-    let incomplete = matches!(
-        &error,
-        WorkflowError::Discovery(crate::discovery::DiscoveryError::Capture { .. })
-            | WorkflowError::ChildWait { .. }
-    );
+fn failed(report: &mut Report, error: WorkflowError, destination: &Path) {
+    let mut incomplete = match &error {
+        WorkflowError::Discovery(error) => error.capture_incomplete(),
+        WorkflowError::ChildWait { .. } => true,
+        _ => false,
+    };
+    if let WorkflowError::Discovery(crate::discovery::DiscoveryError::Attempt { evidence, phases, .. }) = &error {
+        let prefix = evidence.strip_prefix(destination).ok().filter(|prefix| !prefix.as_os_str().is_empty() && prefix.components().all(|part| matches!(part, std::path::Component::Normal(_)))).and_then(Path::to_str);
+        match prefix {
+            Some(prefix) => {
+                for phase in phases {
+                    let mut original = phase.clone();
+                    original.stdout = format!("{prefix}/{}", phase.stdout);
+                    original.stderr = format!("{prefix}/{}", phase.stderr);
+                    report.required_capture_complete &= original.capture_complete;
+                    report.phases.push(original);
+                }
+            }
+            _ => {
+                report.failure(WorkflowError::Invalid("original discovery account is outside the performing evidence root".into()));
+                incomplete = true;
+            }
+        }
+    }
     report.failure(error);
     report.outcome = if incomplete {
         report.required_capture_complete = false;
@@ -118,7 +136,7 @@ pub async fn run(
     let mut report = Report::new(input);
     let result = perform(input, checkout, destination, environment, &mut report).await;
     if let Err(error) = result {
-        failed(&mut report, error);
+        failed(&mut report, error, destination);
     }
     Ok(report)
 }

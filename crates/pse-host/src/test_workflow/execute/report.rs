@@ -155,7 +155,7 @@ pub enum PhaseKind {
     Test,
 }
 /// Independent raw-custody and original child facts for a phase.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, JsonSchema)]
 pub struct Phase {
     /// Exact original native discovery subphase, such as version/build/list, when applicable.
     pub native_stage: Option<String>,

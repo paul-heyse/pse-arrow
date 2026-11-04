@@ -330,6 +330,18 @@ mutated or expired files stay separate from original capture completeness, and l
 reports cannot acquire an original full-evidence commitment at read time. Provider,
 executable and live fixture custody remain with their native owners.
 
+Discovery failures now retain a source-owned attempt account containing every actual
+version/build/list phase reached, including a failed child or absent capture observations.
+The same original attempt supplies the successful inventory's complete phase data; there
+is no later directory scan or second runner. On failure, the performing report keeps the
+attempt's original relative addresses, byte/capture facts and typed cause without inventing
+inventory, selected population or rerun eligibility. A known nonzero child with complete
+raw capture remains distinct from incomplete capture. Three focused native controls passed
+with zero failures and compiler warnings for original successful-plus-failed capture,
+missing child observations and report adoption of the original failed account. This closes
+the lost-prior-phases source gap; interpretation-three dependency sealing and portable
+full-evidence delivery remain open.
+
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.
 - [Report reconciliation](../../crates/pse-host/src/managed/workflow.rs) and

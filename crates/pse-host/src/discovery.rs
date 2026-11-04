@@ -25,6 +25,18 @@ use std::{
 /// Failure of explicit discovery, distinct from selected-test outcomes.
 #[derive(Debug, thiserror::Error)]
 pub enum DiscoveryError {
+    /// Original source attempt, including completed and failed raw-capture phases.
+    /// The account observes discovery; it is never an inventory or rerun grant.
+    #[error("test discovery attempt at {evidence}: {error}")]
+    Attempt {
+        /// Original private discovery root; phase addresses are relative to this root.
+        evidence: PathBuf,
+        /// Actual observations retained before the original operation refused.
+        phases: Vec<crate::test_workflow::execute::Phase>,
+        /// Original typed refusal; no cause is converted into text.
+        #[source]
+        error: Box<DiscoveryError>,
+    },
     /// Native file or tool operation failed.
     #[error("test discovery I/O: {0}")]
     Io(#[from] std::io::Error),
@@ -64,10 +76,16 @@ pub enum DiscoveryError {
 pse_diagnostics::impl_diagnostic! {
     DiscoveryError,
     code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
-    forward(_this) { None }, help(_this) { None }, related(this) { match this {Self::Capture{failures,..}=>Some(Box::new(failures.iter().map(|error|{let error:&dyn pse_diagnostics::TypedDiagnostic=error;error}))),_=>None} }, source(_this) { None }
+    forward(this) { match this {Self::Attempt{error,..}=>Some(error.as_ref()),_=>None} }, help(_this) { None }, related(this) { match this {Self::Capture{failures,..}=>Some(Box::new(failures.iter().map(|error|{let error:&dyn pse_diagnostics::TypedDiagnostic=error;error}))),_=>None} }, source(_this) { None }
 }
 fn invalid(message: impl Into<String>) -> DiscoveryError {
     DiscoveryError::Invalid(message.into())
+}
+impl DiscoveryError {
+    /// Original incomplete raw capture remains distinct from a known child failure.
+    pub(crate) fn capture_incomplete(&self) -> bool {
+        match self { Self::Capture { .. } => true, Self::Attempt { error, .. } => error.capture_incomplete(), _ => false }
+    }
 }
 
 pse_contract::projection_struct! {
@@ -336,8 +354,9 @@ async fn output(
     stage: &'static str,
     policy: crate::managed::payload::PayloadPolicy,
     group: Option<usize>,
-    phases: &mut Vec<PhaseCapture>,
+    phases: &mut Vec<crate::test_workflow::execute::Phase>,
 ) -> Result<Output, DiscoveryError> {
+    use crate::test_workflow::execute::{Phase, PhaseKind};
     let stdout = directory.join(format!("{stage}.stdout"));
     let stderr = directory.join(format!("{stage}.stderr"));
     let capture = crate::test_workflow::execute::phase::run(
@@ -347,12 +366,17 @@ async fn output(
         crate::managed::result::GenericObserver,
         policy,
     )
-    .await
-    .map_err(|error| DiscoveryError::Capture {
-        stage,
-        evidence: directory.into(),
-        failures: vec![error],
-    })?;
+    .await;
+    let prefix = match group { Some(group) => format!("group-{group}/{stage}"), None => stage.into() };
+    phases.push(Phase {
+        native_stage: Some(stage.into()), elapsed_seconds: capture.as_ref().ok().map(|capture| capture.elapsed_seconds),
+        kind: PhaseKind::Discovery, group, stdout: format!("{prefix}.stdout"), stderr: format!("{prefix}.stderr"),
+        child_exit: capture.as_ref().ok().and_then(|capture| capture.child_exit),
+        capture_complete: capture.as_ref().is_ok_and(|capture| capture.capture_complete),
+        stdout_capture: capture.as_ref().ok().and_then(|capture| capture.stdout.clone()),
+        stderr_capture: capture.as_ref().ok().and_then(|capture| capture.stderr.clone()),
+    });
+    let capture = capture.map_err(|error| DiscoveryError::Capture { stage, evidence: directory.into(), failures: vec![error] })?;
     if !capture.capture_complete || !capture.failures.is_empty() || capture.child_exit.is_none() {
         return Err(DiscoveryError::Capture {
             stage,
@@ -379,21 +403,20 @@ async fn output(
             evidence: directory.into(),
         });
     }
-    phases.push(PhaseCapture {
-        stage: stage.into(),
-        elapsed_seconds: Some(capture.elapsed_seconds),
-        group,
-        child_exit: capture
-            .child_exit
-            .ok_or_else(|| invalid("captured phase exit missing"))?,
-        stdout: capture
-            .stdout
-            .ok_or_else(|| invalid("captured phase stdout missing"))?,
-        stderr: capture
-            .stderr
-            .ok_or_else(|| invalid("captured phase stderr missing"))?,
-    });
     Ok(result)
+}
+
+fn complete_phases(phases: &[crate::test_workflow::execute::Phase]) -> Result<Vec<PhaseCapture>, DiscoveryError> {
+    phases.iter().map(|phase| Ok(PhaseCapture {
+        stage: phase.native_stage.clone().ok_or_else(|| invalid("original discovery phase identity is absent"))?,
+        elapsed_seconds: phase.elapsed_seconds, group: phase.group,
+        child_exit: phase.child_exit.ok_or_else(|| invalid("original discovery phase exit is absent"))?,
+        stdout: phase.stdout_capture.clone().ok_or_else(|| invalid("original discovery stdout account is absent"))?,
+        stderr: phase.stderr_capture.clone().ok_or_else(|| invalid("original discovery stderr account is absent"))?,
+    })).collect()
+}
+fn finish_attempt<T>(destination: &Path, phases: Vec<crate::test_workflow::execute::Phase>, result: Result<T, DiscoveryError>) -> Result<T, DiscoveryError> {
+    result.map_err(|error| DiscoveryError::Attempt { evidence: destination.into(), phases, error: Box::new(error) })
 }
 
 /// Explicitly build and list selected tests, retaining immutable executable copies.
@@ -433,8 +456,8 @@ pub async fn list(
     let captured_correctness =
         capture::executable(&control, &destination.join("cargo-pse-correctness"))?;
     // Every child uses independently hashed captured controls; the prepared image remains provenance.
-    async {
-        let mut phases=Vec::new();
+    let mut phases=Vec::new();
+    let result = async {
         let mut version = Command::new(&nextest.captured);
         version
             .arg("--version")
@@ -556,7 +579,7 @@ pub async fn list(
         let inventory = Inventory {
             version: 2,
             required_capture_complete: true,
-            capture:phases,
+            capture:complete_phases(&phases)?,
             selection: resolved.plan().clone(),
             host_generation: prepared,
             nextest,
@@ -571,7 +594,8 @@ pub async fn list(
         };
         capture::write_json(&destination.join("inventory.json"), &inventory)?;
         Ok(inventory)
-    }.await
+    }.await;
+    finish_attempt(destination, phases, result)
 }
 
 /// Preserve native filters within the actual admitted compiler group.
