@@ -786,6 +786,7 @@ fn apply_rule(
         (
             LocalRule::UnsignedRange { .. }
             | LocalRule::SignedRange { .. }
+            | LocalRule::Utf8Bytes { .. }
             | LocalRule::Float64Domain(_),
             TypeRef::Optional(inner),
         ) => inner.as_ref(),

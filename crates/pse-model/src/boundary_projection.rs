@@ -15,6 +15,8 @@ mod float_domain;
 mod float_interval;
 mod generic;
 mod nominal;
+#[cfg(test)]
+mod optional_text_tests;
 mod quantity;
 mod remote;
 mod standard;
@@ -1322,7 +1324,11 @@ fn validate_fields(
                         && float_collections::supports_float64_domain(&field.ty, definitions)
                 }
                 LocalRule::Utf8Bytes { min, max } => {
-                    min <= max && matches!(field.ty, TypeRef::Scalar(Scalar::String))
+                    let ty = match &field.ty {
+                        TypeRef::Optional(inner) => inner.as_ref(),
+                        ty => ty,
+                    };
+                    min <= max && matches!(ty, TypeRef::Scalar(Scalar::String))
                 }
                 LocalRule::Required => !matches!(
                     field.ty,

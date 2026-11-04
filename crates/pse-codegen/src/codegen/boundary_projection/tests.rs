@@ -8,6 +8,44 @@ mod duration;
 mod float_collections;
 
 #[test]
+fn optional_text_byte_limits_keep_protobuf_presence_and_exact_byte_rules() {
+    projection_struct! {
+        struct OptionalProviderName {
+            projection: { name: "OptionalProviderName", version: 1, direction: Direction::Input,
+                reserved_tags: [], reserved_names: [] };
+            name: Option<String> => { tag: 1, direction: Direction::Input,
+                rules: [LocalRule::Utf8Bytes { min: 1, max: 2 }] };
+        }
+    }
+    let graph = ProjectionGraph::of::<OptionalProviderName>().unwrap();
+    let descriptors =
+        descriptors_with_imports(&graph, "pse.optional.v1", "optional.proto", &imports()).unwrap();
+    let file = descriptors
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some("optional.proto"))
+        .unwrap();
+    let owner = file
+        .message_type
+        .iter()
+        .find(|owner| owner.name.as_deref() == Some("OptionalProviderName"))
+        .unwrap();
+    let field = &owner.field[0];
+    assert_eq!(field.proto3_optional, Some(true));
+    let rules = field
+        .options
+        .as_option()
+        .unwrap()
+        .extension(&validate::FIELD)
+        .unwrap();
+    let Some(validate::__buffa::oneof::field_rules::Type::String(rules)) = rules.r#type else {
+        panic!("optional text retains actual string rules");
+    };
+    assert_eq!((rules.min_bytes, rules.max_bytes), (Some(1), Some(2)));
+    assert_eq!((rules.min_len, rules.max_len), (None, None));
+}
+
+#[test]
 fn source_vocabulary_sets_keep_wrappers_and_emit_maintained_uniqueness_rules() {
     projection_struct! {
         struct RequiredPasses {
