@@ -74,5 +74,12 @@ quantity_vocabulary!(
     BasisKind,
     CompositionBasis,
     RateBasis,
-    ReferenceStateKind
+    ReferenceStateKind,
+    ConversionKind,
+    Opcode,
+    BasisRule,
+    ReferenceRule,
+    QuantityScaleRule,
+    QuantityShapeRule,
+    SubjectRule
 );

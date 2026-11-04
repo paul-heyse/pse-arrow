@@ -28,6 +28,10 @@ macro_rules! physical_identity_projection { ($($ty:ty => $name:literal),* $(,)?)
 physical_identity_projection!(
     crate::EntityKindId => "EntityKindId",
     crate::UnitId => "UnitId",
+    crate::UnitSetId => "UnitSetId",
+    crate::ConversionId => "ConversionId",
+    crate::OperationId => "OperationId",
+    crate::InvariantId => "InvariantId",
     crate::QuantityKindId => "QuantityKindId",
     crate::BasisId => "BasisId",
     crate::QuantityTypeId => "QuantityTypeId",

@@ -7,25 +7,29 @@ use crate::{
     QuantityRegistry, QuantityTypeId, ScaleKind,
 };
 use pse_ids::SemanticId;
+pse_contract::projection_struct! {
 /// One explicit conversion; applying it is separate from declaring it.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct ConversionRule {
+    projection: { name: "PhysicalConversionDeclaration", rust_path: crate::ConversionRule, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Registry identity.
-    pub id: ConversionId,
+    pub id: ConversionId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Complete input contract.
-    pub from: QuantityTypeId,
+    pub from: QuantityTypeId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Complete output contract.
-    pub to: QuantityTypeId,
+    pub to: QuantityTypeId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Scale, affine, or a parameterized kernel.
-    pub kind: ConversionKind,
+    pub kind: ConversionKind => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Required only for a kernel conversion.
-    pub kernel: Option<SemanticId>,
+    pub kernel: Option<SemanticId> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Named parameter dependencies, never implicit inputs.
-    pub required_parameters: Vec<String>,
+    pub required_parameters: Vec<String> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Resolved multiplicative coefficient; absent for a kernel.
-    pub scale: Option<f64>,
+    pub scale: Option<f64> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Resolved additive coefficient; absent for a kernel.
-    pub offset: Option<f64>,
+    pub offset: Option<f64> => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 
 // Semantic equality preserves every declared IEEE bit, including signed zero.

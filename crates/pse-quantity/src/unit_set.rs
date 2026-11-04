@@ -6,13 +6,17 @@ use crate::registry::QuantityRegistry;
 use crate::{BaseDimension, DimensionVector, QuantityError, Unit, UnitId, UnitSetId};
 use std::collections::BTreeMap;
 
+pse_contract::projection_struct! {
 /// A package's ordered choice of base units.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct UnitSet {
+    projection: { name: "PhysicalUnitSet", rust_path: crate::UnitSet, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Registry identity.
-    pub id: UnitSetId,
+    pub id: UnitSetId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Units in `BaseDimension` order; current, light and currency are optional.
-    pub base: [Option<UnitId>; BaseDimension::COUNT],
+    pub base: [Option<UnitId>; BaseDimension::COUNT] => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 /// A derived dimension and its scale to SI; it has no independent registry identity.
 #[derive(Clone, Copy, Debug)]

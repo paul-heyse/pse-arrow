@@ -10,41 +10,49 @@ use crate::{
     infer::Operand,
 };
 
+pse_contract::projection_enum! {
 /// The closed physical predicate carried by a precondition declaration.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PhysicalRequirement {
+    projection: { name: "PhysicalPrerequisitePredicate", rust_path: crate::PhysicalRequirement, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// All selected operands have the same non-absent admitted basis.
     EqualOperandBases {
         /// When present, that common basis must be this exact admitted basis.
-        required: Option<BasisId>,
-    },
+        required: Option<BasisId> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 1;
     /// Every selected operand has the required complete physical key.
     OperandQuantityContract {
         /// Admitted quantity supplying every required physical axis.
-        required: QuantityTypeId,
+        required: QuantityTypeId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Compare ordered shape as well; false still compares every other key axis.
-        match_shape: bool,
-    },
+        match_shape: bool => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 2;
     /// Differences share one actual reference and the prototype's other axes.
     /// This explicitly permits normalization within another admitted datum;
     /// it never converts between datums or accepts affine points.
     SameReferenceDifferences {
         /// Admitted difference supplying kind, basis, subject and optional shape.
-        required: QuantityTypeId,
+        required: QuantityTypeId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Compare the prototype's ordered shape as well.
-        match_shape: bool,
-    },
+        match_shape: bool => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 3;
+}
 }
 
+pse_contract::projection_struct! {
 /// A predicate over explicitly selected positions in the operation's declared order.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PhysicalPrecondition {
+    projection: { name: "PhysicalPrerequisiteDeclaration", rust_path: crate::PhysicalPrecondition, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Stable declaration identity, never evidence that the predicate holds.
-    pub id: InvariantId,
+    pub id: InvariantId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Distinct zero-based positions in declared operation order.
-    pub operand_positions: Vec<u16>,
+    pub operand_positions: Vec<u16> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Actual predicate to evaluate.
-    pub requirement: PhysicalRequirement,
+    pub requirement: PhysicalRequirement => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 
 impl PhysicalPrecondition {

@@ -89,18 +89,22 @@ pub struct KindDefinition {
 }
 }
 
+pse_contract::projection_struct! {
 /// A derived kind as authored: no dimension, which admission derives from the monomial.
 #[derive(
     schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq,
 )]
 #[schemars(deny_unknown_fields)]
 pub struct DerivedKind {
+    projection: { name: "DeclaredDerivedKind", rust_path: crate::DerivedKind, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Registry identity.
-    pub id: QuantityKindId,
+    pub id: QuantityKindId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Whether values scale with system size.
-    pub extensive: bool,
+    pub extensive: bool => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Additive or origin-sensitive arithmetic.
-    pub addition_kind: QuantityAdditionKind,
+    pub addition_kind: QuantityAdditionKind => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// The monomial, canonical unit and result policy.
-    pub definition: KindDefinition,
+    pub definition: KindDefinition => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }

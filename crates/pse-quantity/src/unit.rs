@@ -46,6 +46,7 @@ pub struct UnitFactor {
 }
 }
 
+pse_contract::projection_struct! {
 /// A defined unit as authored: its composition only. Its dimension and scale are
 /// derived when the registry admits it, so they have one authority (ADR-0124).
 #[derive(
@@ -53,12 +54,15 @@ pub struct UnitFactor {
 )]
 #[schemars(deny_unknown_fields)]
 pub struct DefinedUnit {
+    projection: { name: "DeclaredDefinedUnit", rust_path: crate::DefinedUnit, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Registry identity; it must equal [`unit_product_id`] over the canonical factors.
-    pub id: UnitId,
+    pub id: UnitId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// The package's name for the row; a defined unit is never looked up by it.
-    pub symbol: String,
+    pub symbol: String => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Authored factors, each naming an atomic or another defined unit.
-    pub composition: Vec<UnitFactor>,
+    pub composition: Vec<UnitFactor> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 
 /// The identity of a canonical unit product (ADR-0124): the sole atomic factor itself

@@ -17,17 +17,15 @@ pse_contract::projection_struct! {
 #[derive(Clone, Debug)]
 pub struct RootInput {
     projection: { name: "NativeRootInput", rust_path: crate::math::native_root_protocol::RootInput,
-        version: 2, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+        version: 3, direction: Direction::Both, reserved_tags: [5], reserved_names: ["registry_digest"] };
     /// Original admitted recipe; decoded envelope data cannot issue its replay permit.
     pub body: Vec<u8> => { tag: 1, direction: Direction::Both, rules: [LocalRule::Length { min: 1, max: REQUEST_LIMIT as u64 }] };
     /// Complete expected native physical/math/provider interpretation.
     pub spec: pse_math::binding::BodySpec => { tag: 2, direction: Direction::Both, rules: [LocalRule::Required] };
     /// Actual receiving diagnostic maps, separate from arithmetic identity.
     pub source: RootBindings => { tag: 3, direction: Direction::Both, rules: [LocalRule::Required] };
-    /// Exact source physical-registry declarations; this staged leaf remains JSON bytes.
-    pub registry: Vec<u8> => { tag: 4, direction: Direction::Both, rules: [LocalRule::Length { min: 1, max: REQUEST_LIMIT as u64 }] };
-    /// Original versioned digest over those exact registry bytes.
-    pub registry_digest: ContentHash => { tag: 5, direction: Direction::Both, rules: [] };
+    /// Complete unadmitted physical declarations; the receiving native builder admits them.
+    pub registry: pse_quantity::QuantityRegistryBuilder => { tag: 4, direction: Direction::Both, rules: [LocalRule::Required] };
     /// Ordered original physical unknowns and intervals.
     pub unknowns: Vec<Unknown> => { tag: 6, direction: Direction::Both, rules: [] };
     /// Ordered original residual identities.
@@ -40,6 +38,8 @@ pub struct RootInput {
     pub evaluation: EvaluationLimits => { tag: 10, direction: Direction::Both, rules: [LocalRule::Required] };
     /// Existing original sparse construction allowance.
     pub max_entries: usize => { tag: 11, direction: Direction::Both, rules: [] };
+    /// Original prerequisite declarations, distinct from grants that they currently hold.
+    pub preconditions: Vec<pse_quantity::PhysicalPrecondition> => { tag: 12, direction: Direction::Both, rules: [] };
 }
 }
 pse_contract::projection_struct! {
@@ -150,10 +150,12 @@ mod tests {
         let graph = projection_graph().unwrap();
         for name in ["NativeRootInput", "NativeRootHello", "NativeRootRequest", "NativeRootResponse",
             "ModelBoundaryDiagnostic", "ModelSourceLocation", "ApplicabilityObservation", "CapturedBuildInfo",
-            "FileObservation", "MathBodySpec", "ImplicitUnknown", "ImplicitOptions", "NativePathBuf", "PlatformPathBytes"] {
+            "FileObservation", "MathBodySpec", "ImplicitUnknown", "ImplicitOptions", "NativePathBuf", "PlatformPathBytes",
+            "PhysicalRegistryDeclarations", "PhysicalPrerequisiteDeclaration", "PhysicalPrerequisitePredicate"] {
             assert!(graph.definitions().contains_key(name), "actual native dependency absent: {name}");
         }
-        assert_eq!(graph.definitions()["NativeRootInput"].version, 2);
+        assert_eq!(graph.definitions()["NativeRootInput"].version, 3);
+        assert_eq!(graph.definitions()["NativeRootInput"].reserved_tags, [5]);
         assert!(graph.definitions()["NativePathBuf"].checked_record);
     }
 }

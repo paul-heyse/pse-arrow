@@ -460,6 +460,65 @@ the coordinator's assembled integration/qualification population.
 
 ## Verification, extension and decision handoff
 
+### E02 complete physical declaration exchange
+
+**Implemented source, awaiting generated activation:** `QuantityRegistryBuilder` and its
+complete declaration closure are source-projected at their native owners, including defined
+units, derived kinds, conversions, operation policies, optional unit-set positions and ordered
+reduction domains. Declaration vectors preserve duplicates for original atomic `build()`
+admission. Physical prerequisite predicates and declarations are passive typed data; the
+original `PhysicalPreconditions::new` reconstructs their ordered inventory. Neither decoding
+nor a declared invariant identity grants scientific permission.
+
+Private profile `pse.private-native-root.v3` carries the actual builder and prerequisite
+declarations in `RootInput` interpretation 3. `pse.native_root.v2` remains the generated
+namespace: this authenticated ephemeral channel has no retained reader or compatibility
+promise, and original-image/profile checks reject an old executable. There is one current
+writer/reader. Tag 5 and `registry_digest` are reserved after removing the redundant leaf
+checksum. The original request/image binding authenticates exact input bytes; the receiving
+owner independently rebuilds the registry and compares the complete native
+`physical_identity(registry, prerequisites)` against original `BodySpec.physical` before
+minting recipe replay authority. Frame/hash algorithms and scientific semantic keys do not
+change. The registry JSON serialization/parser and its mechanism-only fixture are removed;
+exact compiler recipe JSON remains intentionally authoritative pending the decision below.
+
+**Tested, targeted:** unbounded, cache-off `scripts/pse test pse-quantity --lib --features fixtures`
+completed the complete registry/prerequisite source control 1/1, zero failures, pending work
+or build warnings. It preserves exact existing declaration bytes, nonempty prerequisite
+values and native physical identity, retains duplicate declarations for `registry.unique_id`
+refusal, and distinguishes a valid changed scale despite unchanged declaration identities.
+The first test build used an unavailable default constructor (three errors), corrected to
+the actual native `new` constructor before this pass. The independent default-feature
+`scripts/pse test pse-runtime --lib` complete protocol-graph control separately passed 1/1
+with zero failures, pending work or build warnings. These are source-owner/graph checks;
+new generated codec activation and actual v3 child execution remain required. Prepared
+receiving controls cover nonempty prerequisites, duplicate units, changed unit scale,
+changed prerequisite meaning and missing prerequisites through the generated codec.
+
+### Remaining recipe qualification decision
+
+Full protobuf recipe conversion changes more than encoding: `QualifiedScientificRecipe`
+currently parses exact JSON to build the scoped structural membership index, and nested
+restore/replay requires exact record membership in addition to original request/qualification
+binding and complete receipt consumption. Current gates protect physical contract/boundary/
+inference/scheme records, physical and mathematical receipt streams, provider descriptors and
+prepared calls, selected provider joins, direct graph/function/support products, physical
+evidence and nominal type/value records. Raw protobuf fields cannot replace their native
+membership interpretation by accident.
+
+**Proposed decision:** prefer a versioned source-derived typed record membership contract
+that frames stable declared owner/version/tags, exact native scalar bits and collection
+order, derived through original projection declarations rather than copied field tables.
+Retain exact qualification/request binding, bounded indexing and complete original receipt
+draining; ordinary decoded records must still lack authority. An alternative staged route
+decodes typed protobuf then constructs the existing native Serde structural index, preserving
+current membership but retaining its JSON scratch/mechanics. A whole-payload permit without
+per-record membership would remove existing protections and is unsuitable. The source-derived
+typed membership changes the hash/authority contract and requires the coordinator's proposed
+ADR before implementation. Neither an artifact digest nor successful local wire validation
+may mint this authority. The existing recipe leaf remains unchanged until a complete approved
+replacement and its original reconstruction/refusal controls are in place.
+
 Use source/admit → encode → independent decoder → receiving adoption → actual execution →
 outcome/readback journeys. Independent scientific expectations must not come from generated
 adapters or the candidate provider. Retain physically independent water/derivative controls

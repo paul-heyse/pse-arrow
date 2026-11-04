@@ -30,7 +30,7 @@ use std::{
 use super::native_root_protocol::{Hello, Request, Response, RootBindings, RootInput, RootOutcome, REQUEST_LIMIT, RESPONSE_LIMIT};
 mod wire;
 
-const PROTOCOL: &str = "pse.private-native-root.v2";
+const PROTOCOL: &str = "pse.private-native-root.v3";
 /// Explicit child native-owner stack, charged to its parent's finite worker allocation.
 pub const NATIVE_CHILD_STACK_BYTES: usize = pse_structural::incidence::MATCHING_STACK;
 
@@ -138,14 +138,12 @@ impl PortableRootSource {
         })
     }
     fn wire(&self) -> Result<RootInput, MathRuntimeError> {
-        let registry =
-            serde_json::to_vec(&self.context.quantities.to_builder()).map_err(infrastructure)?;
         Ok(RootInput {
             body: self.body.portable_payload()?,
             spec: self.body.spec().clone(),
             source: RootBindings::capture(&self.bindings),
-            registry_digest: digest(&registry),
-            registry,
+            registry: self.context.quantities.to_builder(),
+            preconditions: self.context.preconditions.declarations().to_vec(),
             unknowns: self.unknowns.clone(),
             rows: self.rows.clone(),
             parameters: self.parameters.clone(),
@@ -851,6 +849,21 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
     sent
 }
 
+/// Reconstruct native declaration data, then bind its complete original scientific context.
+/// Prerequisite declarations do not issue grants or replace qualified receipt replay.
+fn reconstruct_physical_context(
+    declarations: pse_quantity::QuantityRegistryBuilder,
+    prerequisites: Vec<pse_quantity::PhysicalPrecondition>,
+    expected: ContentHash,
+) -> Result<pse_quantity::QuantityRegistry, MathRuntimeError> {
+    let registry = declarations.build().map_err(pse_math::MathError::from)?;
+    let prerequisites = pse_quantity::PhysicalPreconditions::new(prerequisites).map_err(pse_math::MathError::from)?;
+    if pse_compiler::workspace::physical_identity(&registry, &prerequisites) != expected {
+        return Err(MathRuntimeError::Internal("native child reconstructed physical context differs from original body".into()));
+    }
+    Ok(registry)
+}
+
 #[allow(
     unsafe_code,
     reason = "ADR-0185 private inherited-channel scope issues the restricted exact admitted recipe authority"
@@ -861,16 +874,12 @@ fn reconstruct_and_solve(
 ) -> Result<Vec<f64>, MathRuntimeError> {
     checkpoint(scope)?;
     let wire: RootInput = wire::decode(&request.source, REQUEST_LIMIT)?;
-    if digest(&wire.registry) != wire.registry_digest || !wire.spec.providers.is_empty() {
+    if !wire.spec.providers.is_empty() {
         return Err(MathRuntimeError::Internal(
             "native child physical registry or provider closure differs".into(),
         ));
     }
-    let registry: pse_quantity::QuantityRegistryBuilder = serde_json::from_slice(&wire.registry)
-        .map_err(|error| {
-            MathRuntimeError::Internal(format!("native child admitted registry decoding: {error}"))
-        })?;
-    let registry = registry.build().map_err(pse_math::MathError::from)?;
+    let registry = reconstruct_physical_context(wire.registry, wire.preconditions, wire.spec.physical)?;
     pse_math::initialize()?;
     checkpoint(scope)?;
     // SAFETY: this function is reached only by serve_private's trusted inherited socket

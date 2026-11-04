@@ -87,19 +87,46 @@ fn private_native_corrupt_admitted_frame_is_internal() {
 }
 
 #[test]
-fn portable_registry_declarations_roundtrip_and_changed_context_is_distinct() {
-    let registry = pse_quantity::generated::standard_registry().unwrap();
-    let bytes = serde_json::to_vec(&registry.to_builder()).unwrap();
-    let builder: pse_quantity::QuantityRegistryBuilder = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(builder.build().unwrap(), registry);
-    let mut wire: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    wire["units"][0]["scale_to_canonical"] = serde_json::json!(2.0);
-    let changed = serde_json::to_vec(&wire).unwrap();
-    assert_ne!(digest(&bytes), digest(&changed));
-    let builder: pse_quantity::QuantityRegistryBuilder = serde_json::from_slice(&changed).unwrap();
-    if let Ok(other) = builder.build() {
-        assert_ne!(other, registry)
-    }
+fn private_native_typed_registry_requires_original_complete_physical_context() {
+    let source = source();
+    assert!(!source.context.preconditions.declarations().is_empty());
+    let decode = |input| wire::decode::<RootInput>(&wire::encode(input, REQUEST_LIMIT).unwrap(), REQUEST_LIMIT).unwrap();
+    let input = decode(source.wire().unwrap());
+    assert_eq!(input.preconditions, source.context.preconditions.declarations());
+    let registry = reconstruct_physical_context(input.registry, input.preconditions, input.spec.physical).unwrap();
+    assert_eq!(&registry, source.context.quantities.as_ref());
+
+    // Native admission observes every decoded declaration, including duplicates.
+    let mut duplicate = source.wire().unwrap();
+    let unit = source.context.quantities.units().next().unwrap().clone();
+    let expected = unit.id.as_id();
+    duplicate.registry.unit(unit);
+    let duplicate = decode(duplicate);
+    assert!(matches!(reconstruct_physical_context(duplicate.registry, duplicate.preconditions, duplicate.spec.physical),
+        Err(MathRuntimeError::Math(pse_math::MathError::Quantity(pse_quantity::QuantityError::Registry {
+            rule: "registry.unique_id", subject, .. }))) if subject == expected));
+
+    // Preserve identities and message shape while changing one valid native unit scale.
+    // The complete source-owned tuple supplies the actual declaration, without JSON edits.
+    use pse_contract::boundary_projection::ProjectionRecord as _;
+    let mut changed_scale = source.wire().unwrap();
+    let mut fields = changed_scale.registry.into_projection_fields();
+    fields.1[0].scale_to_canonical *= 2.0;
+    changed_scale.registry = pse_quantity::QuantityRegistryBuilder::from_projection_fields(fields).unwrap();
+    let changed_scale = decode(changed_scale);
+    assert!(matches!(reconstruct_physical_context(changed_scale.registry, changed_scale.preconditions, changed_scale.spec.physical), Err(MathRuntimeError::Internal(_))));
+
+    // Prerequisites are part of the original physical meaning; their declaration identity
+    // alone is insufficient. No receipt authority or native solve is reached on mismatch.
+    let mut changed = source.wire().unwrap();
+    changed.preconditions[0].operand_positions.push(491);
+    let changed = decode(changed);
+    assert!(matches!(reconstruct_physical_context(changed.registry, changed.preconditions, changed.spec.physical), Err(MathRuntimeError::Internal(_))));
+
+    let mut missing = source.wire().unwrap();
+    missing.preconditions.clear();
+    let missing = decode(missing);
+    assert!(matches!(reconstruct_physical_context(missing.registry, missing.preconditions, missing.spec.physical), Err(MathRuntimeError::Internal(_))));
 }
 
 fn source() -> PortableRootSource {
