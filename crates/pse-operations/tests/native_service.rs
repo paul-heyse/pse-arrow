@@ -565,7 +565,7 @@ async fn native_service_original_v2_target_and_old_module_resume_after_restart()
                     serde_json::to_value(replay.request()).unwrap(),
                     original_wire
                 );
-                let original_receipt = serde_json::to_value(&replay).unwrap();
+                let original_receipt = replay;
                 assert!(
                     maintenance.reconcile(&original).await.is_err(),
                     "a v2 receipt cannot grant current readiness"
@@ -630,7 +630,12 @@ async fn native_service_original_v2_target_and_old_module_resume_after_restart()
                         .unwrap()
                 );
                 ready.store().canonical_run("native-fixture-probe").await?;
-                ready.store().drain_owned_connection().await?;
+                ready
+                    .store()
+                    .drain_owned_connection_until(pse_operations::transport::original_deadline(
+                        Duration::from_secs(30),
+                    ))
+                    .await?;
                 let after =
                     serde_json::to_value(&maintenance.inspect().await?.predecessor).unwrap();
                 for field in [
@@ -642,8 +647,7 @@ async fn native_service_original_v2_target_and_old_module_resume_after_restart()
                 }
                 assert_eq!(after["schema_digest"], current_wire["target_digest"]);
                 assert_eq!(
-                    serde_json::to_value(maintenance.reconcile_receipt(&original).await?.unwrap())
-                        .unwrap(),
+                    maintenance.reconcile_receipt(&original).await?.unwrap(),
                     original_receipt
                 );
                 assert!(maintenance.reconcile(&original).await.is_err());
