@@ -16,6 +16,8 @@ mod generic;
 mod nominal;
 #[cfg(test)]
 mod optional_text_tests;
+#[cfg(test)]
+mod observation_struct_tests;
 mod path;
 mod public_alias_path;
 mod remote;
@@ -1379,6 +1381,10 @@ fn validate_fields(
 }
 
 /// Declare an actual record and its stable boundary metadata in one source declaration.
+/// `construction: ObservationOnly` emits borrowed selected-field snapshots without
+/// an inverse constructor; omitted construction is ordinary reconstructible data.
+/// Observation `@local` custody has no initializer or implicit validation. An
+/// optional `=> check:` borrows that local field under the owner's actual rule.
 #[macro_export]
 macro_rules! projection_struct {
     ($(#[$meta:meta])* $vis:vis struct $name:ident <$parameter:ident $(= $default:ty)?> { $($body:tt)* }) => {
@@ -1386,11 +1392,12 @@ macro_rules! projection_struct {
     };
     ($(#[$meta:meta])* $vis:vis struct $name:ident {
         projection: { name: $wire:expr, $(rust_path: $public:path,)? version: $version:expr, direction: $direction:expr,
+            $(construction: $construction:ident,)?
             reserved_tags: [$($reserved:expr),* $(,)?], reserved_names: [$($reserved_name:expr),* $(,)?] };
         $($(#[$field_meta:meta])* $field_vis:vis $field:ident : $ty:ty => {
             tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] $(, representation: $representation:expr)? $(, adapter: $adapter:ty)? };)*
         $(@local {
-            $($(#[$local_meta:meta])* $local_vis:vis $local:ident: $local_ty:ty = $local_default:expr => check: $local_check:expr;)*
+            $($(#[$local_meta:meta])* $local_vis:vis $local:ident: $local_ty:ty $(= $local_default:expr)? $(=> check: $local_check:expr)?;)*
         })?
     }) => {
         $(#[$meta])* $vis struct $name {
@@ -1408,6 +1415,7 @@ macro_rules! projection_struct {
                     )*]))
                 })?;
                 $( graph.public_path::<Self>(&root, stringify!($public))?; )?
+                $crate::projection_struct!(@role graph, &root, Self $(, $construction)?);
                 Ok(root)
             }
         }
@@ -1416,11 +1424,24 @@ macro_rules! projection_struct {
                 let _ = path;
                 $( $crate::projection_struct!(@validate &self.$field,
                     &$crate::boundary_projection::field_path(path, stringify!($field)), &[$($rule),*] $(, $adapter)?)?; )*
-                $($( ($local_check)(&self.$local,
-                    &$crate::boundary_projection::field_path(path, stringify!($local)))?; )*)?
+                $($( $( ($local_check)(&self.$local,
+                    &$crate::boundary_projection::field_path(path, stringify!($local)))?; )? )*)?
                 Ok(())
             }
         }
+        $crate::projection_struct!(@access $($construction)?; $name, $version; {
+            $($field: $ty $(, $adapter)? => $tag;)*
+        } @local { $($($local $(= $local_default)? $(=> check: $local_check)?;)*)? });
+    };
+    (@role $graph:ident, $root:expr, $owner:ty) => {};
+    (@role $graph:ident, $root:expr, $owner:ty, Data) => {};
+    (@role $graph:ident, $root:expr, $owner:ty, ObservationOnly) => {
+        $graph.observation_record::<$owner>($root)?;
+    };
+    (@access ; $($body:tt)*) => { $crate::projection_struct!(@access Data; $($body)*); };
+    (@access Data; $name:ident, $version:expr; {
+        $($field:ident: $ty:ty $(, $adapter:ty)? => $tag:expr;)*
+    } @local { $($local:ident = $local_default:expr => check: $local_check:expr;)* }) => {
         impl $crate::boundary_projection::ProjectionRecord for $name {
             const VERSION: u32 = $version;
             const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[$(($tag, stringify!($field))),*];
@@ -1428,7 +1449,19 @@ macro_rules! projection_struct {
             fn into_projection_fields(self) -> Self::Fields { ($($crate::projection_struct!(@into self.$field $(, $adapter)?),)*) }
             fn from_projection_fields(fields: Self::Fields) -> ::core::result::Result<Self, $crate::boundary_projection::AdapterError> {
                 let ($($field,)*) = fields;
-                Ok(Self { $($field: $crate::projection_struct!(@from $field $(, $adapter)?),)* $($($local: $local_default,)*)? })
+                Ok(Self { $($field: $crate::projection_struct!(@from $field $(, $adapter)?),)* $($local: $local_default,)* })
+            }
+        }
+    };
+    (@access ObservationOnly; $name:ident, $version:expr; {
+        $($field:ident: $ty:ty $(, $adapter:ty)? => $tag:expr;)*
+    } @local { $($local:ident $(= $local_default:expr)? $(=> check: $local_check:expr)?;)* }) => {
+        impl $crate::boundary_projection::ProjectionObservationRecord for $name {
+            const VERSION: u32 = $version;
+            const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[$(($tag, stringify!($field))),*];
+            type Fields = ($($crate::projection_struct!(@ty $ty $(, $adapter)?),)*);
+            fn observation_fields(&self) -> ::core::result::Result<Self::Fields, $crate::boundary_projection::AdapterError> {
+                Ok(($($crate::projection_struct!(@into ::core::clone::Clone::clone(&self.$field) $(, $adapter)?),)*))
             }
         }
     };

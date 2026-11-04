@@ -218,6 +218,16 @@ source and locked build: a matching version and filesystem path alone do not
 establish that correspondence. This extends existing preparation rather than adding
 a separate preparation framework.
 
+An actual `projection_struct!` declaration may select `construction: ObservationOnly`.
+The same fields generate native local validation, graph metadata and borrowed
+`ProjectionObservationRecord` snapshots; selected passive fields are cloned individually,
+without requiring the live owner to implement Clone. `@local` custody fields need no
+initializer and are never serialized or reconstructed; explicit borrowed checks remain
+available. The emitter borrows nested sealed owners through `Borrow<ActualOwner>`,
+including owned boxes and collection snapshots, and emits no inverse for them. A Data
+parent containing any sealed descendant is refused. Public/crate/parent wrapper visibility
+is selected separately from the strict or retained-wire unknown-field policy.
+
 **Registry facet lowering.** The registry owner publishes
 `pse.schema.v1.registry_field`, a message-valued `google.protobuf.FieldOptions`
 extension allocated at 51066 in

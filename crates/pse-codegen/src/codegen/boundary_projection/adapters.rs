@@ -116,7 +116,8 @@ fn generate(
             },
             Shape::StringEnum(_) => {},
         }
-        if let Some(child) = closure.iter().find(|child|
+        if owner.construction == ConstructionRole::Data
+            && let Some(child) = closure.iter().find(|child|
             graph.definitions()[*child].construction == ConstructionRole::ObservationOnly)
         {
             return Err(error(format!("{name} contains observation-only native owner {child}; expose passive snapshot fields instead of reconstructing or moving live custody")));
@@ -134,6 +135,7 @@ fn generate(
         owner_crate,
         retained_wire,
         naming: &naming,
+        graph,
     };
     let mut out = String::new();
     for name in &selected {
@@ -252,6 +254,7 @@ struct Generator<'a> {
     owner_crate: &'a str,
     retained_wire: bool,
     naming: &'a buffa_codegen::context::CodeGenContext<'a>,
+    graph: &'a ProjectionGraph,
 }
 
 impl Generator<'_> {
@@ -548,6 +551,11 @@ impl Generator<'_> {
                 scalar_wire(*scalar)
             ),
             TypeRef::Named(name) => {
+                let value = if let Some(owner) = self.graph.definitions().get(name)
+                    && owner.construction == ConstructionRole::ObservationOnly {
+                    let native = self.native(owner)?;
+                    format!("::core::borrow::Borrow::<{native}>::borrow(&{value})")
+                } else { value.to_owned() };
                 let converted = format!(
                     "native_into::<_, {}>({value}, {path})?",
                     self.wire(&[name.clone()])

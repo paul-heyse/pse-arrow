@@ -72,7 +72,7 @@ pub fn native_policy_source(graph: &ProjectionGraph, package: &str, direction: D
     let selection = source_metadata::native_selection(graph, package, direction);
     if selection.owners.is_empty() { return Err(error("native source policy requires at least one actual owner")); }
     Ok(format!(
-        "// Source-derived immutable interpretation and coverage; no native authority.\npub const INTERPRETATIONS: &[(&str, u32)] = &{:?};\npub const NATIVE_SELECTION: pse_contract_proto::NativeSelection<'static> = pse_contract_proto::NativeSelection {{ owners: &{:?}, fields: &{:?}, methods: &{:?} }};\n",
+        "// Source-derived immutable interpretation and coverage; no native authority.\n/// Exact source-owned interpretation versions available to this consumer.\npub const INTERPRETATIONS: &[(&str, u32)] = &{:?};\n/// Required source-selected coverage, independent of acquired option presence.\npub const NATIVE_SELECTION: pse_contract_proto::NativeSelection<'static> = pse_contract_proto::NativeSelection {{ owners: &{:?}, fields: &{:?}, methods: &{:?} }};\n",
         selection.interpretations, selection.owners, selection.fields, selection.methods,
     ))
 }

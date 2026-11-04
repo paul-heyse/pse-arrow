@@ -6,8 +6,35 @@ use pse_contract::boundary_projection::{
     AdapterError, ProjectionError, ProjectionObservationRecord, ProjectionType,
 };
 
+#[derive(Clone)]
 struct NativeObservation {
     recorded: u64,
+}
+
+#[test]
+fn observation_parents_borrow_nested_sealed_box_and_collection_snapshots() {
+    projection_struct! {
+        struct ObservedParent {
+            projection: { name: "ObservedParent", version: 1, direction: Direction::Both,
+                construction: ObservationOnly, reserved_tags: [], reserved_names: [] };
+            child: Box<NativeObservation> => { tag: 1, direction: Direction::Both, rules: [] };
+            history: Vec<NativeObservation> => { tag: 2, direction: Direction::Both, rules: [] };
+            selected: Option<NativeObservation> => { tag: 3, direction: Direction::Both, rules: [] };
+        }
+    }
+    let native = ObservedParent { child: Box::new(NativeObservation { recorded: 42 }),
+        history: vec![NativeObservation { recorded: 17 }], selected: None };
+    let (child, history, selected) = native.observation_fields().unwrap();
+    assert_eq!(child.recorded, 42); assert_eq!(history[0].recorded, 17); assert!(selected.is_none());
+    assert_eq!(native.child.recorded, 42);
+    let graph = ProjectionGraph::of::<ObservedParent>().unwrap();
+    for source in [native_adapters(&graph, &["ObservedParent"], "crate::wire", "pse_codegen").unwrap(),
+        native_adapters_retaining_wire(&graph, &["ObservedParent"], "crate::wire", "pse_codegen").unwrap()] {
+        assert!(!source.contains("NativeFrom"));
+        assert!(!source.contains("decode_observed_parent"));
+        assert!(source.contains("Borrow::<"), "named sealed children borrow through Box and collection snapshots");
+        syn::parse_file(&source).unwrap();
+    }
 }
 
 impl Drop for NativeObservation {
