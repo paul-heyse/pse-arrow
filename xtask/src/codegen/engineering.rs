@@ -296,7 +296,7 @@ fn projection(
             )?;
         }
     }
-    let docs = PathBuf::from(format!("docs/generated/engineering/{package}"));
+    let docs = PathBuf::from(super::ENGINEERING_DOCUMENT_ROOT).join(package);
     tree.files.insert(
         docs.join("index.md"),
         format!(

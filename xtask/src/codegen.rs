@@ -562,6 +562,8 @@ fn inventory(root: &Path, tree: &GeneratedTree) -> Result<BTreeSet<PathBuf>> {
 }
 
 /// The roots of other targets that lie inside one of `tree`'s roots.
+pub(super) const ENGINEERING_DOCUMENT_ROOT: &str = "docs/generated/engineering";
+
 fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
     Language::ALL
         .iter()
@@ -571,6 +573,7 @@ fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
         // generator must preserve every sidecar on partial regeneration.
         .chain([
             PathBuf::from(provenance::ROOT),
+            PathBuf::from(ENGINEERING_DOCUMENT_ROOT),
         ])
         .filter(|candidate| {
             !tree.roots.contains(candidate)
@@ -957,6 +960,21 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn markdown_preserves_independently_published_engineering_contracts() {
+        let checkout = tempfile::tempdir().unwrap();
+        let nested = PathBuf::from(ENGINEERING_DOCUMENT_ROOT)
+            .join("pse.engineering.v1/index.md");
+        let path = checkout.path().join(&nested);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, b"independent contract world").unwrap();
+        let mut docs = GeneratedTree::empty(Language::Markdown.roots());
+        docs.files.insert(PathBuf::from("docs/generated/enums.md"), b"# e\n".to_vec());
+        write_tree(checkout.path(), &docs).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"independent contract world");
+        assert!(!inventory(checkout.path(), &docs).unwrap().contains(&nested));
     }
 
     #[test]
