@@ -7,6 +7,12 @@ use pse_contract_proto::support::BoundaryProjectionError;
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
 pub struct ProjectionDiagnosticError(#[from] BoundaryProjectionError);
+impl ProjectionDiagnosticError {
+    /// Retain the original shared failure's actual owned allocation extent.
+    pub fn retained_bytes(&self) -> Result<usize, pse_contract_proto::support::RetainedExtentError> {
+        self.0.retained_bytes()
+    }
+}
 
 pse_diagnostics::impl_diagnostic! {
     ProjectionDiagnosticError,

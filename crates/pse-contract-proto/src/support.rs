@@ -3,6 +3,8 @@
 //! Standard typed mechanics for source-generated adapters; no product/native owner dependency.
 use std::{collections::{BTreeMap, BTreeSet}, sync::Arc};
 use pse_contract::boundary_projection::{AdapterError, AdapterFailure, ValidateProjection};
+mod retained;
+pub use retained::RetainedExtentError;
 
 /// Original typed crossing failure; native permission and consumer presentation stay external.
 #[derive(Debug, thiserror::Error)]
