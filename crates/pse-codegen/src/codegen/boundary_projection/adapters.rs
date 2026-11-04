@@ -214,9 +214,16 @@ impl Generator<'_> {
         fields: &[Field],
         version: u32,
         alternative: Option<u32>,
+        checked: bool,
     ) -> String {
         let accessor = alternative.map_or_else(
-            || "ProjectionRecord".into(),
+            || {
+                if checked {
+                    "CheckedProjectionRecord".into()
+                } else {
+                    "ProjectionRecord".into()
+                }
+            },
             |tag| format!("ProjectionAlternative<{tag}>"),
         );
         let layout = fields
@@ -280,17 +287,32 @@ impl Generator<'_> {
                     .enumerate()
                     .map(|(index, _)| format!("field_{index},"))
                     .collect::<String>();
-                let layout = self.layout(&native, fields, owner.version, None);
+                let layout =
+                    self.layout(&native, fields, owner.version, None, owner.checked_record);
+                let accessor = if owner.checked_record {
+                    "CheckedProjectionRecord"
+                } else {
+                    "ProjectionRecord"
+                };
+                let extract = if owner.checked_record {
+                    format!(
+                        "pse_model::boundary_projection::{accessor}::try_into_projection_fields(self).map_err(|error| error.at(path))?"
+                    )
+                } else {
+                    format!(
+                        "pse_model::boundary_projection::{accessor}::into_projection_fields(self)"
+                    )
+                };
                 let encode = self.fields_encode(fields, &message)?;
                 let decode = self.fields_decode(fields, &message)?;
                 let unknown = self.unknown_guard("wire", "path");
                 let _ = writeln!(
                     out,
-                    "impl NativeInto<{wire}> for {native} {{ fn into_wire(self, path: &str) -> Result<{wire}, AdapterError> {{ {layout} let ({bindings}) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self); Ok({wire} {{ {encode} ..Default::default() }}) }} }}"
+                    "impl NativeInto<{wire}> for {native} {{ fn into_wire(self, path: &str) -> Result<{wire}, AdapterError> {{ {layout} let ({bindings}) = {extract}; Ok({wire} {{ {encode} ..Default::default() }}) }} }}"
                 );
                 let _ = writeln!(
                     out,
-                    "impl NativeFrom<{wire}> for {native} {{ fn from_wire(wire: {wire}, path: &str) -> Result<Self, AdapterError> {{ {unknown} {layout} let fields = {decode}; pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields).map_err(|error| error.at(path)) }} }}"
+                    "impl NativeFrom<{wire}> for {native} {{ fn from_wire(wire: {wire}, path: &str) -> Result<Self, AdapterError> {{ {unknown} {layout} let fields = {decode}; pse_model::boundary_projection::{accessor}::from_projection_fields(fields).map_err(|error| error.at(path)) }} }}"
                 );
             }
             Shape::Alternatives(alternatives) => {
@@ -309,6 +331,7 @@ impl Generator<'_> {
                         &alternative.fields,
                         owner.version,
                         Some(alternative.tag),
+                        false,
                     );
                     let bindings = alternative
                         .fields
@@ -351,6 +374,7 @@ impl Generator<'_> {
                         &alternative.fields,
                         owner.version,
                         Some(alternative.tag),
+                        false,
                     );
                     let payload_path =
                         self.nested(&message, format!("Alternative{}", alternative.tag));

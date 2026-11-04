@@ -24,14 +24,15 @@ pub(super) fn record(
     let mut names = Vec::new();
     let mut types = Vec::new();
     let mut recursive = Vec::new();
+    let mut field_rules = Vec::new();
     for ((name, ty, _), column) in fields.iter().zip(&spec.columns) {
-        if crate::model::IntegerRange::from_field(column.field())?.is_some()
-            || crate::model::TaggedAlternative::from_field(column.field())?.is_some()
+        let ty = super::semantic::model_type(ty)?;
+        if crate::model::TaggedAlternative::from_field(column.field())?.is_some()
             || crate::model::CollectionContract::from_field(column.field())?
-                .is_some_and(|contract| contract != crate::model::CollectionContract::SEQUENCE)
+                .is_some_and(|contract| contract.unique)
         {
             return Err(super::error(format!(
-                "{}.{name}: selected registry boundary requires explicit lowering of its local integer, alternative or collection contract",
+                "{}.{name}: selected registry boundary requires explicit lowering of its alternative or unique collection contract",
                 spec.key
             )));
         }
@@ -42,6 +43,26 @@ pub(super) fn record(
             ))
         })?;
         let field = super::types::ident(name);
+        let mut rules = Vec::new();
+        if let Some(range) = crate::model::IntegerRange::from_field(column.field())? {
+            let (min, max) = (range.minimum, range.maximum);
+            rules.push(
+                quote!(crate::boundary_projection::LocalRule::SignedRange { min:#min,max:#max }),
+            );
+        }
+        if let Some(collection) = crate::model::CollectionContract::from_field(column.field())? {
+            let min = u64::try_from(collection.minimum)
+                .map_err(|error| super::error(error.to_string()))?;
+            let max = collection
+                .maximum
+                .map(u64::try_from)
+                .transpose()
+                .map_err(|error| super::error(error.to_string()))?
+                .unwrap_or(u64::MAX);
+            rules.push(quote!(crate::boundary_projection::LocalRule::Length { min:#min,max:#max }));
+        }
+        let has_rules = !rules.is_empty();
+        field_rules.push(has_rules);
         let facets = column
             .field()
             .metadata()
@@ -52,7 +73,7 @@ pub(super) fn record(
             .collect::<Vec<_>>();
         definitions.push(
             quote!(crate::boundary_projection::Field::of::<#ty>(graph, #name, #number,
-            crate::boundary_projection::Direction::#direction, vec![])?
+            crate::boundary_projection::Direction::#direction, vec![#(#rules),*])?
             .with_named_facets(std::collections::BTreeMap::from([#(#facets),*]))),
         );
         layout.push(quote!((#number, #name)));
@@ -60,8 +81,8 @@ pub(super) fn record(
         types.push(ty);
         let field = super::types::ident(name);
         recursive.push(
-            quote!(crate::boundary_projection::ValidateProjection::validate_at(&self.#field,
-            &crate::boundary_projection::field_path(path, #name))?;),
+            quote!(crate::boundary_projection::validate_field(&self.#field,
+            &crate::boundary_projection::field_path(path, #name), &[#(#rules),*])?;),
         );
     }
     Ok(quote! {
@@ -82,7 +103,7 @@ pub(super) fn record(
                 -> Result<Self, crate::boundary_projection::AdapterError> { Ok(Self { #(#names,)* }) }
         }
         impl crate::boundary_projection::ValidateProjection for #row {
-            const NEEDS_RECURSIVE_VALIDATION: bool = false #(|| <#types as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION)*;
+            const NEEDS_RECURSIVE_VALIDATION: bool = false #(|| #field_rules || <#types as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION)*;
             fn validate_at(&self, path: &str) -> Result<(), crate::boundary_projection::ValidationError> {
                 if Self::NEEDS_RECURSIVE_VALIDATION { #(#recursive)* }
                 Ok(())
@@ -135,7 +156,7 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_local_contract_refuses_instead_of_dropping_validation() {
+    fn signed_integer_domain_is_lowered_from_the_original_registry_field() {
         let registry = crate::catalog::assemble().unwrap();
         let mut owner = registry.relation("reference.bases").unwrap().clone();
         owner.columns[0] = crate::model::FieldContract::nonnegative(128)
@@ -146,6 +167,10 @@ mod tests {
             .iter()
             .map(|field| (field.name().into(), quote!(i64), String::new()))
             .collect::<Vec<_>>();
-        assert!(record(&owner, &format_ident!("RefusedRow"), &fields).is_err());
+        let emitted = record(&owner, &format_ident!("BoundedRow"), &fields)
+            .unwrap()
+            .to_string();
+        assert!(emitted.contains("SignedRange") && emitted.contains("128"));
+        assert!(emitted.contains("validate_field"));
     }
 }

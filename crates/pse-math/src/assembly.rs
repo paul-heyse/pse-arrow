@@ -35,6 +35,7 @@ use std::{
     },
 };
 
+pse_model::projection_struct! {
 /// Per-case bounds, distinct from a local derivative artifact's resource budget.
 #[derive(
     Clone,
@@ -49,12 +50,15 @@ use std::{
 )]
 #[serde(deny_unknown_fields)]
 pub struct AssemblyLimits {
+    projection: { name: "MathAssemblyLimits", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Maximum original derivative contributions before duplicate accumulation.
-    pub contributions: usize,
+    pub contributions: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Largest dimension/index/entry count representable by the selected native ABI.
-    pub native_index: usize,
+    pub native_index: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Complete attempt storage budget: shared evaluator scratch, clones and occurrence caches.
-    pub worker_bytes: usize,
+    pub worker_bytes: usize => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl Default for AssemblyLimits {
     fn default() -> Self {

@@ -2,8 +2,346 @@
 // Copyright (c) 2026 Paul Heyse
 
 use super::*;
+use std::collections::BTreeSet;
+#[test]
+fn signed_registry_domains_lower_to_exact_sint64_rules_and_optional_presence() {
+    projection_struct! {
+        struct SignedDomain {
+            projection: {name:"SignedDomain",version:1,direction:Direction::Both,reserved_tags:[],reserved_names:[]};
+            value: Option<i64> => {tag:1,direction:Direction::Both,rules:[LocalRule::SignedRange {min:i64::MIN,max:-1}]};
+        }
+    }
+    let graph = ProjectionGraph::of::<SignedDomain>().unwrap();
+    let set =
+        descriptors_with_imports(&graph, "pse.signed.v1", "signed.proto", &imports()).unwrap();
+    let file = set
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some("signed.proto"))
+        .unwrap();
+    let field = &file
+        .message_type
+        .iter()
+        .find(|message| message.name.as_deref() == Some("SignedDomain"))
+        .unwrap()
+        .field[0];
+    assert!(field.proto3_optional.unwrap_or(false));
+    let rules = field
+        .options
+        .as_option()
+        .unwrap()
+        .extension(&validate::FIELD)
+        .unwrap();
+    let Some(validate::__buffa::oneof::field_rules::Type::Sint64(rules)) = rules.r#type else {
+        panic!("actual signed64 field")
+    };
+    assert!(matches!(
+        rules.greater_than,
+        Some(s_int64rules::GreaterThan::Gte(i64::MIN))
+    ));
+    assert!(matches!(
+        rules.less_than,
+        Some(s_int64rules::LessThan::Lte(-1))
+    ));
+}
 use pse_model::boundary_projection::{Direction, LocalRule, ProjectionType, Service};
 use pse_model::{projection_enum, projection_struct};
+
+projection_struct! {
+    pub struct GenericAdapterFixture<T> {
+        projection: { name: "GenericAdapterFixtureFor", rust_path: crate::codegen::boundary_projection::tests::GenericAdapterFixture,
+            version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+        value: T => { tag: 3, direction: Direction::Both, rules: [] };
+    }
+}
+
+#[test]
+fn generic_adapter_sources_use_concrete_checked_public_argument_paths() {
+    let mut graph = ProjectionGraph::of::<GenericAdapterFixture<usize>>().unwrap();
+    GenericAdapterFixture::<pse_ids::SemanticId>::projection(&mut graph).unwrap();
+    let source = native_adapters(
+        &graph,
+        &[
+            "GenericAdapterFixtureForUsize",
+            "GenericAdapterFixtureForSemanticId",
+        ],
+        "crate::wire",
+        "pse_codegen",
+    )
+    .unwrap();
+    let parsed = syn::parse_file(&source).unwrap();
+    let mut arguments = BTreeSet::new();
+    for item in &parsed.items {
+        let syn::Item::Impl(implementation) = item else {
+            continue;
+        };
+        let syn::Type::Path(owner) = implementation.self_ty.as_ref() else {
+            continue;
+        };
+        let Some(segment) = owner.path.segments.last() else {
+            continue;
+        };
+        if segment.ident != "GenericAdapterFixture" {
+            continue;
+        }
+        let syn::PathArguments::AngleBracketed(generic) = &segment.arguments else {
+            panic!("concrete generic native owner")
+        };
+        assert_eq!(generic.args.len(), 1);
+        let syn::GenericArgument::Type(syn::Type::Path(argument)) = &generic.args[0] else {
+            panic!("actual named native argument")
+        };
+        arguments.insert(
+            argument
+                .path
+                .segments
+                .iter()
+                .map(|segment| segment.ident.to_string())
+                .collect::<Vec<_>>(),
+        );
+    }
+    assert_eq!(
+        arguments,
+        BTreeSet::from([
+            vec!["usize".to_owned()],
+            vec!["pse_ids".to_owned(), "SemanticId".to_owned()]
+        ])
+    );
+    let set =
+        descriptors_with_imports(&graph, "pse.generic.v1", "generic.proto", &imports()).unwrap();
+    let file = set
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some("generic.proto"))
+        .unwrap();
+    assert_eq!(file.message_type.len(), 2);
+    assert!(
+        file.message_type
+            .iter()
+            .all(|message| message.field[0].number == Some(3))
+    );
+}
+
+#[test]
+fn binary64_setting_domains_lower_to_exact_fixed64_bounds_and_finite_cel() {
+    projection_struct! {
+        struct ScalarDomains {
+            projection: { name: "ScalarDomains", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+            tolerance: pse_model::scalars::Tolerance => { tag: 1, direction: Direction::Both, rules: [] };
+            fraction: pse_model::scalars::Fraction => { tag: 2, direction: Direction::Both, rules: [] };
+            bound: pse_model::scalars::FiniteBound => { tag: 3, direction: Direction::Both, rules: [] };
+        }
+    }
+    let graph = ProjectionGraph::of::<ScalarDomains>().unwrap();
+    let descriptors =
+        descriptors_with_imports(&graph, "pse.domains.v1", "domains.proto", &imports()).unwrap();
+    let file = descriptors
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some("domains.proto"))
+        .unwrap();
+    for (name, maximum) in [
+        ("Tolerance", f64::MAX.to_bits()),
+        ("Fraction", 1.0_f64.to_bits()),
+    ] {
+        let field = &file
+            .message_type
+            .iter()
+            .find(|message| message.name.as_deref() == Some(name))
+            .unwrap()
+            .field[0];
+        assert_eq!(field.r#type, Some(Type::TYPE_FIXED64));
+        let rules = field
+            .options
+            .as_option()
+            .unwrap()
+            .extension(&validate::FIELD)
+            .unwrap();
+        let Some(validate::__buffa::oneof::field_rules::Type::Fixed64(rules)) = rules.r#type else {
+            panic!("exact float bit interval")
+        };
+        assert!(matches!(
+            rules.greater_than,
+            Some(fixed64rules::GreaterThan::Gt(0))
+        ));
+        assert_eq!(rules.less_than, Some(fixed64rules::LessThan::Lte(maximum)));
+    }
+    let field = &file
+        .message_type
+        .iter()
+        .find(|message| message.name.as_deref() == Some("FiniteBound"))
+        .unwrap()
+        .field[0];
+    let rules = field
+        .options
+        .as_option()
+        .unwrap()
+        .extension(&validate::FIELD)
+        .unwrap();
+    assert_eq!(rules.cel.len(), 1);
+    assert_eq!(rules.cel[0].id.as_deref(), Some("float64.finite"));
+    assert_eq!(
+        rules.cel[0].expression.as_deref(),
+        Some(
+            "this < 9218868437227405312u || (this >= 9223372036854775808u && this < 18442240474082181120u)"
+        )
+    );
+}
+
+#[test]
+fn checked_foreign_adapter_generation_uses_source_binding_and_fallible_extraction() {
+    pse_model::projection_remote! {
+        #[derive(serde::Serialize, serde::Deserialize)]
+        #[serde(remote = "std::ops::Range<u16>", deny_unknown_fields)]
+        struct NativeRangeBinding for std::ops::Range<u16> {
+            projection: { name: "CheckedForeignRange", rust_path: NativeRangeBinding, version: 1,
+                direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+            start: u16 => { tag: 1, direction: Direction::Both, rules: [] };
+            end: u16 => { tag: 7, direction: Direction::Both, rules: [LocalRule::UnsignedRange { min: 1, max: 128 }] };
+        }
+    }
+    projection_struct! {
+        struct ForeignOwner {
+            projection: { name: "ForeignOwner", version: 1, direction: Direction::Both,
+                reserved_tags: [], reserved_names: [] };
+            range: std::ops::Range<u16> => { tag: 3, direction: Direction::Both, rules: [], adapter: NativeRangeBinding };
+        }
+    }
+    let graph = ProjectionGraph::of::<ForeignOwner>().unwrap();
+    assert!(graph.definitions()["CheckedForeignRange"].checked_record);
+    assert!(!graph.definitions()["ForeignOwner"].checked_record);
+    let source = native_adapters(&graph, &["ForeignOwner"], "crate::wire", "pse_codegen").unwrap();
+    fn call_is(expression: &syn::Expr, accessor: &str, method: &str, argument: &str) -> bool {
+        let syn::Expr::Call(call) = expression else {
+            return false;
+        };
+        let syn::Expr::Path(function) = call.func.as_ref() else {
+            return false;
+        };
+        let segments = function
+            .path
+            .segments
+            .iter()
+            .map(|segment| segment.ident.to_string())
+            .collect::<Vec<_>>();
+        segments.ends_with(&[accessor.to_owned(), method.to_owned()])
+            && call.args.len() == 1
+            && matches!(&call.args[0], syn::Expr::Path(value) if value.path.is_ident(argument))
+    }
+    #[derive(Default)]
+    struct AccessCalls {
+        checked_extraction: bool,
+        checked_adoption: bool,
+        ordinary_extraction: bool,
+        carrier: bool,
+    }
+    impl<'ast> syn::visit::Visit<'ast> for AccessCalls {
+        fn visit_expr_try(&mut self, expression: &'ast syn::ExprTry) {
+            if let syn::Expr::MethodCall(map) = expression.expr.as_ref()
+                && map.method == "map_err"
+                && map.args.len() == 1
+                && call_is(
+                    &map.receiver,
+                    "CheckedProjectionRecord",
+                    "try_into_projection_fields",
+                    "self",
+                )
+                && let syn::Expr::Closure(closure) = &map.args[0]
+                && let syn::Expr::MethodCall(rebase) = closure.body.as_ref()
+                && rebase.method == "at"
+                && rebase.args.len() == 1
+                && matches!(&rebase.args[0], syn::Expr::Path(path) if path.path.is_ident("path"))
+            {
+                self.checked_extraction = true;
+            }
+            syn::visit::visit_expr_try(self, expression);
+        }
+        fn visit_expr(&mut self, expression: &'ast syn::Expr) {
+            self.checked_adoption |= call_is(
+                expression,
+                "CheckedProjectionRecord",
+                "from_projection_fields",
+                "fields",
+            );
+            self.ordinary_extraction |= call_is(
+                expression,
+                "ProjectionRecord",
+                "into_projection_fields",
+                "self",
+            );
+            syn::visit::visit_expr(self, expression);
+        }
+        fn visit_type(&mut self, ty: &'ast syn::Type) {
+            if let syn::Type::Path(carrier) = ty
+                && carrier
+                    .path
+                    .segments
+                    .iter()
+                    .map(|segment| segment.ident.to_string())
+                    .collect::<Vec<_>>()
+                    == ["pse_model", "boundary_projection", "Adapted"]
+                && let syn::PathArguments::AngleBracketed(arguments) =
+                    &carrier.path.segments.last().unwrap().arguments
+                && arguments.args.len() == 2
+                && let syn::GenericArgument::Type(syn::Type::Path(range)) = &arguments.args[0]
+                && range
+                    .path
+                    .segments
+                    .iter()
+                    .map(|segment| segment.ident.to_string())
+                    .collect::<Vec<_>>()
+                    == ["std", "ops", "Range"]
+                && let syn::PathArguments::AngleBracketed(element) =
+                    &range.path.segments.last().unwrap().arguments
+                && element.args.len() == 1
+                && matches!(&element.args[0], syn::GenericArgument::Type(syn::Type::Path(ty)) if ty.path.is_ident("u16"))
+                && matches!(&arguments.args[1], syn::GenericArgument::Type(syn::Type::Path(ty)) if ty.path.is_ident("NativeRangeBinding"))
+            {
+                self.carrier = true;
+            }
+            syn::visit::visit_type(self, ty);
+        }
+    }
+    let parsed = syn::parse_file(&source).unwrap();
+    let mut access = AccessCalls::default();
+    syn::visit::Visit::visit_file(&mut access, &parsed);
+    assert!(
+        access.checked_extraction,
+        "checked extraction must rebase its refusal and propagate it with ?"
+    );
+    assert!(
+        access.checked_adoption,
+        "incoming fields must use the source binding's checked constructor"
+    );
+    assert!(
+        access.ordinary_extraction,
+        "ordinary native records must retain their original access contract"
+    );
+    assert!(
+        access.carrier,
+        "generated access must target the actual typed foreign carrier"
+    );
+    let descriptors =
+        descriptors_with_imports(&graph, "pse.checked.v1", "checked.proto", &imports()).unwrap();
+    let file = descriptors
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some("checked.proto"))
+        .unwrap();
+    let foreign = file
+        .message_type
+        .iter()
+        .find(|message| message.name.as_deref() == Some("CheckedForeignRange"))
+        .unwrap();
+    assert_eq!(
+        foreign
+            .field
+            .iter()
+            .map(|field| field.number.unwrap())
+            .collect::<Vec<_>>(),
+        vec![1, 7]
+    );
+}
 
 #[test]
 fn standard_leaf_descriptors_keep_intrinsic_width_version_and_duration_bounds() {
@@ -16,20 +354,66 @@ fn standard_leaf_descriptors_keep_intrinsic_width_version_and_duration_bounds() 
         }
     }
     let graph = ProjectionGraph::of::<StandardLeaves>().unwrap();
-    let descriptors = descriptors_with_imports(&graph, "pse.standard.v1", "standard.proto", &imports()).unwrap();
-    let file = descriptors.file.iter().find(|file| file.name.as_deref() == Some("standard.proto")).unwrap();
-    let field = |name: &str, index: usize| &file.message_type.iter().find(|message| message.name.as_deref() == Some(name)).unwrap().field[index];
-    let rules = field("StandardLeaves", 2).options.as_option().unwrap().extension(&validate::FIELD).unwrap();
-    let Some(validate::__buffa::oneof::field_rules::Type::Uint32(rules)) = rules.r#type else { panic!("u16 native width") };
-    assert!(matches!(rules.less_than, Some(u_int32rules::LessThan::Lte(65535))));
-    let rules = field("DocumentVersion8", 0).options.as_option().unwrap().extension(&validate::FIELD).unwrap();
-    let Some(validate::__buffa::oneof::field_rules::Type::Uint32(rules)) = rules.r#type else { panic!("version") };
-    assert!(matches!(rules.greater_than, Some(u_int32rules::GreaterThan::Gte(8))));
-    assert!(matches!(rules.less_than, Some(u_int32rules::LessThan::Lte(8))));
-    let rules = field("NonnegativeDuration", 1).options.as_option().unwrap().extension(&validate::FIELD).unwrap();
-    let Some(validate::__buffa::oneof::field_rules::Type::Uint32(rules)) = rules.r#type else { panic!("canonical nanos") };
-    assert!(matches!(rules.less_than, Some(u_int32rules::LessThan::Lte(999_999_999))));
-    let source = native_adapters(&graph, &["StandardLeaves"], "crate::wire", "pse_codegen").unwrap();
+    let descriptors =
+        descriptors_with_imports(&graph, "pse.standard.v1", "standard.proto", &imports()).unwrap();
+    let file = descriptors
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some("standard.proto"))
+        .unwrap();
+    let field = |name: &str, index: usize| {
+        &file
+            .message_type
+            .iter()
+            .find(|message| message.name.as_deref() == Some(name))
+            .unwrap()
+            .field[index]
+    };
+    let rules = field("StandardLeaves", 2)
+        .options
+        .as_option()
+        .unwrap()
+        .extension(&validate::FIELD)
+        .unwrap();
+    let Some(validate::__buffa::oneof::field_rules::Type::Uint32(rules)) = rules.r#type else {
+        panic!("u16 native width")
+    };
+    assert!(matches!(
+        rules.less_than,
+        Some(u_int32rules::LessThan::Lte(65535))
+    ));
+    let rules = field("DocumentVersion8", 0)
+        .options
+        .as_option()
+        .unwrap()
+        .extension(&validate::FIELD)
+        .unwrap();
+    let Some(validate::__buffa::oneof::field_rules::Type::Uint32(rules)) = rules.r#type else {
+        panic!("version")
+    };
+    assert!(matches!(
+        rules.greater_than,
+        Some(u_int32rules::GreaterThan::Gte(8))
+    ));
+    assert!(matches!(
+        rules.less_than,
+        Some(u_int32rules::LessThan::Lte(8))
+    ));
+    let rules = field("NonnegativeDuration", 1)
+        .options
+        .as_option()
+        .unwrap()
+        .extension(&validate::FIELD)
+        .unwrap();
+    let Some(validate::__buffa::oneof::field_rules::Type::Uint32(rules)) = rules.r#type else {
+        panic!("canonical nanos")
+    };
+    assert!(matches!(
+        rules.less_than,
+        Some(u_int32rules::LessThan::Lte(999_999_999))
+    ));
+    let source =
+        native_adapters(&graph, &["StandardLeaves"], "crate::wire", "pse_codegen").unwrap();
     assert!(source.contains("Version<8>"));
     assert!(source.contains("time::Duration"));
     syn::parse_file(&source).unwrap();

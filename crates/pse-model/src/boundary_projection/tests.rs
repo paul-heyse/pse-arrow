@@ -3,24 +3,229 @@
 
 use super::*;
 
+crate::projection_struct! {
+    #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+    pub struct CapturedProjectionFixture<T = u64> {
+        projection: { name: "CapturedProjectionFixtureFor", rust_path: crate::boundary_projection::tests::CapturedProjectionFixture,
+            version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+        position: u64 => { tag: 1, direction: Direction::Both, rules: [] };
+        value: T => { tag: 2, direction: Direction::Both, rules: [] };
+    }
+}
+
+#[test]
+fn generic_source_records_preserve_native_argument_identity_and_access() {
+    let native = CapturedProjectionFixture {
+        position: 4,
+        value: 27usize,
+    };
+    assert_eq!(
+        serde_json::to_string(&native).unwrap(),
+        r#"{"position":4,"value":27}"#
+    );
+    let restored = CapturedProjectionFixture::<usize>::from_projection_fields(
+        native.clone().into_projection_fields(),
+    )
+    .unwrap();
+    assert_eq!(restored, native);
+    let mut graph = ProjectionGraph::of::<CapturedProjectionFixture<usize>>().unwrap();
+    CapturedProjectionFixture::<u64>::projection(&mut graph).unwrap();
+    CapturedProjectionFixture::<Box<u64>>::projection(&mut graph).unwrap();
+    CapturedProjectionFixture::<Vec<usize>>::projection(&mut graph).unwrap();
+    for (argument, path) in [
+        ("Usize", "usize"),
+        ("U64", "u64"),
+        ("BoxedU64", "std::boxed::Box<u64>"),
+        ("ListUsize", "std::vec::Vec<usize>"),
+    ] {
+        let definition = &graph.definitions()[&format!("CapturedProjectionFixtureFor{argument}")];
+        assert_eq!(
+            definition.public_rust_path.as_deref(),
+            Some(
+                format!("pse_model::boundary_projection::tests::CapturedProjectionFixture<{path}>")
+                    .as_str()
+            )
+        );
+    }
+}
+
+#[test]
+fn actual_study_point_facts_keep_nominal_occurrence_and_source_enum_meaning() {
+    use crate::study::{EffectState, OccurrenceKey, PointFacts, ScientificFacts};
+    let facts = PointFacts {
+        admitted_seed_need: None,
+        key: OccurrenceKey(7),
+        revision: 19,
+        lifecycle: crate::generated::enums::StudyPointState::ALL[0],
+        native_started: false,
+        scientific: ScientificFacts::default(),
+        attempt_count: 3,
+        retry_failure: None,
+        effect: EffectState::ALL[0],
+        seed: None,
+    };
+    assert_eq!(serde_json::to_string(&facts.key).unwrap(), "7");
+    let restored =
+        PointFacts::from_projection_fields(facts.clone().into_projection_fields()).unwrap();
+    assert_eq!(restored, facts);
+    let graph = ProjectionGraph::of::<PointFacts>().unwrap();
+    let Shape::Record(fields) = &graph.definitions()["StudyPointFacts"].shape else {
+        panic!("actual fact record")
+    };
+    assert_eq!(fields.len(), 10);
+    assert_eq!(fields[1].ty, TypeRef::Named("StudyOccurrenceKey".into()));
+    let Shape::StringEnum(members) = &graph.definitions()["StudyPointState"].shape else {
+        panic!("source vocabulary")
+    };
+    assert_eq!(
+        members,
+        &crate::generated::enums::StudyPointState::ALL
+            .iter()
+            .map(|state| state.as_str().to_owned())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn foreign_remote_binding_uses_one_field_table_and_checked_shared_access() {
+    use super::{Adapted, CheckedProjectionRecord, ProjectionAdapter, SharedAdapter};
+    crate::projection_remote! {
+        #[derive(serde::Serialize, serde::Deserialize)]
+        #[serde(remote = "std::ops::Range<u16>", deny_unknown_fields)]
+        struct RangeBinding for std::ops::Range<u16> {
+            projection: { name: "BoundedNativeRange", rust_path: RangeBinding, version: 2,
+                direction: Direction::Input, reserved_tags: [4], reserved_names: ["retired"] };
+            start: u16 => { tag: 1, direction: Direction::Both, rules: [LocalRule::UnsignedRange { min: 1, max: 16 }] };
+            end: u16 => { tag: 3, direction: Direction::Both, rules: [LocalRule::UnsignedRange { min: 1, max: 32 }] };
+        }
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    struct Document {
+        #[serde(with = "RangeBinding")]
+        range: std::ops::Range<u16>,
+    }
+    crate::projection_struct! {
+        struct NativeOwner {
+            projection: { name: "NativeRangeOwner", version: 1, direction: Direction::Both,
+                reserved_tags: [], reserved_names: [] };
+            range: std::ops::Range<u16> => { tag: 1, direction: Direction::Both, rules: [], adapter: RangeBinding };
+        }
+    }
+    type Bound = Adapted<std::ops::Range<u16>, RangeBinding>;
+    type Shared = Adapted<std::sync::Arc<std::ops::Range<u16>>, SharedAdapter<RangeBinding>>;
+    let native = 2..17;
+    let json = serde_json::to_string(&Document {
+        range: native.clone(),
+    })
+    .unwrap();
+    let restored: Document = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.range, native);
+    let fields = Bound::new(native.clone())
+        .try_into_projection_fields()
+        .unwrap();
+    assert_eq!(fields, (2, 17));
+    assert_eq!(
+        Bound::from_projection_fields(fields).unwrap().into_inner(),
+        native
+    );
+    assert!(Bound::new(0..17).try_into_projection_fields().is_err());
+    assert!(Bound::from_projection_fields((2, 33)).is_err());
+    let owner = NativeOwner { range: 0..17 };
+    assert!(owner.validate_projection().is_err());
+    let graph = ProjectionGraph::of::<NativeOwner>().unwrap();
+    let binding = &graph.definitions()["BoundedNativeRange"];
+    assert!(binding.checked_record);
+    assert_eq!(binding.direction, Direction::Input);
+    assert_eq!(binding.reserved_tags, vec![4]);
+    assert_eq!(binding.reserved_names, vec!["retired"]);
+    assert_eq!(RangeBinding::FIELD_LAYOUT, &[(1, "start"), (3, "end")]);
+    let shared = std::sync::Arc::new(native.clone());
+    let extracted = Shared::new(shared.clone())
+        .try_into_projection_fields()
+        .unwrap();
+    assert_eq!(std::sync::Arc::strong_count(&shared), 1);
+    let restored = Shared::from_projection_fields(extracted)
+        .unwrap()
+        .into_inner();
+    assert_eq!(*restored, native);
+    let graph = ProjectionGraph::of::<Shared>().unwrap();
+    assert!(graph.definitions()["SharedBoundedNativeRange"].checked_record);
+    for (scalar, maximum) in [
+        (Scalar::U8, 256),
+        (Scalar::U16, 65_536),
+        (Scalar::U32, u64::from(u32::MAX) + 1),
+    ] {
+        let mut graph = ProjectionGraph::default();
+        assert!(
+            graph
+                .declare::<RangeBinding>(
+                    "InvalidNativeWidth",
+                    file!(),
+                    1,
+                    Direction::Both,
+                    &[],
+                    &[],
+                    |_| {
+                        Ok(Shape::Record(vec![Field {
+                            name: "value".into(),
+                            tag: 1,
+                            ty: TypeRef::Scalar(scalar),
+                            direction: Direction::Both,
+                            rules: vec![LocalRule::UnsignedRange {
+                                min: 0,
+                                max: maximum,
+                            }],
+                            named_facets: Default::default(),
+                        }]))
+                    }
+                )
+                .is_err()
+        );
+    }
+}
+
 #[test]
 fn standard_version_duration_and_hash_roles_preserve_exact_native_leaves() {
     use crate::document::Version;
     let graph = ProjectionGraph::of::<Version<8>>().unwrap();
-    let Shape::Record(fields) = &graph.definitions()["DocumentVersion8"].shape else { panic!("version record") };
-    assert_eq!(fields[0].rules, [LocalRule::UnsignedRange { min: 8, max: 8 }]);
+    let Shape::Record(fields) = &graph.definitions()["DocumentVersion8"].shape else {
+        panic!("version record")
+    };
+    assert_eq!(
+        fields[0].rules,
+        [LocalRule::UnsignedRange { min: 8, max: 8 }]
+    );
     assert_eq!(Version::<8>.into_projection_fields(), (8,));
-    assert_eq!(Version::<8>::from_projection_fields((8,)).unwrap(), Version::<8>);
-    for unsupported in [0, 7, 9, u32::MAX] { assert!(Version::<8>::from_projection_fields((unsupported,)).is_err()); }
+    assert_eq!(
+        Version::<8>::from_projection_fields((8,)).unwrap(),
+        Version::<8>
+    );
+    for unsupported in [0, 7, 9, u32::MAX] {
+        assert!(Version::<8>::from_projection_fields((unsupported,)).is_err());
+    }
     let edge = std::time::Duration::new(u64::MAX, 999_999_999);
     assert_eq!(edge.into_projection_fields(), (u64::MAX, 999_999_999));
-    assert_eq!(std::time::Duration::from_projection_fields(edge.into_projection_fields()).unwrap(), edge);
+    assert_eq!(
+        std::time::Duration::from_projection_fields(edge.into_projection_fields()).unwrap(),
+        edge
+    );
     for nanos in [1_000_000_000, u32::MAX] {
-        assert!(std::time::Duration::from_projection_fields((u64::MAX, nanos)).is_err(), "malformed nanos refuse before normalization/overflow");
+        assert!(
+            std::time::Duration::from_projection_fields((u64::MAX, nanos)).is_err(),
+            "malformed nanos refuse before normalization/overflow"
+        );
     }
     let graph = ProjectionGraph::of::<std::time::Duration>().unwrap();
-    let Shape::Record(fields) = &graph.definitions()["NonnegativeDuration"].shape else { panic!("duration") };
-    assert_eq!(fields[1].rules, [LocalRule::UnsignedRange { min: 0, max: 999_999_999 }]);
+    let Shape::Record(fields) = &graph.definitions()["NonnegativeDuration"].shape else {
+        panic!("duration")
+    };
+    assert_eq!(
+        fields[1].rules,
+        [LocalRule::UnsignedRange {
+            min: 0,
+            max: 999_999_999
+        }]
+    );
     let hash = pse_ids::ContentHash::from_bytes([0x42; 32]);
     let revision = pse_ids::roles::SourceRevisionHash::from_projection_fields((hash,)).unwrap();
     let binding = pse_ids::roles::BindingHash::from_projection_fields((hash,)).unwrap();
@@ -28,14 +233,28 @@ fn standard_version_duration_and_hash_roles_preserve_exact_native_leaves() {
     assert_eq!(binding.into_projection_fields(), (hash,));
     let mut graph = ProjectionGraph::of::<pse_ids::roles::SourceRevisionHash>().unwrap();
     graph.register::<pse_ids::roles::BindingHash>().unwrap();
-    assert_eq!(graph.definitions().len(), 2, "equal bytes never erase different nominal roles");
+    assert_eq!(
+        graph.definitions().len(),
+        2,
+        "equal bytes never erase different nominal roles"
+    );
 }
 
 #[test]
 fn record_local_fields_use_explicit_projection_checks_and_original_default() {
-    fn no_detached_proof(value: &Option<std::sync::Arc<()>>, path: &str) -> Result<(), ValidationError> {
-        if value.is_none() { Ok(()) }
-        else { Err(ValidationError::Rule { path: path.into(), rule: "local_proof", reason: "local evidence requires its original owner reconciliation".into() }) }
+    fn no_detached_proof(
+        value: &Option<std::sync::Arc<()>>,
+        path: &str,
+    ) -> Result<(), ValidationError> {
+        if value.is_none() {
+            Ok(())
+        } else {
+            Err(ValidationError::Rule {
+                path: path.into(),
+                rule: "local_proof",
+                reason: "local evidence requires its original owner reconciliation".into(),
+            })
+        }
     }
     projection_struct! {
         #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -49,16 +268,24 @@ fn record_local_fields_use_explicit_projection_checks_and_original_default() {
         }
     }
     let graph = ProjectionGraph::of::<OwnedInput>().unwrap();
-    let Shape::Record(fields) = &graph.definitions()["OwnedInput"].shape else { panic!("actual record") };
+    let Shape::Record(fields) = &graph.definitions()["OwnedInput"].shape else {
+        panic!("actual record")
+    };
     assert_eq!(fields.len(), 1);
     assert_eq!(fields[0].ty, TypeRef::Scalar(Scalar::U16));
     let decoded: OwnedInput = serde_json::from_str(r#"{"value":65535}"#).unwrap();
-    let reconstructed = OwnedInput::from_projection_fields(decoded.into_projection_fields()).unwrap();
+    let reconstructed =
+        OwnedInput::from_projection_fields(decoded.into_projection_fields()).unwrap();
     assert_eq!(reconstructed.value, u16::MAX);
     assert!(reconstructed.proof.is_none());
     reconstructed.validate_projection().unwrap();
-    let with_proof = OwnedInput { value: 1, proof: Some(std::sync::Arc::new(())) };
-    assert!(matches!(with_proof.validate_projection(), Err(ValidationError::Rule { path, rule: "local_proof", .. }) if path == "proof"));
+    let with_proof = OwnedInput {
+        value: 1,
+        proof: Some(std::sync::Arc::new(())),
+    };
+    assert!(
+        matches!(with_proof.validate_projection(), Err(ValidationError::Rule { path, rule: "local_proof", .. }) if path == "proof")
+    );
 }
 
 #[test]
@@ -502,4 +729,43 @@ fn overlapping_rule_families_and_unrepresentable_collection_presence_refuse() {
                 .is_err()
         );
     }
+}
+
+#[test]
+fn signed_domains_preserve_extremes_and_optional_presence_without_float_conversion() {
+    let rule = [LocalRule::SignedRange {
+        min: i64::MIN,
+        max: -1,
+    }];
+    assert!(validate_field(&i64::MIN, "native.signed", &rule).is_ok());
+    assert!(validate_field(&-1_i64, "native.signed", &rule).is_ok());
+    assert!(validate_field(&0_i64, "native.signed", &rule).is_err());
+    assert!(validate_field(&None::<i64>, "native.optional", &rule).is_ok());
+    assert!(validate_field(&Some(i64::MIN), "native.optional", &rule).is_ok());
+    assert!(validate_field(&Some(0_i64), "native.optional", &rule).is_err());
+    let mut graph = ProjectionGraph::default();
+    assert!(
+        graph
+            .declare::<i16>(
+                "InvalidWidth",
+                file!(),
+                1,
+                Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(Shape::Record(vec![Field::of::<i16>(
+                        graph,
+                        "value",
+                        1,
+                        Direction::Both,
+                        vec![LocalRule::SignedRange {
+                            min: i64::from(i16::MIN) - 1,
+                            max: 0,
+                        }],
+                    )?]))
+                }
+            )
+            .is_err()
+    );
 }

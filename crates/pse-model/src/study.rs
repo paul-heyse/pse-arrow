@@ -5,6 +5,7 @@
 use crate::generated::enums::{CandidateUse, StudyPointState};
 use crate::generated::identities::SolutionId;
 
+crate::projection_newtype! {
 /// Position-independent identity within one study; equal bindings do not merge keys.
 #[derive(
     Clone,
@@ -20,7 +21,12 @@ use crate::generated::identities::SolutionId;
     schemars::JsonSchema,
 )]
 #[serde(transparent)]
-pub struct OccurrenceKey(pub u32);
+pub struct OccurrenceKey(pub u32) {
+    projection: { name: "StudyOccurrenceKey", version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
+    value: { tag: 1, rules: [] };
+}
+}
 
 /// Operation-owned output role selected explicitly for continuation.
 pub use crate::generated::enums::StudySeedRole as SeedRole;
@@ -117,83 +123,99 @@ pub struct OccurrenceGraph {
     /// Deterministic authored occurrence order.
     pub points: Vec<PointPolicy>,
 }
+crate::projection_enum! {
 /// Compatibility is supplied by the operation owner for this consumer and selected role.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum SeedAvailability {
+    projection: { name: "StudySeedAvailability", version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Adapter has not acquired and validated the consumer seed yet.
-    Unresolved,
+    Unresolved => 1;
     /// Compatible seed artifact, resolved by the executor after the decision.
     Compatible {
         /// Artifact identity.
-        seed: SolutionId,
-    },
+        seed: SolutionId => { tag: 1, direction: crate::boundary_projection::Direction::Both, rules: [] };
+    } => 2;
     /// No seed exists for the selected role.
-    Absent,
+    Absent => 3;
     /// A seed exists but its admitted contract does not match this consumer.
-    Incompatible,
+    Incompatible => 4;
     /// Acquisition/checking failed internally; fresh fallback is forbidden.
-    InternalFailure,
+    InternalFailure => 5;
 }
+}
+crate::projection_struct! {
 /// Selected role and its operation-owned seed facts.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct SeedFact {
+    projection: { name: "StudySeedFact", version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Explicit output role.
-    pub role: SeedRole,
+    pub role: SeedRole => { tag: 1, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Consumer-specific compatibility result.
-    pub availability: SeedAvailability,
+    pub availability: SeedAvailability => { tag: 2, direction: crate::boundary_projection::Direction::Both, rules: [] };
 }
+}
+crate::projection_struct! {
 /// E supplies aggregate decisions; the study never counts result tables to infer these.
 #[derive(
     Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct ScientificFacts {
+    projection: { name: "StudyScientificFacts", version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Aggregate usable-result permission from the owning operation.
-    pub usable: bool,
+    pub usable: bool => { tag: 1, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Original scientific classification, when an assessment exists.
-    pub candidate_use: Option<CandidateUse>,
+    pub candidate_use: Option<CandidateUse> => { tag: 2, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Independent seed permission from the owning operation.
-    pub seed_permission: bool,
+    pub seed_permission: bool => { tag: 3, direction: crate::boundary_projection::Direction::Both, rules: [] };
+}
 }
 /// Effect knowledge used for publication reconciliation and retry safety.
 pub use crate::generated::enums::StudyEffectState as EffectState;
 /// Purpose-specific retry knowledge, independently supplied by its operation owner.
 pub use crate::generated::enums::StudyRetryFailure as RetryFailure;
+crate::projection_struct! {
 /// Current operational and scientific facts for one occurrence.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct PointFacts {
+    projection: { name: "StudyPointFacts", version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Selected lazy science has supplied its exact seed consumption capability.
     /// Absence preserves pending admission; this never grants start permission.
     #[serde(default)]
-    pub admitted_seed_need: Option<SeedNeed>,
+    pub admitted_seed_need: Option<SeedNeed> => { tag: 1, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Occurrence identity.
-    pub key: OccurrenceKey,
+    pub key: OccurrenceKey => { tag: 2, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Revision an executor must revalidate under its locks before applying the action.
-    pub revision: u64,
+    pub revision: u64 => { tag: 3, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Operational state, never a scientific decision.
-    pub lifecycle: StudyPointState,
+    pub lifecycle: StudyPointState => { tag: 4, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// A claimed worker may acquire inputs before native dispatch is admitted.
-    pub native_started: bool,
+    pub native_started: bool => { tag: 5, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Operation-owned aggregate assessment.
-    pub scientific: ScientificFacts,
+    pub scientific: ScientificFacts => { tag: 6, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Attempts already started.
-    pub attempt_count: u32,
+    pub attempt_count: u32 => { tag: 7, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Explicit retry projection of the latest failure.
-    pub retry_failure: Option<RetryFailure>,
+    pub retry_failure: Option<RetryFailure> => { tag: 8, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Publication/effect knowledge.
-    pub effect: EffectState,
+    pub effect: EffectState => { tag: 9, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Selected explicit or continuation seed compatibility for this consumer.
     /// A continuation's artifact originates in the predecessor but is checked for this point.
-    pub seed: Option<SeedFact>,
+    pub seed: Option<SeedFact> => { tag: 10, direction: crate::boundary_projection::Direction::Both, rules: [] };
+}
 }
 /// Reasons allowed to produce an explicitly requested fresh fallback.
 pub use crate::generated::enums::StudySeedUnavailable as SeedUnavailable;

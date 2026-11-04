@@ -7,9 +7,19 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 mod access;
+mod float_domain;
+mod generic;
+mod nominal;
 mod quantity;
+mod remote;
 mod standard;
-pub use access::{AdapterError, AdapterFailure, ProjectionAlternative, ProjectionRecord};
+pub use access::{
+    Adapted, AdapterError, AdapterFailure, CheckedProjectionRecord, ProjectionAdapter,
+    ProjectionAlternative, ProjectionRecord, SharedAdapter, adapter_public_path,
+    adapter_source_path, clone_adapter_field, validate_adapted,
+};
+pub use float_domain::Float64Domain;
+pub use generic::generic_argument;
 
 /// The shared public direction, independently of native Serde representation.
 pub use pse_vocabulary::BoundaryDirection as Direction;
@@ -69,6 +79,15 @@ pub enum TypeRef {
 pub enum LocalRule {
     /// Require a present value/alternative on uncontrolled ingress.
     Required,
+    /// Exact locally declared binary64 domain, independent of its fixed64 wire bits.
+    Float64Domain(Float64Domain),
+    /// Inclusive signed integer domain, preserving exact native width.
+    SignedRange {
+        /// Inclusive lower bound.
+        min: i64,
+        /// Inclusive upper bound.
+        max: i64,
+    },
     /// Inclusive unsigned integer range, evaluated without floating point conversion.
     UnsignedRange {
         /// Inclusive lower bound.
@@ -99,6 +118,14 @@ impl schemars::transform::Transform for LocalRule {
     fn transform(&mut self, schema: &mut schemars::Schema) {
         match self {
             Self::UnsignedRange { min, max } => {
+                schema
+                    .ensure_object()
+                    .insert("minimum".into(), (*min).into());
+                schema
+                    .ensure_object()
+                    .insert("maximum".into(), (*max).into());
+            }
+            Self::SignedRange { min, max } => {
                 schema
                     .ensure_object()
                     .insert("minimum".into(), (*min).into());
@@ -215,6 +242,8 @@ pub struct Definition {
     pub reserved_names: Vec<String>,
     /// Actual field structure.
     pub shape: Shape,
+    /// Checked foreign extraction is required; ordinary actual-owner records remain infallible.
+    pub checked_record: bool,
 }
 
 /// One actual unary service boundary, resolved in the same descriptor world.
@@ -390,6 +419,14 @@ pub trait ValidateProjection {
     fn projection_unsigned(&self) -> Option<u64> {
         None
     }
+    /// Exact signed scalar, where applicable.
+    fn projection_signed(&self) -> Option<i64> {
+        None
+    }
+    /// Actual binary64 scalar, where a source-owned domain rule is declared.
+    fn projection_float64(&self) -> Option<f64> {
+        None
+    }
     /// Logical length (Unicode scalar values for text), where applicable.
     fn projection_length(&self) -> Option<usize> {
         None
@@ -413,6 +450,16 @@ pub fn validate_field<T: ValidateProjection + ?Sized>(
             continue;
         }
         let failure = match rule {
+            LocalRule::Float64Domain(domain)
+                if !value
+                    .projection_float64()
+                    .is_some_and(|value| domain.contains(value)) =>
+            {
+                Some((
+                    "float64.domain",
+                    format!("expected binary64 domain {domain:?}"),
+                ))
+            }
             LocalRule::Required if !value.projection_present() => {
                 Some(("required", "a present value is required".into()))
             }
@@ -423,6 +470,16 @@ pub fn validate_field<T: ValidateProjection + ?Sized>(
             {
                 Some((
                     "unsigned.range",
+                    format!("expected inclusive range {min}..={max}"),
+                ))
+            }
+            LocalRule::SignedRange { min, max }
+                if !value
+                    .projection_signed()
+                    .is_some_and(|value| value >= *min && value <= *max) =>
+            {
+                Some((
+                    "signed.range",
                     format!("expected inclusive range {min}..={max}"),
                 ))
             }
@@ -584,10 +641,41 @@ impl ProjectionGraph {
             reserved_tags: reserved_tags.to_vec(),
             reserved_names: reserved_names.iter().map(|s| (*s).into()).collect(),
             shape: result?,
+            checked_record: false,
         };
         validate_definition(&definition)?;
         self.definitions.insert(name.into(), definition);
         Ok(TypeRef::Named(name.into()))
+    }
+
+    /// Attach the checked foreign-record access contract to its actual typed carrier.
+    pub fn checked_record<T>(&mut self, root: &TypeRef) -> Result<(), ProjectionError> {
+        let TypeRef::Named(name) = root else {
+            return Err(ProjectionError::invalid(
+                "checked record",
+                "a named record is required",
+            ));
+        };
+        if self
+            .building
+            .get(name)
+            .is_some_and(|owner| *owner == std::any::type_name::<T>())
+        {
+            return Ok(());
+        }
+        let owner = self
+            .definitions
+            .get_mut(name)
+            .ok_or_else(|| ProjectionError::invalid(name, "checked record owner is unresolved"))?;
+        if owner.rust_type != std::any::type_name::<T>() || !matches!(owner.shape, Shape::Record(_))
+        {
+            return Err(ProjectionError::invalid(
+                name,
+                "checked access must identify its actual record carrier",
+            ));
+        }
+        owner.checked_record = true;
+        Ok(())
     }
 
     /// Record a checked owner macro's public Rust alias; this changes no field meaning.
@@ -648,12 +736,44 @@ impl ProjectionGraph {
 pub trait ProjectionType {
     /// Resolve the type and all recursively referenced owners.
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError>;
+    /// Stable argument identity for a generic declaration, preserving native container kinds.
+    fn projection_argument_name(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+        Ok(generic::argument_name(&Self::projection(graph)?))
+    }
+    /// Nameable native argument path, using an explicitly checked alias when supplied.
+    /// # Errors
+    /// An unresolved recursive owner cannot supply its public argument path yet.
+    fn projection_rust_path(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+        match Self::projection(graph)? {
+            TypeRef::Named(name) => {
+                let owner = graph.definitions().get(&name).ok_or_else(|| {
+                    ProjectionError::invalid(
+                        &name,
+                        "generic argument owner is still being resolved",
+                    )
+                })?;
+                Ok(owner
+                    .public_rust_path
+                    .clone()
+                    .unwrap_or_else(|| owner.rust_type.into()))
+            }
+            _ => Ok(core::any::type_name::<Self>().into()),
+        }
+    }
 }
 
 macro_rules! scalar_types { ($($ty:ty => $scalar:ident),* $(,)?) => { $(
     impl ProjectionType for $ty {
         fn projection(_: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
             Ok(TypeRef::Scalar(Scalar::$scalar))
+        }
+        fn projection_rust_path(_: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+            Ok(adapter_source_path::<$ty>(stringify!($ty)))
+        }
+        fn projection_argument_name(_: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+            let source = stringify!($ty).rsplit("::").next().unwrap_or_default().trim();
+            let mut letters = source.chars();
+            Ok(letters.next().map_or_else(String::new, |first| first.to_uppercase().collect::<String>() + letters.as_str()))
         }
     }
 )* }; }
@@ -665,7 +785,22 @@ macro_rules! inline_validation { ($($ty:ty),* $(,)?) => { $(impl ValidateProject
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
 })* }; }
-inline_validation!(bool, i16, i32, i64, f32, f64);
+inline_validation!(bool, f32);
+impl ValidateProjection for f64 {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
+        Ok(())
+    }
+    fn projection_float64(&self) -> Option<f64> {
+        Some(*self)
+    }
+}
+macro_rules! signed_validation { ($($ty:ty),* $(,)?) => { $(impl ValidateProjection for $ty {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
+    fn projection_signed(&self) -> Option<i64> { Some(i64::from(*self)) }
+})* }; }
+signed_validation!(i16, i32, i64);
 impl ValidateProjection for pse_ids::SemanticId {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
@@ -735,6 +870,22 @@ impl<T: ValidateProjection> ValidateProjection for Option<T> {
         self.as_ref()
             .and_then(ValidateProjection::projection_unsigned)
     }
+    fn projection_signed(&self) -> Option<i64> {
+        self.as_ref()
+            .and_then(ValidateProjection::projection_signed)
+    }
+    fn projection_float64(&self) -> Option<f64> {
+        self.as_ref()
+            .and_then(ValidateProjection::projection_float64)
+    }
+    fn projection_length(&self) -> Option<usize> {
+        self.as_ref()
+            .and_then(ValidateProjection::projection_length)
+    }
+    fn projection_utf8_bytes(&self) -> Option<usize> {
+        self.as_ref()
+            .and_then(ValidateProjection::projection_utf8_bytes)
+    }
 }
 impl<T: ValidateProjection> ValidateProjection for Vec<T> {
     const NEEDS_RECURSIVE_VALIDATION: bool = T::NEEDS_RECURSIVE_VALIDATION;
@@ -762,6 +913,12 @@ impl<T: ValidateProjection + ?Sized> ValidateProjection for Box<T> {
     fn projection_unsigned(&self) -> Option<u64> {
         self.as_ref().projection_unsigned()
     }
+    fn projection_signed(&self) -> Option<i64> {
+        self.as_ref().projection_signed()
+    }
+    fn projection_float64(&self) -> Option<f64> {
+        self.as_ref().projection_float64()
+    }
     fn projection_length(&self) -> Option<usize> {
         self.as_ref().projection_length()
     }
@@ -788,11 +945,20 @@ impl<K: ValidateProjection + Ord, V: ValidateProjection> ValidateProjection for 
 }
 
 impl<T: ProjectionType> ProjectionType for Option<T> {
+    fn projection_argument_name(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+        Ok(format!("Optional{}", T::projection_argument_name(graph)?))
+    }
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
         Ok(TypeRef::Optional(Box::new(T::projection(graph)?)))
     }
+    fn projection_rust_path(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+        Ok(format!("Option<{}>", T::projection_rust_path(graph)?))
+    }
 }
 impl<T: ProjectionType> ProjectionType for Vec<T> {
+    fn projection_argument_name(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+        Ok(format!("List{}", T::projection_argument_name(graph)?))
+    }
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
         let element = T::projection(graph)?;
         if element == TypeRef::Scalar(Scalar::U8) {
@@ -801,10 +967,25 @@ impl<T: ProjectionType> ProjectionType for Vec<T> {
             Ok(TypeRef::Repeated(Box::new(element)))
         }
     }
+    fn projection_rust_path(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+        Ok(format!(
+            "std::vec::Vec<{}>",
+            T::projection_rust_path(graph)?
+        ))
+    }
 }
 impl<T: ProjectionType> ProjectionType for Box<T> {
+    fn projection_argument_name(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+        Ok(format!("Boxed{}", T::projection_argument_name(graph)?))
+    }
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
         T::projection(graph)
+    }
+    fn projection_rust_path(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+        Ok(format!(
+            "std::boxed::Box<{}>",
+            T::projection_rust_path(graph)?
+        ))
     }
 }
 impl<T: ProjectionType> ProjectionType for std::sync::Arc<[T]> {
@@ -860,41 +1041,30 @@ physical_identity_projection!(
     pse_quantity::ReferenceStateId => "ReferenceStateId",
 );
 
-mod registry_vocabularies {
-    use super::*;
-    use crate::generated::enums::*;
-
-    macro_rules! project_registry_vocabularies { ($($ty:ident),* $(,)?) => { $(
-        impl ProjectionType for $ty {
-            fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
-                graph.declare::<Self>(stringify!($ty), "crates/pse-model/src/generated/enums.rs", 1,
-                    Direction::Both, &[], &[], |_| {
-                        Ok(Shape::StringEnum(Self::ALL.iter().map(|value| value.as_str().to_owned()).collect()))
-                    })
-            }
-        }
-        impl ValidateProjection for $ty {
-            const NEEDS_RECURSIVE_VALIDATION: bool = false;
-            fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
-        }
-    )* }; }
-    // Selection lists owners, never members: ALL/as_str remain the only vocabulary authority.
-    project_registry_vocabularies!(
-        NativeBackend,
-        NativeSolveIntent,
-        PreparationProductKind,
-        PreparationEligibility,
-        CanonicalProducerClass,
-        EvidenceUnavailableReason
-    );
-}
 impl<K: ProjectionType + Ord, V: ProjectionType> ProjectionType for BTreeMap<K, V> {
+    fn projection_argument_name(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+        Ok(format!(
+            "Map{}To{}",
+            K::projection_argument_name(graph)?,
+            V::projection_argument_name(graph)?
+        ))
+    }
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
         let key = K::projection(graph)?;
         Ok(TypeRef::Map(Box::new(key), Box::new(V::projection(graph)?)))
     }
+    fn projection_rust_path(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+        Ok(format!(
+            "std::collections::BTreeMap<{},{}>",
+            K::projection_rust_path(graph)?,
+            V::projection_rust_path(graph)?
+        ))
+    }
 }
 impl<T: ProjectionType + Ord> ProjectionType for BTreeSet<T> {
+    fn projection_argument_name(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+        Ok(format!("Set{}", T::projection_argument_name(graph)?))
+    }
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
         let element = T::projection(graph)?;
         if !matches!(element, TypeRef::Scalar(_)) {
@@ -904,6 +1074,12 @@ impl<T: ProjectionType + Ord> ProjectionType for BTreeSet<T> {
             ));
         }
         Ok(TypeRef::Set(Box::new(element)))
+    }
+    fn projection_rust_path(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+        Ok(format!(
+            "std::collections::BTreeSet<{}>",
+            T::projection_rust_path(graph)?
+        ))
     }
 }
 impl<T: ValidateProjection + Ord> ValidateProjection for BTreeSet<T> {
@@ -1036,7 +1212,9 @@ fn validate_fields(owner: &str, fields: &[Field]) -> Result<(), ProjectionError>
         for rule in &field.rules {
             let family = match rule {
                 LocalRule::Required => 0,
-                LocalRule::UnsignedRange { .. } => 1,
+                LocalRule::UnsignedRange { .. }
+                | LocalRule::SignedRange { .. }
+                | LocalRule::Float64Domain(_) => 1,
                 LocalRule::Length { .. } | LocalRule::Utf8Bytes { .. } => 2,
             };
             if !families.insert(family) {
@@ -1046,6 +1224,13 @@ fn validate_fields(owner: &str, fields: &[Field]) -> Result<(), ProjectionError>
                 ));
             }
             let valid = match rule {
+                LocalRule::Float64Domain(_) => {
+                    let scalar = match &field.ty {
+                        TypeRef::Optional(inner) => inner.as_ref(),
+                        scalar => scalar,
+                    };
+                    matches!(scalar, TypeRef::Scalar(Scalar::F64Bits))
+                }
                 LocalRule::Utf8Bytes { min, max } => {
                     min <= max && matches!(field.ty, TypeRef::Scalar(Scalar::String))
                 }
@@ -1058,7 +1243,31 @@ fn validate_fields(owner: &str, fields: &[Field]) -> Result<(), ProjectionError>
                         TypeRef::Optional(inner) => inner.as_ref(),
                         scalar => scalar,
                     };
-                    min <= max && matches!(scalar, TypeRef::Scalar(Scalar::U32 | Scalar::U64))
+                    min <= max
+                        && match scalar {
+                            TypeRef::Scalar(Scalar::U8) => *max <= u64::from(u8::MAX),
+                            TypeRef::Scalar(Scalar::U16) => *max <= u64::from(u16::MAX),
+                            TypeRef::Scalar(Scalar::U32) => *max <= u64::from(u32::MAX),
+                            TypeRef::Scalar(Scalar::U64) => true,
+                            _ => false,
+                        }
+                }
+                LocalRule::SignedRange { min, max } => {
+                    let scalar = match &field.ty {
+                        TypeRef::Optional(inner) => inner.as_ref(),
+                        scalar => scalar,
+                    };
+                    min <= max
+                        && match scalar {
+                            TypeRef::Scalar(Scalar::I16) => {
+                                *min >= i64::from(i16::MIN) && *max <= i64::from(i16::MAX)
+                            }
+                            TypeRef::Scalar(Scalar::I32) => {
+                                *min >= i64::from(i32::MIN) && *max <= i64::from(i32::MAX)
+                            }
+                            TypeRef::Scalar(Scalar::I64) => true,
+                            _ => false,
+                        }
                 }
                 LocalRule::Length { min, max } => {
                     min <= max
@@ -1090,11 +1299,14 @@ fn validate_fields(owner: &str, fields: &[Field]) -> Result<(), ProjectionError>
 /// Declare an actual record and its stable boundary metadata in one source declaration.
 #[macro_export]
 macro_rules! projection_struct {
+    ($(#[$meta:meta])* $vis:vis struct $name:ident <$parameter:ident $(= $default:ty)?> { $($body:tt)* }) => {
+        $crate::projection_generic_struct! { $(#[$meta])* $vis struct $name<$parameter $(= $default)?> { $($body)* } }
+    };
     ($(#[$meta:meta])* $vis:vis struct $name:ident {
         projection: { name: $wire:expr, $(rust_path: $public:path,)? version: $version:expr, direction: $direction:expr,
             reserved_tags: [$($reserved:expr),* $(,)?], reserved_names: [$($reserved_name:expr),* $(,)?] };
         $($(#[$field_meta:meta])* $field_vis:vis $field:ident : $ty:ty => {
-            tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] $(, representation: $representation:expr)? };)*
+            tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] $(, representation: $representation:expr)? $(, adapter: $adapter:ty)? };)*
         $(@local {
             $($(#[$local_meta:meta])* $local_vis:vis $local:ident: $local_ty:ty = $local_default:expr => check: $local_check:expr;)*
         })?
@@ -1110,7 +1322,7 @@ macro_rules! projection_struct {
                 let root = graph.declare::<Self>($wire, file!(), $version, $direction, &[$($reserved),*], &[$($reserved_name),*], |graph| {
                     let _ = &graph;
                     Ok($crate::boundary_projection::Shape::Record(vec![$(
-                        $crate::boundary_projection::Field::of::<$ty>(graph, stringify!($field), $tag, $field_direction, vec![$($rule),*])? $(.representation($representation)?)?,
+                        $crate::boundary_projection::Field::of::<$crate::projection_struct!(@ty $ty $(, $adapter)?)>(graph, stringify!($field), $tag, $field_direction, vec![$($rule),*])? $(.representation($representation)?)?,
                     )*]))
                 })?;
                 $( graph.public_path::<Self>(&root, stringify!($public))?; )?
@@ -1120,8 +1332,8 @@ macro_rules! projection_struct {
         impl $crate::boundary_projection::ValidateProjection for $name {
             fn validate_at(&self, path: &str) -> ::core::result::Result<(), $crate::boundary_projection::ValidationError> {
                 let _ = path;
-                $( $crate::boundary_projection::validate_field(&self.$field,
-                    &$crate::boundary_projection::field_path(path, stringify!($field)), &[$($rule),*])?; )*
+                $( $crate::projection_struct!(@validate &self.$field,
+                    &$crate::boundary_projection::field_path(path, stringify!($field)), &[$($rule),*] $(, $adapter)?)?; )*
                 $($( ($local_check)(&self.$local,
                     &$crate::boundary_projection::field_path(path, stringify!($local)))?; )*)?
                 Ok(())
@@ -1130,14 +1342,24 @@ macro_rules! projection_struct {
         impl $crate::boundary_projection::ProjectionRecord for $name {
             const VERSION: u32 = $version;
             const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[$(($tag, stringify!($field))),*];
-            type Fields = ($($ty,)*);
-            fn into_projection_fields(self) -> Self::Fields { ($(self.$field,)*) }
+            type Fields = ($($crate::projection_struct!(@ty $ty $(, $adapter)?),)*);
+            fn into_projection_fields(self) -> Self::Fields { ($($crate::projection_struct!(@into self.$field $(, $adapter)?),)*) }
             fn from_projection_fields(fields: Self::Fields) -> ::core::result::Result<Self, $crate::boundary_projection::AdapterError> {
                 let ($($field,)*) = fields;
-                Ok(Self { $($field,)* $($($local: $local_default,)*)? })
+                Ok(Self { $($field: $crate::projection_struct!(@from $field $(, $adapter)?),)* $($($local: $local_default,)*)? })
             }
         }
     };
+    (@ty $ty:ty, $adapter:ty) => { $crate::boundary_projection::Adapted<$ty, $adapter> };
+    (@ty $ty:ty) => { $ty };
+    (@into $value:expr, $adapter:ty) => { $crate::boundary_projection::Adapted::<_, $adapter>::new($value) };
+    (@into $value:expr) => { $value };
+    (@from $value:expr, $adapter:ty) => { $value.into_inner() };
+    (@from $value:expr) => { $value };
+    (@validate $value:expr, $path:expr, $rules:expr, $adapter:ty) => {{
+        $crate::boundary_projection::validate_adapted::<_, $adapter>($value, $path, $rules)
+    }};
+    (@validate $value:expr, $path:expr, $rules:expr) => { $crate::boundary_projection::validate_field($value, $path, $rules) };
 }
 
 /// Declare an actual enum and its explicitly tagged payload alternatives together.

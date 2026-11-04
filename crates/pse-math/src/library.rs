@@ -134,6 +134,7 @@ pub(crate) fn register_symbols() -> Result<crate::SymbolicContext, String> {
         environment: crate::linked_environment()?,
     })
 }
+pse_model::projection_enum! {
 /// Explicit evaluator implementation. Scalar C++ compilation is opt-in for eligible
 /// demanded arithmetic products; provider calls and ordered guards remain host-owned.
 #[derive(
@@ -150,17 +151,20 @@ pub(crate) fn register_symbols() -> Result<crate::SymbolicContext, String> {
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Evaluator {
+    projection: { name: "MathEvaluator", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Portable library instruction interpretation.
     #[default]
-    Interpreted,
+    Interpreted => 1;
     /// Fixed conservative Linux x86-64 C++ profile. The finite allowance covers
     /// each module's export temporaries, named compiler outputs, loaded code,
     /// template metadata and bounded diagnostic reader; worker numeric scratch
     /// remains independently charged from the exported stack.
     CompiledScalar {
         /// Prepaid complete native preparation/module capacity for each arithmetic block.
-        module_bytes: usize,
-    },
+        module_bytes: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    } => 2;
+}
 }
 impl Evaluator {
     /// Stable compilation choices, included in artifact identities. This is a
@@ -181,24 +185,34 @@ impl Evaluator {
         }
     }
 }
+const MAX_OPTIMIZER_CORES: usize = 64;
+const MAX_HORNER_ITERATIONS: usize = 1000;
+const MAX_CPE_ITERATIONS: usize = 32;
+pse_model::projection_struct! {
 /// Explicit optimizer controls; no target-dependent or unbounded defaults.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Optimization {
+    projection: { name: "MathOptimization", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Positive bounded optimizer concurrency.
-    pub cores: usize,
+    pub cores: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Both,
+        rules: [pse_model::boundary_projection::LocalRule::UnsignedRange { min: 1, max: MAX_OPTIMIZER_CORES as u64 }] };
     /// Horner search budget.
-    pub horner_iterations: usize,
+    pub horner_iterations: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Both,
+        rules: [pse_model::boundary_projection::LocalRule::UnsignedRange { min: 0, max: MAX_HORNER_ITERATIONS as u64 }] };
     /// Common-pair elimination rounds.
-    pub cpe_iterations: usize,
+    pub cpe_iterations: usize => { tag: 3, direction: pse_model::boundary_projection::Direction::Both,
+        rules: [pse_model::boundary_projection::LocalRule::UnsignedRange { min: 0, max: MAX_CPE_ITERATIONS as u64 }] };
     /// Explicit implementation for scalar Value arithmetic blocks.
-    pub evaluator: Evaluator,
+    pub evaluator: Evaluator => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl Optimization {
     pub(crate) fn validate(self) -> Result<(), MathError> {
         if self.cores == 0
-            || self.cores > 64
-            || self.horner_iterations > 1000
-            || self.cpe_iterations > 32
+            || self.cores > MAX_OPTIMIZER_CORES
+            || self.horner_iterations > MAX_HORNER_ITERATIONS
+            || self.cpe_iterations > MAX_CPE_ITERATIONS
         {
             return Err(MathError::Contract("optimizer budget".into()));
         }

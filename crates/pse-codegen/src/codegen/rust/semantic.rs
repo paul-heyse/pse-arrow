@@ -59,6 +59,14 @@ fn serialization_consumers(reg: &crate::Registry) -> BTreeSet<String> {
 
 /// Rewrite Rust paths, never text in strings, attributes or unrelated identifiers.
 struct ModelPaths;
+/// Translate a type before embedding it in an opaque macro token body.
+pub(super) fn model_type(ty: &TokenStream) -> Result<TokenStream, SchemaError> {
+    use syn::visit_mut::VisitMut as _;
+    let mut ty: syn::Type =
+        syn::parse2(ty.clone()).map_err(|error| super::error(error.to_string()))?;
+    ModelPaths.visit_type_mut(&mut ty);
+    Ok(quote!(#ty))
+}
 impl syn::visit_mut::VisitMut for ModelPaths {
     fn visit_path_mut(&mut self, path: &mut syn::Path) {
         if path.leading_colon.is_none()

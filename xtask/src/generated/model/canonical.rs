@@ -83,6 +83,65 @@ impl pse_model::SemanticFrame for ProblemKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for ProblemKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalProblemKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ProblemKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ProblemKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -161,6 +220,65 @@ impl pse_model::HeapUsage for RevisionKey {
 impl pse_model::SemanticFrame for RevisionKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for RevisionKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalRevisionKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for RevisionKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for RevisionKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -247,6 +365,65 @@ impl pse_model::SemanticFrame for RunKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for RunKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalRunKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for RunKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for RunKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -325,6 +502,65 @@ impl pse_model::HeapUsage for AttemptKey {
 impl pse_model::SemanticFrame for AttemptKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for AttemptKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalAttemptKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for AttemptKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for AttemptKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -407,6 +643,65 @@ impl pse_model::SemanticFrame for StudyKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for StudyKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalStudyKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for StudyKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for StudyKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -485,6 +780,65 @@ impl pse_model::HeapUsage for StudyPointKey {
 impl pse_model::SemanticFrame for StudyPointKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for StudyPointKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalStudyPointKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for StudyPointKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for StudyPointKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -571,6 +925,65 @@ impl pse_model::SemanticFrame for OperationKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for OperationKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalOperationKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for OperationKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for OperationKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -649,6 +1062,65 @@ impl pse_model::HeapUsage for ArtifactKey {
 impl pse_model::SemanticFrame for ArtifactKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for ArtifactKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalArtifactKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ArtifactKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ArtifactKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -731,6 +1203,65 @@ impl pse_model::SemanticFrame for FileInstanceKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for FileInstanceKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalFileInstanceKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for FileInstanceKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for FileInstanceKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -809,6 +1340,65 @@ impl pse_model::HeapUsage for ProjectKey {
 impl pse_model::SemanticFrame for ProjectKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for ProjectKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalProjectKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ProjectKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ProjectKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -891,6 +1481,65 @@ impl pse_model::SemanticFrame for ProjectBranchKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for ProjectBranchKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalProjectBranchKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ProjectBranchKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ProjectBranchKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -969,6 +1618,65 @@ impl pse_model::HeapUsage for ProjectDraftKey {
 impl pse_model::SemanticFrame for ProjectDraftKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for ProjectDraftKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalProjectDraftKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ProjectDraftKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ProjectDraftKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -1051,6 +1759,65 @@ impl pse_model::SemanticFrame for DraftVersionKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for DraftVersionKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalDraftVersionKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for DraftVersionKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for DraftVersionKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -1129,6 +1896,65 @@ impl pse_model::HeapUsage for ProjectSavepointKey {
 impl pse_model::SemanticFrame for ProjectSavepointKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for ProjectSavepointKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalProjectSavepointKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ProjectSavepointKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ProjectSavepointKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -1211,6 +2037,65 @@ impl pse_model::SemanticFrame for ProjectBookmarkKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for ProjectBookmarkKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalProjectBookmarkKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ProjectBookmarkKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ProjectBookmarkKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -1289,6 +2174,65 @@ impl pse_model::HeapUsage for ProjectAncestryKey {
 impl pse_model::SemanticFrame for ProjectAncestryKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for ProjectAncestryKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalProjectAncestryKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ProjectAncestryKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ProjectAncestryKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -1371,6 +2315,65 @@ impl pse_model::SemanticFrame for DraftDiagnosticKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for DraftDiagnosticKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalDraftDiagnosticKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for DraftDiagnosticKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for DraftDiagnosticKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -1449,6 +2452,65 @@ impl pse_model::HeapUsage for ProjectContextKey {
 impl pse_model::SemanticFrame for ProjectContextKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for ProjectContextKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalProjectContextKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ProjectContextKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ProjectContextKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -1531,6 +2593,65 @@ impl pse_model::SemanticFrame for ContextAncestryKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for ContextAncestryKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalContextAncestryKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ContextAncestryKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ContextAncestryKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -1609,6 +2730,65 @@ impl pse_model::HeapUsage for ResearchReferenceKey {
 impl pse_model::SemanticFrame for ResearchReferenceKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for ResearchReferenceKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalResearchReferenceKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ResearchReferenceKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ResearchReferenceKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -1691,6 +2871,65 @@ impl pse_model::SemanticFrame for ResearchDatasetKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for ResearchDatasetKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalResearchDatasetKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ResearchDatasetKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ResearchDatasetKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -1769,6 +3008,65 @@ impl pse_model::HeapUsage for ResearchSelectionKey {
 impl pse_model::SemanticFrame for ResearchSelectionKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for ResearchSelectionKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalResearchSelectionKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ResearchSelectionKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ResearchSelectionKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -1851,6 +3149,65 @@ impl pse_model::SemanticFrame for ResearchPublicationKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for ResearchPublicationKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalResearchPublicationKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ResearchPublicationKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ResearchPublicationKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -1929,6 +3286,65 @@ impl pse_model::HeapUsage for ProjectImportKey {
 impl pse_model::SemanticFrame for ProjectImportKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for ProjectImportKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalProjectImportKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ProjectImportKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ProjectImportKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -2011,6 +3427,65 @@ impl pse_model::SemanticFrame for ProductKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for ProductKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalProductKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ProductKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ProductKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -2089,6 +3564,65 @@ impl pse_model::HeapUsage for BodyContentKey {
 impl pse_model::SemanticFrame for BodyContentKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for BodyContentKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalBodyContentKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for BodyContentKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for BodyContentKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -2171,6 +3705,65 @@ impl pse_model::SemanticFrame for SelectionReceiptKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for SelectionReceiptKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalSelectionReceiptKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for SelectionReceiptKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for SelectionReceiptKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -2249,6 +3842,65 @@ impl pse_model::HeapUsage for ProductAssociationKey {
 impl pse_model::SemanticFrame for ProductAssociationKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for ProductAssociationKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalProductAssociationKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ProductAssociationKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ProductAssociationKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -2331,6 +3983,65 @@ impl pse_model::SemanticFrame for ProductDescriptorKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for ProductDescriptorKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalProductDescriptorKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ProductDescriptorKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ProductDescriptorKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -2409,6 +4120,65 @@ impl pse_model::HeapUsage for AnalysisKey {
 impl pse_model::SemanticFrame for AnalysisKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for AnalysisKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalAnalysisKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for AnalysisKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for AnalysisKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -2491,6 +4261,65 @@ impl pse_model::SemanticFrame for AnalysisNodeKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for AnalysisNodeKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalAnalysisNodeKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for AnalysisNodeKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for AnalysisNodeKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -2569,6 +4398,65 @@ impl pse_model::HeapUsage for MaintenanceOperationKey {
 impl pse_model::SemanticFrame for MaintenanceOperationKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for MaintenanceOperationKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalMaintenanceOperationKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for MaintenanceOperationKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for MaintenanceOperationKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -2651,6 +4539,65 @@ impl pse_model::SemanticFrame for MaintenanceActivationKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for MaintenanceActivationKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalMaintenanceActivationKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for MaintenanceActivationKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for MaintenanceActivationKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -2729,6 +4676,65 @@ impl pse_model::HeapUsage for InlinePayloadKey {
 impl pse_model::SemanticFrame for InlinePayloadKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for InlinePayloadKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalInlinePayloadKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for InlinePayloadKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for InlinePayloadKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// An opaque canonical lookup key; never a scientific semantic identity.
@@ -2811,6 +4817,65 @@ impl pse_model::SemanticFrame for FileOwnerKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for FileOwnerKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalFileOwnerKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for FileOwnerKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for FileOwnerKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -2891,6 +4956,65 @@ impl pse_model::SemanticFrame for FileBorrowerKey {
         hash.str(&self.0);
     }
 }
+impl pse_model::boundary_projection::ProjectionType for FileBorrowerKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalFileBorrowerKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for FileBorrowerKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for FileBorrowerKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 /// An opaque canonical lookup key; never a scientific semantic identity.
 #[derive(
     Clone,
@@ -2969,6 +5093,65 @@ impl pse_model::HeapUsage for ManifestTicketKey {
 impl pse_model::SemanticFrame for ManifestTicketKey {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(&self.0);
+    }
+}
+impl pse_model::boundary_projection::ProjectionType for ManifestTicketKey {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalManifestTicketKey",
+                "crates/pse-schema/src/model/canonical.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "value",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ProjectionRecord for ManifestTicketKey {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+        Ok(Self(value))
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for ManifestTicketKey {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
     }
 }
 /// Required original application owners, including empty tables.

@@ -222,6 +222,19 @@ benefits remain open. The independent reference environment now includes pinned 
 for direct consumption of the generated descriptor world; structural controls do not
 establish matched ordinary-process reference qualification.
 
+The next foundation increment adds checked foreign records by extending their existing
+Serde remote declarations in place, shared ownership without requiring foreign records
+to implement Clone, native generic record access, nominal occurrence/hash/canonical-key
+roles, exact document versions and Duration reconstruction. The original compiler/math
+profile and Diffsol options now supply their own metadata. Native scalar constructors
+and declared integer domains share exact bit/range predicates with the generated rules;
+compiled model and descriptor controls exercise those boundaries. Declared registry
+vocabularies now generate their projection traits directly, replacing the consumer
+selection list. The actual canonical project-context row supplies explicit field tags.
+Full solve/simulation/fit/horizon, authored nested-row and Study graph integration remains
+underway. Executing the maintained validators over those newly consumed domains, complete
+service journeys and independent ordinary-process comparisons remain acceptance work.
+
 ## Verification and handoff
 
 **Proposed:** I01 targeted tests independently specify exact bits (including signed zero),

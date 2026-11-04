@@ -50,6 +50,45 @@ pub enum AccuracyCriterionStatus {
     #[strum(serialize = "unresolved")]
     Unresolved,
 }
+impl crate::boundary_projection::ProjectionType for AccuracyCriterionStatus {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AccuracyCriterionStatus",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AccuracyCriterionStatus {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for AccuracyCriterionStatus {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -172,6 +211,45 @@ pub enum AccuracyEvidenceInterpretation {
     #[serde(rename = "objective_interval")]
     #[strum(serialize = "objective_interval")]
     ObjectiveInterval,
+}
+impl crate::boundary_projection::ProjectionType for AccuracyEvidenceInterpretation {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AccuracyEvidenceInterpretation",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AccuracyEvidenceInterpretation {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for AccuracyEvidenceInterpretation {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -301,6 +379,45 @@ pub enum AccuracyEvidenceMethod {
     #[strum(serialize = "composed_output")]
     ComposedOutput,
 }
+impl crate::boundary_projection::ProjectionType for AccuracyEvidenceMethod {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AccuracyEvidenceMethod",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AccuracyEvidenceMethod {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for AccuracyEvidenceMethod {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -421,6 +538,45 @@ pub enum AccuracyGoalStatus {
     #[strum(serialize = "unresolved")]
     Unresolved,
 }
+impl crate::boundary_projection::ProjectionType for AccuracyGoalStatus {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AccuracyGoalStatus",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AccuracyGoalStatus {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for AccuracyGoalStatus {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -528,6 +684,45 @@ pub enum AccuracyGoalSubject {
     #[strum(serialize = "optimal_objective")]
     OptimalObjective,
 }
+impl crate::boundary_projection::ProjectionType for AccuracyGoalSubject {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AccuracyGoalSubject",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AccuracyGoalSubject {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for AccuracyGoalSubject {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -629,6 +824,45 @@ pub enum AccuracyGoalUse {
     #[serde(rename = "require_satisfied")]
     #[strum(serialize = "require_satisfied")]
     RequireSatisfied,
+}
+impl crate::boundary_projection::ProjectionType for AccuracyGoalUse {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AccuracyGoalUse",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AccuracyGoalUse {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for AccuracyGoalUse {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -737,6 +971,45 @@ pub enum AccuracyObservation {
     #[serde(rename = "integrated")]
     #[strum(serialize = "integrated")]
     Integrated,
+}
+impl crate::boundary_projection::ProjectionType for AccuracyObservation {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AccuracyObservation",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AccuracyObservation {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for AccuracyObservation {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -852,6 +1125,45 @@ pub enum AccuracyResolutionStatus {
     #[serde(rename = "unavailable")]
     #[strum(serialize = "unavailable")]
     Unavailable,
+}
+impl crate::boundary_projection::ProjectionType for AccuracyResolutionStatus {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AccuracyResolutionStatus",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AccuracyResolutionStatus {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for AccuracyResolutionStatus {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -1032,6 +1344,45 @@ pub enum AccuracyUnavailableReason {
     #[strum(serialize = "failed")]
     Failed,
 }
+impl crate::boundary_projection::ProjectionType for AccuracyUnavailableReason {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AccuracyUnavailableReason",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AccuracyUnavailableReason {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for AccuracyUnavailableReason {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -1179,6 +1530,45 @@ pub enum ArtifactOwnerKind {
     #[strum(serialize = "audit")]
     Audit,
 }
+impl crate::boundary_projection::ProjectionType for ArtifactOwnerKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ArtifactOwnerKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ArtifactOwnerKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ArtifactOwnerKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -1284,6 +1674,45 @@ pub enum AssertionStatus {
     #[serde(rename = "obsolete")]
     #[strum(serialize = "obsolete")]
     Obsolete,
+}
+impl crate::boundary_projection::ProjectionType for AssertionStatus {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AssertionStatus",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AssertionStatus {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for AssertionStatus {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -1414,6 +1843,45 @@ pub enum AttemptState {
     #[serde(rename = "superseded")]
     #[strum(serialize = "superseded")]
     Superseded,
+}
+impl crate::boundary_projection::ProjectionType for AttemptState {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AttemptState",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AttemptState {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for AttemptState {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -1589,6 +2057,45 @@ pub enum BoundActivity {
     #[strum(serialize = "fixed")]
     Fixed,
 }
+impl crate::boundary_projection::ProjectionType for BoundActivity {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "BoundActivity",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for BoundActivity {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for BoundActivity {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -1692,6 +2199,45 @@ pub enum BoundKind {
     #[serde(rename = "unbounded")]
     #[strum(serialize = "unbounded")]
     Unbounded,
+}
+impl crate::boundary_projection::ProjectionType for BoundKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "BoundKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for BoundKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for BoundKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -1798,6 +2344,45 @@ pub enum BoundStatus {
     #[serde(rename = "violated")]
     #[strum(serialize = "violated")]
     Violated,
+}
+impl crate::boundary_projection::ProjectionType for BoundStatus {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "BoundStatus",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for BoundStatus {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for BoundStatus {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -1911,6 +2496,45 @@ pub enum CandidateBoundOrigin {
     #[serde(rename = "conic_program")]
     #[strum(serialize = "conic_program")]
     ConicProgram,
+}
+impl crate::boundary_projection::ProjectionType for CandidateBoundOrigin {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CandidateBoundOrigin",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CandidateBoundOrigin {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for CandidateBoundOrigin {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -2042,6 +2666,45 @@ pub enum CandidateQualifier {
     #[serde(rename = "engineering_canonical_fallback")]
     #[strum(serialize = "engineering_canonical_fallback")]
     EngineeringCanonicalFallback,
+}
+impl crate::boundary_projection::ProjectionType for CandidateQualifier {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CandidateQualifier",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CandidateQualifier {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for CandidateQualifier {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -2233,6 +2896,45 @@ pub enum CandidateRefusal {
     #[strum(serialize = "accuracy_violated")]
     AccuracyViolated,
 }
+impl crate::boundary_projection::ProjectionType for CandidateRefusal {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CandidateRefusal",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CandidateRefusal {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for CandidateRefusal {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -2387,6 +3089,45 @@ pub enum CandidateUse {
     #[strum(serialize = "unusable")]
     Unusable,
 }
+impl crate::boundary_projection::ProjectionType for CandidateUse {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CandidateUse",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CandidateUse {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for CandidateUse {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -2505,6 +3246,45 @@ pub enum CanonicalArtifactHolderKind {
     #[serde(rename = "audit")]
     #[strum(serialize = "audit")]
     Audit,
+}
+impl crate::boundary_projection::ProjectionType for CanonicalArtifactHolderKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalArtifactHolderKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CanonicalArtifactHolderKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for CanonicalArtifactHolderKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -2677,6 +3457,45 @@ pub enum CanonicalAttemptPhase {
     #[strum(serialize = "terminal_compacted")]
     TerminalCompacted,
 }
+impl crate::boundary_projection::ProjectionType for CanonicalAttemptPhase {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalAttemptPhase",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CanonicalAttemptPhase {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for CanonicalAttemptPhase {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -2785,6 +3604,45 @@ pub enum CanonicalFileOwnerKind {
     #[serde(rename = "artifact")]
     #[strum(serialize = "artifact")]
     Artifact,
+}
+impl crate::boundary_projection::ProjectionType for CanonicalFileOwnerKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalFileOwnerKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CanonicalFileOwnerKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for CanonicalFileOwnerKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -2901,6 +3759,45 @@ pub enum CanonicalFileState {
     #[serde(rename = "collected")]
     #[strum(serialize = "collected")]
     Collected,
+}
+impl crate::boundary_projection::ProjectionType for CanonicalFileState {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalFileState",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CanonicalFileState {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for CanonicalFileState {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -3033,6 +3930,45 @@ pub enum CanonicalHistoryOwnerKind {
     #[strum(serialize = "audit")]
     Audit,
 }
+impl crate::boundary_projection::ProjectionType for CanonicalHistoryOwnerKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalHistoryOwnerKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CanonicalHistoryOwnerKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for CanonicalHistoryOwnerKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -3150,6 +4086,45 @@ pub enum CanonicalPayloadEncoding {
     #[strum(serialize = "opaque-bytes")]
     OpaqueBytes,
 }
+impl crate::boundary_projection::ProjectionType for CanonicalPayloadEncoding {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalPayloadEncoding",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CanonicalPayloadEncoding {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for CanonicalPayloadEncoding {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -3254,6 +4229,45 @@ pub enum CanonicalPayloadPlacement {
     #[serde(rename = "sealed")]
     #[strum(serialize = "sealed")]
     Sealed,
+}
+impl crate::boundary_projection::ProjectionType for CanonicalPayloadPlacement {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalPayloadPlacement",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CanonicalPayloadPlacement {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for CanonicalPayloadPlacement {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -3369,6 +4383,45 @@ pub enum CanonicalProducerClass {
     #[strum(serialize = "local_scientific_replay")]
     LocalScientificReplay,
 }
+impl crate::boundary_projection::ProjectionType for CanonicalProducerClass {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalProducerClass",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CanonicalProducerClass {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for CanonicalProducerClass {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -3478,6 +4531,45 @@ pub enum CanonicalProjectPublicationKind {
     #[strum(serialize = "publish")]
     Publish,
 }
+impl crate::boundary_projection::ProjectionType for CanonicalProjectPublicationKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalProjectPublicationKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CanonicalProjectPublicationKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for CanonicalProjectPublicationKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -3581,6 +4673,45 @@ pub enum CanonicalRunPurpose {
     #[serde(rename = "study_admission")]
     #[strum(serialize = "study_admission")]
     StudyAdmission,
+}
+impl crate::boundary_projection::ProjectionType for CanonicalRunPurpose {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalRunPurpose",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CanonicalRunPurpose {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for CanonicalRunPurpose {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -3698,6 +4829,45 @@ pub enum CanonicalStudyCaptureState {
     #[strum(serialize = "released")]
     Released,
 }
+impl crate::boundary_projection::ProjectionType for CanonicalStudyCaptureState {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalStudyCaptureState",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CanonicalStudyCaptureState {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for CanonicalStudyCaptureState {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -3808,6 +4978,46 @@ pub enum CanonicalStudyInstallationPageState {
     #[serde(rename = "committed")]
     #[strum(serialize = "committed")]
     Committed,
+}
+impl crate::boundary_projection::ProjectionType for CanonicalStudyInstallationPageState {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalStudyInstallationPageState",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection
+for CanonicalStudyInstallationPageState {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for CanonicalStudyInstallationPageState {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -3924,6 +5134,45 @@ pub enum CanonicalStudyInstallationPhase {
     #[serde(rename = "active")]
     #[strum(serialize = "active")]
     Active,
+}
+impl crate::boundary_projection::ProjectionType for CanonicalStudyInstallationPhase {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalStudyInstallationPhase",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CanonicalStudyInstallationPhase {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for CanonicalStudyInstallationPhase {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -4064,6 +5313,45 @@ pub enum CanonicalTerminalOutcome {
     #[serde(rename = "cancelled")]
     #[strum(serialize = "cancelled")]
     Cancelled,
+}
+impl crate::boundary_projection::ProjectionType for CanonicalTerminalOutcome {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalTerminalOutcome",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CanonicalTerminalOutcome {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for CanonicalTerminalOutcome {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -4223,6 +5511,45 @@ pub enum ClarabelDirect {
     #[strum(serialize = "mkl_pardiso")]
     MklPardiso,
 }
+impl crate::boundary_projection::ProjectionType for ClarabelDirect {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ClarabelDirect",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ClarabelDirect {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ClarabelDirect {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -4324,6 +5651,45 @@ pub enum ClarabelMergeMethod {
     #[serde(rename = "clique_graph")]
     #[strum(serialize = "clique_graph")]
     CliqueGraph,
+}
+impl crate::boundary_projection::ProjectionType for ClarabelMergeMethod {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ClarabelMergeMethod",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ClarabelMergeMethod {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ClarabelMergeMethod {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -4428,6 +5794,45 @@ pub enum ClarabelMode {
     #[serde(rename = "reusable_data")]
     #[strum(serialize = "reusable_data")]
     ReusableData,
+}
+impl crate::boundary_projection::ProjectionType for ClarabelMode {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ClarabelMode",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ClarabelMode {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ClarabelMode {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -4537,6 +5942,45 @@ pub enum ClosureAssessment {
     #[strum(serialize = "unavailable")]
     Unavailable,
 }
+impl crate::boundary_projection::ProjectionType for ClosureAssessment {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ClosureAssessment",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ClosureAssessment {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ClosureAssessment {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -4641,6 +6085,45 @@ pub enum ClosurePolicy {
     #[serde(rename = "allow_unclosed")]
     #[strum(serialize = "allow_unclosed")]
     AllowUnclosed,
+}
+impl crate::boundary_projection::ProjectionType for ClosurePolicy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ClosurePolicy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ClosurePolicy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ClosurePolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -4780,6 +6263,45 @@ pub enum ComputationKind {
     #[strum(serialize = "shooting")]
     Shooting,
 }
+impl crate::boundary_projection::ProjectionType for ComputationKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ComputationKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ComputationKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ComputationKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -4882,6 +6404,45 @@ pub enum ConformanceExecution {
     #[strum(serialize = "pure")]
     Pure,
 }
+impl crate::boundary_projection::ProjectionType for ConformanceExecution {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ConformanceExecution",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ConformanceExecution {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ConformanceExecution {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -4981,6 +6542,45 @@ pub enum ConformancePresolve {
     #[serde(rename = "off")]
     #[strum(serialize = "off")]
     Off,
+}
+impl crate::boundary_projection::ProjectionType for ConformancePresolve {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ConformancePresolve",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ConformancePresolve {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ConformancePresolve {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -5093,6 +6693,45 @@ pub enum ConstraintScalingScheme {
     #[serde(rename = "inverseMinimum")]
     #[strum(serialize = "inverseMinimum")]
     InverseMinimum,
+}
+impl crate::boundary_projection::ProjectionType for ConstraintScalingScheme {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ConstraintScalingScheme",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ConstraintScalingScheme {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ConstraintScalingScheme {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -5220,6 +6859,45 @@ pub enum CovarianceApproximation {
     #[strum(serialize = "gauss_newton")]
     GaussNewton,
 }
+impl crate::boundary_projection::ProjectionType for CovarianceApproximation {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CovarianceApproximation",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CovarianceApproximation {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for CovarianceApproximation {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -5319,6 +6997,45 @@ pub enum CovarianceInputOrigin {
     #[serde(rename = "external")]
     #[strum(serialize = "external")]
     External,
+}
+impl crate::boundary_projection::ProjectionType for CovarianceInputOrigin {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CovarianceInputOrigin",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for CovarianceInputOrigin {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for CovarianceInputOrigin {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -5454,6 +7171,45 @@ pub enum DerivedQuantity {
     #[serde(rename = "propagated_covariance")]
     #[strum(serialize = "propagated_covariance")]
     PropagatedCovariance,
+}
+impl crate::boundary_projection::ProjectionType for DerivedQuantity {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "DerivedQuantity",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for DerivedQuantity {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for DerivedQuantity {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -5603,6 +7359,45 @@ pub enum DiagnosticNonfiniteObservation {
     #[strum(serialize = "negative_infinity")]
     NegativeInfinity,
 }
+impl crate::boundary_projection::ProjectionType for DiagnosticNonfiniteObservation {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "DiagnosticNonfiniteObservation",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for DiagnosticNonfiniteObservation {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for DiagnosticNonfiniteObservation {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -5746,6 +7541,45 @@ pub enum DiagnosticSeverity {
     #[strum(serialize = "info")]
     Info,
 }
+impl crate::boundary_projection::ProjectionType for DiagnosticSeverity {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "DiagnosticSeverity",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for DiagnosticSeverity {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for DiagnosticSeverity {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -5867,6 +7701,45 @@ pub enum DiffsolLinear {
     #[strum(serialize = "klu")]
     Klu,
 }
+impl crate::boundary_projection::ProjectionType for DiffsolLinear {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "DiffsolLinear",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for DiffsolLinear {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for DiffsolLinear {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -5972,6 +7845,45 @@ pub enum DiffsolMethod {
     #[serde(rename = "tsit45")]
     #[strum(serialize = "tsit45")]
     Tsit45,
+}
+impl crate::boundary_projection::ProjectionType for DiffsolMethod {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "DiffsolMethod",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for DiffsolMethod {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for DiffsolMethod {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -6089,6 +8001,45 @@ pub enum DualQualification {
     #[strum(serialize = "sensitivity_certified")]
     SensitivityCertified,
 }
+impl crate::boundary_projection::ProjectionType for DualQualification {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "DualQualification",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for DualQualification {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for DualQualification {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -6201,6 +8152,45 @@ pub enum DynamicSensitivity {
     #[strum(serialize = "adjoint")]
     Adjoint,
 }
+impl crate::boundary_projection::ProjectionType for DynamicSensitivity {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "DynamicSensitivity",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for DynamicSensitivity {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for DynamicSensitivity {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -6309,6 +8299,45 @@ pub enum DynamicsMethod {
     #[strum(serialize = "idas")]
     Idas,
 }
+impl crate::boundary_projection::ProjectionType for DynamicsMethod {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "DynamicsMethod",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for DynamicsMethod {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for DynamicsMethod {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -6410,6 +8439,45 @@ pub enum EndpointPolicy {
     #[serde(rename = "declared_terminal_event")]
     #[strum(serialize = "declared_terminal_event")]
     DeclaredTerminalEvent,
+}
+impl crate::boundary_projection::ProjectionType for EndpointPolicy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "EndpointPolicy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for EndpointPolicy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for EndpointPolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -6514,6 +8582,45 @@ pub enum EngineeringScaleKind {
     #[serde(rename = "reference_difference")]
     #[strum(serialize = "reference_difference")]
     ReferenceDifference,
+}
+impl crate::boundary_projection::ProjectionType for EngineeringScaleKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "EngineeringScaleKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for EngineeringScaleKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for EngineeringScaleKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -6636,6 +8743,45 @@ pub enum EntityKind {
     #[strum(serialize = "dataset")]
     Dataset,
 }
+impl crate::boundary_projection::ProjectionType for EntityKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "EntityKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for EntityKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for EntityKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -6748,6 +8894,45 @@ pub enum EventDirection {
     #[serde(rename = "falling")]
     #[strum(serialize = "falling")]
     Falling,
+}
+impl crate::boundary_projection::ProjectionType for EventDirection {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "EventDirection",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for EventDirection {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for EventDirection {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -6870,6 +9055,45 @@ pub enum EvidenceUnavailableReason {
     #[serde(rename = "nonfinite")]
     #[strum(serialize = "nonfinite")]
     Nonfinite,
+}
+impl crate::boundary_projection::ProjectionType for EvidenceUnavailableReason {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "EvidenceUnavailableReason",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for EvidenceUnavailableReason {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for EvidenceUnavailableReason {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -7012,6 +9236,45 @@ pub enum ExternalDerivativeSource {
     #[serde(rename = "implicit")]
     #[strum(serialize = "implicit")]
     Implicit,
+}
+impl crate::boundary_projection::ProjectionType for ExternalDerivativeSource {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ExternalDerivativeSource",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ExternalDerivativeSource {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ExternalDerivativeSource {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -7159,6 +9422,45 @@ pub enum FeralOrdering {
     #[strum(serialize = "auto_race")]
     AutoRace,
 }
+impl crate::boundary_projection::ProjectionType for FeralOrdering {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "FeralOrdering",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for FeralOrdering {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for FeralOrdering {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -7278,6 +9580,45 @@ pub enum FeralScaling {
     #[strum(serialize = "auto")]
     Auto,
 }
+impl crate::boundary_projection::ProjectionType for FeralScaling {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "FeralScaling",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for FeralScaling {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for FeralScaling {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -7383,6 +9724,45 @@ pub enum FindingSeverity {
     #[strum(serialize = "warning")]
     Warning,
 }
+impl crate::boundary_projection::ProjectionType for FindingSeverity {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "FindingSeverity",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for FindingSeverity {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for FindingSeverity {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -7480,6 +9860,45 @@ pub enum FitDerivatives {
     #[serde(rename = "gradient")]
     #[strum(serialize = "gradient")]
     Gradient,
+}
+impl crate::boundary_projection::ProjectionType for FitDerivatives {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "FitDerivatives",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for FitDerivatives {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for FitDerivatives {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -7594,6 +10013,45 @@ pub enum HessianMode {
     #[serde(rename = "gauss_newton")]
     #[strum(serialize = "gauss_newton")]
     GaussNewton,
+}
+impl crate::boundary_projection::ProjectionType for HessianMode {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "HessianMode",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for HessianMode {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for HessianMode {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -7712,6 +10170,45 @@ pub enum HighsMethod {
     #[strum(serialize = "pdlp")]
     Pdlp,
 }
+impl crate::boundary_projection::ProjectionType for HighsMethod {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "HighsMethod",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for HighsMethod {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for HighsMethod {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -7816,6 +10313,45 @@ pub enum IdPolicy {
     #[strum(serialize = "named")]
     Named,
 }
+impl crate::boundary_projection::ProjectionType for IdPolicy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "IdPolicy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for IdPolicy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for IdPolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -7913,6 +10449,45 @@ pub enum IdasInitialization {
     #[serde(rename = "steady_states")]
     #[strum(serialize = "steady_states")]
     SteadyStates,
+}
+impl crate::boundary_projection::ProjectionType for IdasInitialization {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "IdasInitialization",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for IdasInitialization {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for IdasInitialization {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -8020,6 +10595,45 @@ pub enum IncumbentPolicy {
     #[strum(serialize = "accept_within_gap")]
     AcceptWithinGap,
 }
+impl crate::boundary_projection::ProjectionType for IncumbentPolicy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "IncumbentPolicy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for IncumbentPolicy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for IncumbentPolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -8123,6 +10737,45 @@ pub enum InputConsumptionKind {
     #[strum(serialize = "columns")]
     Columns,
 }
+impl crate::boundary_projection::ProjectionType for InputConsumptionKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "InputConsumptionKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for InputConsumptionKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for InputConsumptionKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -8223,6 +10876,45 @@ pub enum IntervalEnd {
     #[strum(serialize = "upper")]
     Upper,
 }
+impl crate::boundary_projection::ProjectionType for IntervalEnd {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "IntervalEnd",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for IntervalEnd {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for IntervalEnd {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -8320,6 +11012,45 @@ pub enum IntervalMethod {
     #[serde(rename = "profile_likelihood")]
     #[strum(serialize = "profile_likelihood")]
     ProfileLikelihood,
+}
+impl crate::boundary_projection::ProjectionType for IntervalMethod {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "IntervalMethod",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for IntervalMethod {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for IntervalMethod {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -8424,6 +11155,45 @@ pub enum IntervalOutcome {
     #[serde(rename = "stopped")]
     #[strum(serialize = "stopped")]
     Stopped,
+}
+impl crate::boundary_projection::ProjectionType for IntervalOutcome {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "IntervalOutcome",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for IntervalOutcome {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for IntervalOutcome {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -8548,6 +11318,45 @@ pub enum IpoptLinearSolver {
     #[strum(serialize = "pardisomkl")]
     Pardisomkl,
 }
+impl crate::boundary_projection::ProjectionType for IpoptLinearSolver {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "IpoptLinearSolver",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for IpoptLinearSolver {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for IpoptLinearSolver {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -8657,6 +11466,45 @@ pub enum KinsolOrthogonalization {
     #[serde(rename = "delayed_classical_gram_schmidt2")]
     #[strum(serialize = "delayed_classical_gram_schmidt2")]
     DelayedClassicalGramSchmidt2,
+}
+impl crate::boundary_projection::ProjectionType for KinsolOrthogonalization {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "KinsolOrthogonalization",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for KinsolOrthogonalization {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for KinsolOrthogonalization {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -8772,6 +11620,45 @@ pub enum KinsolStrategy {
     #[serde(rename = "fixed_point")]
     #[strum(serialize = "fixed_point")]
     FixedPoint,
+}
+impl crate::boundary_projection::ProjectionType for KinsolStrategy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "KinsolStrategy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for KinsolStrategy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for KinsolStrategy {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -8897,6 +11784,45 @@ pub enum LiveSimulationEventKind {
     #[serde(rename = "joined")]
     #[strum(serialize = "joined")]
     Joined,
+}
+impl crate::boundary_projection::ProjectionType for LiveSimulationEventKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "LiveSimulationEventKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for LiveSimulationEventKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for LiveSimulationEventKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -9027,6 +11953,45 @@ pub enum MigrationOp {
     #[strum(serialize = "map_reference_key")]
     MapReferenceKey,
 }
+impl crate::boundary_projection::ProjectionType for MigrationOp {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "MigrationOp",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for MigrationOp {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for MigrationOp {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -9140,6 +12105,45 @@ pub enum ModelingAccumulatorMode {
     #[strum(serialize = "observation")]
     Observation,
 }
+impl crate::boundary_projection::ProjectionType for ModelingAccumulatorMode {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingAccumulatorMode",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingAccumulatorMode {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingAccumulatorMode {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -9247,6 +12251,45 @@ pub enum ModelingAnalysisRoute {
     #[serde(rename = "simultaneous")]
     #[strum(serialize = "simultaneous")]
     Simultaneous,
+}
+impl crate::boundary_projection::ProjectionType for ModelingAnalysisRoute {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingAnalysisRoute",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingAnalysisRoute {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ModelingAnalysisRoute {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -9404,6 +12447,45 @@ pub enum ModelingAnnotationKind {
     #[strum(serialize = "engineering_rule")]
     EngineeringRule,
 }
+impl crate::boundary_projection::ProjectionType for ModelingAnnotationKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingAnnotationKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingAnnotationKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingAnnotationKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -9543,6 +12625,45 @@ pub enum ModelingApplicabilityBasis {
     #[strum(serialize = "reported")]
     Reported,
 }
+impl crate::boundary_projection::ProjectionType for ModelingApplicabilityBasis {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingApplicabilityBasis",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingApplicabilityBasis {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingApplicabilityBasis {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -9662,6 +12783,45 @@ pub enum ModelingApplicabilityKind {
     #[strum(serialize = "union")]
     Union,
 }
+impl crate::boundary_projection::ProjectionType for ModelingApplicabilityKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingApplicabilityKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingApplicabilityKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingApplicabilityKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -9774,6 +12934,45 @@ pub enum ModelingApplicabilityOutcome {
     #[serde(rename = "unknown_evidence")]
     #[strum(serialize = "unknown_evidence")]
     UnknownEvidence,
+}
+impl crate::boundary_projection::ProjectionType for ModelingApplicabilityOutcome {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingApplicabilityOutcome",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingApplicabilityOutcome {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ModelingApplicabilityOutcome {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -9908,6 +13107,45 @@ pub enum ModelingCellKind {
     #[strum(serialize = "missing")]
     Missing,
 }
+impl crate::boundary_projection::ProjectionType for ModelingCellKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCellKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingCellKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingCellKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -10022,6 +13260,45 @@ pub enum ModelingCheckBasis {
     #[serde(rename = "global_bound")]
     #[strum(serialize = "global_bound")]
     GlobalBound,
+}
+impl crate::boundary_projection::ProjectionType for ModelingCheckBasis {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCheckBasis",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingCheckBasis {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ModelingCheckBasis {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -10138,6 +13415,45 @@ pub enum ModelingCheckKind {
     #[serde(rename = "applicability")]
     #[strum(serialize = "applicability")]
     Applicability,
+}
+impl crate::boundary_projection::ProjectionType for ModelingCheckKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCheckKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingCheckKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ModelingCheckKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -10276,6 +13592,45 @@ pub enum ModelingConformanceKind {
     #[strum(serialize = "check")]
     Check,
 }
+impl crate::boundary_projection::ProjectionType for ModelingConformanceKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingConformanceKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingConformanceKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingConformanceKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -10409,6 +13764,45 @@ pub enum ModelingConformanceStatus {
     #[serde(rename = "unattempted")]
     #[strum(serialize = "unattempted")]
     Unattempted,
+}
+impl crate::boundary_projection::ProjectionType for ModelingConformanceStatus {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingConformanceStatus",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingConformanceStatus {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ModelingConformanceStatus {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -10545,6 +13939,45 @@ pub enum ModelingContributionRole {
     #[strum(serialize = "directed")]
     Directed,
 }
+impl crate::boundary_projection::ProjectionType for ModelingContributionRole {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingContributionRole",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingContributionRole {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingContributionRole {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -10667,6 +14100,45 @@ pub enum ModelingDataFacet {
     #[serde(rename = "requires_fit")]
     #[strum(serialize = "requires_fit")]
     RequiresFit,
+}
+impl crate::boundary_projection::ProjectionType for ModelingDataFacet {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingDataFacet",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingDataFacet {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ModelingDataFacet {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -11029,6 +14501,45 @@ pub enum ModelingDeclarationKind {
     #[strum(serialize = "identifier_scheme")]
     IdentifierScheme,
 }
+impl crate::boundary_projection::ProjectionType for ModelingDeclarationKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingDeclarationKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingDeclarationKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingDeclarationKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -11283,6 +14794,45 @@ pub enum ModelingDiagnosticSampleStop {
     #[strum(serialize = "cancelled")]
     Cancelled,
 }
+impl crate::boundary_projection::ProjectionType for ModelingDiagnosticSampleStop {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingDiagnosticSampleStop",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingDiagnosticSampleStop {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingDiagnosticSampleStop {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -11392,6 +14942,45 @@ pub enum ModelingDiagonalPolicy {
     #[strum(serialize = "excluded")]
     Excluded,
 }
+impl crate::boundary_projection::ProjectionType for ModelingDiagonalPolicy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingDiagonalPolicy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingDiagonalPolicy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingDiagonalPolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -11495,6 +15084,45 @@ pub enum ModelingDiscreteInitialization {
     #[serde(rename = "fix_at")]
     #[strum(serialize = "fix_at")]
     FixAt,
+}
+impl crate::boundary_projection::ProjectionType for ModelingDiscreteInitialization {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingDiscreteInitialization",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingDiscreteInitialization {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ModelingDiscreteInitialization {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -11604,6 +15232,45 @@ pub enum ModelingElasticObservation {
     #[strum(serialize = "inconclusive")]
     Inconclusive,
 }
+impl crate::boundary_projection::ProjectionType for ModelingElasticObservation {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingElasticObservation",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingElasticObservation {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingElasticObservation {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -11709,6 +15376,45 @@ pub enum ModelingEnvelopeExtent {
     #[strum(serialize = "interval")]
     Interval,
 }
+impl crate::boundary_projection::ProjectionType for ModelingEnvelopeExtent {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingEnvelopeExtent",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingEnvelopeExtent {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingEnvelopeExtent {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -11812,6 +15518,45 @@ pub enum ModelingFactNamespace {
     #[serde(rename = "stage")]
     #[strum(serialize = "stage")]
     Stage,
+}
+impl crate::boundary_projection::ProjectionType for ModelingFactNamespace {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingFactNamespace",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingFactNamespace {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ModelingFactNamespace {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -11929,6 +15674,45 @@ pub enum ModelingFixtureBinding {
     #[strum(serialize = "upper")]
     Upper,
 }
+impl crate::boundary_projection::ProjectionType for ModelingFixtureBinding {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingFixtureBinding",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingFixtureBinding {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingFixtureBinding {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -12040,6 +15824,45 @@ pub enum ModelingInitializationStep {
     #[serde(rename = "original")]
     #[strum(serialize = "original")]
     Original,
+}
+impl crate::boundary_projection::ProjectionType for ModelingInitializationStep {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingInitializationStep",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingInitializationStep {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ModelingInitializationStep {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -12161,6 +15984,45 @@ pub enum ModelingKeyCellKind {
     #[strum(serialize = "reference")]
     Reference,
 }
+impl crate::boundary_projection::ProjectionType for ModelingKeyCellKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingKeyCellKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingKeyCellKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingKeyCellKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -12275,6 +16137,45 @@ pub enum ModelingKindFacet {
     #[serde(rename = "abstract")]
     #[strum(serialize = "abstract")]
     Abstract,
+}
+impl crate::boundary_projection::ProjectionType for ModelingKindFacet {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingKindFacet",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingKindFacet {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ModelingKindFacet {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -12434,6 +16335,45 @@ pub enum ModelingKnowledgeValueKind {
     #[strum(serialize = "reference_state")]
     ReferenceState,
 }
+impl crate::boundary_projection::ProjectionType for ModelingKnowledgeValueKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingKnowledgeValueKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingKnowledgeValueKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingKnowledgeValueKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -12570,6 +16510,45 @@ pub enum ModelingLineageKind {
     #[strum(serialize = "fit")]
     Fit,
 }
+impl crate::boundary_projection::ProjectionType for ModelingLineageKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingLineageKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingLineageKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingLineageKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -12678,6 +16657,45 @@ pub enum ModelingMissingPolicy {
     #[strum(serialize = "default")]
     Default,
 }
+impl crate::boundary_projection::ProjectionType for ModelingMissingPolicy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingMissingPolicy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingMissingPolicy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingMissingPolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -12782,6 +16800,45 @@ pub enum ModelingObjectiveRoute {
     #[strum(serialize = "staged")]
     Staged,
 }
+impl crate::boundary_projection::ProjectionType for ModelingObjectiveRoute {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingObjectiveRoute",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingObjectiveRoute {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingObjectiveRoute {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -12881,6 +16938,45 @@ pub enum ModelingPermissionTarget {
     #[serde(rename = "families")]
     #[strum(serialize = "families")]
     Families,
+}
+impl crate::boundary_projection::ProjectionType for ModelingPermissionTarget {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingPermissionTarget",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingPermissionTarget {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ModelingPermissionTarget {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -12993,6 +17089,45 @@ pub enum ModelingProcedure {
     #[serde(rename = "shooting")]
     #[strum(serialize = "shooting")]
     Shooting,
+}
+impl crate::boundary_projection::ProjectionType for ModelingProcedure {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingProcedure",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingProcedure {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ModelingProcedure {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -13108,6 +17243,45 @@ pub enum ModelingRealValueKind {
     #[serde(rename = "indeterminate")]
     #[strum(serialize = "indeterminate")]
     Indeterminate,
+}
+impl crate::boundary_projection::ProjectionType for ModelingRealValueKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingRealValueKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingRealValueKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ModelingRealValueKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -13264,6 +17438,45 @@ pub enum ModelingRealizationPolicy {
     #[strum(serialize = "disjunctive")]
     Disjunctive,
 }
+impl crate::boundary_projection::ProjectionType for ModelingRealizationPolicy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingRealizationPolicy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingRealizationPolicy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingRealizationPolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -13388,6 +17601,45 @@ pub enum ModelingStructuralRequirement {
     #[strum(serialize = "l1_exact_penalty")]
     L1ExactPenalty,
 }
+impl crate::boundary_projection::ProjectionType for ModelingStructuralRequirement {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingStructuralRequirement",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingStructuralRequirement {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingStructuralRequirement {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -13485,6 +17737,45 @@ pub enum ModelingTransferDirection {
     #[serde(rename = "out_of")]
     #[strum(serialize = "out_of")]
     OutOf,
+}
+impl crate::boundary_projection::ProjectionType for ModelingTransferDirection {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingTransferDirection",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingTransferDirection {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ModelingTransferDirection {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -13674,6 +17965,45 @@ pub enum ModelingTypeNode {
     #[strum(serialize = "transfer")]
     Transfer,
 }
+impl crate::boundary_projection::ProjectionType for ModelingTypeNode {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingTypeNode",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingTypeNode {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingTypeNode {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -13826,6 +18156,45 @@ pub enum ModelingUncertaintyKind {
     #[strum(serialize = "bound")]
     Bound,
 }
+impl crate::boundary_projection::ProjectionType for ModelingUncertaintyKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingUncertaintyKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingUncertaintyKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingUncertaintyKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -13933,6 +18302,45 @@ pub enum ModelingValidityLayer {
     #[serde(rename = "closure")]
     #[strum(serialize = "closure")]
     Closure,
+}
+impl crate::boundary_projection::ProjectionType for ModelingValidityLayer {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingValidityLayer",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingValidityLayer {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ModelingValidityLayer {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -14050,6 +18458,45 @@ pub enum ModelingVariableDomain {
     #[strum(serialize = "semiinteger")]
     Semiinteger,
 }
+impl crate::boundary_projection::ProjectionType for ModelingVariableDomain {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingVariableDomain",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingVariableDomain {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingVariableDomain {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -14155,6 +18602,45 @@ pub enum ModelingVersionOperator {
     #[strum(serialize = "exact")]
     Exact,
 }
+impl crate::boundary_projection::ProjectionType for ModelingVersionOperator {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingVersionOperator",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingVersionOperator {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ModelingVersionOperator {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -14252,6 +18738,45 @@ pub enum MuStrategy {
     #[serde(rename = "adaptive")]
     #[strum(serialize = "adaptive")]
     Adaptive,
+}
+impl crate::boundary_projection::ProjectionType for MuStrategy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "MuStrategy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for MuStrategy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for MuStrategy {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -14362,6 +18887,45 @@ pub enum MumpsOrdering {
     #[serde(rename = "qamd")]
     #[strum(serialize = "qamd")]
     Qamd,
+}
+impl crate::boundary_projection::ProjectionType for MumpsOrdering {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "MumpsOrdering",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for MumpsOrdering {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for MumpsOrdering {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -14490,6 +19054,45 @@ pub enum NativeArtifactDemand {
     #[strum(serialize = "representation")]
     Representation,
 }
+impl crate::boundary_projection::ProjectionType for NativeArtifactDemand {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeArtifactDemand",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeArtifactDemand {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeArtifactDemand {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -14602,6 +19205,45 @@ pub enum NativeAssessmentState {
     #[serde(rename = "ready")]
     #[strum(serialize = "ready")]
     Ready,
+}
+impl crate::boundary_projection::ProjectionType for NativeAssessmentState {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeAssessmentState",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeAssessmentState {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativeAssessmentState {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -14737,6 +19379,45 @@ pub enum NativeAssurance {
     #[serde(rename = "sos_bound_nonrigorous")]
     #[strum(serialize = "sos_bound_nonrigorous")]
     SosBoundNonrigorous,
+}
+impl crate::boundary_projection::ProjectionType for NativeAssurance {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeAssurance",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeAssurance {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativeAssurance {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -14889,6 +19570,45 @@ pub enum NativeBackend {
     #[serde(rename = "petsc")]
     #[strum(serialize = "petsc")]
     Petsc,
+}
+impl crate::boundary_projection::ProjectionType for NativeBackend {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeBackend",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeBackend {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativeBackend {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -15049,6 +19769,45 @@ pub enum NativeBoundaryClass {
     #[strum(serialize = "inconclusive")]
     Inconclusive,
 }
+impl crate::boundary_projection::ProjectionType for NativeBoundaryClass {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeBoundaryClass",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeBoundaryClass {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeBoundaryClass {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -15182,6 +19941,45 @@ pub enum NativeCandidateKind {
     #[strum(serialize = "constant_evaluation")]
     ConstantEvaluation,
 }
+impl crate::boundary_projection::ProjectionType for NativeCandidateKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeCandidateKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeCandidateKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeCandidateKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -15289,6 +20087,45 @@ pub enum NativeCertificateAccuracy {
     #[strum(serialize = "reduced")]
     Reduced,
 }
+impl crate::boundary_projection::ProjectionType for NativeCertificateAccuracy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeCertificateAccuracy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeCertificateAccuracy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeCertificateAccuracy {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -15388,6 +20225,45 @@ pub enum NativeCertificateKind {
     #[serde(rename = "dual_infeasible")]
     #[strum(serialize = "dual_infeasible")]
     DualInfeasible,
+}
+impl crate::boundary_projection::ProjectionType for NativeCertificateKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeCertificateKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeCertificateKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativeCertificateKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -15510,6 +20386,45 @@ pub enum NativeConstraintForm {
     #[serde(rename = "cardinality")]
     #[strum(serialize = "cardinality")]
     Cardinality,
+}
+impl crate::boundary_projection::ProjectionType for NativeConstraintForm {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeConstraintForm",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeConstraintForm {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativeConstraintForm {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -15648,6 +20563,45 @@ pub enum NativeDerivativeCapability {
     #[strum(serialize = "factorable")]
     Factorable,
 }
+impl crate::boundary_projection::ProjectionType for NativeDerivativeCapability {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeDerivativeCapability",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeDerivativeCapability {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeDerivativeCapability {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -15780,6 +20734,45 @@ pub enum NativeEvidenceDemand {
     #[serde(rename = "factorable")]
     #[strum(serialize = "factorable")]
     Factorable,
+}
+impl crate::boundary_projection::ProjectionType for NativeEvidenceDemand {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeEvidenceDemand",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeEvidenceDemand {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativeEvidenceDemand {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -15940,6 +20933,45 @@ pub enum NativeIneligibility {
     #[strum(serialize = "structural")]
     Structural,
 }
+impl crate::boundary_projection::ProjectionType for NativeIneligibility {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeIneligibility",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeIneligibility {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeIneligibility {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -16085,6 +21117,45 @@ pub enum NativeInfeasibilityWitness {
     #[strum(serialize = "local_solution")]
     LocalSolution,
 }
+impl crate::boundary_projection::ProjectionType for NativeInfeasibilityWitness {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeInfeasibilityWitness",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeInfeasibilityWitness {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeInfeasibilityWitness {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -16196,6 +21267,45 @@ pub enum NativeLexicographicDegradation {
     #[strum(serialize = "single_nonzero")]
     SingleNonzero,
 }
+impl crate::boundary_projection::ProjectionType for NativeLexicographicDegradation {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeLexicographicDegradation",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeLexicographicDegradation {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeLexicographicDegradation {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -16295,6 +21405,45 @@ pub enum NativeLexicographicRealization {
     #[serde(rename = "staged")]
     #[strum(serialize = "staged")]
     Staged,
+}
+impl crate::boundary_projection::ProjectionType for NativeLexicographicRealization {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeLexicographicRealization",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeLexicographicRealization {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativeLexicographicRealization {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -16408,6 +21557,45 @@ pub enum NativeMetricKind {
     #[strum(serialize = "unavailable")]
     Unavailable,
 }
+impl crate::boundary_projection::ProjectionType for NativeMetricKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeMetricKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeMetricKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeMetricKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -16514,6 +21702,45 @@ pub enum NativeObjectiveSense {
     #[serde(rename = "maximize")]
     #[strum(serialize = "maximize")]
     Maximize,
+}
+impl crate::boundary_projection::ProjectionType for NativeObjectiveSense {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeObjectiveSense",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeObjectiveSense {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativeObjectiveSense {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -16623,6 +21850,45 @@ pub enum NativePetscLinear {
     #[strum(serialize = "preonly")]
     Preonly,
 }
+impl crate::boundary_projection::ProjectionType for NativePetscLinear {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativePetscLinear",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativePetscLinear {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativePetscLinear {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -16722,6 +21988,45 @@ pub enum NativePetscMethod {
     #[serde(rename = "newton_trust_region")]
     #[strum(serialize = "newton_trust_region")]
     NewtonTrustRegion,
+}
+impl crate::boundary_projection::ProjectionType for NativePetscMethod {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativePetscMethod",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativePetscMethod {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativePetscMethod {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -16826,6 +22131,45 @@ pub enum NativePetscPreconditioner {
     #[serde(rename = "lu")]
     #[strum(serialize = "lu")]
     Lu,
+}
+impl crate::boundary_projection::ProjectionType for NativePetscPreconditioner {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativePetscPreconditioner",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativePetscPreconditioner {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativePetscPreconditioner {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -16932,6 +22276,45 @@ pub enum NativePrimalCoordinateRole {
     #[serde(rename = "auxiliary")]
     #[strum(serialize = "auxiliary")]
     Auxiliary,
+}
+impl crate::boundary_projection::ProjectionType for NativePrimalCoordinateRole {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativePrimalCoordinateRole",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativePrimalCoordinateRole {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativePrimalCoordinateRole {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -17073,6 +22456,45 @@ pub enum NativeProblemClass {
     #[strum(serialize = "mixed_integer_nonlinear")]
     MixedIntegerNonlinear,
 }
+impl crate::boundary_projection::ProjectionType for NativeProblemClass {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeProblemClass",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeProblemClass {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeProblemClass {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -17210,6 +22632,45 @@ pub enum NativeQualification {
     #[strum(serialize = "gap_qualified")]
     GapQualified,
 }
+impl crate::boundary_projection::ProjectionType for NativeQualification {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeQualification",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeQualification {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeQualification {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -17334,6 +22795,45 @@ pub enum NativeRayCoordinate {
     #[serde(rename = "variable")]
     #[strum(serialize = "variable")]
     Variable,
+}
+impl crate::boundary_projection::ProjectionType for NativeRayCoordinate {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeRayCoordinate",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeRayCoordinate {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativeRayCoordinate {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -17462,6 +22962,45 @@ pub enum NativeRepresentation {
     #[strum(serialize = "trajectory")]
     Trajectory,
 }
+impl crate::boundary_projection::ProjectionType for NativeRepresentation {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeRepresentation",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeRepresentation {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeRepresentation {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -17572,6 +23111,45 @@ pub enum NativeRouteKind {
     #[serde(rename = "native")]
     #[strum(serialize = "native")]
     Native,
+}
+impl crate::boundary_projection::ProjectionType for NativeRouteKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeRouteKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeRouteKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativeRouteKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -17687,6 +23265,45 @@ pub enum NativeRouteRefusal {
     #[strum(serialize = "structure")]
     Structure,
 }
+impl crate::boundary_projection::ProjectionType for NativeRouteRefusal {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeRouteRefusal",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeRouteRefusal {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeRouteRefusal {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -17798,6 +23415,45 @@ pub enum NativeRouteSelection {
     #[strum(serialize = "explicit")]
     Explicit,
 }
+impl crate::boundary_projection::ProjectionType for NativeRouteSelection {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeRouteSelection",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeRouteSelection {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeRouteSelection {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -17905,6 +23561,45 @@ pub enum NativeRunState {
     #[serde(rename = "unattempted")]
     #[strum(serialize = "unattempted")]
     Unattempted,
+}
+impl crate::boundary_projection::ProjectionType for NativeRunState {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeRunState",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeRunState {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativeRunState {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -18023,6 +23718,45 @@ pub enum NativeSolveIntent {
     #[strum(serialize = "certify")]
     Certify,
 }
+impl crate::boundary_projection::ProjectionType for NativeSolveIntent {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeSolveIntent",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeSolveIntent {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeSolveIntent {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -18134,6 +23868,45 @@ pub enum NativeStartPolicy {
     #[strum(serialize = "explicit")]
     Explicit,
 }
+impl crate::boundary_projection::ProjectionType for NativeStartPolicy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeStartPolicy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeStartPolicy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeStartPolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -18244,6 +24017,45 @@ pub enum NativeStructuralMode {
     #[serde(rename = "point_evaluation")]
     #[strum(serialize = "point_evaluation")]
     PointEvaluation,
+}
+impl crate::boundary_projection::ProjectionType for NativeStructuralMode {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeStructuralMode",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeStructuralMode {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativeStructuralMode {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -18359,6 +24171,45 @@ pub enum NativeStructuralPolicy {
     #[serde(rename = "factorable")]
     #[strum(serialize = "factorable")]
     Factorable,
+}
+impl crate::boundary_projection::ProjectionType for NativeStructuralPolicy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeStructuralPolicy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeStructuralPolicy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativeStructuralPolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -18552,6 +24403,45 @@ pub enum NativeTermination {
     #[strum(serialize = "invalid")]
     Invalid,
 }
+impl crate::boundary_projection::ProjectionType for NativeTermination {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeTermination",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeTermination {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeTermination {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -18690,6 +24580,45 @@ pub enum NativeUnoMethod {
     #[strum(serialize = "slp")]
     Slp,
 }
+impl crate::boundary_projection::ProjectionType for NativeUnoMethod {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeUnoMethod",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeUnoMethod {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NativeUnoMethod {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -18799,6 +24728,45 @@ pub enum NativeWarmCapability {
     #[serde(rename = "primal_dual_and_basis")]
     #[strum(serialize = "primal_dual_and_basis")]
     PrimalDualAndBasis,
+}
+impl crate::boundary_projection::ProjectionType for NativeWarmCapability {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NativeWarmCapability",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NativeWarmCapability {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NativeWarmCapability {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -18947,6 +24915,45 @@ pub enum NumericalAccuracyClass {
     #[strum(serialize = "unresolved")]
     Unresolved,
 }
+impl crate::boundary_projection::ProjectionType for NumericalAccuracyClass {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalAccuracyClass",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalAccuracyClass {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NumericalAccuracyClass {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -19091,6 +25098,45 @@ pub enum NumericalAttemptObservation {
     #[strum(serialize = "infeasible")]
     Infeasible,
 }
+impl crate::boundary_projection::ProjectionType for NumericalAttemptObservation {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalAttemptObservation",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalAttemptObservation {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NumericalAttemptObservation {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -19216,6 +25262,45 @@ pub enum NumericalBranchPolicy {
     #[strum(serialize = "connected")]
     Connected,
 }
+impl crate::boundary_projection::ProjectionType for NumericalBranchPolicy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalBranchPolicy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalBranchPolicy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NumericalBranchPolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -19318,6 +25403,45 @@ pub enum NumericalCompositionPolicy {
     #[strum(serialize = "declared")]
     Declared,
 }
+impl crate::boundary_projection::ProjectionType for NumericalCompositionPolicy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalCompositionPolicy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalCompositionPolicy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NumericalCompositionPolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -19417,6 +25541,45 @@ pub enum NumericalCoordinates {
     #[serde(rename = "normalized")]
     #[strum(serialize = "normalized")]
     Normalized,
+}
+impl crate::boundary_projection::ProjectionType for NumericalCoordinates {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalCoordinates",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalCoordinates {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NumericalCoordinates {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -19531,6 +25694,45 @@ pub enum NumericalEventKind {
     #[serde(rename = "abandoned")]
     #[strum(serialize = "abandoned")]
     Abandoned,
+}
+impl crate::boundary_projection::ProjectionType for NumericalEventKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalEventKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalEventKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NumericalEventKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -19733,6 +25935,45 @@ pub enum NumericalMechanism {
     #[strum(serialize = "least_deviation")]
     LeastDeviation,
 }
+impl crate::boundary_projection::ProjectionType for NumericalMechanism {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalMechanism",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalMechanism {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NumericalMechanism {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -19891,6 +26132,45 @@ pub enum NumericalOriginalConclusion {
     #[strum(serialize = "unavailable")]
     Unavailable,
 }
+impl crate::boundary_projection::ProjectionType for NumericalOriginalConclusion {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalOriginalConclusion",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalOriginalConclusion {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NumericalOriginalConclusion {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -19998,6 +26278,45 @@ pub enum NumericalPathEventKind {
     #[serde(rename = "unresolved")]
     #[strum(serialize = "unresolved")]
     Unresolved,
+}
+impl crate::boundary_projection::ProjectionType for NumericalPathEventKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalPathEventKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalPathEventKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NumericalPathEventKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -20119,6 +26438,45 @@ pub enum NumericalPhase {
     #[strum(serialize = "assessment")]
     Assessment,
 }
+impl crate::boundary_projection::ProjectionType for NumericalPhase {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalPhase",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalPhase {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NumericalPhase {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -20232,6 +26590,45 @@ pub enum NumericalPosition {
     #[strum(serialize = "recovery")]
     Recovery,
 }
+impl crate::boundary_projection::ProjectionType for NumericalPosition {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalPosition",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalPosition {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NumericalPosition {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -20341,6 +26738,45 @@ pub enum NumericalProvenanceField {
     #[serde(rename = "coordinate_scale")]
     #[strum(serialize = "coordinate_scale")]
     CoordinateScale,
+}
+impl crate::boundary_projection::ProjectionType for NumericalProvenanceField {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalProvenanceField",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalProvenanceField {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NumericalProvenanceField {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -20456,6 +26892,45 @@ pub enum NumericalScope {
     #[serde(rename = "attempt")]
     #[strum(serialize = "attempt")]
     Attempt,
+}
+impl crate::boundary_projection::ProjectionType for NumericalScope {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalScope",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalScope {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NumericalScope {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -20585,6 +27060,45 @@ pub enum NumericalSource {
     #[serde(rename = "canonical_fallback")]
     #[strum(serialize = "canonical_fallback")]
     CanonicalFallback,
+}
+impl crate::boundary_projection::ProjectionType for NumericalSource {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalSource",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalSource {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for NumericalSource {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -20724,6 +27238,45 @@ pub enum NumericalStartOrigin {
     #[strum(serialize = "surrogate")]
     Surrogate,
 }
+impl crate::boundary_projection::ProjectionType for NumericalStartOrigin {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalStartOrigin",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalStartOrigin {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NumericalStartOrigin {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -20851,6 +27404,45 @@ pub enum NumericalTarget {
     #[strum(serialize = "closure")]
     Closure,
 }
+impl crate::boundary_projection::ProjectionType for NumericalTarget {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalTarget",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalTarget {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NumericalTarget {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -20970,6 +27562,45 @@ pub enum NumericalTransition {
     #[strum(serialize = "stop")]
     Stop,
 }
+impl crate::boundary_projection::ProjectionType for NumericalTransition {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "NumericalTransition",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for NumericalTransition {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for NumericalTransition {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -21078,6 +27709,45 @@ pub enum ObservationTimeBasis {
     #[serde(rename = "model_clock")]
     #[strum(serialize = "model_clock")]
     ModelClock,
+}
+impl crate::boundary_projection::ProjectionType for ObservationTimeBasis {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ObservationTimeBasis",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ObservationTimeBasis {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ObservationTimeBasis {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -21240,6 +27910,45 @@ pub enum PackageKind {
     #[strum(serialize = "case")]
     Case,
 }
+impl crate::boundary_projection::ProjectionType for PackageKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "PackageKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for PackageKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for PackageKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -21348,6 +28057,45 @@ pub enum PardisoMatching {
     #[strum(serialize = "constraints")]
     Constraints,
 }
+impl crate::boundary_projection::ProjectionType for PardisoMatching {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "PardisoMatching",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for PardisoMatching {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for PardisoMatching {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -21454,6 +28202,45 @@ pub enum PardisoOrdering {
     #[serde(rename = "parallel_metis")]
     #[strum(serialize = "parallel_metis")]
     ParallelMetis,
+}
+impl crate::boundary_projection::ProjectionType for PardisoOrdering {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "PardisoOrdering",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for PardisoOrdering {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for PardisoOrdering {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -21565,6 +28352,45 @@ pub enum PhysicalInputKind {
     #[strum(serialize = "state_tolerances")]
     StateTolerances,
 }
+impl crate::boundary_projection::ProjectionType for PhysicalInputKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "PhysicalInputKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for PhysicalInputKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for PhysicalInputKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -21670,6 +28496,45 @@ pub enum PounceFdColoring {
     #[strum(serialize = "star")]
     Star,
 }
+impl crate::boundary_projection::ProjectionType for PounceFdColoring {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "PounceFdColoring",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for PounceFdColoring {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for PounceFdColoring {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -21767,6 +28632,45 @@ pub enum PounceFdPattern {
     #[serde(rename = "jacobian")]
     #[strum(serialize = "jacobian")]
     Jacobian,
+}
+impl crate::boundary_projection::ProjectionType for PounceFdPattern {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "PounceFdPattern",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for PounceFdPattern {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for PounceFdPattern {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -21869,6 +28773,45 @@ pub enum PounceMethod {
     #[serde(rename = "l1_exact_penalty")]
     #[strum(serialize = "l1_exact_penalty")]
     L1ExactPenalty,
+}
+impl crate::boundary_projection::ProjectionType for PounceMethod {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "PounceMethod",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for PounceMethod {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for PounceMethod {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -21973,6 +28916,45 @@ pub enum PouncePartitionedElements {
     #[strum(serialize = "primal_block")]
     PrimalBlock,
 }
+impl crate::boundary_projection::ProjectionType for PouncePartitionedElements {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "PouncePartitionedElements",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for PouncePartitionedElements {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for PouncePartitionedElements {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -22074,6 +29056,45 @@ pub enum PouncePartitionedUpdate {
     #[serde(rename = "sr1")]
     #[strum(serialize = "sr1")]
     Sr1,
+}
+impl crate::boundary_projection::ProjectionType for PouncePartitionedUpdate {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "PouncePartitionedUpdate",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for PouncePartitionedUpdate {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for PouncePartitionedUpdate {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -22178,6 +29199,45 @@ pub enum Preconditioner {
     #[serde(rename = "block_factor")]
     #[strum(serialize = "block_factor")]
     BlockFactor,
+}
+impl crate::boundary_projection::ProjectionType for Preconditioner {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "Preconditioner",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for Preconditioner {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for Preconditioner {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -22284,6 +29344,45 @@ pub enum PreparationEligibility {
     #[serde(rename = "unchecked")]
     #[strum(serialize = "unchecked")]
     Unchecked,
+}
+impl crate::boundary_projection::ProjectionType for PreparationEligibility {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "PreparationEligibility",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for PreparationEligibility {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for PreparationEligibility {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -22400,6 +29499,45 @@ pub enum PreparationProductKind {
     #[serde(rename = "basis")]
     #[strum(serialize = "basis")]
     Basis,
+}
+impl crate::boundary_projection::ProjectionType for PreparationProductKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "PreparationProductKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for PreparationProductKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for PreparationProductKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -22526,6 +29664,45 @@ pub enum PresolvePass {
     #[strum(serialize = "auxiliary")]
     Auxiliary,
 }
+impl crate::boundary_projection::ProjectionType for PresolvePass {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "PresolvePass",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for PresolvePass {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for PresolvePass {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -22639,6 +29816,45 @@ pub enum PresolvePolicyKind {
     #[strum(serialize = "explicit")]
     Explicit,
 }
+impl crate::boundary_projection::ProjectionType for PresolvePolicyKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "PresolvePolicyKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for PresolvePolicyKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for PresolvePolicyKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -22742,6 +29958,45 @@ pub enum ProductUseScope {
     #[serde(rename = "point")]
     #[strum(serialize = "point")]
     Point,
+}
+impl crate::boundary_projection::ProjectionType for ProductUseScope {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ProductUseScope",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ProductUseScope {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ProductUseScope {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -22848,6 +30103,45 @@ pub enum ProjectChangeImpact {
     #[serde(rename = "unknown")]
     #[strum(serialize = "unknown")]
     Unknown,
+}
+impl crate::boundary_projection::ProjectionType for ProjectChangeImpact {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ProjectChangeImpact",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ProjectChangeImpact {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ProjectChangeImpact {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -22963,6 +30257,45 @@ pub enum ProjectMergeChoice {
     #[strum(serialize = "delete")]
     Delete,
 }
+impl crate::boundary_projection::ProjectionType for ProjectMergeChoice {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ProjectMergeChoice",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ProjectMergeChoice {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ProjectMergeChoice {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -23073,6 +30406,45 @@ pub enum ProjectMergeConflictKind {
     #[strum(serialize = "different_edits")]
     DifferentEdits,
 }
+impl crate::boundary_projection::ProjectionType for ProjectMergeConflictKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ProjectMergeConflictKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ProjectMergeConflictKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ProjectMergeConflictKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -23177,6 +30549,45 @@ pub enum ProjectMergeMode {
     #[serde(rename = "undo")]
     #[strum(serialize = "undo")]
     Undo,
+}
+impl crate::boundary_projection::ProjectionType for ProjectMergeMode {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ProjectMergeMode",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ProjectMergeMode {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ProjectMergeMode {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -23287,6 +30698,45 @@ pub enum ProjectMetadataKind {
     #[serde(rename = "diagnostics")]
     #[strum(serialize = "diagnostics")]
     Diagnostics,
+}
+impl crate::boundary_projection::ProjectionType for ProjectMetadataKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ProjectMetadataKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ProjectMetadataKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for ProjectMetadataKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -23434,6 +30884,45 @@ pub enum QuantityPreconditionKind {
     #[serde(rename = "same_reference_differences")]
     #[strum(serialize = "same_reference_differences")]
     SameReferenceDifferences,
+}
+impl crate::boundary_projection::ProjectionType for QuantityPreconditionKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "QuantityPreconditionKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for QuantityPreconditionKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for QuantityPreconditionKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -23663,6 +31152,45 @@ pub enum ReusePolicy {
     #[strum(serialize = "require_reuse")]
     RequireReuse,
 }
+impl crate::boundary_projection::ProjectionType for ReusePolicy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ReusePolicy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ReusePolicy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ReusePolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -23772,6 +31300,45 @@ pub enum RowActivity {
     #[serde(rename = "equality")]
     #[strum(serialize = "equality")]
     Equality,
+}
+impl crate::boundary_projection::ProjectionType for RowActivity {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "RowActivity",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for RowActivity {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for RowActivity {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -23899,6 +31466,45 @@ pub enum ScientificArtifactFamily {
     #[strum(serialize = "fit")]
     Fit,
 }
+impl crate::boundary_projection::ProjectionType for ScientificArtifactFamily {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ScientificArtifactFamily",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ScientificArtifactFamily {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ScientificArtifactFamily {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -24007,6 +31613,45 @@ pub enum ScientificArtifactKind {
     #[strum(serialize = "local-analysis")]
     LocalAnalysis,
 }
+impl crate::boundary_projection::ProjectionType for ScientificArtifactKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ScientificArtifactKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ScientificArtifactKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ScientificArtifactKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -24111,6 +31756,45 @@ pub enum SensitivityCorrector {
     #[serde(rename = "staggered")]
     #[strum(serialize = "staggered")]
     Staggered,
+}
+impl crate::boundary_projection::ProjectionType for SensitivityCorrector {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "SensitivityCorrector",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for SensitivityCorrector {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for SensitivityCorrector {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -24231,6 +31915,45 @@ pub enum ShootingMethod {
     #[strum(serialize = "multiple")]
     Multiple,
 }
+impl crate::boundary_projection::ProjectionType for ShootingMethod {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ShootingMethod",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ShootingMethod {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for ShootingMethod {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -24346,6 +32069,45 @@ pub enum SpralOrdering {
     #[strum(serialize = "matching")]
     Matching,
 }
+impl crate::boundary_projection::ProjectionType for SpralOrdering {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "SpralOrdering",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for SpralOrdering {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for SpralOrdering {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -24447,6 +32209,45 @@ pub enum SpralPivot {
     #[serde(rename = "threshold")]
     #[strum(serialize = "threshold")]
     Threshold,
+}
+impl crate::boundary_projection::ProjectionType for SpralPivot {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "SpralPivot",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for SpralPivot {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for SpralPivot {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -24561,6 +32362,45 @@ pub enum SpralScaling {
     #[serde(rename = "ruiz")]
     #[strum(serialize = "ruiz")]
     Ruiz,
+}
+impl crate::boundary_projection::ProjectionType for SpralScaling {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "SpralScaling",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for SpralScaling {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for SpralScaling {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -24698,6 +32538,45 @@ pub enum StateSign {
     #[strum(serialize = "negative")]
     Negative,
 }
+impl crate::boundary_projection::ProjectionType for StateSign {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StateSign",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StateSign {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for StateSign {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -24830,6 +32709,45 @@ pub enum StructuralScopeKind {
     #[strum(serialize = "partial")]
     Partial,
 }
+impl crate::boundary_projection::ProjectionType for StructuralScopeKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StructuralScopeKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StructuralScopeKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for StructuralScopeKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -24941,6 +32859,45 @@ pub enum StudyAvailability {
     #[strum(serialize = "complete")]
     Complete,
 }
+impl crate::boundary_projection::ProjectionType for StudyAvailability {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StudyAvailability",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StudyAvailability {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for StudyAvailability {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -25044,6 +33001,45 @@ pub enum StudyContinuationPermission {
     #[serde(rename = "allow_seed_only")]
     #[strum(serialize = "allow_seed_only")]
     AllowSeedOnly,
+}
+impl crate::boundary_projection::ProjectionType for StudyContinuationPermission {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StudyContinuationPermission",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StudyContinuationPermission {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for StudyContinuationPermission {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -25155,6 +33151,45 @@ pub enum StudyEffectState {
     #[strum(serialize = "idempotent")]
     Idempotent,
 }
+impl crate::boundary_projection::ProjectionType for StudyEffectState {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StudyEffectState",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StudyEffectState {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for StudyEffectState {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -25256,6 +33291,45 @@ pub enum StudyLegacyKind {
     #[strum(serialize = "legacy_unavailable")]
     LegacyUnavailable,
 }
+impl crate::boundary_projection::ProjectionType for StudyLegacyKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StudyLegacyKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StudyLegacyKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for StudyLegacyKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -25355,6 +33429,45 @@ pub enum StudyLifecycle {
     #[serde(rename = "cancelled")]
     #[strum(serialize = "cancelled")]
     Cancelled,
+}
+impl crate::boundary_projection::ProjectionType for StudyLifecycle {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StudyLifecycle",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StudyLifecycle {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for StudyLifecycle {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -25469,6 +33582,45 @@ pub enum StudyPointState {
     #[serde(rename = "cancelled")]
     #[strum(serialize = "cancelled")]
     Cancelled,
+}
+impl crate::boundary_projection::ProjectionType for StudyPointState {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StudyPointState",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StudyPointState {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for StudyPointState {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -25593,6 +33745,45 @@ pub enum StudyResultRole {
     #[strum(serialize = "horizon_history")]
     HorizonHistory,
 }
+impl crate::boundary_projection::ProjectionType for StudyResultRole {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StudyResultRole",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StudyResultRole {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for StudyResultRole {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -25703,6 +33894,45 @@ pub enum StudyRetryFailure {
     #[strum(serialize = "deterministic")]
     Deterministic,
 }
+impl crate::boundary_projection::ProjectionType for StudyRetryFailure {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StudyRetryFailure",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StudyRetryFailure {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for StudyRetryFailure {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -25806,6 +34036,45 @@ pub enum StudySeedNeed {
     #[serde(rename = "required")]
     #[strum(serialize = "required")]
     Required,
+}
+impl crate::boundary_projection::ProjectionType for StudySeedNeed {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StudySeedNeed",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StudySeedNeed {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for StudySeedNeed {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -25917,6 +34186,45 @@ pub enum StudySeedRole {
     #[strum(serialize = "horizon_state")]
     HorizonState,
 }
+impl crate::boundary_projection::ProjectionType for StudySeedRole {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StudySeedRole",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StudySeedRole {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for StudySeedRole {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -26021,6 +34329,45 @@ pub enum StudySeedUnavailable {
     #[serde(rename = "incompatible")]
     #[strum(serialize = "incompatible")]
     Incompatible,
+}
+impl crate::boundary_projection::ProjectionType for StudySeedUnavailable {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StudySeedUnavailable",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StudySeedUnavailable {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for StudySeedUnavailable {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -26136,6 +34483,45 @@ pub enum StudyStartKind {
     #[strum(serialize = "fresh_fallback")]
     FreshFallback,
 }
+impl crate::boundary_projection::ProjectionType for StudyStartKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StudyStartKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StudyStartKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for StudyStartKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -26243,6 +34629,45 @@ pub enum StudyState {
     #[strum(serialize = "concluded")]
     Concluded,
 }
+impl crate::boundary_projection::ProjectionType for StudyState {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StudyState",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StudyState {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for StudyState {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -26342,6 +34767,45 @@ pub enum StudyUnavailableSeedPolicy {
     #[serde(rename = "fresh_on_unavailable")]
     #[strum(serialize = "fresh_on_unavailable")]
     FreshOnUnavailable,
+}
+impl crate::boundary_projection::ProjectionType for StudyUnavailableSeedPolicy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "StudyUnavailableSeedPolicy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StudyUnavailableSeedPolicy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for StudyUnavailableSeedPolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -26479,6 +34943,45 @@ pub enum TearMethod {
     #[strum(serialize = "unweighted_heuristic")]
     UnweightedHeuristic,
 }
+impl crate::boundary_projection::ProjectionType for TearMethod {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "TearMethod",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for TearMethod {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for TearMethod {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -26583,6 +35086,45 @@ pub enum TearPolicy {
     #[strum(serialize = "forbidden")]
     Forbidden,
 }
+impl crate::boundary_projection::ProjectionType for TearPolicy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "TearPolicy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for TearPolicy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for TearPolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -26684,6 +35226,45 @@ pub enum TimeCoordinateKind {
     #[serde(rename = "elapsed_duration")]
     #[strum(serialize = "elapsed_duration")]
     ElapsedDuration,
+}
+impl crate::boundary_projection::ProjectionType for TimeCoordinateKind {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "TimeCoordinateKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for TimeCoordinateKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for TimeCoordinateKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -26811,6 +35392,45 @@ pub enum TrajectoryTermination {
     #[strum(serialize = "panic")]
     Panic,
 }
+impl crate::boundary_projection::ProjectionType for TrajectoryTermination {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "TrajectoryTermination",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for TrajectoryTermination {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for TrajectoryTermination {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -26926,6 +35546,45 @@ pub enum TrialPolicy {
     #[strum(serialize = "recoverable")]
     Recoverable,
 }
+impl crate::boundary_projection::ProjectionType for TrialPolicy {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "TrialPolicy",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for TrialPolicy {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl crate::SemanticEq for TrialPolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -27033,6 +35692,45 @@ pub enum TruthValue {
     #[serde(rename = "conflict")]
     #[strum(serialize = "conflict")]
     Conflict,
+}
+impl crate::boundary_projection::ProjectionType for TruthValue {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "TruthValue",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for TruthValue {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for TruthValue {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -27218,6 +35916,45 @@ pub enum WithheldReason {
     #[serde(rename = "upstream_withheld")]
     #[strum(serialize = "upstream_withheld")]
     UpstreamWithheld,
+}
+impl crate::boundary_projection::ProjectionType for WithheldReason {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "WithheldReason",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        crate::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for WithheldReason {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl crate::SemanticEq for WithheldReason {
     fn semantic_eq(&self, other: &Self) -> bool {

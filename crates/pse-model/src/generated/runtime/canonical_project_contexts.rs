@@ -82,6 +82,489 @@ impl PartialEq for RuntimeCanonicalProjectContextsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for RuntimeCanonicalProjectContextsRow {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalProjectContext",
+                "crates/pse-schema/src/catalog/project_contexts.rs",
+                1u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "key",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        (
+                                            "pse.domain.canonical.key".into(),
+                                            "project_context".into(),
+                                        ),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.canonical.record_key".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "key".into()),
+                                        ("pse.domain.role".into(), "key".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "project",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        ("pse.domain.canonical.key".into(), "project".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "project".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "scope",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "scope".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "revision",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        ("pse.domain.canonical.key".into(), "revision".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "revision".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "source_identity",
+                                    5u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "5".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "source_identity".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "physical_context",
+                                    6u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "6".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "physical_context".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "physical_revision",
+                                    7u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "7".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "physical_revision".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "physical_source_identity",
+                                    8u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "8".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        (
+                                            "pse.domain.doc".into(),
+                                            "physical_source_identity".into(),
+                                        ),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                i64,
+                            >(
+                                    graph,
+                                    "effective_from_us",
+                                    9u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "9".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "effective_from_us".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<i64>,
+                            >(
+                                    graph,
+                                    "effective_to_us",
+                                    10u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "10".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "effective_to_us".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                u64,
+                            >(
+                                    graph,
+                                    "recorded_sequence",
+                                    11u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "11".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "recorded_sequence".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<String>,
+                            >(
+                                    graph,
+                                    "corrects",
+                                    12u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "12".into()),
+                                        (
+                                            "pse.domain.canonical.key".into(),
+                                            "project_context".into(),
+                                        ),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "corrects".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                bool,
+                            >(
+                                    graph,
+                                    "deleted",
+                                    13u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "13".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "deleted".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                crate::Bytes,
+                            >(
+                                    graph,
+                                    "request",
+                                    14u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "14".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "request".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord
+for RuntimeCanonicalProjectContextsRow {
+    const VERSION: u32 = 1u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "key"),
+        (2u32, "project"),
+        (3u32, "scope"),
+        (4u32, "revision"),
+        (5u32, "source_identity"),
+        (6u32, "physical_context"),
+        (7u32, "physical_revision"),
+        (8u32, "physical_source_identity"),
+        (9u32, "effective_from_us"),
+        (10u32, "effective_to_us"),
+        (11u32, "recorded_sequence"),
+        (12u32, "corrects"),
+        (13u32, "deleted"),
+        (14u32, "request"),
+    ];
+    type Fields = (
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        i64,
+        Option<i64>,
+        u64,
+        Option<String>,
+        bool,
+        crate::Bytes,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (
+            self.r#key,
+            self.r#project,
+            self.r#scope,
+            self.r#revision,
+            self.r#source_identity,
+            self.r#physical_context,
+            self.r#physical_revision,
+            self.r#physical_source_identity,
+            self.r#effective_from_us,
+            self.r#effective_to_us,
+            self.r#recorded_sequence,
+            self.r#corrects,
+            self.r#deleted,
+            self.r#request,
+        )
+    }
+    fn from_projection_fields(
+        (
+            r#key,
+            r#project,
+            r#scope,
+            r#revision,
+            r#source_identity,
+            r#physical_context,
+            r#physical_revision,
+            r#physical_source_identity,
+            r#effective_from_us,
+            r#effective_to_us,
+            r#recorded_sequence,
+            r#corrects,
+            r#deleted,
+            r#request,
+        ): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#key,
+            r#project,
+            r#scope,
+            r#revision,
+            r#source_identity,
+            r#physical_context,
+            r#physical_revision,
+            r#physical_source_identity,
+            r#effective_from_us,
+            r#effective_to_us,
+            r#recorded_sequence,
+            r#corrects,
+            r#deleted,
+            r#request,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection
+for RuntimeCanonicalProjectContextsRow {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <i64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            i64,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <u64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            String,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <bool as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <crate::Bytes as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#key,
+                &crate::boundary_projection::field_path(path, "key"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#project,
+                &crate::boundary_projection::field_path(path, "project"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#scope,
+                &crate::boundary_projection::field_path(path, "scope"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#revision,
+                &crate::boundary_projection::field_path(path, "revision"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#source_identity,
+                &crate::boundary_projection::field_path(path, "source_identity"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#physical_context,
+                &crate::boundary_projection::field_path(path, "physical_context"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#physical_revision,
+                &crate::boundary_projection::field_path(path, "physical_revision"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#physical_source_identity,
+                &crate::boundary_projection::field_path(
+                    path,
+                    "physical_source_identity",
+                ),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#effective_from_us,
+                &crate::boundary_projection::field_path(path, "effective_from_us"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#effective_to_us,
+                &crate::boundary_projection::field_path(path, "effective_to_us"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#recorded_sequence,
+                &crate::boundary_projection::field_path(path, "recorded_sequence"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#corrects,
+                &crate::boundary_projection::field_path(path, "corrects"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#deleted,
+                &crate::boundary_projection::field_path(path, "deleted"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#request,
+                &crate::boundary_projection::field_path(path, "request"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 impl RuntimeCanonicalProjectContextsRow {
     /// Project the declared nominal lookup domain from native transport storage.
     pub fn key_domain(&self) -> crate::generated::canonical::ProjectContextKey {

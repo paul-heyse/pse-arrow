@@ -215,7 +215,12 @@ impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
                                     "shape",
                                     7u32,
                                     crate::boundary_projection::Direction::Output,
-                                    vec![],
+                                    vec![
+                                        crate::boundary_projection::LocalRule::Length {
+                                            min: 0u64,
+                                            max: 18446744073709551615u64,
+                                        },
+                                    ],
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
@@ -379,78 +384,104 @@ impl crate::boundary_projection::ProjectionRecord for ReferenceQuantityTypesRow 
     }
 }
 impl crate::boundary_projection::ValidateProjection for ReferenceQuantityTypesRow {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
         || <crate::generated::identities::QuantityTypeId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
         || <Option<
             String,
         > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
         || <crate::generated::identities::QuantityKindId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
         || <Option<
             crate::generated::identities::BasisId,
         > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
         || <Option<
             crate::generated::identities::ReferenceStateId,
         > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
         || <crate::generated::enums::ScaleKind as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || true
         || <Vec<
             pse_ids::SemanticId,
         > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
         || <Option<
             crate::generated::identities::EntityKindId,
         > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
         || <crate::generated::identities::UnitId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
         || <Option<
             f64,
         > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
         || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
     ) -> Result<(), crate::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#quantity_type_id,
                 &crate::boundary_projection::field_path(path, "quantity_type_id"),
+                &[],
             )?;
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#name,
                 &crate::boundary_projection::field_path(path, "name"),
+                &[],
             )?;
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#quantity_kind_id,
                 &crate::boundary_projection::field_path(path, "quantity_kind_id"),
+                &[],
             )?;
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#basis_id,
                 &crate::boundary_projection::field_path(path, "basis_id"),
+                &[],
             )?;
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#reference_state_id,
                 &crate::boundary_projection::field_path(path, "reference_state_id"),
+                &[],
             )?;
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#scale_kind,
                 &crate::boundary_projection::field_path(path, "scale_kind"),
+                &[],
             )?;
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#shape,
                 &crate::boundary_projection::field_path(path, "shape"),
+                &[
+                    crate::boundary_projection::LocalRule::Length {
+                        min: 0u64,
+                        max: 18446744073709551615u64,
+                    },
+                ],
             )?;
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#subject_kind,
                 &crate::boundary_projection::field_path(path, "subject_kind"),
+                &[],
             )?;
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#canonical_unit_id,
                 &crate::boundary_projection::field_path(path, "canonical_unit_id"),
+                &[],
             )?;
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#nominal_magnitude,
                 &crate::boundary_projection::field_path(path, "nominal_magnitude"),
+                &[],
             )?;
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#doc,
                 &crate::boundary_projection::field_path(path, "doc"),
+                &[],
             )?;
         }
         Ok(())

@@ -210,15 +210,19 @@ impl crate::boundary_projection::ProjectionRecord for ReferenceBasesRow {
     }
 }
 impl crate::boundary_projection::ValidateProjection for ReferenceBasesRow {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
         || <crate::generated::identities::BasisId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
         || <crate::generated::enums::BasisKind as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
         || <Option<
             crate::generated::enums::CompositionBasis,
         > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
         || <Option<
             crate::generated::enums::RateBasis,
         > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
         || <Option<
             crate::generated::identities::ReferenceStateId,
         > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -227,25 +231,30 @@ impl crate::boundary_projection::ValidateProjection for ReferenceBasesRow {
         path: &str,
     ) -> Result<(), crate::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#basis_id,
                 &crate::boundary_projection::field_path(path, "basis_id"),
+                &[],
             )?;
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#kind,
                 &crate::boundary_projection::field_path(path, "kind"),
+                &[],
             )?;
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#composition_basis,
                 &crate::boundary_projection::field_path(path, "composition_basis"),
+                &[],
             )?;
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#rate_basis,
                 &crate::boundary_projection::field_path(path, "rate_basis"),
+                &[],
             )?;
-            crate::boundary_projection::ValidateProjection::validate_at(
+            crate::boundary_projection::validate_field(
                 &self.r#reference_conditions_id,
                 &crate::boundary_projection::field_path(path, "reference_conditions_id"),
+                &[],
             )?;
         }
         Ok(())

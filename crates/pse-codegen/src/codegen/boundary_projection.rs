@@ -17,9 +17,9 @@ use buffa_codegen::{
 };
 use protovalidate_buffa_protos::buf::validate::{
     self as validate,
-    __buffa::oneof::{s_int32rules, u_int32rules, u_int64rules},
-    BytesRules, FieldRules, MapRules, OneofRules, RepeatedRules, SInt32Rules, StringRules,
-    UInt32Rules, UInt64Rules,
+    __buffa::oneof::{fixed64rules, s_int32rules, s_int64rules, u_int32rules, u_int64rules},
+    BytesRules, FieldRules, Fixed64Rules, MapRules, OneofRules, RepeatedRules, Rule, SInt32Rules,
+    SInt64Rules, StringRules, UInt32Rules, UInt64Rules,
 };
 use pse_model::boundary_projection::{
     Direction, Field, LocalRule, ProjectionGraph, Scalar, Shape, TypeRef,
@@ -548,7 +548,11 @@ impl Lower<'_> {
                 });
                 if matches!(
                     scalar,
-                    Scalar::SemanticId | Scalar::ContentHash | Scalar::U8 | Scalar::U16 | Scalar::I16
+                    Scalar::SemanticId
+                        | Scalar::ContentHash
+                        | Scalar::U8
+                        | Scalar::U16
+                        | Scalar::I16
                 ) {
                     self.options(&mut field, self.base_rules(ty))?;
                 }
@@ -696,10 +700,13 @@ impl Lower<'_> {
                 );
             }
             TypeRef::Scalar(Scalar::U16) => {
-                rules.r#type = Some(UInt32Rules {
-                    less_than: Some(u_int32rules::LessThan::Lte(u32::from(u16::MAX))),
-                    ..Default::default()
-                }.into());
+                rules.r#type = Some(
+                    UInt32Rules {
+                        less_than: Some(u_int32rules::LessThan::Lte(u32::from(u16::MAX))),
+                        ..Default::default()
+                    }
+                    .into(),
+                );
             }
             TypeRef::Repeated(inner) | TypeRef::Set(inner)
                 if matches!(inner.as_ref(), TypeRef::Scalar(_)) =>
@@ -753,11 +760,72 @@ impl Lower<'_> {
 
 fn apply_rule(rules: &mut FieldRules, ty: &TypeRef, rule: &LocalRule) -> Result<(), SchemaError> {
     let ty = match (rule, ty) {
-        (LocalRule::UnsignedRange { .. }, TypeRef::Optional(inner)) => inner.as_ref(),
+        (
+            LocalRule::UnsignedRange { .. }
+            | LocalRule::SignedRange { .. }
+            | LocalRule::Float64Domain(_),
+            TypeRef::Optional(inner),
+        ) => inner.as_ref(),
         _ => ty,
     };
     match rule {
+        LocalRule::Float64Domain(domain) => {
+            if !matches!(ty, TypeRef::Scalar(Scalar::F64Bits)) {
+                return Err(error("binary64 domain requires actual fixed64 float bits"));
+            }
+            if let Some(maximum) = domain.positive_maximum_bits() {
+                rules.r#type = Some(
+                    Fixed64Rules {
+                        greater_than: Some(fixed64rules::GreaterThan::Gt(0)),
+                        less_than: Some(fixed64rules::LessThan::Lte(maximum)),
+                        ..Default::default()
+                    }
+                    .into(),
+                );
+            } else {
+                // Each IEEE sign interval is monotonic in the transported unsigned
+                // bits. Exclude both infinities and every NaN, preserving both zeros.
+                rules.cel.push(Rule {
+                    id: Some("float64.finite".into()),
+                    message: Some("binary64 value must be finite".into()),
+                    expression: Some(format!(
+                        "this < {}u || (this >= {}u && this < {}u)",
+                        f64::INFINITY.to_bits(),
+                        (-0.0_f64).to_bits(),
+                        f64::NEG_INFINITY.to_bits()
+                    )),
+                    ..Default::default()
+                });
+            }
+        }
         LocalRule::Required => rules.required = Some(true),
+        LocalRule::SignedRange { min, max } => match ty {
+            TypeRef::Scalar(Scalar::I16 | Scalar::I32) => {
+                let min =
+                    i32::try_from(*min).map_err(|_| error("signed32 lower bound overflow"))?;
+                let max =
+                    i32::try_from(*max).map_err(|_| error("signed32 upper bound overflow"))?;
+                rules.r#type = Some(
+                    SInt32Rules {
+                        greater_than: Some(s_int32rules::GreaterThan::Gte(min)),
+                        less_than: Some(s_int32rules::LessThan::Lte(max)),
+                        ..Default::default()
+                    }
+                    .into(),
+                );
+            }
+            TypeRef::Scalar(Scalar::I64) => {
+                rules.r#type = Some(
+                    SInt64Rules {
+                        greater_than: Some(s_int64rules::GreaterThan::Gte(*min)),
+                        less_than: Some(s_int64rules::LessThan::Lte(*max)),
+                        ..Default::default()
+                    }
+                    .into(),
+                );
+            }
+            _ => return Err(error("signed range requires actual signed scalar")),
+        },
         LocalRule::Utf8Bytes { min, max } => {
             if !matches!(ty, TypeRef::Scalar(Scalar::String)) {
                 return Err(error("UTF-8 byte rule requires actual string type"));
@@ -772,11 +840,19 @@ fn apply_rule(rules: &mut FieldRules, ty: &TypeRef, rule: &LocalRule) -> Result<
             );
         }
         LocalRule::UnsignedRange { min, max } => match ty {
-            TypeRef::Scalar(Scalar::U32) => {
+            TypeRef::Scalar(Scalar::U8 | Scalar::U16 | Scalar::U32) => {
                 let lower =
                     u32::try_from(*min).map_err(|_| error("uint32 rule lower bound overflow"))?;
                 let upper =
                     u32::try_from(*max).map_err(|_| error("uint32 rule upper bound overflow"))?;
+                let native_maximum = match ty {
+                    TypeRef::Scalar(Scalar::U8) => u32::from(u8::MAX),
+                    TypeRef::Scalar(Scalar::U16) => u32::from(u16::MAX),
+                    _ => u32::MAX,
+                };
+                if upper > native_maximum {
+                    return Err(error("unsigned range exceeds its actual native width"));
+                }
                 rules.r#type = Some(
                     UInt32Rules {
                         // The unsigned domain already establishes this exact lower bound.

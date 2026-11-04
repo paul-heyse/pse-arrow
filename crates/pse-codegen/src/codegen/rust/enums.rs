@@ -150,6 +150,7 @@ fn declared(spec: &crate::model::EnumSpec) -> TokenStream {
     };
     let length = variants.len();
     let ordinals = (0..variants.len()).collect::<Vec<_>>();
+    let wire_name = spec.name;
     quote! {
         #(#projection)*
         #transitions
@@ -160,6 +161,18 @@ fn declared(spec: &crate::model::EnumSpec) -> TokenStream {
         #[strum(const_into_str, parse_err_ty = pse_diagnostics::VocabularyError, parse_err_fn = Self::unknown_member)]
         #[allow(clippy::enum_variant_names, reason = "closed enum spellings preserve registry and sanctioned parity names")]
         pub enum #name { #(#[doc = #docs] #[serde(rename = #members)] #[strum(serialize = #members)] #defaults #variants,)* }
+        impl crate::boundary_projection::ProjectionType for #name {
+            fn projection(graph:&mut crate::boundary_projection::ProjectionGraph) -> Result<crate::boundary_projection::TypeRef,crate::boundary_projection::ProjectionError> {
+                graph.declare::<Self>(#wire_name,"crates/pse-model/src/generated/enums.rs",1,
+                    crate::boundary_projection::Direction::Both,&[],&[],|_| {
+                        Ok(crate::boundary_projection::Shape::StringEnum(Self::ALL.iter().map(|value|value.as_str().to_owned()).collect()))
+                    })
+            }
+        }
+        impl crate::boundary_projection::ValidateProjection for #name {
+            const NEEDS_RECURSIVE_VALIDATION:bool=false;
+            fn validate_at(&self,_:&str)->Result<(),crate::boundary_projection::ValidationError> { Ok(()) }
+        }
         impl crate::SemanticEq for #name { fn semantic_eq(&self, other: &Self) -> bool { self == other } }
         impl #name {
             /// All members in declaration order; the ordinal is presentation only.

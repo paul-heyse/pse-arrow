@@ -37,29 +37,52 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "canonical_project_contexts",
             vec![
                 column("key", text())
-                    .with_canonical_key(crate::model::CanonicalKeyKind::ProjectContext),
+                    .with_canonical_key(crate::model::CanonicalKeyKind::ProjectContext)
+                    .with_boundary_tag(1),
                 column("project", text())
                     .with_canonical_key(crate::model::CanonicalKeyKind::Project)
-                    .canonical_readonly(),
-                column("scope", text()).canonical_readonly(),
+                    .canonical_readonly()
+                    .with_boundary_tag(2),
+                column("scope", text())
+                    .canonical_readonly()
+                    .with_boundary_tag(3),
                 column("revision", text())
                     .with_canonical_key(crate::model::CanonicalKeyKind::Revision)
-                    .canonical_readonly(),
-                column("source_identity", text()).canonical_readonly(),
-                column("physical_context", text()).canonical_readonly(),
-                column("physical_revision", text()).canonical_readonly(),
-                column("physical_source_identity", text()).canonical_readonly(),
-                column("effective_from_us", instant()).canonical_readonly(),
+                    .canonical_readonly()
+                    .with_boundary_tag(4),
+                column("source_identity", text())
+                    .canonical_readonly()
+                    .with_boundary_tag(5),
+                column("physical_context", text())
+                    .canonical_readonly()
+                    .with_boundary_tag(6),
+                column("physical_revision", text())
+                    .canonical_readonly()
+                    .with_boundary_tag(7),
+                column("physical_source_identity", text())
+                    .canonical_readonly()
+                    .with_boundary_tag(8),
+                column("effective_from_us", instant())
+                    .canonical_readonly()
+                    .with_boundary_tag(9),
                 column("effective_to_us", instant())
                     .canonical_readonly()
-                    .optional(),
-                column("recorded_sequence", uint()).canonical_readonly(),
+                    .optional()
+                    .with_boundary_tag(10),
+                column("recorded_sequence", uint())
+                    .canonical_readonly()
+                    .with_boundary_tag(11),
                 column("corrects", text())
                     .with_canonical_key(crate::model::CanonicalKeyKind::ProjectContext)
                     .canonical_readonly()
-                    .optional(),
-                column("deleted", T::native(D::Boolean)).canonical_readonly(),
-                column("request", T::native(D::Binary)).canonical_readonly(),
+                    .optional()
+                    .with_boundary_tag(12),
+                column("deleted", T::native(D::Boolean))
+                    .canonical_readonly()
+                    .with_boundary_tag(13),
+                column("request", T::native(D::Binary))
+                    .canonical_readonly()
+                    .with_boundary_tag(14),
             ],
             "Immutable engineering context with UTC half-open effective interval and exact admitted source reference; no copied scientific values.",
         ),
@@ -74,6 +97,28 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "Immutable transitive correction ancestry. A correction dominates ancestors only inside its own effective interval.",
         ),
     ] {
-        relation(b, N::Runtime, name, S::Derived, &["key"], fields, doc);
+        if name == "canonical_project_contexts" {
+            b.declare_relation(
+                crate::declaration::canonical_declaration(
+                    N::Runtime,
+                    name,
+                    1,
+                    S::Derived,
+                    &["key"],
+                    fields,
+                    doc,
+                )
+                .with_boundary_record(crate::model::BoundaryRecord {
+                    source: file!(),
+                    name: "CanonicalProjectContext",
+                    version: 1,
+                    direction: pse_vocabulary::BoundaryDirection::Both,
+                    reserved_tags: &[],
+                    reserved_names: &[],
+                }),
+            );
+        } else {
+            relation(b, N::Runtime, name, S::Derived, &["key"], fields, doc);
+        }
     }
 }

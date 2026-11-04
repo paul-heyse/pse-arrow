@@ -54,20 +54,24 @@ pub fn physical_identity(
 ) -> ContentHash {
     crate::physical_identity::identity(quantities, preconditions)
 }
+pse_model::projection_struct! {
 /// Consumed compilation controls, separate from semantic preparation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Profile {
+    projection: { name: "CompilerProfile", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Optimization controls.
-    pub optimization: Optimization,
+    pub optimization: Optimization => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Local numeric limits affecting evaluator admission.
-    pub evaluation: EvaluationLimits,
+    pub evaluation: EvaluationLimits => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Per-case sparse assembly and complete numerical-worker admission limits.
-    pub assembly: AssemblyLimits,
+    pub assembly: AssemblyLimits => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Shared finite conservative construction work for domain facts and demanded
     /// class proof, including expression storage/substitution bounds and derivative
     /// calls. These units are not measured library-operation counters and do not
     /// admit byte allocations or numerical evaluator work.
-    pub class_proof_work: usize,
+    pub class_proof_work: usize => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl Default for Profile {
     fn default() -> Self {
@@ -77,6 +81,45 @@ impl Default for Profile {
             assembly: AssemblyLimits::default(),
             class_proof_work: 1_000_000,
         }
+    }
+}
+#[cfg(test)]
+mod projection_tests {
+    use super::Profile;
+    use pse_model::boundary_projection::{ProjectionGraph, ProjectionRecord, ValidateProjection};
+
+    #[test]
+    fn actual_compiler_profile_projects_its_complete_math_controls() {
+        let mut profile = Profile::default();
+        profile.optimization.evaluator = pse_math::library::Evaluator::CompiledScalar {
+            module_bytes: 123_456,
+        };
+        profile.validate_projection().unwrap();
+        let graph = ProjectionGraph::of::<Profile>().unwrap();
+        for name in [
+            "CompilerProfile",
+            "MathOptimization",
+            "MathEvaluator",
+            "MathEvaluationLimits",
+            "MathAssemblyLimits",
+        ] {
+            assert!(
+                graph.definitions().contains_key(name),
+                "missing actual owner {name}"
+            );
+        }
+        assert_eq!(
+            Profile::from_projection_fields(profile.into_projection_fields()).unwrap(),
+            profile
+        );
+        for invalid in [0, 65] {
+            let mut value = profile;
+            value.optimization.cores = invalid;
+            assert!(value.validate_projection().is_err());
+        }
+        let mut value = profile;
+        value.evaluation.provider_calls = 0;
+        assert!(value.validate_projection().is_err());
     }
 }
 /// Finite workspace metadata policy. Generations never escape as Salsa handles.

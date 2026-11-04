@@ -3859,21 +3859,86 @@ pub(crate) fn guards_at_zero(guards: &[f64], events: &[Event]) -> usize {
         .count()
 }
 
+/// Public path wiring for the existing complete Diffsol initialization binding.
+pub use initial_options::Remote as InitialConditionProjection;
+/// Public path wiring for the existing complete Diffsol integration binding.
+pub use ode_options::Remote as OdeOptionsProjection;
+
+#[cfg(test)]
+mod remote_projection_tests {
+    use super::{InitialConditionProjection, OdeOptionsProjection};
+    use pse_model::boundary_projection::{
+        Adapted, CheckedProjectionRecord, ProjectionGraph, SharedAdapter,
+    };
+    use std::sync::Arc;
+
+    #[test]
+    fn actual_diffsol_remote_settings_preserve_nonclone_shared_controls_and_bits() {
+        type Initial = Adapted<
+            Arc<diffsol::InitialConditionSolverOptions<f64>>,
+            SharedAdapter<InitialConditionProjection>,
+        >;
+        type Ode =
+            Adapted<Arc<diffsol::OdeSolverOptions<f64>>, SharedAdapter<OdeOptionsProjection>>;
+        let mut initial = diffsol::InitialConditionSolverOptions::<f64>::default();
+        initial.max_newton_iterations = 27;
+        initial.armijo_constant = -0.0;
+        let original = Arc::new(initial);
+        let fields = Initial::new(original.clone())
+            .try_into_projection_fields()
+            .unwrap();
+        assert_eq!(Arc::strong_count(&original), 1);
+        let recovered = Initial::from_projection_fields(fields)
+            .unwrap()
+            .into_inner();
+        assert_eq!(recovered.max_newton_iterations, 27);
+        assert_eq!(recovered.armijo_constant.to_bits(), (-0.0_f64).to_bits());
+        assert!(!Arc::ptr_eq(&original, &recovered));
+        let mut ode = diffsol::OdeSolverOptions::<f64>::default();
+        ode.max_timestep_growth = Some(f64::from_bits(0x7ff8_0000_0000_0042));
+        ode.min_timestep_growth = None;
+        let fields = Ode::new(Arc::new(ode))
+            .try_into_projection_fields()
+            .unwrap();
+        let recovered = Ode::from_projection_fields(fields).unwrap().into_inner();
+        assert_eq!(
+            recovered.max_timestep_growth.unwrap().to_bits(),
+            0x7ff8_0000_0000_0042
+        );
+        assert_eq!(recovered.min_timestep_growth, None);
+        let graph = ProjectionGraph::of::<Ode>().unwrap();
+        let record = &graph.definitions()["SharedDiffsolOdeSolverOptions"];
+        assert!(record.checked_record);
+        assert!(
+            record
+                .public_rust_path
+                .as_ref()
+                .unwrap()
+                .contains("pse_backend_native::dynamics::OdeOptionsProjection")
+        );
+    }
+}
+
 mod initial_options {
     use super::*;
+    pse_model::projection_remote! {
+    /// Source-owned remote declaration of the library's initialization controls.
     #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
     #[serde(
         remote = "diffsol::InitialConditionSolverOptions<f64>",
         deny_unknown_fields
     )]
     #[schemars(rename = "DiffsolInitialConditionOptions")]
-    pub(super) struct Remote {
-        use_linesearch: bool,
-        max_linesearch_iterations: usize,
-        max_newton_iterations: usize,
-        max_linear_solver_setups: usize,
-        step_reduction_factor: f64,
-        armijo_constant: f64,
+    pub struct Remote for diffsol::InitialConditionSolverOptions<f64> {
+        projection: { name: "DiffsolInitialConditionOptions", rust_path: crate::dynamics::InitialConditionProjection,
+            version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        use_linesearch: bool => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        max_linesearch_iterations: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        max_newton_iterations: usize => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        max_linear_solver_setups: usize => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        step_reduction_factor: f64 => { tag: 5, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        armijo_constant: f64 => { tag: 6, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    }
     }
     pub(super) fn serialize<S: serde::Serializer>(
         value: &Arc<diffsol::InitialConditionSolverOptions<f64>>,
@@ -3890,25 +3955,30 @@ mod initial_options {
 
 mod ode_options {
     use super::*;
+    pse_model::projection_remote! {
+    /// Source-owned remote declaration of the library's nonlinear integration controls.
     #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
     #[serde(remote = "diffsol::OdeSolverOptions<f64>", deny_unknown_fields)]
     #[schemars(rename = "DiffsolOdeSolverOptions")]
-    pub(super) struct Remote {
-        max_nonlinear_solver_iterations: usize,
-        max_error_test_failures: usize,
-        max_nonlinear_solver_failures: usize,
-        nonlinear_solver_tolerance: f64,
-        min_timestep: f64,
-        max_timestep_growth: Option<f64>,
-        min_timestep_growth: Option<f64>,
-        max_timestep_shrink: Option<f64>,
-        min_timestep_shrink: Option<f64>,
-        update_jacobian_after_steps: usize,
-        update_rhs_jacobian_after_steps: usize,
-        threshold_to_update_jacobian: f64,
-        threshold_to_update_rhs_jacobian: f64,
-        pi_control_proportional: f64,
-        pi_control_integral: f64,
+    pub struct Remote for diffsol::OdeSolverOptions<f64> {
+        projection: { name: "DiffsolOdeSolverOptions", rust_path: crate::dynamics::OdeOptionsProjection,
+            version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        max_nonlinear_solver_iterations: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        max_error_test_failures: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        max_nonlinear_solver_failures: usize => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        nonlinear_solver_tolerance: f64 => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        min_timestep: f64 => { tag: 5, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        max_timestep_growth: Option<f64> => { tag: 6, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        min_timestep_growth: Option<f64> => { tag: 7, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        max_timestep_shrink: Option<f64> => { tag: 8, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        min_timestep_shrink: Option<f64> => { tag: 9, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        update_jacobian_after_steps: usize => { tag: 10, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        update_rhs_jacobian_after_steps: usize => { tag: 11, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        threshold_to_update_jacobian: f64 => { tag: 12, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        threshold_to_update_rhs_jacobian: f64 => { tag: 13, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        pi_control_proportional: f64 => { tag: 14, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        pi_control_integral: f64 => { tag: 15, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    }
     }
     pub(super) fn serialize<S: serde::Serializer>(
         value: &Arc<diffsol::OdeSolverOptions<f64>>,

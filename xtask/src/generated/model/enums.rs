@@ -39,6 +39,45 @@ pub enum EvidenceCoverage {
     #[strum(serialize = "partial")]
     Partial,
 }
+impl pse_model::boundary_projection::ProjectionType for EvidenceCoverage {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "EvidenceCoverage",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for EvidenceCoverage {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl pse_model::SemanticEq for EvidenceCoverage {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -136,6 +175,45 @@ pub enum EvidenceGenerationState {
     #[serde(rename = "active")]
     #[strum(serialize = "active")]
     Active,
+}
+impl pse_model::boundary_projection::ProjectionType for EvidenceGenerationState {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "EvidenceGenerationState",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for EvidenceGenerationState {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl pse_model::SemanticEq for EvidenceGenerationState {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -257,6 +335,45 @@ pub enum KnowledgeBasis {
     #[strum(serialize = "user-question")]
     UserQuestion,
 }
+impl pse_model::boundary_projection::ProjectionType for KnowledgeBasis {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "KnowledgeBasis",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for KnowledgeBasis {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl pse_model::SemanticEq for KnowledgeBasis {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -367,6 +484,45 @@ pub enum KnowledgeDirection {
     #[serde(rename = "output")]
     #[strum(serialize = "output")]
     Output,
+}
+impl pse_model::boundary_projection::ProjectionType for KnowledgeDirection {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "KnowledgeDirection",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for KnowledgeDirection {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl pse_model::SemanticEq for KnowledgeDirection {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -492,6 +648,45 @@ pub enum KnowledgeDocumentRole {
     #[strum(serialize = "index")]
     Index,
 }
+impl pse_model::boundary_projection::ProjectionType for KnowledgeDocumentRole {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "KnowledgeDocumentRole",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for KnowledgeDocumentRole {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl pse_model::SemanticEq for KnowledgeDocumentRole {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -606,6 +801,45 @@ pub enum KnowledgeGenerationState {
     #[serde(rename = "active")]
     #[strum(serialize = "active")]
     Active,
+}
+impl pse_model::boundary_projection::ProjectionType for KnowledgeGenerationState {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "KnowledgeGenerationState",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for KnowledgeGenerationState {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl pse_model::SemanticEq for KnowledgeGenerationState {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -738,6 +972,45 @@ pub enum KnowledgeRelationKind {
     #[serde(rename = "references")]
     #[strum(serialize = "references")]
     References,
+}
+impl pse_model::boundary_projection::ProjectionType for KnowledgeRelationKind {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "KnowledgeRelationKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for KnowledgeRelationKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl pse_model::SemanticEq for KnowledgeRelationKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -887,6 +1160,45 @@ pub enum KnowledgeSourceRole {
     #[strum(serialize = "interpretation_policy")]
     InterpretationPolicy,
 }
+impl pse_model::boundary_projection::ProjectionType for KnowledgeSourceRole {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "KnowledgeSourceRole",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for KnowledgeSourceRole {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
 impl pse_model::SemanticEq for KnowledgeSourceRole {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -1020,6 +1332,45 @@ pub enum KnowledgeSourceStatus {
     #[serde(rename = "unknown")]
     #[strum(serialize = "unknown")]
     Unknown,
+}
+impl pse_model::boundary_projection::ProjectionType for KnowledgeSourceStatus {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "KnowledgeSourceStatus",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for KnowledgeSourceStatus {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl pse_model::SemanticEq for KnowledgeSourceStatus {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -1167,6 +1518,45 @@ pub enum KnowledgeSubjectKind {
     #[serde(rename = "research_question")]
     #[strum(serialize = "research_question")]
     ResearchQuestion,
+}
+impl pse_model::boundary_projection::ProjectionType for KnowledgeSubjectKind {
+    fn projection(
+        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_model::boundary_projection::TypeRef,
+        pse_model::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "KnowledgeSubjectKind",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                pse_model::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        pse_model::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_model::boundary_projection::ValidateProjection for KnowledgeSubjectKind {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl pse_model::SemanticEq for KnowledgeSubjectKind {
     fn semantic_eq(&self, other: &Self) -> bool {
