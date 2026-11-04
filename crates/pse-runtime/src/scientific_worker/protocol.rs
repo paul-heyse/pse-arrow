@@ -145,6 +145,97 @@ pse_contract::projection_enum! {
         Close(Handle) => 4;
         /// Close admission and cancel/drain every handle on this authenticated session.
         Shutdown => 5;
+        /// Execute one native group; raw point cells undergo independent scientific admission.
+        EvaluateBatch(EvaluateBatch) => 6;
+    }
+}
+pse_contract::projection_struct! {
+    #[derive(Clone, Debug)]
+    /// Prepared native capability for the exact reconstructed immutable demand.
+    pub struct Prepared {
+        projection: { name: "Prepared", version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
+        /// Exact admitted context.
+        pub handle: Handle => { tag: 1, direction: Direction::Output, rules: [] };
+        /// Native owner supports a genuine group for this demand; scalar support grants nothing.
+        pub batch_supported: bool => { tag: 2, direction: Direction::Output, rules: [] };
+    }
+}
+pse_contract::projection_struct! {
+    #[derive(Clone, Debug)]
+    /// Original identified raw point; uint64 cells preserve every IEEE bit until point admission.
+    pub struct BatchPoint {
+        projection: { name: "BatchPoint", version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
+        /// Unique nonzero group-local identity, checked by the native envelope owner.
+        pub id: SemanticId => { tag: 1, direction: Direction::Input, rules: [] };
+        /// Exact ordered input bits, including independently refused nonfinite coordinates.
+        pub inputs: Vec<u64> => { tag: 2, direction: Direction::Input, rules: [LocalRule::Length { min: 0, max: 64 }] };
+        /// Exact direction seed bits.
+        pub directions: Vec<u64> => { tag: 3, direction: Direction::Input, rules: [LocalRule::Length { min: 0, max: 65536 }] };
+        /// Exact output cotangent bits.
+        pub cotangents: Vec<u64> => { tag: 4, direction: Direction::Input, rules: [LocalRule::Length { min: 0, max: 65536 }] };
+        /// Exact weighted-second seed bits.
+        pub weights: Vec<u64> => { tag: 5, direction: Direction::Input, rules: [LocalRule::Length { min: 0, max: 64 }] };
+    }
+}
+pse_contract::projection_struct! {
+    #[derive(Clone, Debug)]
+    /// One genuine group on one immutable native demand, without replay.
+    pub struct EvaluateBatch {
+        projection: { name: "EvaluateBatch", version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
+        /// Exact prepared context.
+        pub handle: Handle => { tag: 1, direction: Direction::Input, rules: [LocalRule::Required] };
+        /// Shares the scalar invocation sequence; repeated/stale operations refuse.
+        pub invocation: u64 => { tag: 2, direction: Direction::Input, rules: [LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
+        /// Ordered identified points; framing bounds never grant scientific permission.
+        pub points: Vec<BatchPoint> => { tag: 3, direction: Direction::Input, rules: [LocalRule::Length { min: 1, max: 4096 }] };
+    }
+}
+pse_contract::projection_struct! {
+    #[derive(Clone, Debug)]
+    /// Complete numerical group point; exact extents are checked against the prepared demand.
+    pub struct BatchProduct {
+        projection: { name: "BatchProduct", version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
+        /// Selected physical values.
+        pub values: Vec<f64> => { tag: 1, direction: Direction::Output, rules: [LocalRule::Length { min: 1, max: 65536 }] };
+        /// Prepared first product.
+        pub jacobian: Vec<f64> => { tag: 2, direction: Direction::Output, rules: [LocalRule::Length { min: 0, max: 65536 }] };
+        /// Prepared second product.
+        pub hessians: Vec<f64> => { tag: 3, direction: Direction::Output, rules: [LocalRule::Length { min: 0, max: 65536 }] };
+    }
+}
+pse_contract::projection_enum! {
+    #[derive(Clone, Debug)]
+    /// A scientific point refusal leaves its sibling products readable.
+    pub enum BatchResult {
+        projection: { name: "BatchResult", version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
+        /// Owner-completed demanded product.
+        Product(BatchProduct) => 1;
+        /// Original point refusal; never inferred from a group-wide C error code.
+        Refused(Failure) => 2;
+    }
+}
+pse_contract::projection_struct! {
+    #[derive(Clone, Debug)]
+    /// Exactly one attributable outcome for an original point.
+    pub struct BatchOutcome {
+        projection: { name: "BatchOutcome", version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
+        /// Original group-local point identity.
+        pub id: SemanticId => { tag: 1, direction: Direction::Output, rules: [] };
+        /// Independent complete product or original refusal.
+        pub result: BatchResult => { tag: 2, direction: Direction::Output, rules: [] };
+    }
+}
+pse_contract::projection_struct! {
+    #[derive(Clone, Debug)]
+    /// Attributable completion of the exact original native group.
+    pub struct Batch {
+        projection: { name: "Batch", version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
+        /// Completing context.
+        pub handle: Handle => { tag: 1, direction: Direction::Output, rules: [] };
+        /// Completing shared invocation sequence identity.
+        pub invocation: u64 => { tag: 2, direction: Direction::Output, rules: [] };
+        /// Original order with exactly one outcome per point.
+        pub points: Vec<BatchOutcome> => { tag: 3, direction: Direction::Output, rules: [LocalRule::Length { min: 1, max: 4096 }] };
     }
 }
 pse_contract::projection_struct! {
@@ -202,7 +293,7 @@ pse_contract::projection_enum! {
     pub enum Response {
         projection: { name: "Response", version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
         /// The actual reconstructed native owner admitted this demand.
-        Prepared(Handle) => 1;
+        Prepared(Prepared) => 1;
         /// The exact invocation produced a complete numerical product.
         Values(Values) => 2;
         /// A typed refusal, without a readable partial result.
@@ -211,5 +302,7 @@ pse_contract::projection_enum! {
         Closed(Handle) => 4;
         /// All session-native state has joined; the parent still owns process/I/O settlement.
         Shutdown => 5;
+        /// One complete attributable native group, including independent point refusals.
+        Batch(Batch) => 6;
     }
 }

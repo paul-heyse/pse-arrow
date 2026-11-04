@@ -279,6 +279,9 @@ impl From<p::Request> for pb::Request {
                 .into(),
             ),
             p::Request::Shutdown => Kind::Shutdown(request::Alternative5::default().into()),
+            p::Request::EvaluateBatch(value) => Kind::EvaluateBatch(request::Alternative6 {
+                value: pb::EvaluateBatch::from(value).into(), ..Default::default()
+            }.into()),
         };
         Self {
             kind: Some(kind),
@@ -311,6 +314,10 @@ impl TryFrom<pb::Request> for p::Request {
             Kind::Shutdown(v) => {
                 unknown(&v.__buffa_unknown_fields)?;
                 Self::Shutdown
+            }
+            Kind::EvaluateBatch(v) => {
+                unknown(&v.__buffa_unknown_fields)?;
+                Self::EvaluateBatch(required(v.value)?.try_into()?)
             }
         })
     }
@@ -455,7 +462,7 @@ impl From<p::Response> for pb::Response {
         let kind = match v {
             p::Response::Prepared(value) => Kind::Prepared(
                 response::Alternative1 {
-                    value: pb::Handle::from(value).into(),
+                    value: pb::Prepared::from(value).into(),
                     ..Default::default()
                 }
                 .into(),
@@ -482,6 +489,9 @@ impl From<p::Response> for pb::Response {
                 .into(),
             ),
             p::Response::Shutdown => Kind::Shutdown(response::Alternative5::default().into()),
+            p::Response::Batch(value) => Kind::Batch(response::Alternative6 {
+                value: pb::Batch::from(value).into(), ..Default::default()
+            }.into()),
         };
         Self {
             kind: Some(kind),
@@ -515,7 +525,114 @@ impl TryFrom<pb::Response> for p::Response {
                 unknown(&v.__buffa_unknown_fields)?;
                 Self::Shutdown
             }
+            Kind::Batch(v) => {
+                unknown(&v.__buffa_unknown_fields)?;
+                Self::Batch(required(v.value)?.try_into()?)
+            }
         })
+    }
+}
+
+impl From<p::Prepared> for pb::Prepared {
+    fn from(v: p::Prepared) -> Self {
+        Self { handle: pb::Handle::from(v.handle).into(), batch_supported: v.batch_supported, ..Default::default() }
+    }
+}
+impl TryFrom<pb::Prepared> for p::Prepared {
+    type Error = WorkerError;
+    fn try_from(v: pb::Prepared) -> Result<Self, Self::Error> {
+        unknown(&v.__buffa_unknown_fields)?;
+        Ok(Self { handle: required(v.handle)?.try_into()?, batch_supported: v.batch_supported })
+    }
+}
+impl From<p::BatchPoint> for pb::BatchPoint {
+    fn from(v: p::BatchPoint) -> Self {
+        Self { id: v.id.as_bytes().to_vec(), inputs: v.inputs, directions: v.directions,
+            cotangents: v.cotangents, weights: v.weights, ..Default::default() }
+    }
+}
+impl TryFrom<pb::BatchPoint> for p::BatchPoint {
+    type Error = WorkerError;
+    fn try_from(v: pb::BatchPoint) -> Result<Self, Self::Error> {
+        unknown(&v.__buffa_unknown_fields)?;
+        Ok(Self { id: id(&v.id)?, inputs: v.inputs, directions: v.directions, cotangents: v.cotangents, weights: v.weights })
+    }
+}
+impl From<p::EvaluateBatch> for pb::EvaluateBatch {
+    fn from(v: p::EvaluateBatch) -> Self {
+        Self { handle: pb::Handle::from(v.handle).into(), invocation: v.invocation,
+            points: v.points.into_iter().map(Into::into).collect(), ..Default::default() }
+    }
+}
+impl TryFrom<pb::EvaluateBatch> for p::EvaluateBatch {
+    type Error = WorkerError;
+    fn try_from(v: pb::EvaluateBatch) -> Result<Self, Self::Error> {
+        unknown(&v.__buffa_unknown_fields)?;
+        Ok(Self { handle: required(v.handle)?.try_into()?, invocation: v.invocation,
+            points: v.points.into_iter().map(TryInto::try_into).collect::<Result<_,_>>()? })
+    }
+}
+impl From<p::BatchProduct> for pb::BatchProduct {
+    fn from(v: p::BatchProduct) -> Self {
+        Self { values: bits(v.values), jacobian: bits(v.jacobian), hessians: bits(v.hessians), ..Default::default() }
+    }
+}
+impl TryFrom<pb::BatchProduct> for p::BatchProduct {
+    type Error = WorkerError;
+    fn try_from(v: pb::BatchProduct) -> Result<Self, Self::Error> {
+        unknown(&v.__buffa_unknown_fields)?;
+        Ok(Self { values: floats(v.values), jacobian: floats(v.jacobian), hessians: floats(v.hessians) })
+    }
+}
+impl From<p::BatchResult> for pb::BatchResult {
+    fn from(v: p::BatchResult) -> Self {
+        use pb::batch_result::{self, Kind};
+        let kind = match v {
+            p::BatchResult::Product(value) => Kind::Product(batch_result::Alternative1 {
+                value: pb::BatchProduct::from(value).into(), ..Default::default()
+            }.into()),
+            p::BatchResult::Refused(value) => Kind::Refused(batch_result::Alternative2 {
+                value: pb::Failure::from(value).into(), ..Default::default()
+            }.into()),
+        };
+        Self { kind: Some(kind), ..Default::default() }
+    }
+}
+impl TryFrom<pb::BatchResult> for p::BatchResult {
+    type Error = WorkerError;
+    fn try_from(v: pb::BatchResult) -> Result<Self, Self::Error> {
+        use pb::batch_result::Kind;
+        unknown(&v.__buffa_unknown_fields)?;
+        Ok(match v.kind.ok_or_else(contract)? {
+            Kind::Product(v) => { unknown(&v.__buffa_unknown_fields)?; Self::Product(required(v.value)?.try_into()?) }
+            Kind::Refused(v) => { unknown(&v.__buffa_unknown_fields)?; Self::Refused(required(v.value)?.try_into()?) }
+        })
+    }
+}
+impl From<p::BatchOutcome> for pb::BatchOutcome {
+    fn from(v: p::BatchOutcome) -> Self {
+        Self { id: v.id.as_bytes().to_vec(), result: pb::BatchResult::from(v.result).into(), ..Default::default() }
+    }
+}
+impl TryFrom<pb::BatchOutcome> for p::BatchOutcome {
+    type Error = WorkerError;
+    fn try_from(v: pb::BatchOutcome) -> Result<Self, Self::Error> {
+        unknown(&v.__buffa_unknown_fields)?;
+        Ok(Self { id: id(&v.id)?, result: required(v.result)?.try_into()? })
+    }
+}
+impl From<p::Batch> for pb::Batch {
+    fn from(v: p::Batch) -> Self {
+        Self { handle: pb::Handle::from(v.handle).into(), invocation: v.invocation,
+            points: v.points.into_iter().map(Into::into).collect(), ..Default::default() }
+    }
+}
+impl TryFrom<pb::Batch> for p::Batch {
+    type Error = WorkerError;
+    fn try_from(v: pb::Batch) -> Result<Self, Self::Error> {
+        unknown(&v.__buffa_unknown_fields)?;
+        Ok(Self { handle: required(v.handle)?.try_into()?, invocation: v.invocation,
+            points: v.points.into_iter().map(TryInto::try_into).collect::<Result<_,_>>()? })
     }
 }
 
@@ -536,6 +653,17 @@ mod tests {
             p::Response::try_from(decode::<pb::Response>(&response)).unwrap(),
             p::Response::Shutdown
         ));
+    }
+    #[test]
+    fn batch_binary_preserves_raw_bits_before_independent_point_admission() {
+        let exact = vec![0u64, (-0.0f64).to_bits(), 0x7ff8_0000_0000_1234];
+        let request = p::Request::EvaluateBatch(p::EvaluateBatch { handle: handle(), invocation: 7,
+            points: vec![p::BatchPoint { id: pse_ids::SemanticId::from_bytes([4; 16]),
+                inputs: exact.clone(), directions: vec![], cotangents: vec![], weights: vec![] }] });
+        let generated: pb::Request = decode(&pb::Request::from(request).encode_to_vec());
+        generated.validate().unwrap();
+        let p::Request::EvaluateBatch(actual) = p::Request::try_from(generated).unwrap() else { panic!("batch"); };
+        assert_eq!(actual.points[0].inputs, exact);
     }
     use protovalidate_buffa::Validate as _;
 

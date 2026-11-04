@@ -205,7 +205,7 @@ consumers; the whole descriptor world must not become a blanket mathematical pre
 | E02 | planned | E01; narrow working 65a/65b and receiving operation from 65i I02 | Generate portable scientific records/adapters and migrate existing producers/readers. Buffa generation and supported `Validate` discharge local correspondence; native reconstruction and completion-owned selectors discharge scientific admission/use. Cover ordering, exact bits, missing/unknown alternatives, scope/coverage and refusal classes. Remove migrated capture/restore pairs and duplicated shape declarations; retain qualification. Test changed native variants against independent known meaning. |
 | E03 | planned | E02 closed-root slice; 65d transport/settlement primitives where shared | Replace the private KINSOL root wire vocabulary through its actual launch/reconstruct/solve/readback path. Preserve provider-free rejection, original registry/body checks, numerical policy and cancellation/drain. Compare direct and child outcomes on the same independently specified roots; inject malformed source, stale image, unknown completion and child failure. Delete replaced private wire/JSON-only helpers and their mechanism-only fixtures. |
 | E04 | in-progress | Existing provider slice; 65d custody behavior; 65i dependency policy; ADR-0242 | Source cutover separates per-handle Stop/Close from explicit Shutdown and generation cancellation. Complete generated publication, active-stop/independent-session controls and process/I/O drain acceptance; migrate all selected clients/server/fixtures without confusing mutable handle invalidation with immutable math or descriptor lifetime. |
-| E05 | planned | E04; real implementation-native grouped evaluation identified | Deliver capability-declared coherent batching with exact point identities and per-point outcomes. Integrate the current water implementation where it can reuse preparation across independent states and the action-capable provider control for demand fidelity. Mixed valid/invalid states, branch changes, nonfinite/truncated responses and failure after partial completion discriminate behavior. Remove redundant per-point RPC orchestration from migrated consumers. |
+| E05 | in progress | E04; ADR-0243 precedes kernel and binding activation | Deliver capability-declared coherent batching with exact point identities and per-point outcomes. Integrate the current water implementation where it can reuse preparation across independent states and the action-capable provider control for demand fidelity. Mixed valid/invalid states, branch changes, nonfinite/truncated responses and failure after partial completion discriminate behavior. Remove redundant per-point RPC orchestration from migrated consumers. |
 | E06 | planned | E02–E05 functional population; 65i product-use contract; 65f outcome and 65g readers | Integrate generated capability/outcome inspection and independent exchange across supported post-64 modes; `DynamicMessage::from_options` exposes metadata while native selectors govern use. Prove raw versus scientific access, original task/step/point coverage and final-attempt interpretation. Record matched direct/isolated complete-operation measurements without presumed speedup. Supply actual population/limits to 65h and remove superseded selected paths. |
 
 The E05 prerequisites are a bounded implementation question: does the selected native provider
@@ -221,8 +221,9 @@ production batching obligation complete. A synthetic control alone cannot close 
 **Interface-checked:** the selected `coolprop-sys =8.0.0` exposes native array operations
 `AbstractState_update_and_common_out`, `AbstractState_update_and_1_out`,
 `AbstractState_update_and_5_out` and `PropsSImulti`. They are genuine grouped library routes,
-not a Rust/RPC loop over scalar evaluation. Current kernel `Provider::fill` remains scalar;
-absence of a current batch trait is not absence of an enabling library capability.
+not a Rust/RPC loop over scalar evaluation. The scalar `Provider::fill` and optional
+`supports_batch`/`fill_batch` contracts retain separate capabilities; scalar support grants no
+grouped support and the default batch implementation refuses without invoking scalar work.
 
 The [selected CoolProp 8.0.0 C wrapper](https://github.com/CoolProp/CoolProp/blob/ae81610e7d23efc57f9d051c8e70a4d66e87537f/src/CoolPropLib.cpp)
 distinguishes these routes. The AbstractState array calls reuse a handle but swallow individual
@@ -231,7 +232,16 @@ require all requested fields before adoption. `PropsSImulti` instead constructs 
 group, processes input arrays and accepts arbitrary selected outputs. Its caller supplies
 matrix capacities; returned dimensions must match the admitted population/output shape,
 and zero dimensions report total failure. Flattening is point-major. The output separator
-uses actual `LIST_STRING_DELIMITER` configuration rather than an assumed constant.
+uses actual `LIST_STRING_DELIMITER` configuration. The selected
+[configuration declaration](https://github.com/CoolProp/CoolProp/blob/ae81610e7d23efc57f9d051c8e70a4d66e87537f/include/CoolProp/detail/configuration_keys.h)
+sets its default to comma. The initial admitted native profile uses that pinned default and
+requires exactly six returned columns; configuration mismatch is a typed whole-group refusal,
+without configuration mutation or replay. The selected Rust binding exposes no config getter,
+and `get_global_param_string` does not expose configuration. This is a binding limitation,
+not absence of upstream configuration introspection: the C++ `get_config_string` and
+`get_config_as_json_string` owners in
+[Configuration.cpp](https://github.com/CoolProp/CoolProp/blob/ae81610e7d23efc57f9d051c8e70a4d66e87537f/src/Configuration.cpp)
+are a future binding-eligibility lead; an actual supported exported C ABI still needs verification.
 
 The [selected core implementation](https://github.com/CoolProp/CoolProp/blob/ae81610e7d23efc57f9d051c8e70a4d66e87537f/src/CoolProp.cpp)
 parses normal, first- and second-derivative output strings. `Phase` resolves through the
@@ -250,7 +260,7 @@ group merely to recover its error. The guard excludes other in-process CoolProp 
 the call; compare that physical tradeoff against native low-level grouping before claiming a
 throughput benefit. No global application/RPC mutex or automatic retry is introduced.
 
-The proposed first production capability is independent-state, value-only water batching
+The initial production capability is independent-state, value-only water batching
 through one native `PropsSImulti` call, with derivative batch demands explicitly unsupported
 until qualified. Factor shared physical admission at the actual water owner: finite input
 envelope, actual phase, positive isothermal response, pressure envelope, local h/s datum
@@ -258,7 +268,7 @@ offsets and `h = u + p/rho` consistency must remain identical to scalar executio
 call must return those guard observations alongside selected values; ordinary bulk P/H/S
 alone does not discharge them. Numerical kernels keep their native representations.
 
-Before activation, the kernel/binding decision must establish:
+ADR-0243 precedes activation. The kernel/binding contract establishes:
 
 - A capability query over the exact prepared demand; no default scalar-loop batch fallback.
 - Whole-envelope identity uniqueness, framing and checked extents, followed by per-point
@@ -274,10 +284,20 @@ Before activation, the kernel/binding decision must establish:
   native/process/I/O custody until actual settlement. An observer timeout cannot release buffers
   or turn missing acknowledgement into replay permission.
 
-This is a source-backed next implementation route, not completed E05 delivery. Value/guard
-parity, mixed valid/refused states, shape/ordering errors, all-invalid input, partial native
-failure and actual grouped transport remain required. The action-capable control establishes
-demand fidelity separately; it cannot substitute for this production scientific realization.
+The implementation uses `ProviderBatchPoint` for original IDs, raw input cells and numeric
+seeds, `ProviderBinding::evaluate_batch` for checked frame storage and independent point
+shape/runtime admission, and `ProviderBatchOutcome` for attributed products/refusals.
+Scope, output-envelope and observation wrappers forward one actual group; none synthesizes
+a scalar loop. Water's one shared qualification helper serves both scalar and grouped paths.
+The worker's source-owned `Prepared` response advertises this exact demand's native batch
+capability; `EvaluateBatch` and `Batch` retain the original handle, shared invocation sequence
+and original ordered point IDs. Raw `Vec<u64>` input bits survive generated validation until
+native per-point admission. No transferable linearization proof is introduced.
+
+E05 remains in progress pending generated publication and complete targeted controls. Native
+value/guard parity, mixed valid/refused states, shape/ordering errors, all-invalid input,
+partial native failure and actual grouped transport remain required. The action-capable control
+establishes demand fidelity separately; it cannot substitute for the production scientific group.
 
 ## Verification, extension and decision handoff
 

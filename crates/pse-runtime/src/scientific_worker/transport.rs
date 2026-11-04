@@ -239,7 +239,7 @@ impl IoOwner {
         checkpoint()?;
         let timeout = rpc_timeout(
             scope,
-            matches!(&request, p::Request::Evaluate(_)),
+            matches!(&request, p::Request::Evaluate(_) | p::Request::EvaluateBatch(_)),
             std::time::Instant::now(),
         )?;
         let (reply, received) = std::sync::mpsc::channel();
@@ -306,6 +306,7 @@ impl HandleControls {
                 self.handles.insert(value.handle.generation, (value.handle.clone(), Default::default()));
             }
             p::Request::Evaluate(value) => { self.control(&value.handle)?; }
+            p::Request::EvaluateBatch(value) => { self.control(&value.handle)?; }
             p::Request::Close(handle) => { self.control(handle)?; }
             p::Request::Stop(handle) => self.control(handle)?.cancel(),
             p::Request::Shutdown => {
@@ -352,7 +353,7 @@ impl services::ScientificWorker for Server {
                 )));
             }
         };
-        let work = if matches!(&request, p::Request::Prepare(_) | p::Request::Evaluate(_)) {
+        let work = if matches!(&request, p::Request::Prepare(_) | p::Request::Evaluate(_) | p::Request::EvaluateBatch(_)) {
             match self.work.clone().try_acquire_owned() {
                 Ok(permit) => Some(permit),
                 Err(_) => return Ok(connectrpc::Response::new(pb::Response::from(
@@ -420,6 +421,7 @@ pub(super) fn serve_with_preparation(
                 let handle = match &job.request {
                     p::Request::Prepare(value) => Some(value.handle.clone()),
                     p::Request::Evaluate(value) => Some(value.handle.clone()),
+                    p::Request::EvaluateBatch(value) => Some(value.handle.clone()),
                     p::Request::Stop(handle) | p::Request::Close(handle) => Some(handle.clone()),
                     p::Request::Shutdown => None,
                 };
@@ -437,8 +439,9 @@ pub(super) fn serve_with_preparation(
                         let cancellation = controls_lock(&native_controls)?.control(&value.handle)?.clone();
                         let prepared = prepare(value, cancellation)?;
                         let handle = p::Handle::from(prepared.handle());
+                        let batch_supported = prepared.supports_batch();
                         sessions.insert(handle.generation, prepared);
-                        Ok(p::Response::Prepared(handle))
+                        Ok(p::Response::Prepared(p::Prepared { handle, batch_supported }))
                     }
                     p::Request::Evaluate(value) => {
                         let owner =
@@ -448,6 +451,11 @@ pub(super) fn serve_with_preparation(
                                 )
                             })?;
                         Ok(p::Response::Values(handler::evaluate(owner, value)?))
+                    }
+                    p::Request::EvaluateBatch(value) => {
+                        let owner = sessions.get_mut(&value.handle.generation).ok_or_else(||
+                            ProviderError::Contract("scientific worker unknown generation".into()))?;
+                        Ok(p::Response::Batch(handler::evaluate_batch(owner, value)?))
                     }
                     p::Request::Stop(handle) => {
                         let actual = sessions.get_mut(&handle.generation).ok_or_else(|| {

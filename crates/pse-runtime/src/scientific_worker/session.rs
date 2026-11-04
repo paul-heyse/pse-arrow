@@ -6,6 +6,7 @@ use pse_ids::SemanticId;
 use pse_kernels::{
     EvaluationContext, ExecutionScope, PreparedProviderRequest, ProviderBinding, ProviderBuffer,
     ProviderError, ProviderFactory, ProviderRequest, ProviderRuntime, ProviderSpec, ProviderValues,
+    ProviderBatchPoint, ProviderBatchOutcome,
 };
 
 /// Attempt-bound context reference, checked on every invocation; never a proof token.
@@ -116,6 +117,34 @@ impl PreparedSession {
     /// Exact immutable demand, prepared once before callbacks.
     pub fn request(&self) -> &PreparedProviderRequest {
         &self.request
+    }
+    /// Genuine group capability of this exact native preparation.
+    pub fn supports_batch(&self) -> bool {
+        self.binding.as_ref().is_some_and(|binding| binding.supports_batch(&self.request))
+    }
+    /// Execute one native group under the original scope and shared scalar/group invocation sequence.
+    pub fn evaluate_batch(&mut self, handle: SessionHandle, invocation: u64,
+        points: &[ProviderBatchPoint]) -> Result<Vec<ProviderBatchOutcome>, WorkerError> {
+        if let Err(error) = self.scope.check() { self.close(); return Err(error.into()); }
+        if self.state != SessionState::Ready || handle != self.handle || invocation == 0
+            || invocation <= self.last_invocation || !self.supports_batch() {
+            return Err(ProviderError::Contract("scientific worker stale or unsupported batch context".into()).into());
+        }
+        self.last_invocation = invocation;
+        self.state = SessionState::Evaluating;
+        let result: Result<Vec<ProviderBatchOutcome>, ProviderError> = (|| {
+            let binding = self.binding.as_mut().ok_or_else(|| ProviderError::Terminal("scientific worker native state is closed".into()))?;
+            let context = EvaluationContext { cancelled: self.scope.cancellation(), max_result_bytes: self.result_limit };
+            let completed = binding.evaluate_batch(points, &self.request, &context)?;
+            self.scope.check()?;
+            Ok(completed)
+        })();
+        self.state = match &result {
+            Ok(_) => SessionState::Ready,
+            Err(error) if error.recoverable() => SessionState::Ready,
+            Err(_) => SessionState::Failed,
+        };
+        result.map_err(Into::into)
     }
 
     /// Execute exactly once, with ordered numerical products and no proof export.
