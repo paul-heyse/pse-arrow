@@ -153,8 +153,9 @@ pub struct ManagedSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bundle: Option<crate::cli::bundle::Summary>,
     /// Child/capture evidence may be complete while its reporting service is still alive.
+    /// Absence in a retained legacy record means unobserved, never known false.
     #[serde(default)]
-    pub native_lifetime_pending: bool,
+    pub native_lifetime_pending: Option<bool>,
     /// Authenticated fixed workflow transport, absent for generic commands or unknown recovery.
     pub workflow: Option<WorkflowSummary>,
     /// Original payload child status only after an actual wait.
@@ -343,7 +344,7 @@ impl TerminalResult<ManagedSummary> {
             .map_or(true, |capture| capture.io_unresolved());
         let child_exit = report.child_exit();
         let summary = ManagedSummary {
-            native_lifetime_pending: native_pending,
+            native_lifetime_pending: Some(native_pending),
             bundle: None,
             workflow: None,
             child_exit,
@@ -559,7 +560,7 @@ impl TerminalResult<ManagedSummary> {
             command,
             "supervisor ended without complete owner settlement evidence",
             ManagedSummary {
-                native_lifetime_pending: true,
+                native_lifetime_pending: Some(true),
                 bundle: None,
                 workflow: None,
                 child_exit: None,

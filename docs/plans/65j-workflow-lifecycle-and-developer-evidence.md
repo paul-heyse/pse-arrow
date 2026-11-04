@@ -220,6 +220,25 @@ missing inventory, and legacy report readability without inventory eligibility. 
 completed without warnings. Generated transport publication/readback and the remaining
 J02–J05 population obligations are still required; this checkpoint closes no package.
 
+The subsequent retained-report root exposes original report bytes, terminal and passive
+facts even when inventory adoption is unavailable. The full retained-evidence root
+reports listing completeness from the actual native inventory owner; compiler actions
+make no test-population promise. Both roots expose the original manager's recorded
+settlement and optional native-lifetime observation separately from the helper's report
+commitment. Legacy absence of the lifetime observation remains unavailable. Current
+producers record `Some(observed)` and a completed native wait cannot promote original
+settlement from an absent observation.
+
+**Tested, additional narrow source scope:** three selected host controls passed for
+retained-root construction, legacy lifetime absence and incomplete original report
+reading. The prior source slice's existing pure-host workflow also passed, exercising
+actual discovery, original inventory recording and report publication. The independent
+bundle generator's focused render control passed with the pinned generators explicitly
+prepared and the maintainer's unbounded environment activated before admission; this
+checks candidate descriptors, validators, immutable source policy and encode-only root
+source. Committed generated output, compiled independent readback and J04 retained raw
+artifact protection remain separate obligations.
+
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.
 - [Report reconciliation](../../crates/pse-host/src/managed/workflow.rs) and

@@ -2213,7 +2213,7 @@ mod tests {
             })),
             ManagedReply::Completed(Box::new(crate::managed::result::ManagedSummary {
                 bundle: None,
-                native_lifetime_pending: false,
+                native_lifetime_pending: Some(false),
                 workflow: None,
                 child_exit: Some(125),
                 stdout: None,

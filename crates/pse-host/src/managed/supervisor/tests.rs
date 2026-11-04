@@ -318,7 +318,7 @@ async fn detached_case(finite: bool, case: LifetimeCase) {
                     "independent detached wait changed original payload status",
                 ));
             }
-            assert!(result.payload.native_lifetime_pending, "immutable operation report cannot prove wrapper exit");
+            assert_eq!(result.payload.native_lifetime_pending, Some(true), "immutable operation report cannot prove wrapper exit");
             assert_eq!(result.settlement, crate::envelope::Settlement::Unknown);
             if crash {
                 assert_eq!(result.child_exit, None, "native wrapper death cannot reconstruct original child reap");

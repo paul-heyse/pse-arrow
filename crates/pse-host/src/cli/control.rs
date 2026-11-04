@@ -128,7 +128,7 @@ fn project_terminal_owner(response: &mut Envelope<ControlView>, cancel: bool) {
         let native_pending =
             serde_json::from_str::<crate::managed::result::ManagedSummary>(original.payload.get())
                 .is_ok_and(|summary| {
-                    summary.native_lifetime_pending
+                    summary.native_lifetime_pending == Some(true)
                         && summary.child_exit.is_some()
                         && summary
                             .stdout
@@ -203,7 +203,7 @@ mod tests {
         };
         let summary = ManagedSummary {
             bundle: None,
-            native_lifetime_pending: true,
+            native_lifetime_pending: Some(true),
             workflow: None,
             child_exit: Some(0),
             stdout: Some(stream.clone()),
@@ -254,6 +254,16 @@ mod tests {
             1,
             "native drain cannot replace missing required capture"
         );
+        let mut legacy = serde_json::to_value(&summary).unwrap();
+        legacy.as_object_mut().unwrap().remove("native_lifetime_pending");
+        let decoded: ManagedSummary = serde_json::from_value(legacy.clone()).unwrap();
+        assert_eq!(decoded.native_lifetime_pending, None, "missing original observation is not false");
+        let original = response.payload.result.as_mut().unwrap();
+        original.observation.completeness = envelope::Completeness::Complete;
+        original.payload = serde_json::value::to_raw_value(&legacy).unwrap();
+        project_terminal_owner(&mut response, false);
+        assert_eq!(response.settlement, envelope::Settlement::Unknown);
+        assert_eq!(response.exit_code(), 1, "unobserved legacy lifetime cannot promote original settlement");
     }
     #[test]
     fn finished_wait_preserves_managed_failure_while_cancel_requires_reconciliation() {

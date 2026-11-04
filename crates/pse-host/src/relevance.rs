@@ -339,7 +339,7 @@ mod tests {
             "original incomplete unit evidence",
             ManagedSummary {
                 bundle: None,
-                native_lifetime_pending: false,
+                native_lifetime_pending: Some(false),
                 workflow: Some(WorkflowSummary {
                     terminal,
                     report: report_path.clone().into_os_string(),

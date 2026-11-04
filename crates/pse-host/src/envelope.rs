@@ -217,18 +217,21 @@ pub enum SubjectState {
     /// A complete query found no matching subject.
     NoMatch,
 }
+pse_contract::projection_enum! {
 /// Physical settlement, independently of command and workload outcomes.
 #[derive(Clone, Copy, Debug, Serialize, serde::Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Settlement {
+    projection: { name: "ManagerSettlement", rust_path: crate::envelope::Settlement, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// This operation acquired no resource requiring reconciliation.
-    NotRequired,
+    NotRequired => 1;
     /// The owner established actual completion and reconciliation.
-    Complete,
+    Complete => 2;
     /// A required reconciliation remains incomplete.
-    Incomplete,
+    Incomplete => 3;
     /// Required drain or release could not be established.
-    Unknown,
+    Unknown => 4;
+}
 }
 /// Evidence coverage, independent of whether a response can be rendered.
 #[derive(Clone, Copy, Debug, Serialize, serde::Deserialize, JsonSchema, PartialEq, Eq)]
