@@ -57,6 +57,14 @@ Arrow, database, runtime or codegen crate. Codegen owns graph lowering and compi
 invocation; domain owners supply explicit typed facet callbacks. The host consumes the same
 adapter with only the policies available to that reader.
 
+The same transport owner also absorbs the existing generic scalar/container crossing helpers
+needed by generated host and scientific adapters. Selected maintained-validator errors retain
+their original violations and compilation/evaluation distinctions. Native diagnostic presentation
+stays with the consumer. Pure byte access at the actual scalar owner permits checked identity
+and buffer conversion without adding Buffa to scientific identity crates or duplicating nominal
+type implementations in each consumer. Generated native adapters and both consumers migrate
+together; the runtime-only copy is removed.
+
 ### Consequences
 
 Move the adapter and its focused tests, rather than copying them or preserving a forwarding
