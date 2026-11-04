@@ -356,6 +356,8 @@ struct ProducerIdentityArgs {
 /// Committed generators and the contract bootstrap phase.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum Target {
+    /// Private scientific recipe messages and native adapters from compiler-owned data.
+    ScientificRecipe,
     /// Native developer report/inventory observations and independent reader bundle.
     DeveloperEvidence,
     /// Native child protocol projected from its existing source owners.

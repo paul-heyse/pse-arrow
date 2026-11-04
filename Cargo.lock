@@ -8229,10 +8229,14 @@ dependencies = [
 name = "pse-compiler"
 version = "0.0.1"
 dependencies = [
+ "buffa",
+ "buffa-descriptor",
  "once_cell",
  "petgraph",
+ "protovalidate-buffa",
  "pse-authoring",
  "pse-contract",
+ "pse-contract-proto",
  "pse-diagnostics",
  "pse-ids",
  "pse-kernels",
@@ -13443,6 +13447,7 @@ dependencies = [
  "pse-buildinfo",
  "pse-codegen",
  "pse-columnar",
+ "pse-compiler",
  "pse-contract",
  "pse-diagnostics",
  "pse-engine",

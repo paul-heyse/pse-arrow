@@ -214,6 +214,9 @@ impl SyntaxRecord {
             .saturating_add(self.predicates.len())
             .saturating_add(self.binders.len())
             .saturating_add(self.functions.len())
+            .saturating_add(self.functions.iter().fold(0usize, |count, function| {
+                count.saturating_add(function.formal_count)
+            }))
             .saturating_add(self.evidence.len())
             .saturating_add(self.carriers.len())
             .saturating_add(self.groups.len())
@@ -809,6 +812,23 @@ struct Rebuild<'a> {
 }
 impl Rebuild<'_> {
     fn syntax(&mut self, record: &SyntaxRecord) -> Result<ResolvedSyntax> {
+        // A small pool reference must not authorize an arbitrary formal-name
+        // allocation. Check its original flattened arity before restoration or
+        // allocation, including repeated selections of an already cached product.
+        for slot in &record.functions {
+            let original = self.pool.get(&slot.identity).ok_or_else(|| {
+                invalid(
+                    slot.declaration,
+                    "strict selected function is absent from its pool",
+                )
+            })?;
+            if slot.formal_count != original.formals.len() {
+                return Err(invalid(
+                    slot.declaration,
+                    "strict selected function formal count differs from its pool",
+                ));
+            }
+        }
         self.remaining = self
             .remaining
             .checked_sub(record.entries())
@@ -849,11 +869,12 @@ impl Rebuild<'_> {
             .functions
             .iter()
             .map(|slot| {
+                let product = self.function(slot.identity)?;
                 Ok::<_, crate::ModelingError>(FunctionSelection {
                     identity: slot.identity,
                     declaration: slot.declaration,
                     formals: vec![String::new(); slot.formal_count],
-                    product: self.function(slot.identity)?,
+                    product,
                 })
             })
             .collect::<Result<Vec<_>>>()?;
@@ -1103,5 +1124,96 @@ impl Rebuild<'_> {
             ));
         }
         Ok::<_, crate::ModelingError>(product)
+    }
+}
+
+#[cfg(test)]
+mod restoration_tests {
+    use super::*;
+
+    fn selected() -> ResolvedRecord {
+        let (registry, _) = crate::kernel_types::physical();
+        let facts = pse_quantity::PhysicalPreconditions::new(vec![]).unwrap();
+        let scope = crate::PhysicalScope::default();
+        let context = crate::TypeContext {
+            admissions: None,
+            formula_authority: None,
+            quantities: &registry,
+            preconditions: &facts,
+            scope: &scope,
+        };
+        let source = crate::kernel_types::try_source(
+            "package p {fn pick(a:Scalar,b:Scalar)->Scalar=a+b; def Root {var x:Scalar;var y:Scalar;eq e:pick(x,y)==1;}}",
+        ).unwrap();
+        let package = crate::check(&source, &context).unwrap();
+        let model = crate::specialize(
+            &package,
+            package.names["p.Root"],
+            SemanticId::from_bytes([93; 16]).into(),
+            &crate::Bindings::default(),
+            crate::Limits::default(),
+        )
+        .unwrap();
+        ResolvedRecord::capture(&model.resolved, 10_000).unwrap()
+    }
+
+    fn rebuild(record: &ResolvedRecord, remaining: usize) -> Rebuild<'_> {
+        Rebuild {
+            pool: record
+                .functions
+                .iter()
+                .map(|record| (record.identity, record))
+                .collect(),
+            functions: BTreeMap::new(),
+            active: BTreeSet::new(),
+            remaining,
+            depth: 0,
+        }
+    }
+
+    #[test]
+    fn restoration_refuses_unbounded_formal_count_before_allocating_or_replaying() {
+        let mut record = selected();
+        assert!(!record.syntax.functions.is_empty());
+        record.syntax.functions[0].formal_count = usize::MAX;
+        let error = rebuild(&record, usize::MAX)
+            .syntax(&record.syntax)
+            .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("formal count differs from its pool")
+        );
+        let error = Rebuild {
+            pool: BTreeMap::new(),
+            functions: BTreeMap::new(),
+            active: BTreeSet::new(),
+            remaining: usize::MAX,
+            depth: 0,
+        }
+        .syntax(&record.syntax)
+        .unwrap_err();
+        assert!(error.to_string().contains("absent from its pool"));
+    }
+
+    #[test]
+    fn restoration_charges_formals_for_every_materialized_function_selection() {
+        let mut record = selected();
+        let slot = record.syntax.functions[0].clone();
+        assert!(slot.formal_count > 0);
+        let original = record.syntax.entries();
+        record.syntax.functions.push(slot.clone());
+        assert_eq!(record.syntax.entries(), original + 1 + slot.formal_count);
+        let error = rebuild(&record, original + 1)
+            .syntax(&record.syntax)
+            .unwrap_err();
+        assert!(error.to_string().contains("restoration budget"));
+        // An adequate extent still cannot bypass the original record authority.
+        let error = rebuild(&record, 10_000).syntax(&record.syntax).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("qualified reconstruction recipe")
+        );
     }
 }

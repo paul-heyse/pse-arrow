@@ -96,6 +96,7 @@ physical-admission = [
 ]
 product-schemas = [
   "evidence-tools",
+  "dep:pse-compiler",
   "dep:pse-admission",
   "dep:pse-authoring",
   "dep:pse-engine",
@@ -113,6 +114,7 @@ property-coolprop = [
 ]
 
 [dependencies]
+pse-compiler = { workspace = true, optional = true }
 pse-host = { workspace = true, optional = true }
 pse-kernels = { workspace = true, optional = true }
 pse-contract.workspace = true

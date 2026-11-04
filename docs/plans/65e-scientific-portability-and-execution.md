@@ -382,12 +382,28 @@ The controls check complete Data-only source closure and actual admission of an 
 to restore syntax without original qualification. A worker's unnecessary-qualification warning
 was corrected before the clean main rerun. These controls do not exercise a protobuf Recipe.
 
-Next, publish the selected private wire family and borrowed adapters from the same actual
-`ProjectionOutput`, descriptor set and generation configuration. Do not generate a second
-descriptor world for adapter naming. Full binary decode/adoption, monomorphic same-root
-membership receivers, complete original workspace admission and restoration bounds, and the
-early original-function/formal-count check remain required. The existing JSON/qualification
-route stays active until those replacements and their refusal/drain controls are accepted.
+The private `pse.scientific_recipe.v4` family now publishes messages, eager/lazy views,
+maintained validation, native owned/borrowed adapters, policy and provenance from one actual
+`ProjectionOutput`, descriptor set and generation configuration. Both adapter families compile
+inside the private compiler owner; passive decoding grants no reconstruction authority.
+Production encoding and qualification still use interpretation three.
+
+**Tested, targeted on 2026-11-04:** `scripts/pse test pse-compiler pse-modeling --lib -E
+'test(scientific_recipe_owned_and_borrowed_) | test(scientific_recipe_source_graph_) |
+test(scientific_recipe_native_projection_) | test(resolved::records::restoration_tests::)'`
+passed 7/7 against zero failures, with no build warnings, configured unbounded placement,
+cache off, prepared compiler/KLU and complete original capture/settlement. The actual authored
+Recipe survives owned and borrowed binary adoption with exact existing JSON; root/nested
+unknowns, missing nested syntax and malformed digest width refuse. The restoration controls
+reject a forged unbounded formal count before allocation and charge every repeated selection's
+formal storage. Capture and restore share that accounting; existing native qualification
+remains required. The separate xtask `scientific_recipe_bundle_` control passed 1/1 and full
+`just codegen` published fourteen targets; its operations recursion warning remains a G08
+correction obligation rather than clean workspace evidence.
+
+Monomorphic same-root membership receivers, complete original workspace admission and full
+restoration bounds remain required. The existing JSON/qualification route stays active until
+those replacements and their refusal/drain controls are accepted.
 
 ## E03 closed-root envelope cutover
 

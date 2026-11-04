@@ -33,6 +33,26 @@ pub(super) fn projection(
     target: ProjectionTarget<'_>,
     imports: &FileDescriptorSet,
 ) -> Result<GeneratedTree> {
+    let config =
+        boundary_projection::default_config(&format!("{}::__buffa_fds", target.rust_module));
+    let output = boundary_projection::generate_with_config(
+        graph,
+        target.package,
+        target.file,
+        &imports.file,
+        &config,
+    )?;
+    publish_projection(root, graph, target, output)
+}
+
+/// Publish one actual generation closure. Callers can derive additional consumers
+/// from its descriptor set and original configuration before transferring it here.
+pub(super) fn publish_projection(
+    root: &Path,
+    graph: &ProjectionGraph,
+    target: ProjectionTarget<'_>,
+    output: boundary_projection::ProjectionOutput,
+) -> Result<GeneratedTree> {
     let ProjectionTarget {
         package,
         file,
@@ -42,9 +62,6 @@ pub(super) fn projection(
         generator_path,
         generator_symbol,
     } = target;
-    let config = boundary_projection::default_config(&format!("{rust_module}::__buffa_fds"));
-    let output =
-        boundary_projection::generate_with_config(graph, package, file, &imports.file, &config)?;
     for warning in &output.warnings {
         eprintln!("{package}: {warning}");
     }

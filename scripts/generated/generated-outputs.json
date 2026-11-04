@@ -716,6 +716,10 @@
           "kind": "tree"
         },
         {
+          "path": "crates/pse-authoring/src/dsl/ast.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-backend-native/src/conic/declarations.rs",
           "kind": "file"
         },
@@ -840,6 +844,14 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-compiler/src/typed_math/provider_records.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-compiler/src/typed_math_portable.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-compiler/src/workspace.rs",
           "kind": "file"
         },
@@ -857,6 +869,10 @@
         },
         {
           "path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-contract/src/boundary_projection/tuple_triple.rs",
           "kind": "file"
         },
         {
@@ -984,6 +1000,14 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-math/src/typed_provider.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/typed_receipts.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-model/src/applicability.rs",
           "kind": "file"
         },
@@ -1044,7 +1068,35 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-modeling/src/derived.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/expression/admission.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/portable.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-modeling/src/resolved.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/resolved/operation_record.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/resolved/records.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/resolved/support.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/resolved/support_record.rs",
           "kind": "file"
         },
         {
@@ -1116,11 +1168,19 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-quantity/src/functions.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-quantity/src/ids.rs",
           "kind": "file"
         },
         {
           "path": "crates/pse-quantity/src/index.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/infer.rs",
           "kind": "file"
         },
         {
@@ -1157,6 +1217,10 @@
         },
         {
           "path": "crates/pse-quantity/src/unit.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/unit_product.rs",
           "kind": "file"
         },
         {
@@ -1401,6 +1465,10 @@
         },
         {
           "path": "xtask/src/codegen/proto_projection.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen/scientific_recipe.rs",
           "kind": "file"
         },
         {
@@ -2094,6 +2162,198 @@
         {
           "path": "xtask/src/development",
           "kind": "tree"
+        }
+      ],
+      "contributors": null
+    },
+    {
+      "producer": "scientific-recipe",
+      "outputs": [
+        {
+          "path": "crates/pse-compiler/src/generated/scientific-recipe",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/engineering/pse.scientific_recipe.v4",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/source-relationships/pse-scientific-recipe-v4",
+          "kind": "tree"
+        }
+      ],
+      "regenerate": [
+        "just",
+        "codegen"
+      ],
+      "inputs": [
+        {
+          "path": "crates/pse-authoring/src/dsl/ast.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-codegen/src",
+          "kind": "tree"
+        },
+        {
+          "path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-compiler/src/typed_math/provider_records.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-compiler/src/typed_math_portable.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-contract/src/boundary_projection/array.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-contract/src/boundary_projection/tuple_triple.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-ids/src/roles.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-kernels/src/lib.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-kernels/src/portable.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-kernels/src/shape.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/binding.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/typed_provider.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/typed_receipts.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/applicability.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/generated/enums.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/generated/identities.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/derived.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/expression/admission.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/portable.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/resolved.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/resolved/operation_record.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/resolved/records.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/resolved/support.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/resolved/support_record.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/dimension.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/enums.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/functions.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/ids.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/index.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/infer.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/kind.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/quantity_type.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/resolved_receipts.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/unit.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/unit_product.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src",
+          "kind": "tree"
+        },
+        {
+          "path": "scripts/generated-outputs.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen",
+          "kind": "tree"
+        },
+        {
+          "path": "xtask/src/codegen.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen/scientific_recipe.rs",
+          "kind": "file"
         }
       ],
       "contributors": null

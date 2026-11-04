@@ -27,6 +27,8 @@ mod ipopt;
 mod private_documents;
 #[cfg(feature = "product-schemas")]
 mod schemas;
+#[cfg(feature = "product-schemas")]
+mod scientific_recipe;
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -42,6 +44,15 @@ use crate::Target;
 const BINDINGS: &str = provenance::protocol::IPOPT_BINDINGS;
 
 pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> {
+    if only == Some(Target::ScientificRecipe) {
+        let tree = scientific_recipe_tree(root)?;
+        validate_tree(&tree)?;
+        return if check {
+            check_tree(root, &tree)
+        } else {
+            write_tree(root, &tree)
+        };
+    }
     if only == Some(Target::NativeRoot) {
         let tree = native_root_tree(root)?;
         validate_tree(&tree)?;
@@ -100,7 +111,8 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
             | Target::CodeIntelligence
             | Target::Engineering
             | Target::DeveloperEvidence
-            | Target::NativeRoot,
+            | Target::NativeRoot
+            | Target::ScientificRecipe,
         ) => Vec::new(),
         None => Language::ALL.to_vec(),
     };
@@ -121,6 +133,9 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         let tree = developer_evidence_tree(root)?;
         validate_tree(&tree)?;
         trees.push(("developer-evidence".into(), tree));
+        let tree = scientific_recipe_tree(root)?;
+        validate_tree(&tree)?;
+        trees.push(("scientific-recipe".into(), tree));
         stage_code_intelligence(root, code_intelligence::generate, |tree| {
             validate_tree(&tree)?;
             trees.push(("code-intelligence".into(), tree));
@@ -197,6 +212,15 @@ fn native_root_tree(root: &Path) -> Result<GeneratedTree> {
 #[cfg(not(feature = "product-schemas"))]
 fn native_root_tree(_: &Path) -> Result<GeneratedTree> {
     bail!("native child projections require product-schemas")
+}
+
+#[cfg(feature = "product-schemas")]
+fn scientific_recipe_tree(root: &Path) -> Result<GeneratedTree> {
+    scientific_recipe::generate(root)
+}
+#[cfg(not(feature = "product-schemas"))]
+fn scientific_recipe_tree(_: &Path) -> Result<GeneratedTree> {
+    bail!("scientific recipe projections require product-schemas")
 }
 
 // Both selected and aggregate routes cross this effect boundary only after successful
@@ -370,6 +394,13 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
                 developer_evidence_tree(root),
             ) {
                 trees.push(("developer-evidence".into(), tree));
+            }
+            if let Some(tree) = check_result(
+                &mut failures,
+                "scientific-recipe",
+                scientific_recipe_tree(root),
+            ) {
+                trees.push(("scientific-recipe".into(), tree));
             }
             if let Some(tree) = check_result(
                 &mut failures,

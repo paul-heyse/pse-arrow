@@ -7,6 +7,8 @@ use super::*;
 use pse_modeling::resolved::{ResolvedRecord, SupportRecord, SymbolIx};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
+#[path = "typed_math_portable_generated.rs"]
+mod generated;
 const INTERPRETATION: &str = pse_ids::scientific_replay::ADMITTED_RECIPE_INTERPRETATION;
 const MAX_PAYLOAD: usize = pse_ids::scientific_replay::MAX_ADMITTED_RECIPE_BYTES;
 #[derive(Default)]
