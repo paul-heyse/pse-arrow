@@ -22,6 +22,7 @@ pub(super) const EXTENSION: &str = "pse.schema.v1.registry_field";
 mod tests;
 
 fn vocabularies(pool: &buffa_descriptor::DescriptorPool) -> Result<(), SchemaError> {
+    schema_shapes(pool)?;
     let extension = pool.extension_by_name(EXTENSION).ok_or_else(|| error("registry option extension is absent from its import world"))?;
     let option = pool.message_index("pse.schema.v1.RegistryFieldFacets").ok_or_else(|| error("registry option message is absent"))?;
     if extension.field().number() != 51066
@@ -49,6 +50,45 @@ fn vocabularies(pool: &buffa_descriptor::DescriptorPool) -> Result<(), SchemaErr
         || keys.value_by_name("CANONICAL_KEY_KIND_UNSPECIFIED").is_none_or(|value| value.number() != 0)
     { return Err(error("canonical key schema/native vocabulary correspondence changed")); }
     for kind in CanonicalKeyKind::ALL { canonical_number(pool, *kind)?; }
+    Ok(())
+}
+
+// Acceptance contract of the known v1 interpreter, not a descriptor producer.
+fn schema_shapes(pool: &buffa_descriptor::DescriptorPool) -> Result<(), SchemaError> {
+    use buffa_descriptor::{FieldKind::{Singular, List}, SingularKind::{Scalar, Message, Enum}, ScalarType::{Uint32, Int64, String, Bool}};
+    let message = |name: &str| pool.message_index(&format!("pse.schema.v1.{name}")).map(Message).ok_or_else(|| error(format!("missing registry option message {name}")));
+    let enumeration = |name: &str| pool.enum_index(&format!("pse.schema.v1.{name}")).map(Enum).map(Singular).ok_or_else(|| error(format!("missing registry option enum {name}")));
+    let scalar = |kind| Singular(Scalar(kind));
+    for (name, expected) in [
+        ("RegistryFieldFacets", vec![("metadata_version", scalar(Uint32)), ("extension", Singular(message("ExtensionUse")?)), ("role", enumeration("ColumnRole")?), ("documentation", scalar(String)), ("structure_name", scalar(String)), ("quantity", Singular(message("QuantityReference")?)), ("transfer_context_version", scalar(Uint32)), ("reference", Singular(message("ReferenceContract")?)), ("graph_endpoint", enumeration("GraphEndpoint")?), ("collection", Singular(message("CollectionContract")?)), ("integer_range", Singular(message("IntegerRange")?)), ("tagged_alternative", Singular(message("TaggedAlternative")?)), ("identity", Singular(message("IdentityContract")?)), ("canonical", Singular(message("CanonicalFieldContract")?)), ("expression_source", Singular(message("ExpressionSourceContract")?))]),
+        ("IdentityContract", vec![("entity_name", scalar(String)), ("owns_identity", scalar(Bool))]),
+        ("CanonicalFieldContract", vec![("key_kind", enumeration("CanonicalKeyKind")?), ("readonly", scalar(Bool)), ("record_key", scalar(Bool))]),
+        ("ExpressionSourceContract", vec![("role_path_template", scalar(String)), ("ordinal", enumeration("ExpressionOrdinal")?), ("binder", enumeration("ExpressionBinder")?)]),
+        ("ExtensionUse", vec![("simple", enumeration("SimpleExtension")?), ("enumeration", scalar(String)), ("ordinal_target_relation", scalar(String)), ("expression_grammar", enumeration("ExpressionGrammar")?)]),
+        ("QuantityReference", vec![("qualified_name", scalar(String))]),
+        ("CollectionContract", vec![("order", enumeration("CollectionOrder")?), ("minimum", scalar(Int64)), ("maximum", scalar(Int64)), ("unique", scalar(Bool))]),
+        ("IntegerRange", vec![("minimum", scalar(Int64)), ("maximum", scalar(Int64))]),
+        ("ReferenceColumn", vec![("source", List(Scalar(String))), ("target", scalar(String))]),
+        ("ReferenceContract", vec![("relation", scalar(String)), ("columns", List(message("ReferenceColumn")?)), ("null_policy", enumeration("ReferenceNullPolicy")?)]),
+        ("AlternativeArm", vec![("tag", scalar(String)), ("payload_field", scalar(String))]),
+        ("TaggedAlternative", vec![("discriminator", scalar(String)), ("arms", List(message("AlternativeArm")?))]),
+    ] {
+        let descriptor = pool.message_by_name(&format!("pse.schema.v1.{name}")).ok_or_else(|| error(format!("missing registry option shape {name}")))?;
+        let has_oneof = name == "ExtensionUse";
+        if descriptor.fields().len() != expected.len() || !descriptor.extension_ranges().is_empty()
+            || descriptor.oneofs().len() != usize::from(has_oneof)
+            || (has_oneof && descriptor.oneofs()[0].name() != "form")
+            || expected.iter().enumerate().any(|(index, (name, kind))| descriptor.field_by_name(name).is_none_or(|field| {
+                field.number() != (index + 1) as u32 || field.kind() != *kind || field.is_delimited()
+                    || field.oneof_index() != has_oneof.then_some(0)
+                    || field.presence() != if matches!(kind, List(_)) { buffa::editions::FieldPresence::Implicit } else { buffa::editions::FieldPresence::Explicit }
+            }))
+        { return Err(error(format!("pse.schema.v1.{name}: unsupported v1 registry option schema correspondence"))); }
+    }
+    let raw = pool.file_by_name(IMPORT).ok_or_else(|| error("registry option source schema is absent"))?;
+    if raw.message_type.iter().flat_map(|message| &message.field).any(|field| field.default_value.is_some()) {
+        return Err(error("registry option schema cannot redefine absent source facets through defaults"));
+    }
     Ok(())
 }
 
@@ -277,7 +317,7 @@ fn list<'a>(message: &'a DynamicMessage, name: &str) -> Result<&'a [Value], Sche
 fn closed(message: &DynamicMessage, name: &str, fields: &[&str]) -> Result<(), SchemaError> {
     let descriptor = message.pool().message(message.message_index());
     if descriptor.full_name() != format!("pse.schema.v1.{name}") || !message.unknown_fields().is_empty()
-        || descriptor.fields().iter().any(|field| value(message, field.name()).is_some() && !fields.contains(&field.name()))
+        || descriptor.fields().iter().any(|field| !fields.contains(&field.name()))
     { return Err(error(format!("{name}: unknown selected typed option shape"))); }
     Ok(())
 }
