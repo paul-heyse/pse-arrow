@@ -20,6 +20,7 @@ pub mod algorithm;
 pub mod boundary;
 pub mod boundary_shape;
 pub mod canonical;
+pub mod canonical_policy;
 pub mod collection;
 pub mod document;
 pub mod enums;
@@ -40,6 +41,7 @@ pub mod tagged_alternative;
 pub use boundary::BoundaryRecord;
 pub use boundary_shape::BoundaryShape;
 pub use canonical::{CanonicalBackup, CanonicalFieldContract, CanonicalKeyKind, CanonicalRelation, CanonicalRetention};
+pub use canonical_policy::{CanonicalExpression, CanonicalExpressionParseError, CanonicalFieldPolicy};
 pub use field::ROW_KEY_ENCODING;
 
 pub use crate::model::algorithm::{

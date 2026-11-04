@@ -8767,6 +8767,9 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlparser",
+ "surrealdb-sql",
+ "surrealdb-syn",
+ "surrealdb-types",
  "thiserror 2.0.21",
 ]
 

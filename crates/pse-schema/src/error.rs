@@ -11,6 +11,16 @@
 /// A declaration the registry refuses to accept.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum SchemaError {
+    /// A canonical native expression did not parse completely under the pinned grammar.
+    #[error("invalid canonical expression at {context} ({facet}): {source}")]
+    CanonicalExpression {
+        /// Original owning source path.
+        context: String,
+        /// Exact canonical field facet.
+        facet: &'static str,
+        /// Original concrete parser cause and exact failed input.
+        source: crate::model::CanonicalExpressionParseError,
+    },
     /// A declaration is structurally present but violates its semantic contract.
     #[error("invalid {context}: {reason}")]
     InvalidDeclaration {
@@ -72,7 +82,7 @@ pub enum SchemaError {
 pse_diagnostics::impl_diagnostic! {
     SchemaError,
     code(this) { match this {
-            Self::InvalidDeclaration { .. } | Self::ImplementationCycle { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaInvalidDeclaration),
+            Self::InvalidDeclaration { .. } | Self::ImplementationCycle { .. } | Self::CanonicalExpression { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaInvalidDeclaration),
             Self::DuplicateDeclaration { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaDuplicateDeclaration),
             Self::UnknownReference { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaUnknownReference),
             Self::MissingSnapshotClass { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaMissingSnapshotClass),
@@ -87,7 +97,7 @@ pse_diagnostics::impl_diagnostic! {
             Self::MissingSnapshotClass { .. } => Some(Box::new("membership is explicit: pick model, case, derived or sidecar")),
             Self::MissingGranularity { .. } => Some(Box::new("`row` when negative completeness is the deliverable, `rule` when the derivation is the rule plus the identity formula")),
             Self::Codegen { .. } => Some(Box::new("the generator is the fix; a hand edit under a generated path is a red diff")),
-            Self::InvalidDeclaration { .. } | Self::ImplementationCycle { .. } => None,
+            Self::InvalidDeclaration { .. } | Self::ImplementationCycle { .. } | Self::CanonicalExpression { .. } => None,
         } },
     related(_this) { None },
     source(_this) { None }

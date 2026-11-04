@@ -97,6 +97,17 @@ impl FieldContract {
             self.name(),
         )
     }
+    /// Parse complete inert canonical source policy and check this actual field association.
+    /// # Errors
+    /// Malformed syntax, unknown policy/refusal or incoherent field associations refuse.
+    pub fn canonical_policy(&self) -> Result<Option<super::CanonicalFieldPolicy>, crate::SchemaError> {
+        self.canonical_policy_at(self.name())
+    }
+    fn canonical_policy_at(&self, context: &str) -> Result<Option<super::CanonicalFieldPolicy>, crate::SchemaError> {
+        let policy = super::CanonicalFieldPolicy::parse_metadata(self.field().metadata(), context)?;
+        if let Some(policy) = &policy { policy.validate_field(self, context)?; }
+        Ok(policy)
+    }
     /// Checked path/traversal association for a source-expression occurrence.
     /// # Errors
     /// Incomplete or unknown source policies refuse at this field's path.
@@ -740,6 +751,7 @@ impl FieldContract {
         }
     }
     pub(crate) fn validate_facets(&self, context: &str) -> Result<(), crate::SchemaError> {
+        self.canonical_policy_at(context)?;
         let invalid = |message| crate::checks::invalid(context, message);
         for key in self
             .0
