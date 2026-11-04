@@ -5,18 +5,18 @@ use super::*;
 use super::check::{boolean, child, enumeration, known_fields, text, uint, value};
 use pse_contract::boundary_projection::{Float64Domain, Float64Interval, LocalRule, Scalar, TypeRef};
 
-pub(super) const SCALARS: &[&str] = &["NATIVE_SCALAR_UNSPECIFIED", "NATIVE_SCALAR_BOOL", "NATIVE_SCALAR_STRING", "NATIVE_SCALAR_U32", "NATIVE_SCALAR_U8", "NATIVE_SCALAR_U16", "NATIVE_SCALAR_U64", "NATIVE_SCALAR_I16", "NATIVE_SCALAR_I32", "NATIVE_SCALAR_I64", "NATIVE_SCALAR_F32_BITS", "NATIVE_SCALAR_F64_BITS", "NATIVE_SCALAR_BYTES", "NATIVE_SCALAR_SEMANTIC_ID", "NATIVE_SCALAR_CONTENT_HASH"];
+pub(super) const SCALARS: &[&str] = &["NATIVE_SCALAR_UNSPECIFIED", "NATIVE_SCALAR_BOOL", "NATIVE_SCALAR_STRING", "NATIVE_SCALAR_U32", "NATIVE_SCALAR_U8", "NATIVE_SCALAR_U16", "NATIVE_SCALAR_U64", "NATIVE_SCALAR_I16", "NATIVE_SCALAR_I32", "NATIVE_SCALAR_I64", "NATIVE_SCALAR_F32_BITS", "NATIVE_SCALAR_F64_BITS", "NATIVE_SCALAR_BYTES", "NATIVE_SCALAR_SEMANTIC_ID", "NATIVE_SCALAR_CONTENT_HASH", "NATIVE_SCALAR_I128_BITS", "NATIVE_SCALAR_I8"];
 pub(super) const FLOAT_PRESETS: &[&str] = &["NATIVE_FLOAT64_PRESET_UNSPECIFIED", "NATIVE_FLOAT64_PRESET_FINITE", "NATIVE_FLOAT64_PRESET_NONNEGATIVE_FINITE", "NATIVE_FLOAT64_PRESET_POSITIVE_FINITE", "NATIVE_FLOAT64_PRESET_POSITIVE_UNIT"];
 
 fn scalar_number(value: Scalar) -> i32 {
     match value { Scalar::Bool => 1, Scalar::String => 2, Scalar::U32 => 3, Scalar::U8 => 4,
         Scalar::U16 => 5, Scalar::U64 => 6, Scalar::I16 => 7, Scalar::I32 => 8, Scalar::I64 => 9,
-        Scalar::F32Bits => 10, Scalar::F64Bits => 11, Scalar::Bytes => 12, Scalar::SemanticId => 13, Scalar::ContentHash => 14 }
+        Scalar::F32Bits => 10, Scalar::F64Bits => 11, Scalar::Bytes => 12, Scalar::SemanticId => 13, Scalar::ContentHash => 14, Scalar::I128Bits => 15, Scalar::I8 => 16 }
 }
 fn scalar_value(number: i32) -> Option<Scalar> {
     Some(match number { 1 => Scalar::Bool, 2 => Scalar::String, 3 => Scalar::U32, 4 => Scalar::U8,
         5 => Scalar::U16, 6 => Scalar::U64, 7 => Scalar::I16, 8 => Scalar::I32, 9 => Scalar::I64,
-        10 => Scalar::F32Bits, 11 => Scalar::F64Bits, 12 => Scalar::Bytes, 13 => Scalar::SemanticId, 14 => Scalar::ContentHash, _ => return None })
+        10 => Scalar::F32Bits, 11 => Scalar::F64Bits, 12 => Scalar::Bytes, 13 => Scalar::SemanticId, 14 => Scalar::ContentHash, 15 => Scalar::I128Bits, 16 => Scalar::I8, _ => return None })
 }
 
 impl OptionEncoder {

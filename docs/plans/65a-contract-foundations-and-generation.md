@@ -260,6 +260,21 @@ its attributed reason as an unavailable facet and still reaches the same pure co
 It cannot mask a missing required v2 native contract or a contradictory available sibling;
 known invalid facts dominate an otherwise unknown interpretation.
 
+`Scalar::I128Bits` preserves actual native `i128` fields (including optional exact DSL
+integers) as exactly sixteen little-endian two's-complement bytes. Native scalar metadata
+allocates `NATIVE_SCALAR_I128_BITS = 15`; the checked schema vocabulary rejects changed or
+unavailable allocations as Unknown. This remains distinct from semantic IDs, content hashes
+and opaque bytes despite their shared protobuf wire kind. Owned and borrowed crossing helpers
+use Rust's [`to_le_bytes`](https://doc.rust-lang.org/std/primitive.i128.html#method.to_le_bytes)
+and [`from_le_bytes`](https://doc.rust-lang.org/std/primitive.i128.html#method.from_le_bytes)
+after checked conversion of the whole slice to `[u8; 16]`. Generated standard
+[`BytesRules.len`](https://buf.build/bufbuild/protovalidate/docs/main:buf.validate#buf.validate.BytesRules)
+enforces the same width, retaining optional presence. No integer truncation, narrowing or
+default value occurs. This supports complete raw data transport; existing scientific
+membership normalization separately refuses values outside its supported `i64`/`u64` profile.
+Actual signed-octet fields use `Scalar::I8` (`NATIVE_SCALAR_I8 = 16`) through checked
+`sint32` adoption and standard signed bounds `[-128, 127]`; the native field remains `i8`.
+
 The lossless wire adapter lives in `pse-contract-proto` (ADR-0244), shared by generation
 and the independent host. It depends on pure `pse-contract`, the selected Buffa family
 and native error support; registry, Arrow, runtime and scientific libraries remain

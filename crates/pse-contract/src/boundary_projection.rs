@@ -74,6 +74,10 @@ pub enum Scalar {
     SemanticId,
     /// A 32-byte semantic content hash.
     ContentHash,
+    /// Exact signed 128-bit two's-complement value in sixteen little-endian bytes.
+    I128Bits,
+    /// Signed 8-bit native value in a checked signed 32-bit wire scalar.
+    I8,
 }
 
 /// Resolved shape, preserving optional and collection nesting.
@@ -866,14 +870,19 @@ macro_rules! scalar_types { ($($ty:ty => $scalar:ident),* $(,)?) => { $(
         }
     }
 )* }; }
-scalar_types!(bool => Bool, String => String, u8 => U8, u16 => U16, u32 => U32, u64 => U64, usize => U64, i16 => I16, i32 => I32,
-    i64 => I64, f32 => F32Bits, f64 => F64Bits);
+scalar_types!(bool => Bool, String => String, u8 => U8, u16 => U16, u32 => U32, u64 => U64, usize => U64, i8 => I8, i16 => I16, i32 => I32,
+    i64 => I64, i128 => I128Bits, f32 => F32Bits, f64 => F64Bits);
 
 macro_rules! inline_validation { ($($ty:ty),* $(,)?) => { $(impl ValidateProjection for $ty {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
 })* }; }
 inline_validation!(bool, f32);
+impl ValidateProjection for i128 {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
+    fn projection_length(&self) -> Option<usize> { Some(16) }
+}
 impl ValidateProjection for f64 {
     const SUPPORTS_FLOAT64_DOMAIN: bool = true;
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
@@ -889,7 +898,7 @@ macro_rules! signed_validation { ($($ty:ty),* $(,)?) => { $(impl ValidateProject
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
     fn projection_signed(&self) -> Option<i64> { Some(i64::from(*self)) }
 })* }; }
-signed_validation!(i16, i32, i64);
+signed_validation!(i8, i16, i32, i64);
 macro_rules! unsigned_validation { ($($ty:ty),* $(,)?) => { $(impl ValidateProjection for $ty {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
@@ -1353,6 +1362,9 @@ fn validate_fields(
                     };
                     min <= max
                         && match scalar {
+                            TypeRef::Scalar(Scalar::I8) => {
+                                *min >= i64::from(i8::MIN) && *max <= i64::from(i8::MAX)
+                            }
                             TypeRef::Scalar(Scalar::I16) => {
                                 *min >= i64::from(i16::MIN) && *max <= i64::from(i16::MAX)
                             }
@@ -1375,6 +1387,7 @@ fn validate_fields(
                                         | Scalar::Bytes
                                         | Scalar::SemanticId
                                         | Scalar::ContentHash
+                                        | Scalar::I128Bits
                                 )
                         )
                 }

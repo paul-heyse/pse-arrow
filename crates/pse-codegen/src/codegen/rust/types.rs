@@ -336,7 +336,7 @@ impl super::super::native::Policy for RustPolicy<'_> {
 
 fn primitive(ty: &FieldContract) -> Result<Option<(TokenStream, TypeRef, String)>, SchemaError> {
     let (rust, scalar) = match ty.data_type() {
-        DataType::Boolean => (quote!(bool), Scalar::Bool), DataType::Int16 => (quote!(i16), Scalar::I16),
+        DataType::Boolean => (quote!(bool), Scalar::Bool), DataType::Int8 => (quote!(i8), Scalar::I8), DataType::Int16 => (quote!(i16), Scalar::I16),
         DataType::Int32 => (quote!(i32), Scalar::I32), DataType::Int64 | DataType::Timestamp(..) => (quote!(i64), Scalar::I64),
         DataType::UInt8 => (quote!(u8), Scalar::U8), DataType::UInt16 => (quote!(u16), Scalar::U16),
         DataType::UInt32 => (quote!(u32), Scalar::U32), DataType::UInt64 => (quote!(u64), Scalar::U64),
@@ -364,6 +364,7 @@ mod paired_tests {
     #[test]
     fn actual_renderer_pairs_scalar_container_and_nominal_projection_meaning() {
         agrees::<bool>(FieldContract::native(DataType::Boolean));
+        agrees::<i8>(FieldContract::native(DataType::Int8));
         agrees::<i16>(FieldContract::native(DataType::Int16));
         agrees::<i32>(FieldContract::native(DataType::Int32));
         agrees::<i64>(FieldContract::native(DataType::Int64));

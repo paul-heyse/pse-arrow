@@ -567,18 +567,20 @@ impl Lower<'_> {
                     Scalar::String => Type::TYPE_STRING,
                     Scalar::U8 | Scalar::U16 | Scalar::U32 => Type::TYPE_UINT32,
                     Scalar::U64 => Type::TYPE_UINT64,
-                    Scalar::I16 | Scalar::I32 => Type::TYPE_SINT32,
+                    Scalar::I8 | Scalar::I16 | Scalar::I32 => Type::TYPE_SINT32,
                     Scalar::I64 => Type::TYPE_SINT64,
                     Scalar::F32Bits => Type::TYPE_FIXED32,
                     Scalar::F64Bits => Type::TYPE_FIXED64,
-                    Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash => Type::TYPE_BYTES,
+                    Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash | Scalar::I128Bits => Type::TYPE_BYTES,
                 });
                 if matches!(
                     scalar,
                     Scalar::SemanticId
                         | Scalar::ContentHash
+                        | Scalar::I128Bits
                         | Scalar::U8
                         | Scalar::U16
+                        | Scalar::I8
                         | Scalar::I16
                 ) {
                     self.options(&mut field, self.base_rules(ty))?;
@@ -716,18 +718,19 @@ impl Lower<'_> {
                     ..Default::default()
                 });
             }
-            TypeRef::Scalar(Scalar::I16) => {
+            TypeRef::Scalar(Scalar::I8 | Scalar::I16) => {
+                let (minimum, maximum) = if matches!(ty, TypeRef::Scalar(Scalar::I8)) { (i32::from(i8::MIN), i32::from(i8::MAX)) } else { (i32::from(i16::MIN), i32::from(i16::MAX)) };
                 rules.r#type = Some(
                     SInt32Rules {
-                        greater_than: Some(s_int32rules::GreaterThan::Gte(i32::from(i16::MIN))),
-                        less_than: Some(s_int32rules::LessThan::Lte(i32::from(i16::MAX))),
+                        greater_than: Some(s_int32rules::GreaterThan::Gte(minimum)),
+                        less_than: Some(s_int32rules::LessThan::Lte(maximum)),
                         ..Default::default()
                     }
                     .into(),
                 );
             }
-            TypeRef::Scalar(Scalar::SemanticId | Scalar::ContentHash) => {
-                let len = if matches!(ty, TypeRef::Scalar(Scalar::SemanticId)) {
+            TypeRef::Scalar(Scalar::SemanticId | Scalar::ContentHash | Scalar::I128Bits) => {
+                let len = if matches!(ty, TypeRef::Scalar(Scalar::SemanticId | Scalar::I128Bits)) {
                     16
                 } else {
                     32
@@ -909,7 +912,7 @@ fn apply_rule(
         }
         LocalRule::Required => rules.required = Some(true),
         LocalRule::SignedRange { min, max } => match ty {
-            TypeRef::Scalar(Scalar::I16 | Scalar::I32) => {
+            TypeRef::Scalar(Scalar::I8 | Scalar::I16 | Scalar::I32) => {
                 let min =
                     i32::try_from(*min).map_err(|_| error("signed32 lower bound overflow"))?;
                 let max =
@@ -993,12 +996,12 @@ fn apply_rule(
                     ..Default::default()
                 }
                 .into(),
-                TypeRef::Scalar(Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash) => {
+                TypeRef::Scalar(Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash | Scalar::I128Bits) => {
                     BytesRules {
                         min_len: (*min != 0).then_some(*min),
                         max_len: Some(*max),
                         len: match ty {
-                            TypeRef::Scalar(Scalar::SemanticId) => Some(16),
+                            TypeRef::Scalar(Scalar::SemanticId | Scalar::I128Bits) => Some(16),
                             TypeRef::Scalar(Scalar::ContentHash) => Some(32),
                             _ => None,
                         },
@@ -1065,6 +1068,7 @@ fn protobuf_map_key(ty: &TypeRef) -> bool {
                 | Scalar::U16
                 | Scalar::U32
                 | Scalar::U64
+                | Scalar::I8
                 | Scalar::I16
                 | Scalar::I32
                 | Scalar::I64

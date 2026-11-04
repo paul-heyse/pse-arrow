@@ -8,6 +8,7 @@ mod duration;
 mod float_collections;
 mod observation;
 mod nested_wrappers;
+mod signed_integer;
 
 #[test]
 fn optional_text_byte_limits_keep_protobuf_presence_and_exact_byte_rules() {

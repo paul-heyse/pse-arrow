@@ -4,6 +4,7 @@
 use std::{collections::{BTreeMap, BTreeSet}, sync::Arc};
 use pse_contract::boundary_projection::{AdapterError, AdapterFailure, ValidateProjection};
 mod retained;
+mod signed_integer;
 pub use retained::RetainedExtentError;
 
 /// Original typed crossing failure; native permission and consumer presentation stay external.

@@ -92,6 +92,8 @@ enum NativeScalar {
   NATIVE_SCALAR_BYTES = 12;
   NATIVE_SCALAR_SEMANTIC_ID = 13;
   NATIVE_SCALAR_CONTENT_HASH = 14;
+  NATIVE_SCALAR_I128_BITS = 15;
+  NATIVE_SCALAR_I8 = 16;
 }
 message NativeType {
   oneof kind {

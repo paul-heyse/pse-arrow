@@ -158,7 +158,7 @@ fn native_field_codec_preserves_existing_owners_and_exact_interval_bits() {
         let metadata = encoder.message("pse.contract.v1.FieldMetadata", &[("metadata_version", Value::U32(pse_contract::metadata::VERSION)), ("native_contract", Value::Message(encoder.native_contract(ty, rules, "independent.v1").unwrap()))]).unwrap();
         assert_eq!(field_contract::decode(&metadata).unwrap(), Some((ty.clone(), rules.to_vec())));
     };
-    for scalar in [Scalar::Bool, Scalar::String, Scalar::U32, Scalar::U8, Scalar::U16, Scalar::U64, Scalar::I16, Scalar::I32, Scalar::I64, Scalar::F32Bits, Scalar::F64Bits, Scalar::Bytes, Scalar::SemanticId, Scalar::ContentHash] { roundtrip(&TypeRef::Scalar(scalar), &[]); }
+    for scalar in [Scalar::Bool, Scalar::String, Scalar::U32, Scalar::U8, Scalar::U16, Scalar::U64, Scalar::I16, Scalar::I32, Scalar::I64, Scalar::F32Bits, Scalar::F64Bits, Scalar::Bytes, Scalar::SemanticId, Scalar::ContentHash, Scalar::I128Bits, Scalar::I8] { roundtrip(&TypeRef::Scalar(scalar), &[]); }
     let named = TypeRef::Named("independent.v1.Request".into());
     let values = TypeRef::Repeated(Box::new(TypeRef::Set(Box::new(named))));
     let mapping = TypeRef::Map(Box::new(TypeRef::Scalar(Scalar::SemanticId)), Box::new(values));
@@ -170,6 +170,25 @@ fn native_field_codec_preserves_existing_owners_and_exact_interval_bits() {
     roundtrip(&TypeRef::Scalar(Scalar::String), &[LocalRule::Utf8Bytes { min: 1, max: 8 }]);
     roundtrip(&TypeRef::Optional(Box::new(TypeRef::Scalar(Scalar::Bool))), &[LocalRule::Required]);
     roundtrip(&TypeRef::Named("independent.v1.StdDuration".into()), &[LocalRule::PositiveDuration]);
+}
+
+#[test]
+fn signed_i128_metadata_allocation_is_distinct_and_unknown_readers_do_not_default() {
+    let source=NATIVE_FIELDS.replace("NATIVE_SCALAR_SEMANTIC_ID","NATIVE_SCALAR_I128_BITS");
+    let old=compile(NATIVE_FIELDS,FORWARDED).unwrap();
+    let current=compile(&source,FORWARDED).unwrap();
+    let compare=|old:&FileDescriptorSet,new:&FileDescriptorSet| compare_descriptors(DescriptorInput{descriptors:old,selected_file:"options.proto",policy:&NativeFactsPolicy},DescriptorInput{descriptors:new,selected_file:"options.proto",policy:&NativeFactsPolicy},&NativeFactsPolicy,&[]).unwrap();
+    assert_eq!(compare(&current,&current).disposition,Disposition::Compatible);
+    assert_eq!(compare(&old,&current).disposition,Disposition::Incompatible,"same bytes wire type does not equate native identity and signed integer bits");
+    let unknown=compile(&source.replace("NATIVE_SCALAR_I128_BITS","NATIVE_SCALAR_UNSPECIFIED"),FORWARDED).unwrap();
+    assert_eq!(check_descriptors(&unknown,"options.proto",&NativeFactsPolicy,&[]).unwrap().disposition,Disposition::Unknown);
+    let core=std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../pse-contract/proto/pse/contract/v1/metadata.proto")).unwrap();
+    for schema in [core.replace("NATIVE_SCALAR_I128_BITS = 15;","NATIVE_SCALAR_I128_BITS = 17;"),core.replace("NATIVE_SCALAR_I128_BITS = 15;","")] {
+        // A reader's known schema vocabulary and the acquired world disagree;
+        // neither an old world nor a changed allocation becomes known by default.
+        let world=compile_with_core(NATIVE_FIELDS,FORWARDED,Some(&schema)).unwrap();
+        assert_eq!(check_descriptors(&world,"options.proto",&NativeFactsPolicy,&[]).unwrap().disposition,Disposition::Unknown);
+    }
 }
 
 fn compile(source: &str, forwarded: &str) -> Result<FileDescriptorSet, String> {

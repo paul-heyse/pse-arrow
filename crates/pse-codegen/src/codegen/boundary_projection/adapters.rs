@@ -773,8 +773,8 @@ fn scalar_wire(scalar: Scalar) -> &'static str {
         Scalar::String => "String",
         Scalar::U8 | Scalar::U16 | Scalar::U32 | Scalar::F32Bits => "u32",
         Scalar::U64 | Scalar::F64Bits => "u64",
-        Scalar::I16 | Scalar::I32 => "i32",
+        Scalar::I8 | Scalar::I16 | Scalar::I32 => "i32",
         Scalar::I64 => "i64",
-        Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash => "Vec<u8>",
+        Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash | Scalar::I128Bits => "Vec<u8>",
     }
 }
