@@ -1,0 +1,2842 @@
+//! The core [`Message`] trait and [`DecodeOptions`] builder.
+//!
+//! Every generated message type implements [`Message`], which provides
+//! encode/decode/merge methods and a two-pass serialization model
+//! (`compute_size` populates a [`SizeCache`](crate::SizeCache), `write_to`
+//! consumes it) that avoids the exponential-time problem affecting naïve
+//! length-delimited encoders.
+
+use crate::encode_sink::EncodeSink;
+use bytes::Buf;
+
+use crate::error::{DecodeError, EncodeError};
+use crate::message_field::DefaultInstance;
+
+/// Default recursion depth limit for decoding nested messages.
+///
+/// Protobuf implementations are required to enforce a recursion limit to
+/// prevent stack overflow from deeply nested messages in untrusted input.
+/// This value (100) matches the limit used by the official protobuf
+/// implementations and the protobuf conformance suite.
+///
+/// Pass this constant as the depth when constructing a [`DecodeContext`] for
+/// a top-level [`Message::merge`] call.  The provided convenience methods
+/// ([`Message::decode`], [`Message::decode_from_slice`],
+/// [`Message::merge_from_slice`]) use this limit automatically.
+pub const RECURSION_LIMIT: u32 = 100;
+
+/// Default limit on unknown fields decoded per top-level decode: 1,000,000.
+///
+/// Bounds the number of [`UnknownField`](crate::UnknownField) values the
+/// decoder will materialize in a single top-level decode, independent of
+/// the input size. Without this bound, wire data can force allocation far
+/// in excess of its own size: every 2-byte unknown varint field
+/// materialises a ~40-byte `UnknownField`, a ~20× amplification, so a
+/// 64 MiB payload of unknown fields would otherwise force over 1 GiB of
+/// heap. The count limit caps that overhead at roughly `limit × 40` bytes
+/// (~40 MB at the default); unknown length-delimited *payload* bytes are
+/// not counted against the limit because they are already bounded by the
+/// input size, which [`DecodeOptions::with_max_message_size`] governs.
+///
+/// The `limit × 40` figure prices a *flat* unknown field, and nesting costs
+/// more than that. Each unknown group allocates its own `Vec` of children,
+/// and `Vec`'s minimum non-zero capacity is four elements — so a group
+/// holding a single child occupies ~160 bytes of that `Vec` plus its own
+/// ~40-byte slot, roughly 200 bytes charged as one. A payload of many
+/// shallow groups therefore reaches about five times the flat ceiling,
+/// ~200 MB at the default rather than ~40 MB. Still bounded and still
+/// proportional to the limit, but worth knowing when choosing one: the
+/// count bounds *slots*, and a slot is not a fixed number of bytes.
+///
+/// A million unknown fields is far more than any realistic
+/// forward-compatibility scenario needs. Raise the limit with
+/// [`DecodeOptions::with_unknown_field_limit`] if you decode trusted
+/// messages that legitimately carry more (e.g. a proxy forwarding messages
+/// with a huge unpacked repeated field from a much newer schema).
+pub const DEFAULT_UNKNOWN_FIELD_LIMIT: usize = 1_000_000;
+
+/// Default element-memory budget: 32 MiB per top-level decode.
+///
+/// Bounds the memory a single decode may materialize in the elements of
+/// length-delimited containers — repeated message, string and bytes fields, and
+/// map entries — independent of the input size. These amplify the same way unknown fields do, and further: an
+/// empty repeated message element is 2 wire bytes and materializes
+/// `size_of::<T>()` in the `Vec` it lands in, measured at 256 bytes for a
+/// message of a few `Vec`/`String` fields — a 128x ratio, so 4 MiB of such
+/// elements would otherwise force ~512 MiB. Empty `bytes` and `string`
+/// elements amplify 16x and 12x by the same route.
+///
+/// A map entry is charged for both halves, key and value: an omitted message
+/// value still materializes in the map, and a few bytes of key buy a distinct
+/// slot, so `map<string, Message>` amplifies exactly as a repeated message does.
+///
+/// Only the element footprint is counted. The *contents* of a string or bytes
+/// element are not, being already bounded by the input size that
+/// [`DecodeOptions::with_max_message_size`] governs, and packed scalars are not
+/// charged by the generated or view decoders: their worst case there is a
+/// 1-byte varint becoming a 4-byte `i32`, which is not an amplification vector,
+/// and bounding it would reject legitimate columnar payloads that carry
+/// millions of elements by design. The reflective `DynamicMessage` decoder is
+/// the exception — it stores each element as a `Value`, so the same varint
+/// costs `size_of::<Value>()` and is charged accordingly. A columnar payload
+/// decoded reflectively may therefore need this limit raised.
+///
+/// The textproto parser defaults to this same constant, raised through
+/// [`TextDecoder::with_element_memory_limit`](crate::text::TextDecoder::with_element_memory_limit).
+///
+/// 32 MiB of elements is far more than a realistic message carries, and sits
+/// alongside what [`DEFAULT_UNKNOWN_FIELD_LIMIT`] already permits (~38 MiB of
+/// `UnknownField`). Raise it with
+/// [`DecodeOptions::with_element_memory_limit`] for trusted inputs that
+/// legitimately decode into more. Note `Vec` grows by doubling, so peak
+/// resident memory can reach roughly twice the budget; this bounds what is
+/// materialized, not what the allocator reserves.
+pub const DEFAULT_ELEMENT_MEMORY_LIMIT: usize = 32 * 1024 * 1024;
+
+/// Per-decode limits threaded through every merge call.
+///
+/// Carries the remaining recursion depth and a shared unknown-field
+/// allowance. The context is `Copy` — passing it to a callee hands over the
+/// current depth by value, while the unknown-field allowance lives in a
+/// [`Cell`](core::cell::Cell) owned by the top-level decode entry point, so
+/// every field decoded under one entry point draws from the same
+/// allowance.
+///
+/// Constructed automatically by the [`Message`] convenience methods
+/// ([`decode`](Message::decode), [`decode_from_slice`](Message::decode_from_slice),
+/// [`merge_from_slice`](Message::merge_from_slice)) and by [`DecodeOptions`].
+/// Construct one manually only when calling [`Message::merge`] or the other
+/// depth-threading methods directly — and construct a **fresh limit cell
+/// per top-level decode**. Reusing one cell across decode calls makes the
+/// limit cumulative: each call drains it further until every decode fails
+/// with [`DecodeError::UnknownFieldLimitExceeded`].
+///
+/// ```rust
+/// # use buffa::__doctest_fixtures::Person;
+/// use core::cell::Cell;
+/// use buffa::{DecodeContext, Message, DEFAULT_UNKNOWN_FIELD_LIMIT, RECURSION_LIMIT};
+///
+/// # fn example(mut bytes: &[u8]) -> Result<(), buffa::DecodeError> {
+/// let limit = Cell::new(DEFAULT_UNKNOWN_FIELD_LIMIT);
+/// let mut msg = Person::default();
+/// msg.merge(&mut bytes, DecodeContext::new(RECURSION_LIMIT, &limit))?;
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Clone, Copy, Debug)]
+pub struct DecodeContext<'a> {
+    depth: u32,
+    unknown_fields_remaining: &'a core::cell::Cell<usize>,
+    element_memory_remaining: Option<&'a core::cell::Cell<usize>>,
+    allocation_bytes_remaining: Option<&'a core::cell::Cell<usize>>,
+}
+
+impl<'a> DecodeContext<'a> {
+    /// Create a context with `depth` remaining recursion levels and the
+    /// remaining unknown-field allowance stored in `unknown_field_limit`.
+    #[must_use]
+    pub fn new(depth: u32, unknown_field_limit: &'a core::cell::Cell<usize>) -> Self {
+        Self {
+            depth,
+            unknown_fields_remaining: unknown_field_limit,
+            element_memory_remaining: None,
+            allocation_bytes_remaining: None,
+        }
+    }
+
+    /// Attach the shared element-memory budget in `element_memory_limit`.
+    ///
+    /// Without this the budget is absent and [`register_element_memory`] is a
+    /// no-op, which is what a [`DecodeContext::new`] built elsewhere — older
+    /// generated code, say — gets. buffa's own entry points attach it, so a
+    /// decode through [`DecodeOptions`] or the [`Message`] conveniences is
+    /// bounded by [`DEFAULT_ELEMENT_MEMORY_LIMIT`].
+    ///
+    /// Attach a **fresh cell per top-level decode**, for the same reason the
+    /// unknown-field allowance needs one: a reused cell drains across calls.
+    ///
+    /// [`register_element_memory`]: DecodeContext::register_element_memory
+    #[must_use]
+    pub fn with_element_memory(
+        mut self,
+        element_memory_limit: &'a core::cell::Cell<usize>,
+    ) -> Self {
+        self.element_memory_remaining = Some(element_memory_limit);
+        self
+    }
+
+    /// Attach a phase-monotonic logical backing-storage budget. Copies and
+    /// descendants share this cell; no charge is refunded within the phase.
+    /// This covers only the opted-in generated view decode paths and runtime
+    /// helpers, not owned decoding, lazy getters, conversion, allocator metadata,
+    /// RSS, stack, encoding or application work. Use a fresh cell per phase.
+    #[must_use]
+    pub fn with_allocation_budget(mut self, budget: &'a core::cell::Cell<usize>) -> Self {
+        self.allocation_bytes_remaining = Some(budget);
+        self
+    }
+
+    /// Remaining requested backing bytes, or `None` for stock behavior.
+    #[must_use]
+    pub fn remaining_allocation_budget(&self) -> Option<usize> {
+        self.allocation_bytes_remaining.map(core::cell::Cell::get)
+    }
+
+    /// Debit the FULL new backing layout before allocation, retaining all old
+    /// charges to cover overlap, replacements and decode temporaries. Refusal
+    /// leaves the allowance unchanged. Allocation failure may retain a debit.
+    pub fn register_allocation_bytes(&self, bytes: usize) -> Result<(), DecodeError> {
+        if let Some(cell) = self.allocation_bytes_remaining {
+            let remaining = cell.get().checked_sub(bytes)
+                .ok_or(DecodeError::AllocationLimitExceeded)?;
+            cell.set(remaining);
+        }
+        Ok(())
+    }
+
+    /// Refuse a decoder outside the selected source-qualified allocation
+    /// profile. Explicit lazy traversal must check the child's capability
+    /// before decoding its raw fragments under this shared context.
+    pub fn require_allocation_accounted(&self, accounted: bool) -> Result<(), DecodeError> {
+        if self.allocation_bytes_remaining.is_some() && !accounted {
+            return Err(DecodeError::UnaccountedView);
+        }
+        Ok(())
+    }
+
+    /// The remaining recursion depth.
+    #[must_use]
+    pub fn depth(&self) -> u32 {
+        self.depth
+    }
+
+    /// The number of additional unknown fields this decode may materialize.
+    #[must_use]
+    pub fn remaining_unknown_fields(&self) -> usize {
+        self.unknown_fields_remaining.get()
+    }
+
+    /// Consume one level of recursion depth.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DecodeError::RecursionLimitExceeded`] when the depth budget
+    /// is exhausted.
+    pub fn descend(self) -> Result<Self, DecodeError> {
+        let depth = self
+            .depth
+            .checked_sub(1)
+            .ok_or(DecodeError::RecursionLimitExceeded)?;
+        Ok(Self { depth, ..self })
+    }
+
+    /// Consume one slot of the shared unknown-field allowance.
+    ///
+    /// Call **before** materializing an [`UnknownField`](crate::UnknownField).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DecodeError::UnknownFieldLimitExceeded`] (leaving the
+    /// allowance unchanged) when no slots remain.
+    pub fn register_unknown_field(&self) -> Result<(), DecodeError> {
+        let remaining = self.unknown_fields_remaining.get();
+        if remaining == 0 {
+            return Err(DecodeError::UnknownFieldLimitExceeded);
+        }
+        self.unknown_fields_remaining.set(remaining - 1);
+        Ok(())
+    }
+
+    /// The element-memory budget left to this decode, or `None` when no budget
+    /// is attached.
+    #[must_use]
+    pub fn remaining_element_memory(&self) -> Option<usize> {
+        self.element_memory_remaining.map(core::cell::Cell::get)
+    }
+
+    /// Charge `bytes` against the shared element-memory budget.
+    ///
+    /// Call **before** materializing an element of a repeated
+    /// length-delimited field, passing that element's `size_of`. Those are the
+    /// fields where the wire is far cheaper than what it decodes into: an empty
+    /// message element is two bytes and costs `size_of::<T>()`, so a payload
+    /// well inside [`DecodeOptions::with_max_message_size`] can still expand by
+    /// two orders of magnitude. Packed scalars are not charged by the
+    /// generated or view decoders — there the worst case is a 1-byte varint
+    /// becoming a 4-byte `i32`, and bounding that would reject legitimate
+    /// columnar payloads. The reflective `DynamicMessage` decoder does charge
+    /// them: its store is a `Vec<Value>`, so a 1-byte varint becomes a whole
+    /// `Value` slot and the ratio is an order of magnitude worse.
+    ///
+    /// No-op when no budget is attached (see
+    /// [`with_element_memory`](DecodeContext::with_element_memory)).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DecodeError::ElementMemoryLimitExceeded`] (leaving the budget
+    /// unchanged) when `bytes` exceeds what remains.
+    pub fn register_element_memory(&self, bytes: usize) -> Result<(), DecodeError> {
+        let Some(cell) = self.element_memory_remaining else {
+            return Ok(());
+        };
+        let remaining = cell.get();
+        if bytes > remaining {
+            return Err(DecodeError::ElementMemoryLimitExceeded);
+        }
+        cell.set(remaining - bytes);
+        Ok(())
+    }
+}
+
+/// Maximum encoded size of a protobuf message: 2 GiB − 1 (`0x7FFF_FFFF`).
+///
+/// The protobuf specification limits any message — top-level or nested — to
+/// 2 GiB. buffa enforces this symmetrically:
+///
+/// - **Decode** rejects length-delimited payloads declared larger than this
+///   with [`DecodeError::MessageTooLarge`], matching protobuf C++ and Java.
+/// - **Encode** refuses to serialize a message whose encoded size would
+///   exceed it: the panicking entry points ([`Message::encode`] and friends)
+///   panic, the `try_*` twins ([`Message::try_encode`] and friends) return
+///   [`EncodeError::MessageTooLarge`]. Without this check a writer could
+///   produce bytes that no conforming decoder — including buffa's own —
+///   will read back.
+pub const MAX_MESSAGE_BYTES: u32 = 0x7FFF_FFFF;
+
+/// Saturate a `u64` size accumulator to `u32`.
+///
+/// Generated `compute_size` implementations accumulate in `u64` (which
+/// cannot overflow for any message that fits in memory) and saturate to
+/// `u32` once at each message node's return. A saturated value is
+/// necessarily greater than [`MAX_MESSAGE_BYTES`], so any over-limit
+/// message — whether from one huge field or from aggregation — surfaces at
+/// the encode entry points' size check; the byte-exact value is preserved
+/// for every message the wire format can actually represent.
+///
+/// Manual [`Message`] implementations should use the same pattern:
+/// accumulate the encoded size in a `u64` and `saturate_size` it at return.
+#[inline]
+#[must_use]
+pub fn saturate_size(size: u64) -> u32 {
+    u32::try_from(size).unwrap_or(u32::MAX)
+}
+
+/// Validate a computed encode size against [`MAX_MESSAGE_BYTES`].
+///
+/// The error-returning half of the encode-size funnel: the `try_encode*`
+/// methods (and generated inherent encode entry points, e.g. on lazy view
+/// types) validate their [`compute_size`](Message::compute_size) result
+/// through this before writing anything.
+///
+/// # Errors
+///
+/// Returns [`EncodeError::MessageTooLarge`] if `size` exceeds
+/// [`MAX_MESSAGE_BYTES`].
+#[inline]
+pub fn checked_encode_size(size: u32) -> Result<u32, EncodeError> {
+    if size > MAX_MESSAGE_BYTES {
+        Err(EncodeError::MessageTooLarge)
+    } else {
+        Ok(size)
+    }
+}
+
+/// Debug-build two-pass coherence ledger: asserts `write_to` produced
+/// exactly the byte count `compute_size` declared.
+///
+/// Called by the provided `encode_to_vec` / `encode_to_bytes` entry points
+/// (and their generated lazy-view counterparts) after the write pass. The
+/// write pass is ground truth — leaf writers emit `len as u64` prefixes and
+/// full payloads — so any divergence indicates a size-pass bug (wrong
+/// presence check, traversal drift) in a generated or manual
+/// implementation. Free in release builds.
+#[doc(hidden)]
+#[inline]
+#[track_caller]
+pub fn debug_assert_two_pass(written: usize, declared: usize) {
+    debug_assert_eq!(
+        written, declared,
+        "write_to produced a different byte count than compute_size \
+         declared (two-pass traversal mismatch)"
+    );
+}
+
+/// Panic shim shared by every panicking encode entry point — the provided
+/// `Message` / `ViewEncode` methods, `SizeCachePool`, and generated
+/// lazy-view inherent methods all delegate to their `try_*` twin and route
+/// the `Err` here, so the panicking and fallible paths cannot diverge.
+///
+/// # Panics
+///
+/// Always — that is its entire job: one cold, out-of-line panic site with
+/// the canonical over-limit message.
+#[doc(hidden)]
+#[cold]
+#[inline(never)]
+pub fn encode_size_overflow() -> ! {
+    panic!(
+        "message encoded size exceeds the 2 GiB protobuf limit \
+         (the try_* variant of this method returns this as an error instead)"
+    )
+}
+
+/// The core trait implemented by all protobuf message types.
+///
+/// This trait is implemented by **generated code** — you write a `.proto` file,
+/// codegen emits the Rust struct and its `Message` impl. You should almost
+/// never implement this trait by hand.
+///
+/// # Manual implementation is discouraged
+///
+/// The only reason to implement `Message` yourself is when you need a
+/// custom in-memory representation that codegen cannot produce — for
+/// example, wrapping a `std::ops::Range<i64>` as a leaf message so the
+/// rest of your code uses the natural Rust type. If you just want a message
+/// type, **write a `.proto` file instead.**
+///
+/// Manual implementation is intentionally high-friction:
+/// - You must correctly implement the two-pass serialization contract
+///   (`compute_size` populates the [`SizeCache`](crate::SizeCache) in the
+///   same traversal order that `write_to` consumes it).
+/// - You must implement wire-format decoding in `merge_field`.
+/// - You must implement the [`DefaultInstance`] supertrait, which provides
+///   the lazily-initialized static default that [`MessageField`](crate::MessageField)
+///   dereferences to when unset.
+///
+/// If you still need to do this, see the [custom types section of the
+/// user guide](https://github.com/anthropics/buffa/blob/main/docs/guide.md#custom-type-implementations)
+/// for a complete worked example.
+///
+/// # Serialization model
+///
+/// Serialization is a two-pass process to avoid the exponential-time problem
+/// that affects prost with deeply nested messages:
+///
+/// 1. **`compute_size()`** — walks the message tree and records the encoded
+///    size of every length-delimited sub-message in a [`SizeCache`].
+/// 2. **`write_to()`** — walks the tree again, writing bytes and consuming
+///    cached sizes for length-prefixed sub-messages.
+///
+/// The provided [`encode`](Self::encode) method performs both passes with a
+/// fresh [`SizeCache`] — most callers use that and never touch the cache
+/// directly. `compute_size` / `write_to` take the cache explicitly so that
+/// manual `Message` implementations can thread it through nested-message
+/// recursion.
+///
+/// # Thread safety
+///
+/// `Message` requires `Send + Sync`. Generated structs contain no interior
+/// mutability — serialization state lives in the external [`SizeCache`], not
+/// in the message — so messages can be placed in an `Arc` and shared across
+/// threads freely. `merge` requires `&mut self`, so mutation is exclusive.
+///
+/// # Struct evolution policy
+///
+/// Generated message structs (and their [`MessageView`](crate::MessageView) /
+/// [`LazyMessageView`](crate::LazyMessageView) counterparts) may gain fields
+/// across releases — both when the source `.proto` schema evolves and when
+/// buffa adds internal bookkeeping such as `__buffa_unknown_fields` or the
+/// required-field presence bitmaps. **Exhaustive struct literals and
+/// exhaustive destructuring patterns are not covered by buffa's semver
+/// guarantees**: code that names every field will fail to compile when a field
+/// is added, and that breakage is not considered a breaking change.
+///
+/// The forward-compatible ways to construct a generated struct are:
+///
+/// - decode it from bytes;
+/// - struct-update syntax over the default: `Foo { x, y, ..Default::default() }`;
+/// - start from `Foo::default()` and assign fields (or call generated `with_*`
+///   setters when `generate_with_setters` is enabled).
+///
+/// The structs are deliberately *not* `#[non_exhaustive]`, so struct-update
+/// syntax remains available from downstream crates; this policy is a documented
+/// contract rather than a compiler-enforced one.
+///
+/// [`SizeCache`]: crate::SizeCache
+pub trait Message: DefaultInstance + Clone + PartialEq + Send + Sync {
+    /// Compute the encoded byte size of this message, recording nested
+    /// sub-message sizes in `cache` for `write_to` to consume.
+    ///
+    /// Most callers should use [`encode`](Self::encode) instead, which runs
+    /// both passes with a fresh cache. Manual `Message` implementations call
+    /// this recursively on nested message fields, wrapping each call in
+    /// [`SizeCache::reserve`] / [`SizeCache::set`] for length-delimited
+    /// fields — see the user guide's custom-types section for the pattern.
+    ///
+    /// # Size limit
+    ///
+    /// The protobuf specification limits messages to 2 GiB
+    /// ([`MAX_MESSAGE_BYTES`]). Generated implementations accumulate in
+    /// `u64` and saturate the return value via [`saturate_size`], so an
+    /// over-limit message yields a return greater than [`MAX_MESSAGE_BYTES`]
+    /// rather than a wrapped value; the provided encode methods check this
+    /// and refuse to produce over-limit output. Manual implementations must
+    /// follow the same pattern — if their arithmetic can wrap, over-limit
+    /// messages may encode corrupt bytes that bypass the check.
+    ///
+    /// [`SizeCache::reserve`]: crate::SizeCache::reserve
+    /// [`SizeCache::set`]: crate::SizeCache::set
+    fn compute_size(&self, cache: &mut crate::SizeCache) -> u32;
+
+    /// Write this message's encoded bytes to a buffer, consuming
+    /// nested-message sizes from `cache` (populated by a prior
+    /// `compute_size` call on the same cache).
+    ///
+    /// Most callers should use [`encode`](Self::encode) instead. This is a
+    /// low-level primitive: the 2 GiB size check ([`MAX_MESSAGE_BYTES`])
+    /// lives in the provided encode entry points, so callers driving
+    /// `compute_size` / `write_to` directly must validate the size
+    /// themselves (via [`checked_encode_size`]).
+    fn write_to(&self, cache: &mut crate::SizeCache, buf: &mut impl EncodeSink);
+
+    /// Compute size, then write. This is the primary encoding API.
+    ///
+    /// The sink can be any [`BufMut`](bytes::BufMut) (contiguous output) or
+    /// a [`Rope`](crate::Rope), which captures large `bytes::Bytes` fields
+    /// as reference-counted segments for zero-copy handoff to networking
+    /// code — see [`encode_sink`](crate::encode_sink).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the encoded size exceeds the 2 GiB protobuf limit
+    /// ([`MAX_MESSAGE_BYTES`]) — see [`try_encode`](Self::try_encode) for
+    /// the error-returning variant.
+    #[inline]
+    fn encode(&self, buf: &mut impl EncodeSink) {
+        self.try_encode(buf)
+            .unwrap_or_else(|_| encode_size_overflow())
+    }
+
+    /// Encode, returning an error instead of panicking if the encoded size
+    /// exceeds the 2 GiB protobuf limit ([`MAX_MESSAGE_BYTES`]).
+    ///
+    /// On `Err`, nothing is written to `buf`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EncodeError::MessageTooLarge`] if the encoded size exceeds
+    /// [`MAX_MESSAGE_BYTES`].
+    fn try_encode(&self, buf: &mut impl EncodeSink) -> Result<(), EncodeError> {
+        let mut cache = crate::SizeCache::new();
+        checked_encode_size(self.compute_size(&mut cache))?;
+        self.write_to(&mut cache, buf);
+        Ok(())
+    }
+
+    /// Encode using a caller-supplied [`SizeCache`](crate::SizeCache), for
+    /// reuse across many encodes in a hot loop. Clears the cache first.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the encoded size exceeds the 2 GiB protobuf limit
+    /// ([`MAX_MESSAGE_BYTES`]) — see
+    /// [`try_encode_with_cache`](Self::try_encode_with_cache) for the
+    /// error-returning variant.
+    #[inline]
+    fn encode_with_cache(&self, cache: &mut crate::SizeCache, buf: &mut impl EncodeSink) {
+        self.try_encode_with_cache(cache, buf)
+            .unwrap_or_else(|_| encode_size_overflow())
+    }
+
+    /// Encode with a caller-supplied [`SizeCache`](crate::SizeCache),
+    /// returning an error instead of panicking if the encoded size exceeds
+    /// the 2 GiB protobuf limit ([`MAX_MESSAGE_BYTES`]). Clears the cache
+    /// first.
+    ///
+    /// On `Err`, nothing is written to `buf`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EncodeError::MessageTooLarge`] if the encoded size exceeds
+    /// [`MAX_MESSAGE_BYTES`].
+    fn try_encode_with_cache(
+        &self,
+        cache: &mut crate::SizeCache,
+        buf: &mut impl EncodeSink,
+    ) -> Result<(), EncodeError> {
+        cache.clear();
+        checked_encode_size(self.compute_size(cache))?;
+        self.write_to(cache, buf);
+        Ok(())
+    }
+
+    /// Encode this message into `buf` only if its encoded size fits within
+    /// `max_bytes`, using a single size pass that is then reused for the write.
+    ///
+    /// This avoids the double tree-walk that `try_encoded_len` + `encode`
+    /// would require: one `compute_size` pass populates the [`SizeCache`];
+    /// the budget check happens before `write_to` runs, so on `Err` nothing
+    /// is written to `buf`.
+    ///
+    /// Returns the encoded body length on success (excludes any length prefix
+    /// you add for framing) — useful for metrics or frame sizing. Note that
+    /// this return type is `u32`, unlike `try_encode`'s `()`. `max_bytes` is
+    /// also `u32` to match the encode-size domain; callers with a `usize`
+    /// budget can cast with `u32::try_from(budget).unwrap_or(u32::MAX)`.
+    ///
+    /// # Errors
+    ///
+    /// - [`EncodeError::MessageTooLarge`] if the encoded size exceeds the
+    ///   2 GiB protobuf limit ([`MAX_MESSAGE_BYTES`]).
+    ///   `MessageTooLarge` takes precedence if both limits are exceeded.
+    /// - [`EncodeError::ExceedsBudget`] if the encoded size is within the
+    ///   protobuf limit but exceeds `max_bytes`.
+    ///
+    /// [`SizeCache`]: crate::SizeCache
+    fn try_encode_bounded(
+        &self,
+        max_bytes: u32,
+        buf: &mut impl EncodeSink,
+    ) -> Result<u32, EncodeError> {
+        let mut cache = crate::SizeCache::new();
+        self.try_encode_bounded_with_cache(max_bytes, &mut cache, buf)
+    }
+
+    /// Like [`try_encode_bounded`](Self::try_encode_bounded) but reuses an
+    /// existing [`SizeCache`], clearing it first.
+    ///
+    /// Prefer [`SizeCachePool::try_encode_bounded`](crate::SizeCachePool::try_encode_bounded)
+    /// for hot-loop use — the pool amortizes the cache's spill allocation.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`try_encode_bounded`](Self::try_encode_bounded).
+    ///
+    /// [`SizeCache`]: crate::SizeCache
+    fn try_encode_bounded_with_cache(
+        &self,
+        max_bytes: u32,
+        cache: &mut crate::SizeCache,
+        buf: &mut impl EncodeSink,
+    ) -> Result<u32, EncodeError> {
+        cache.clear();
+        let len = checked_encode_size(self.compute_size(cache))?;
+        if len > max_bytes {
+            return Err(EncodeError::ExceedsBudget { len, max_bytes });
+        }
+        self.write_to(cache, buf);
+        Ok(len)
+    }
+
+    /// Compute the encoded byte size of this message.
+    ///
+    /// Walks the message tree, discarding the intermediate [`SizeCache`].
+    /// If you also intend to encode, prefer [`encode`](Self::encode) or
+    /// [`encode_to_vec`](Self::encode_to_vec) — they do a single size pass
+    /// and reuse the cache for the write.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the encoded size exceeds the 2 GiB protobuf limit
+    /// ([`MAX_MESSAGE_BYTES`]) — see [`try_encoded_len`](Self::try_encoded_len)
+    /// for the error-returning variant.
+    ///
+    /// [`SizeCache`]: crate::SizeCache
+    #[inline]
+    #[must_use]
+    fn encoded_len(&self) -> u32 {
+        self.try_encoded_len()
+            .unwrap_or_else(|_| encode_size_overflow())
+    }
+
+    /// Compute the encoded byte size, returning an error instead of
+    /// panicking if it exceeds the 2 GiB protobuf limit
+    /// ([`MAX_MESSAGE_BYTES`]).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EncodeError::MessageTooLarge`] if the encoded size exceeds
+    /// [`MAX_MESSAGE_BYTES`].
+    fn try_encoded_len(&self) -> Result<u32, EncodeError> {
+        checked_encode_size(self.compute_size(&mut crate::SizeCache::new()))
+    }
+
+    /// Encode this message as a length-delimited byte sequence.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the encoded size exceeds the 2 GiB protobuf limit
+    /// ([`MAX_MESSAGE_BYTES`]); the check runs before the length prefix is
+    /// written, so nothing reaches `buf` on failure. See
+    /// [`try_encode_length_delimited`](Self::try_encode_length_delimited)
+    /// for the error-returning variant.
+    #[inline]
+    fn encode_length_delimited(&self, buf: &mut impl EncodeSink) {
+        self.try_encode_length_delimited(buf)
+            .unwrap_or_else(|_| encode_size_overflow())
+    }
+
+    /// Encode as a length-delimited byte sequence, returning an error
+    /// instead of panicking if the encoded size exceeds the 2 GiB protobuf
+    /// limit ([`MAX_MESSAGE_BYTES`]).
+    ///
+    /// On `Err`, nothing is written to `buf`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EncodeError::MessageTooLarge`] if the encoded size exceeds
+    /// [`MAX_MESSAGE_BYTES`].
+    fn try_encode_length_delimited(&self, buf: &mut impl EncodeSink) -> Result<(), EncodeError> {
+        let mut cache = crate::SizeCache::new();
+        let len = checked_encode_size(self.compute_size(&mut cache))?;
+        crate::encoding::encode_varint(len as u64, buf);
+        self.write_to(&mut cache, buf);
+        Ok(())
+    }
+
+    /// Encode this message to a new `Vec<u8>`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the encoded size exceeds the 2 GiB protobuf limit
+    /// ([`MAX_MESSAGE_BYTES`]) — see
+    /// [`try_encode_to_vec`](Self::try_encode_to_vec) for the
+    /// error-returning variant. In debug builds, also panics if a manual
+    /// implementation's `write_to` produces a different byte count than
+    /// its `compute_size` declared.
+    // Direct body rather than delegating to try_encode_to_vec: LLVM does
+    // not fold the Result<Vec<u8>> niche away even under full inlining, so
+    // the delegating form re-checks the capacity sentinel and round-trips
+    // the Vec through a Result temp in every caller — measured +7.5% on
+    // dense-small-message encode (google_message1, quieted metal,
+    // layout-normalized). Same for encode_to_bytes. The unit- and
+    // scalar-returning entry points delegate — their Results stay in
+    // registers and fold cleanly.
+    #[inline]
+    #[must_use]
+    fn encode_to_vec(&self) -> alloc::vec::Vec<u8> {
+        let mut cache = crate::SizeCache::new();
+        let size = match checked_encode_size(self.compute_size(&mut cache)) {
+            Ok(size) => size as usize,
+            Err(_) => encode_size_overflow(),
+        };
+        let mut buf = alloc::vec::Vec::with_capacity(size);
+        self.write_to(&mut cache, &mut buf);
+        debug_assert_two_pass(buf.len(), size);
+        buf
+    }
+
+    /// Encode to a new `Vec<u8>`, returning an error instead of panicking
+    /// if the encoded size exceeds the 2 GiB protobuf limit
+    /// ([`MAX_MESSAGE_BYTES`]).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EncodeError::MessageTooLarge`] if the encoded size exceeds
+    /// [`MAX_MESSAGE_BYTES`].
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, panics if a manual implementation's `write_to`
+    /// produces a different byte count than its `compute_size` declared.
+    fn try_encode_to_vec(&self) -> Result<alloc::vec::Vec<u8>, EncodeError> {
+        let mut cache = crate::SizeCache::new();
+        let size = checked_encode_size(self.compute_size(&mut cache))? as usize;
+        let mut buf = alloc::vec::Vec::with_capacity(size);
+        self.write_to(&mut cache, &mut buf);
+        debug_assert_two_pass(buf.len(), size);
+        Ok(buf)
+    }
+
+    /// Encode this message to a new [`bytes::Bytes`].
+    ///
+    /// Useful when handing off to networking code (hyper, tonic, axum)
+    /// that expects `Bytes` frame or body payloads. Works in `no_std`.
+    ///
+    /// This is equivalent to `Bytes::from(self.encode_to_vec())` — both
+    /// are zero-copy with respect to the encoded bytes — but saves readers
+    /// from having to know that `From<Vec<u8>> for Bytes` is zero-copy.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the encoded size exceeds the 2 GiB protobuf limit
+    /// ([`MAX_MESSAGE_BYTES`]) — see
+    /// [`try_encode_to_bytes`](Self::try_encode_to_bytes) for the
+    /// error-returning variant. In debug builds, also panics if a manual
+    /// implementation's `write_to` produces a different byte count than
+    /// its `compute_size` declared.
+    // Direct body — see encode_to_vec for why the fat-payload entry points
+    // do not delegate to their try_ twins.
+    #[inline]
+    #[must_use]
+    fn encode_to_bytes(&self) -> bytes::Bytes {
+        let mut cache = crate::SizeCache::new();
+        let size = match checked_encode_size(self.compute_size(&mut cache)) {
+            Ok(size) => size as usize,
+            Err(_) => encode_size_overflow(),
+        };
+        let mut buf = bytes::BytesMut::with_capacity(size);
+        self.write_to(&mut cache, &mut buf);
+        debug_assert_two_pass(buf.len(), size);
+        buf.freeze()
+    }
+
+    /// Encode to a new [`bytes::Bytes`], returning an error instead of
+    /// panicking if the encoded size exceeds the 2 GiB protobuf limit
+    /// ([`MAX_MESSAGE_BYTES`]).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EncodeError::MessageTooLarge`] if the encoded size exceeds
+    /// [`MAX_MESSAGE_BYTES`].
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, panics if a manual implementation's `write_to`
+    /// produces a different byte count than its `compute_size` declared.
+    fn try_encode_to_bytes(&self) -> Result<bytes::Bytes, EncodeError> {
+        let mut cache = crate::SizeCache::new();
+        let size = checked_encode_size(self.compute_size(&mut cache))? as usize;
+        let mut buf = bytes::BytesMut::with_capacity(size);
+        self.write_to(&mut cache, &mut buf);
+        debug_assert_two_pass(buf.len(), size);
+        Ok(buf.freeze())
+    }
+
+    /// Decode a message from a buffer.
+    fn decode(buf: &mut impl Buf) -> Result<Self, DecodeError>
+    where
+        Self: Sized,
+    {
+        let limit = core::cell::Cell::new(DEFAULT_UNKNOWN_FIELD_LIMIT);
+        let elem_budget = core::cell::Cell::new(DEFAULT_ELEMENT_MEMORY_LIMIT);
+        let mut msg = Self::default();
+        msg.merge(
+            buf,
+            DecodeContext::new(RECURSION_LIMIT, &limit).with_element_memory(&elem_budget),
+        )?;
+        Ok(msg)
+    }
+
+    /// Decode a message from a byte slice.
+    ///
+    /// Convenience wrapper around [`decode`](Self::decode) that avoids the
+    /// `&mut bytes.as_slice()` incantation.
+    fn decode_from_slice(mut data: &[u8]) -> Result<Self, DecodeError>
+    where
+        Self: Sized,
+    {
+        // `mut data` creates a local mutable copy of the fat pointer so that
+        // `Buf::advance` can move the read cursor without affecting the caller.
+        Self::decode(&mut data)
+    }
+
+    /// Decode a length-delimited message from a buffer.
+    ///
+    /// This is a **top-level** entry point.  It reads a varint length prefix,
+    /// then decodes using arithmetic bounds checking, calling
+    /// [`merge_to_limit`](Self::merge_to_limit) with a fresh
+    /// [`RECURSION_LIMIT`] budget.  Any sub-messages inside are decoded via
+    /// [`merge_length_delimited`](Self::merge_length_delimited), which tracks
+    /// and decrements the budget.
+    ///
+    /// Do **not** call this method from within a
+    /// [`merge_to_limit`](Self::merge_to_limit) implementation to decode a
+    /// nested sub-message field; use
+    /// [`merge_length_delimited`](Self::merge_length_delimited) instead so
+    /// that the caller's depth budget is propagated correctly.
+    fn decode_length_delimited(buf: &mut impl Buf) -> Result<Self, DecodeError>
+    where
+        Self: Sized,
+    {
+        // Refuse messages larger than 2 GiB to prevent allocating attacker-
+        // controlled amounts of memory from a crafted length prefix.
+        let len_u64 = crate::encoding::decode_varint(buf)?;
+        if len_u64 > MAX_MESSAGE_BYTES as u64 {
+            return Err(DecodeError::MessageTooLarge);
+        }
+        // Safe on 32-bit: len_u64 <= 2 GiB - 1 < u32::MAX, so the cast never truncates.
+        let len = usize::try_from(len_u64).map_err(|_| DecodeError::MessageTooLarge)?;
+        if buf.remaining() < len {
+            return Err(DecodeError::UnexpectedEof);
+        }
+        // Arithmetic limit: decode `len` bytes from the buffer without
+        // wrapping it in `Take`.  This keeps the buffer type `B` unchanged
+        // through every recursion level, avoiding E0275 for recursive
+        // message types like `google.protobuf.Struct ↔ Value`.
+        let limit = buf.remaining() - len;
+        let field_limit = core::cell::Cell::new(DEFAULT_UNKNOWN_FIELD_LIMIT);
+        let elem_budget = core::cell::Cell::new(DEFAULT_ELEMENT_MEMORY_LIMIT);
+        let mut msg = Self::default();
+        msg.merge_to_limit(
+            buf,
+            DecodeContext::new(RECURSION_LIMIT, &field_limit).with_element_memory(&elem_budget),
+            limit,
+        )?;
+        if buf.remaining() != limit {
+            let remaining = buf.remaining();
+            if remaining > limit {
+                buf.advance(remaining - limit);
+            } else {
+                return Err(DecodeError::UnexpectedEof);
+            }
+        }
+        Ok(msg)
+    }
+
+    /// Processes a single already-decoded tag and its associated field data
+    /// from `buf`.
+    ///
+    /// This is the per-field dispatch method generated for each message type.
+    /// Both [`merge_to_limit`](Self::merge_to_limit) and
+    /// [`merge_group`](Self::merge_group) call this in their respective loops.
+    ///
+    /// `ctx` carries the remaining nesting depth and the shared allocation
+    /// budget.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`DecodeError`] if:
+    /// - the buffer is truncated or malformed,
+    /// - a wire-type mismatch is detected for a known field,
+    /// - the recursion limit is exceeded, or
+    /// - the allocation budget is exhausted.
+    fn merge_field(
+        &mut self,
+        tag: crate::encoding::Tag,
+        buf: &mut impl Buf,
+        ctx: DecodeContext<'_>,
+    ) -> Result<(), DecodeError>;
+
+    /// Merge fields from a buffer until `buf.remaining()` reaches `limit`.
+    ///
+    /// This is the core decode loop.  [`merge`](Self::merge) delegates to this
+    /// with `limit = 0` (read until exhausted).
+    /// [`merge_length_delimited`](Self::merge_length_delimited) computes
+    /// `limit` from the declared sub-message length and calls this directly.
+    ///
+    /// The caller must ensure `limit <= buf.remaining()`.  The default
+    /// implementations of [`merge`](Self::merge) and
+    /// [`merge_length_delimited`](Self::merge_length_delimited) uphold this
+    /// invariant.
+    ///
+    /// `ctx` carries the remaining nesting depth and the shared allocation
+    /// budget.  Each call to
+    /// [`merge_length_delimited`](Self::merge_length_delimited) consumes one
+    /// depth level before recursing; when the depth reaches zero the call
+    /// returns [`DecodeError::RecursionLimitExceeded`].
+    fn merge_to_limit(
+        &mut self,
+        buf: &mut impl Buf,
+        ctx: DecodeContext<'_>,
+        limit: usize,
+    ) -> Result<(), DecodeError> {
+        while buf.remaining() > limit {
+            let tag = crate::encoding::Tag::decode(buf)?;
+            self.merge_field(tag, buf, ctx)?;
+        }
+        Ok(())
+    }
+
+    /// Merges a group-encoded message from `buf`, reading fields until an
+    /// EndGroup tag with the given `field_number` is encountered.
+    ///
+    /// Proto2 groups use StartGroup/EndGroup wire types instead of
+    /// length-delimited encoding. The opening StartGroup tag has already been
+    /// consumed by the caller; this method reads the group body and the
+    /// closing EndGroup tag.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`DecodeError`] if:
+    /// - the buffer is truncated before the EndGroup tag,
+    /// - an EndGroup tag is encountered with a mismatched field number,
+    /// - a wire-type mismatch is detected for a known field, or
+    /// - the recursion limit is exceeded.
+    fn merge_group(
+        &mut self,
+        buf: &mut impl Buf,
+        ctx: DecodeContext<'_>,
+        field_number: u32,
+    ) -> Result<(), DecodeError> {
+        let ctx = ctx.descend()?;
+        loop {
+            if !buf.has_remaining() {
+                return Err(DecodeError::UnexpectedEof);
+            }
+            let tag = crate::encoding::Tag::decode(buf)?;
+            if tag.wire_type() == crate::encoding::WireType::EndGroup {
+                return if tag.field_number() == field_number {
+                    Ok(())
+                } else {
+                    Err(DecodeError::InvalidEndGroup(tag.field_number()))
+                };
+            }
+            self.merge_field(tag, buf, ctx)?;
+        }
+    }
+
+    /// Merge fields from a buffer into this message.
+    ///
+    /// Fields that are already set will be overwritten for singular fields,
+    /// or appended for repeated fields, following standard protobuf merge
+    /// semantics.
+    ///
+    /// `ctx` carries the remaining nesting depth and the shared allocation
+    /// budget.  Each call to
+    /// [`merge_length_delimited`](Self::merge_length_delimited) consumes one
+    /// depth level before recursing; when the depth reaches zero the call
+    /// returns [`DecodeError::RecursionLimitExceeded`].  Construct a fresh
+    /// [`DecodeContext`] at the outermost call site, or use the convenience
+    /// methods ([`decode`](Self::decode),
+    /// [`merge_from_slice`](Self::merge_from_slice)) which do this
+    /// automatically.
+    fn merge(&mut self, buf: &mut impl Buf, ctx: DecodeContext<'_>) -> Result<(), DecodeError> {
+        self.merge_to_limit(buf, ctx, 0)
+    }
+
+    /// Merge fields from a byte slice into this message.
+    ///
+    /// Convenience wrapper around [`merge`](Self::merge) that avoids the
+    /// `&mut bytes.as_slice()` incantation.
+    fn merge_from_slice(&mut self, mut data: &[u8]) -> Result<(), DecodeError> {
+        let limit = core::cell::Cell::new(DEFAULT_UNKNOWN_FIELD_LIMIT);
+        let elem_budget = core::cell::Cell::new(DEFAULT_ELEMENT_MEMORY_LIMIT);
+        self.merge(
+            &mut data,
+            DecodeContext::new(RECURSION_LIMIT, &limit).with_element_memory(&elem_budget),
+        )
+    }
+
+    /// Merge fields from a length-delimited sub-message payload into this message.
+    ///
+    /// Reads a varint length prefix, then calls [`merge_to_limit`](Self::merge_to_limit)
+    /// with an arithmetic bound derived from the declared sub-message length.
+    /// The buffer type `B` passes through unchanged at every recursion level,
+    /// avoiding the `E0275` trait-solver recursion limit that occurs with
+    /// `Take<&mut Take<&mut T>>` type growth.
+    ///
+    /// Used by generated code when decoding singular `MessageField<T>` fields
+    /// — the sub-message is merged into the existing value rather than
+    /// replaced, per protobuf merge semantics.
+    ///
+    /// `ctx` carries the remaining nesting depth and the shared allocation
+    /// budget passed down from the enclosing
+    /// [`merge_to_limit`](Self::merge_to_limit) call.  This method consumes
+    /// one depth level before calling the inner `merge_to_limit`; when the
+    /// depth reaches zero it returns
+    /// [`DecodeError::RecursionLimitExceeded`].
+    ///
+    /// Enforces the same 2 GiB safety limit as [`decode_length_delimited`](Self::decode_length_delimited).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the buffer is too short, if the declared length
+    /// exceeds 2 GiB, if the recursion limit is reached, or if the inner
+    /// `merge_to_limit` call fails.
+    fn merge_length_delimited(
+        &mut self,
+        buf: &mut impl Buf,
+        ctx: DecodeContext<'_>,
+    ) -> Result<(), DecodeError> {
+        let ctx = ctx.descend()?;
+        let len_u64 = crate::encoding::decode_varint(buf)?;
+        if len_u64 > MAX_MESSAGE_BYTES as u64 {
+            return Err(DecodeError::MessageTooLarge);
+        }
+        let len = usize::try_from(len_u64).map_err(|_| DecodeError::MessageTooLarge)?;
+        if buf.remaining() < len {
+            return Err(DecodeError::UnexpectedEof);
+        }
+        // Arithmetic limit: the sub-message occupies `len` bytes, so the
+        // decode loop should stop when `buf.remaining()` drops to
+        // `remaining - len`.  This avoids wrapping the buffer in `Take`,
+        // which would grow the type at each recursion level and trigger
+        // E0275 for recursive message types like `Struct ↔ Value`.
+        let limit = buf.remaining() - len;
+        self.merge_to_limit(buf, ctx, limit)?;
+        if buf.remaining() != limit {
+            let remaining = buf.remaining();
+            if remaining > limit {
+                // Sub-message consumed fewer bytes than declared; skip the rest.
+                buf.advance(remaining - limit);
+            } else {
+                return Err(DecodeError::UnexpectedEof);
+            }
+        }
+        Ok(())
+    }
+
+    /// Clear all fields to their default values.
+    fn clear(&mut self);
+}
+
+/// Compile-time access to a generated message's protobuf identifiers.
+///
+/// Generic code that needs to *name* a message type — type-erased event
+/// registries, structured logging, `Any` packing, schema lookups — can
+/// bound on `T: MessageName` and read [`PACKAGE`], [`NAME`],
+/// [`FULL_NAME`], or [`TYPE_URL`] without descriptor machinery or runtime
+/// reflection. All four are `&'static str` literals computed at codegen
+/// time, so there's no allocation or concatenation at runtime — unlike
+/// `prost::Name`, whose `full_name()` and `type_url()` are runtime
+/// `format!` calls.
+///
+/// Bring `buffa::MessageName` into scope to use `MyMessage::FULL_NAME`.
+/// Without the trait in scope, use
+/// `<MyMessage as buffa::MessageName>::FULL_NAME`.
+///
+/// Codegen implements `MessageName` for both the owned message type and
+/// its zero-copy view type (`MyMessageView<'a>`), so the same generic
+/// bound dispatches either. The trait has **no** [`Message`] supertrait —
+/// it doesn't reach into the wire codec and a name-keyed registry should
+/// be able to register a type without proving it can encode.
+///
+/// Hand-written [`Message`] implementations can opt in by also
+/// implementing `MessageName`; it is a separate trait specifically so
+/// that omitting it stays non-breaking. For messages that also implement
+/// [`ExtensionSet`](crate::ExtensionSet), [`FULL_NAME`] is guaranteed
+/// equal to [`ExtensionSet::PROTO_FQN`](crate::ExtensionSet::PROTO_FQN);
+/// the inherent `MyMessage::TYPE_URL` const is equal to [`TYPE_URL`].
+/// All derive from the same `proto_fqn` source in codegen.
+///
+/// Because the only items are associated `const`s, this trait is **not**
+/// object-safe (`dyn MessageName` does not compile). Use it as a generic
+/// bound (`fn foo<T: MessageName>()`), not a trait object.
+///
+/// ```
+/// # use buffa::MessageName;
+/// /// A name-keyed registry can register any `MessageName` type — owned
+/// /// or view — without proving it can encode.
+/// fn registry_key<T: MessageName>() -> &'static str {
+///     T::FULL_NAME
+/// }
+/// # // No generated types in `buffa` itself; just check it monomorphises.
+/// # struct Demo;
+/// # impl MessageName for Demo {
+/// #     const PACKAGE: &'static str = "demo";
+/// #     const NAME: &'static str = "Demo";
+/// #     const FULL_NAME: &'static str = "demo.Demo";
+/// #     const TYPE_URL: &'static str = "type.googleapis.com/demo.Demo";
+/// # }
+/// assert_eq!(registry_key::<Demo>(), "demo.Demo");
+/// ```
+///
+/// [`PACKAGE`]: Self::PACKAGE
+/// [`NAME`]: Self::NAME
+/// [`FULL_NAME`]: Self::FULL_NAME
+/// [`TYPE_URL`]: Self::TYPE_URL
+pub trait MessageName {
+    /// The protobuf package the message is declared in.
+    ///
+    /// `"my.pkg"` for `package my.pkg;`. Empty string for the unnamed
+    /// root package. Does not include a leading or trailing dot.
+    const PACKAGE: &'static str;
+
+    /// The unqualified message name, with `.` between nesting levels.
+    ///
+    /// `"Foo"` for a top-level message; `"Outer.Inner"` for a message
+    /// nested inside `Outer`. This is the "type name relative to the
+    /// package" — what `prost::Name::NAME` calls the same thing — *not*
+    /// `DescriptorProto.name`, which is only the leaf segment (`"Inner"`)
+    /// for nested types.
+    const NAME: &'static str;
+
+    /// The fully-qualified protobuf type name with no leading dot.
+    ///
+    /// `"my.pkg.Outer.Inner"` for a nested message in package `my.pkg`,
+    /// or just `"Foo"` for a top-level message in the unnamed root
+    /// package. Equal to `PACKAGE` + `"."` + `NAME` (with the joining
+    /// dot omitted when `PACKAGE` is empty); shipped as its own const
+    /// because consumers almost always want the joined form and the
+    /// dotted string can't be re-split unambiguously
+    /// (`foo.Bar.Baz` could be package `foo.Bar` + message `Baz`, or
+    /// package `foo` + nested `Bar.Baz`).
+    const FULL_NAME: &'static str;
+
+    /// The `google.protobuf.Any.type_url` form for this message.
+    ///
+    /// `"type.googleapis.com/" + FULL_NAME`. This is the value the
+    /// runtime stores in [`Any::type_url`] when packing a message, and
+    /// the one a generic `Any` registry should key on.
+    ///
+    /// [`Any::type_url`]: https://protobuf.dev/programming-guides/proto3/#any
+    const TYPE_URL: &'static str;
+}
+
+/// Options for configuring message decoding behavior.
+///
+/// Use this to set custom recursion depth limits or maximum message sizes
+/// when decoding from untrusted input.
+///
+/// # Scope: the protobuf binary codec
+///
+/// Every limit here bounds the binary decoders — owned, view, and the
+/// reflective `DynamicMessage` codec — and only those. Decoding the same
+/// message from JSON goes through `serde_json` (or another `Deserializer`)
+/// straight into the generated `Deserialize` impls, which never see a
+/// `DecodeOptions`, so none of these limits apply to it. JSON input that must
+/// be bounded needs a bound imposed by the caller, for example by capping the
+/// input length before parsing.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use buffa::__doctest_fixtures::Person;
+/// use buffa::DecodeOptions;
+///
+/// # fn example(bytes: &[u8]) -> Result<(), buffa::DecodeError> {
+/// // Restrict recursion depth to 50 and message size to 1 MiB:
+/// let msg: Person = DecodeOptions::new()
+///     .with_recursion_limit(50)
+///     .with_max_message_size(1024 * 1024)
+///     .decode_from_slice(bytes)?;
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Debug, Clone)]
+pub struct DecodeOptions {
+    recursion_limit: u32,
+    max_message_size: usize,
+    unbounded_reader_size: bool,
+    unknown_field_limit: usize,
+    element_memory_limit: usize,
+}
+
+/// Default maximum message size: 2 GiB - 1 (matches the sub-message limit
+/// in `merge_length_delimited` and the encode-side limit — see
+/// [`MAX_MESSAGE_BYTES`]).
+const DEFAULT_MAX_MESSAGE_SIZE: usize = MAX_MESSAGE_BYTES as usize;
+
+impl Default for DecodeOptions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DecodeOptions {
+    /// Create new decode options with defaults.
+    ///
+    /// Defaults:
+    /// - `recursion_limit`: 100 (same as [`RECURSION_LIMIT`])
+    /// - `max_message_size`: 2 GiB - 1
+    /// - `unknown_field_limit`: 1,000,000 (same as [`DEFAULT_UNKNOWN_FIELD_LIMIT`])
+    /// - `element_memory_limit`: 32 MiB (same as [`DEFAULT_ELEMENT_MEMORY_LIMIT`])
+    pub fn new() -> Self {
+        Self {
+            recursion_limit: RECURSION_LIMIT,
+            max_message_size: DEFAULT_MAX_MESSAGE_SIZE,
+            unbounded_reader_size: false,
+            unknown_field_limit: DEFAULT_UNKNOWN_FIELD_LIMIT,
+            element_memory_limit: DEFAULT_ELEMENT_MEMORY_LIMIT,
+        }
+    }
+
+    /// Set the maximum recursion depth for nested messages.
+    ///
+    /// Each nested sub-message consumes one level of depth budget. When
+    /// the budget reaches zero, decoding returns
+    /// [`DecodeError::RecursionLimitExceeded`].
+    ///
+    /// Default: 100.
+    #[must_use]
+    pub fn with_recursion_limit(mut self, limit: u32) -> Self {
+        self.recursion_limit = limit;
+        self
+    }
+
+    /// Set the maximum total message size in bytes.
+    ///
+    /// If the input buffer or length-delimited payload exceeds this size,
+    /// decoding returns [`DecodeError::MessageTooLarge`].
+    ///
+    /// Values above the protobuf message-size limit (2 GiB - 1) are clamped to
+    /// that limit. Debug builds assert on out-of-range values so accidental
+    /// `usize::MAX` sentinels are caught during development. On `std` builds,
+    /// use `without_reader_size_limit` when EOF-bounded `decode_reader` input
+    /// intentionally has no byte cap.
+    ///
+    /// Calling this re-enables the reader byte cap, overriding any prior
+    /// `without_reader_size_limit`.
+    ///
+    /// This is checked at the top-level decode entry point. Individual
+    /// sub-messages are still bounded by the internal 2 GiB limit
+    /// regardless of this setting.
+    ///
+    /// Default: 2 GiB - 1 (0x7FFF_FFFF).
+    #[must_use]
+    pub fn with_max_message_size(mut self, max_bytes: usize) -> Self {
+        debug_assert!(
+            max_bytes <= DEFAULT_MAX_MESSAGE_SIZE,
+            "DecodeOptions::with_max_message_size clamps values above the protobuf 2 GiB limit; \
+             on std builds, use DecodeOptions::without_reader_size_limit for intentionally \
+             unbounded reader input — there is no unbounded slice/Buf path"
+        );
+        self.max_message_size = max_bytes.min(DEFAULT_MAX_MESSAGE_SIZE);
+        self.unbounded_reader_size = false;
+        self
+    }
+
+    /// Remove the byte cap for EOF-bounded [`decode_reader`](Self::decode_reader)
+    /// input.
+    ///
+    /// This is only used by the `std::io::Read` entry point that reads until
+    /// EOF. Slice-, [`Buf`]-, and view-based entry points remain bounded by
+    /// the configured [`with_max_message_size`](Self::with_max_message_size)
+    /// (itself capped at the protobuf 2 GiB - 1 maximum), and length-delimited
+    /// paths keep the same hard cap because their declared length is
+    /// attacker-controlled.
+    ///
+    /// An unbounded reader can exhaust memory if the source does not end or is
+    /// larger than available allocation capacity. Prefer
+    /// [`with_max_message_size`](Self::with_max_message_size) for untrusted
+    /// input.
+    #[cfg(feature = "std")]
+    #[must_use]
+    pub fn without_reader_size_limit(mut self) -> Self {
+        self.unbounded_reader_size = true;
+        self
+    }
+
+    /// Set the maximum number of unknown fields decoded per decode call.
+    ///
+    /// Each decoded unknown field occupies a ~40-byte
+    /// [`UnknownField`](crate::UnknownField) slot regardless of its wire
+    /// size (a minimal field is 2 wire bytes — a ~20× amplification), so an
+    /// input-size cap alone does not bound decoder memory; this limit does,
+    /// at roughly `limit × 40` bytes of slot overhead. Unknown
+    /// length-delimited *payload* bytes are not counted — they are bounded
+    /// by the input size, which
+    /// [`with_max_message_size`](Self::with_max_message_size) governs. When
+    /// the limit is exceeded, decoding returns
+    /// [`DecodeError::UnknownFieldLimitExceeded`].
+    ///
+    /// Zero-copy view decoding ([`decode_view`](Self::decode_view)) charges
+    /// one slot per unknown field — including fields nested inside unknown
+    /// groups — even though views store unknown fields as coalesced spans
+    /// (~16 bytes per contiguous run): coalescing bounds view memory, while
+    /// this limit bounds what converting the view to an owned message would
+    /// materialize. Conversion replays under exactly the budget decoding
+    /// charged, so a view that decodes within this limit always converts.
+    ///
+    /// Default: 1,000,000 ([`DEFAULT_UNKNOWN_FIELD_LIMIT`]).
+    #[must_use]
+    pub fn with_unknown_field_limit(mut self, count: usize) -> Self {
+        self.unknown_field_limit = count;
+        self
+    }
+
+    /// Set the memory this decode may materialize in the elements of
+    /// length-delimited containers — repeated message, string and bytes fields,
+    /// and map entries — shared across the whole decode tree rather than per
+    /// field or per message.
+    ///
+    /// The lazy view family is the exception: there the budget is replayed
+    /// per deferred subtree rather than shared, so a full traversal can
+    /// spend it more than once. See
+    /// [`decode_lazy_view`](Self::decode_lazy_view).
+    ///
+    /// This is not [`with_max_message_size`](Self::with_max_message_size) by
+    /// another name: that bounds the bytes going *in*, this bounds what they
+    /// expand *into*. They are not redundant, because the two are not
+    /// proportional — an empty repeated message element is 2 wire bytes and
+    /// `size_of::<T>()` of `Vec` footprint (measured at 256 bytes for a message
+    /// of a few `Vec`/`String` fields), so a payload well inside any input
+    /// bound can still materialize 128x its own size. Charging is by element
+    /// footprint, so a budget means the same amount of memory whatever the
+    /// element size — which a count limit could not offer.
+    ///
+    /// Packed scalar fields are not charged by the generated or view
+    /// decoders, but are by the reflective `DynamicMessage` codec; see
+    /// [`DEFAULT_ELEMENT_MEMORY_LIMIT`] for why, and for the `Vec`-doubling
+    /// caveat on peak memory.
+    ///
+    /// Like every option on [`DecodeOptions`], this bounds the binary decoders
+    /// only. The textproto parser applies the same default through its own
+    /// knob,
+    /// [`TextDecoder::with_element_memory_limit`](crate::text::TextDecoder::with_element_memory_limit).
+    /// The same message decoded from JSON is not charged against this
+    /// budget, and the amplification it guards against is very nearly as large
+    /// there — `{}` is three JSON bytes for the same element footprint.
+    ///
+    /// Default: 32 MiB ([`DEFAULT_ELEMENT_MEMORY_LIMIT`]).
+    #[must_use]
+    pub fn with_element_memory_limit(mut self, bytes: usize) -> Self {
+        self.element_memory_limit = bytes;
+        self
+    }
+
+    /// Returns the configured element-memory budget.
+    #[must_use]
+    pub fn element_memory_limit(&self) -> usize {
+        self.element_memory_limit
+    }
+
+    /// Returns the configured recursion depth limit.
+    pub fn recursion_limit(&self) -> u32 {
+        self.recursion_limit
+    }
+
+    /// Returns the configured unknown-field limit.
+    pub fn unknown_field_limit(&self) -> usize {
+        self.unknown_field_limit
+    }
+
+    /// Returns the configured maximum message size in bytes for bounded decode
+    /// entry points.
+    ///
+    /// This returns the configured (clamped) value even when
+    /// `without_reader_size_limit` is enabled for EOF-bounded reader input —
+    /// the slice/`Buf`/view paths still honor it. Use
+    /// `is_reader_size_unbounded` (std only) to inspect the reader flag.
+    pub fn max_message_size(&self) -> usize {
+        self.max_message_size
+    }
+
+    /// Returns whether EOF-bounded reader input has no byte cap.
+    #[cfg(feature = "std")]
+    pub fn is_reader_size_unbounded(&self) -> bool {
+        self.unbounded_reader_size
+    }
+
+    /// Decode a message from a buffer.
+    pub fn decode<M: Message>(&self, buf: &mut impl Buf) -> Result<M, DecodeError> {
+        if buf.remaining() > self.max_message_size {
+            return Err(DecodeError::MessageTooLarge);
+        }
+        let limit = core::cell::Cell::new(self.unknown_field_limit);
+        let elem_budget = core::cell::Cell::new(self.element_memory_limit);
+        let mut msg = M::default();
+        msg.merge(
+            buf,
+            DecodeContext::new(self.recursion_limit, &limit).with_element_memory(&elem_budget),
+        )?;
+        Ok(msg)
+    }
+
+    /// Decode a message from a byte slice.
+    pub fn decode_from_slice<M: Message>(&self, data: &[u8]) -> Result<M, DecodeError> {
+        if data.len() > self.max_message_size {
+            return Err(DecodeError::MessageTooLarge);
+        }
+        self.decode_from_slice_unchecked_size(data)
+    }
+
+    fn decode_from_slice_unchecked_size<M: Message>(&self, data: &[u8]) -> Result<M, DecodeError> {
+        let limit = core::cell::Cell::new(self.unknown_field_limit);
+        let elem_budget = core::cell::Cell::new(self.element_memory_limit);
+        let mut msg = M::default();
+        msg.merge(
+            &mut &*data,
+            DecodeContext::new(self.recursion_limit, &limit).with_element_memory(&elem_budget),
+        )?;
+        Ok(msg)
+    }
+
+    /// Decode a length-delimited message from a buffer.
+    pub fn decode_length_delimited<M: Message>(
+        &self,
+        buf: &mut impl Buf,
+    ) -> Result<M, DecodeError> {
+        // Enforce the 2 GiB internal safety cap even if the user sets a
+        // larger max_message_size, to prevent allocating attacker-controlled
+        // amounts of memory from a crafted length prefix.
+        let max = core::cmp::min(
+            self.max_message_size as u64,
+            DEFAULT_MAX_MESSAGE_SIZE as u64,
+        );
+        let len_u64 = crate::encoding::decode_varint(buf)?;
+        if len_u64 > max {
+            return Err(DecodeError::MessageTooLarge);
+        }
+        let len = usize::try_from(len_u64).map_err(|_| DecodeError::MessageTooLarge)?;
+        if buf.remaining() < len {
+            return Err(DecodeError::UnexpectedEof);
+        }
+        let limit = buf.remaining() - len;
+        let field_limit = core::cell::Cell::new(self.unknown_field_limit);
+        let elem_budget = core::cell::Cell::new(self.element_memory_limit);
+        let mut msg = M::default();
+        msg.merge_to_limit(
+            buf,
+            DecodeContext::new(self.recursion_limit, &field_limit)
+                .with_element_memory(&elem_budget),
+            limit,
+        )?;
+        if buf.remaining() != limit {
+            let remaining = buf.remaining();
+            if remaining > limit {
+                buf.advance(remaining - limit);
+            } else {
+                return Err(DecodeError::UnexpectedEof);
+            }
+        }
+        Ok(msg)
+    }
+
+    /// Merge fields from a buffer into an existing message.
+    pub fn merge<M: Message>(&self, msg: &mut M, buf: &mut impl Buf) -> Result<(), DecodeError> {
+        if buf.remaining() > self.max_message_size {
+            return Err(DecodeError::MessageTooLarge);
+        }
+        let limit = core::cell::Cell::new(self.unknown_field_limit);
+        let elem_budget = core::cell::Cell::new(self.element_memory_limit);
+        msg.merge(
+            buf,
+            DecodeContext::new(self.recursion_limit, &limit).with_element_memory(&elem_budget),
+        )
+    }
+
+    /// Merge fields from a byte slice into an existing message.
+    pub fn merge_from_slice<M: Message>(
+        &self,
+        msg: &mut M,
+        data: &[u8],
+    ) -> Result<(), DecodeError> {
+        if data.len() > self.max_message_size {
+            return Err(DecodeError::MessageTooLarge);
+        }
+        let limit = core::cell::Cell::new(self.unknown_field_limit);
+        let elem_budget = core::cell::Cell::new(self.element_memory_limit);
+        msg.merge(
+            &mut &*data,
+            DecodeContext::new(self.recursion_limit, &limit).with_element_memory(&elem_budget),
+        )
+    }
+
+    /// Decode a zero-copy view from a byte slice.
+    ///
+    /// Enforces `max_message_size` on the input, and passes the recursion
+    /// limit and unknown-field limit to the view decoder (views charge the
+    /// unknown-field limit per field, including fields nested in unknown
+    /// groups — see
+    /// [`with_unknown_field_limit`](Self::with_unknown_field_limit)).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DecodeError::MessageTooLarge`] for oversized input, or any
+    /// error from the view decoder (malformed wire data, recursion limit,
+    /// unknown-field limit).
+    pub fn decode_view<'a, V: crate::view::MessageView<'a>>(
+        &self,
+        buf: &'a [u8],
+    ) -> Result<V, DecodeError> {
+        if buf.len() > self.max_message_size {
+            return Err(DecodeError::MessageTooLarge);
+        }
+        let limit = core::cell::Cell::new(self.unknown_field_limit);
+        let elem_budget = core::cell::Cell::new(self.element_memory_limit);
+        V::decode_view_with_ctx(
+            buf,
+            DecodeContext::new(self.recursion_limit, &limit).with_element_memory(&elem_budget),
+        )
+    }
+
+    /// Decode a lazy view from a byte slice (see
+    /// [`LazyMessageView`](crate::view::LazyMessageView)).
+    ///
+    /// The budgets remaining at each deferred field's position are recorded
+    /// and charged when that field is accessed, so the configured limits
+    /// flow through deferred decoding. Unlike
+    /// [`decode_view`](Self::decode_view), the unknown-field and
+    /// element-memory limits are not enforced globally across the message
+    /// tree at decode time: each deferred subtree independently replays the
+    /// budgets recorded at its position, so a full traversal can materialize
+    /// records proportional to input size. Prefer `decode_view` for
+    /// untrusted input if the global bound matters.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DecodeError::MessageTooLarge`] for oversized input, or any
+    /// error from decoding the message's own fields — including
+    /// [`DecodeError::RecursionLimitExceeded`],
+    /// [`DecodeError::UnknownFieldLimitExceeded`], or
+    /// [`DecodeError::ElementMemoryLimitExceeded`] when the configured limits
+    /// are exhausted by them. Deferred sub-message bytes surface errors on
+    /// access instead.
+    pub fn decode_lazy_view<'a, L: crate::view::LazyMessageView<'a>>(
+        &self,
+        buf: &'a [u8],
+    ) -> Result<L, DecodeError> {
+        if buf.len() > self.max_message_size {
+            return Err(DecodeError::MessageTooLarge);
+        }
+        let limit = core::cell::Cell::new(self.unknown_field_limit);
+        let elem_budget = core::cell::Cell::new(self.element_memory_limit);
+        L::decode_lazy_with_ctx(
+            buf,
+            DecodeContext::new(self.recursion_limit, &limit).with_element_memory(&elem_budget),
+        )
+    }
+
+    /// Decode a message by reading all bytes from a [`std::io::Read`] source.
+    ///
+    /// Reads until EOF, enforces the configured reader size limit unless
+    /// [`without_reader_size_limit`](Self::without_reader_size_limit) was
+    /// selected, then decodes the buffered bytes. Returns `std::io::Error` to
+    /// be compatible with `Read`-based error handling.
+    #[cfg(feature = "std")]
+    pub fn decode_reader<M: Message>(
+        &self,
+        reader: &mut impl std::io::Read,
+    ) -> Result<M, std::io::Error> {
+        let bytes = self.read_limited(reader)?;
+        self.decode_from_slice_unchecked_size::<M>(&bytes)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    }
+
+    /// Decode a length-delimited message from a [`std::io::Read`] source.
+    ///
+    /// Reads a varint length prefix, enforces `max_message_size`, reads
+    /// exactly that many bytes, then decodes. Useful for reading sequential
+    /// length-delimited messages from a file or stream.
+    ///
+    /// The declared length is treated as untrusted: the read buffer grows
+    /// as bytes actually arrive rather than being allocated up front, so a
+    /// source that declares a large length but never delivers the bytes
+    /// cannot force a large allocation.
+    #[cfg(feature = "std")]
+    pub fn decode_length_delimited_reader<M: Message>(
+        &self,
+        reader: &mut impl std::io::Read,
+    ) -> Result<M, std::io::Error> {
+        use std::io::Read as _;
+        let len = read_varint(reader)?;
+        let max = core::cmp::min(
+            self.max_message_size as u64,
+            DEFAULT_MAX_MESSAGE_SIZE as u64,
+        );
+        if len > max {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                DecodeError::MessageTooLarge,
+            ));
+        }
+        let len = usize::try_from(len).map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                DecodeError::MessageTooLarge,
+            )
+        })?;
+        // Pre-size only up to a small bound; `read_to_end` grows the buffer
+        // geometrically as data is actually delivered, so peak allocation
+        // tracks delivered bytes, not the wire-declared length.
+        const INITIAL_CAPACITY_CAP: usize = 64 * 1024;
+        let mut buf = alloc::vec::Vec::with_capacity(len.min(INITIAL_CAPACITY_CAP));
+        reader.take(len as u64).read_to_end(&mut buf)?;
+        if buf.len() < len {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                DecodeError::UnexpectedEof,
+            ));
+        }
+        self.decode_from_slice::<M>(&buf)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    }
+
+    /// Read all bytes from a reader up to the configured reader limit.
+    #[cfg(feature = "std")]
+    fn read_limited(
+        &self,
+        reader: &mut impl std::io::Read,
+    ) -> Result<alloc::vec::Vec<u8>, std::io::Error> {
+        use std::io::Read as _;
+        let mut buf = alloc::vec::Vec::new();
+        if self.unbounded_reader_size {
+            reader.read_to_end(&mut buf)?;
+            return Ok(buf);
+        }
+        reader
+            .take((self.max_message_size as u64).saturating_add(1))
+            .read_to_end(&mut buf)?;
+        if buf.len() > self.max_message_size {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                DecodeError::MessageTooLarge,
+            ));
+        }
+        Ok(buf)
+    }
+}
+
+/// Read a varint from a `std::io::Read` source, one byte at a time.
+///
+/// Mirrors the validation in [`decode_varint_slow`](crate::encoding): a
+/// 10th byte > `0x01` (overflow bits set, or continuation bit implying an
+/// 11th byte) is rejected.
+#[cfg(feature = "std")]
+fn read_varint(reader: &mut impl std::io::Read) -> Result<u64, std::io::Error> {
+    let mut value: u64 = 0;
+    let mut shift: u32 = 0;
+    loop {
+        let mut byte = [0u8; 1];
+        reader.read_exact(&mut byte)?;
+        let b = byte[0];
+        if shift < 63 {
+            value |= ((b & 0x7F) as u64) << shift;
+            if b < 0x80 {
+                return Ok(value);
+            }
+            shift += 7;
+        } else {
+            // 10th byte: only bit 0 maps to bit 63 of the result. A byte
+            // > 0x01 means either data overflow (bits 1-6 set) or an 11th
+            // byte (continuation bit 0x80 set).
+            if b > 0x01 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    DecodeError::VarintTooLong,
+                ));
+            }
+            value |= (b as u64) << 63;
+            return Ok(value);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::encoding::encode_varint;
+    use crate::error::DecodeError;
+    use crate::message_field::DefaultInstance;
+    use crate::SizeCache;
+
+    // Minimal hand-written Message for testing merge_length_delimited.
+    #[derive(Clone, Debug, Default, PartialEq)]
+    struct FlatMsg {
+        value: i32,
+    }
+
+    impl DefaultInstance for FlatMsg {
+        fn default_instance() -> &'static Self {
+            static INST: crate::__private::OnceBox<FlatMsg> = crate::__private::OnceBox::new();
+            INST.get_or_init(|| alloc::boxed::Box::new(FlatMsg::default()))
+        }
+    }
+
+    impl Message for FlatMsg {
+        fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
+            if self.value != 0 {
+                1 + crate::types::int32_encoded_len(self.value) as u32
+            } else {
+                0
+            }
+        }
+
+        fn write_to(&self, _cache: &mut SizeCache, buf: &mut impl EncodeSink) {
+            if self.value != 0 {
+                crate::encoding::Tag::new(1, crate::encoding::WireType::Varint).encode(buf);
+                crate::types::encode_int32(self.value, buf);
+            }
+        }
+
+        fn merge_field(
+            &mut self,
+            tag: crate::encoding::Tag,
+            buf: &mut impl Buf,
+            _ctx: DecodeContext<'_>,
+        ) -> Result<(), DecodeError> {
+            match tag.field_number() {
+                1 => {
+                    self.value = crate::types::decode_int32(buf)?;
+                }
+                _ => {
+                    crate::encoding::skip_field(tag, buf)?;
+                }
+            }
+            Ok(())
+        }
+
+        fn clear(&mut self) {
+            *self = Self::default();
+        }
+    }
+
+    fn wire_bytes(msg: &FlatMsg) -> alloc::vec::Vec<u8> {
+        let mut buf = alloc::vec::Vec::new();
+        msg.encode_length_delimited(&mut buf);
+        buf
+    }
+
+    #[test]
+    fn test_merge_length_delimited_basic() {
+        let src = FlatMsg { value: 42 };
+        let mut dst = FlatMsg::default();
+        dst.merge_length_delimited(
+            &mut wire_bytes(&src).as_slice(),
+            crate::test_ctx(RECURSION_LIMIT),
+        )
+        .unwrap();
+        assert_eq!(dst.value, 42);
+    }
+
+    #[test]
+    fn test_merge_length_delimited_merges_into_existing() {
+        // Second merge overwrites (proto3 last-wins for scalar fields).
+        let mut dst = FlatMsg::default();
+        dst.merge_length_delimited(
+            &mut wire_bytes(&FlatMsg { value: 1 }).as_slice(),
+            crate::test_ctx(RECURSION_LIMIT),
+        )
+        .unwrap();
+        assert_eq!(dst.value, 1);
+        dst.merge_length_delimited(
+            &mut wire_bytes(&FlatMsg { value: 2 }).as_slice(),
+            crate::test_ctx(RECURSION_LIMIT),
+        )
+        .unwrap();
+        assert_eq!(dst.value, 2);
+    }
+
+    #[test]
+    fn test_merge_length_delimited_truncated() {
+        // Length prefix says 10 bytes but buffer contains only 2.
+        let mut buf = alloc::vec::Vec::new();
+        encode_varint(10, &mut buf);
+        buf.extend_from_slice(&[0x01, 0x01]);
+        let mut dst = FlatMsg::default();
+        assert_eq!(
+            dst.merge_length_delimited(&mut buf.as_slice(), crate::test_ctx(RECURSION_LIMIT)),
+            Err(DecodeError::UnexpectedEof)
+        );
+    }
+
+    #[test]
+    fn test_merge_length_delimited_oversized() {
+        // Length prefix exceeds the 2 GiB safety limit.
+        let mut buf = alloc::vec::Vec::new();
+        encode_varint(0x8000_0000u64, &mut buf); // 2 GiB + 1
+        let mut dst = FlatMsg::default();
+        assert_eq!(
+            dst.merge_length_delimited(&mut buf.as_slice(), crate::test_ctx(RECURSION_LIMIT)),
+            Err(DecodeError::MessageTooLarge)
+        );
+    }
+
+    #[test]
+    fn test_merge_length_delimited_recursion_limit() {
+        // depth=1 means merge_length_delimited will decrement to 0, then any
+        // nested call would return RecursionLimitExceeded.  Passing depth=1
+        // to merge_length_delimited itself is the boundary: it decrements to
+        // 0 and calls merge with depth=0, which for FlatMsg (a leaf) succeeds.
+        // Passing depth=0 directly must return RecursionLimitExceeded.
+        let src = FlatMsg { value: 7 };
+        let mut dst = FlatMsg::default();
+        assert_eq!(
+            dst.merge_length_delimited(&mut wire_bytes(&src).as_slice(), crate::test_ctx(0)),
+            Err(DecodeError::RecursionLimitExceeded)
+        );
+        // depth=1 succeeds: exactly one level is consumed.
+        dst.merge_length_delimited(&mut wire_bytes(&src).as_slice(), crate::test_ctx(1))
+            .unwrap();
+        assert_eq!(dst.value, 7);
+    }
+
+    #[test]
+    fn test_decode_from_slice_basic() {
+        let src = FlatMsg { value: 42 };
+        let bytes = src.encode_to_vec();
+        let dst = FlatMsg::decode_from_slice(&bytes).unwrap();
+        assert_eq!(dst.value, 42);
+    }
+
+    #[test]
+    fn test_encode_to_bytes_matches_encode_to_vec() {
+        let src = FlatMsg { value: 42 };
+        let vec = src.encode_to_vec();
+        let bytes = src.encode_to_bytes();
+        assert_eq!(vec.as_slice(), bytes.as_ref());
+        // Round-trip through the Bytes variant.
+        let dst = FlatMsg::decode_from_slice(&bytes).unwrap();
+        assert_eq!(dst.value, 42);
+        // Empty-message case: zero-length buffer is well-defined.
+        assert!(FlatMsg::default().encode_to_bytes().is_empty());
+    }
+
+    #[test]
+    fn test_decode_from_slice_empty() {
+        let dst = FlatMsg::decode_from_slice(&[]).unwrap();
+        assert_eq!(dst.value, 0);
+    }
+
+    #[test]
+    fn test_decode_from_slice_invalid_returns_error() {
+        // A lone 0xFF byte is not a valid varint tag.
+        let result = FlatMsg::decode_from_slice(&[0xFF]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_merge_from_slice_basic() {
+        let src = FlatMsg { value: 7 };
+        let bytes = src.encode_to_vec();
+        let mut dst = FlatMsg::default();
+        dst.merge_from_slice(&bytes).unwrap();
+        assert_eq!(dst.value, 7);
+    }
+
+    #[test]
+    fn test_merge_from_slice_last_wins() {
+        let src1 = FlatMsg { value: 1 };
+        let src2 = FlatMsg { value: 2 };
+        let mut dst = FlatMsg::default();
+        dst.merge_from_slice(&src1.encode_to_vec()).unwrap();
+        dst.merge_from_slice(&src2.encode_to_vec()).unwrap();
+        // Proto3 last-wins semantics for scalar fields.
+        assert_eq!(dst.value, 2);
+    }
+
+    // ── DecodeOptions tests ──────────────────────────────────────────
+
+    #[test]
+    fn test_decode_options_default_works() {
+        let src = FlatMsg { value: 99 };
+        let bytes = src.encode_to_vec();
+        let msg: FlatMsg = DecodeOptions::new().decode_from_slice(&bytes).unwrap();
+        assert_eq!(msg.value, 99);
+    }
+
+    #[test]
+    fn test_decode_options_max_message_size_rejects() {
+        let src = FlatMsg { value: 42 };
+        let bytes = src.encode_to_vec();
+        // Set max size to 1 byte — smaller than the encoded message.
+        let result: Result<FlatMsg, _> = DecodeOptions::new()
+            .with_max_message_size(1)
+            .decode_from_slice(&bytes);
+        assert_eq!(result, Err(DecodeError::MessageTooLarge));
+    }
+
+    #[test]
+    fn test_decode_options_max_message_size_exact_boundary() {
+        let src = FlatMsg { value: 42 };
+        let bytes = src.encode_to_vec();
+        // Exact size should succeed.
+        let msg: FlatMsg = DecodeOptions::new()
+            .with_max_message_size(bytes.len())
+            .decode_from_slice(&bytes)
+            .unwrap();
+        assert_eq!(msg.value, 42);
+        // One byte less should fail.
+        let result: Result<FlatMsg, _> = DecodeOptions::new()
+            .with_max_message_size(bytes.len() - 1)
+            .decode_from_slice(&bytes);
+        assert_eq!(result, Err(DecodeError::MessageTooLarge));
+    }
+
+    #[test]
+    fn test_decode_options_custom_recursion_limit() {
+        // FlatMsg has no nested messages, so any recursion limit >= 0 works.
+        // Just verify the API compiles and runs.
+        let src = FlatMsg { value: 7 };
+        let bytes = src.encode_to_vec();
+        let msg: FlatMsg = DecodeOptions::new()
+            .with_recursion_limit(1)
+            .decode_from_slice(&bytes)
+            .unwrap();
+        assert_eq!(msg.value, 7);
+    }
+
+    #[test]
+    fn test_decode_options_merge() {
+        let src = FlatMsg { value: 55 };
+        let bytes = src.encode_to_vec();
+        let mut msg = FlatMsg::default();
+        DecodeOptions::new()
+            .merge_from_slice(&mut msg, &bytes)
+            .unwrap();
+        assert_eq!(msg.value, 55);
+    }
+
+    #[test]
+    fn test_decode_options_merge_rejects_oversize() {
+        let src = FlatMsg { value: 55 };
+        let bytes = src.encode_to_vec();
+        let mut msg = FlatMsg::default();
+        let result = DecodeOptions::new()
+            .with_max_message_size(1)
+            .merge_from_slice(&mut msg, &bytes);
+        assert_eq!(result, Err(DecodeError::MessageTooLarge));
+    }
+
+    #[test]
+    fn test_decode_options_length_delimited() {
+        let src = FlatMsg { value: 42 };
+        let mut ld_bytes = alloc::vec::Vec::new();
+        src.encode_length_delimited(&mut ld_bytes);
+        let msg: FlatMsg = DecodeOptions::new()
+            .decode_length_delimited(&mut ld_bytes.as_slice())
+            .unwrap();
+        assert_eq!(msg.value, 42);
+    }
+
+    #[test]
+    fn test_decode_options_length_delimited_rejects_oversize() {
+        let src = FlatMsg { value: 42 };
+        let mut ld_bytes = alloc::vec::Vec::new();
+        src.encode_length_delimited(&mut ld_bytes);
+        let result: Result<FlatMsg, _> = DecodeOptions::new()
+            .with_max_message_size(1)
+            .decode_length_delimited(&mut ld_bytes.as_slice());
+        assert_eq!(result, Err(DecodeError::MessageTooLarge));
+    }
+
+    #[test]
+    fn decode_options_getters_return_defaults() {
+        let opts = DecodeOptions::new();
+        assert_eq!(opts.recursion_limit(), RECURSION_LIMIT);
+        assert_eq!(opts.max_message_size(), 0x7FFF_FFFF);
+        assert_eq!(opts.unknown_field_limit(), DEFAULT_UNKNOWN_FIELD_LIMIT);
+    }
+
+    #[test]
+    fn decode_options_getters_return_custom_values() {
+        let opts = DecodeOptions::new()
+            .with_recursion_limit(42)
+            .with_max_message_size(1024)
+            .with_unknown_field_limit(2048);
+        assert_eq!(opts.recursion_limit(), 42);
+        assert_eq!(opts.max_message_size(), 1024);
+        assert_eq!(opts.unknown_field_limit(), 2048);
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "protobuf 2 GiB limit")]
+    fn decode_options_max_message_size_above_protobuf_limit_debug_asserts() {
+        let _ = DecodeOptions::new().with_max_message_size(DEFAULT_MAX_MESSAGE_SIZE + 1);
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn decode_options_max_message_size_above_protobuf_limit_saturates() {
+        let opts = DecodeOptions::new().with_max_message_size(DEFAULT_MAX_MESSAGE_SIZE + 1);
+        assert_eq!(opts.max_message_size(), DEFAULT_MAX_MESSAGE_SIZE);
+    }
+
+    #[test]
+    fn test_decode_options_default_impl() {
+        // DecodeOptions::default() ≡ DecodeOptions::new().
+        let opts = DecodeOptions::default();
+        assert_eq!(opts.recursion_limit(), RECURSION_LIMIT);
+        assert_eq!(opts.max_message_size(), 0x7FFF_FFFF);
+        assert_eq!(opts.unknown_field_limit(), DEFAULT_UNKNOWN_FIELD_LIMIT);
+    }
+
+    #[test]
+    fn test_decode_options_decode_buf() {
+        // The Buf-taking decode() variant (vs decode_from_slice).
+        let src = FlatMsg { value: 123 };
+        let bytes = src.encode_to_vec();
+        let msg: FlatMsg = DecodeOptions::new().decode(&mut bytes.as_slice()).unwrap();
+        assert_eq!(msg.value, 123);
+        // Oversize check on the Buf variant.
+        let result: Result<FlatMsg, _> = DecodeOptions::new()
+            .with_max_message_size(1)
+            .decode(&mut bytes.as_slice());
+        assert_eq!(result, Err(DecodeError::MessageTooLarge));
+    }
+
+    #[test]
+    fn test_decode_options_merge_buf() {
+        // The Buf-taking merge() variant (vs merge_from_slice).
+        let src = FlatMsg { value: 77 };
+        let bytes = src.encode_to_vec();
+        let mut msg = FlatMsg::default();
+        DecodeOptions::new()
+            .merge(&mut msg, &mut bytes.as_slice())
+            .unwrap();
+        assert_eq!(msg.value, 77);
+        // Oversize check.
+        let mut msg = FlatMsg::default();
+        let result = DecodeOptions::new()
+            .with_max_message_size(1)
+            .merge(&mut msg, &mut bytes.as_slice());
+        assert_eq!(result, Err(DecodeError::MessageTooLarge));
+    }
+
+    // ── Message trait default methods ─────────────────────────────────
+
+    #[test]
+    fn test_message_encode_trait_default() {
+        // Message::encode(buf) ≡ compute_size() then write_to(buf).
+        let src = FlatMsg { value: 42 };
+        let mut buf = alloc::vec::Vec::new();
+        src.encode(&mut buf);
+        assert_eq!(buf, src.encode_to_vec());
+    }
+
+    #[test]
+    fn test_message_decode_length_delimited_trait_default() {
+        // The trait-level decode_length_delimited (distinct from
+        // DecodeOptions::decode_length_delimited).
+        let src = FlatMsg { value: 42 };
+        let mut ld = alloc::vec::Vec::new();
+        src.encode_length_delimited(&mut ld);
+        let got = FlatMsg::decode_length_delimited(&mut ld.as_slice()).unwrap();
+        assert_eq!(got.value, 42);
+    }
+
+    #[test]
+    fn test_message_decode_length_delimited_oversize() {
+        // Length prefix > 2 GiB → MessageTooLarge.
+        let mut buf = alloc::vec::Vec::new();
+        encode_varint(0x8000_0000u64, &mut buf);
+        let result = FlatMsg::decode_length_delimited(&mut buf.as_slice());
+        assert_eq!(result, Err(DecodeError::MessageTooLarge));
+    }
+
+    #[test]
+    fn test_message_decode_length_delimited_truncated() {
+        // Length prefix says 10 bytes, buffer has 2.
+        let mut buf = alloc::vec::Vec::new();
+        encode_varint(10, &mut buf);
+        buf.push(0x08);
+        buf.push(0x01);
+        let result = FlatMsg::decode_length_delimited(&mut buf.as_slice());
+        assert_eq!(result, Err(DecodeError::UnexpectedEof));
+    }
+
+    #[test]
+    fn test_message_decode_length_delimited_with_trailing() {
+        // Buffer has two back-to-back length-delimited messages.
+        // decode_length_delimited should consume exactly the first one
+        // and leave the buffer positioned at the second.
+        let a = FlatMsg { value: 1 };
+        let b = FlatMsg { value: 2 };
+        let mut buf = alloc::vec::Vec::new();
+        a.encode_length_delimited(&mut buf);
+        b.encode_length_delimited(&mut buf);
+
+        let mut cur = buf.as_slice();
+        let first = FlatMsg::decode_length_delimited(&mut cur).unwrap();
+        assert_eq!(first.value, 1);
+        let second = FlatMsg::decode_length_delimited(&mut cur).unwrap();
+        assert_eq!(second.value, 2);
+        assert!(cur.is_empty());
+    }
+
+    // ── merge_group tests ─────────────────────────────────────────────
+
+    /// Build a group body for FlatMsg (field 1 = value) terminated by
+    /// EndGroup with the given field number.
+    fn group_bytes(value: i32, group_field_number: u32) -> alloc::vec::Vec<u8> {
+        use crate::encoding::{Tag, WireType};
+        let mut buf = alloc::vec::Vec::new();
+        if value != 0 {
+            Tag::new(1, WireType::Varint).encode(&mut buf);
+            crate::types::encode_int32(value, &mut buf);
+        }
+        Tag::new(group_field_number, WireType::EndGroup).encode(&mut buf);
+        buf
+    }
+
+    #[test]
+    fn test_merge_group_basic() {
+        let data = group_bytes(42, 5);
+        let mut dst = FlatMsg::default();
+        dst.merge_group(&mut data.as_slice(), crate::test_ctx(RECURSION_LIMIT), 5)
+            .unwrap();
+        assert_eq!(dst.value, 42);
+    }
+
+    #[test]
+    fn test_merge_group_empty() {
+        // Group with no fields — just EndGroup.
+        let data = group_bytes(0, 3);
+        let mut dst = FlatMsg::default();
+        dst.merge_group(&mut data.as_slice(), crate::test_ctx(RECURSION_LIMIT), 3)
+            .unwrap();
+        assert_eq!(dst.value, 0);
+    }
+
+    #[test]
+    fn test_merge_group_merges_into_existing() {
+        let data1 = group_bytes(1, 5);
+        let data2 = group_bytes(2, 5);
+        let mut dst = FlatMsg::default();
+        dst.merge_group(&mut data1.as_slice(), crate::test_ctx(RECURSION_LIMIT), 5)
+            .unwrap();
+        assert_eq!(dst.value, 1);
+        dst.merge_group(&mut data2.as_slice(), crate::test_ctx(RECURSION_LIMIT), 5)
+            .unwrap();
+        assert_eq!(dst.value, 2);
+    }
+
+    #[test]
+    fn test_merge_group_recursion_limit_zero() {
+        // depth=0 should immediately fail with RecursionLimitExceeded
+        // because merge_group decrements before entering the loop.
+        let data = group_bytes(42, 5);
+        let mut dst = FlatMsg::default();
+        assert_eq!(
+            dst.merge_group(&mut data.as_slice(), crate::test_ctx(0), 5),
+            Err(DecodeError::RecursionLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn test_merge_group_recursion_limit_one_succeeds() {
+        // depth=1 succeeds: merge_group decrements to 0, but FlatMsg's
+        // merge_field doesn't recurse further.
+        let data = group_bytes(7, 5);
+        let mut dst = FlatMsg::default();
+        dst.merge_group(&mut data.as_slice(), crate::test_ctx(1), 5)
+            .unwrap();
+        assert_eq!(dst.value, 7);
+    }
+
+    #[test]
+    fn test_merge_group_mismatched_end() {
+        // EndGroup with wrong field number.
+        use crate::encoding::{Tag, WireType};
+        let mut data = alloc::vec::Vec::new();
+        Tag::new(99, WireType::EndGroup).encode(&mut data);
+
+        let mut dst = FlatMsg::default();
+        assert_eq!(
+            dst.merge_group(&mut data.as_slice(), crate::test_ctx(RECURSION_LIMIT), 5),
+            Err(DecodeError::InvalidEndGroup(99))
+        );
+    }
+
+    #[test]
+    fn test_merge_group_truncated() {
+        // Buffer ends without EndGroup tag.
+        use crate::encoding::{Tag, WireType};
+        let mut data = alloc::vec::Vec::new();
+        Tag::new(1, WireType::Varint).encode(&mut data);
+        crate::types::encode_int32(42, &mut data);
+        // No EndGroup.
+
+        let mut dst = FlatMsg::default();
+        assert_eq!(
+            dst.merge_group(&mut data.as_slice(), crate::test_ctx(RECURSION_LIMIT), 5),
+            Err(DecodeError::UnexpectedEof)
+        );
+    }
+
+    #[test]
+    fn test_merge_group_empty_buffer() {
+        let mut dst = FlatMsg::default();
+        assert_eq!(
+            dst.merge_group(&mut [].as_slice(), crate::test_ctx(RECURSION_LIMIT), 5),
+            Err(DecodeError::UnexpectedEof)
+        );
+    }
+
+    #[test]
+    fn test_merge_group_unknown_fields_skipped() {
+        // Group body contains an unknown field (field 99) which FlatMsg
+        // routes to skip_field; the known field (field 1) should still
+        // be decoded.
+        use crate::encoding::{Tag, WireType};
+        let mut data = alloc::vec::Vec::new();
+        // Unknown varint field 99 = 0
+        Tag::new(99, WireType::Varint).encode(&mut data);
+        crate::encoding::encode_varint(0, &mut data);
+        // Known field 1 = 99
+        Tag::new(1, WireType::Varint).encode(&mut data);
+        crate::types::encode_int32(99, &mut data);
+        // EndGroup(5)
+        Tag::new(5, WireType::EndGroup).encode(&mut data);
+
+        let mut dst = FlatMsg::default();
+        dst.merge_group(&mut data.as_slice(), crate::test_ctx(RECURSION_LIMIT), 5)
+            .unwrap();
+        assert_eq!(dst.value, 99);
+    }
+
+    #[test]
+    fn test_merge_group_trailing_data_preserved() {
+        // After the EndGroup tag, trailing data should remain in the buffer.
+        let mut data = group_bytes(42, 5);
+        data.extend_from_slice(&[0xDE, 0xAD]);
+
+        let mut cur = data.as_slice();
+        let mut dst = FlatMsg::default();
+        dst.merge_group(&mut cur, crate::test_ctx(RECURSION_LIMIT), 5)
+            .unwrap();
+        assert_eq!(dst.value, 42);
+        assert_eq!(cur, &[0xDE, 0xAD]);
+    }
+
+    // ── read_varint (std::io::Read) tests ──────────────────────────────
+
+    #[cfg(feature = "std")]
+    mod read_varint_tests {
+        use super::super::read_varint;
+        use crate::encoding::encode_varint;
+
+        #[test]
+        fn roundtrip_values() {
+            let cases: &[u64] = &[0, 1, 127, 128, 300, 1 << 14, 1 << 35, 1 << 63, u64::MAX];
+            for &v in cases {
+                let mut buf = Vec::new();
+                encode_varint(v, &mut buf);
+                let got = read_varint(&mut buf.as_slice()).unwrap();
+                assert_eq!(got, v, "roundtrip failed for {v}");
+            }
+        }
+
+        #[test]
+        fn rejects_10th_byte_overflow() {
+            // 9 continuation bytes + 10th byte with overflow bit (0x02).
+            // Mirrors encoding::tests::test_varint_10th_byte_overflow_rejected.
+            let mut bad: Vec<u8> = vec![0xFF; 9];
+            bad.push(0x02);
+            let err = read_varint(&mut bad.as_slice()).unwrap_err();
+            assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+        }
+
+        #[test]
+        fn rejects_11th_byte() {
+            // 10 continuation bytes — implies an 11th byte is needed.
+            let bad: &[u8] = &[0xFF; 10];
+            let err = read_varint(&mut &bad[..]).unwrap_err();
+            assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+        }
+
+        #[test]
+        fn u64_max_roundtrips() {
+            // u64::MAX requires 10 bytes with the 10th byte == 0x01.
+            let mut buf = Vec::new();
+            encode_varint(u64::MAX, &mut buf);
+            assert_eq!(buf.len(), 10);
+            assert_eq!(buf[9], 0x01);
+            let got = read_varint(&mut buf.as_slice()).unwrap();
+            assert_eq!(got, u64::MAX);
+        }
+
+        #[test]
+        fn eof_before_terminator_is_error() {
+            // Single continuation byte with no follow-up.
+            let bad: &[u8] = &[0x80];
+            let err = read_varint(&mut &bad[..]).unwrap_err();
+            assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
+
+        #[test]
+        fn empty_input_is_error() {
+            let err = read_varint(&mut &[][..]).unwrap_err();
+            assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
+    }
+
+    // ── Encode-side 2 GiB guard tests ──────────────────────────────────
+
+    use crate::test_doubles::SizedMsg;
+
+    const OVER_LIMIT: u32 = MAX_MESSAGE_BYTES + 1;
+
+    #[test]
+    fn saturate_size_is_exact_below_u32_max_and_saturates_above() {
+        assert_eq!(saturate_size(0), 0);
+        assert_eq!(saturate_size(MAX_MESSAGE_BYTES as u64), MAX_MESSAGE_BYTES);
+        // 2–4 GiB window: exact (this is what makes the guard byte-precise).
+        assert_eq!(saturate_size(0x8000_0000), 0x8000_0000u32);
+        assert_eq!(saturate_size(u32::MAX as u64), u32::MAX);
+        assert_eq!(saturate_size(u32::MAX as u64 + 1), u32::MAX);
+        assert_eq!(saturate_size(u64::MAX), u32::MAX);
+    }
+
+    #[test]
+    fn encode_at_exactly_max_size_is_allowed() {
+        // The guard is strictly-greater-than: a (fake) message of exactly
+        // MAX_MESSAGE_BYTES passes. `encode` has no write-count ledger, so
+        // the no-op write_to is fine here.
+        let msg = SizedMsg {
+            reported_size: MAX_MESSAGE_BYTES,
+        };
+        let mut buf = alloc::vec::Vec::new();
+        msg.encode(&mut buf);
+        assert!(msg.try_encode(&mut buf).is_ok());
+    }
+
+    #[test]
+    #[should_panic(expected = "2 GiB protobuf limit")]
+    fn encode_over_limit_panics() {
+        let msg = SizedMsg {
+            reported_size: OVER_LIMIT,
+        };
+        let mut buf = alloc::vec::Vec::new();
+        msg.encode(&mut buf);
+    }
+
+    #[test]
+    #[should_panic(expected = "2 GiB protobuf limit")]
+    fn encoded_len_over_limit_panics() {
+        let msg = SizedMsg {
+            reported_size: OVER_LIMIT,
+        };
+        let _ = msg.encoded_len();
+    }
+
+    #[test]
+    #[should_panic(expected = "2 GiB protobuf limit")]
+    fn encode_with_cache_over_limit_panics() {
+        let msg = SizedMsg {
+            reported_size: OVER_LIMIT,
+        };
+        let mut cache = SizeCache::new();
+        let mut buf = alloc::vec::Vec::new();
+        msg.encode_with_cache(&mut cache, &mut buf);
+    }
+
+    #[test]
+    #[should_panic(expected = "2 GiB protobuf limit")]
+    fn encode_to_vec_over_limit_panics() {
+        let msg = SizedMsg {
+            reported_size: OVER_LIMIT,
+        };
+        let _ = msg.encode_to_vec();
+    }
+
+    #[test]
+    #[should_panic(expected = "2 GiB protobuf limit")]
+    fn encode_to_bytes_over_limit_panics() {
+        let msg = SizedMsg {
+            reported_size: OVER_LIMIT,
+        };
+        let _ = msg.encode_to_bytes();
+    }
+
+    #[test]
+    #[should_panic(expected = "2 GiB protobuf limit")]
+    fn encode_length_delimited_over_limit_panics() {
+        let msg = SizedMsg {
+            reported_size: OVER_LIMIT,
+        };
+        let mut buf = alloc::vec::Vec::new();
+        msg.encode_length_delimited(&mut buf);
+    }
+
+    #[test]
+    fn try_encode_over_limit_errors_and_writes_nothing() {
+        let msg = SizedMsg {
+            reported_size: OVER_LIMIT,
+        };
+        let mut buf = alloc::vec::Vec::new();
+        assert_eq!(msg.try_encode(&mut buf), Err(EncodeError::MessageTooLarge));
+        assert!(buf.is_empty(), "no bytes may reach the buffer on Err");
+        let mut cache = SizeCache::new();
+        assert_eq!(
+            msg.try_encode_with_cache(&mut cache, &mut buf),
+            Err(EncodeError::MessageTooLarge)
+        );
+        assert!(buf.is_empty(), "no bytes may reach the buffer on Err");
+        assert_eq!(
+            msg.try_encode_length_delimited(&mut buf),
+            Err(EncodeError::MessageTooLarge)
+        );
+        assert!(buf.is_empty(), "not even the length prefix");
+        assert_eq!(msg.try_encode_to_vec(), Err(EncodeError::MessageTooLarge));
+        assert_eq!(msg.try_encode_to_bytes(), Err(EncodeError::MessageTooLarge));
+        assert_eq!(msg.try_encoded_len(), Err(EncodeError::MessageTooLarge));
+    }
+
+    #[test]
+    fn try_encode_matches_encode_for_normal_messages() {
+        let msg = FlatMsg { value: 42 };
+        let mut expected = alloc::vec::Vec::new();
+        msg.encode(&mut expected);
+        let mut actual = alloc::vec::Vec::new();
+        msg.try_encode(&mut actual).unwrap();
+        assert_eq!(actual, expected);
+        let mut cache = SizeCache::new();
+        let mut cached = alloc::vec::Vec::new();
+        msg.try_encode_with_cache(&mut cache, &mut cached).unwrap();
+        assert_eq!(cached, expected);
+        assert_eq!(msg.try_encode_to_vec().unwrap(), expected);
+        assert_eq!(msg.try_encode_to_bytes().unwrap(), expected);
+        assert_eq!(msg.try_encoded_len().unwrap(), expected.len() as u32);
+
+        let mut ld_expected = alloc::vec::Vec::new();
+        msg.encode_length_delimited(&mut ld_expected);
+        let mut ld_actual = alloc::vec::Vec::new();
+        msg.try_encode_length_delimited(&mut ld_actual).unwrap();
+        assert_eq!(ld_actual, ld_expected);
+    }
+
+    #[test]
+    fn try_encode_bounded_within_budget_encodes_and_returns_len() {
+        let msg = FlatMsg { value: 42 };
+        let mut expected = alloc::vec::Vec::new();
+        msg.encode(&mut expected);
+        let budget = expected.len() as u32;
+
+        let mut buf = alloc::vec::Vec::new();
+        let len = msg.try_encode_bounded(budget, &mut buf).unwrap();
+        assert_eq!(buf, expected);
+        assert_eq!(len, budget);
+
+        // with_cache variant agrees
+        let mut cache = SizeCache::new();
+        let mut buf2 = alloc::vec::Vec::new();
+        let len2 = msg
+            .try_encode_bounded_with_cache(budget, &mut cache, &mut buf2)
+            .unwrap();
+        assert_eq!(buf2, expected);
+        assert_eq!(len2, budget);
+    }
+
+    #[test]
+    fn try_encode_bounded_at_exact_limit_succeeds() {
+        let msg = FlatMsg { value: 42 };
+        let exact = msg.encoded_len();
+        let mut buf = alloc::vec::Vec::new();
+        assert!(msg.try_encode_bounded(exact, &mut buf).is_ok());
+    }
+
+    #[test]
+    fn try_encode_bounded_over_budget_errors_and_writes_nothing() {
+        let msg = FlatMsg { value: 42 };
+        let len = msg.encoded_len();
+        let budget = len - 1; // one byte under
+
+        let mut buf = alloc::vec::Vec::new();
+        assert_eq!(
+            msg.try_encode_bounded(budget, &mut buf),
+            Err(EncodeError::ExceedsBudget {
+                len,
+                max_bytes: budget
+            })
+        );
+        assert!(buf.is_empty(), "nothing written on budget exceeded");
+    }
+
+    /// "Nothing written on `Err`" has to hold for a sink that already has
+    /// bytes in it, which is how a caller framing several messages uses one
+    /// buffer. Every other test starts from an empty `Vec`, so the append
+    /// case — where a partial write would corrupt the *preceding* message
+    /// rather than produce an obviously empty one — would go unnoticed.
+    #[test]
+    fn try_encode_bounded_over_budget_leaves_a_populated_buffer_untouched() {
+        let msg = FlatMsg { value: 42 };
+        let len = msg.encoded_len();
+        let budget = len - 1;
+
+        let prefix = b"already framed".to_vec();
+        let mut buf = prefix.clone();
+        assert_eq!(
+            msg.try_encode_bounded(budget, &mut buf),
+            Err(EncodeError::ExceedsBudget {
+                len,
+                max_bytes: budget
+            })
+        );
+        assert_eq!(buf, prefix, "the bytes already in the sink must survive");
+    }
+
+    #[test]
+    fn try_encode_bounded_zero_budget_with_empty_message_succeeds() {
+        // A default FlatMsg with value=0 encodes to 0 bytes (all defaults
+        // are elided in proto3), so budget=0 is exactly satisfied.
+        let msg = FlatMsg { value: 0 };
+        let mut buf = alloc::vec::Vec::new();
+        let len = msg.try_encode_bounded(0, &mut buf).unwrap();
+        assert_eq!(len, 0);
+        assert!(buf.is_empty());
+    }
+
+    #[test]
+    fn try_encode_bounded_over_protobuf_limit_errors_as_too_large() {
+        let msg = SizedMsg {
+            reported_size: OVER_LIMIT,
+        };
+        let mut buf = alloc::vec::Vec::new();
+        assert_eq!(
+            msg.try_encode_bounded(u32::MAX, &mut buf),
+            Err(EncodeError::MessageTooLarge)
+        );
+        assert!(buf.is_empty());
+    }
+
+    #[test]
+    fn pool_try_encode_bounded_within_budget_encodes_and_returns_len() {
+        let msg = FlatMsg { value: 42 };
+        let mut expected = alloc::vec::Vec::new();
+        msg.encode(&mut expected);
+        let budget = expected.len() as u32;
+
+        let mut pool = crate::SizeCachePool::sequential(64);
+        let mut buf = alloc::vec::Vec::new();
+        let len = pool.try_encode_bounded(&msg, budget, &mut buf).unwrap();
+        assert_eq!(buf, expected);
+        assert_eq!(len, budget);
+    }
+
+    #[test]
+    fn pool_try_encode_bounded_over_budget_errors_and_writes_nothing() {
+        let msg = FlatMsg { value: 42 };
+        let len = msg.encoded_len();
+        let budget = len - 1;
+
+        let mut pool = crate::SizeCachePool::sequential(64);
+        let mut buf = alloc::vec::Vec::new();
+        assert_eq!(
+            pool.try_encode_bounded(&msg, budget, &mut buf),
+            Err(EncodeError::ExceedsBudget {
+                len,
+                max_bytes: budget
+            })
+        );
+        assert!(buf.is_empty());
+        // Pool buffer must be returned even on Err.
+        assert_eq!(pool.try_encode_bounded(&msg, len, &mut buf).unwrap(), len);
+    }
+
+    #[test]
+    fn pool_try_encode_bounded_over_protobuf_limit_errors_as_too_large() {
+        let msg = SizedMsg {
+            reported_size: OVER_LIMIT,
+        };
+        let mut pool = crate::SizeCachePool::sequential(64);
+        let mut buf = alloc::vec::Vec::new();
+        assert_eq!(
+            pool.try_encode_bounded(&msg, u32::MAX, &mut buf),
+            Err(EncodeError::MessageTooLarge)
+        );
+        assert!(buf.is_empty());
+    }
+
+    #[test]
+    #[should_panic(expected = "2 GiB protobuf limit")]
+    fn pool_encoded_len_over_limit_panics() {
+        // SizeCachePool::encoded_len documents itself as the pooled
+        // equivalent of Message::encoded_len — it must share the guard.
+        let msg = SizedMsg {
+            reported_size: OVER_LIMIT,
+        };
+        let mut pool = crate::SizeCachePool::sequential(1024);
+        let _ = pool.encoded_len(&msg);
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "two-pass traversal mismatch")]
+    fn encode_to_vec_ledger_catches_size_write_disagreement() {
+        // An under-limit reported size with a no-op write_to: the guard
+        // passes, then the debug ledger flags the two-pass divergence.
+        let msg = SizedMsg { reported_size: 3 };
+        let _ = msg.encode_to_vec();
+    }
+
+    // ── DecodeOptions std::io::Read tests ─────────────────────────────
+
+    #[cfg(feature = "std")]
+    mod reader_tests {
+        use super::*;
+
+        #[test]
+        fn decode_reader_basic() {
+            let src = FlatMsg { value: 42 };
+            let bytes = src.encode_to_vec();
+            let msg: FlatMsg = DecodeOptions::new()
+                .decode_reader(&mut bytes.as_slice())
+                .unwrap();
+            assert_eq!(msg.value, 42);
+        }
+
+        #[test]
+        fn decode_reader_rejects_oversize() {
+            let src = FlatMsg { value: 42 };
+            let bytes = src.encode_to_vec();
+            let err = DecodeOptions::new()
+                .with_max_message_size(1)
+                .decode_reader::<FlatMsg>(&mut bytes.as_slice())
+                .unwrap_err();
+            assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+        }
+
+        #[test]
+        fn decode_reader_exact_boundary() {
+            // max_message_size == encoded length → success.
+            let src = FlatMsg { value: 42 };
+            let bytes = src.encode_to_vec();
+            let msg: FlatMsg = DecodeOptions::new()
+                .with_max_message_size(bytes.len())
+                .decode_reader(&mut bytes.as_slice())
+                .unwrap();
+            assert_eq!(msg.value, 42);
+        }
+
+        #[test]
+        fn decode_options_reader_size_unbounded_getter_tracks_builder_order() {
+            let opts = DecodeOptions::new();
+            assert!(!opts.is_reader_size_unbounded());
+
+            let opts = opts.without_reader_size_limit();
+            assert!(opts.is_reader_size_unbounded());
+
+            let opts = opts.with_max_message_size(1024);
+            assert!(!opts.is_reader_size_unbounded());
+        }
+
+        #[test]
+        fn decode_reader_without_size_limit_does_not_overflow() {
+            let src = FlatMsg { value: 42 };
+            let bytes = src.encode_to_vec();
+            let msg: FlatMsg = DecodeOptions::new()
+                .without_reader_size_limit()
+                .decode_reader(&mut bytes.as_slice())
+                .unwrap();
+            assert_eq!(msg.value, 42);
+        }
+
+        #[test]
+        fn decode_reader_with_max_message_size_after_without_limit_reenables_limit() {
+            let src = FlatMsg { value: 42 };
+            let bytes = src.encode_to_vec();
+            let opts = DecodeOptions::new()
+                .without_reader_size_limit()
+                .with_max_message_size(1);
+            assert!(!opts.is_reader_size_unbounded());
+
+            let err = opts
+                .decode_reader::<FlatMsg>(&mut bytes.as_slice())
+                .unwrap_err();
+            assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+        }
+
+        #[test]
+        fn decode_reader_without_size_limit_keeps_slice_limit() {
+            let src = FlatMsg { value: 42 };
+            let bytes = src.encode_to_vec();
+            let opts = DecodeOptions::new()
+                .with_max_message_size(1)
+                .without_reader_size_limit();
+            assert!(opts.is_reader_size_unbounded());
+
+            let slice_result: Result<FlatMsg, _> = opts.decode_from_slice(&bytes);
+            assert_eq!(slice_result, Err(DecodeError::MessageTooLarge));
+
+            let msg: FlatMsg = opts.decode_reader(&mut bytes.as_slice()).unwrap();
+            assert_eq!(msg.value, 42);
+        }
+
+        #[test]
+        fn decode_reader_propagates_read_error() {
+            // A reader that errors immediately.
+            struct ErrReader;
+            impl std::io::Read for ErrReader {
+                fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+                    Err(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "gone"))
+                }
+            }
+            let err = DecodeOptions::new()
+                .decode_reader::<FlatMsg>(&mut ErrReader)
+                .unwrap_err();
+            assert_eq!(err.kind(), std::io::ErrorKind::BrokenPipe);
+        }
+
+        #[test]
+        fn decode_length_delimited_reader_basic() {
+            let src = FlatMsg { value: 99 };
+            let mut ld = Vec::new();
+            src.encode_length_delimited(&mut ld);
+            let msg: FlatMsg = DecodeOptions::new()
+                .decode_length_delimited_reader(&mut ld.as_slice())
+                .unwrap();
+            assert_eq!(msg.value, 99);
+        }
+
+        #[test]
+        fn decode_length_delimited_reader_rejects_oversize_prefix() {
+            // Length prefix claims more bytes than max_message_size allows.
+            let src = FlatMsg { value: 99 };
+            let mut ld = Vec::new();
+            src.encode_length_delimited(&mut ld);
+            let err = DecodeOptions::new()
+                .with_max_message_size(1)
+                .decode_length_delimited_reader::<FlatMsg>(&mut ld.as_slice())
+                .unwrap_err();
+            assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+        }
+
+        #[test]
+        fn decode_length_delimited_reader_zero_length() {
+            // A zero length prefix decodes to the default message and
+            // consumes only the prefix byte.
+            let stream = [0x00u8, 0xFF]; // len=0, then unrelated trailing byte
+            let mut cursor = std::io::Cursor::new(stream);
+            let msg: FlatMsg = DecodeOptions::new()
+                .decode_length_delimited_reader(&mut cursor)
+                .unwrap();
+            assert_eq!(msg, FlatMsg::default());
+            assert_eq!(cursor.position(), 1);
+        }
+
+        #[test]
+        fn decode_length_delimited_reader_truncated_reports_eof() {
+            // Length prefix declares more bytes than the stream delivers.
+            let src = FlatMsg { value: 99 };
+            let mut ld = Vec::new();
+            src.encode_length_delimited(&mut ld);
+            ld.truncate(ld.len() - 1);
+            let err = DecodeOptions::new()
+                .decode_length_delimited_reader::<FlatMsg>(&mut ld.as_slice())
+                .unwrap_err();
+            assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
+
+        #[test]
+        fn decode_length_delimited_reader_huge_claim_without_delivery() {
+            // A 5-byte prefix declaring ~2 GiB followed by EOF must fail with
+            // UnexpectedEof without allocating the declared length up front —
+            // the buffer only grows as bytes are actually delivered. (This
+            // test completes instantly; before the incremental-read fix it
+            // zero-filled a ~2 GiB buffer first.)
+            let mut stream = Vec::new();
+            encode_varint(0x7FFF_FFF0, &mut stream); // just under the cap
+            let err = DecodeOptions::new()
+                .decode_length_delimited_reader::<FlatMsg>(&mut stream.as_slice())
+                .unwrap_err();
+            assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
+
+        #[test]
+        fn decode_length_delimited_without_reader_size_limit_keeps_protobuf_cap() {
+            let mut stream = Vec::new();
+            encode_varint(0x8000_0000, &mut stream);
+            let result: Result<FlatMsg, _> = DecodeOptions::new()
+                .without_reader_size_limit()
+                .decode_length_delimited(&mut stream.as_slice());
+            assert_eq!(result, Err(DecodeError::MessageTooLarge));
+        }
+
+        #[test]
+        fn decode_length_delimited_reader_without_size_limit_keeps_protobuf_cap() {
+            let mut stream = Vec::new();
+            encode_varint(0x8000_0000, &mut stream);
+            let err = DecodeOptions::new()
+                .without_reader_size_limit()
+                .decode_length_delimited_reader::<FlatMsg>(&mut stream.as_slice())
+                .unwrap_err();
+            assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+        }
+
+        #[test]
+        fn decode_length_delimited_reader_sequential() {
+            // Two messages in a stream — typical log-file use case.
+            let a = FlatMsg { value: 10 };
+            let b = FlatMsg { value: 20 };
+            let mut stream = Vec::new();
+            a.encode_length_delimited(&mut stream);
+            b.encode_length_delimited(&mut stream);
+
+            let mut cursor = std::io::Cursor::new(stream);
+            let first: FlatMsg = DecodeOptions::new()
+                .decode_length_delimited_reader(&mut cursor)
+                .unwrap();
+            assert_eq!(first.value, 10);
+            let second: FlatMsg = DecodeOptions::new()
+                .decode_length_delimited_reader(&mut cursor)
+                .unwrap();
+            assert_eq!(second.value, 20);
+        }
+
+        #[test]
+        fn decode_length_delimited_reader_truncated_body() {
+            // Length prefix says N bytes but reader EOFs early.
+            let mut buf = Vec::new();
+            crate::encoding::encode_varint(100, &mut buf);
+            buf.push(0x08);
+            let err = DecodeOptions::new()
+                .decode_length_delimited_reader::<FlatMsg>(&mut buf.as_slice())
+                .unwrap_err();
+            assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
+    }
+}

@@ -1,0 +1,3664 @@
+//! Code generation for `impl Message` and `impl DefaultInstance`.
+//!
+//! Generates `compute_size`, `write_to`, and `merge` implementations
+//! covering all field types:
+//!
+//! - Numeric scalars: int32/64, uint32/64, sint32/64, fixed32/64, sfixed32/64,
+//!   float, double, bool
+//! - Length-delimited scalars: string, bytes
+//! - Enum fields: open (`EnumValue<T>`) and closed (bare `E`) with
+//!   unknown-value routing to `unknown_fields` for proto2
+//! - Singular message fields: `MessageField<T>` (nested sub-message)
+//! - Proto3 optional / proto2 optional scalars: `Option<T>`
+//! - Repeated fields: `Vec<T>` — packed for numerics/enums, unpacked for
+//!   string/bytes/message (both packed and unpacked accepted on decode)
+//! - Map fields: `HashMap<K, V>` via synthetic map-entry messages
+//! - Oneof fields: `Option<OneofEnum>` with per-variant encode/decode
+
+use crate::context::CodeGenContext;
+use crate::generated::descriptor::field_descriptor_proto::{Label, Type};
+use crate::generated::descriptor::{DescriptorProto, FieldDescriptorProto};
+use proc_macro2::{Ident, TokenStream};
+use quote::{format_ident, quote};
+
+use crate::features::ResolvedFeatures;
+use crate::message::{find_map_entry, is_closed_enum};
+use crate::CodeGenError;
+use buffa::encoding::MAX_FIELD_NUMBER;
+
+/// Extract and validate the field number from a descriptor, returning a `u32`.
+///
+/// Protobuf field numbers must be in `[1, MAX_FIELD_NUMBER]`.
+pub(crate) fn validated_field_number(field: &FieldDescriptorProto) -> Result<u32, CodeGenError> {
+    let n = field
+        .number
+        .ok_or(CodeGenError::MissingField("field.number"))?;
+    // FieldDescriptorProto.number is int32 in the descriptor schema, hence
+    // the cast for the range check (2^29 − 1 fits comfortably in i32).
+    if !(1..=MAX_FIELD_NUMBER as i32).contains(&n) {
+        return Err(CodeGenError::Other(format!("invalid field number: {n}")));
+    }
+    Ok(n as u32)
+}
+
+/// Returns `true` when a non-repeated, non-message field has *explicit*
+/// field presence and must be encoded as `Option<T>`.
+///
+/// - **Proto3**: only fields marked with the `optional` keyword
+///   (`proto3_optional = true` in the descriptor, backed by a synthetic oneof).
+/// - **Proto2**: any `optional`-labelled non-message field (proto2 `optional`
+///   always confers explicit presence; `required` fields return `false` here
+///   because they use always-encode semantics via `is_proto2_required`).
+/// - **Editions**: fields with `field_presence = EXPLICIT` in resolved features.
+/// - Message fields always use `MessageField<T>` regardless of syntax and are
+///   excluded here.
+pub(crate) fn is_explicit_presence_scalar(
+    field: &FieldDescriptorProto,
+    ty: Type,
+    features: &ResolvedFeatures,
+) -> bool {
+    if ty == Type::TYPE_MESSAGE || ty == Type::TYPE_GROUP {
+        return false;
+    }
+    // proto3_optional is a proto3-era flag; for editions, presence comes
+    // from the resolved features.  Both paths converge here.
+    if field.proto3_optional.unwrap_or(false) {
+        return true;
+    }
+    // Proto2 required fields are always present (bare type, not Option).
+    if field.label.unwrap_or_default() == Label::LABEL_REQUIRED {
+        return false;
+    }
+    let field_features =
+        crate::features::resolve_child(features, crate::features::field_features(field));
+    field_features.field_presence == crate::features::FieldPresence::Explicit
+        && field.oneof_index.is_none()
+}
+
+/// Does this field have required semantics (always encode regardless of value)?
+///
+/// True for proto2 `required` (LABEL_REQUIRED) and editions
+/// `features.field_presence = LEGACY_REQUIRED` — both produce bare types
+/// and must serialize even zero/empty values.
+pub(crate) fn is_required_field(field: &FieldDescriptorProto, features: &ResolvedFeatures) -> bool {
+    if field.label.unwrap_or_default() == Label::LABEL_REQUIRED {
+        return true;
+    }
+    let field_features =
+        crate::features::resolve_child(features, crate::features::field_features(field));
+    field_features.field_presence == crate::features::FieldPresence::LegacyRequired
+}
+
+/// Returns the effective field type after applying `utf8_validation`.
+///
+/// When `ctx.config.strict_utf8_mapping` is `true` AND the per-field resolved
+/// `utf8_validation` is `NONE`, string fields are treated as bytes fields:
+/// the Rust type becomes `Vec<u8>` / `&[u8]`, decode uses `merge_bytes`
+/// (no UTF-8 validation), and JSON encodes as base64. This is the only sound
+/// mapping when strings may actually contain non-UTF-8 bytes — `&str` has a
+/// type-level invariant that its contents are valid UTF-8.
+///
+/// When strict mapping is disabled (the default), string fields always map
+/// to `String` / `&str` and decode validates UTF-8 regardless of the proto
+/// `utf8_validation` feature. This is stricter than proto2 requires but
+/// matches ecosystem expectations and avoids breaking existing proto2 code.
+///
+/// The per-field feature resolution happens here, so callers pass the
+/// *message-level* resolved features and the field descriptor.
+pub(crate) fn effective_type(
+    ctx: &crate::context::CodeGenContext,
+    field: &FieldDescriptorProto,
+    features: &ResolvedFeatures,
+) -> Type {
+    let ty = field.r#type.unwrap_or_default();
+
+    // Editions `features.message_encoding = DELIMITED` keeps the descriptor
+    // field type as TYPE_MESSAGE (unlike proto2 `group` syntax which sets
+    // TYPE_GROUP directly). Rewriting here routes DELIMITED fields through
+    // the existing TYPE_GROUP encode/decode paths (wire types 3/4).
+    if ty == Type::TYPE_MESSAGE {
+        let field_features =
+            crate::features::resolve_child(features, crate::features::field_features(field));
+        if field_features.message_encoding == crate::features::MessageEncoding::Delimited {
+            return Type::TYPE_GROUP;
+        }
+    }
+
+    if !ctx.config.strict_utf8_mapping || ty != Type::TYPE_STRING {
+        return ty;
+    }
+    // utf8_validation is field-local (not enum-dependent), so resolve_child
+    // is sufficient here — no need for resolve_field's enum_type overlay.
+    let field_features =
+        crate::features::resolve_child(features, crate::features::field_features(field));
+    if field_features.utf8_validation == crate::features::Utf8Validation::None {
+        Type::TYPE_BYTES
+    } else {
+        ty
+    }
+}
+
+/// [`effective_type`] for map-entry key/value fields.
+///
+/// The protobuf wire spec hard-codes map entries as length-prefixed,
+/// independent of `features.message_encoding`. protoc does NOT stamp an
+/// explicit `LENGTH_PREFIXED` feature on synthetic map-entry fields, so a
+/// file-level `DELIMITED` default would otherwise inherit through and
+/// [`effective_type`] would incorrectly rewrite a message-typed map value
+/// to `TYPE_GROUP`. This wrapper forces the spec invariant.
+pub(crate) fn effective_type_in_map_entry(
+    ctx: &crate::context::CodeGenContext,
+    field: &FieldDescriptorProto,
+    features: &ResolvedFeatures,
+) -> Type {
+    let mut f = *features;
+    f.message_encoding = crate::features::MessageEncoding::LengthPrefixed;
+    effective_type(ctx, field, &f)
+}
+
+/// Generate the decode expression for a closed enum value.
+///
+/// Returns a `TokenStream` that decodes an i32 from `buf_expr`, checks
+/// `from_i32`, and executes `on_known` with the decoded value bound as `__v`.
+/// Unknown values are silently discarded.
+///
+/// Retained for view packed-repeated closed enums, where there is no
+/// per-element tag to borrow. Other decode paths either route the value itself
+/// to unknown fields or, for map values, route the whole map entry.
+pub(crate) fn closed_enum_decode(buf_expr: &TokenStream, on_known: TokenStream) -> TokenStream {
+    quote! {
+        let __raw = ::buffa::types::decode_int32(#buf_expr)?;
+        if let ::core::option::Option::Some(__v) = ::buffa::Enumeration::from_i32(__raw) {
+            #on_known
+        }
+    }
+}
+
+/// Like [`closed_enum_decode`], but with an `else` branch for unknown values.
+///
+/// The `on_unknown` token stream is placed in the `else` block, with `__raw`
+/// still in scope so it can be routed (e.g. to unknown fields storage).
+///
+/// An empty `on_unknown` (unknown-field preservation disabled) collapses to
+/// [`closed_enum_decode`]: emitting a literal `else {}` fails
+/// `clippy::needless_else` under `-D warnings` in consumer crates.
+pub(crate) fn closed_enum_decode_with_unknown(
+    buf_expr: &TokenStream,
+    on_known: TokenStream,
+    on_unknown: TokenStream,
+) -> TokenStream {
+    if on_unknown.is_empty() {
+        return closed_enum_decode(buf_expr, on_known);
+    }
+
+    quote! {
+        let __raw = ::buffa::types::decode_int32(#buf_expr)?;
+        if let ::core::option::Option::Some(__v) = ::buffa::Enumeration::from_i32(__raw) {
+            #on_known
+        } else {
+            #on_unknown
+        }
+    }
+}
+
+/// Token stream that pushes a closed-enum unknown value (`__raw`, in scope)
+/// to `self.__buffa_unknown_fields` as a varint with the given field number.
+/// Returns empty tokens when `preserve_unknown_fields` is false (drop).
+pub(crate) fn closed_enum_unknown_route(
+    field_number: u32,
+    preserve_unknown_fields: bool,
+) -> TokenStream {
+    if preserve_unknown_fields {
+        quote! {
+            ctx.register_unknown_field()?;
+            self.__buffa_unknown_fields.push(::buffa::UnknownField {
+                number: #field_number,
+                data: ::buffa::UnknownFieldData::Varint(__raw as u64),
+            });
+        }
+    } else {
+        quote! {}
+    }
+}
+
+/// A classified field (or oneof group) ready for per-kind codegen dispatch.
+///
+/// Produced by [`classify_fields_ordered`] in ascending field-number order so
+/// that `compute_size` and `write_to` emit fields in the spec-recommended
+/// sequence (matching the field order of prost / protoc-C++). A `Oneof` entry
+/// stands in for all its member fields and is positioned at the group's
+/// minimum member field number.
+enum FieldKind<'a> {
+    Scalar(&'a FieldDescriptorProto),
+    Repeated(&'a FieldDescriptorProto),
+    Map(&'a FieldDescriptorProto),
+    Oneof {
+        name: &'a str,
+        enum_ident: proc_macro2::Ident,
+        fields: Vec<&'a FieldDescriptorProto>,
+    },
+}
+
+/// Classify every field of `msg` and return the result sorted by ascending
+/// field number. Oneof members are folded into a single [`FieldKind::Oneof`]
+/// per group, positioned at the lowest member number.
+///
+/// Shared between [`generate_message_impl`] (owned) and
+/// [`build_view_encode_methods`] (view) so a new field category only needs
+/// adding here.
+fn classify_fields_ordered<'a>(
+    msg: &'a DescriptorProto,
+    oneof_idents: &std::collections::HashMap<usize, proc_macro2::Ident>,
+) -> Result<Vec<FieldKind<'a>>, CodeGenError> {
+    let mut entries: Vec<(u32, FieldKind<'a>)> = Vec::with_capacity(msg.field.len());
+    let mut seen_oneof: std::collections::HashSet<i32> = std::collections::HashSet::new();
+    for f in &msg.field {
+        let number = validated_field_number(f)?;
+        if is_real_oneof_member(f) {
+            let idx = f.oneof_index.expect("checked by is_real_oneof_member");
+            if !seen_oneof.insert(idx) {
+                continue;
+            }
+            let Some(enum_ident) = oneof_idents.get(&(idx as usize)) else {
+                continue;
+            };
+            let Some(name) = msg
+                .oneof_decl
+                .get(idx as usize)
+                .and_then(|o| o.name.as_deref())
+            else {
+                continue;
+            };
+            let members: Vec<_> = msg
+                .field
+                .iter()
+                .filter(|m| is_real_oneof_member(m) && m.oneof_index == Some(idx))
+                .collect();
+            let min_number = members
+                .iter()
+                .map(|m| validated_field_number(m))
+                .try_fold(number, |acc, n| Ok::<_, CodeGenError>(acc.min(n?)))?;
+            entries.push((
+                min_number,
+                FieldKind::Oneof {
+                    name,
+                    enum_ident: enum_ident.clone(),
+                    fields: members,
+                },
+            ));
+        } else if f.label.unwrap_or_default() == Label::LABEL_REPEATED {
+            if crate::message::is_map_field(msg, f) {
+                entries.push((number, FieldKind::Map(f)));
+            } else if is_supported_field_type(f.r#type.unwrap_or_default()) {
+                entries.push((number, FieldKind::Repeated(f)));
+            }
+        } else if is_supported_field_type(f.r#type.unwrap_or_default()) {
+            entries.push((number, FieldKind::Scalar(f)));
+        }
+    }
+    entries.sort_by_key(|(n, _)| *n);
+    Ok(entries.into_iter().map(|(_, k)| k).collect())
+}
+
+/// True if `compute_size` / `write_to` for this message reference the
+/// threaded `SizeCache` — i.e. it has any sub-message-typed (LEN-delimited
+/// or group) field, oneof variant, or map value. Leaf messages (scalars
+/// only) take the cache as `_cache` to make the dead parameter explicit.
+/// With `lazy_views` (lazy view family only), lazy message fields re-emit raw
+/// fragments without a cache slot, so they don't count as cache users.
+fn message_uses_size_cache(
+    ctx: &CodeGenContext,
+    msg: &DescriptorProto,
+    fields: &[FieldKind<'_>],
+    features: &ResolvedFeatures,
+    is_lazy: Option<&dyn Fn(&FieldDescriptorProto) -> bool>,
+) -> bool {
+    let is_nested = |f: &FieldDescriptorProto| match effective_type(ctx, f, features) {
+        Type::TYPE_MESSAGE => !is_lazy.is_some_and(|p| p(f)),
+        Type::TYPE_GROUP => true,
+        _ => false,
+    };
+    let oneof_nested = |f: &FieldDescriptorProto| {
+        matches!(
+            effective_type(ctx, f, features),
+            Type::TYPE_MESSAGE | Type::TYPE_GROUP
+        )
+    };
+    fields.iter().any(|kind| match kind {
+        FieldKind::Scalar(f) | FieldKind::Repeated(f) => is_nested(f),
+        FieldKind::Oneof { fields, .. } => fields.iter().copied().any(oneof_nested),
+        FieldKind::Map(f) => find_map_entry_fields(msg, f)
+            .map(|(_, val_fd)| {
+                effective_type_in_map_entry(ctx, val_fd, features) == Type::TYPE_MESSAGE
+            })
+            .unwrap_or(false),
+    })
+}
+
+/// Generate `impl DefaultInstance` and `impl Message` for a message.
+///
+/// Emit `impl #generics ::buffa::MessageName for #ty { … }`.
+///
+/// `generics` is the impl-side generic parameter list (`<'a>` for the
+/// view type, empty for the owned message). `ty` is the implementing
+/// type *with* any generics applied (`Foo` or `FooView<'a>`).
+///
+/// All four consts are computed at codegen time as string literals so
+/// `T::FULL_NAME` etc. are zero-cost at runtime — no `format!`,
+/// `concat!`, or lazy static. `PACKAGE` and `NAME` are split here rather
+/// than left to the consumer because the dotted `FULL_NAME` cannot be
+/// re-split unambiguously: `foo.Bar.Baz` could be package `foo.Bar` +
+/// message `Baz`, or package `foo` + nested `Bar.Baz`. Codegen knows
+/// which.
+pub(crate) fn message_name_impl(
+    current_package: &str,
+    proto_fqn: &str,
+    generics: &TokenStream,
+    ty: &TokenStream,
+) -> TokenStream {
+    let name = if current_package.is_empty() {
+        proto_fqn.to_string()
+    } else {
+        // Strip `"<package>."` atomically — a two-step
+        // `strip_prefix(package)` then `strip_prefix(".")` would
+        // partial-match a prefix-overlapping package (`package = "foo"`
+        // against `proto_fqn = "food.Bar"`) and silently violate the
+        // documented `PACKAGE + "." + NAME == FULL_NAME` invariant.
+        //
+        // `proto_fqn` is always `"<package>.<rest>"` for a non-empty
+        // package (it's built by joining message segments onto the
+        // package), so the strip should never fail. Fall back
+        // defensively rather than panic on a malformed descriptor.
+        proto_fqn
+            .strip_prefix(&format!("{current_package}."))
+            .unwrap_or(proto_fqn)
+            .to_string()
+    };
+    let type_url = format!("type.googleapis.com/{proto_fqn}");
+    quote! {
+        impl #generics ::buffa::MessageName for #ty {
+            const PACKAGE: &'static str = #current_package;
+            const NAME: &'static str = #name;
+            const FULL_NAME: &'static str = #proto_fqn;
+            const TYPE_URL: &'static str = #type_url;
+        }
+    }
+}
+
+/// `preserve_unknown_fields`: when `true`, the generated merge collects
+/// unknown fields into `self.__buffa_unknown_fields` and both `compute_size` and
+/// `write_to` include them.
+#[allow(clippy::too_many_arguments)]
+pub fn generate_message_impl(
+    ctx: &CodeGenContext,
+    msg: &DescriptorProto,
+    preserve_unknown_fields: bool,
+    rust_name: &str,
+    current_package: &str,
+    proto_fqn: &str,
+    features: &ResolvedFeatures,
+    oneof_idents: &std::collections::HashMap<usize, proc_macro2::Ident>,
+    oneof_prefix: &TokenStream,
+    nesting: usize,
+) -> Result<TokenStream, CodeGenError> {
+    let name_ident = format_ident!("{}", rust_name);
+
+    let fields = classify_fields_ordered(msg, oneof_idents)?;
+    // The lazy predicate applies to the lazy view family only; owned is eager.
+    let cache_ident = if message_uses_size_cache(ctx, msg, &fields, features, None) {
+        format_ident!("__cache")
+    } else {
+        format_ident!("_cache")
+    };
+
+    // Single pass in field-number order. `compute_stmts`/`write_stmts` MUST be
+    // built in lockstep: SizeCache::consume_next() in write_to reads slots in
+    // the same traversal order that compute_size's reserve()/set() filled them.
+    let mut compute_stmts: Vec<TokenStream> = Vec::with_capacity(fields.len());
+    let mut write_stmts: Vec<TokenStream> = Vec::with_capacity(fields.len());
+    let mut merge_arms: Vec<TokenStream> = Vec::with_capacity(fields.len());
+    let mut clear_stmts: Vec<TokenStream> = Vec::with_capacity(fields.len());
+    for kind in &fields {
+        match kind {
+            FieldKind::Scalar(f) => {
+                compute_stmts.push(scalar_compute_size_stmt(ctx, f, features)?);
+                write_stmts.push(scalar_write_to_stmt(ctx, f, features)?);
+                merge_arms.push(scalar_merge_arm(
+                    ctx,
+                    f,
+                    proto_fqn,
+                    features,
+                    preserve_unknown_fields,
+                )?);
+                clear_stmts.push(scalar_clear_stmt(
+                    f,
+                    ctx,
+                    current_package,
+                    proto_fqn,
+                    features,
+                    nesting,
+                )?);
+            }
+            FieldKind::Repeated(f) => {
+                let repr = field_repeated_repr(ctx, proto_fqn, f.name.as_deref().unwrap_or(""));
+                compute_stmts.push(repeated_compute_size_stmt(ctx, f, features, &repr)?);
+                write_stmts.push(repeated_write_to_stmt(ctx, f, features, &repr)?);
+                merge_arms.push(repeated_merge_arm(
+                    ctx,
+                    f,
+                    proto_fqn,
+                    features,
+                    preserve_unknown_fields,
+                    &repr,
+                )?);
+                clear_stmts.push(vec_field_clear_stmt(ctx, f, &repr)?);
+            }
+            FieldKind::Map(f) => {
+                compute_stmts.push(map_compute_size_stmt(ctx, msg, f, proto_fqn, features)?);
+                write_stmts.push(map_write_to_stmt(ctx, msg, f, proto_fqn, features)?);
+                merge_arms.push(map_merge_arm(ctx, msg, f, proto_fqn, features)?);
+                clear_stmts.push(map_field_clear_stmt(ctx, f, proto_fqn)?);
+            }
+            FieldKind::Oneof {
+                name,
+                enum_ident,
+                fields,
+            } => {
+                let (cs, ws, mas) = generate_oneof_impls(
+                    ctx,
+                    enum_ident,
+                    name,
+                    fields,
+                    oneof_prefix,
+                    proto_fqn,
+                    current_package,
+                    nesting,
+                    features,
+                    preserve_unknown_fields,
+                )?;
+                compute_stmts.push(cs);
+                write_stmts.push(ws);
+                merge_arms.extend(mas);
+                let ident = ctx.oneof_ident(name);
+                clear_stmts.push(quote! { self.#ident = ::core::option::Option::None; });
+            }
+        }
+    }
+
+    // MessageSet wire format: each LengthDelimited unknown field (i.e. each
+    // extension payload) is wrapped in a group-at-field-1 Item on the wire,
+    // but stored flat as `{number: type_id, data: LD(payload)}`. The gate
+    // check (`CodeGenConfig::allow_message_set`) is in `message.rs`; by the
+    // time we're here, the flag is set or the option was absent.
+    let is_message_set = msg
+        .options
+        .as_option()
+        .and_then(|o| o.message_set_wire_format)
+        .unwrap_or(false);
+
+    // Generate unknown-fields snippets based on config.
+    let unknown_fields_size_stmt = if is_message_set {
+        // LD records become Items; stray non-LD records (which shouldn't
+        // normally exist on a MessageSet) re-emit as regular unknowns.
+        quote! {
+            for f in self.__buffa_unknown_fields.iter() {
+                if let ::buffa::UnknownFieldData::LengthDelimited(ref bytes) = f.data {
+                    size += ::buffa::message_set::item_encoded_len(f.number, bytes.len()) as u64;
+                } else {
+                    size += f.encoded_len() as u64;
+                }
+            }
+        }
+    } else if preserve_unknown_fields {
+        quote! { size += self.__buffa_unknown_fields.encoded_len() as u64; }
+    } else {
+        quote! {}
+    };
+    let unknown_fields_write_stmt = if is_message_set {
+        quote! {
+            for f in self.__buffa_unknown_fields.iter() {
+                if let ::buffa::UnknownFieldData::LengthDelimited(ref bytes) = f.data {
+                    ::buffa::encoding::encode_varint(::buffa::message_set::ITEM_START_TAG, buf);
+                    ::buffa::encoding::encode_varint(::buffa::message_set::TYPE_ID_TAG, buf);
+                    ::buffa::encoding::encode_varint(f.number as u64, buf);
+                    ::buffa::encoding::encode_varint(::buffa::message_set::MESSAGE_TAG, buf);
+                    ::buffa::encoding::encode_varint(bytes.len() as u64, buf);
+                    buf.put_slice(bytes);
+                    ::buffa::encoding::encode_varint(::buffa::message_set::ITEM_END_TAG, buf);
+                } else {
+                    f.write_to(buf);
+                }
+            }
+        }
+    } else if preserve_unknown_fields {
+        quote! { self.__buffa_unknown_fields.write_to(buf); }
+    } else {
+        quote! {}
+    };
+    let unknown_fields_merge_arm = if is_message_set {
+        // Field 1 StartGroup is an Item wrapper: unwrap into a flat LD record
+        // at the extension's field number. Everything else is preserved as a
+        // regular unknown. The Item group itself consumes one depth level.
+        quote! {
+            _ => {
+                if tag.field_number() == 1
+                    && tag.wire_type() == ::buffa::encoding::WireType::StartGroup
+                {
+                    let (type_id, bytes) =
+                        ::buffa::message_set::merge_item(buf, ctx.descend()?)?;
+                    self.__buffa_unknown_fields.push(::buffa::UnknownField {
+                        number: type_id,
+                        data: ::buffa::UnknownFieldData::LengthDelimited(bytes),
+                    });
+                } else {
+                    self.__buffa_unknown_fields.push(
+                        ::buffa::encoding::decode_unknown_field(tag, buf, ctx)?
+                    );
+                }
+            }
+        }
+    } else if preserve_unknown_fields {
+        quote! {
+            _ => {
+                self.__buffa_unknown_fields.push(
+                    ::buffa::encoding::decode_unknown_field(tag, buf, ctx)?
+                );
+            }
+        }
+    } else {
+        quote! {
+            _ => { ::buffa::encoding::skip_field_depth(tag, buf, ctx.depth())?; }
+        }
+    };
+
+    let unknown_fields_clear_stmt = if preserve_unknown_fields {
+        quote! { self.__buffa_unknown_fields.clear(); }
+    } else {
+        quote! {}
+    };
+
+    // Suppress lint warnings that fire on generated code for empty messages.
+    let has_body = !fields.is_empty() || preserve_unknown_fields;
+    let size_decl = if has_body {
+        quote! { let mut size = 0u64; }
+    } else {
+        quote! { let size = 0u64; }
+    };
+    let buf_param = if has_body {
+        quote! { buf: &mut impl ::buffa::EncodeSink }
+    } else {
+        quote! { _buf: &mut impl ::buffa::EncodeSink }
+    };
+
+    let extension_set_impl = if preserve_unknown_fields {
+        let proto_fqn_lit = proto_fqn;
+        quote! {
+            impl ::buffa::ExtensionSet for #name_ident {
+                const PROTO_FQN: &'static str = #proto_fqn_lit;
+                fn unknown_fields(&self) -> &::buffa::UnknownFields {
+                    &self.__buffa_unknown_fields
+                }
+                fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+                    &mut self.__buffa_unknown_fields
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let message_name_impl = message_name_impl(
+        current_package,
+        proto_fqn,
+        &quote! {},
+        &quote! { #name_ident },
+    );
+
+    // Reflection: `impl Reflectable` resolving against the package's embedded
+    // descriptor pool. Skipped for map entry synthetic messages — they're not
+    // registered in the pool by name and consumers never reflect over them.
+    //
+    // In vtable mode this also emits `impl ReflectMessage` / `impl
+    // ReflectElement` on the owned struct and makes `reflect()` borrow `self`
+    // directly (no encode/decode round-trip). In bridge mode `reflect()` boxes
+    // a `DynamicMessage` from a round-trip.
+    let is_map_entry = msg
+        .options
+        .as_option()
+        .is_some_and(|o| o.map_entry.unwrap_or(false));
+    let reflectable_impl = if ctx.config.generate_reflection && !is_map_entry {
+        let gate = ctx.config.feature_gates().reflect;
+        if ctx.config.generate_reflection_vtable {
+            let buffa_path = quote! { __buffa };
+            let owned = crate::reflect_owned::reflect_owned_impls(
+                &crate::reflect_owned::OwnedReflectScope {
+                    ctx,
+                    msg,
+                    name_ident: &name_ident,
+                    buffa_path: &buffa_path,
+                    current_package,
+                    proto_fqn,
+                    features,
+                    oneof_idents,
+                    oneof_prefix,
+                    nesting,
+                },
+            )?;
+            let reflect_body = crate::reflect::reflectable_impl_vtable(&quote! { #name_ident });
+            // Multiple sibling impls (ReflectMessage, ReflectElement, the memo
+            // inherent impl, Reflectable) — gate them together with one cfg.
+            crate::feature_gates::cfg_const_block(quote! { #owned #reflect_body }, gate)
+        } else {
+            // ReflectElement alongside Reflectable so a vtable-mode message
+            // in another compilation can hold repeated/map fields of this
+            // bridge-mode type (mixed-mode degradation at the boundary).
+            let bridge =
+                crate::reflect::reflectable_impl(&quote! { #name_ident }, &quote! { __buffa });
+            let element = crate::reflect::reflect_element_impl_bridge(&quote! { #name_ident });
+            crate::feature_gates::cfg_block(quote! { #bridge #element }, gate)
+        }
+    } else {
+        quote! {}
+    };
+
+    Ok(quote! {
+        ::buffa::impl_default_instance!(#name_ident);
+
+        #reflectable_impl
+
+        #message_name_impl
+
+        impl ::buffa::Message for #name_ident {
+            /// Returns the total encoded size in bytes.
+            ///
+            /// Accumulates in `u64` (which cannot overflow for in-memory
+            /// data) and saturates to `u32` at return, so a message whose
+            /// encoded size exceeds the 2 GiB protobuf limit yields a value
+            /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+            /// points reject, never a silently wrapped size.
+            #[allow(clippy::let_and_return)]
+            fn compute_size(&self, #cache_ident: &mut ::buffa::SizeCache) -> u32 {
+                #[allow(unused_imports)]
+                use ::buffa::Enumeration as _;
+                #size_decl
+                #(#compute_stmts)*
+                #unknown_fields_size_stmt
+                ::buffa::saturate_size(size)
+            }
+
+            fn write_to(
+                &self,
+                #cache_ident: &mut ::buffa::SizeCache,
+                #buf_param,
+            ) {
+                #[allow(unused_imports)]
+                use ::buffa::Enumeration as _;
+                #(#write_stmts)*
+                #unknown_fields_write_stmt
+            }
+
+            fn merge_field(
+                &mut self,
+                tag: ::buffa::encoding::Tag,
+                buf: &mut impl ::buffa::bytes::Buf,
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+                #[allow(unused_imports)]
+                use ::buffa::bytes::Buf as _;
+                #[allow(unused_imports)]
+                use ::buffa::Enumeration as _;
+                match tag.field_number() {
+                    #(#merge_arms)*
+                    #unknown_fields_merge_arm
+                }
+                ::core::result::Result::Ok(())
+            }
+
+            fn clear(&mut self) {
+                #(#clear_stmts)*
+                #unknown_fields_clear_stmt
+            }
+        }
+
+        #extension_set_impl
+    })
+}
+
+/// Build the `compute_size` / `write_to` method tokens for a
+/// **view** type. Reuses the same per-field stmt builders as
+/// [`generate_message_impl`] — they emit `&self.field`-relative code that is
+/// duck-type-compatible with view field types (`&'a str`, `RepeatedView`,
+/// `MapView`, `MessageFieldView`).
+/// Compute-size / write-to pair for a lazy message field: each recorded
+/// fragment is re-emitted as one LengthDelimited occurrence, byte-for-byte
+/// and **without validation**. `accessor` is `fragments` (singular) or
+/// `raw_elements` (repeated).
+fn lazy_fragment_encode_stmts(
+    ctx: &CodeGenContext,
+    field: &FieldDescriptorProto,
+    accessor: TokenStream,
+) -> Result<(TokenStream, TokenStream), CodeGenError> {
+    let field_name = field
+        .name
+        .as_deref()
+        .ok_or(CodeGenError::MissingField("field.name"))?;
+    let field_number = validated_field_number(field)?;
+    let ident = ctx.field_ident(field_name, field.number.unwrap_or(0));
+    let ld_tag_len = tag_encoded_len(field_number, 2);
+    let compute = quote! {
+        for __frag in self.#ident.#accessor() {
+            size += #ld_tag_len
+                + ::buffa::encoding::varint_len(__frag.len() as u64) as u64
+                + __frag.len() as u64;
+        }
+    };
+    let write = quote! {
+        for __frag in self.#ident.#accessor() {
+            ::buffa::encoding::Tag::new(
+                #field_number,
+                ::buffa::encoding::WireType::LengthDelimited,
+            ).encode(buf);
+            ::buffa::encoding::encode_varint(__frag.len() as u64, buf);
+            buf.put_slice(__frag);
+        }
+    };
+    Ok((compute, write))
+}
+
+/// `is_lazy`: when building for the lazy view family, the per-field
+/// deferral predicate — matching fields re-emit recorded fragments verbatim
+/// (wire-equivalent to the merged value); all other field kinds share the
+/// eager stmt builders. `None` builds the eager impl.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn build_view_encode_methods(
+    ctx: &CodeGenContext,
+    msg: &DescriptorProto,
+    preserve_unknown_fields: bool,
+    features: &ResolvedFeatures,
+    oneof_idents: &std::collections::HashMap<usize, proc_macro2::Ident>,
+    view_oneof_prefix: &TokenStream,
+    is_lazy: Option<&dyn Fn(&FieldDescriptorProto) -> bool>,
+    vis: &TokenStream,
+) -> Result<TokenStream, CodeGenError> {
+    let fields = classify_fields_ordered(msg, oneof_idents)?;
+    let cache_ident = if message_uses_size_cache(ctx, msg, &fields, features, is_lazy) {
+        format_ident!("__cache")
+    } else {
+        format_ident!("_cache")
+    };
+
+    let lazy_message = |f: &FieldDescriptorProto| is_lazy.is_some_and(|p| p(f));
+
+    let mut compute_stmts: Vec<TokenStream> = Vec::with_capacity(fields.len());
+    let mut write_stmts: Vec<TokenStream> = Vec::with_capacity(fields.len());
+    for kind in &fields {
+        match kind {
+            FieldKind::Scalar(f) if lazy_message(f) => {
+                let (compute, write) = lazy_fragment_encode_stmts(ctx, f, quote! { fragments })?;
+                compute_stmts.push(compute);
+                write_stmts.push(write);
+            }
+            FieldKind::Repeated(f) if lazy_message(f) => {
+                let (compute, write) = lazy_fragment_encode_stmts(ctx, f, quote! { raw_elements })?;
+                compute_stmts.push(compute);
+                write_stmts.push(write);
+            }
+            FieldKind::Scalar(f) => {
+                compute_stmts.push(scalar_compute_size_stmt(ctx, f, features)?);
+                write_stmts.push(scalar_write_to_stmt(ctx, f, features)?);
+            }
+            FieldKind::Repeated(f) => {
+                // The view's repeated fields are always borrowed `RepeatedView`s,
+                // independent of the owned collection's `RepeatedRepr`, so the
+                // default `&self.field` iteration form always applies here.
+                compute_stmts.push(repeated_compute_size_stmt(
+                    ctx,
+                    f,
+                    features,
+                    &crate::RepeatedRepr::Vec,
+                )?);
+                write_stmts.push(repeated_write_to_stmt(
+                    ctx,
+                    f,
+                    features,
+                    &crate::RepeatedRepr::Vec,
+                )?);
+            }
+            // map_{compute_size,write_to}_stmt emit `for (k, v) in &self.field
+            // { ... }`. For owned `&HashMap<K,V>` that yields `(&K, &V)`
+            // directly. For `&MapView<'_,K,V>` it yields `&(K,V)`, but
+            // match-ergonomics binds the pattern `(k, v)` to `(&K, &V)` either
+            // way — so the same generated body works on both.
+            FieldKind::Map(f) => {
+                compute_stmts.push(map_view_compute_size_stmt(ctx, msg, f, features)?);
+                write_stmts.push(map_view_write_to_stmt(ctx, msg, f, features)?);
+            }
+            // The view-side oneof enum (in the parallel `__buffa::view::oneof::`
+            // tree) has the same variant *names* as the owned enum but borrowed
+            // payload types. The arm builders only emit the enum path + variant
+            // name and call duck-typed primitives, so they work unchanged once
+            // pointed at the view enum via `view_oneof_prefix`.
+            FieldKind::Oneof {
+                name,
+                enum_ident,
+                fields,
+            } => {
+                let field_ident = ctx.oneof_ident(name);
+                let qualified: TokenStream = quote! { #view_oneof_prefix #enum_ident };
+                let mut size_arms: Vec<TokenStream> = Vec::new();
+                let mut write_arms: Vec<TokenStream> = Vec::new();
+                for field in fields {
+                    let field_number = validated_field_number(field)?;
+                    let ty = effective_type(ctx, field, features);
+                    let variant = crate::oneof::oneof_variant_ident(
+                        field
+                            .name
+                            .as_deref()
+                            .ok_or(CodeGenError::MissingField("field.name"))?,
+                    );
+                    let tag_len = tag_encoded_len(field_number, wire_type_byte(ty));
+                    size_arms.push(oneof_size_arm(&qualified, &variant, tag_len, ty));
+                    write_arms.push(oneof_write_arm(&qualified, &variant, field_number, ty));
+                }
+                compute_stmts.push(quote! {
+                    if let ::core::option::Option::Some(ref v) = self.#field_ident {
+                        match v { #(#size_arms)* }
+                    }
+                });
+                write_stmts.push(quote! {
+                    if let ::core::option::Option::Some(ref v) = self.#field_ident {
+                        match v { #(#write_arms)* }
+                    }
+                });
+            }
+        }
+    }
+
+    let unknown_fields_size_stmt = if preserve_unknown_fields {
+        quote! { size += self.__buffa_unknown_fields.encoded_len() as u64; }
+    } else {
+        quote! {}
+    };
+    // MessageSet (option message_set_wire_format = true) needs no special
+    // handling here: `UnknownFieldsView` stores raw verbatim wire spans, so the
+    // Item-group framing is already in the bytes and `write_to` is a passthrough.
+    // The owned path (see `generate_message_impl`) re-wraps because owned
+    // `UnknownFields` stores parsed `(number, data)` pairs.
+    let unknown_fields_write_stmt = if preserve_unknown_fields {
+        quote! { self.__buffa_unknown_fields.write_to(buf); }
+    } else {
+        quote! {}
+    };
+
+    // Lazy bodies call ViewEncode methods on *eager* sub-views (groups, map
+    // values, oneof variants); the eager bodies live inside the ViewEncode
+    // impl itself where the trait is implicitly in scope.
+    let lazy_use = if is_lazy.is_some() {
+        quote! {
+            #[allow(unused_imports)]
+            use ::buffa::ViewEncode as _;
+        }
+    } else {
+        quote! {}
+    };
+    let has_body = !fields.is_empty() || preserve_unknown_fields;
+    let size_decl = if has_body {
+        quote! { let mut size = 0u64; }
+    } else {
+        quote! { let size = 0u64; }
+    };
+    let buf_param = if has_body {
+        quote! { buf: &mut impl ::buffa::EncodeSink }
+    } else {
+        quote! { _buf: &mut impl ::buffa::EncodeSink }
+    };
+
+    // On the lazy family these are inherent `pub fn`s, so they need doc
+    // comments (a consumer crate denying `missing_docs` would otherwise fail
+    // to build generated code). The eager family emits them as `ViewEncode`
+    // trait methods, where docs come from the trait — keep those token
+    // streams unchanged.
+    let compute_size_doc = if is_lazy.is_some() {
+        quote! {
+            /// Compute the encoded byte size, filling `cache` with
+            /// per-message sizes consumed by a following `write_to` call.
+            /// Called for that side effect by `encode`; prefer `encoded_len`
+            /// when only the size is needed.
+        }
+    } else {
+        quote! {}
+    };
+    let write_to_doc = if is_lazy.is_some() {
+        quote! {
+            /// Write the encoded bytes to `buf`, reading per-message sizes
+            /// from the `cache` filled by a preceding `compute_size` call.
+            /// Prefer `encode` unless threading a shared cache.
+        }
+    } else {
+        quote! {}
+    };
+
+    Ok(quote! {
+        // needless_borrow: stmt builders emit `&self.field` so they work on
+        // owned `String`/`Vec<u8>`; on view fields (`&'a str`/`&'a [u8]`)
+        // the borrow is redundant but harmless.
+        #compute_size_doc
+        #[allow(clippy::needless_borrow, clippy::let_and_return)]
+        #vis fn compute_size(&self, #cache_ident: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports)]
+            use ::buffa::Enumeration as _;
+            #lazy_use
+            #size_decl
+            #(#compute_stmts)*
+            #unknown_fields_size_stmt
+            ::buffa::saturate_size(size)
+        }
+
+        #write_to_doc
+        #[allow(clippy::needless_borrow)]
+        #vis fn write_to(&self, #cache_ident: &mut ::buffa::SizeCache, #buf_param) {
+            #[allow(unused_imports)]
+            use ::buffa::Enumeration as _;
+            #lazy_use
+            #(#write_stmts)*
+            #unknown_fields_write_stmt
+        }
+    })
+}
+
+/// `self.<field>.clear();` for repeated and map fields — both `Vec<T>` and
+/// `HashMap<K,V>` retain their backing allocation on `.clear()`.
+fn vec_field_clear_stmt(
+    ctx: &CodeGenContext,
+    field: &FieldDescriptorProto,
+    repr: &crate::RepeatedRepr,
+) -> Result<TokenStream, CodeGenError> {
+    let ident = ctx.field_ident(
+        field
+            .name
+            .as_deref()
+            .ok_or(CodeGenError::MissingField("field.name"))?,
+        field.number.unwrap_or(0),
+    );
+    if repr.is_default() {
+        Ok(quote! { self.#ident.clear(); })
+    } else {
+        // A custom collection's `clear` lives behind the `ProtoList` trait;
+        // call it fully-qualified so no `use` is needed at this site.
+        Ok(quote! { ::buffa::ProtoList::clear(&mut self.#ident); })
+    }
+}
+
+/// Clear statement for a `map` field. The default `HashMap` keeps the bare
+/// inherent `.clear()` (byte-identical output); a `BTreeMap` or custom container
+/// clears through the `MapStorage` trait, since a custom newtype has no inherent
+/// `clear`.
+fn map_field_clear_stmt(
+    ctx: &CodeGenContext,
+    field: &FieldDescriptorProto,
+    proto_fqn: &str,
+) -> Result<TokenStream, CodeGenError> {
+    let field_name = field
+        .name
+        .as_deref()
+        .ok_or(CodeGenError::MissingField("field.name"))?;
+    let ident = ctx.field_ident(field_name, field.number.unwrap_or(0));
+    if field_map_repr(ctx, proto_fqn, field_name).is_default() {
+        Ok(quote! { self.#ident.clear(); })
+    } else {
+        Ok(quote! { ::buffa::map_codec::MapStorage::storage_clear(&mut self.#ident); })
+    }
+}
+
+/// Generate a clear statement for a scalar (non-repeated, non-oneof) field.
+///
+/// Returns a `TokenStream` that clears the field to its default value while
+/// retaining heap allocations where possible (String, Vec, MessageField).
+/// Resolve the [`BytesRepr`](crate::BytesRepr) for a `bytes`-typed field.
+///
+/// `proto_fqn` is the fully-qualified message name (no leading dot). Matched
+/// against `config.bytes_fields` as `".my.pkg.Msg.field"`. Returns
+/// [`BytesRepr::Vec`](crate::BytesRepr::Vec) for fields with no rule.
+pub(crate) fn field_bytes_repr(
+    ctx: &CodeGenContext,
+    proto_fqn: &str,
+    field_name: &str,
+) -> crate::BytesRepr {
+    let field_fqn = format!(".{}.{}", proto_fqn, field_name);
+    ctx.bytes_repr(&field_fqn)
+}
+
+/// The "replace" decode expression for a `bytes` field of the given
+/// representation: reads a length-delimited value and produces a fresh owned
+/// value (no in-place buffer reuse). `Vec<u8>` allocates, `bytes::Bytes`
+/// decodes zero-copy, and a custom type is constructed via `From<Vec<u8>>`.
+fn bytes_decode_expr(repr: &crate::BytesRepr) -> TokenStream {
+    match repr {
+        crate::BytesRepr::Vec => quote! { ::buffa::types::decode_bytes(buf)? },
+        crate::BytesRepr::Bytes => quote! { ::buffa::types::decode_bytes_to_bytes(buf)? },
+        crate::BytesRepr::Custom(_) => quote! { ::buffa::types::decode_bytes_to(buf)? },
+    }
+}
+
+/// Resolve the [`BytesRepr`](crate::BytesRepr) for a `map<K, bytes>` value.
+///
+/// Single source of truth for the `bytes_type` → map-value rule, shared by
+/// `classify_field` (owned struct type, serde, and `arbitrary`), the binary and
+/// text map decoders, `view::map_to_owned_expr`, and the custom-element
+/// collector. Centralizing it keeps every site in agreement — a split decision
+/// would emit one representation on one side and another elsewhere, surfacing
+/// only as a compile error in the consuming crate.
+///
+/// `key_ty` / `val_ty` are the **effective** map-entry types (see
+/// [`effective_type_in_map_entry`]); `None` means the entry lacks that field, so
+/// a non-map caller naturally yields [`BytesRepr::Vec`](crate::BytesRepr::Vec).
+/// The value takes the matching rule only when the value is proto `bytes` and the
+/// key is *not* effective-`bytes` (the `map<bytes, bytes>` carve-out keeps
+/// `Vec<u8>` values, matching the concrete `bytes_key_bytes_val_map` JSON
+/// helper); otherwise it is `Vec`. The rule is keyed on the outer map field's
+/// path, like the singular path.
+pub(crate) fn map_value_bytes_repr(
+    ctx: &CodeGenContext,
+    key_ty: Option<Type>,
+    val_ty: Option<Type>,
+    proto_fqn: &str,
+    field_name: &str,
+) -> crate::BytesRepr {
+    if val_ty == Some(Type::TYPE_BYTES) && key_ty != Some(Type::TYPE_BYTES) {
+        field_bytes_repr(ctx, proto_fqn, field_name)
+    } else {
+        crate::BytesRepr::Vec
+    }
+}
+
+/// Resolve the [`StringRepr`](crate::StringRepr) for a `string`-typed field.
+///
+/// `proto_fqn` is the fully-qualified message name (no leading dot). Matched
+/// against `config.string_fields` as `".my.pkg.Msg.field"`. Returns
+/// [`StringRepr::String`](crate::StringRepr::String) for fields with no rule.
+pub(crate) fn field_string_repr(
+    ctx: &CodeGenContext,
+    proto_fqn: &str,
+    field_name: &str,
+) -> crate::StringRepr {
+    let field_fqn = format!(".{}.{}", proto_fqn, field_name);
+    ctx.string_repr(&field_fqn)
+}
+
+/// Resolve the [`StringRepr`](crate::StringRepr) for one slot (key or value) of
+/// a `map` field, given that slot's effective proto `Type`.
+///
+/// `string` is the only allocating type valid in *either* map slot (`bytes`
+/// keys are forbidden, so the bytes carve-out in [`map_value_bytes_repr`] is
+/// value-only — strings need no such asymmetry). A non-`string` slot returns
+/// [`StringRepr::String`](crate::StringRepr::String), so the custom type is a
+/// no-op there. The rule is keyed on the outer map field's path, like the
+/// singular path, so one `string_type` rule covers both slots of a
+/// `map<string, string>`.
+pub(crate) fn map_string_repr(
+    ctx: &CodeGenContext,
+    slot_ty: Type,
+    proto_fqn: &str,
+    field_name: &str,
+) -> crate::StringRepr {
+    if slot_ty == Type::TYPE_STRING {
+        field_string_repr(ctx, proto_fqn, field_name)
+    } else {
+        crate::StringRepr::String
+    }
+}
+
+/// Resolve the [`MapRepr`](crate::MapRepr) for a `map` field.
+///
+/// `proto_fqn` is the fully-qualified message name (no leading dot). Matched
+/// against `config.map_fields` as `".my.pkg.Msg.field"`. Returns
+/// [`MapRepr::HashMap`](crate::MapRepr::HashMap) for fields with no rule.
+pub(crate) fn field_map_repr(
+    ctx: &CodeGenContext,
+    proto_fqn: &str,
+    field_name: &str,
+) -> crate::MapRepr {
+    let field_fqn = format!(".{}.{}", proto_fqn, field_name);
+    ctx.map_repr(&field_fqn)
+}
+
+/// Resolve the [`PointerRepr`](crate::PointerRepr) for a singular message field.
+/// Returns [`PointerRepr::Box`](crate::PointerRepr::Box) for fields with no rule.
+pub(crate) fn field_pointer_repr(
+    ctx: &CodeGenContext,
+    proto_fqn: &str,
+    field_name: &str,
+) -> crate::PointerRepr {
+    let field_fqn = format!(".{}.{}", proto_fqn, field_name);
+    ctx.pointer_repr(&field_fqn)
+}
+
+/// Resolve the [`RepeatedRepr`](crate::RepeatedRepr) for a `repeated` field.
+///
+/// `proto_fqn` is the fully-qualified message name (no leading dot). Matched
+/// against `config.repeated_fields` as `".my.pkg.Msg.field"`. Returns
+/// [`RepeatedRepr::Vec`](crate::RepeatedRepr::Vec) for fields with no rule.
+/// Callers must only consult this for non-map repeated fields (map collections
+/// are not configured by `repeated_fields`).
+pub(crate) fn field_repeated_repr(
+    ctx: &CodeGenContext,
+    proto_fqn: &str,
+    field_name: &str,
+) -> crate::RepeatedRepr {
+    let field_fqn = format!(".{}.{}", proto_fqn, field_name);
+    ctx.repeated_repr(&field_fqn)
+}
+
+fn scalar_clear_stmt(
+    field: &FieldDescriptorProto,
+    ctx: &CodeGenContext,
+    current_package: &str,
+    proto_fqn: &str,
+    parent_features: &ResolvedFeatures,
+    nesting: usize,
+) -> Result<TokenStream, CodeGenError> {
+    let features = &crate::features::resolve_field(ctx, field, parent_features);
+    let field_name = field
+        .name
+        .as_deref()
+        .ok_or(CodeGenError::MissingField("field.name"))?;
+    let ty = effective_type(ctx, field, features);
+    let ident = ctx.field_ident(field_name, field.number.unwrap_or(0));
+    let bytes_repr = field_bytes_repr(ctx, proto_fqn, field_name);
+
+    // Explicit-presence fields (Option<T>): set to None.
+    if is_explicit_presence_scalar(field, ty, features) {
+        return Ok(quote! { self.#ident = ::core::option::Option::None; });
+    }
+
+    // If the field has a custom default value (proto2), use it instead of
+    // the type's zero value so that clear() matches Default::default().
+    if let Some(default_expr) = crate::defaults::parse_default_value(
+        field,
+        ctx,
+        current_package,
+        features,
+        nesting,
+        field_string_repr(ctx, proto_fqn, field_name),
+    )? {
+        return Ok(quote! { self.#ident = #default_expr; });
+    }
+
+    // A closed enum opened by an enum-type override keeps its declared (first-value)
+    // default, which differs from `EnumValue::default()` when non-zero.
+    if let Some(default_expr) = crate::defaults::open_enum_bare_default_value(
+        field,
+        ctx,
+        current_package,
+        features,
+        nesting,
+    )? {
+        return Ok(quote! { self.#ident = #default_expr; });
+    }
+
+    match ty {
+        Type::TYPE_STRING => {
+            // Non-default string types may be immutable (no `clear()`), so
+            // reset to the default value uniformly.
+            if field_string_repr(ctx, proto_fqn, field_name).is_default() {
+                Ok(quote! { self.#ident.clear(); })
+            } else {
+                Ok(quote! { self.#ident = ::core::default::Default::default(); })
+            }
+        }
+        Type::TYPE_BYTES => {
+            // Vec<u8> reuses its allocation via clear(); Bytes and custom types
+            // may be immutable, so reset to the default value instead.
+            if bytes_repr.is_default() {
+                Ok(quote! { self.#ident.clear(); })
+            } else {
+                Ok(quote! { self.#ident = ::core::default::Default::default(); })
+            }
+        }
+        Type::TYPE_MESSAGE | Type::TYPE_GROUP => {
+            Ok(quote! { self.#ident = ::buffa::MessageField::none(); })
+        }
+        Type::TYPE_ENUM => {
+            if is_closed_enum(features) {
+                Ok(quote! { self.#ident = ::core::default::Default::default(); })
+            } else {
+                Ok(quote! { self.#ident = ::buffa::EnumValue::from(0); })
+            }
+        }
+        Type::TYPE_INT32 | Type::TYPE_SINT32 | Type::TYPE_SFIXED32 => {
+            Ok(quote! { self.#ident = 0i32; })
+        }
+        Type::TYPE_INT64 | Type::TYPE_SINT64 | Type::TYPE_SFIXED64 => {
+            Ok(quote! { self.#ident = 0i64; })
+        }
+        Type::TYPE_UINT32 | Type::TYPE_FIXED32 => Ok(quote! { self.#ident = 0u32; }),
+        Type::TYPE_UINT64 | Type::TYPE_FIXED64 => Ok(quote! { self.#ident = 0u64; }),
+        Type::TYPE_FLOAT => Ok(quote! { self.#ident = 0f32; }),
+        Type::TYPE_DOUBLE => Ok(quote! { self.#ident = 0f64; }),
+        Type::TYPE_BOOL => Ok(quote! { self.#ident = false; }),
+    }
+}
+
+/// Generate an encoded-size expression for a value of the given numeric type.
+///
+/// `val` is the token stream for the value expression — typically either
+/// `quote! { v }` (for a local binding) or `quote! { self.#field_ident }`
+/// (for a struct field access). Only called for numeric scalar types;
+/// string/bytes/enum are handled inline in the callers.
+fn type_encoded_size_expr(ty: Type, val: &TokenStream) -> TokenStream {
+    match ty {
+        Type::TYPE_INT32 => quote! { ::buffa::types::int32_encoded_len(#val) as u64 },
+        Type::TYPE_INT64 => quote! { ::buffa::types::int64_encoded_len(#val) as u64 },
+        Type::TYPE_UINT32 => quote! { ::buffa::types::uint32_encoded_len(#val) as u64 },
+        Type::TYPE_UINT64 => quote! { ::buffa::types::uint64_encoded_len(#val) as u64 },
+        Type::TYPE_SINT32 => quote! { ::buffa::types::sint32_encoded_len(#val) as u64 },
+        Type::TYPE_SINT64 => quote! { ::buffa::types::sint64_encoded_len(#val) as u64 },
+        Type::TYPE_FIXED32 | Type::TYPE_SFIXED32 | Type::TYPE_FLOAT => {
+            quote! { ::buffa::types::FIXED32_ENCODED_LEN as u64 }
+        }
+        Type::TYPE_FIXED64 | Type::TYPE_SFIXED64 | Type::TYPE_DOUBLE => {
+            quote! { ::buffa::types::FIXED64_ENCODED_LEN as u64 }
+        }
+        Type::TYPE_BOOL => quote! { ::buffa::types::BOOL_ENCODED_LEN as u64 },
+        Type::TYPE_STRING
+        | Type::TYPE_BYTES
+        | Type::TYPE_ENUM
+        | Type::TYPE_MESSAGE
+        | Type::TYPE_GROUP => unreachable!(
+            "type_encoded_size_expr called for non-numeric type {:?}",
+            ty
+        ),
+    }
+}
+
+/// Returns `true` if the field is a real (non-synthetic) oneof member.
+///
+/// Distinguishes actual oneof fields from proto3 optional fields, which also
+/// carry an `oneof_index` pointing at a synthetic single-field oneof.
+pub(crate) fn is_real_oneof_member(field: &FieldDescriptorProto) -> bool {
+    field.oneof_index.is_some() && !field.proto3_optional.unwrap_or(false)
+}
+
+/// Returns `true` for every field type that the code generator supports
+/// (all types except the deprecated `group` encoding).
+pub(crate) fn is_supported_field_type(ty: Type) -> bool {
+    matches!(
+        ty,
+        Type::TYPE_INT32
+            | Type::TYPE_INT64
+            | Type::TYPE_UINT32
+            | Type::TYPE_UINT64
+            | Type::TYPE_SINT32
+            | Type::TYPE_SINT64
+            | Type::TYPE_FIXED32
+            | Type::TYPE_FIXED64
+            | Type::TYPE_SFIXED32
+            | Type::TYPE_SFIXED64
+            | Type::TYPE_FLOAT
+            | Type::TYPE_DOUBLE
+            | Type::TYPE_BOOL
+            | Type::TYPE_STRING
+            | Type::TYPE_BYTES
+            | Type::TYPE_ENUM
+            | Type::TYPE_MESSAGE
+            | Type::TYPE_GROUP
+    )
+}
+
+/// Returns the 3-bit wire type byte for the given proto field type.
+///
+/// Only called for types that pass [`is_supported_field_type`]; the catch-all
+/// is therefore unreachable in practice.
+pub(crate) fn wire_type_byte(ty: Type) -> u8 {
+    match ty {
+        Type::TYPE_INT32
+        | Type::TYPE_INT64
+        | Type::TYPE_UINT32
+        | Type::TYPE_UINT64
+        | Type::TYPE_SINT32
+        | Type::TYPE_SINT64
+        | Type::TYPE_BOOL
+        | Type::TYPE_ENUM => 0,
+        Type::TYPE_FIXED64 | Type::TYPE_SFIXED64 | Type::TYPE_DOUBLE => 1,
+        Type::TYPE_STRING | Type::TYPE_BYTES | Type::TYPE_MESSAGE => 2,
+        Type::TYPE_GROUP => 3,
+        Type::TYPE_FIXED32 | Type::TYPE_SFIXED32 | Type::TYPE_FLOAT => 5,
+    }
+}
+
+pub(crate) fn wire_type_token(ty: Type) -> TokenStream {
+    match ty {
+        Type::TYPE_INT32
+        | Type::TYPE_INT64
+        | Type::TYPE_UINT32
+        | Type::TYPE_UINT64
+        | Type::TYPE_SINT32
+        | Type::TYPE_SINT64
+        | Type::TYPE_BOOL
+        | Type::TYPE_ENUM => quote! { ::buffa::encoding::WireType::Varint },
+        Type::TYPE_FIXED64 | Type::TYPE_SFIXED64 | Type::TYPE_DOUBLE => {
+            quote! { ::buffa::encoding::WireType::Fixed64 }
+        }
+        Type::TYPE_STRING | Type::TYPE_BYTES | Type::TYPE_MESSAGE => {
+            quote! { ::buffa::encoding::WireType::LengthDelimited }
+        }
+        Type::TYPE_GROUP => {
+            quote! { ::buffa::encoding::WireType::StartGroup }
+        }
+        Type::TYPE_FIXED32 | Type::TYPE_SFIXED32 | Type::TYPE_FLOAT => {
+            quote! { ::buffa::encoding::WireType::Fixed32 }
+        }
+    }
+}
+
+fn encode_fn_token(ty: Type) -> TokenStream {
+    match ty {
+        Type::TYPE_INT32 => quote! { ::buffa::types::encode_int32 },
+        Type::TYPE_INT64 => quote! { ::buffa::types::encode_int64 },
+        Type::TYPE_UINT32 => quote! { ::buffa::types::encode_uint32 },
+        Type::TYPE_UINT64 => quote! { ::buffa::types::encode_uint64 },
+        Type::TYPE_SINT32 => quote! { ::buffa::types::encode_sint32 },
+        Type::TYPE_SINT64 => quote! { ::buffa::types::encode_sint64 },
+        Type::TYPE_FIXED32 => quote! { ::buffa::types::encode_fixed32 },
+        Type::TYPE_FIXED64 => quote! { ::buffa::types::encode_fixed64 },
+        Type::TYPE_SFIXED32 => quote! { ::buffa::types::encode_sfixed32 },
+        Type::TYPE_SFIXED64 => quote! { ::buffa::types::encode_sfixed64 },
+        Type::TYPE_FLOAT => quote! { ::buffa::types::encode_float },
+        Type::TYPE_DOUBLE => quote! { ::buffa::types::encode_double },
+        Type::TYPE_BOOL => quote! { ::buffa::types::encode_bool },
+        Type::TYPE_STRING
+        | Type::TYPE_BYTES
+        | Type::TYPE_ENUM
+        | Type::TYPE_MESSAGE
+        | Type::TYPE_GROUP => unreachable!("encode_fn_token called for non-numeric type {:?}", ty),
+    }
+}
+
+/// Fused tag+payload writer for a numeric scalar field
+/// (`::buffa::types::put_<type>_field`). String/bytes/enum/message types
+/// have bespoke call shapes at the emission sites.
+fn put_field_fn_token(ty: Type) -> TokenStream {
+    match ty {
+        Type::TYPE_INT32 => quote! { ::buffa::types::put_int32_field },
+        Type::TYPE_INT64 => quote! { ::buffa::types::put_int64_field },
+        Type::TYPE_UINT32 => quote! { ::buffa::types::put_uint32_field },
+        Type::TYPE_UINT64 => quote! { ::buffa::types::put_uint64_field },
+        Type::TYPE_SINT32 => quote! { ::buffa::types::put_sint32_field },
+        Type::TYPE_SINT64 => quote! { ::buffa::types::put_sint64_field },
+        Type::TYPE_FIXED32 => quote! { ::buffa::types::put_fixed32_field },
+        Type::TYPE_FIXED64 => quote! { ::buffa::types::put_fixed64_field },
+        Type::TYPE_SFIXED32 => quote! { ::buffa::types::put_sfixed32_field },
+        Type::TYPE_SFIXED64 => quote! { ::buffa::types::put_sfixed64_field },
+        Type::TYPE_FLOAT => quote! { ::buffa::types::put_float_field },
+        Type::TYPE_DOUBLE => quote! { ::buffa::types::put_double_field },
+        Type::TYPE_BOOL => quote! { ::buffa::types::put_bool_field },
+        Type::TYPE_STRING
+        | Type::TYPE_BYTES
+        | Type::TYPE_ENUM
+        | Type::TYPE_MESSAGE
+        | Type::TYPE_GROUP => {
+            unreachable!("put_field_fn_token called for non-numeric type {:?}", ty)
+        }
+    }
+}
+
+pub(crate) fn decode_fn_token(ty: Type) -> TokenStream {
+    match ty {
+        Type::TYPE_INT32 => quote! { ::buffa::types::decode_int32 },
+        Type::TYPE_INT64 => quote! { ::buffa::types::decode_int64 },
+        Type::TYPE_UINT32 => quote! { ::buffa::types::decode_uint32 },
+        Type::TYPE_UINT64 => quote! { ::buffa::types::decode_uint64 },
+        Type::TYPE_SINT32 => quote! { ::buffa::types::decode_sint32 },
+        Type::TYPE_SINT64 => quote! { ::buffa::types::decode_sint64 },
+        Type::TYPE_FIXED32 => quote! { ::buffa::types::decode_fixed32 },
+        Type::TYPE_FIXED64 => quote! { ::buffa::types::decode_fixed64 },
+        Type::TYPE_SFIXED32 => quote! { ::buffa::types::decode_sfixed32 },
+        Type::TYPE_SFIXED64 => quote! { ::buffa::types::decode_sfixed64 },
+        Type::TYPE_FLOAT => quote! { ::buffa::types::decode_float },
+        Type::TYPE_DOUBLE => quote! { ::buffa::types::decode_double },
+        Type::TYPE_BOOL => quote! { ::buffa::types::decode_bool },
+        Type::TYPE_STRING
+        | Type::TYPE_BYTES
+        | Type::TYPE_ENUM
+        | Type::TYPE_MESSAGE
+        | Type::TYPE_GROUP => unreachable!("decode_fn_token called for non-numeric type {:?}", ty),
+    }
+}
+
+/// [`decode_fn_token`] for packed-repeated element loops: varint-family
+/// types route to the `_packed` force-inlined decoders, removing the
+/// per-element call boundary (a large measured win; the figure is anchored
+/// on `buffa::encoding::decode_varint_packed`'s doc); fixed-width types
+/// fall through to the plain decoders, which have no out-of-line fast path
+/// to begin with. Callers route enums themselves — see the `TYPE_ENUM` arm.
+pub(crate) fn packed_decode_fn_token(ty: Type) -> TokenStream {
+    match ty {
+        Type::TYPE_INT32 => quote! { ::buffa::types::decode_int32_packed },
+        Type::TYPE_INT64 => quote! { ::buffa::types::decode_int64_packed },
+        Type::TYPE_UINT32 => quote! { ::buffa::types::decode_uint32_packed },
+        Type::TYPE_UINT64 => quote! { ::buffa::types::decode_uint64_packed },
+        Type::TYPE_SINT32 => quote! { ::buffa::types::decode_sint32_packed },
+        Type::TYPE_SINT64 => quote! { ::buffa::types::decode_sint64_packed },
+        Type::TYPE_BOOL => quote! { ::buffa::types::decode_bool_packed },
+        // Enums are varint-family and packed-capable, but both emission
+        // sites hand-route them before calling this function: open enums go
+        // straight to `decode_int32_packed`, and closed-enum packed arms
+        // deliberately stay on the plain `decode_int32` (their decode path
+        // runs through `closed_enum_decode*`, which interleaves
+        // unknown-value routing — not a tight per-element loop).
+        Type::TYPE_ENUM => unreachable!(
+            "packed_decode_fn_token called for TYPE_ENUM; enum packed arms \
+             are routed by the caller"
+        ),
+        // Fixed-width and floating types have no out-of-line varint fast
+        // path, so there is nothing to force-inline; the plain decoders are
+        // already optimal in packed loops.
+        Type::TYPE_FIXED32
+        | Type::TYPE_FIXED64
+        | Type::TYPE_SFIXED32
+        | Type::TYPE_SFIXED64
+        | Type::TYPE_FLOAT
+        | Type::TYPE_DOUBLE => decode_fn_token(ty),
+        Type::TYPE_STRING | Type::TYPE_BYTES | Type::TYPE_MESSAGE | Type::TYPE_GROUP => {
+            unreachable!("packed_decode_fn_token called for non-packable type {ty:?}")
+        }
+    }
+}
+
+/// Bulk packed-payload extender for fixed-width types: decodes an entire
+/// contiguous payload in one call (`None` for varint-family types, whose
+/// element count is not derivable from the byte length). The extenders
+/// validate alignment, reserve exactly, and bulk-convert — see
+/// `buffa::types::extend_packed_double` and siblings.
+pub(crate) fn extend_packed_fn_token(ty: Type) -> Option<TokenStream> {
+    match ty {
+        Type::TYPE_FLOAT => Some(quote! { ::buffa::types::extend_packed_float }),
+        Type::TYPE_FIXED32 => Some(quote! { ::buffa::types::extend_packed_fixed32 }),
+        Type::TYPE_SFIXED32 => Some(quote! { ::buffa::types::extend_packed_sfixed32 }),
+        Type::TYPE_DOUBLE => Some(quote! { ::buffa::types::extend_packed_double }),
+        Type::TYPE_FIXED64 => Some(quote! { ::buffa::types::extend_packed_fixed64 }),
+        Type::TYPE_SFIXED64 => Some(quote! { ::buffa::types::extend_packed_sfixed64 }),
+        _ => None,
+    }
+}
+
+/// Bulk packed-payload extender for plain varint-family types (`None` for
+/// enums, whose decode interleaves unknown-value routing, and for the
+/// fixed-width family, which `extend_packed_fn_token` covers).
+pub(crate) fn extend_packed_varint_fn_token(ty: Type) -> Option<TokenStream> {
+    match ty {
+        Type::TYPE_INT32 => Some(quote! { ::buffa::types::extend_packed_int32 }),
+        Type::TYPE_INT64 => Some(quote! { ::buffa::types::extend_packed_int64 }),
+        Type::TYPE_UINT32 => Some(quote! { ::buffa::types::extend_packed_uint32 }),
+        Type::TYPE_UINT64 => Some(quote! { ::buffa::types::extend_packed_uint64 }),
+        Type::TYPE_SINT32 => Some(quote! { ::buffa::types::extend_packed_sint32 }),
+        Type::TYPE_SINT64 => Some(quote! { ::buffa::types::extend_packed_sint64 }),
+        Type::TYPE_BOOL => Some(quote! { ::buffa::types::extend_packed_bool }),
+        _ => None,
+    }
+}
+
+pub(crate) fn is_non_default_expr(ty: Type, field_ident: &Ident) -> TokenStream {
+    match ty {
+        Type::TYPE_INT32 | Type::TYPE_SINT32 | Type::TYPE_SFIXED32 => {
+            quote! { self.#field_ident != 0i32 }
+        }
+        Type::TYPE_INT64 | Type::TYPE_SINT64 | Type::TYPE_SFIXED64 => {
+            quote! { self.#field_ident != 0i64 }
+        }
+        Type::TYPE_UINT32 | Type::TYPE_FIXED32 => quote! { self.#field_ident != 0u32 },
+        Type::TYPE_UINT64 | Type::TYPE_FIXED64 => quote! { self.#field_ident != 0u64 },
+        // Float presence is by bit pattern: `to_bits() != 0` is true for NaN
+        // (serialized) and for -0.0 (also serialized — the proto3 spec treats
+        // only IEEE +0.0 as the default, and the conformance suite checks
+        // that -0.0 round-trips through an implicit-presence field).
+        Type::TYPE_FLOAT => quote! { self.#field_ident.to_bits() != 0u32 },
+        Type::TYPE_DOUBLE => quote! { self.#field_ident.to_bits() != 0u64 },
+        Type::TYPE_BOOL => quote! { self.#field_ident },
+        Type::TYPE_STRING
+        | Type::TYPE_BYTES
+        | Type::TYPE_ENUM
+        | Type::TYPE_MESSAGE
+        | Type::TYPE_GROUP => {
+            unreachable!("is_non_default_expr called for non-numeric type {:?}", ty)
+        }
+    }
+}
+
+/// Generate a wire-type guard for a merge/decode match arm.
+///
+/// Emits `::buffa::encoding::check_wire_type(<tag>, <expected>)?;` — the
+/// comparison and `#[cold]` error construction live in the runtime, keeping
+/// each generated decode arm to one line. Shared by owned-type merge
+/// (`impl_message.rs`), view decode (`view.rs`), and map-entry loops
+/// (`tag_expr` is `tag` or `entry_tag` accordingly).
+pub(crate) fn wire_type_check(tag_expr: &TokenStream, wire_type: &TokenStream) -> TokenStream {
+    quote! {
+        ::buffa::encoding::check_wire_type(#tag_expr, #wire_type)?;
+    }
+}
+
+/// Compute the varint length of a tag value at codegen time.
+///
+/// A tag encodes `(field_number << 3) | wire_type_byte` as a varint.
+/// The result is always at least 1 byte since field numbers start at 1.
+///
+/// Returns `u64` so interpolating the value into `quote!` emits a `u64`
+/// literal: all generated size arithmetic — `compute_size` accumulators and
+/// the transient packed-payload / map-entry lengths in `write_to` — is done
+/// in `u64` so it cannot wrap for any in-memory message (the encoded size
+/// of in-RAM data is far below `u64::MAX`). `compute_size` saturates its
+/// total to `u32` once at return via `::buffa::saturate_size`.
+const fn tag_encoded_len(field_number: u32, wire_type: u8) -> u64 {
+    let tag_value = ((field_number as u64) << 3) | wire_type as u64;
+    // tag_value >= 8 (field_number >= 1), so leading_zeros <= 60 and bits >= 4.
+    let bits = 64 - tag_value.leading_zeros();
+    bits.div_ceil(7) as u64
+}
+
+fn scalar_compute_size_stmt(
+    ctx: &CodeGenContext,
+    field: &FieldDescriptorProto,
+    features: &ResolvedFeatures,
+) -> Result<TokenStream, CodeGenError> {
+    let field_name = field
+        .name
+        .as_deref()
+        .ok_or(CodeGenError::MissingField("field.name"))?;
+    let field_number = validated_field_number(field)?;
+    let ty = effective_type(ctx, field, features);
+    let ident = ctx.field_ident(field_name, field.number.unwrap_or(0));
+    let tag_len = tag_encoded_len(field_number, wire_type_byte(ty));
+    // Proto2 `required` scalars must always be encoded, even when their value
+    // equals the type default (zero / empty).  All other non-optional scalars
+    // use proto3-style default-value suppression.
+    let is_proto2_required = is_required_field(field, features);
+
+    // Explicit-presence field (proto3 `optional` or proto2 `optional`): encoded as
+    // Option<T>; always encode when Some regardless of the field value.
+    if is_explicit_presence_scalar(field, ty, features) {
+        return match ty {
+            Type::TYPE_STRING => Ok(quote! {
+                if let Some(ref v) = self.#ident {
+                    size += #tag_len + ::buffa::types::string_encoded_len(v) as u64;
+                }
+            }),
+            Type::TYPE_BYTES => Ok(quote! {
+                if let Some(ref v) = self.#ident {
+                    size += #tag_len + ::buffa::types::bytes_encoded_len(v) as u64;
+                }
+            }),
+            Type::TYPE_ENUM => Ok(quote! {
+                if let Some(ref v) = self.#ident {
+                    size += #tag_len + ::buffa::types::int32_encoded_len(v.to_i32()) as u64;
+                }
+            }),
+            _ => {
+                // Fixed-size types (Fixed32, Float, Bool, …) use a constant;
+                // no need to bind the value, which would trigger an unused-
+                // variable warning in downstream generated code.
+                let v = quote! { v };
+                let size_expr = type_encoded_size_expr(ty, &v);
+                if matches!(
+                    ty,
+                    Type::TYPE_FIXED32
+                        | Type::TYPE_SFIXED32
+                        | Type::TYPE_FLOAT
+                        | Type::TYPE_FIXED64
+                        | Type::TYPE_SFIXED64
+                        | Type::TYPE_DOUBLE
+                        | Type::TYPE_BOOL
+                ) {
+                    Ok(quote! {
+                        if self.#ident.is_some() {
+                            size += #tag_len + #size_expr;
+                        }
+                    })
+                } else {
+                    Ok(quote! {
+                        if let Some(v) = self.#ident {
+                            size += #tag_len + #size_expr;
+                        }
+                    })
+                }
+            }
+        };
+    }
+
+    // Length-delimited and enum types need different size expressions.
+    match ty {
+        Type::TYPE_STRING => {
+            return Ok(if is_proto2_required {
+                quote! { size += #tag_len + ::buffa::types::string_encoded_len(&self.#ident) as u64; }
+            } else {
+                quote! {
+                    if !self.#ident.is_empty() {
+                        size += #tag_len + ::buffa::types::string_encoded_len(&self.#ident) as u64;
+                    }
+                }
+            });
+        }
+        Type::TYPE_BYTES => {
+            return Ok(if is_proto2_required {
+                quote! { size += #tag_len + ::buffa::types::bytes_encoded_len(&self.#ident) as u64; }
+            } else {
+                quote! {
+                    if !self.#ident.is_empty() {
+                        size += #tag_len + ::buffa::types::bytes_encoded_len(&self.#ident) as u64;
+                    }
+                }
+            });
+        }
+        Type::TYPE_ENUM => {
+            return Ok(if is_proto2_required {
+                quote! {
+                    {
+                        let val = self.#ident.to_i32();
+                        size += #tag_len + ::buffa::types::int32_encoded_len(val) as u64;
+                    }
+                }
+            } else {
+                quote! {
+                    {
+                        let val = self.#ident.to_i32();
+                        if val != 0 {
+                            size += #tag_len + ::buffa::types::int32_encoded_len(val) as u64;
+                        }
+                    }
+                }
+            });
+        }
+        Type::TYPE_MESSAGE => {
+            return Ok(quote! {
+                if self.#ident.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.#ident.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size += #tag_len
+                        + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                        + inner_size as u64;
+                }
+            });
+        }
+        Type::TYPE_GROUP => {
+            // Groups: start_tag + body + end_tag (no length prefix).
+            return Ok(quote! {
+                if self.#ident.is_set() {
+                    let inner_size = self.#ident.compute_size(__cache);
+                    size += #tag_len + inner_size as u64 + #tag_len;
+                }
+            });
+        }
+        _ => {}
+    }
+
+    // Numeric scalars.
+    let val = quote! { self.#ident };
+    let size_expr = type_encoded_size_expr(ty, &val);
+    Ok(if is_proto2_required {
+        quote! { size += #tag_len + #size_expr; }
+    } else {
+        let is_non_default = is_non_default_expr(ty, &ident);
+        quote! {
+            if #is_non_default {
+                size += #tag_len + #size_expr;
+            }
+        }
+    })
+}
+
+fn scalar_write_to_stmt(
+    ctx: &CodeGenContext,
+    field: &FieldDescriptorProto,
+    features: &ResolvedFeatures,
+) -> Result<TokenStream, CodeGenError> {
+    let field_name = field
+        .name
+        .as_deref()
+        .ok_or(CodeGenError::MissingField("field.name"))?;
+    let field_number = validated_field_number(field)?;
+    let ty = effective_type(ctx, field, features);
+    let ident = ctx.field_ident(field_name, field.number.unwrap_or(0));
+    let is_proto2_required = is_required_field(field, features);
+
+    // Explicit-presence field: encoded as Option<T>; always encode when Some.
+    if is_explicit_presence_scalar(field, ty, features) {
+        return match ty {
+            Type::TYPE_STRING => Ok(quote! {
+                if let Some(ref v) = self.#ident {
+                    ::buffa::types::put_string_field(#field_number, v, buf);
+                }
+            }),
+            Type::TYPE_BYTES => Ok(quote! {
+                if let Some(ref v) = self.#ident {
+                    ::buffa::types::put_shared_bytes_field(#field_number, v, buf);
+                }
+            }),
+            Type::TYPE_ENUM => Ok(quote! {
+                if let Some(ref v) = self.#ident {
+                    ::buffa::types::put_int32_field(#field_number, v.to_i32(), buf);
+                }
+            }),
+            _ => {
+                let put_fn = put_field_fn_token(ty);
+                Ok(quote! {
+                    if let Some(v) = self.#ident {
+                        #put_fn(#field_number, v, buf);
+                    }
+                })
+            }
+        };
+    }
+
+    // Length-delimited and enum types need different encode calls.
+    match ty {
+        Type::TYPE_STRING => {
+            return Ok(if is_proto2_required {
+                quote! {
+                    ::buffa::types::put_string_field(#field_number, &self.#ident, buf);
+                }
+            } else {
+                quote! {
+                    if !self.#ident.is_empty() {
+                        ::buffa::types::put_string_field(#field_number, &self.#ident, buf);
+                    }
+                }
+            });
+        }
+        Type::TYPE_BYTES => {
+            return Ok(if is_proto2_required {
+                quote! {
+                    ::buffa::types::put_shared_bytes_field(#field_number, &self.#ident, buf);
+                }
+            } else {
+                quote! {
+                    if !self.#ident.is_empty() {
+                        ::buffa::types::put_shared_bytes_field(#field_number, &self.#ident, buf);
+                    }
+                }
+            });
+        }
+        Type::TYPE_ENUM => {
+            return Ok(if is_proto2_required {
+                quote! {
+                    ::buffa::types::put_int32_field(#field_number, self.#ident.to_i32(), buf);
+                }
+            } else {
+                quote! {
+                    {
+                        let val = self.#ident.to_i32();
+                        if val != 0 {
+                            ::buffa::types::put_int32_field(#field_number, val, buf);
+                        }
+                    }
+                }
+            });
+        }
+        Type::TYPE_MESSAGE => {
+            return Ok(quote! {
+                if self.#ident.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        #field_number,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.#ident.write_to(__cache, buf);
+                }
+            });
+        }
+        Type::TYPE_GROUP => {
+            return Ok(quote! {
+                if self.#ident.is_set() {
+                    ::buffa::types::put_group_start(#field_number, buf);
+                    self.#ident.write_to(__cache, buf);
+                    ::buffa::types::put_group_end(#field_number, buf);
+                }
+            });
+        }
+        _ => {}
+    }
+
+    // Numeric scalars: encode by value.
+    let put_fn = put_field_fn_token(ty);
+    Ok(if is_proto2_required {
+        quote! {
+            #put_fn(#field_number, self.#ident, buf);
+        }
+    } else {
+        let is_non_default = is_non_default_expr(ty, &ident);
+        quote! {
+            if #is_non_default {
+                #put_fn(#field_number, self.#ident, buf);
+            }
+        }
+    })
+}
+
+/// Generate a merge match arm for a field with explicit presence (`Option<T>`).
+///
+/// Emits `field_number => { wire_check; self.field = Some(decoded_value); }`.
+/// Proto3 optional fields and proto2 optional non-message fields use this path.
+#[allow(clippy::too_many_arguments)]
+fn explicit_presence_merge_arm(
+    ident: &Ident,
+    field_number: u32,
+    ty: Type,
+    features: &ResolvedFeatures,
+    wire_check: &TokenStream,
+    bytes_repr: &crate::BytesRepr,
+    string_repr: crate::StringRepr,
+    preserve_unknown_fields: bool,
+) -> TokenStream {
+    match ty {
+        Type::TYPE_STRING if string_repr.is_default() => quote! {
+            #field_number => {
+                #wire_check
+                ::buffa::types::merge_string(
+                    self.#ident.get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+        },
+        Type::TYPE_STRING => quote! {
+            #field_number => {
+                #wire_check
+                self.#ident = ::core::option::Option::Some(
+                    ::buffa::types::decode_string_to(buf)?
+                );
+            }
+        },
+        Type::TYPE_BYTES => {
+            if bytes_repr.is_default() {
+                quote! {
+                    #field_number => {
+                        #wire_check
+                        ::buffa::types::merge_bytes(
+                            self.#ident.get_or_insert_with(::buffa::alloc::vec::Vec::new),
+                            buf,
+                        )?;
+                    }
+                }
+            } else {
+                // Bytes and custom types are constructed fresh on decode; the
+                // in-place `merge_bytes` allocation reuse is `Vec<u8>`-only.
+                let decoded = bytes_decode_expr(bytes_repr);
+                quote! {
+                    #field_number => {
+                        #wire_check
+                        self.#ident = ::core::option::Option::Some(#decoded);
+                    }
+                }
+            }
+        }
+        Type::TYPE_ENUM => {
+            let closed = is_closed_enum(features);
+            if closed {
+                let unknown_route =
+                    closed_enum_unknown_route(field_number, preserve_unknown_fields);
+                let decode = closed_enum_decode_with_unknown(
+                    &quote! { buf },
+                    quote! { self.#ident = ::core::option::Option::Some(__v); },
+                    unknown_route,
+                );
+                quote! {
+                    #field_number => {
+                        #wire_check
+                        #decode
+                    }
+                }
+            } else {
+                quote! {
+                    #field_number => {
+                        #wire_check
+                        self.#ident = ::core::option::Option::Some(
+                            ::buffa::EnumValue::from(::buffa::types::decode_int32(buf)?)
+                        );
+                    }
+                }
+            }
+        }
+        _ => {
+            let decode_fn = decode_fn_token(ty);
+            quote! {
+                #field_number => {
+                    #wire_check
+                    self.#ident = ::core::option::Option::Some(#decode_fn(buf)?);
+                }
+            }
+        }
+    }
+}
+
+fn scalar_merge_arm(
+    ctx: &CodeGenContext,
+    field: &FieldDescriptorProto,
+    proto_fqn: &str,
+    parent_features: &ResolvedFeatures,
+    preserve_unknown_fields: bool,
+) -> Result<TokenStream, CodeGenError> {
+    let features = &crate::features::resolve_field(ctx, field, parent_features);
+    let field_name = field
+        .name
+        .as_deref()
+        .ok_or(CodeGenError::MissingField("field.name"))?;
+    let field_number = validated_field_number(field)?;
+    let ty = effective_type(ctx, field, features);
+    let bytes_repr = field_bytes_repr(ctx, proto_fqn, field_name);
+    let string_repr = field_string_repr(ctx, proto_fqn, field_name);
+    let ident = ctx.field_ident(field_name, field.number.unwrap_or(0));
+    let wire_type = wire_type_token(ty);
+
+    let wire_check = wire_type_check(&quote! { tag }, &wire_type);
+
+    // Explicit-presence field: assign Some(decoded_value).
+    if is_explicit_presence_scalar(field, ty, features) {
+        return Ok(explicit_presence_merge_arm(
+            &ident,
+            field_number,
+            ty,
+            features,
+            &wire_check,
+            &bytes_repr,
+            string_repr,
+            preserve_unknown_fields,
+        ));
+    }
+
+    // Length-delimited and enum types need different decode calls.
+    // All arms below use proto3 last-wins semantics: the last occurrence of a
+    // field on the wire wins.  Contrast with message fields, which use recursive
+    // merge, and repeated fields, which append.
+    //
+    // For non-optional string and bytes fields, use merge_string / merge_bytes
+    // to reuse the existing heap allocation rather than decode_string /
+    // decode_bytes which always allocate a fresh Vec/String.
+    match ty {
+        Type::TYPE_STRING => {
+            return Ok(if string_repr.is_default() {
+                quote! {
+                    #field_number => {
+                        #wire_check
+                        ::buffa::types::merge_string(&mut self.#ident, buf)?;
+                    }
+                }
+            } else {
+                // Non-default string types are constructed fresh on decode; the
+                // in-place `merge_string` allocation reuse is `String`-only.
+                quote! {
+                    #field_number => {
+                        #wire_check
+                        self.#ident = ::buffa::types::decode_string_to(buf)?;
+                    }
+                }
+            });
+        }
+        Type::TYPE_BYTES => {
+            return Ok(if bytes_repr.is_default() {
+                quote! {
+                    #field_number => {
+                        #wire_check
+                        ::buffa::types::merge_bytes(&mut self.#ident, buf)?;
+                    }
+                }
+            } else {
+                // Bytes and custom types are constructed fresh on decode; the
+                // in-place `merge_bytes` allocation reuse is `Vec<u8>`-only.
+                let decoded = bytes_decode_expr(&bytes_repr);
+                quote! {
+                    #field_number => {
+                        #wire_check
+                        self.#ident = #decoded;
+                    }
+                }
+            });
+        }
+        Type::TYPE_ENUM => {
+            let closed = is_closed_enum(features);
+            if closed {
+                let unknown_route =
+                    closed_enum_unknown_route(field_number, preserve_unknown_fields);
+                let decode = closed_enum_decode_with_unknown(
+                    &quote! { buf },
+                    quote! { self.#ident = __v; },
+                    unknown_route,
+                );
+                return Ok(quote! {
+                    #field_number => {
+                        #wire_check
+                        #decode
+                    }
+                });
+            }
+            return Ok(quote! {
+                #field_number => {
+                    #wire_check
+                    self.#ident = ::buffa::EnumValue::from(::buffa::types::decode_int32(buf)?);
+                }
+            });
+        }
+        Type::TYPE_MESSAGE => {
+            return Ok(quote! {
+                #field_number => {
+                    #wire_check
+                    // Merge into the existing sub-message value (proto merge semantics).
+                    ::buffa::Message::merge_length_delimited(
+                        self.#ident.get_or_insert_default(),
+                        buf,
+                        ctx,
+                    )?;
+                }
+            });
+        }
+        Type::TYPE_GROUP => {
+            return Ok(quote! {
+                #field_number => {
+                    #wire_check
+                    // Merge group: read fields until EndGroup tag.
+                    ::buffa::Message::merge_group(
+                        self.#ident.get_or_insert_default(),
+                        buf,
+                        ctx,
+                        #field_number,
+                    )?;
+                }
+            });
+        }
+        _ => {}
+    }
+
+    // Numeric scalars (proto3 last-wins: plain assignment overwrites any prior value).
+    let decode_fn = decode_fn_token(ty);
+    Ok(quote! {
+        #field_number => {
+            #wire_check
+            self.#ident = #decode_fn(buf)?;
+        }
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Repeated field code generation
+// ---------------------------------------------------------------------------
+
+/// Returns `true` if `ty` is a type that can use packed repeated encoding
+/// (all numeric scalars, bool, and enum).
+pub(crate) fn is_packed_type(ty: Type) -> bool {
+    matches!(
+        ty,
+        Type::TYPE_INT32
+            | Type::TYPE_INT64
+            | Type::TYPE_UINT32
+            | Type::TYPE_UINT64
+            | Type::TYPE_SINT32
+            | Type::TYPE_SINT64
+            | Type::TYPE_FIXED32
+            | Type::TYPE_FIXED64
+            | Type::TYPE_SFIXED32
+            | Type::TYPE_SFIXED64
+            | Type::TYPE_FLOAT
+            | Type::TYPE_DOUBLE
+            | Type::TYPE_BOOL
+            | Type::TYPE_ENUM
+    )
+}
+
+/// Returns `true` if this repeated field should be encoded as packed.
+///
+/// - **Proto3 / Editions**: packed by default for all numeric scalars and enums,
+///   unless overridden by `[packed = false]` or
+///   `[features.repeated_field_encoding = EXPANDED]`.
+/// - **Proto2**: unpacked by default; packed only when `[packed = true]` or
+///   `[features.repeated_field_encoding = PACKED]` is set on the field.
+///
+/// String, bytes, and message fields are always unpacked regardless of syntax.
+pub(crate) fn is_field_packed(field: &FieldDescriptorProto, features: &ResolvedFeatures) -> bool {
+    if !is_packed_type(field.r#type.unwrap_or_default()) {
+        return false;
+    }
+    // field.options.packed (proto2/proto3 legacy) takes precedence over features.
+    if let Some(packed) = field.options.as_option().and_then(|o| o.packed) {
+        return packed;
+    }
+    // Resolve per-field features: editions protos use
+    // FieldOptions.features.repeated_field_encoding instead of the legacy
+    // packed option.
+    let field_features =
+        crate::features::resolve_child(features, crate::features::field_features(field));
+    field_features.repeated_field_encoding == crate::features::RepeatedFieldEncoding::Packed
+}
+
+/// The element-iteration expression for a repeated field's encode/size loops.
+///
+/// The default `Vec` keeps `&self.field` (byte-identical to a build without the
+/// knob). A custom collection iterates via its `Deref<Target = [T]>` slice
+/// (`self.field.iter()`), because `&C: IntoIterator` is not available for a
+/// newtype that only provides `Deref`.
+fn repeated_for_iter(ident: &Ident, repr: &crate::RepeatedRepr) -> TokenStream {
+    if repr.is_default() {
+        quote! { &self.#ident }
+    } else {
+        quote! { self.#ident.iter() }
+    }
+}
+
+/// Generate the payload-size expression for a packed repeated field.
+/// The expression evaluates to a `u64` at runtime — like all generated size
+/// arithmetic, so a huge field (e.g. 700M `double`s) yields an exact
+/// over-limit value for the entry-point size check instead of wrapping.
+fn repeated_payload_size_expr(ty: Type, ident: &Ident) -> TokenStream {
+    match ty {
+        Type::TYPE_FIXED32 | Type::TYPE_SFIXED32 | Type::TYPE_FLOAT => {
+            quote! { self.#ident.len() as u64 * ::buffa::types::FIXED32_ENCODED_LEN as u64 }
+        }
+        Type::TYPE_FIXED64 | Type::TYPE_SFIXED64 | Type::TYPE_DOUBLE => {
+            quote! { self.#ident.len() as u64 * ::buffa::types::FIXED64_ENCODED_LEN as u64 }
+        }
+        Type::TYPE_BOOL => {
+            quote! { self.#ident.len() as u64 * ::buffa::types::BOOL_ENCODED_LEN as u64 }
+        }
+        Type::TYPE_ENUM => {
+            quote! {
+                self.#ident
+                    .iter()
+                    .map(|v| ::buffa::types::int32_encoded_len(v.to_i32()) as u64)
+                    .sum::<u64>()
+            }
+        }
+        _ => {
+            // Varint-sized numeric scalars (Int32, Int64, Uint32, Uint64, Sint32, Sint64):
+            // element size depends on the encoded value, so compute per-element via map.
+            let v = quote! { v };
+            let size_expr = type_encoded_size_expr(ty, &v);
+            quote! { self.#ident.iter().map(|&v| #size_expr).sum::<u64>() }
+        }
+    }
+}
+
+fn repeated_compute_size_stmt(
+    ctx: &CodeGenContext,
+    field: &FieldDescriptorProto,
+    features: &ResolvedFeatures,
+    repr: &crate::RepeatedRepr,
+) -> Result<TokenStream, CodeGenError> {
+    let field_name = field
+        .name
+        .as_deref()
+        .ok_or(CodeGenError::MissingField("field.name"))?;
+    let field_number = validated_field_number(field)?;
+    let ty = effective_type(ctx, field, features);
+    let ident = ctx.field_ident(field_name, field.number.unwrap_or(0));
+    let elems = repeated_for_iter(&ident, repr);
+    // LengthDelimited tag (wire type 2): used for packed, message, string, bytes.
+    let ld_tag_len = tag_encoded_len(field_number, 2);
+    // Per-element tag using the field's own wire type: used for unpacked numerics.
+    let elem_tag_len = tag_encoded_len(field_number, wire_type_byte(ty));
+
+    if ty == Type::TYPE_MESSAGE {
+        // Messages are always length-delimited (one tag per element).
+        return Ok(quote! {
+            for v in #elems {
+                let __slot = __cache.reserve();
+                let inner_size = v.compute_size(__cache);
+                __cache.set(__slot, inner_size);
+                size += #ld_tag_len
+                    + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+            }
+        });
+    }
+    if ty == Type::TYPE_GROUP {
+        // Groups: start_tag + body + end_tag per element (no length prefix).
+        return Ok(quote! {
+            for v in #elems {
+                let inner_size = v.compute_size(__cache);
+                size += #elem_tag_len + inner_size as u64 + #elem_tag_len;
+            }
+        });
+    }
+    if !is_field_packed(field, features) {
+        // Unpacked: each element emits its own tag + value.
+        // String/bytes use LengthDelimited; numeric types use the element wire type.
+        // Fixed-width types (float/fixed*/bool) have constant per-element size,
+        // so use len()*const instead of a loop (avoids unused-`v` warning and
+        // lets LLVM constant-fold).
+        match ty {
+            Type::TYPE_FIXED32 | Type::TYPE_SFIXED32 | Type::TYPE_FLOAT => {
+                return Ok(quote! {
+                    size += self.#ident.len() as u64
+                        * (#elem_tag_len + ::buffa::types::FIXED32_ENCODED_LEN as u64);
+                });
+            }
+            Type::TYPE_FIXED64 | Type::TYPE_SFIXED64 | Type::TYPE_DOUBLE => {
+                return Ok(quote! {
+                    size += self.#ident.len() as u64
+                        * (#elem_tag_len + ::buffa::types::FIXED64_ENCODED_LEN as u64);
+                });
+            }
+            Type::TYPE_BOOL => {
+                return Ok(quote! {
+                    size += self.#ident.len() as u64
+                        * (#elem_tag_len + ::buffa::types::BOOL_ENCODED_LEN as u64);
+                });
+            }
+            _ => {}
+        }
+        let per_elem_size = match ty {
+            Type::TYPE_STRING => {
+                quote! { size += #ld_tag_len + ::buffa::types::string_encoded_len(v) as u64; }
+            }
+            Type::TYPE_BYTES => {
+                quote! { size += #ld_tag_len + ::buffa::types::bytes_encoded_len(v) as u64; }
+            }
+            Type::TYPE_ENUM => {
+                quote! { size += #elem_tag_len + ::buffa::types::int32_encoded_len(v.to_i32()) as u64; }
+            }
+            _ => {
+                let deref_v = quote! { *v };
+                let size_expr = type_encoded_size_expr(ty, &deref_v);
+                quote! { size += #elem_tag_len + #size_expr; }
+            }
+        };
+        return Ok(quote! {
+            for v in #elems { #per_elem_size }
+        });
+    }
+    // Packed: single LengthDelimited tag + varint payload length + elements.
+    let payload_expr = repeated_payload_size_expr(ty, &ident);
+    Ok(quote! {
+        if !self.#ident.is_empty() {
+            let payload: u64 = #payload_expr;
+            size += #ld_tag_len + ::buffa::encoding::varint_len(payload) as u64 + payload;
+        }
+    })
+}
+
+fn repeated_write_to_stmt(
+    ctx: &CodeGenContext,
+    field: &FieldDescriptorProto,
+    features: &ResolvedFeatures,
+    repr: &crate::RepeatedRepr,
+) -> Result<TokenStream, CodeGenError> {
+    let field_name = field
+        .name
+        .as_deref()
+        .ok_or(CodeGenError::MissingField("field.name"))?;
+    let field_number = validated_field_number(field)?;
+    let ty = effective_type(ctx, field, features);
+    let ident = ctx.field_ident(field_name, field.number.unwrap_or(0));
+    let elems = repeated_for_iter(&ident, repr);
+
+    if ty == Type::TYPE_MESSAGE {
+        return Ok(quote! {
+            for v in #elems {
+                ::buffa::types::put_len_delimited_header(
+                    #field_number,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                v.write_to(__cache, buf);
+            }
+        });
+    }
+    if ty == Type::TYPE_GROUP {
+        return Ok(quote! {
+            for v in #elems {
+                ::buffa::types::put_group_start(#field_number, buf);
+                v.write_to(__cache, buf);
+                ::buffa::types::put_group_end(#field_number, buf);
+            }
+        });
+    }
+    if !is_field_packed(field, features) {
+        // Unpacked: each element emits its own tag + value.
+        let per_elem = match ty {
+            Type::TYPE_STRING => {
+                quote! { ::buffa::types::put_string_field(#field_number, v, buf); }
+            }
+            Type::TYPE_BYTES => {
+                quote! { ::buffa::types::put_shared_bytes_field(#field_number, v, buf); }
+            }
+            Type::TYPE_ENUM => {
+                quote! { ::buffa::types::put_int32_field(#field_number, v.to_i32(), buf); }
+            }
+            _ => {
+                let put_fn = put_field_fn_token(ty);
+                quote! { #put_fn(#field_number, *v, buf); }
+            }
+        };
+        return Ok(quote! {
+            for v in #elems {
+                #per_elem
+            }
+        });
+    }
+    // Packed.
+    let payload_expr = repeated_payload_size_expr(ty, &ident);
+    let encode_loop = if ty == Type::TYPE_ENUM {
+        quote! { for v in #elems { ::buffa::types::encode_int32(v.to_i32(), buf); } }
+    } else {
+        let encode_fn = encode_fn_token(ty);
+        quote! { for &v in #elems { #encode_fn(v, buf); } }
+    };
+    Ok(quote! {
+        if !self.#ident.is_empty() {
+            let payload: u64 = #payload_expr;
+            ::buffa::types::put_len_delimited_header(#field_number, payload, buf);
+            #encode_loop
+        }
+    })
+}
+
+fn repeated_merge_arm(
+    ctx: &CodeGenContext,
+    field: &FieldDescriptorProto,
+    proto_fqn: &str,
+    parent_features: &ResolvedFeatures,
+    preserve_unknown_fields: bool,
+    repr: &crate::RepeatedRepr,
+) -> Result<TokenStream, CodeGenError> {
+    let features = &crate::features::resolve_field(ctx, field, parent_features);
+    let field_name = field
+        .name
+        .as_deref()
+        .ok_or(CodeGenError::MissingField("field.name"))?;
+    let field_number = validated_field_number(field)?;
+    let ty = effective_type(ctx, field, features);
+    let bytes_repr = field_bytes_repr(ctx, proto_fqn, field_name);
+    let ident = ctx.field_ident(field_name, field.number.unwrap_or(0));
+    // For a custom collection, bring `ProtoList` into the arm's scope so the
+    // bare `self.field.push(..)` / `.reserve(..)` below resolve to the trait
+    // (a newtype has no inherent push). For the default `Vec` this stays empty,
+    // so the arm is byte-identical to a build without the knob and `Vec`'s
+    // inherent methods win.
+    let list_use = if repr.is_default() {
+        quote! {}
+    } else {
+        quote! { use ::buffa::ProtoList as _; }
+    };
+
+    if ty == Type::TYPE_MESSAGE {
+        let wire_check = wire_type_check(
+            &quote! { tag },
+            &quote! { ::buffa::encoding::WireType::LengthDelimited },
+        );
+        return Ok(quote! {
+            #field_number => {
+                #list_use
+                #wire_check
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(::buffa::__private::element_footprint(&elem))?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.#ident.push(elem);
+            }
+        });
+    }
+    if ty == Type::TYPE_GROUP {
+        let wire_check = wire_type_check(
+            &quote! { tag },
+            &quote! { ::buffa::encoding::WireType::StartGroup },
+        );
+        return Ok(quote! {
+            #field_number => {
+                #list_use
+                #wire_check
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(::buffa::__private::element_footprint(&elem))?;
+                ::buffa::Message::merge_group(&mut elem, buf, ctx, #field_number)?;
+                self.#ident.push(elem);
+            }
+        });
+    }
+    if !is_packed_type(ty) {
+        let wire_check = wire_type_check(
+            &quote! { tag },
+            &quote! { ::buffa::encoding::WireType::LengthDelimited },
+        );
+        let decode_expr = match ty {
+            Type::TYPE_STRING if field_string_repr(ctx, proto_fqn, field_name).is_default() => {
+                quote! { ::buffa::types::decode_string(buf)? }
+            }
+            Type::TYPE_STRING => quote! { ::buffa::types::decode_string_to(buf)? },
+            Type::TYPE_BYTES => bytes_decode_expr(&bytes_repr),
+            // Message and group are handled by early returns above; the
+            // remaining types satisfy `is_packed_type` and never reach this
+            // unpacked branch. Enumerated so adding a `Type` variant is a
+            // compile error here rather than a runtime panic during codegen.
+            Type::TYPE_MESSAGE
+            | Type::TYPE_GROUP
+            | Type::TYPE_ENUM
+            | Type::TYPE_BOOL
+            | Type::TYPE_INT32
+            | Type::TYPE_INT64
+            | Type::TYPE_UINT32
+            | Type::TYPE_UINT64
+            | Type::TYPE_SINT32
+            | Type::TYPE_SINT64
+            | Type::TYPE_FIXED32
+            | Type::TYPE_FIXED64
+            | Type::TYPE_SFIXED32
+            | Type::TYPE_SFIXED64
+            | Type::TYPE_FLOAT
+            | Type::TYPE_DOUBLE => {
+                unreachable!("repeated_merge_arm: unhandled unpacked type {:?}", ty)
+            }
+        };
+        return Ok(quote! {
+            #field_number => {
+                #list_use
+                #wire_check
+                let __elem = #decode_expr;
+                ctx.register_element_memory(::buffa::__private::element_footprint(&__elem))?;
+                self.#ident.push(__elem);
+            }
+        });
+    }
+    // Packed: accept both packed (LengthDelimited) and unpacked (element wire type).
+    let element_wire_type = wire_type_token(ty);
+    // Packed path: decode from a length-limited sub-buffer.
+    let closed = is_closed_enum(features);
+    let push_known = quote! { self.#ident.push(__v); };
+    let unknown_route = closed_enum_unknown_route(field_number, preserve_unknown_fields);
+    let decode_packed_elem = if ty == Type::TYPE_ENUM {
+        if closed {
+            closed_enum_decode_with_unknown(
+                &quote! { &mut limited },
+                push_known.clone(),
+                unknown_route.clone(),
+            )
+        } else {
+            quote! { self.#ident.push(::buffa::EnumValue::from(::buffa::types::decode_int32_packed(&mut limited)?)); }
+        }
+    } else {
+        let decode_fn = packed_decode_fn_token(ty);
+        quote! { self.#ident.push(#decode_fn(&mut limited)?); }
+    };
+    // Unpacked path: decode a single element from the outer buffer.
+    let decode_unpacked_elem = if ty == Type::TYPE_ENUM {
+        if closed {
+            closed_enum_decode_with_unknown(&quote! { buf }, push_known, unknown_route)
+        } else {
+            quote! { self.#ident.push(::buffa::EnumValue::from(::buffa::types::decode_int32(buf)?)); }
+        }
+    } else {
+        let decode_fn = decode_fn_token(ty);
+        quote! { self.#ident.push(#decode_fn(buf)?); }
+    };
+    // Pre-allocation hint for the packed decode loop: avoids repeated
+    // reallocation. Fixed-size types get the exact element count; variable-
+    // width types use the byte count as an upper bound (≥1 byte/element).
+    // Pre-allocation hint. For bool and varint types the divisor is 1 (each
+    // element takes at least 1 byte); skip the division to avoid the
+    // `clippy::identity_op` lint in generated code.
+    let reserve_divisor: usize = match ty {
+        Type::TYPE_FIXED32 | Type::TYPE_SFIXED32 | Type::TYPE_FLOAT => 4,
+        Type::TYPE_FIXED64 | Type::TYPE_SFIXED64 | Type::TYPE_DOUBLE => 8,
+        _ => 1,
+    };
+    // The default `Vec` keeps the bare inherent `reserve` (byte-identical). A
+    // custom collection calls the advisory `ProtoList::reserve` via UFCS so an
+    // inherent `reserve` on the type cannot shadow the no-op default and
+    // re-enable eager allocation from an untrusted length prefix.
+    let amount = if reserve_divisor > 1 {
+        quote! { len / #reserve_divisor }
+    } else {
+        quote! { len }
+    };
+    let reserve_stmt = if repr.is_default() {
+        quote! { self.#ident.reserve(#amount); }
+    } else {
+        quote! { ::buffa::ProtoList::reserve(&mut self.#ident, #amount); }
+    };
+
+    // Per-element decode through a length-limited sub-buffer: the general
+    // path for varint-family elements, custom list representations, and
+    // fragmented buffers.
+    let packed_loop = quote! {
+        #reserve_stmt
+        let mut limited = buf.take(len);
+        while limited.has_remaining() {
+            #decode_packed_elem
+        }
+        // Advance past any trailing bytes left by the decode loop.
+        // This fires when a malformed packed payload has a length not
+        // aligned to the element size for fixed-size types; for varint
+        // types, `decode_fn` above will already have returned an error
+        // via `UnexpectedEof`, so this branch is dead for valid input.
+        let leftover = limited.remaining();
+        if leftover > 0 {
+            limited.advance(leftover);
+        }
+    };
+    // Fixed-width and plain-varint elements into the default `Vec` decode
+    // in one bulk call when the payload is contiguous in the current chunk
+    // (always true for slice-backed buffers); fragmented buffers, custom
+    // list representations, and enums fall back to the loop.
+    let bulk_call = if !repr.is_default() {
+        None
+    } else if let Some(extend_fn) = extend_packed_fn_token(ty) {
+        Some(quote! { #extend_fn(&buf.chunk()[..len], &mut self.#ident)?; })
+    } else {
+        // The byte-length reserve policy this path had with the loop.
+        extend_packed_varint_fn_token(ty)
+            .map(|extend_fn| quote! { #extend_fn(&buf.chunk()[..len], &mut self.#ident, len)?; })
+    };
+    let packed_body = if let Some(bulk_call) = bulk_call {
+        quote! {
+            if buf.chunk().len() >= len {
+                #bulk_call
+                buf.advance(len);
+            } else {
+                #packed_loop
+            }
+        }
+    } else {
+        packed_loop
+    };
+
+    Ok(quote! {
+        #field_number => {
+            #list_use
+            if tag.wire_type() == ::buffa::encoding::WireType::LengthDelimited {
+                // Packed encoding.
+                let len = ::buffa::encoding::decode_varint(buf)?;
+                let len = usize::try_from(len)
+                    .map_err(|_| ::buffa::DecodeError::MessageTooLarge)?;
+                if buf.remaining() < len {
+                    return ::core::result::Result::Err(::buffa::DecodeError::UnexpectedEof);
+                }
+                #packed_body
+            } else if tag.wire_type() == #element_wire_type {
+                // Unpacked (backward compatibility with older encoders).
+                #decode_unpacked_elem
+            } else {
+                // This field accepts LengthDelimited (packed) or the element
+                // wire type (unpacked); report the packed wire type as expected.
+                return ::core::result::Result::Err(
+                    ::buffa::encoding::wire_type_mismatch(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    ),
+                );
+            }
+        }
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Oneof field code generation
+// ---------------------------------------------------------------------------
+
+/// Generate a `compute_size` match arm for one oneof variant.
+///
+/// Emits `EnumIdent::VariantIdent(x) => { size += tag_len + encoded_len; }`.
+fn oneof_size_arm(
+    enum_ident: &TokenStream,
+    variant_ident: &Ident,
+    tag_len: u64,
+    ty: Type,
+) -> TokenStream {
+    match ty {
+        Type::TYPE_STRING => quote! {
+            #enum_ident::#variant_ident(x) => {
+                size += #tag_len + ::buffa::types::string_encoded_len(x) as u64;
+            }
+        },
+        Type::TYPE_BYTES => quote! {
+            #enum_ident::#variant_ident(x) => {
+                size += #tag_len + ::buffa::types::bytes_encoded_len(x) as u64;
+            }
+        },
+        Type::TYPE_ENUM => quote! {
+            #enum_ident::#variant_ident(x) => {
+                size += #tag_len + ::buffa::types::int32_encoded_len(x.to_i32()) as u64;
+            }
+        },
+        Type::TYPE_MESSAGE => quote! {
+            #enum_ident::#variant_ident(x) => {
+                let __slot = __cache.reserve();
+                let inner = x.compute_size(__cache);
+                __cache.set(__slot, inner);
+                size += #tag_len
+                    + ::buffa::encoding::varint_len(inner as u64) as u64
+                    + inner as u64;
+            }
+        },
+        Type::TYPE_GROUP => quote! {
+            #enum_ident::#variant_ident(x) => {
+                let inner = x.compute_size(__cache);
+                size += #tag_len + inner as u64 + #tag_len;
+            }
+        },
+        Type::TYPE_FIXED32 | Type::TYPE_SFIXED32 | Type::TYPE_FLOAT => quote! {
+            #enum_ident::#variant_ident(_x) => {
+                size += #tag_len + ::buffa::types::FIXED32_ENCODED_LEN as u64;
+            }
+        },
+        Type::TYPE_FIXED64 | Type::TYPE_SFIXED64 | Type::TYPE_DOUBLE => quote! {
+            #enum_ident::#variant_ident(_x) => {
+                size += #tag_len + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+            }
+        },
+        Type::TYPE_BOOL => quote! {
+            #enum_ident::#variant_ident(_x) => {
+                size += #tag_len + ::buffa::types::BOOL_ENCODED_LEN as u64;
+            }
+        },
+        _ => {
+            // Varint scalars (int32/64, uint32/64, sint32/64).
+            // The oneof is matched via `if let Some(ref v) = self.field`
+            // so the variant binding v: &T must be dereferenced.
+            let deref_v = quote! { *v };
+            let size_expr = type_encoded_size_expr(ty, &deref_v);
+            quote! {
+                #enum_ident::#variant_ident(v) => {
+                    size += #tag_len + #size_expr;
+                }
+            }
+        }
+    }
+}
+
+/// Generate a `write_to` match arm for one oneof variant.
+///
+/// Emits `EnumIdent::VariantIdent(x) => { Tag::new(...).encode(buf); encode_*(x, buf); }`.
+fn oneof_write_arm(
+    enum_ident: &TokenStream,
+    variant_ident: &Ident,
+    field_number: u32,
+    ty: Type,
+) -> TokenStream {
+    match ty {
+        Type::TYPE_STRING => quote! {
+            #enum_ident::#variant_ident(x) => {
+                ::buffa::types::put_string_field(#field_number, x, buf);
+            }
+        },
+        Type::TYPE_BYTES => quote! {
+            #enum_ident::#variant_ident(x) => {
+                ::buffa::types::put_shared_bytes_field(#field_number, x, buf);
+            }
+        },
+        Type::TYPE_ENUM => quote! {
+            #enum_ident::#variant_ident(x) => {
+                ::buffa::types::put_int32_field(#field_number, x.to_i32(), buf);
+            }
+        },
+        Type::TYPE_MESSAGE => quote! {
+            #enum_ident::#variant_ident(x) => {
+                ::buffa::types::put_len_delimited_header(
+                    #field_number,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                x.write_to(__cache, buf);
+            }
+        },
+        Type::TYPE_GROUP => quote! {
+            #enum_ident::#variant_ident(x) => {
+                ::buffa::types::put_group_start(#field_number, buf);
+                x.write_to(__cache, buf);
+                ::buffa::types::put_group_end(#field_number, buf);
+            }
+        },
+        _ => {
+            let put_fn = put_field_fn_token(ty);
+            quote! {
+                #enum_ident::#variant_ident(x) => {
+                    #put_fn(#field_number, *x, buf);
+                }
+            }
+        }
+    }
+}
+
+/// Generate a `merge` match arm for one oneof variant.
+///
+/// Emits `field_number => { wire_check; self.field = Some(EnumIdent::Variant(decoded)); }`.
+/// Message variants use merge-into-existing semantics; closed enums with
+/// unknown values are routed to `__buffa_unknown_fields` and the oneof is
+/// left unset (matching Java's reference behavior and the singular-field spec).
+#[allow(clippy::too_many_arguments)]
+fn oneof_merge_arm(
+    field_ident: &Ident,
+    enum_ident: &TokenStream,
+    variant_ident: &Ident,
+    field_number: u32,
+    ty: Type,
+    features: &ResolvedFeatures,
+    preserve_unknown_fields: bool,
+    bytes_repr: &crate::BytesRepr,
+    string_repr: crate::StringRepr,
+    boxed: bool,
+    // `Some((msg_ty, ptr_ty))` for a boxed message/group variant with a custom
+    // pointer; `None` for the default `Box` or a non-message variant.
+    custom_box: Option<&(TokenStream, TokenStream)>,
+) -> TokenStream {
+    let wire_type = wire_type_token(ty);
+    let wire_check = wire_type_check(&quote! { tag }, &wire_type);
+    // Message/group variants merge into the existing value. When boxed, the
+    // binding is `&mut **existing` — `DerefMut` through any `ProtoBox` (`Box` or
+    // custom) yields `&mut M`; when stored inline it is `&mut M`.
+    let existing_ref = if boxed {
+        quote! { &mut **existing }
+    } else {
+        quote! { existing }
+    };
+    // The freshly-decoded value's wrapping. A custom pointer constructs via the
+    // trait (fully-qualified, so an inherent `new` can't shadow it); the default
+    // `Box` keeps `Box::new` (byte-identical). The matching `val` ascription
+    // types the value so the trait `new`'s element type is determined.
+    let (wrapped_val, val_ascription) = match (custom_box, boxed) {
+        (Some((msg_ty, ptr_ty)), _) => (
+            quote! { <#ptr_ty as ::buffa::ProtoBox<#msg_ty>>::new(val) },
+            quote! { : #msg_ty },
+        ),
+        (None, true) => (quote! { ::buffa::alloc::boxed::Box::new(val) }, quote! {}),
+        (None, false) => (quote! { val }, quote! {}),
+    };
+    match ty {
+        Type::TYPE_STRING => {
+            let decoded = if string_repr.is_default() {
+                quote! { ::buffa::types::decode_string(buf)? }
+            } else {
+                quote! { ::buffa::types::decode_string_to(buf)? }
+            };
+            quote! {
+                #field_number => {
+                    #wire_check
+                    self.#field_ident = ::core::option::Option::Some(
+                        #enum_ident::#variant_ident(#decoded)
+                    );
+                }
+            }
+        }
+        Type::TYPE_BYTES => {
+            let decoded = bytes_decode_expr(bytes_repr);
+            quote! {
+                #field_number => {
+                    #wire_check
+                    self.#field_ident = ::core::option::Option::Some(
+                        #enum_ident::#variant_ident(#decoded)
+                    );
+                }
+            }
+        }
+        Type::TYPE_ENUM => {
+            let closed = is_closed_enum(features);
+            if closed {
+                let unknown_route =
+                    closed_enum_unknown_route(field_number, preserve_unknown_fields);
+                let decode = closed_enum_decode_with_unknown(
+                    &quote! { buf },
+                    quote! {
+                        self.#field_ident = ::core::option::Option::Some(
+                            #enum_ident::#variant_ident(__v)
+                        );
+                    },
+                    unknown_route,
+                );
+                quote! {
+                    #field_number => {
+                        #wire_check
+                        #decode
+                    }
+                }
+            } else {
+                quote! {
+                    #field_number => {
+                        #wire_check
+                        self.#field_ident = ::core::option::Option::Some(
+                            #enum_ident::#variant_ident(
+                                ::buffa::EnumValue::from(::buffa::types::decode_int32(buf)?)
+                            )
+                        );
+                    }
+                }
+            }
+        }
+        Type::TYPE_MESSAGE => quote! {
+            #field_number => {
+                #wire_check
+                // Proto3 merge semantics: if this oneof variant is already
+                // set, merge into the existing value rather than replacing it.
+                if let ::core::option::Option::Some(
+                    #enum_ident::#variant_ident(ref mut existing)
+                ) = self.#field_ident {
+                    ::buffa::Message::merge_length_delimited(#existing_ref, buf, ctx)?;
+                } else {
+                    let mut val #val_ascription = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.#field_ident = ::core::option::Option::Some(
+                        #enum_ident::#variant_ident(#wrapped_val)
+                    );
+                }
+            }
+        },
+        Type::TYPE_GROUP => quote! {
+            #field_number => {
+                #wire_check
+                if let ::core::option::Option::Some(
+                    #enum_ident::#variant_ident(ref mut existing)
+                ) = self.#field_ident {
+                    ::buffa::Message::merge_group(#existing_ref, buf, ctx, #field_number)?;
+                } else {
+                    let mut val #val_ascription = ::core::default::Default::default();
+                    ::buffa::Message::merge_group(&mut val, buf, ctx, #field_number)?;
+                    self.#field_ident = ::core::option::Option::Some(
+                        #enum_ident::#variant_ident(#wrapped_val)
+                    );
+                }
+            }
+        },
+        _ => {
+            let decode_fn = decode_fn_token(ty);
+            quote! {
+                #field_number => {
+                    #wire_check
+                    self.#field_ident = ::core::option::Option::Some(
+                        #enum_ident::#variant_ident(#decode_fn(buf)?)
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// Generate compute_size, write_to, and merge tokens for one oneof group.
+///
+/// Returns `(compute_stmt, write_stmt, merge_arms)` where `merge_arms` is one
+/// arm per field belonging to the oneof.
+#[allow(clippy::too_many_arguments)]
+fn generate_oneof_impls(
+    ctx: &CodeGenContext,
+    enum_ident: &proc_macro2::Ident,
+    oneof_name: &str,
+    fields: &[&FieldDescriptorProto],
+    oneof_prefix: &TokenStream,
+    proto_fqn: &str,
+    current_package: &str,
+    nesting: usize,
+    features: &ResolvedFeatures,
+    preserve_unknown_fields: bool,
+) -> Result<(TokenStream, TokenStream, Vec<TokenStream>), CodeGenError> {
+    let field_ident = ctx.oneof_ident(oneof_name);
+    let qualified_enum: TokenStream = quote! { #oneof_prefix #enum_ident };
+
+    let mut size_arms: Vec<TokenStream> = Vec::new();
+    let mut write_arms: Vec<TokenStream> = Vec::new();
+    let mut merge_arm_list: Vec<TokenStream> = Vec::new();
+
+    for field in fields {
+        let field_name = field
+            .name
+            .as_deref()
+            .ok_or(CodeGenError::MissingField("field.name"))?;
+        let field_number = validated_field_number(field)?;
+        let ty = effective_type(ctx, field, features);
+        let variant_ident = crate::oneof::oneof_variant_ident(field_name);
+        let tag_len = tag_encoded_len(field_number, wire_type_byte(ty));
+
+        size_arms.push(oneof_size_arm(&qualified_enum, &variant_ident, tag_len, ty));
+        write_arms.push(oneof_write_arm(
+            &qualified_enum,
+            &variant_ident,
+            field_number,
+            ty,
+        ));
+        let field_features = crate::features::resolve_field(ctx, field, features);
+        let bytes_repr = field_bytes_repr(ctx, proto_fqn, field_name);
+        let string_repr = field_string_repr(ctx, proto_fqn, field_name);
+        let variant_fqn = format!(".{proto_fqn}.{oneof_name}.{field_name}");
+        let boxed = crate::oneof::variant_boxed(ctx, ty, &variant_fqn);
+        // A boxed message/group variant with a custom pointer needs the inner
+        // message type (to type the decoded value) and the pointer type (to
+        // construct it). Resolve both here; `None` means the default `Box`.
+        let custom_box = if boxed
+            && matches!(ty, Type::TYPE_MESSAGE | Type::TYPE_GROUP)
+            && !matches!(ctx.pointer_repr(&variant_fqn), crate::PointerRepr::Box)
+        {
+            let msg_ty = field
+                .type_name
+                .as_deref()
+                .and_then(|tn| ctx.rust_type_relative(tn, current_package, nesting))
+                .map(|p| crate::idents::rust_path_to_tokens(&p))
+                .ok_or(CodeGenError::MissingField("oneof variant type_name"))?;
+            let ptr_ty = ctx.pointer_repr(&variant_fqn).pointer_type(&msg_ty)?;
+            Some((msg_ty, ptr_ty))
+        } else {
+            None
+        };
+        merge_arm_list.push(oneof_merge_arm(
+            &field_ident,
+            &qualified_enum,
+            &variant_ident,
+            field_number,
+            ty,
+            &field_features,
+            preserve_unknown_fields,
+            &bytes_repr,
+            string_repr,
+            boxed,
+            custom_box.as_ref(),
+        ));
+    }
+
+    let compute_stmt = quote! {
+        if let ::core::option::Option::Some(ref v) = self.#field_ident {
+            match v {
+                #(#size_arms)*
+            }
+        }
+    };
+    let write_stmt = quote! {
+        if let ::core::option::Option::Some(ref v) = self.#field_ident {
+            match v {
+                #(#write_arms)*
+            }
+        }
+    };
+
+    Ok((compute_stmt, write_stmt, merge_arm_list))
+}
+
+// ---------------------------------------------------------------------------
+// Map field code generation
+// ---------------------------------------------------------------------------
+
+/// Get the key and value field descriptors from a map-entry nested type.
+pub(crate) fn find_map_entry_fields<'a>(
+    msg: &'a DescriptorProto,
+    field: &FieldDescriptorProto,
+) -> Result<(&'a FieldDescriptorProto, &'a FieldDescriptorProto), CodeGenError> {
+    let entry = find_map_entry(msg, field).ok_or_else(|| {
+        let type_name = field.type_name.as_deref().unwrap_or("<unknown>");
+        CodeGenError::Other(format!("map entry not found for {type_name}"))
+    })?;
+    let key = entry
+        .field
+        .iter()
+        .find(|f| f.number == Some(1))
+        .ok_or(CodeGenError::MissingField("map_entry.key"))?;
+    let val = entry
+        .field
+        .iter()
+        .find(|f| f.number == Some(2))
+        .ok_or(CodeGenError::MissingField("map_entry.value"))?;
+    Ok((key, val))
+}
+
+/// Generate the encoded-byte-size expression for a single map entry element
+/// (key or value) bound to the variable named `var`. Uses `*var` for copy
+/// scalars, `var` for string/bytes/enum, and `var.compute_size()` for messages.
+/// Map a map-entry element's proto type to its `::buffa::map_codec` codec
+/// token.
+///
+/// Enum and message codecs use inference holes (`OpenEnum<_>`, `Msg<_>`): the
+/// map's own key/value Rust types pin the parameter, so no type-path
+/// resolution is needed here. For a `bytes` value, `bytes_repr` selects the
+/// codec: `Vec` → `BytesVec`, `Bytes` → `BytesBuf`, `Custom(path)` →
+/// `ProtoBytesMap<path>`. For a `string` key or value, `string_repr` selects
+/// `Str` (default) or `ProtoStringMap<path>` (custom).
+fn map_codec_token(
+    ty: Type,
+    bytes_repr: &crate::BytesRepr,
+    string_repr: &crate::StringRepr,
+    features: &ResolvedFeatures,
+) -> Result<TokenStream, CodeGenError> {
+    Ok(match ty {
+        Type::TYPE_INT32 => quote! { ::buffa::map_codec::Int32 },
+        Type::TYPE_INT64 => quote! { ::buffa::map_codec::Int64 },
+        Type::TYPE_UINT32 => quote! { ::buffa::map_codec::Uint32 },
+        Type::TYPE_UINT64 => quote! { ::buffa::map_codec::Uint64 },
+        Type::TYPE_SINT32 => quote! { ::buffa::map_codec::Sint32 },
+        Type::TYPE_SINT64 => quote! { ::buffa::map_codec::Sint64 },
+        Type::TYPE_FIXED32 => quote! { ::buffa::map_codec::Fixed32 },
+        Type::TYPE_FIXED64 => quote! { ::buffa::map_codec::Fixed64 },
+        Type::TYPE_SFIXED32 => quote! { ::buffa::map_codec::Sfixed32 },
+        Type::TYPE_SFIXED64 => quote! { ::buffa::map_codec::Sfixed64 },
+        Type::TYPE_FLOAT => quote! { ::buffa::map_codec::Float },
+        Type::TYPE_DOUBLE => quote! { ::buffa::map_codec::Double },
+        Type::TYPE_BOOL => quote! { ::buffa::map_codec::Bool },
+        Type::TYPE_STRING => match string_repr {
+            crate::StringRepr::String => quote! { ::buffa::map_codec::Str },
+            crate::StringRepr::Custom(path) => {
+                let ty = crate::parse_custom_type_path(path)?;
+                quote! { ::buffa::map_codec::ProtoStringMap<#ty> }
+            }
+        },
+        Type::TYPE_BYTES => match bytes_repr {
+            crate::BytesRepr::Vec => quote! { ::buffa::map_codec::BytesVec },
+            crate::BytesRepr::Bytes => quote! { ::buffa::map_codec::BytesBuf },
+            crate::BytesRepr::Custom(path) => {
+                let ty = crate::parse_custom_type_path(path)?;
+                quote! { ::buffa::map_codec::ProtoBytesMap<#ty> }
+            }
+        },
+        Type::TYPE_ENUM => {
+            if is_closed_enum(features) {
+                quote! { ::buffa::map_codec::ClosedEnum<_> }
+            } else {
+                quote! { ::buffa::map_codec::OpenEnum<_> }
+            }
+        }
+        Type::TYPE_MESSAGE => quote! { ::buffa::map_codec::Msg<_> },
+        Type::TYPE_GROUP => unreachable!("map values cannot be groups"),
+    })
+}
+
+/// Resolved map-entry context shared by the three per-field map emitters.
+struct MapEntryCtx {
+    field_number: u32,
+    ident: Ident,
+    outer_tag_len: u64,
+    val_ty: Type,
+    val_is_closed_enum: bool,
+    key_codec: TokenStream,
+    val_codec: TokenStream,
+}
+
+fn map_entry_ctx(
+    ctx: &CodeGenContext,
+    msg: &DescriptorProto,
+    field: &FieldDescriptorProto,
+    proto_fqn: &str,
+    features: &ResolvedFeatures,
+) -> Result<MapEntryCtx, CodeGenError> {
+    let field_name = field
+        .name
+        .as_deref()
+        .ok_or(CodeGenError::MissingField("field.name"))?;
+    let field_number = validated_field_number(field)?;
+    let (key_fd, val_fd) = find_map_entry_fields(msg, field)?;
+    let key_ty = effective_type_in_map_entry(ctx, key_fd, features);
+    let val_ty = effective_type_in_map_entry(ctx, val_fd, features);
+    // Resolve features per map-entry field so enum_type reflects the
+    // referenced enum's declaration (not the parent message's).
+    let key_features = crate::features::resolve_field(ctx, key_fd, features);
+    let val_features = crate::features::resolve_field(ctx, val_fd, features);
+    // `bytes_type` on `map<K, bytes>` → value encodes/decodes with the matching
+    // representation (Vec / Bytes / custom), via the shared carve-out in
+    // `map_value_bytes_repr`. Keys are always built-in, so they pass `Vec`.
+    let value_bytes_repr =
+        map_value_bytes_repr(ctx, Some(key_ty), Some(val_ty), proto_fqn, field_name);
+    // `string_type` on `map<string, V>` / `map<K, string>` → the matching slot
+    // encodes/decodes with the custom representation, keyed on the outer map
+    // field path (the same rule the singular string path uses). The repr is a
+    // no-op for a non-`string` slot (`map_string_repr` returns `String`).
+    let key_string_repr = map_string_repr(ctx, key_ty, proto_fqn, field_name);
+    let val_string_repr = map_string_repr(ctx, val_ty, proto_fqn, field_name);
+    Ok(MapEntryCtx {
+        field_number,
+        ident: ctx.field_ident(field_name, field.number.unwrap_or(0)),
+        outer_tag_len: tag_encoded_len(field_number, 2),
+        val_ty,
+        val_is_closed_enum: val_ty == Type::TYPE_ENUM && is_closed_enum(&val_features),
+        key_codec: map_codec_token(
+            key_ty,
+            &crate::BytesRepr::Vec,
+            &key_string_repr,
+            &key_features,
+        )?,
+        val_codec: map_codec_token(val_ty, &value_bytes_repr, &val_string_repr, &val_features)?,
+    })
+}
+
+// ── View-side map encode emission ───────────────────────────────────────────
+//
+// The owned map paths above route through `::buffa::map_codec` generics,
+// which are typed on the owned element types (`String`, `Vec<u8>`, …). View
+// types store borrowed elements (`&str`, `&[u8]`) and view message values
+// implement the view encode surface rather than `Message`, so
+// `build_view_encode_methods` keeps the previous duck-typed inline emission
+// below. Unifying the two behind borrow-generic codecs is a possible
+// follow-up.
+
+/// Generate the encoded-byte-size expression for a single map entry element
+/// (key or value) bound to the variable named `var`. Uses `*var` for copy
+/// scalars, `var` for string/bytes/enum, and `var.compute_size()` for messages.
+fn map_element_size_expr(ty: Type, var: &Ident) -> TokenStream {
+    match ty {
+        Type::TYPE_STRING => quote! { ::buffa::types::string_encoded_len(#var) as u64 },
+        Type::TYPE_BYTES => quote! { ::buffa::types::bytes_encoded_len(#var) as u64 },
+        Type::TYPE_ENUM => quote! { ::buffa::types::int32_encoded_len(#var.to_i32()) as u64 },
+        // Message values are phase-dependent (compute reserves a SizeCache
+        // slot, write reads it) so callers handle them explicitly. Keys
+        // cannot be message-typed per the proto spec.
+        Type::TYPE_MESSAGE => {
+            unreachable!("message map values are handled per-phase by callers")
+        }
+        Type::TYPE_FIXED32 | Type::TYPE_SFIXED32 | Type::TYPE_FLOAT => {
+            quote! { ::buffa::types::FIXED32_ENCODED_LEN as u64 }
+        }
+        Type::TYPE_FIXED64 | Type::TYPE_SFIXED64 | Type::TYPE_DOUBLE => {
+            quote! { ::buffa::types::FIXED64_ENCODED_LEN as u64 }
+        }
+        Type::TYPE_BOOL => quote! { ::buffa::types::BOOL_ENCODED_LEN as u64 },
+        _ => {
+            let deref_var = quote! { *#var };
+            let size_expr = type_encoded_size_expr(ty, &deref_var);
+            quote! { #size_expr }
+        }
+    }
+}
+
+/// True if `map_element_size_expr` for this type is a constant (ignores `var`).
+fn map_element_size_is_constant(ty: Type) -> bool {
+    matches!(
+        ty,
+        Type::TYPE_FIXED32
+            | Type::TYPE_SFIXED32
+            | Type::TYPE_FLOAT
+            | Type::TYPE_FIXED64
+            | Type::TYPE_SFIXED64
+            | Type::TYPE_DOUBLE
+            | Type::TYPE_BOOL
+    )
+}
+
+/// Generate the write expression for a single map entry element.
+fn map_element_encode_stmt(ty: Type, tag_num: u32, var: &Ident) -> TokenStream {
+    let wire_type = wire_type_token(ty);
+    let tag = quote! { ::buffa::encoding::Tag::new(#tag_num, #wire_type).encode(buf); };
+    let payload = match ty {
+        Type::TYPE_STRING => quote! { ::buffa::types::encode_string(#var, buf); },
+        Type::TYPE_BYTES => quote! { ::buffa::types::encode_bytes(#var, buf); },
+        Type::TYPE_ENUM => quote! { ::buffa::types::encode_int32(#var.to_i32(), buf); },
+        Type::TYPE_MESSAGE => {
+            quote! {
+                ::buffa::encoding::encode_varint(__v_len as u64, buf);
+                #var.write_to(__cache, buf);
+            }
+        }
+        _ => {
+            let encode_fn = encode_fn_token(ty);
+            quote! { #encode_fn(*#var, buf); }
+        }
+    };
+    quote! { #tag #payload }
+}
+
+fn map_view_compute_size_stmt(
+    ctx: &CodeGenContext,
+    msg: &DescriptorProto,
+    field: &FieldDescriptorProto,
+    features: &ResolvedFeatures,
+) -> Result<TokenStream, CodeGenError> {
+    let field_name = field
+        .name
+        .as_deref()
+        .ok_or(CodeGenError::MissingField("field.name"))?;
+    let field_number = validated_field_number(field)?;
+    let ident = ctx.field_ident(field_name, field.number.unwrap_or(0));
+    let outer_tag_len = tag_encoded_len(field_number, 2);
+    let (key_fd, val_fd) = find_map_entry_fields(msg, field)?;
+    let key_ty = effective_type_in_map_entry(ctx, key_fd, features);
+    let val_ty = effective_type_in_map_entry(ctx, val_fd, features);
+    let key_tag_len = tag_encoded_len(1, wire_type_byte(key_ty));
+    let val_tag_len = tag_encoded_len(2, wire_type_byte(val_ty));
+    let k = format_ident!("k");
+    let v = format_ident!("v");
+    let key_size = map_element_size_expr(key_ty, &k);
+    let val_size = if val_ty == Type::TYPE_MESSAGE {
+        quote! {
+            {
+                let __slot = __cache.reserve();
+                let inner = #v.compute_size(__cache);
+                __cache.set(__slot, inner);
+                ::buffa::encoding::varint_len(inner as u64) as u64 + inner as u64
+            }
+        }
+    } else {
+        map_element_size_expr(val_ty, &v)
+    };
+    // Both passes iterate `for (k, v) in &self.#ident`, identical to
+    // `map_view_write_to_stmt`, so SizeCache slot order matches by construction.
+    // When both key and value are fixed-width (no cache slots reserved) the
+    // entry size is constant and we fold to `len() * const`.
+    if map_element_size_is_constant(key_ty) && map_element_size_is_constant(val_ty) {
+        return Ok(quote! {
+            {
+                let entry_size: u64 = #key_tag_len + #key_size + #val_tag_len + #val_size;
+                size += self.#ident.len() as u64 * (#outer_tag_len
+                    + ::buffa::encoding::varint_len(entry_size) as u64
+                    + entry_size);
+            }
+        });
+    }
+    let k_bind = if map_element_size_is_constant(key_ty) {
+        format_ident!("_{}", k)
+    } else {
+        k
+    };
+    let v_bind = if map_element_size_is_constant(val_ty) {
+        format_ident!("_{}", v)
+    } else {
+        v
+    };
+    Ok(quote! {
+        #[allow(clippy::for_kv_map)]
+        for (#k_bind, #v_bind) in &self.#ident {
+            let entry_size: u64 = #key_tag_len + #key_size + #val_tag_len + #val_size;
+            size += #outer_tag_len
+                + ::buffa::encoding::varint_len(entry_size) as u64
+                + entry_size;
+        }
+    })
+}
+
+fn map_view_write_to_stmt(
+    ctx: &CodeGenContext,
+    msg: &DescriptorProto,
+    field: &FieldDescriptorProto,
+    features: &ResolvedFeatures,
+) -> Result<TokenStream, CodeGenError> {
+    let field_name = field
+        .name
+        .as_deref()
+        .ok_or(CodeGenError::MissingField("field.name"))?;
+    let field_number = validated_field_number(field)?;
+    let ident = ctx.field_ident(field_name, field.number.unwrap_or(0));
+    let (key_fd, val_fd) = find_map_entry_fields(msg, field)?;
+    let key_ty = effective_type_in_map_entry(ctx, key_fd, features);
+    let val_ty = effective_type_in_map_entry(ctx, val_fd, features);
+    let key_tag_len = tag_encoded_len(1, wire_type_byte(key_ty));
+    let val_tag_len = tag_encoded_len(2, wire_type_byte(val_ty));
+    let k = format_ident!("k");
+    let v = format_ident!("v");
+    let key_size = map_element_size_expr(key_ty, &k);
+    let (val_len_bind, val_size) = if val_ty == Type::TYPE_MESSAGE {
+        (
+            quote! { let __v_len = __cache.consume_next(); },
+            quote! { (::buffa::encoding::varint_len(__v_len as u64) as u64 + __v_len as u64) },
+        )
+    } else {
+        (quote! {}, map_element_size_expr(val_ty, &v))
+    };
+    let encode_key = map_element_encode_stmt(key_ty, 1, &k);
+    let encode_val = map_element_encode_stmt(val_ty, 2, &v);
+    Ok(quote! {
+        for (#k, #v) in &self.#ident {
+            #val_len_bind
+            let entry_size: u64 = #key_tag_len + #key_size + #val_tag_len + #val_size;
+            ::buffa::encoding::Tag::new(
+                #field_number,
+                ::buffa::encoding::WireType::LengthDelimited,
+            ).encode(buf);
+            ::buffa::encoding::encode_varint(entry_size, buf);
+            #encode_key
+            #encode_val
+        }
+    })
+}
+
+fn map_compute_size_stmt(
+    ctx: &CodeGenContext,
+    msg: &DescriptorProto,
+    field: &FieldDescriptorProto,
+    proto_fqn: &str,
+    features: &ResolvedFeatures,
+) -> Result<TokenStream, CodeGenError> {
+    let m = map_entry_ctx(ctx, msg, field, proto_fqn, features)?;
+    let MapEntryCtx {
+        ident,
+        outer_tag_len,
+        key_codec,
+        val_codec,
+        ..
+    } = &m;
+    // Message values are two-pass (SizeCache slot per entry, consumed by
+    // `map_write_to_stmt` in identical iteration order — both helpers
+    // iterate the same map, so slot order matches by construction).
+    if m.val_ty == Type::TYPE_MESSAGE {
+        return Ok(quote! {
+            size += ::buffa::map_codec::message_field_len::<#key_codec, _, _>(
+                &self.#ident,
+                #outer_tag_len,
+                __cache,
+            );
+        });
+    }
+    Ok(quote! {
+        size += ::buffa::map_codec::field_len::<#key_codec, #val_codec, _>(
+            &self.#ident,
+            #outer_tag_len,
+        );
+    })
+}
+
+fn map_write_to_stmt(
+    ctx: &CodeGenContext,
+    msg: &DescriptorProto,
+    field: &FieldDescriptorProto,
+    proto_fqn: &str,
+    features: &ResolvedFeatures,
+) -> Result<TokenStream, CodeGenError> {
+    let m = map_entry_ctx(ctx, msg, field, proto_fqn, features)?;
+    let MapEntryCtx {
+        field_number,
+        ident,
+        key_codec,
+        val_codec,
+        ..
+    } = &m;
+    if m.val_ty == Type::TYPE_MESSAGE {
+        return Ok(quote! {
+            ::buffa::map_codec::write_message_field::<#key_codec, _, _>(
+                &self.#ident,
+                #field_number,
+                __cache,
+                buf,
+            );
+        });
+    }
+    Ok(quote! {
+        ::buffa::map_codec::write_field::<#key_codec, #val_codec, _>(
+            &self.#ident,
+            #field_number,
+            buf,
+        );
+    })
+}
+
+fn map_merge_arm(
+    ctx: &CodeGenContext,
+    msg: &DescriptorProto,
+    field: &FieldDescriptorProto,
+    proto_fqn: &str,
+    features: &ResolvedFeatures,
+) -> Result<TokenStream, CodeGenError> {
+    let m = map_entry_ctx(ctx, msg, field, proto_fqn, features)?;
+    let MapEntryCtx {
+        field_number,
+        ident,
+        key_codec,
+        val_codec,
+        ..
+    } = &m;
+    let wire_check = wire_type_check(
+        &quote! { tag },
+        &quote! { ::buffa::encoding::WireType::LengthDelimited },
+    );
+    // Only closed-enum map values can produce an unknown entry that needs the
+    // parent message's `UnknownFields`; every other value type stays on the
+    // simpler `merge_entry` path so the generated code is unchanged for the
+    // common case.
+    let merge_call = if m.val_is_closed_enum && ctx.config.preserve_unknown_fields {
+        quote! {
+            ::buffa::map_codec::merge_entry_with_unknowns::<#key_codec, #val_codec, _>(
+                &mut self.#ident,
+                buf,
+                ctx,
+                ::core::option::Option::Some((#field_number, &mut self.__buffa_unknown_fields)),
+            )?;
+        }
+    } else {
+        quote! {
+            ::buffa::map_codec::merge_entry::<#key_codec, #val_codec, _>(
+                &mut self.#ident,
+                buf,
+                ctx,
+            )?;
+        }
+    };
+    Ok(quote! {
+        #field_number => {
+            #wire_check
+            #merge_call
+        }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::generated::descriptor::field_descriptor_proto::{Label, Type};
+    use crate::generated::descriptor::{FieldDescriptorProto, FieldOptions};
+
+    fn make_field(ty: Type, label: Label) -> FieldDescriptorProto {
+        FieldDescriptorProto {
+            r#type: Some(ty),
+            label: Some(label),
+            ..Default::default()
+        }
+    }
+
+    // ── classify_fields_ordered ──────────────────────────────────────────
+
+    fn nfield(name: &str, num: i32, ty: Type, label: Label) -> FieldDescriptorProto {
+        FieldDescriptorProto {
+            name: Some(name.into()),
+            number: Some(num),
+            r#type: Some(ty),
+            label: Some(label),
+            ..Default::default()
+        }
+    }
+
+    fn kind_tag(k: &FieldKind<'_>) -> (&'static str, i32) {
+        match k {
+            FieldKind::Scalar(f) => ("scalar", f.number.unwrap()),
+            FieldKind::Repeated(f) => ("repeated", f.number.unwrap()),
+            FieldKind::Map(f) => ("map", f.number.unwrap()),
+            FieldKind::Oneof { fields, .. } => (
+                "oneof",
+                fields.iter().map(|f| f.number.unwrap()).min().unwrap(),
+            ),
+        }
+    }
+
+    #[test]
+    fn classify_orders_by_field_number_across_kinds() {
+        use crate::generated::descriptor::OneofDescriptorProto;
+        // Declared deliberately out of number order; oneof members at 5 & 6.
+        let oneof_a = FieldDescriptorProto {
+            oneof_index: Some(0),
+            ..nfield("choice_a", 5, Type::TYPE_INT32, Label::LABEL_OPTIONAL)
+        };
+        let oneof_b = FieldDescriptorProto {
+            oneof_index: Some(0),
+            ..nfield("choice_b", 6, Type::TYPE_STRING, Label::LABEL_OPTIONAL)
+        };
+        let msg = DescriptorProto {
+            field: vec![
+                nfield("tail", 8, Type::TYPE_INT64, Label::LABEL_OPTIONAL),
+                nfield("tags", 2, Type::TYPE_INT32, Label::LABEL_REPEATED),
+                oneof_b,
+                nfield("head", 1, Type::TYPE_STRING, Label::LABEL_OPTIONAL),
+                oneof_a,
+                nfield("names", 7, Type::TYPE_STRING, Label::LABEL_REPEATED),
+            ],
+            oneof_decl: vec![OneofDescriptorProto {
+                name: Some("choice".into()),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let oneof_idents = std::collections::HashMap::from([(0usize, format_ident!("Choice"))]);
+        let ordered = classify_fields_ordered(&msg, &oneof_idents).unwrap();
+        let got: Vec<_> = ordered.iter().map(kind_tag).collect();
+        assert_eq!(
+            got,
+            vec![
+                ("scalar", 1),
+                ("repeated", 2),
+                ("oneof", 5),
+                ("repeated", 7),
+                ("scalar", 8),
+            ]
+        );
+    }
+
+    #[test]
+    fn classify_positions_oneof_at_min_member_number() {
+        use crate::generated::descriptor::OneofDescriptorProto;
+        // Higher-numbered oneof member appears first in declaration order.
+        let hi = FieldDescriptorProto {
+            oneof_index: Some(0),
+            ..nfield("hi", 10, Type::TYPE_INT32, Label::LABEL_OPTIONAL)
+        };
+        let lo = FieldDescriptorProto {
+            oneof_index: Some(0),
+            ..nfield("lo", 3, Type::TYPE_INT32, Label::LABEL_OPTIONAL)
+        };
+        let msg = DescriptorProto {
+            field: vec![
+                hi,
+                nfield("mid", 5, Type::TYPE_INT32, Label::LABEL_OPTIONAL),
+                lo,
+            ],
+            oneof_decl: vec![OneofDescriptorProto {
+                name: Some("o".into()),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let idents = std::collections::HashMap::from([(0usize, format_ident!("O"))]);
+        let got: Vec<_> = classify_fields_ordered(&msg, &idents)
+            .unwrap()
+            .iter()
+            .map(kind_tag)
+            .collect();
+        assert_eq!(got, vec![("oneof", 3), ("scalar", 5)]);
+    }
+
+    #[test]
+    fn classify_rejects_missing_field_number() {
+        let msg = DescriptorProto {
+            field: vec![FieldDescriptorProto {
+                name: Some("x".into()),
+                r#type: Some(Type::TYPE_INT32),
+                label: Some(Label::LABEL_OPTIONAL),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        assert!(matches!(
+            classify_fields_ordered(&msg, &Default::default()),
+            Err(CodeGenError::MissingField("field.number"))
+        ));
+    }
+
+    // ── is_explicit_presence_scalar ──────────────────────────────────────
+
+    #[test]
+    fn explicit_presence_proto3_non_optional_is_false() {
+        let f = make_field(Type::TYPE_INT32, Label::LABEL_OPTIONAL);
+        assert!(!is_explicit_presence_scalar(
+            &f,
+            Type::TYPE_INT32,
+            &ResolvedFeatures::proto3_defaults()
+        ));
+    }
+
+    #[test]
+    fn explicit_presence_proto3_optional_is_true() {
+        let f = FieldDescriptorProto {
+            r#type: Some(Type::TYPE_INT32),
+            label: Some(Label::LABEL_OPTIONAL),
+            proto3_optional: Some(true),
+            ..Default::default()
+        };
+        assert!(is_explicit_presence_scalar(
+            &f,
+            Type::TYPE_INT32,
+            &ResolvedFeatures::proto3_defaults()
+        ));
+    }
+
+    #[test]
+    fn explicit_presence_proto2_optional_scalar_is_true() {
+        let f = make_field(Type::TYPE_INT32, Label::LABEL_OPTIONAL);
+        assert!(is_explicit_presence_scalar(
+            &f,
+            Type::TYPE_INT32,
+            &ResolvedFeatures::proto2_defaults()
+        ));
+    }
+
+    #[test]
+    fn explicit_presence_proto2_optional_in_oneof_is_false() {
+        // Oneof members are handled by the oneof enum, not as Option<T> scalars.
+        let f = FieldDescriptorProto {
+            r#type: Some(Type::TYPE_INT32),
+            label: Some(Label::LABEL_OPTIONAL),
+            oneof_index: Some(0),
+            ..Default::default()
+        };
+        assert!(!is_explicit_presence_scalar(
+            &f,
+            Type::TYPE_INT32,
+            &ResolvedFeatures::proto2_defaults()
+        ));
+    }
+
+    #[test]
+    fn explicit_presence_message_type_always_false() {
+        let f = FieldDescriptorProto {
+            r#type: Some(Type::TYPE_MESSAGE),
+            label: Some(Label::LABEL_OPTIONAL),
+            proto3_optional: Some(true),
+            ..Default::default()
+        };
+        assert!(!is_explicit_presence_scalar(
+            &f,
+            Type::TYPE_MESSAGE,
+            &ResolvedFeatures::proto3_defaults()
+        ));
+        assert!(!is_explicit_presence_scalar(
+            &f,
+            Type::TYPE_MESSAGE,
+            &ResolvedFeatures::proto2_defaults()
+        ));
+    }
+
+    // ── is_field_packed ──────────────────────────────────────────────────
+
+    #[test]
+    fn packed_proto3_scalar_default_is_packed() {
+        let f = make_field(Type::TYPE_INT32, Label::LABEL_REPEATED);
+        assert!(is_field_packed(&f, &ResolvedFeatures::proto3_defaults()));
+    }
+
+    #[test]
+    fn packed_proto2_scalar_default_is_unpacked() {
+        let f = make_field(Type::TYPE_INT32, Label::LABEL_REPEATED);
+        assert!(!is_field_packed(&f, &ResolvedFeatures::proto2_defaults()));
+    }
+
+    #[test]
+    fn packed_proto2_explicit_packed_true() {
+        let f = FieldDescriptorProto {
+            r#type: Some(Type::TYPE_INT32),
+            label: Some(Label::LABEL_REPEATED),
+            options: (FieldOptions {
+                packed: Some(true),
+                ..Default::default()
+            })
+            .into(),
+            ..Default::default()
+        };
+        assert!(is_field_packed(&f, &ResolvedFeatures::proto2_defaults()));
+    }
+
+    #[test]
+    fn packed_proto3_explicit_packed_false() {
+        let f = FieldDescriptorProto {
+            r#type: Some(Type::TYPE_INT32),
+            label: Some(Label::LABEL_REPEATED),
+            options: (FieldOptions {
+                packed: Some(false),
+                ..Default::default()
+            })
+            .into(),
+            ..Default::default()
+        };
+        assert!(!is_field_packed(&f, &ResolvedFeatures::proto3_defaults()));
+    }
+
+    #[test]
+    fn packed_string_always_false() {
+        let f = make_field(Type::TYPE_STRING, Label::LABEL_REPEATED);
+        assert!(!is_field_packed(&f, &ResolvedFeatures::proto3_defaults()));
+        assert!(!is_field_packed(&f, &ResolvedFeatures::proto2_defaults()));
+    }
+}

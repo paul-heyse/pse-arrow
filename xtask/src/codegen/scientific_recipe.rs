@@ -19,6 +19,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     let mut config = boundary_projection::default_config(&format!("{RUST_MODULE}::__buffa_fds"));
     config.generate_views = true;
     config.lazy_views = true;
+    config.allocation_accounted_views = true;
     config.preserve_unknown_fields = true;
     let output =
         boundary_projection::generate_with_config(&graph, PACKAGE, FILE, &imports.file, &config)?;

@@ -1,0 +1,1632 @@
+//! Wire format encoding and decoding primitives.
+//!
+//! Implements the protobuf binary wire format: varints, fixed-width integers,
+//! length-delimited fields, and tag parsing.
+
+use crate::encode_sink::EncodeSink;
+use bytes::Buf;
+
+use crate::error::DecodeError;
+
+/// The maximum valid protobuf field number, 2^29 − 1.
+///
+/// The wire-format tag packs `(field_number << 3) | wire_type` into a
+/// u32-decodable varint; the low 3 bits carry the wire type, leaving 29
+/// bits for the field number. See the [protobuf encoding spec][spec].
+///
+/// [spec]: https://protobuf.dev/programming-guides/encoding/#structure
+pub const MAX_FIELD_NUMBER: u32 = (1 << 29) - 1;
+
+/// The first field number of the band reserved for the protobuf
+/// implementation, 19000.
+///
+/// Field numbers in `FIRST_RESERVED_FIELD_NUMBER..=LAST_RESERVED_FIELD_NUMBER`
+/// may not be declared by user messages or extensions; `protoc` refuses them
+/// and so does `DescriptorPool` when loading a descriptor set. Extension
+/// *ranges* may still span the band, as in `descriptor.proto`'s own
+/// `extensions 1000 to max;`. See the [language guide][spec].
+///
+/// [spec]: https://protobuf.dev/programming-guides/proto3/#assigning
+pub const FIRST_RESERVED_FIELD_NUMBER: u32 = 19_000;
+
+/// The last field number of the implementation-reserved band, 19999
+/// (inclusive). See [`FIRST_RESERVED_FIELD_NUMBER`].
+pub const LAST_RESERVED_FIELD_NUMBER: u32 = 19_999;
+
+/// Protobuf wire types.
+///
+/// Only wire types 0–5 are currently defined by the protobuf specification;
+/// values 6 and 7 are reserved for future use.  This enum is
+/// `#[non_exhaustive]` so that adding new wire types in a future crate
+/// version is not a breaking change for downstream match arms.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+#[non_exhaustive]
+pub enum WireType {
+    Varint = 0,
+    Fixed64 = 1,
+    LengthDelimited = 2,
+    StartGroup = 3,
+    EndGroup = 4,
+    Fixed32 = 5,
+}
+
+impl WireType {
+    /// Converts a raw `u32` wire type value to a [`WireType`] variant.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DecodeError::InvalidWireType`] if `value` is not a
+    /// recognised wire type (i.e. not in 0–5).
+    pub fn from_u32(value: u32) -> Result<Self, DecodeError> {
+        match value {
+            0 => Ok(Self::Varint),
+            1 => Ok(Self::Fixed64),
+            2 => Ok(Self::LengthDelimited),
+            3 => Ok(Self::StartGroup),
+            4 => Ok(Self::EndGroup),
+            5 => Ok(Self::Fixed32),
+            _ => Err(DecodeError::InvalidWireType(value)),
+        }
+    }
+}
+
+/// A parsed field tag (field number + wire type).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Tag {
+    field_number: u32,
+    wire_type: WireType,
+}
+
+impl Tag {
+    /// Create a new tag.
+    ///
+    /// Generated `write_to` code calls this once per set field with a
+    /// constant field number; `#[inline]` lets the range assert const-fold
+    /// away and the tag collapse into the caller, instead of an out-of-line
+    /// call per field write in non-LTO builds.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `field_number` is not in the valid range
+    /// `[1, MAX_FIELD_NUMBER]`. This is a programming error (generated
+    /// code always uses valid field numbers); the panic fires in all
+    /// build profiles.
+    #[inline]
+    pub fn new(field_number: u32, wire_type: WireType) -> Self {
+        assert!(
+            (1..=MAX_FIELD_NUMBER).contains(&field_number),
+            "field_number must be in [1, {MAX_FIELD_NUMBER}], got {field_number}"
+        );
+        Self {
+            field_number,
+            wire_type,
+        }
+    }
+
+    /// Returns the field number carried by this tag.
+    #[inline]
+    pub fn field_number(&self) -> u32 {
+        self.field_number
+    }
+
+    /// Returns the wire type carried by this tag.
+    #[inline]
+    pub fn wire_type(&self) -> WireType {
+        self.wire_type
+    }
+
+    /// Encode a tag to a buffer.
+    #[inline]
+    pub fn encode(&self, buf: &mut impl EncodeSink) {
+        // Cast to u64 before shifting to avoid overflow for large (invalid)
+        // field numbers; valid field numbers fit in 29 bits so the result
+        // always fits in 32 bits when the field number is in range.
+        let value = ((self.field_number as u64) << 3) | (self.wire_type as u64);
+        encode_varint(value, buf);
+    }
+
+    /// Decode a tag from a buffer.
+    ///
+    /// Single-byte tags (field numbers 1–15, any wire type) are handled
+    /// inline without a call into [`decode_varint`]. With plain `#[inline]`,
+    /// LLVM often declines to inline `decode_varint` (three code paths:
+    /// single-byte, unrolled-slice, slow-fallback) into per-field decode
+    /// loops, so handling the one-byte case here avoids the out-of-line
+    /// call for the overwhelmingly common case.
+    #[inline]
+    pub fn decode(buf: &mut impl Buf) -> Result<Self, DecodeError> {
+        // Fast path: one-byte tag. Covers field numbers 1–15 with any
+        // wire type (bits 0-2 = wire type, bits 3-6 = field number, bit 7
+        // clear). For protos that keep frequently-used fields in the 1–15
+        // range — which the style guides recommend — this is the only
+        // branch the decode loop ever takes.
+        let chunk = buf.chunk();
+        if !chunk.is_empty() && chunk[0] < 0x80 {
+            let b = chunk[0];
+            buf.advance(1);
+            return Self::from_raw_u32(b as u32);
+        }
+
+        // Multi-byte tag (field number ≥ 16).
+        let value = decode_varint(buf)?;
+        // A tag value above u32::MAX implies a field number above 2^29 – 1
+        // (the protobuf maximum), since the lower three bits carry the wire
+        // type and the remaining bits carry the field number.
+        if value > u32::MAX as u64 {
+            return Err(DecodeError::InvalidFieldNumber);
+        }
+        Self::from_raw_u32(value as u32)
+    }
+
+    /// Construct a tag from its raw u32 wire representation
+    /// (`field_number << 3 | wire_type`).
+    ///
+    /// Validates the wire type and rejects field number 0. `decode` guards
+    /// against values above `u32::MAX` before casting down and calling this.
+    #[inline]
+    fn from_raw_u32(value: u32) -> Result<Self, DecodeError> {
+        let wire_type = WireType::from_u32(value & 0x07)?;
+        let field_number = value >> 3;
+        if field_number == 0 {
+            return Err(DecodeError::InvalidFieldNumber);
+        }
+        // `field_number` is a u32 right-shifted by 3, so it is bounded by
+        // u32::MAX >> 3 = MAX_FIELD_NUMBER. No upper range check required.
+        Ok(Self {
+            field_number,
+            wire_type,
+        })
+    }
+}
+
+/// Encode a varint to a buffer.
+///
+/// Terminates in at most 10 iterations (⌈ 64/7 ⌉) for any `u64` input
+/// because `value >>= 7` monotonically decreases and eventually satisfies
+/// `value < 0x80`. An unbounded `loop` is used intentionally: a bounded
+/// `for _ in 0..10` adds loop-counter overhead that LLVM cannot eliminate
+/// (it cannot prove the inner `return` always fires), and this function is
+/// called for every tag and varint field on the encode hot path.
+#[inline]
+pub fn encode_varint(mut value: u64, buf: &mut impl EncodeSink) {
+    loop {
+        if value < 0x80 {
+            buf.put_u8(value as u8);
+            return;
+        }
+        buf.put_u8(((value & 0x7F) | 0x80) as u8);
+        value >>= 7;
+    }
+}
+
+/// Count the varints in a packed payload, i.e. the number of bytes whose
+/// continuation bit is clear (`b < 0x80`).
+///
+/// Every varint ends in exactly one such terminator byte, so for a well-formed
+/// packed payload this is the exact element count, computed in a single pass.
+/// The result is always `<= payload.len()` — equal only when every value is
+/// single-byte — so it never over-counts the way the raw byte length does for
+/// multi-byte varints. A truncated final varint (no terminator) makes the
+/// result one short, which is harmless when sizing a buffer: it costs at most
+/// one extra reallocation, and decoding then errors on the malformed bytes
+/// anyway.
+///
+/// Generated `decode_view` code uses this to size a packed varint field's
+/// backing storage in a single allocation.
+#[must_use]
+#[inline]
+pub fn count_varints(payload: &[u8]) -> usize {
+    payload.iter().filter(|&&b| b < 0x80).count()
+}
+
+/// Drive a well-formed packed varint payload element-by-element with the
+/// per-element dispatch hoisted out of the loop.
+///
+/// Precondition (checked by the caller): the payload's final byte has its
+/// continuation bit clear. Every suffix of such a payload also ends with a
+/// clear continuation bit, so the slice decoder's precondition holds at every
+/// element position and the loop needs no per-element chunk or remaining
+/// checks — the 1-2-byte common cases decode inline, longer elements fall
+/// through to the unrolled slice decoder.
+#[inline]
+pub(crate) fn for_each_packed_varint(
+    payload: &[u8],
+    mut f: impl FnMut(u64),
+) -> Result<(), DecodeError> {
+    debug_assert!(payload.is_empty() || payload[payload.len() - 1] < 0x80);
+    let mut i = 0;
+    while i < payload.len() {
+        let b0 = payload[i];
+        if b0 < 0x80 {
+            f(u64::from(b0));
+            i += 1;
+            continue;
+        }
+        // payload[i + 1] is in bounds: b0 has its continuation bit set, and
+        // the final byte does not, so i + 1 < payload.len().
+        let b1 = payload[i + 1];
+        if b1 < 0x80 {
+            f(u64::from(b0 & 0x7f) | u64::from(b1) << 7);
+            i += 2;
+            continue;
+        }
+        let (value, advance) = decode_varint_slice_always(&payload[i..])?;
+        f(value);
+        i += advance;
+    }
+    Ok(())
+}
+
+/// Decode a varint from a buffer.
+///
+/// Uses a chunk-based strategy for performance:
+/// 1. Single-byte fast path for values < 128 (common for tags, small lengths).
+/// 2. Unrolled slice decode when the contiguous chunk is large enough.
+/// 3. Byte-at-a-time fallback for non-contiguous or fragmented buffers.
+///
+#[inline]
+pub fn decode_varint(buf: &mut impl Buf) -> Result<u64, DecodeError> {
+    let chunk = buf.chunk();
+    let len = chunk.len();
+    if len == 0 {
+        return Err(DecodeError::UnexpectedEof);
+    }
+
+    // Fast path: single-byte varint (values 0–127). This covers field tags
+    // for field numbers 1–15 and many small integer values.
+    let first = chunk[0];
+    if first < 0x80 {
+        buf.advance(1);
+        return Ok(first as u64);
+    }
+
+    // Keep this branch condition in sync with `decode_varint_packed`; packed
+    // repeated loops duplicate this body to preserve the force-inlined path.
+    // The chunk either contains the full varint (len > 10, or the last byte
+    // in the chunk has its continuation bit clear) or it may be split across
+    // chunks. In the first case we can decode directly from the slice.
+    if len > 10 || chunk[len - 1] < 0x80 {
+        let (value, advance) = decode_varint_slice(chunk)?;
+        buf.advance(advance);
+        Ok(value)
+    } else {
+        decode_varint_slow(buf)
+    }
+}
+
+/// [`decode_varint`] with the fast paths force-inlined, for packed-repeated
+/// element loops only.
+///
+/// Packed payloads decode one varint per element in a tight generated loop,
+/// where the out-of-line `decode_varint_slice` call boundary is a measured
+/// ~16–28% cost on packed-varint-dense decode/merge (bare-metal A/B at the
+/// layout-normalized profile, 2026-06; other sites quoting this figure
+/// reference this doc rather than restating it). Force-inlining is
+/// intentionally restricted to this entry point: applying it to
+/// [`decode_varint`] globally regresses large view-decode functions
+/// (code-size/front-end pressure), so singular-field decoding keeps the
+/// compiler-judged `#[inline]` hint. The fragmented-buffer fallback stays
+/// out of line and cold.
+///
+/// The dispatch body deliberately duplicates [`decode_varint`]'s — sharing
+/// it would re-couple the two functions in the inliner and reintroduce the
+/// placement instability this split exists to avoid. Keep the two in sync;
+/// the `len > 10 || chunk[len - 1] < 0x80` condition is the precondition
+/// the slice decoders' assertions rely on for bounds-check elimination.
+#[inline(always)]
+pub(crate) fn decode_varint_packed(buf: &mut impl Buf) -> Result<u64, DecodeError> {
+    let chunk = buf.chunk();
+    let len = chunk.len();
+    if len == 0 {
+        return Err(DecodeError::UnexpectedEof);
+    }
+
+    let first = chunk[0];
+    if first < 0x80 {
+        buf.advance(1);
+        return Ok(first as u64);
+    }
+
+    if len > 10 || chunk[len - 1] < 0x80 {
+        let (value, advance) = decode_varint_slice_always(chunk)?;
+        buf.advance(advance);
+        Ok(value)
+    } else {
+        decode_varint_slow(buf)
+    }
+}
+
+// One body, two emission forms: `decode_varint_slice` (compiler-judged
+// `#[inline]`, the status-quo path for singular fields) and
+// `decode_varint_slice_always` (force-inlined, used only by
+// `decode_varint_packed` in packed-repeated element loops). A macro rather
+// than a delegating wrapper: a thin wrapper gets merged by the inliner,
+// which bloats `decode_varint` and flips *its* inlining decision at every
+// call site — the macro keeps the two functions physically independent so
+// the status-quo path stays byte-identical. The caller contract / `# Panics`
+// docs are passed through each invocation below so both emitted functions
+// carry them.
+macro_rules! decode_varint_slice_fn {
+    ($(#[$attr:meta])* fn $name:ident) => {
+        $(#[$attr])*
+        fn $name(bytes: &[u8]) -> Result<(u64, usize), DecodeError> {
+    // These assertions are always satisfied by `decode_varint`'s dispatch
+    // logic and exist so the optimizer can prove all subsequent indexing is
+    // in-bounds, eliminating per-byte bounds checks after inlining.
+    assert!(!bytes.is_empty());
+    assert!(bytes.len() > 10 || bytes[bytes.len() - 1] < 0x80);
+
+    // Unrolled varint decoding split into three 32-bit accumulators to reduce
+    // 64-bit arithmetic on 32-bit targets and improve pipelining everywhere.
+
+    let mut b: u8 = bytes[0];
+    let mut part0: u32 = u32::from(b);
+    if b < 0x80 {
+        return Ok((u64::from(part0), 1));
+    }
+    part0 -= 0x80;
+
+    b = bytes[1];
+    part0 += u32::from(b) << 7;
+    if b < 0x80 {
+        return Ok((u64::from(part0), 2));
+    }
+    part0 -= 0x80 << 7;
+
+    b = bytes[2];
+    part0 += u32::from(b) << 14;
+    if b < 0x80 {
+        return Ok((u64::from(part0), 3));
+    }
+    part0 -= 0x80 << 14;
+
+    b = bytes[3];
+    part0 += u32::from(b) << 21;
+    if b < 0x80 {
+        return Ok((u64::from(part0), 4));
+    }
+    part0 -= 0x80 << 21;
+
+    let value = u64::from(part0);
+
+    b = bytes[4];
+    let mut part1: u32 = u32::from(b);
+    if b < 0x80 {
+        return Ok((value + (u64::from(part1) << 28), 5));
+    }
+    part1 -= 0x80;
+
+    b = bytes[5];
+    part1 += u32::from(b) << 7;
+    if b < 0x80 {
+        return Ok((value + (u64::from(part1) << 28), 6));
+    }
+    part1 -= 0x80 << 7;
+
+    b = bytes[6];
+    part1 += u32::from(b) << 14;
+    if b < 0x80 {
+        return Ok((value + (u64::from(part1) << 28), 7));
+    }
+    part1 -= 0x80 << 14;
+
+    b = bytes[7];
+    part1 += u32::from(b) << 21;
+    if b < 0x80 {
+        return Ok((value + (u64::from(part1) << 28), 8));
+    }
+    part1 -= 0x80 << 21;
+
+    let value = value + (u64::from(part1) << 28);
+
+    b = bytes[8];
+    let mut part2: u32 = u32::from(b);
+    if b < 0x80 {
+        return Ok((value + (u64::from(part2) << 56), 9));
+    }
+    part2 -= 0x80;
+
+    b = bytes[9];
+    part2 += u32::from(b) << 7;
+
+    // 10th byte: only bit 0 maps to bit 63 of the result. A byte >= 0x02
+    // means either overflow bits are set or the continuation bit implies an
+    // 11th byte — both are malformed.
+    if b >= 0x02 {
+        return Err(DecodeError::VarintTooLong);
+    }
+
+    Ok((value + (u64::from(part2) << 56), 10))
+        }
+    };
+}
+
+decode_varint_slice_fn!(
+    /// Decode a varint from a contiguous byte slice, returning the value and
+    /// the number of bytes consumed. See the macro note above for why this
+    /// body is emitted twice.
+    ///
+    /// The caller must ensure that `bytes` is non-empty and that either
+    /// `bytes.len() > 10` or the last byte in `bytes` has its continuation
+    /// bit clear (< 0x80). Under these conditions every index up to the
+    /// terminating byte is guaranteed to be in bounds, so no per-byte bounds
+    /// check is needed beyond the initial assertions.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `bytes` is empty or if the last byte has its continuation
+    /// bit set while `bytes.len() <= 10`. These conditions are guaranteed by
+    /// the callers (`decode_varint` / `decode_varint_packed`), so the
+    /// assertions serve as optimizer hints.
+    #[inline]
+    fn decode_varint_slice
+);
+decode_varint_slice_fn!(
+    /// Force-inlined twin of [`decode_varint_slice`] for packed loops; same
+    /// caller contract and `# Panics` conditions (see its doc).
+    #[inline(always)]
+    fn decode_varint_slice_always
+);
+
+/// Byte-at-a-time varint decode for non-contiguous or fragmented buffers.
+///
+/// This is the slow path used when the contiguous chunk from `buf.chunk()`
+/// does not contain the complete varint. Marked `#[cold]` because this path
+/// is rarely taken with typical `Bytes` or `&[u8]` inputs.
+#[inline(never)]
+#[cold]
+fn decode_varint_slow(buf: &mut impl Buf) -> Result<u64, DecodeError> {
+    let mut value: u64 = 0;
+    let mut shift: u32 = 0;
+    let limit = core::cmp::min(10, buf.remaining());
+    for _ in 0..limit {
+        let byte = buf.get_u8();
+        if shift < 63 {
+            value |= ((byte & 0x7F) as u64) << shift;
+            if byte < 0x80 {
+                return Ok(value);
+            }
+            shift += 7;
+        } else {
+            // 10th byte: only bit 0 maps to bit 63 of the result. A byte
+            // > 0x01 means either data overflow (bits 1-6 set) or an 11th
+            // byte (continuation bit 0x80 set). This is equivalent to the
+            // `b >= 0x02` check in `decode_varint_slice`.
+            if byte > 0x01 {
+                return Err(DecodeError::VarintTooLong);
+            }
+            value |= (byte as u64) << 63;
+            return Ok(value);
+        }
+    }
+    Err(DecodeError::UnexpectedEof)
+}
+
+/// Compute the encoded length of a varint.
+#[inline]
+pub const fn varint_len(value: u64) -> usize {
+    if value == 0 {
+        return 1;
+    }
+    let bits = 64 - value.leading_zeros() as usize;
+    bits.div_ceil(7)
+}
+
+/// Skip one field value from `buf` according to the wire type in `tag`.
+///
+/// Used by generated [`Message::merge`](crate::message::Message::merge)
+/// implementations to advance past unknown or unrecognised fields during
+/// decoding.  After this call `buf` is positioned immediately after the
+/// skipped field, ready for the next tag.
+///
+///
+/// # Errors
+///
+/// Returns an error if the buffer is too short, if a length-delimited payload
+/// length overflows `usize`, or if the wire type is a group.
+#[inline]
+pub fn skip_field(tag: Tag, buf: &mut impl Buf) -> Result<(), DecodeError> {
+    skip_field_depth(tag, buf, crate::RECURSION_LIMIT)
+}
+
+/// Verify a decoded tag carries the expected wire type.
+///
+/// Generated `merge_field` / view-decode arms call this once per field arm
+/// before reading the payload, replacing an inline comparison + error
+/// construction at every arm. The mismatch path is delegated to the
+/// `#[cold]` [`wire_type_mismatch`] so the hot decode loop carries only the
+/// comparison.
+///
+/// # Errors
+///
+/// Returns [`DecodeError::WireTypeMismatch`] when `tag`'s wire type is not
+/// `expected`.
+#[inline]
+pub fn check_wire_type(tag: Tag, expected: WireType) -> Result<(), DecodeError> {
+    if tag.wire_type() != expected {
+        return Err(wire_type_mismatch(tag, expected));
+    }
+    Ok(())
+}
+
+/// Construct a [`DecodeError::WireTypeMismatch`] for `tag`.
+///
+/// Out of line and `#[cold]`: error construction never belongs in the
+/// per-field decode loop's instruction stream. Also called directly by
+/// generated repeated-field arms that accept two wire types (packed +
+/// unpacked) and report the packed `LengthDelimited` form as expected.
+#[cold]
+pub fn wire_type_mismatch(tag: Tag, expected: WireType) -> DecodeError {
+    DecodeError::WireTypeMismatch {
+        field_number: tag.field_number(),
+        expected: expected as u8,
+        actual: tag.wire_type() as u8,
+    }
+}
+
+/// Skip a field's payload, with an explicit recursion depth budget for groups.
+///
+/// Generated code must call this (not [`skip_field`]) when a decode context
+/// is in scope (passing `ctx.depth()`), to prevent unknown group fields from
+/// resetting the recursion budget and allowing depth-doubling attacks.
+///
+/// `depth` is the remaining nesting budget. For group fields this function
+/// calls itself recursively, decrementing `depth` by one each level.
+/// Unlike [`decode_unknown_field`], skipping materializes nothing, so this
+/// function deliberately takes only the depth — it never consumes the
+/// unknown-field allowance.
+///
+/// # Errors
+///
+/// Returns an error if the buffer is too short, if a length-delimited payload
+/// length overflows `usize`, if the wire type is `EndGroup` (malformed stream),
+/// or if group nesting exceeds `depth`.
+pub fn skip_field_depth(tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+    match tag.wire_type() {
+        WireType::Varint => {
+            decode_varint(buf)?;
+        }
+        WireType::Fixed64 => {
+            if buf.remaining() < 8 {
+                return Err(DecodeError::UnexpectedEof);
+            }
+            buf.advance(8);
+        }
+        WireType::LengthDelimited => {
+            let len = decode_varint(buf)?;
+            let len = usize::try_from(len).map_err(|_| DecodeError::MessageTooLarge)?;
+            if buf.remaining() < len {
+                return Err(DecodeError::UnexpectedEof);
+            }
+            buf.advance(len);
+        }
+        WireType::Fixed32 => {
+            if buf.remaining() < 4 {
+                return Err(DecodeError::UnexpectedEof);
+            }
+            buf.advance(4);
+        }
+        WireType::StartGroup => {
+            let depth = depth
+                .checked_sub(1)
+                .ok_or(DecodeError::RecursionLimitExceeded)?;
+            // Skip nested fields until the matching EndGroup tag.
+            loop {
+                let nested_tag = Tag::decode(buf)?;
+                if nested_tag.wire_type() == WireType::EndGroup {
+                    if nested_tag.field_number() != tag.field_number() {
+                        return Err(DecodeError::InvalidEndGroup(nested_tag.field_number()));
+                    }
+                    break;
+                }
+                skip_field_depth(nested_tag, buf, depth)?;
+            }
+        }
+        // EndGroup is consumed by the StartGroup handler above; seeing one
+        // here means the stream is malformed.
+        wt => {
+            return Err(DecodeError::InvalidWireType(wt as u8 as u32));
+        }
+    }
+    Ok(())
+}
+
+/// What [`register_unknown_record`] charged for one span: the slot count
+/// and the maximum group-nesting depth. `UnknownFieldsView` accumulates
+/// these so `to_owned` can replay under exactly the budget decode charged.
+pub(crate) struct UnknownSpanCharge {
+    /// Slots charged — one per field at every nesting level, matching the
+    /// `UnknownField`s [`decode_unknown_field`] materializes for the span.
+    pub fields: usize,
+    /// Deepest group nesting in the span — the recursion depth
+    /// [`decode_unknown_field`] needs to re-materialize it.
+    pub depth: u32,
+}
+
+/// Charge `ctx`'s unknown-field allowance with exactly the slots
+/// [`decode_unknown_field`] consumes when `span` is re-materialized: one per
+/// `(tag, value)` record, plus one per field nested inside unknown groups.
+///
+/// That count is simply the number of non-`EndGroup` tags in the span
+/// (`decode_unknown_field` materializes one `UnknownField` per field at
+/// every nesting level, and `EndGroup` tags close groups rather than start
+/// fields), so a flat scan suffices — no recursion, and no re-validation of
+/// group framing. `span` must hold complete records whose group tags are
+/// balanced and matched, which every caller guarantees by capturing the
+/// span from a successful [`skip_field_depth`] walk.
+///
+/// This is the decode-time accounting twin of [`decode_unknown_field`]:
+/// zero-copy view decoding stores the raw record bytes and defers
+/// materialization to `UnknownFieldsView::to_owned`, so it charges the
+/// allowance here instead, keeping decode-time and replay-time counts
+/// identical.
+pub(crate) fn register_unknown_record(
+    span: &[u8],
+    ctx: crate::DecodeContext<'_>,
+) -> Result<UnknownSpanCharge, DecodeError> {
+    let mut cur = span;
+    let mut charge = UnknownSpanCharge {
+        fields: 0,
+        depth: 0,
+    };
+    let mut depth = 0u32;
+    while !cur.is_empty() {
+        let tag = Tag::decode(&mut cur)?;
+        match tag.wire_type() {
+            WireType::EndGroup => depth = depth.saturating_sub(1),
+            WireType::StartGroup => {
+                ctx.register_unknown_field()?;
+                charge.fields = charge.fields.saturating_add(1);
+                depth = depth.saturating_add(1);
+                charge.depth = charge.depth.max(depth);
+            }
+            // Non-group payloads never recurse, so the depth argument is
+            // unused — pass zero rather than threading `ctx.depth()`.
+            _ => {
+                ctx.register_unknown_field()?;
+                charge.fields = charge.fields.saturating_add(1);
+                skip_field_depth(tag, &mut cur, 0)?;
+            }
+        }
+    }
+    Ok(charge)
+}
+
+/// Decode one unknown field's value from `buf` and return it as an
+/// [`UnknownField`](crate::unknown_fields::UnknownField).
+///
+/// The `tag` must already have been decoded; this function reads only the
+/// payload that follows it on the wire. Groups are decoded recursively until
+/// their matching `EndGroup` tag.
+///
+/// `ctx` carries the remaining nesting depth and the shared unknown-field
+/// allowance.  For group fields this function calls itself recursively,
+/// consuming one depth level each time.  When the depth reaches zero
+/// [`DecodeError::RecursionLimitExceeded`] is returned.  Construct a fresh
+/// [`DecodeContext`](crate::DecodeContext) at the outermost call site;
+/// generated code passes the `ctx` value received by the enclosing `merge`.
+///
+/// # Errors
+///
+/// Returns an error if the buffer is truncated, the wire type is
+/// `EndGroup` (which indicates a structural mismatch in the wire data),
+/// the recursion limit is exceeded, or the unknown-field limit is
+/// exceeded.
+///
+/// # Allocation
+///
+/// Unknown fields can occupy far more memory decoded than encoded: a
+/// 2-byte varint field becomes a ~40-byte
+/// [`UnknownField`](crate::UnknownField), so an input-size cap alone does
+/// **not** bound decoder memory. Every decoded field consumes one slot of
+/// the context's shared unknown-field allowance **before** it is
+/// materialized; when the allowance is exhausted decoding fails with
+/// [`DecodeError::UnknownFieldLimitExceeded`]. Length-delimited payload
+/// bytes are bounded by the input itself (the `buf.remaining() < len`
+/// check forces the sender to actually deliver them), so they are not
+/// counted against the limit — cap the input size to bound them.
+pub fn decode_unknown_field(
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: crate::DecodeContext<'_>,
+) -> Result<crate::unknown_fields::UnknownField, DecodeError> {
+    use crate::unknown_fields::{UnknownField, UnknownFieldData, UnknownFields};
+
+    // Every decoded field occupies one `UnknownField` slot in its parent's
+    // vector — consume an allowance slot up front so runs of tiny fields
+    // (2 wire bytes each) cannot amplify into unbounded heap growth.
+    ctx.register_unknown_field()?;
+    let data = match tag.wire_type() {
+        WireType::Varint => UnknownFieldData::Varint(decode_varint(buf)?),
+        WireType::Fixed64 => {
+            if buf.remaining() < 8 {
+                return Err(DecodeError::UnexpectedEof);
+            }
+            UnknownFieldData::Fixed64(buf.get_u64_le())
+        }
+        WireType::Fixed32 => {
+            if buf.remaining() < 4 {
+                return Err(DecodeError::UnexpectedEof);
+            }
+            UnknownFieldData::Fixed32(buf.get_u32_le())
+        }
+        WireType::LengthDelimited => {
+            let len = decode_varint(buf)?;
+            let len = usize::try_from(len).map_err(|_| DecodeError::MessageTooLarge)?;
+            if buf.remaining() < len {
+                return Err(DecodeError::UnexpectedEof);
+            }
+            let mut data = alloc::vec![0u8; len];
+            buf.copy_to_slice(&mut data);
+            UnknownFieldData::LengthDelimited(data)
+        }
+        WireType::StartGroup => {
+            let ctx = ctx.descend()?;
+            let group_field_number = tag.field_number();
+            // Read nested fields until the matching EndGroup tag.
+            let mut nested = UnknownFields::new();
+            loop {
+                let nested_tag = Tag::decode(buf)?;
+                if nested_tag.wire_type() == WireType::EndGroup {
+                    // Per the protobuf spec the EndGroup tag must carry the same
+                    // field number as the opening StartGroup tag.
+                    if nested_tag.field_number() != group_field_number {
+                        return Err(DecodeError::InvalidEndGroup(nested_tag.field_number()));
+                    }
+                    break;
+                }
+                nested.push(decode_unknown_field(nested_tag, buf, ctx)?);
+            }
+            UnknownFieldData::Group(nested)
+        }
+        wt => return Err(DecodeError::InvalidWireType(wt as u8 as u32)),
+    };
+    Ok(UnknownField {
+        number: tag.field_number(),
+        data,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_check_wire_type_match() {
+        let tag = Tag::new(3, WireType::Varint);
+        assert!(check_wire_type(tag, WireType::Varint).is_ok());
+    }
+
+    #[test]
+    fn test_check_wire_type_mismatch() {
+        let tag = Tag::new(3, WireType::Varint);
+        match check_wire_type(tag, WireType::LengthDelimited) {
+            Err(DecodeError::WireTypeMismatch {
+                field_number,
+                expected,
+                actual,
+            }) => {
+                assert_eq!(field_number, 3);
+                assert_eq!(expected, WireType::LengthDelimited as u8);
+                assert_eq!(actual, WireType::Varint as u8);
+            }
+            other => panic!("expected WireTypeMismatch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_wire_type_mismatch_constructor() {
+        let tag = Tag::new(7, WireType::Fixed32);
+        let err = wire_type_mismatch(tag, WireType::Fixed64);
+        match err {
+            DecodeError::WireTypeMismatch {
+                field_number,
+                expected,
+                actual,
+            } => {
+                assert_eq!(field_number, 7);
+                assert_eq!(expected, 1);
+                assert_eq!(actual, 5);
+            }
+            other => panic!("expected WireTypeMismatch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_varint_roundtrip() {
+        let test_values: &[u64] = &[0, 1, 127, 128, 255, 300, 16384, u64::MAX];
+        for &v in test_values {
+            let mut buf = Vec::new();
+            encode_varint(v, &mut buf);
+            assert_eq!(buf.len(), varint_len(v), "varint_len mismatch for {v}");
+            let decoded = decode_varint(&mut buf.as_slice()).unwrap();
+            assert_eq!(v, decoded, "roundtrip failed for {v}");
+        }
+    }
+
+    #[test]
+    fn test_decode_varint_packed_parity() {
+        // `decode_varint_packed` must agree with `decode_varint` on every
+        // path: single-byte fast path, multi-byte slice path, and the
+        // fragmented-buffer slow path.
+        let test_values: &[u64] = &[0, 1, 127, 128, 255, 300, 16384, 1 << 28, 1 << 56, u64::MAX];
+        for &v in test_values {
+            let mut buf = Vec::new();
+            encode_varint(v, &mut buf);
+            let plain = decode_varint(&mut buf.as_slice()).unwrap();
+            let packed = decode_varint_packed(&mut buf.as_slice()).unwrap();
+            assert_eq!(plain, packed, "parity failed for {v}");
+            if buf.len() > 1 {
+                // Split mid-varint so the packed decoder takes the
+                // fragmented-buffer slow path.
+                let mid = buf.len() / 2;
+                let first = bytes::Bytes::copy_from_slice(&buf[..mid]);
+                let second = bytes::Bytes::copy_from_slice(&buf[mid..]);
+                let mut chain = first.chain(second);
+                assert_eq!(
+                    decode_varint_packed(&mut chain).unwrap(),
+                    v,
+                    "fragmented parity failed for {v}"
+                );
+                assert_eq!(chain.remaining(), 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_decode_varint_packed_errors_match_plain() {
+        // Empty buffer.
+        assert_eq!(
+            decode_varint_packed(&mut [].as_slice()),
+            Err(DecodeError::UnexpectedEof)
+        );
+        // Truncated multi-byte varint (continuation bit set, no next byte).
+        assert_eq!(
+            decode_varint_packed(&mut [0x80u8].as_slice()),
+            Err(DecodeError::UnexpectedEof)
+        );
+        // 11-byte varint: continuation bits past the 10-byte maximum.
+        let mut too_long = vec![0x80u8; 10];
+        too_long.push(0x01);
+        assert_eq!(
+            decode_varint_packed(&mut too_long.as_slice()),
+            Err(DecodeError::VarintTooLong)
+        );
+        assert_eq!(
+            decode_varint(&mut too_long.as_slice()),
+            Err(DecodeError::VarintTooLong)
+        );
+        // Exactly 10 bytes with overflow bits in the last byte: taken via
+        // the `chunk[len - 1] < 0x80` disjunct, hitting the `b >= 0x02`
+        // check inside the force-inlined slice body — the only branch of
+        // the always-twin that valid encodings never reach.
+        let mut overflow10 = vec![0x80u8; 9];
+        overflow10.push(0x02);
+        assert_eq!(
+            decode_varint_packed(&mut overflow10.as_slice()),
+            Err(DecodeError::VarintTooLong)
+        );
+        assert_eq!(
+            decode_varint(&mut overflow10.as_slice()),
+            Err(DecodeError::VarintTooLong)
+        );
+        // VarintTooLong via the fragmented-buffer slow path: split the
+        // 11-byte malformed varint across two chunks.
+        let first = bytes::Bytes::copy_from_slice(&too_long[..5]);
+        let second = bytes::Bytes::copy_from_slice(&too_long[5..]);
+        let mut chain = first.chain(second);
+        assert_eq!(
+            decode_varint_packed(&mut chain),
+            Err(DecodeError::VarintTooLong)
+        );
+    }
+
+    #[test]
+    fn test_tag_roundtrip() {
+        let tag = Tag::new(1, WireType::Varint);
+        let mut buf = Vec::new();
+        tag.encode(&mut buf);
+        let decoded = Tag::decode(&mut buf.as_slice()).unwrap();
+        assert_eq!(tag, decoded);
+    }
+
+    #[test]
+    fn test_tag_high_field_number() {
+        let tag = Tag::new(MAX_FIELD_NUMBER, WireType::LengthDelimited);
+        let mut buf = Vec::new();
+        tag.encode(&mut buf);
+        let decoded = Tag::decode(&mut buf.as_slice()).unwrap();
+        assert_eq!(tag, decoded);
+    }
+
+    #[test]
+    fn test_zero_field_number_rejected() {
+        // Field number 0 is invalid in protobuf
+        let mut buf = Vec::new();
+        encode_varint(0b0000_0000, &mut buf); // field 0, wire type 0
+        let result = Tag::decode(&mut buf.as_slice());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_oversize_field_number_rejected() {
+        // Field number 2^29 = 536_870_912 encodes to a tag value of
+        // 536_870_912 << 3 = 2^32, which exceeds u32::MAX and is rejected
+        // by the overflow check in Tag::decode.
+        let mut buf = Vec::new();
+        encode_varint(536_870_912u64 << 3, &mut buf);
+        assert_eq!(
+            Tag::decode(&mut buf.as_slice()),
+            Err(DecodeError::InvalidFieldNumber)
+        );
+    }
+
+    #[test]
+    fn test_tag_single_byte_fast_path() {
+        // The fast path handles all one-byte tags: field numbers 1-15,
+        // any wire type. Verify the boundary at both ends and that invalid
+        // wire types / field 0 are still rejected through the fast path.
+        #[rustfmt::skip]
+        let cases: &[(u8, Option<(u32, WireType)>)] = &[
+            (0x08, Some((1,  WireType::Varint))),          // field 1, wire 0 — smallest valid
+            (0x0A, Some((1,  WireType::LengthDelimited))), // field 1, wire 2
+            (0x7D, Some((15, WireType::Fixed32))),         // field 15, wire 5 — largest one-byte
+            (0x78, Some((15, WireType::Varint))),          // field 15, wire 0
+            (0x00, None),                                  // field 0 — invalid through fast path
+            (0x07, None),                                  // field 0, wire 7 — invalid wire type also caught
+            (0x0E, None),                                  // field 1, wire 6 — invalid wire type
+        ];
+        for &(byte, expected) in cases {
+            let buf = [byte];
+            let result = Tag::decode(&mut &buf[..]);
+            match expected {
+                Some((fn_, wt)) => {
+                    let t = result.unwrap_or_else(|e| panic!("byte {byte:#04x}: {e:?}"));
+                    assert_eq!(t.field_number(), fn_, "byte {byte:#04x}");
+                    assert_eq!(t.wire_type(), wt, "byte {byte:#04x}");
+                }
+                None => assert!(result.is_err(), "byte {byte:#04x} should be rejected"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_tag_field_16_takes_slow_path() {
+        // Field number 16 with wire type 0 encodes as [0x80, 0x01] — two
+        // bytes, so it should take the multi-byte path via decode_varint.
+        let tag = Tag::new(16, WireType::Varint);
+        let mut buf = Vec::new();
+        tag.encode(&mut buf);
+        assert_eq!(buf, [0x80, 0x01]); // continuation bit set on first byte
+        let decoded = Tag::decode(&mut buf.as_slice()).unwrap();
+        assert_eq!(decoded.field_number(), 16);
+        assert_eq!(decoded.wire_type(), WireType::Varint);
+    }
+
+    #[test]
+    fn test_varint_u64_max_roundtrip() {
+        // u64::MAX requires all 10 bytes with the 10th byte == 0x01.
+        let mut buf = Vec::new();
+        encode_varint(u64::MAX, &mut buf);
+        assert_eq!(buf.len(), 10);
+        assert_eq!(buf[9], 0x01); // 10th byte must be exactly 0x01
+        let decoded = decode_varint(&mut buf.as_slice()).unwrap();
+        assert_eq!(decoded, u64::MAX);
+    }
+
+    #[test]
+    fn test_varint_10th_byte_overflow_rejected() {
+        // 10th byte with overflow bits set (0x02–0x7F) must be rejected.
+        // This encodes a value that would overflow u64.
+        let mut buf: Vec<u8> = vec![0xFF; 9]; // 9 continuation bytes
+        buf.push(0x02); // 10th byte: bit 1 set → overflow
+        assert_eq!(
+            decode_varint(&mut buf.as_slice()),
+            Err(DecodeError::VarintTooLong)
+        );
+    }
+
+    #[test]
+    fn test_varint_11th_byte_rejected() {
+        // 10th byte with continuation bit set implies an 11th byte → always malformed.
+        let buf: Vec<u8> = vec![0xFF; 10]; // 10 continuation bytes
+        assert_eq!(
+            decode_varint(&mut buf.as_slice()),
+            Err(DecodeError::VarintTooLong)
+        );
+    }
+
+    #[test]
+    fn test_skip_field_varint() {
+        // Encode field 1 = varint 300, then check skip consumes it.
+        let mut buf = Vec::new();
+        let tag = Tag::new(1, WireType::Varint);
+        tag.encode(&mut buf);
+        encode_varint(300, &mut buf);
+        // Prepend a second tag/value to verify skip stops at the right byte.
+        let mut combined = buf.clone();
+        let tag2 = Tag::new(2, WireType::Varint);
+        tag2.encode(&mut combined);
+        encode_varint(1, &mut combined);
+
+        let slice = &mut combined.as_slice();
+        let t = Tag::decode(slice).unwrap();
+        skip_field(t, slice).unwrap();
+        // After skipping field 1, we should see tag 2.
+        let t2 = Tag::decode(slice).unwrap();
+        assert_eq!(t2.field_number(), 2);
+    }
+
+    #[test]
+    fn test_skip_field_fixed32() {
+        let mut buf = Vec::new();
+        Tag::new(1, WireType::Fixed32).encode(&mut buf);
+        buf.extend_from_slice(&[0xAA, 0xBB, 0xCC, 0xDD]);
+
+        let slice = &mut buf.as_slice();
+        let t = Tag::decode(slice).unwrap();
+        skip_field(t, slice).unwrap();
+        assert!(slice.is_empty());
+    }
+
+    #[test]
+    fn test_skip_field_fixed64() {
+        let mut buf = Vec::new();
+        Tag::new(1, WireType::Fixed64).encode(&mut buf);
+        buf.extend_from_slice(&[0u8; 8]);
+
+        let slice = &mut buf.as_slice();
+        let t = Tag::decode(slice).unwrap();
+        skip_field(t, slice).unwrap();
+        assert!(slice.is_empty());
+    }
+
+    #[test]
+    fn test_skip_field_length_delimited() {
+        let mut buf = Vec::new();
+        Tag::new(1, WireType::LengthDelimited).encode(&mut buf);
+        encode_varint(3, &mut buf); // length = 3
+        buf.extend_from_slice(&[0xAA, 0xBB, 0xCC]);
+
+        let slice = &mut buf.as_slice();
+        let t = Tag::decode(slice).unwrap();
+        skip_field(t, slice).unwrap();
+        assert!(slice.is_empty());
+    }
+
+    #[test]
+    fn test_skip_field_truncated_returns_error() {
+        let mut buf = Vec::new();
+        Tag::new(1, WireType::Fixed32).encode(&mut buf);
+        buf.extend_from_slice(&[0x01, 0x02]); // only 2 bytes, not 4
+
+        let slice = &mut buf.as_slice();
+        let t = Tag::decode(slice).unwrap();
+        assert_eq!(skip_field(t, slice), Err(DecodeError::UnexpectedEof));
+    }
+
+    #[test]
+    fn test_skip_field_start_group_empty_buf() {
+        let tag = Tag::new(1, WireType::StartGroup);
+        let mut buf: &[u8] = &[];
+        assert_eq!(skip_field(tag, &mut buf), Err(DecodeError::UnexpectedEof));
+    }
+
+    #[test]
+    fn test_skip_field_start_group_with_end() {
+        // Build: StartGroup(1) already consumed, then varint field 2 = 42,
+        // then EndGroup(1).
+        let mut data = Vec::new();
+        Tag::new(2, WireType::Varint).encode(&mut data);
+        encode_varint(42, &mut data);
+        Tag::new(1, WireType::EndGroup).encode(&mut data);
+
+        let tag = Tag::new(1, WireType::StartGroup);
+        let mut buf: &[u8] = &data;
+        assert_eq!(skip_field(tag, &mut buf), Ok(()));
+        assert!(buf.is_empty());
+    }
+
+    #[test]
+    fn test_skip_field_start_group_wrong_end() {
+        // EndGroup with mismatched field number.
+        let mut data = Vec::new();
+        Tag::new(99, WireType::EndGroup).encode(&mut data);
+
+        let tag = Tag::new(1, WireType::StartGroup);
+        let mut buf: &[u8] = &data;
+        assert_eq!(
+            skip_field(tag, &mut buf),
+            Err(DecodeError::InvalidEndGroup(99))
+        );
+    }
+
+    #[test]
+    fn test_skip_field_end_group_returns_invalid_wire_type() {
+        let tag = Tag::new(1, WireType::EndGroup);
+        let mut buf: &[u8] = &[];
+        assert_eq!(
+            skip_field(tag, &mut buf),
+            Err(DecodeError::InvalidWireType(4))
+        );
+    }
+
+    // ---- decode_unknown_field: group recursion limit ----------------------
+
+    /// Build the bytes that follow an already-decoded StartGroup tag for
+    /// `field_number`: zero or more inner fields then the matching EndGroup.
+    fn encode_group_payload(field_number: u32, inner: &[u8]) -> Vec<u8> {
+        let mut buf = inner.to_vec();
+        Tag::new(field_number, WireType::EndGroup).encode(&mut buf);
+        buf
+    }
+
+    #[test]
+    fn test_decode_unknown_field_group_at_depth_1_succeeds() {
+        // depth = 1: checked_sub(1) = 0, which is the floor but still Ok.
+        let payload = encode_group_payload(1, &[]);
+        let tag = Tag::new(1, WireType::StartGroup);
+        let result = decode_unknown_field(tag, &mut payload.as_slice(), crate::test_ctx(1));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_decode_unknown_field_group_at_depth_0_exceeds_limit() {
+        // depth = 0: checked_sub(1) returns None → RecursionLimitExceeded.
+        let payload = encode_group_payload(1, &[]);
+        let tag = Tag::new(1, WireType::StartGroup);
+        assert_eq!(
+            decode_unknown_field(tag, &mut payload.as_slice(), crate::test_ctx(0)),
+            Err(DecodeError::RecursionLimitExceeded)
+        );
+    }
+
+    // ---- decode_unknown_field: unknown-field limit -------------------------
+
+    /// Group-amplification payload: the body of a group containing `n`
+    /// minimal (2-byte) varint fields. Each inflates to a ~40-byte
+    /// `UnknownField`, so wire size amplifies ~20× in memory.
+    fn group_amp_body(n: usize) -> Vec<u8> {
+        let mut inner = Vec::with_capacity(2 * n);
+        for _ in 0..n {
+            inner.push(0x08); // field 1, Varint
+            inner.push(0x00); // value 0
+        }
+        encode_group_payload(1, &inner)
+    }
+
+    #[test]
+    fn test_group_amplification_exhausts_limit() {
+        // 1000 nested 2-byte varints, but only 100 unknown-field slots:
+        // the decoder must refuse long before materializing them all.
+        let payload = group_amp_body(1000);
+        let limit = core::cell::Cell::new(100);
+        let ctx = crate::DecodeContext::new(crate::RECURSION_LIMIT, &limit);
+        let tag = Tag::new(1, WireType::StartGroup);
+        assert_eq!(
+            decode_unknown_field(tag, &mut payload.as_slice(), ctx),
+            Err(DecodeError::UnknownFieldLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn test_group_amplification_within_limit_succeeds() {
+        // The same payload decodes fine when the limit covers it.
+        let payload = group_amp_body(1000);
+        let limit = core::cell::Cell::new(crate::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        let ctx = crate::DecodeContext::new(crate::RECURSION_LIMIT, &limit);
+        let tag = Tag::new(1, WireType::StartGroup);
+        let field = decode_unknown_field(tag, &mut payload.as_slice(), ctx).unwrap();
+        let crate::unknown_fields::UnknownFieldData::Group(nested) = field.data else {
+            panic!("expected group");
+        };
+        assert_eq!(nested.iter().count(), 1000);
+        // The allowance recorded all 1001 UnknownField slots (1000 nested +
+        // the group itself).
+        assert_eq!(
+            limit.get(),
+            crate::DEFAULT_UNKNOWN_FIELD_LIMIT - 1001,
+            "every decoded field must consume one slot"
+        );
+    }
+
+    #[test]
+    fn test_limit_shared_across_sibling_fields() {
+        // Two sibling unknown fields decoded under one context draw from the
+        // same allowance: one slot admits the first field but not the second.
+        let limit = core::cell::Cell::new(1);
+        let ctx = crate::DecodeContext::new(crate::RECURSION_LIMIT, &limit);
+        let tag = Tag::new(1, WireType::Varint);
+        let mut payload: &[u8] = &[0x00];
+        decode_unknown_field(tag, &mut payload, ctx).expect("first field fits");
+        let mut payload: &[u8] = &[0x00];
+        assert_eq!(
+            decode_unknown_field(tag, &mut payload, ctx),
+            Err(DecodeError::UnknownFieldLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn test_length_delimited_payload_counts_as_one_field() {
+        // A large length-delimited payload consumes exactly one slot — its
+        // bytes are bounded by the input, not by the field limit.
+        let mut payload = Vec::new();
+        encode_varint(4096, &mut payload);
+        payload.extend_from_slice(&[0u8; 4096]);
+        let limit = core::cell::Cell::new(1);
+        let ctx = crate::DecodeContext::new(crate::RECURSION_LIMIT, &limit);
+        let tag = Tag::new(1, WireType::LengthDelimited);
+        decode_unknown_field(tag, &mut payload.as_slice(), ctx).expect("one slot suffices");
+        assert_eq!(limit.get(), 0);
+        // With no slots left, even a minimal field is refused.
+        let mut tiny: &[u8] = &[0x00];
+        assert_eq!(
+            decode_unknown_field(Tag::new(1, WireType::Varint), &mut tiny, ctx),
+            Err(DecodeError::UnknownFieldLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn test_length_delimited_truncated_still_reports_eof() {
+        // A truncated payload reports UnexpectedEof: the declared length is
+        // never allocated unless the sender actually delivers the bytes.
+        let mut payload = Vec::new();
+        encode_varint(4096, &mut payload);
+        payload.extend_from_slice(&[0u8; 16]); // 16 of 4096 bytes
+        let limit = core::cell::Cell::new(crate::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        let ctx = crate::DecodeContext::new(crate::RECURSION_LIMIT, &limit);
+        let tag = Tag::new(1, WireType::LengthDelimited);
+        assert_eq!(
+            decode_unknown_field(tag, &mut payload.as_slice(), ctx),
+            Err(DecodeError::UnexpectedEof)
+        );
+    }
+
+    #[test]
+    fn test_decode_unknown_field_end_group_mismatched_field_number() {
+        // Group opened as field 1 but closed with field 2's EndGroup tag.
+        let mut payload = Vec::new();
+        Tag::new(2, WireType::EndGroup).encode(&mut payload); // wrong field number
+        let tag = Tag::new(1, WireType::StartGroup);
+        assert_eq!(
+            decode_unknown_field(tag, &mut payload.as_slice(), crate::test_ctx(1)),
+            Err(DecodeError::InvalidEndGroup(2))
+        );
+    }
+
+    #[test]
+    fn test_decode_unknown_field_all_wire_types() {
+        // Table-driven: each wire type → expected UnknownFieldData variant.
+        // Covers Fixed32, Fixed64, LengthDelimited, and StartGroup with
+        // nested fields (the Varint and empty-group cases are above).
+        use crate::unknown_fields::{UnknownField, UnknownFieldData};
+
+        struct Case {
+            tag: Tag,
+            payload: Vec<u8>,
+            expected: UnknownFieldData,
+        }
+        let cases = vec![
+            // Varint: 300 encoded as [0xAC, 0x02].
+            Case {
+                tag: Tag::new(1, WireType::Varint),
+                payload: {
+                    let mut b = Vec::new();
+                    encode_varint(300, &mut b);
+                    b
+                },
+                expected: UnknownFieldData::Varint(300),
+            },
+            // Fixed32: 0xDEADBEEF little-endian.
+            Case {
+                tag: Tag::new(2, WireType::Fixed32),
+                payload: 0xDEAD_BEEF_u32.to_le_bytes().to_vec(),
+                expected: UnknownFieldData::Fixed32(0xDEAD_BEEF),
+            },
+            // Fixed64: full-width value little-endian.
+            Case {
+                tag: Tag::new(3, WireType::Fixed64),
+                payload: 0x1234_5678_9ABC_DEF0_u64.to_le_bytes().to_vec(),
+                expected: UnknownFieldData::Fixed64(0x1234_5678_9ABC_DEF0),
+            },
+            // LengthDelimited: len-prefix 3 + bytes "abc".
+            Case {
+                tag: Tag::new(4, WireType::LengthDelimited),
+                payload: {
+                    let mut b = Vec::new();
+                    encode_varint(3, &mut b);
+                    b.extend_from_slice(b"abc");
+                    b
+                },
+                expected: UnknownFieldData::LengthDelimited(b"abc".to_vec()),
+            },
+            // StartGroup with nested varint field 1 = 42.
+            Case {
+                tag: Tag::new(5, WireType::StartGroup),
+                payload: {
+                    let mut inner = Vec::new();
+                    Tag::new(1, WireType::Varint).encode(&mut inner);
+                    encode_varint(42, &mut inner);
+                    encode_group_payload(5, &inner)
+                },
+                expected: UnknownFieldData::Group({
+                    let mut fields = crate::unknown_fields::UnknownFields::new();
+                    fields.push(UnknownField {
+                        number: 1,
+                        data: UnknownFieldData::Varint(42),
+                    });
+                    fields
+                }),
+            },
+        ];
+
+        for case in cases {
+            let got = decode_unknown_field(
+                case.tag,
+                &mut case.payload.as_slice(),
+                crate::test_ctx(crate::RECURSION_LIMIT),
+            )
+            .unwrap_or_else(|e| panic!("decode failed for tag {:?}: {e}", case.tag));
+            assert_eq!(got.number, case.tag.field_number());
+            assert_eq!(got.data, case.expected, "tag {:?}", case.tag);
+        }
+    }
+
+    #[test]
+    fn test_decode_unknown_field_eof_rejection() {
+        // Each fixed-width / length-delimited wire type with truncated payload.
+        #[rustfmt::skip]
+        let cases: &[(Tag, &[u8])] = &[
+            // Fixed32 needs 4 bytes; give 3.
+            (Tag::new(1, WireType::Fixed32), &[0x01, 0x02, 0x03]),
+            // Fixed64 needs 8 bytes; give 7.
+            (Tag::new(2, WireType::Fixed64), &[0; 7]),
+            // LengthDelimited: len=10 but only 2 payload bytes.
+            (Tag::new(3, WireType::LengthDelimited), &[0x0A, 0xAA, 0xBB]),
+        ];
+        for &(tag, payload) in cases {
+            assert_eq!(
+                decode_unknown_field(
+                    tag,
+                    &mut &payload[..],
+                    crate::test_ctx(crate::RECURSION_LIMIT)
+                ),
+                Err(DecodeError::UnexpectedEof),
+                "tag {tag:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_decode_unknown_field_invalid_wire_type() {
+        // EndGroup as a top-level tag is invalid (only valid inside a group).
+        let tag = Tag::new(1, WireType::EndGroup);
+        assert_eq!(
+            decode_unknown_field(tag, &mut &[][..], crate::test_ctx(crate::RECURSION_LIMIT)),
+            Err(DecodeError::InvalidWireType(4))
+        );
+    }
+
+    #[test]
+    fn test_decode_unknown_field_round_trip_via_unknown_fields() {
+        // Encode an UnknownFields set → decode each back → compare.
+        // Verifies decode_unknown_field ⇔ UnknownFields::write_to parity
+        // across all wire types.
+        use crate::unknown_fields::{UnknownField, UnknownFieldData, UnknownFields};
+
+        let mut original = UnknownFields::new();
+        original.push(UnknownField {
+            number: 1,
+            data: UnknownFieldData::Varint(u64::MAX),
+        });
+        original.push(UnknownField {
+            number: 2,
+            data: UnknownFieldData::Fixed32(0xFFFF_FFFF),
+        });
+        original.push(UnknownField {
+            number: 3,
+            data: UnknownFieldData::Fixed64(0),
+        });
+        original.push(UnknownField {
+            number: 4,
+            data: UnknownFieldData::LengthDelimited(vec![]),
+        });
+        original.push(UnknownField {
+            number: 5,
+            data: UnknownFieldData::LengthDelimited(vec![0xFF; 200]),
+        });
+
+        let mut buf = Vec::new();
+        original.write_to(&mut buf);
+        assert_eq!(original.encoded_len(), buf.len());
+
+        // Decode all fields back.
+        let mut decoded = UnknownFields::new();
+        let mut cur = buf.as_slice();
+        while !cur.is_empty() {
+            let tag = Tag::decode(&mut cur).unwrap();
+            decoded.push(
+                decode_unknown_field(tag, &mut cur, crate::test_ctx(crate::RECURSION_LIMIT))
+                    .unwrap(),
+            );
+        }
+        assert_eq!(decoded, original);
+    }
+
+    // ---- decode_varint_slice: direct slice decode --------------------------
+
+    #[test]
+    fn test_decode_varint_slice_all_sizes() {
+        // Exercise the unrolled slice decoder for every varint length (1–10 bytes).
+        let test_values: &[u64] = &[
+            0,        // 1 byte
+            128,      // 2 bytes
+            1 << 14,  // 3 bytes
+            1 << 21,  // 4 bytes
+            1 << 28,  // 5 bytes
+            1 << 35,  // 6 bytes
+            1 << 42,  // 7 bytes
+            1 << 49,  // 8 bytes
+            1 << 56,  // 9 bytes
+            u64::MAX, // 10 bytes
+        ];
+        for &v in test_values {
+            let mut buf = Vec::new();
+            encode_varint(v, &mut buf);
+            let (decoded, advance) = decode_varint_slice(&buf).unwrap();
+            assert_eq!(v, decoded, "decode_varint_slice failed for {v}");
+            assert_eq!(buf.len(), advance, "advance mismatch for {v}");
+        }
+    }
+
+    #[test]
+    fn test_decode_varint_slice_overflow_rejected() {
+        // 10th byte with overflow bit: 9 continuation bytes + 0x02.
+        let mut buf: Vec<u8> = vec![0xFF; 9];
+        buf.push(0x02);
+        assert_eq!(decode_varint_slice(&buf), Err(DecodeError::VarintTooLong));
+    }
+
+    // ---- decode_varint_slow: byte-at-a-time fallback -----------------------
+
+    #[test]
+    fn test_decode_varint_slow_roundtrip() {
+        let test_values: &[u64] = &[
+            0,
+            1,
+            127,
+            128,
+            300,
+            16384,
+            // Power-of-7 transition boundaries (2^7, 2^14, 2^21, ...).
+            1 << 7,
+            (1 << 7) - 1,
+            1 << 14,
+            (1 << 14) - 1,
+            1 << 21,
+            1 << 28,
+            1 << 35,
+            1 << 42,
+            1 << 49,
+            1 << 56,
+            1 << 63,
+            u64::MAX,
+        ];
+        for &v in test_values {
+            let mut buf = Vec::new();
+            encode_varint(v, &mut buf);
+            let decoded = decode_varint_slow(&mut buf.as_slice()).unwrap();
+            assert_eq!(v, decoded, "slow path roundtrip failed for {v}");
+        }
+    }
+
+    #[test]
+    fn test_decode_varint_slow_overflow_rejected() {
+        let mut buf: Vec<u8> = vec![0xFF; 9];
+        buf.push(0x02);
+        assert_eq!(
+            decode_varint_slow(&mut buf.as_slice()),
+            Err(DecodeError::VarintTooLong)
+        );
+    }
+
+    #[test]
+    fn test_decode_varint_empty_buffer() {
+        let mut buf: &[u8] = &[];
+        assert_eq!(decode_varint(&mut buf), Err(DecodeError::UnexpectedEof));
+    }
+
+    #[test]
+    fn test_decode_varint_slow_path_via_fragmented_buffer() {
+        // Exercise the slow path through `decode_varint` by using a
+        // `Chain` buffer where the varint straddles two chunks. The
+        // first chunk ends with a continuation byte, so `chunk()[last]`
+        // has its high bit set, triggering the slow-path dispatch.
+        use bytes::Buf;
+
+        let test_values: &[u64] = &[128, 300, 16384, 1 << 28, u64::MAX];
+        for &v in test_values {
+            let mut encoded = Vec::new();
+            encode_varint(v, &mut encoded);
+            // Split in the middle so each chunk ends/starts on a
+            // continuation byte.
+            let mid = encoded.len() / 2;
+            let first_half = bytes::Bytes::copy_from_slice(&encoded[..mid]);
+            let second_half = bytes::Bytes::copy_from_slice(&encoded[mid..]);
+            let mut chain = first_half.chain(second_half);
+            let decoded = decode_varint(&mut chain).unwrap();
+            assert_eq!(v, decoded, "fragmented buffer roundtrip failed for {v}");
+            assert_eq!(chain.remaining(), 0);
+        }
+    }
+
+    #[test]
+    fn test_decode_varint_single_byte_fast_path() {
+        // Values 0–127 should hit the single-byte fast path.
+        for v in 0..=127u64 {
+            let mut buf = Vec::new();
+            encode_varint(v, &mut buf);
+            assert_eq!(buf.len(), 1);
+            let decoded = decode_varint(&mut buf.as_slice()).unwrap();
+            assert_eq!(v, decoded);
+        }
+    }
+
+    #[test]
+    fn test_count_varints() {
+        // Empty payload: no elements.
+        assert_eq!(count_varints(&[]), 0);
+        // Single-byte values: count == byte count.
+        assert_eq!(count_varints(&[0x01, 0x02, 0x7F]), 3);
+        // Build a packed payload of varints of mixed widths and confirm the
+        // count matches the number encoded — never the byte length.
+        let values: &[u64] = &[0, 1, 127, 128, 300, 16_384, u64::MAX];
+        let mut payload = Vec::new();
+        for &v in values {
+            encode_varint(v, &mut payload);
+        }
+        assert!(payload.len() > values.len(), "payload should be multi-byte");
+        assert_eq!(count_varints(&payload), values.len());
+        // Never exceeds the byte-length upper bound.
+        assert!(count_varints(&payload) <= payload.len());
+        // A negative int32/int64 sign-extends to all-ones = a 10-byte varint,
+        // i.e. one element in 10 bytes — the worst case the old `payload.len()`
+        // bound over-reserved 10x.
+        let mut neg64 = Vec::new();
+        encode_varint(u64::MAX, &mut neg64);
+        assert_eq!(neg64.len(), 10);
+        assert_eq!(count_varints(&neg64), 1);
+        // Truncated final varint (no terminator) under-counts by one, not over.
+        assert_eq!(count_varints(&[0x80, 0x80]), 0);
+        assert_eq!(count_varints(&[0x05, 0x80]), 1);
+    }
+
+    // --- 32-bit specific tests ---
+    // These exercise the `MessageTooLarge` error path in `skip_field` and
+    // `decode_unknown_field` when a length-delimited field has a varint length
+    // prefix that exceeds `usize::MAX` on 32-bit targets.
+
+    /// Varint encoding of 0x1_0000_0000 (u32::MAX + 1) — exceeds 32-bit usize.
+    #[cfg(target_pointer_width = "32")]
+    const OVERSIZED_VARINT: &[u8] = &[0x80, 0x80, 0x80, 0x80, 0x10];
+
+    #[test]
+    #[cfg(target_pointer_width = "32")]
+    fn skip_field_rejects_oversized_length_on_32bit() {
+        let tag = Tag::new(1, WireType::LengthDelimited);
+        let mut buf: &[u8] = OVERSIZED_VARINT;
+        assert_eq!(skip_field(tag, &mut buf), Err(DecodeError::MessageTooLarge));
+    }
+
+    #[test]
+    #[cfg(target_pointer_width = "32")]
+    fn decode_unknown_field_rejects_oversized_length_on_32bit() {
+        let tag = Tag::new(1, WireType::LengthDelimited);
+        let mut buf: &[u8] = OVERSIZED_VARINT;
+        assert_eq!(
+            decode_unknown_field(tag, &mut buf, crate::test_ctx(crate::RECURSION_LIMIT)),
+            Err(DecodeError::MessageTooLarge)
+        );
+    }
+}

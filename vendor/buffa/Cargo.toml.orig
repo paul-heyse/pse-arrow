@@ -1,0 +1,58 @@
+[package]
+name = "buffa"
+description = "A pure Rust Protocol Buffers implementation with first-class editions support"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme = "README.md"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = ["std", "fast-utf8"]
+std = [
+    "bytes/std",
+    "foldhash/std",
+    "thiserror/std",
+    "serde?/std",
+    "serde_json?/std",
+    "smoothutf8?/simdutf8",
+]
+# Replace `core::str::from_utf8` at the decode hot path with `smoothutf8`
+# (portable, formally verified, `no_std`). With `std` also on, smoothutf8's
+# `simdutf8` delegation is enabled for inputs >=128 bytes. Named abstractly
+# (what you get, not how) so the public knob isn't tied to the backing crate.
+fast-utf8 = ["dep:smoothutf8"]
+# `json` and `text` are independently enableable. Both share the
+# `type_registry` module (gated `any(json, text)`) but carry per-format
+# entry types (`JsonAnyEntry` vs `TextAnyEntry`) — no struct-literal `#[cfg]`
+# needed, no `Option<fn>` placeholder fields.
+json = [
+    "dep:serde",
+    "dep:base64",
+    "dep:serde_json",
+    "serde/alloc",
+    "serde/derive",
+    "hashbrown/serde",
+]
+arbitrary = ["dep:arbitrary"]
+text = []
+
+[dependencies]
+arbitrary = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
+bytes = { workspace = true }
+foldhash = { workspace = true }
+hashbrown = { workspace = true }
+once_cell = { workspace = true, features = ["alloc"] }
+rustversion = { workspace = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+smoothutf8 = { workspace = true, optional = true }
+thiserror = { workspace = true }
