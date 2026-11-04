@@ -839,11 +839,15 @@ impl CanonicalMagnitude {
         self.quantity
     }
 }
+pse_contract::projection_struct! {
 /// Untrusted exact canonical magnitude data, separate from an admitted magnitude.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MagnitudeRecord {
-    bits: u64,
-    quantity: QuantityTypeId,
+    projection: { name: "PhysicalCanonicalMagnitudeRecord", rust_path: crate::unit::MagnitudeRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    bits: u64 => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [], representation: pse_contract::boundary_projection::Scalar::F64Bits };
+    quantity: QuantityTypeId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl MagnitudeRecord {
     /// Capture an already admitted canonical value without unit conversion.
@@ -901,6 +905,24 @@ mod canonical_tests {
         QuantityRegistryBuilder, QuantityType, QuantityTypeKey, ScaleKind,
     };
     use pse_ids::SemanticId;
+
+    #[test]
+    fn canonical_magnitude_record_projection_retains_signed_zero_without_physical_grant() {
+        use pse_contract::boundary_projection::{ConstructionRole, ProjectionGraph, ProjectionRecord, Scalar, Shape, TypeRef};
+        let registry = registry();
+        let plan = CanonicalConversionPlan::canonical(&registry, id(30).into()).unwrap();
+        let record = MagnitudeRecord::capture(plan.apply(-0.0).unwrap());
+        let original = serde_json::to_vec(&record).unwrap();
+        let restored = MagnitudeRecord::from_projection_fields(record.into_projection_fields()).unwrap();
+        assert_eq!(serde_json::to_vec(&restored).unwrap(), original);
+        assert_eq!(restored.bits, 1u64 << 63);
+        assert!(restored.restore().is_err());
+        let graph = ProjectionGraph::of::<MagnitudeRecord>().unwrap();
+        let owner = &graph.definitions()["PhysicalCanonicalMagnitudeRecord"];
+        assert_eq!(owner.construction, ConstructionRole::Data);
+        let Shape::Record(fields) = &owner.shape else { panic!("actual canonical magnitude data") };
+        assert_eq!(fields[0].ty, TypeRef::Scalar(Scalar::F64Bits));
+    }
 
     fn id(n: u8) -> SemanticId {
         SemanticId::from_bytes([n; 16])

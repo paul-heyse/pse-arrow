@@ -74,6 +74,7 @@ quantity_vocabulary!(
     BasisKind,
     CompositionBasis,
     RateBasis,
+    ReductionKind,
     ReferenceStateKind,
     ConversionKind,
     Opcode,

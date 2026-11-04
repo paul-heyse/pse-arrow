@@ -198,23 +198,45 @@ impl AdmissionRecorder {
     }
 }
 
+pse_contract::projection_tuple_enum! {
+/// Passive original physical obligation; native admission remains context-qualified.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-enum PhysicalRequest {
-    Add,
-    Sub,
-    Neg,
-    Abs,
-    Mul,
-    Div,
-    Pow(Option<pse_quantity::Ratio>),
-    Sqrt,
-    Transcendental(pse_quantity::Opcode),
-    FiniteReduce(
-        pse_quantity::ReductionKind,
-        Option<pse_quantity::EntityKindId>,
-    ),
-    Reduce(pse_quantity::ReductionKind, pse_quantity::BoundIndexRef),
-    Conditional,
+pub enum PhysicalRequest {
+    projection: { name: "ModelingPhysicalRequestFacts", rust_path: crate::expression::admission::PhysicalRequest,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    /// Original addition obligation.
+    Add => 1;
+    /// Original subtraction obligation.
+    Sub => 2;
+    /// Original negation obligation.
+    Neg => 3;
+    /// Original absolute-value obligation.
+    Abs => 4;
+    /// Original multiplication obligation.
+    Mul => 5;
+    /// Original division obligation.
+    Div => 6;
+    /// Original rational or symbolic power obligation.
+    Pow [/// Retained exact exponent, absent for a symbolic exponent.
+        exponent: Option<pse_quantity::Ratio> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 7;
+    /// Original square-root obligation.
+    Sqrt => 8;
+    /// Original transcendental operation obligation.
+    Transcendental [/// Original operation vocabulary member.
+        opcode: pse_quantity::Opcode => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 9;
+    /// Original finite reduction obligation.
+    FiniteReduce [/// Original reduction kind.
+        kind: pse_quantity::ReductionKind => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original optional domain kind.
+        domain: Option<pse_quantity::EntityKindId> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 10;
+    /// Original bound reduction obligation.
+    Reduce [/// Original reduction kind.
+        kind: pse_quantity::ReductionKind => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original exact lexical binder.
+        bound: pse_quantity::BoundIndexRef => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 11;
+    /// Original conditional obligation.
+    Conditional => 12;
+}
 }
 impl PhysicalRequest {
     fn request(&self) -> OpRequest<'static> {
@@ -249,13 +271,17 @@ pub struct PhysicalAdmission {
     operands: Vec<Scheme>,
     resolved: Option<ResolvedInference>,
 }
+pse_contract::projection_struct! {
 /// Untrusted persisted obligation and its complete optional concrete admission.
 /// This wire does not deserialize a `PhysicalAdmission` or admitted physical witness.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct PhysicalAdmissionRecord {
-    request: PhysicalRequest,
-    operands: Vec<pse_quantity::resolved::receipts::SchemeRecord>,
-    resolved: Option<pse_quantity::resolved::receipts::InferenceRecord>,
+    projection: { name: "ModelingPhysicalAdmissionRecord", rust_path: crate::expression::admission::PhysicalAdmissionRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    request: PhysicalRequest => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    operands: Vec<pse_quantity::resolved::receipts::SchemeRecord> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    resolved: Option<pse_quantity::resolved::receipts::InferenceRecord> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl PhysicalAdmissionRecord {
     /// Complete owned extent of schemes and concrete operation result.
@@ -592,4 +618,33 @@ pub fn admit_partial(
 ) -> Result<ResolvedInference> {
     pse_quantity::resolved::infer_partial(value, arguments, registry, checker)
         .map_err(|error| invalid(at, error.to_string()))
+}
+
+#[cfg(test)]
+mod projection_tests {
+    use super::*;
+    use pse_contract::boundary_projection::{ConstructionRole, ProjectionAlternative, ProjectionGraph, ProjectionRecord, Shape};
+
+    #[test]
+    fn physical_admission_record_projection_keeps_generic_obligation_and_replay_refusal() {
+        let at = DeclarationId::from(pse_ids::SemanticId::from_bytes([71; 16]));
+        let value = PhysicalAdmission::checked(
+            &OpRequest::FiniteReduce { kind: pse_quantity::ReductionKind::Sum, domain: None },
+            vec![Scheme::Variable("T".into())], None, at,
+        ).unwrap();
+        let record = PhysicalAdmissionRecord::capture(&value);
+        let expected = br#"{"request":{"FiniteReduce":["sum",null]},"operands":[{"Variable":"T"}],"resolved":null}"#;
+        assert_eq!(serde_json::to_vec(&record).unwrap(), expected);
+        let restored = PhysicalAdmissionRecord::from_projection_fields(record.into_projection_fields()).unwrap();
+        assert_eq!(serde_json::to_vec(&restored).unwrap(), expected);
+        assert!(restored.restore(at).is_err());
+        let graph = ProjectionGraph::of::<PhysicalAdmissionRecord>().unwrap();
+        for name in ["ModelingPhysicalAdmissionRecord", "ModelingPhysicalRequestFacts", "PhysicalSchemeRecord", "PhysicalInferenceRecord"] {
+            assert_eq!(graph.definitions()[name].construction, ConstructionRole::Data);
+        }
+        let Shape::Alternatives(variants) = &graph.definitions()["ModelingPhysicalRequestFacts"].shape else { panic!("actual complete physical request facts") };
+        assert_eq!(variants.len(), 12);
+        let fields = <PhysicalRequest as ProjectionAlternative<10>>::into_projection_alternative(PhysicalRequest::FiniteReduce(pse_quantity::ReductionKind::Sum, None)).unwrap();
+        assert_eq!(fields, (pse_quantity::ReductionKind::Sum, None));
+    }
 }
