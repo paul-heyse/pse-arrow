@@ -53,7 +53,7 @@ Reuse existing case/source declarations, conformance/reference exchange and reta
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | H01 | in-progress | Accepted RC01 scope and current case/register sources | [Source/configuration crosswalk](64h-required-process-population.md) supplies D–G selections and gaps; full inherited/parameterized population, recursive closure and exact executable environment remain open |
-| H02 | planned | H01 first-case slice; ordinary-data and formulation selection from 64b/64c | Matched recycle/exchanger reference contracts and independent candidate/comparison controls are ready before integrated execution |
+| H02 | in-progress | H01 first-case slice; ordinary-data and formulation selection from 64b/64c | Actual independent ordinary thermodynamic configuration and input/datum controls work; complete process construction, output correspondence and candidate controls remain open |
 | H03 | planned | H02; complete native A–C journeys and consumed F01/F02/F03 contracts | Packet D establishes complete outputs, intended failure correspondence, original physical checks and exact retained readback |
 | H04 | planned | H01 population; selected 64d–64g scientific capabilities | Configuration, property, unit, workflow and extension acceptance closes each delivered family at its actual scope |
 | H05 | planned | Selected H03/H04 outcomes; applicable C07/G08 corrections; original execution/persistence owners | Relevant assembled native/operational journeys, interruption and deployment support claims are qualified without duplicating other plans' status |
@@ -105,6 +105,29 @@ Candidate exchange preserves Rust-produced values and exact source/operation ide
 Use observable-specific dimensional absolute/relative tolerances and near-zero rules. Compare original physical feasibility separately from scaled solver tolerance and native termination. Exercise a deliberately wrong output, an omitted required output, species/field reordering and an incompatible datum or formulation. The comparison must fail for the intended reason. Missing solver, wrong IDAES version or missing required reference data fails a selected run; unattempted scope remains unattempted.
 
 D can develop once input science and mapping settle; its final acceptance consumes working native journeys. It need not wait for every later P2–P6 family. H03 supplies first-delivery evidence and leaves the broader population visibly open.
+
+### H02 implementation checkpoint — 2026-11-03
+
+The isolated parity environment is explicitly prepared with IDAES2.13.0 and Pyomo6.10.1;
+Ipopt and IDAES cubic-root availability have been checked. This is a first-case prerequisite,
+not qualification of the entire H01 examples/configuration population.
+
+**Implemented and Tested:** `tests/reference/oracles/ordinary_thermo.py` reads the actual
+retained Chemicals/FeOS/Perry input artifacts and constructs fresh ideal, liquid-only and
+Peng–Robinson IDAES parameter blocks. It uses RPP5's five-term ideal-gas caloric methods,
+Perry's liquid method, explicit zero gas and sourced liquid enthalpy origins, and a separate
+Wagner2.5,5 pressure hook with its fitted critical coordinates. PR retains predictive-zero
+interactions and explicit SmoothVLE rather than the released BT_PR example's different
+default formulation. No native evaluator or candidate result supplies reference answers.
+
+The command `UV_PROJECT_ENVIRONMENT=.venv-parity uv run --only-group parity --python 3.13
+python -I -m unittest discover -s tests/reference -p test_ordinary_thermo.py -v` passes
+three focused controls, with zero failures against a zero baseline. They exercise actual
+IDAES gas Cp/enthalpy/entropy, unit normalization, liquid datum offsets, analytical pressure
+derivatives, separate fitted/EOS critical coordinates and actual phase/formulation setup.
+They do not solve or compare the five ordinary process cases. Complete matched recycle,
+intended overheated-stage failure, exchanger design/rating/arithmetic closure, all required
+outputs and original canonical readback remain H02/H03 obligations.
 
 ## H04 — Close configurations and scientific workflows
 
