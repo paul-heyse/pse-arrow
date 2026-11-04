@@ -12,6 +12,46 @@ use pse_contract::boundary_projection::{
 use super::{error, protobuf_map_key, snake_case};
 use super::ProjectionCodegenError;
 
+/// Reachability of generated root wrappers, independent of unknown-field adoption.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AdapterVisibility {
+    /// Public source owner exported by its consumer crate.
+    Public,
+    /// Root wrapper is an internal crossing of the consumer crate.
+    Crate,
+    /// Root wrapper is internal to its immediate native consumer module.
+    Parent,
+}
+impl AdapterVisibility {
+    fn rust(self) -> &'static str { match self { Self::Public => "pub", Self::Crate => "pub(crate)", Self::Parent => "pub(super)" } }
+}
+
+#[cfg(test)]
+mod visibility_tests {
+    use super::*;
+    pse_contract::projection_struct! {
+        #[derive(Clone, Debug)]
+        pub(super) struct LocalOwner {
+            projection: { name: "LocalOwner", rust_path: crate::codegen::boundary_projection::adapters::visibility_tests::LocalOwner, version: 1, direction: pse_contract::BoundaryDirection::Both, reserved_tags: [], reserved_names: [] };
+            pub value: bool => { tag: 1, direction: pse_contract::BoundaryDirection::Both, rules: [] };
+        }
+    }
+    #[test]
+    fn scoped_wrapper_visibility_preserves_strict_unknown_adoption() {
+        let graph = ProjectionGraph::of::<LocalOwner>().unwrap();
+        let strict = native_adapters_scoped(&graph, &["LocalOwner"], "crate::pb", "pse_codegen", AdapterVisibility::Crate).unwrap();
+        assert!(strict.contains("pub(crate) fn encode_local_owner"));
+        assert!(strict.contains("pub(crate) fn decode_local_owner"));
+        assert!(strict.contains("unknown_fields(&wire.__buffa_unknown_fields, path)?"));
+        let public = native_adapters(&graph, &["LocalOwner"], "crate::pb", "pse_codegen").unwrap();
+        assert!(public.contains("pub fn decode_local_owner"));
+        assert!(public.contains("unknown_fields(&wire.__buffa_unknown_fields, path)?"));
+        let retained = native_adapters_retaining_wire(&graph, &["LocalOwner"], "crate::pb", "pse_codegen").unwrap();
+        assert!(retained.contains("pub(super) fn decode_local_owner"));
+        assert!(!retained.contains("unknown_fields(&wire.__buffa_unknown_fields, path)?"));
+    }
+}
+
 /// Emit adapters for exactly the selected native roots and their actual type closure.
 /// `wire_root` names the generated Buffa package module; `owner_crate` is the consuming
 /// Rust crate. Public alias wiring comes from the checked source declaration macro.
@@ -21,7 +61,19 @@ pub fn native_adapters(
     wire_root: &str,
     owner_crate: &str,
 ) -> Result<String, ProjectionCodegenError> {
-    generate(graph, roots, wire_root, owner_crate, false)
+    native_adapters_scoped(graph, roots, wire_root, owner_crate, AdapterVisibility::Public)
+}
+
+/// Emit strict native adoption with an explicit root-wrapper visibility. Private
+/// native owners do not need a weaker unknown-field policy to keep their crossing local.
+pub fn native_adapters_scoped(
+    graph: &ProjectionGraph,
+    roots: &[&str],
+    wire_root: &str,
+    owner_crate: &str,
+    visibility: AdapterVisibility,
+) -> Result<String, ProjectionCodegenError> {
+    generate(graph, roots, wire_root, owner_crate, false, visibility)
 }
 
 /// Emit known-field adoption only for a caller that retains the complete original wire
@@ -33,7 +85,7 @@ pub fn native_adapters_retaining_wire(
     wire_root: &str,
     owner_crate: &str,
 ) -> Result<String, ProjectionCodegenError> {
-    generate(graph, roots, wire_root, owner_crate, true)
+    generate(graph, roots, wire_root, owner_crate, true, AdapterVisibility::Parent)
 }
 
 fn generate(
@@ -42,6 +94,7 @@ fn generate(
     wire_root: &str,
     owner_crate: &str,
     retained_wire: bool,
+    visibility: AdapterVisibility,
 ) -> Result<String, ProjectionCodegenError> {
     syn::parse_str::<syn::Path>(wire_root)
         .map_err(|e| error(format!("invalid adapter package path: {e}")))?;
@@ -91,7 +144,7 @@ fn generate(
         let native = generator.native(definition)?;
         let wire = generator.wire(&[(*name).into()]);
         let method = snake_case(name);
-        let visibility = if retained_wire { "pub(super)" } else { "pub" };
+        let visibility = visibility.rust();
         if definition.construction == ConstructionRole::ObservationOnly {
             let _ = writeln!(out,
                 "/// Observe `{name}` without consuming native custody or constructing native authority.\n{visibility} fn encode_{method}(native: &{native}) -> Result<{wire}, BoundaryProjectionError> {{ pse_contract::boundary_projection::ValidateProjection::validate_projection(native).map_err(BoundaryProjectionError::OutgoingNative)?; let wire: {wire} = native_into(native, {name:?}).map_err(BoundaryProjectionError::OutgoingAdoption)?; protovalidate_buffa::Validate::validate(&wire).map_err(BoundaryProjectionError::OutgoingWire)?; Ok(wire) }}\n"
