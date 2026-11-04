@@ -4,6 +4,18 @@
 use pse_ids::{ContentHash, SemanticId};
 use pse_contract::boundary_projection::{Direction, LocalRule};
 
+/// Conservative effects of the multiplexed authenticated Exchange operation.
+/// Preparation, numerical work and lifecycle control are effectful. Duplicate refusal
+/// is not a promise that an independent client can recover an original result by replay.
+/// Individual native operations retain their own identity, admission and settlement.
+pub const EXCHANGE_EFFECTS: pse_contract::operation_effects::EffectFacts =
+    pse_contract::operation_effects::EffectFacts {
+        scope: pse_contract::operation_effects::EffectScope::NativeExecution,
+        read_only: false,
+        idempotent: false,
+        destructive: false,
+    };
+
 pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, Eq)]
     /// Exact attempt and child generation; this carries no owner-sealed proof.

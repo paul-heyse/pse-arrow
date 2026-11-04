@@ -26,7 +26,8 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     let service = Service::new("ScientificWorker").unary::<
         pse_runtime::scientific_worker::protocol::Request,
         pse_runtime::scientific_worker::protocol::Response,
-    >(&mut graph, "Exchange")?;
+    >(&mut graph, "Exchange")?
+    .effects(pse_runtime::scientific_worker::protocol::EXCHANGE_EFFECTS);
     graph.service(service)?;
     let mut tree = projection(
         root,
