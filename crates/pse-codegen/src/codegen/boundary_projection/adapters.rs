@@ -74,10 +74,13 @@ fn generate(
             return Err(error(format!("{name}: borrowed observation requires a record accessor")));
         }
     }
+    let naming_config = buffa_codegen::CodeGenConfig::default();
+    let naming = buffa_codegen::context::CodeGenContext::new(&[], &naming_config, &[]);
     let generator = Generator {
         wire_root,
         owner_crate,
         retained_wire,
+        naming: &naming,
     };
     let mut out = String::new();
     for name in &selected {
@@ -195,6 +198,7 @@ struct Generator<'a> {
     wire_root: &'a str,
     owner_crate: &'a str,
     retained_wire: bool,
+    naming: &'a buffa_codegen::context::CodeGenContext<'a>,
 }
 
 impl Generator<'_> {
@@ -223,6 +227,18 @@ impl Generator<'_> {
                     first.ident = syn::Ident::new("crate", first.ident.span());
                     path.leading_colon = None;
                 }
+                // The native type universe supplies fully qualified standard
+                // containers. Generated modules use Rust's identical prelude
+                // names, avoiding redundant qualifications in generic owners.
+                if path.segments.len() == 3 {
+                    let parts = path.segments.iter().map(|part| part.ident.to_string()).collect::<Vec<_>>();
+                    if matches!(parts.as_slice(), [root, module, name]
+                        if root == "std" && matches!((module.as_str(), name.as_str()),
+                            ("vec", "Vec") | ("option", "Option") | ("result", "Result") | ("string", "String") | ("boxed", "Box"))) {
+                        if let Some(last) = path.segments.pop() { path.segments.clear(); path.segments.push(last); }
+                        path.leading_colon = None;
+                    }
+                }
             }
         }
         syn::visit_mut::VisitMut::visit_type_mut(&mut LocalCrate(self.owner_crate), &mut native);
@@ -236,7 +252,7 @@ impl Generator<'_> {
             result.push_str(&if index + 1 == path.len() {
                 segment.clone()
             } else {
-                buffa_codegen::idents::escape_mod_ident(&snake_case(segment))
+                buffa_codegen::idents::escape_mod_ident(&self.naming.nested_module_name("", segment))
             });
         }
         result
@@ -402,7 +418,7 @@ impl Generator<'_> {
                         buffa_codegen::idents::to_upper_camel_case(&snake_case(&alternative.name));
                     let tag = alternative.tag;
                     let alternative_name = &alternative.name;
-                    let path_setup = if alternative.fields.is_empty() {
+                    let path_setup = if !alternative.fields.iter().any(|field| encoding_uses_path(&field.ty)) {
                         String::new()
                     } else {
                         format!(
@@ -534,6 +550,9 @@ impl Generator<'_> {
                         tag,
                     )?
                 };
+                if !encoding_uses_path(inner) {
+                    return Ok(format!("items({value}).map(|value| -> Result<_, AdapterError> {{ Ok({converted}) }}).collect::<Result<Vec<_>, _>>()?"));
+                }
                 format!(
                     "{{ let current_path = {path}; items({value}).enumerate().map(|(index, value)| -> Result<_, AdapterError> {{ Ok({converted}) }}).collect::<Result<Vec<_>, _>>()? }}"
                 )
@@ -547,7 +566,7 @@ impl Generator<'_> {
                         if matches!(item.as_ref(), TypeRef::Scalar(_) | TypeRef::Named(_)) {
                             self.encode(item, "value", path, &entry_path, 2, true)?
                         } else {
-                            self.encode_wrapper(item, "value", path, &entry_path, 2)?
+                            self.encode_wrapper(item, "value", path, parent, tag)?
                         };
                     format!(
                         "wire_map({value}.into_iter().map(|(key, value)| -> Result<_, AdapterError> {{ Ok(({encoded_key}, {encoded_item})) }}).collect::<Result<Vec<_>, _>>()?.into_iter())"
@@ -642,7 +661,7 @@ impl Generator<'_> {
                     let item = if matches!(item.as_ref(), TypeRef::Scalar(_) | TypeRef::Named(_)) {
                         self.decode(item, "value", path, &entry_path, 2, true)?
                     } else {
-                        self.decode_wrapper(item, "value", path, &entry_path, 2)?
+                        self.decode_wrapper(item, "value", path, parent, tag)?
                     };
                     format!(
                         "unique_pairs({value}.into_iter().map(|(key, value)| -> Result<_, AdapterError> {{ Ok(({key}, {item})) }}).collect::<Result<Vec<_>, _>>()?, {path})?"
@@ -676,6 +695,15 @@ impl Generator<'_> {
 
 fn requires_scalar_presence(field: &Field) -> bool {
     field.rules.contains(&LocalRule::Required) && matches!(field.ty, TypeRef::Scalar(_))
+}
+
+fn encoding_uses_path(ty: &TypeRef) -> bool {
+    match ty {
+        TypeRef::Scalar(Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash) => false,
+        TypeRef::Scalar(_) | TypeRef::Named(_) => true,
+        TypeRef::Optional(inner) | TypeRef::Repeated(inner) | TypeRef::Set(inner) => encoding_uses_path(inner),
+        TypeRef::Map(key, value) => encoding_uses_path(key) || encoding_uses_path(value),
+    }
 }
 
 fn scalar_wire(scalar: Scalar) -> &'static str {

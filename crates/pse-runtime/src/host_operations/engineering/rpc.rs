@@ -17,7 +17,9 @@ mod adoption;
 mod auth;
 mod edit;
 mod ingress;
+mod inspection;
 mod outgoing;
+mod study;
 mod wire;
 
 /// Explicitly prepared original service; connecting never launches or rebuilds it.
@@ -171,6 +173,8 @@ impl Implementation {
 }
 
 impl bindings::EngineeringService for Implementation {
+    inspection::methods!();
+    study::methods!();
     async fn inspect_physical<'a>(
         &'a self,
         context: connectrpc::RequestContext,
@@ -185,7 +189,7 @@ impl bindings::EngineeringService for Implementation {
             ConnectError::invalid_argument("the original physical inspection request is required")
         })?;
         let selected = crate::engineering_projection::decode_physical_inspection_request(selected)
-            .map_err(|error| transport(EngineeringServiceError::Owner(Box::new(error))))?;
+            .map_err(study::projection_error)?;
         let cancel = CancelSource::new().with_deadline(context.deadline());
         let output = self
             .engine
@@ -201,7 +205,7 @@ impl bindings::EngineeringService for Implementation {
         let encoded = crate::preparation_projection::encode_owned_physical_inspection_document(
             output.document,
         )
-        .map_err(|error| transport(EngineeringServiceError::Owner(Box::new(error))))?;
+        .map_err(study::projection_error)?;
         let owner: Arc<dyn pse_columnar::PayloadOwner> = Arc::new((output.owner, encoded.owner));
         Ok(connectrpc::Response::new(AccountedResponse {
             message: encoded.document,
@@ -223,7 +227,7 @@ impl bindings::EngineeringService for Implementation {
             ConnectError::invalid_argument("the original source-file request is required")
         })?;
         let selected = crate::engineering_projection::decode_original_source_file_request(selected)
-            .map_err(|error| transport(EngineeringServiceError::Owner(Box::new(error))))?;
+            .map_err(study::projection_error)?;
         let cancel = CancelSource::new().with_deadline(context.deadline());
         let output = self
             .engine
@@ -238,7 +242,7 @@ impl bindings::EngineeringService for Implementation {
             .map_err(transport)?;
         let message =
             crate::engineering_projection::encode_original_source_file(output.document)
-                .map_err(|error| transport(EngineeringServiceError::Owner(Box::new(error))))?;
+                .map_err(study::projection_error)?;
         Ok(connectrpc::Response::new(AccountedResponse {
             message,
             reservation: output.owner,

@@ -200,6 +200,15 @@ The metadata-only crate does not select the validator capability; actual workspa
 feature unification can still select the validator's Connect support through runtime
 and host consumers.
 
+The adapter emitter resolves nested Rust module names through Buffa's
+[`CodeGenContext::nested_module_name`](https://docs.rs/buffa-codegen/0.9.2/buffa_codegen/context/struct.CodeGenContext.html#method.nested_module_name),
+including acronym and digit boundaries, rather than approximating library casing.
+Synthetic protobuf map entries contain their key/value fields; collection-value
+wrappers are sibling messages in the containing scope, so Buffa emits their actual
+owned and borrowed types. Native adapters and descriptor qualification follow that
+same source lowering. Explicit source public paths make native field access independent
+of the generator consumer module's location.
+
 **Registry facet lowering.** The registry owner publishes
 `pse.schema.v1.registry_field`, a message-valued `google.protobuf.FieldOptions`
 extension allocated at 51066 in

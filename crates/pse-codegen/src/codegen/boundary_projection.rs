@@ -231,7 +231,7 @@ pub fn descriptors_for_direction(
                 message.field.push(field);
             }
         }
-        qualify_nested(&mut message, package);
+        qualify_nested(&mut message, package)?;
         validate_message_names(&message)?;
         messages.push(message);
     }
@@ -626,7 +626,14 @@ impl Lower<'_> {
                             label: Some(Label::LABEL_OPTIONAL),
                             ..Default::default()
                         };
-                        self.wrapper(&mut entry, &mut field, 2, value)?;
+                        if protobuf_map_key(key) {
+                            // Synthetic map-entry messages are not emitted as owned
+                            // Rust modules. Their collection value wrapper belongs
+                            // beside the entry in the actual containing message.
+                            self.wrapper(parent, &mut field, tag, value)?;
+                        } else {
+                            self.wrapper(&mut entry, &mut field, 2, value)?;
+                        }
                         field
                     };
                 if !protobuf_map_key(key) {
@@ -1052,18 +1059,25 @@ fn protobuf_map_key(ty: &TypeRef) -> bool {
     )
 }
 
-fn qualify_nested(message: &mut DescriptorProto, prefix: &str) {
-    let scope = format!("{prefix}.{}", message.name.as_deref().unwrap_or_default());
-    for field in &mut message.field {
-        if let Some(name) = &mut field.type_name {
-            if !name.starts_with('.') {
-                *name = format!(".{scope}.{name}");
+fn qualify_nested(message: &mut DescriptorProto, prefix: &str) -> Result<(), ProjectionCodegenError> {
+    fn visit(message: &mut DescriptorProto, prefix: &str, ancestors: &mut Vec<(String, std::collections::BTreeSet<String>)>) -> Result<(), ProjectionCodegenError> {
+        let scope = format!("{prefix}.{}", message.name.as_deref().unwrap_or_default());
+        ancestors.push((scope.clone(), message.nested_type.iter().filter_map(|nested| nested.name.clone()).collect()));
+        for field in &mut message.field {
+            if let Some(name) = &mut field.type_name {
+                if !name.starts_with('.') {
+                    let first = name.split('.').next().unwrap_or_default();
+                    let declaring = ancestors.iter().rev().find(|(_, names)| names.contains(first))
+                        .ok_or_else(|| error(format!("{scope}: unresolved relative nested type {name}")))?;
+                    *name = format!(".{}.{name}", declaring.0);
+                }
             }
         }
+        for nested in &mut message.nested_type { visit(nested, &scope, ancestors)?; }
+        ancestors.pop();
+        Ok(())
     }
-    for nested in &mut message.nested_type {
-        qualify_nested(nested, &scope);
-    }
+    visit(message, prefix, &mut Vec::new())
 }
 
 fn validate_message_names(message: &DescriptorProto) -> Result<(), ProjectionCodegenError> {

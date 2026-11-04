@@ -54,7 +54,7 @@ pse_contract::projection_struct! {
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceDelta {
-    projection: { name: "SourceDelta", version: 1,
+    projection: { name: "SourceDelta", rust_path: crate::workflow::SourceDelta, version: 1,
         direction: pse_contract::boundary_projection::Direction::Input,
         reserved_tags: [], reserved_names: [] };
     /// Exact revision_id of the receiver; actual publication separately checks its canonical origin.
@@ -81,7 +81,7 @@ pse_contract::projection_struct! {
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceDocumentDelta {
-    projection: { name: "SourceDocumentDelta", version: 1,
+    projection: { name: "SourceDocumentDelta", rust_path: crate::workflow::SourceDocumentDelta, version: 1,
         direction: pse_contract::boundary_projection::Direction::Input,
         reserved_tags: [], reserved_names: [] };
     /// Newly owned documents.
@@ -100,7 +100,7 @@ pse_contract::projection_struct! {
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceFitDelta {
-    projection: { name: "SourceFitDelta", version: 1,
+    projection: { name: "SourceFitDelta", rust_path: crate::workflow::SourceFitDelta, version: 1,
         direction: pse_contract::boundary_projection::Direction::Input,
         reserved_tags: [], reserved_names: [] };
     /// New fitting declarations.

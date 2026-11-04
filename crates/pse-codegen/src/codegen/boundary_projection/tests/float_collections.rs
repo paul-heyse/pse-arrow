@@ -274,7 +274,8 @@ fn binary64_collection_domains_follow_declared_wire_wrappers_and_semantic_keys()
                     .path
                     .segments
                     .last()
-                    .is_some_and(|part| part.ident == "native_from")
+                    .is_some_and(|part| part.ident == "from_projection_bytes")
+                && function.path.segments.iter().any(|part| part.ident == "ProjectionBytes")
                 && let Some(syn::Expr::Field(field)) = call.args.first()
                 && matches!(&field.member, syn::Member::Named(name) if name == "key")
                 && matches!(field.base.as_ref(), syn::Expr::Path(base) if base.path.is_ident("entry"))
