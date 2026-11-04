@@ -3,6 +3,7 @@
 //! Native source correspondence through the actual Rust renderer, not wire kinds.
 use super::super::{error, ProjectionCodegenError};
 use crate::codegen::rust::types;
+use types::qualify_projection as qualify;
 use pse_contract::boundary_projection::{self as native, TypeRef, Shape};
 use pse_contract::metadata::{MessageMetadata, EnumValue};
 use pse_contract_proto::{FieldContext, MetadataError};
@@ -21,19 +22,8 @@ pub(super) fn check(field: &arrow_schema::Field, context: FieldContext<'_>, pool
         return Err(error("native IPC field contradicts its core local rules"));
     }
     let resolved = resolve(&field, declared, context, pool, Mode::Domain)?;
-    let expected = qualify(types::projection_type(&resolved, stem(declared))?, context.package);
-    if expected != *declared { return Err(error("native IPC field contradicts its core native type")); }
+    types::check_native_contract(&resolved, stem(declared), Mode::Domain, declared, context.package)?;
     Ok(())
-}
-fn qualify(ty: TypeRef, package: &str) -> TypeRef {
-    match ty {
-        TypeRef::Named(name) => TypeRef::Named(if package.is_empty() || name.contains('.') { name } else { format!("{package}.{name}") }),
-        TypeRef::Optional(value) => TypeRef::Optional(Box::new(qualify(*value, package))),
-        TypeRef::Repeated(value) => TypeRef::Repeated(Box::new(qualify(*value, package))),
-        TypeRef::Set(value) => TypeRef::Set(Box::new(qualify(*value, package))),
-        TypeRef::Map(key, value) => TypeRef::Map(Box::new(qualify(*key, package)), Box::new(qualify(*value, package))),
-        scalar => scalar,
-    }
 }
 fn stem(ty: &TypeRef) -> &str {
     match ty { TypeRef::Named(name) => name.rsplit('.').next().unwrap_or(name), TypeRef::Optional(value) => stem(value), _ => "AnonymousNativeField" }
@@ -58,8 +48,7 @@ fn resolve(field: &FieldContract, declared: &TypeRef, context: FieldContext<'_>,
     if field.enum_name().is_some() {
         let metadata = owner(named(value)?, context)?;
         if !matches!(metadata.native_shape, Some(Shape::StringEnum(_))) { return Err(error("native enum reference does not name its declared string vocabulary")); }
-        let expected = qualify(types::projection_type(field, stem(value))?, context.package);
-        if expected != *declared { return Err(error("native enum name contradicts the core native type")); }
+        types::check_native_contract(field, stem(value), mode, declared, context.package)?;
         return Ok(field.clone());
     }
     if matches!(mode, Mode::Domain) && let Some(identity) = field.identity() {
@@ -73,8 +62,7 @@ fn resolve(field: &FieldContract, declared: &TypeRef, context: FieldContext<'_>,
     }
     if matches!(mode, Mode::Domain) && let Some((storage_stem, storage)) = types::projection_storage(field)? {
         let resolved = resolve(&storage, value, context, pool, Mode::Storage)?;
-        let expected = qualify(types::projection_type_in(&resolved, &format!("Extension{storage_stem}"), Mode::Storage)?, context.package);
-        if expected != *value { return Err(error("native extension storage contradicts its core projection")); }
+        types::check_native_contract(&resolved, &format!("Extension{storage_stem}"), Mode::Storage, value, context.package)?;
         return Ok(field.clone());
     }
     let child_mode = crate::codegen::native::child_mode(field, mode);
@@ -98,8 +86,7 @@ fn resolve(field: &FieldContract, declared: &TypeRef, context: FieldContext<'_>,
         DataType::Struct(_) => resolve_record(field, value, context, pool, mode),
         _ => Ok(field.clone()),
     }?;
-    let expected = qualify(types::projection_type_in(&resolved, stem(declared), mode)?, context.package);
-    if expected != *declared { return Err(error("native nested field contradicts its core type declaration")); }
+    types::check_native_contract(&resolved, stem(declared), mode, declared, context.package)?;
     Ok(resolved)
 }
 
@@ -200,6 +187,33 @@ mod tests {
         assert!(checks::<[Vec<u8>; 2]>(&array).is_err());
         checks::<[Option<pse_model::Bytes>; 2]>(&FieldContract::fixed_list(FieldContract::native(DataType::Binary).with_name("item").optional(), 2)).unwrap();
         assert!(checks::<Vec<u64>>(&FieldContract::list(FieldContract::native(DataType::Int64).with_name("item"))).is_err());
+    }
+
+    #[test]
+    fn every_quantity_storage_child_has_its_own_explicit_native_contract() {
+        let original = ProjectionGraph::of::<pse_model::generated::extension_values::QuantityValue>().unwrap();
+        let definition = &original.definitions()["ExtensionQuantityValue"];
+        let storage = crate::model::ExtensionUse::QuantityValue.boundary_storage().unwrap();
+        struct PresentedStorage;
+        let graph = |changed: Option<FieldContract>| {
+            let Shape::Record(mut fields) = definition.shape.clone() else { panic!("actual native storage record"); };
+            for field in &mut fields {
+                let column = changed.as_ref().filter(|column| column.name()==field.name).cloned().unwrap_or_else(|| storage.children().into_iter().find(|column| column.name()==field.name).unwrap());
+                let mut facets = column.field().metadata().iter().map(|(key,value)|(key.clone(),value.clone())).collect::<std::collections::BTreeMap<_,_>>();
+                facets.insert(crate::codegen::boundary_projection::REGISTRY_FIELD_SOURCE.into(),column.canonical_json().unwrap());
+                field.named_facets = facets;
+            }
+            let mut graph = ProjectionGraph::default();
+            graph.declare::<PresentedStorage>(&definition.name,definition.source,definition.version,definition.direction,&definition.reserved_tags,&definition.reserved_names.iter().map(String::as_str).collect::<Vec<_>>(),|_|Ok(Shape::Record(fields))).unwrap(); graph
+        };
+        let imports = crate::codegen::boundary_projection::tests::imports();
+        crate::codegen::boundary_projection::descriptors_with_imports(&graph(None),PACKAGE,"storage.proto",&imports).unwrap();
+        let id = storage.children().into_iter().find(|column| column.name()=="quantity_type_id").unwrap();
+        for changed in [FieldContract::from_field(id.field().clone().with_data_type(DataType::FixedSizeBinary(32))), id.clone().optional(), FieldContract::from_field(id.field().clone().with_data_type(DataType::FixedSizeList(std::sync::Arc::new(arrow_schema::Field::new("item",DataType::FixedSizeBinary(16),false)),2)))] {
+            assert!(crate::codegen::boundary_projection::descriptors_with_imports(&graph(Some(changed)),PACKAGE,"storage.proto",&imports).is_err());
+        }
+        assert!(types::projection_type(&id,"RawDomainId").is_err(),"ordinary source domain admission still requires an explicit semantic declaration");
+        assert!(types::check_native_contract(&id,"DeclaredId",Mode::Domain,&TypeRef::Scalar(native::Scalar::Bytes),PACKAGE).is_err(),"opaque bytes are not a nominal identity representation");
     }
 
     pse_contract::projection_struct! {

@@ -9,9 +9,9 @@ struct Selected {
     file: String,
     metadata: Option<DynamicMessage>,
     references: Vec<String>,
-    declaration: Option<Field>,
+    declaration: core::FieldDeclaration<Field>,
 }
-struct SelectedFacet { subject: String, file: String, policy: String, value: Vec<u8>, interpretation_available: bool }
+struct SelectedFacet { subject: String, file: String, policy: String, value: Vec<u8>, interpretation_available: bool, interpretation_reason: Option<String> }
 
 /// Decode the selected file's typed metadata and apply one explicit policy. Domain
 /// extensions are selected by fully qualified extension name; an unavailable domain
@@ -98,14 +98,14 @@ fn with_world<T>(
     let mut facets = Vec::new();
     for message in &file.message_type {
         let name = format!("{package}.{}", message.name.as_deref().unwrap_or_default());
-        messages.push(Selected { name: name.clone(), file: selected_file.into(), metadata: located(selected_file, &name, message.options.as_option().map(|options| encoder.decode_extension(options, "pse.contract.v1.message")).transpose())?.flatten(), references: vec![], declaration: None });
+        messages.push(Selected { name: name.clone(), file: selected_file.into(), metadata: located(selected_file, &name, message.options.as_option().map(|options| encoder.decode_extension(options, "pse.contract.v1.message")).transpose())?.flatten(), references: vec![], declaration: core::FieldDeclaration::Unavailable });
     }
     let native_shapes = messages.iter().map(|value| located(&value.file, &value.name, value.metadata.as_ref().map(owner_shape::decode).transpose().map(Option::flatten))).collect::<Result<Vec<_>, _>>()?;
     let native_messages = messages.iter().zip(&native_shapes).map(|(value, shape)| Ok(core::Message { name: &value.name, file: &value.file, metadata: located(&value.file, &value.name, value.metadata.as_ref().map(|metadata| message_metadata(metadata, shape.as_ref())).transpose())? })).collect::<Result<Vec<_>, MetadataError>>()?;
     let context = FieldContext { package, subject: selected_file, native_type: None, local_rules: None, native_owners: &native_messages };
     for message in &file.message_type {
         let name = format!("{package}.{}", message.name.as_deref().unwrap_or_default());
-        collect_fields(&encoder, message, &name, selected_file, true, selected_extensions, policy, context, None, &mut fields, &mut facets)?;
+        collect_fields(&encoder, message, &name, selected_file, true, selected_extensions, policy, context, None, false, &mut fields, &mut facets)?;
     }
     for service in &file.service { for method in &service.method {
         methods.push(Selected {
@@ -113,7 +113,7 @@ fn with_world<T>(
             file: selected_file.into(),
             metadata: method.options.as_option().map(|options| encoder.decode_extension(options, "pse.contract.v1.method")).transpose()?.flatten(),
             references: vec![method.input_type.as_deref().unwrap_or_default().trim_start_matches('.').into(), method.output_type.as_deref().unwrap_or_default().trim_start_matches('.').into()],
-            declaration: None,
+            declaration: core::FieldDeclaration::Unavailable,
         });
     } }
     if let Some(selection) = policy.native_selection() {
@@ -136,7 +136,7 @@ fn with_world<T>(
     let native_contracts = fields.iter().map(|value| located(&value.file, &value.name, value.metadata.as_ref().map(field_contract::decode).transpose().map(Option::flatten))).collect::<Result<Vec<_>, _>>()?;
     let fields = fields.iter().zip(&native_contracts).map(|(value, contract)| Ok(core::Field { name: &value.name, file: &value.file, metadata: located(&value.file, &value.name, value.metadata.as_ref().map(|metadata| field_metadata(metadata, contract.as_ref())).transpose())?, declaration: value.declaration.as_ref(), reference: value.references.first().map(String::as_str) })).collect::<Result<Vec<_>, MetadataError>>()?;
     let methods = methods.iter().map(|value| Ok(core::Method { name: &value.name, file: &value.file, metadata: located(&value.file, &value.name, value.metadata.as_ref().map(method_metadata).transpose())?, input: &value.references[0], output: &value.references[1] })).collect::<Result<Vec<_>, MetadataError>>()?;
-    let facets = facets.iter().map(|facet| core::Facet { subject: &facet.subject, file: &facet.file, policy: &facet.policy, value: &facet.value, interpretation_available: facet.interpretation_available }).collect::<Vec<_>>();
+    let facets = facets.iter().map(|facet| core::Facet { subject: &facet.subject, file: &facet.file, policy: &facet.policy, value: &facet.value, interpretation_available: facet.interpretation_available, interpretation_reason: facet.interpretation_reason.as_deref() }).collect::<Vec<_>>();
     Ok(consume(&core::World { files: &files, symbols: &symbols, messages: &native_messages, fields: &fields, methods: &methods, extensions: &extensions, facets: &facets }))
 }
 
@@ -145,7 +145,7 @@ fn located<T>(file: &str, subject: &str, result: Result<T, MetadataError>) -> Re
 }
 
 #[allow(clippy::too_many_arguments, reason = "one recursive walk carries the selected owner and borrowed output accumulators")]
-fn collect_fields(encoder: &OptionEncoder, message: &descriptor::DescriptorProto, owner: &str, file: &str, required: bool, selected_extensions: &[&str], policy: &impl DescriptorPolicy, context: FieldContext<'_>, source_fields: Option<&[Field]>, fields: &mut Vec<Selected>, facets: &mut Vec<SelectedFacet>) -> Result<(), MetadataError> {
+fn collect_fields(encoder: &OptionEncoder, message: &descriptor::DescriptorProto, owner: &str, file: &str, required: bool, selected_extensions: &[&str], policy: &impl DescriptorPolicy, context: FieldContext<'_>, source_fields: Option<&[Field]>, source_absent: bool, fields: &mut Vec<Selected>, facets: &mut Vec<SelectedFacet>) -> Result<(), MetadataError> {
     use pse_contract::boundary_projection::Shape;
     let native_owner = context.native_owners.iter().find(|message| message.name == owner).and_then(|message| message.metadata);
     let shape = native_owner.and_then(|metadata| metadata.native_shape);
@@ -164,8 +164,15 @@ fn collect_fields(encoder: &OptionEncoder, message: &descriptor::DescriptorProto
         let metadata = located(file, &name, field.options.as_option().map(|options| encoder.decode_extension(options, "pse.contract.v1.field")).transpose())?.flatten();
         let contract = located(file, &name, metadata.as_ref().map(field_contract::decode).transpose().map(Option::flatten))?;
         let expected = policy.native_selection().is_some_and(|selection| selection.fields.contains(&name.as_str()));
+        let member_present = if let Some(source_fields) = source_fields { Some(source_fields.iter().any(|declared| Some(declared.name.as_str()) == field.name.as_deref())) }
+        else { match shape {
+            Some(Shape::Record(fields)) => Some(fields.iter().any(|declared| Some(declared.name.as_str()) == field.name.as_deref())),
+            Some(Shape::StringEnum(_)) => Some(field.name.as_deref() == Some("value")),
+            Some(Shape::Alternatives(arms)) => Some(arms.iter().any(|arm| field.number == Some(arm.tag as i32))),
+            None => None,
+        }};
         if required || expected || metadata.is_some() {
-            fields.push(Selected { name: name.clone(), file: file.into(), metadata, declaration: declarations.iter().find(|(name, _)| Some(name.as_str()) == field.name.as_deref()).map(|(_, field)| field.clone()), references: field.type_name.as_deref().map(|name| name.trim_start_matches('.').into()).into_iter().collect() });
+            fields.push(Selected { name: name.clone(), file: file.into(), metadata, declaration: if source_absent || member_present == Some(false) { core::FieldDeclaration::KnownAbsent } else { declarations.iter().find(|(name, _)| Some(name.as_str()) == field.name.as_deref()).map(|(_, field)| core::FieldDeclaration::Present(field.clone())).unwrap_or(core::FieldDeclaration::Unavailable) }, references: field.type_name.as_deref().map(|name| name.trim_start_matches('.').into()).into_iter().collect() });
         }
         let mut extensions = selected_extensions.to_vec();
         if let Some(selection) = policy.native_selection() {
@@ -186,11 +193,12 @@ fn collect_fields(encoder: &OptionEncoder, message: &descriptor::DescriptorProto
                         }
                     }
                     let field_context = FieldContext { subject: &name, native_type: contract.as_ref().map(|contract| &contract.0), local_rules: contract.as_ref().map(|contract| contract.1.as_slice()), ..context };
-                    let (value, interpretation_available) = match policy.normalize_decoded_facet(extension, &value, field_context) {
-                        Some(result) => (located(file, &name, result)?, true),
-                        None => (Some(value.try_encode_to_vec()?), false),
+                    let (value, interpretation_available, interpretation_reason) = match policy.normalize_decoded_facet(extension, &value, field_context) {
+                        Some(Err(source)) if source.is_unavailable() => (Some(value.try_encode_to_vec()?), false, Some(source.at(file, &name).to_string())),
+                        Some(result) => (located(file, &name, result)?, true, None),
+                        None => (Some(value.try_encode_to_vec()?), false, None),
                     };
-                    if let Some(value) = value { facets.push(SelectedFacet { subject: name.clone(), file: file.into(), policy: extension.into(), value, interpretation_available }); }
+                    if let Some(value) = value { facets.push(SelectedFacet { subject: name.clone(), file: file.into(), policy: extension.into(), value, interpretation_available, interpretation_reason }); }
                 },
             }
         }
@@ -201,7 +209,11 @@ fn collect_fields(encoder: &OptionEncoder, message: &descriptor::DescriptorProto
             message.field.iter().find(|field| field.type_name.as_deref().is_some_and(|reference| reference.trim_start_matches('.') == name))
                 .and_then(|field| alternatives.iter().find(|alternative| field.number == Some(alternative.tag as i32))).map(|alternative| alternative.fields.as_slice())
         } else { None };
-        collect_fields(encoder, nested, &name, file, false, selected_extensions, policy, context, source_fields, fields, facets)?;
+        let source_absent = source_absent || if let Some(Shape::Alternatives(alternatives)) = shape {
+            message.field.iter().find(|field| field.type_name.as_deref().is_some_and(|reference| reference.trim_start_matches('.') == name))
+                .is_some_and(|field| !alternatives.iter().any(|alternative| field.number == Some(alternative.tag as i32)))
+        } else { false };
+        collect_fields(encoder, nested, &name, file, false, selected_extensions, policy, context, source_fields, source_absent, fields, facets)?;
     }
     Ok(())
 }

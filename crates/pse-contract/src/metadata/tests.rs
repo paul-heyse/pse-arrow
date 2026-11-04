@@ -28,7 +28,7 @@ fn native_scalar_container_and_local_rule_changes_do_not_hide_behind_wire_shapes
         (TypeRef::Set(Box::new(NATIVE_U64)), TypeRef::Repeated(Box::new(NATIVE_U64))),
     ] {
         let declared = native_field(old_type.clone(), vec![]);
-        let old_fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { native_type: Some(&old_type), ..FIELD_META }), declaration: Some(&declared), reference: None }];
+        let old_fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { native_type: Some(&old_type), ..FIELD_META }), declaration: FieldDeclaration::Present(&declared), reference: None }];
         assert_eq!(check(&World { fields: &old_fields, ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Compatible);
         let new_fields = [Field { metadata: Some(FieldMetadata { native_type: Some(&new_type), ..FIELD_META }), ..old_fields[0] }];
         assert_eq!(compare(&World { fields: &old_fields, ..world(&[MESSAGE]) }, &World { fields: &new_fields, ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Incompatible);
@@ -37,7 +37,7 @@ fn native_scalar_container_and_local_rule_changes_do_not_hide_behind_wire_shapes
     let finite = [LocalRule::Float64Domain(Float64Domain::Finite)];
     let positive = [LocalRule::Float64Domain(Float64Domain::PositiveFinite)];
     let declared = native_field(float.clone(), finite.to_vec());
-    let old_fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { native_type: Some(&float), local_rules: Some(&finite), ..FIELD_META }), declaration: Some(&declared), reference: None }];
+    let old_fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { native_type: Some(&float), local_rules: Some(&finite), ..FIELD_META }), declaration: FieldDeclaration::Present(&declared), reference: None }];
     assert_eq!(check(&World { fields: &old_fields, ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Compatible);
     let new_fields = [Field { metadata: Some(FieldMetadata { native_type: Some(&float), local_rules: Some(&positive), ..FIELD_META }), ..old_fields[0] }];
     assert_eq!(compare(&World { fields: &old_fields, ..world(&[MESSAGE]) }, &World { fields: &new_fields, ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Incompatible);
@@ -59,7 +59,7 @@ fn native_owner_string_vocabulary_and_alternative_tags_are_meaning() {
 #[test]
 fn old_contracts_stay_unknown_and_missing_current_field_meaning_refuses() {
     let declared = native_field(NATIVE_U64, vec![]);
-    let field = Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { native_type: None, local_rules: None, ..FIELD_META }), declaration: Some(&declared), reference: None };
+    let field = Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { native_type: None, local_rules: None, ..FIELD_META }), declaration: FieldDeclaration::Present(&declared), reference: None };
     assert_eq!(check(&World { fields: &[field], ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Incompatible);
     let legacy = Field { metadata: Some(FieldMetadata { metadata_version: Some(1), native_type: None, local_rules: None, ..FIELD_META }), ..field };
     assert_eq!(check(&World { fields: &[legacy], ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Unknown);
@@ -68,7 +68,7 @@ fn old_contracts_stay_unknown_and_missing_current_field_meaning_refuses() {
 #[test]
 fn within_world_native_field_copies_must_agree_even_when_both_worlds_are_identical() {
     let declaration = native_field(NATIVE_U64, vec![]);
-    let original = Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FIELD_META), declaration: Some(&declaration), reference: None };
+    let original = Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FIELD_META), declaration: FieldDeclaration::Present(&declaration), reference: None };
     let honest = World { fields: &[original], ..world(&[MESSAGE]) };
     assert_eq!(check(&honest, &POLICY).disposition, Disposition::Compatible);
     let signed = TypeRef::Scalar(crate::boundary_projection::Scalar::I64);
@@ -83,8 +83,10 @@ fn within_world_native_field_copies_must_agree_even_when_both_worlds_are_identic
         let inconsistent = World { fields: &[field], ..world(&[MESSAGE]) };
         assert_eq!(compare(&inconsistent, &inconsistent, &POLICY).disposition, Disposition::Incompatible);
     }
-    let field = Field { declaration: None, ..original };
+    let field = Field { declaration: FieldDeclaration::Unavailable, ..original };
     assert_eq!(check(&World { fields: &[field], ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Unknown);
+    let absent = Field { declaration: FieldDeclaration::KnownAbsent, ..field };
+    assert_eq!(check(&World { fields: &[absent], ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Incompatible);
 }
 
 #[test]
@@ -157,13 +159,13 @@ fn imports_references_and_extensions_use_the_actual_world() {
     assert!(missing.findings.iter().any(|finding| finding.reason == "missing transitive import"));
     let mut declared = native_field(NATIVE_U64, vec![]);
     declared.direction = BoundaryDirection::Input;
-    let fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { metadata_version: Some(VERSION), native_field: Some("value"), direction: Some(EnumValue::Known(BoundaryDirection::Input)), native_type: Some(&TypeRef::Scalar(crate::boundary_projection::Scalar::U64)), local_rules: Some(&[]) }), declaration: Some(&declared), reference: Some("pse.absent.v1.Value") }];
+    let fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { metadata_version: Some(VERSION), native_field: Some("value"), direction: Some(EnumValue::Known(BoundaryDirection::Input)), native_type: Some(&TypeRef::Scalar(crate::boundary_projection::Scalar::U64)), local_rules: Some(&[]) }), declaration: FieldDeclaration::Present(&declared), reference: Some("pse.absent.v1.Value") }];
     assert_eq!(check(&World { fields: &fields, ..world(&[]) }, &POLICY).disposition, Disposition::Incompatible);
 }
 
 #[test]
 fn unavailable_domain_policy_never_falls_back_to_wire_compatibility() {
-    let facets = [Facet { subject: SYMBOLS[0], file: "request.proto", policy: "pse.schema.v1.registry_field", value: &[1, 2], interpretation_available: true }];
+    let facets = [Facet { subject: SYMBOLS[0], file: "request.proto", policy: "pse.schema.v1.registry_field", value: &[1, 2], interpretation_available: true, interpretation_reason: None }];
     let world = World { facets: &facets, ..world(&[]) };
     assert_eq!(check(&world, &POLICY).disposition, Disposition::Unknown);
     assert_eq!(compare(&world, &world, &POLICY).disposition, Disposition::Unknown);
@@ -194,7 +196,7 @@ fn newly_introduced_meaning_and_unavailable_original_policy_need_owner_decisions
     }
     let messages = [MESSAGE];
     let old = world(&messages);
-    let facets = [Facet { subject: MESSAGE.name, file: MESSAGE.file, policy: "domain.quantity", value: &[1], interpretation_available: true }];
+    let facets = [Facet { subject: MESSAGE.name, file: MESSAGE.file, policy: "domain.quantity", value: &[1], interpretation_available: true, interpretation_reason: None }];
     let new = World { facets: &facets, ..old };
     assert_eq!(check(&new, &DomainPolicy).disposition, Disposition::Compatible);
     assert_eq!(compare(&old, &new, &DomainPolicy).disposition, Disposition::Unknown, "introducing an understood facet needs a declared relation");

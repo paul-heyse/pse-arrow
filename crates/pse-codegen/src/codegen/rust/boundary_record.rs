@@ -47,7 +47,10 @@ pub(super) fn render(
         column.canonical_policy()?;
         column.expression_source_contract()?;
         let ty = super::semantic::model_type(ty)?;
-        let native_projection = super::types::projection_type_in(column, field_stem, mode)?;
+        let native_projection = match mode {
+            super::super::native::Mode::Domain => super::types::projection_type(column, field_stem)?,
+            super::super::native::Mode::Storage => super::types::projection_type_in(column, field_stem, mode)?,
+        };
         let native_projection = super::types::projection_tokens(&native_projection);
         if TaggedAlternative::from_field(column.field())?.is_some()
             && BoundaryShape::from_field(column.field())?.is_none()

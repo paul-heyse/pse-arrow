@@ -82,6 +82,26 @@ optional string value=1 [(pse.contract.v1.field)={metadata_version:2 native_fiel
     assert_eq!(compare_descriptors(DescriptorInput { descriptors:&old, selected_file:"options.proto", policy:&Policy }, DescriptorInput { descriptors:&changed, selected_file:"options.proto", policy:&Policy }, &Policy, &[]).unwrap().disposition, Disposition::Incompatible);
 }
 
+#[test]
+fn supported_native_owner_cannot_omit_selected_record_or_alternative_members() {
+    let old = compile(NATIVE_FIELDS, FORWARDED).unwrap();
+    assert_eq!(check_descriptors(&old, "options.proto", &NativeFactsPolicy, &[]).unwrap().disposition, Disposition::Compatible);
+    let missing_all = NATIVE_FIELDS.lines().filter(|line| !line.trim_start().starts_with("fields:")).collect::<Vec<_>>().join("\n");
+    let renamed = NATIVE_FIELDS.replacen("name: \"value\" tag: 1", "name: \"different\" tag: 1", 1);
+    for source in [missing_all, renamed] {
+        let world = compile(&source, FORWARDED).unwrap();
+        let assessment = compare_descriptors(DescriptorInput {descriptors:&world, selected_file:"options.proto", policy:&NativeFactsPolicy}, DescriptorInput {descriptors:&world, selected_file:"options.proto", policy:&NativeFactsPolicy}, &NativeFactsPolicy, &[]).unwrap();
+        assert_eq!(assessment.disposition, Disposition::Incompatible);
+        assert!(assessment.findings.iter().any(|finding| finding.reason.contains("absent from its known owner")));
+    }
+    let arm = "      alternatives: { name: \"detail\" tag: 2 fields: { name: \"payload\" tag: 1 direction: DIRECTION_INPUT contract: { native_type: { scalar: NATIVE_SCALAR_STRING } } } }";
+    assert_eq!(SOURCE.matches(arm).count(), 1);
+    for source in [SOURCE.replace(arm, ""), SOURCE.replace(arm, "      alternatives: { name: \"detail\" tag: 2 }"), SOURCE.replace(arm, &arm.replace("name: \"detail\"", "name: \"renamed\""))] {
+        let world = compile(&source, FORWARDED).unwrap();
+        assert_eq!(compared(&world, &world).disposition, Disposition::Incompatible);
+    }
+}
+
 struct NativeFactsPolicy;
 impl pse_contract::metadata::InterpretationPolicy for NativeFactsPolicy {
     fn name(&self) -> &str { "independent/native-field-v2" }

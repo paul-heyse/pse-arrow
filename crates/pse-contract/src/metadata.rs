@@ -111,6 +111,23 @@ pub struct Message<'a> {
     pub metadata: Option<MessageMetadata<'a>>,
 }
 
+/// Outcome of linking a selected field to its original supported native owner.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FieldDeclaration<T> {
+    /// Original supported owner contains this declaration.
+    Present(T),
+    /// Original supported owner definitively omits the selected member.
+    KnownAbsent,
+    /// Original owner interpretation or declaration link is unavailable.
+    Unavailable,
+}
+impl<T> FieldDeclaration<T> {
+    /// Borrow an existing declaration without changing its acquisition outcome.
+    pub fn as_ref(&self) -> FieldDeclaration<&T> {
+        match self { Self::Present(value) => FieldDeclaration::Present(value), Self::KnownAbsent => FieldDeclaration::KnownAbsent, Self::Unavailable => FieldDeclaration::Unavailable }
+    }
+}
+
 /// One selected owner-derived field, including its referenced message when present.
 #[derive(Clone, Copy, Debug)]
 pub struct Field<'a> {
@@ -122,7 +139,7 @@ pub struct Field<'a> {
     pub metadata: Option<FieldMetadata<'a>>,
     /// Existing owner Shape's corresponding native declaration. The wire adapter
     /// supplies this association from actual descriptor links, never option presence.
-    pub declaration: Option<&'a crate::boundary_projection::Field>,
+    pub declaration: FieldDeclaration<&'a crate::boundary_projection::Field>,
     /// Referenced world symbol, without scalar pseudo-references.
     pub reference: Option<&'a str>,
 }
@@ -169,6 +186,8 @@ pub struct Facet<'a> {
     /// The matching source-world decoder had this owner's interpretation available.
     /// A comparison policy cannot replace an unavailable original interpretation.
     pub interpretation_available: bool,
+    /// Original attributed reason when this particular interpretation is unavailable.
+    pub interpretation_reason: Option<&'a str>,
 }
 
 /// An approved acquisition's borrowed facts; no decoder or runtime dependencies.
@@ -341,14 +360,18 @@ pub fn check(world: &World<'_>, policy: &impl InterpretationPolicy) -> Assessmen
             if result.required(field.file, field.name, metadata.native_field, "native field").is_some_and(str::is_empty) { result.record(field.file, field.name, Disposition::Incompatible, "empty native field"); }
             result.enumeration(field.file, field.name, metadata.direction, "direction");
             if metadata.metadata_version == Some(VERSION) {
-                if let Some(declared) = field.declaration {
+                match field.declaration {
+                FieldDeclaration::Present(declared) => {
                     if metadata.native_field.is_some_and(|name| name != declared.name)
                         || matches!(metadata.direction, Some(EnumValue::Known(direction)) if direction != declared.direction)
                         || metadata.native_type.is_some_and(|ty| ty != &declared.ty)
                         || metadata.local_rules.is_some_and(|rules| rules != declared.rules) {
                         result.record(field.file, field.name, Disposition::Incompatible, "field metadata contradicts its existing native owner declaration");
                     }
-                } else { result.record(field.file, field.name, Disposition::Unknown, "native owner field correspondence is unavailable"); }
+                },
+                FieldDeclaration::KnownAbsent => result.record(field.file, field.name, Disposition::Incompatible, "selected native field is absent from its known owner declaration"),
+                FieldDeclaration::Unavailable => result.record(field.file, field.name, Disposition::Unknown, "native owner field correspondence is unavailable"),
+                }
             }
             if metadata.metadata_version == Some(VERSION) {
                 if let Some(ty) = result.required(field.file, field.name, metadata.native_type, "native type") {
@@ -372,7 +395,8 @@ pub fn check(world: &World<'_>, policy: &impl InterpretationPolicy) -> Assessmen
     }
     for facet in world.facets {
         let disposition = if facet.interpretation_available { policy.check_facet(facet) } else { Disposition::Unknown };
-        result.record(facet.file, facet.subject, disposition, format!("selected domain interpretation {}", facet.policy));
+        let reason = facet.interpretation_reason.map(|reason| format!(": {reason}")).unwrap_or_default();
+        result.record(facet.file, facet.subject, disposition, format!("selected domain interpretation {}{reason}", facet.policy));
     }
     result
 }

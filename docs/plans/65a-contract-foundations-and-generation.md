@@ -224,7 +224,13 @@ existing `TypeRef` and its existing generic argument name. It owns one primitive
 extension, identity and container mapping; the receiving domain policy calls that same
 renderer rather than maintaining an Arrow-to-proto type table. Generated actual native
 `Field::of<T>` declarations check the compiler-resolved `T::projection` against that
-paired result. Shared pure array/sequence helpers preserve byte-vector folding, fixed
+paired result. The receiving `check_native_contract` entry requires the actual borrowed
+original `TypeRef` and enforces exact equality through that same renderer. This explicit
+declaration supplies native scalar meaning for independently inspected extension-storage
+children, including raw 16/32-byte physical fields; ordinary source-domain rendering still
+refuses raw binary without an explicit domain declaration. This establishes internal native
+representation consistency, not physical catalog meaning, source authenticity or admission.
+Shared pure array/sequence helpers preserve byte-vector folding, fixed
 extents and the distinct argument names of byte-vector and byte-owner arrays. Nominal
 identity records use the identity source emitter's name and shared native identity shape;
 this checks a local declared representation without resolving scientific/catalog identity.
@@ -246,6 +252,13 @@ each endpoint's own pool. Native selection and its generated source-policy const
 no additional registry or acquired-descriptor approval rule. Targeted controls cover these
 mechanisms; the combined current-world regeneration/compiler controls remain the integration
 obligation for this source handoff.
+
+Normalized field correspondence distinguishes `Present`, `KnownAbsent` and `Unavailable`:
+a supported record/alternative that omits a selected member is incompatible, including an
+omitted alternative's selected payload. A locally unavailable domain interpretation retains
+its attributed reason as an unavailable facet and still reaches the same pure core check.
+It cannot mask a missing required v2 native contract or a contradictory available sibling;
+known invalid facts dominate an otherwise unknown interpretation.
 
 The lossless wire adapter lives in `pse-contract-proto` (ADR-0244), shared by generation
 and the independent host. It depends on pure `pse-contract`, the selected Buffa family

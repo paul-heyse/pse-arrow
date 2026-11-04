@@ -118,6 +118,7 @@ pub(super) fn logical(
             declarations,
             local: false,
             emit: true,
+            native_contract: false,
         },
         ty,
         stem,
@@ -136,6 +137,7 @@ pub(super) fn named_structure(
             declarations,
             local: true,
             emit: true,
+            native_contract: false,
         },
         ty,
         stem,
@@ -152,6 +154,7 @@ pub(super) fn boundary_storage(
             declarations,
             local: false,
             emit: true,
+            native_contract: false,
         },
         ty,
         stem,
@@ -164,11 +167,31 @@ pub(crate) fn projection_type(ty: &FieldContract, stem: &str) -> Result<TypeRef,
     projection_type_in(ty, stem, super::super::native::Mode::Domain)
 }
 pub(crate) fn projection_type_in(ty: &FieldContract, stem: &str, mode: super::super::native::Mode) -> Result<TypeRef, SchemaError> {
+    projection_type_context(ty, stem, mode, false)
+}
+/// Check an acquired field whose original native contract explicitly supplies
+/// its native representation. This is local consistency, never domain admission.
+pub(crate) fn check_native_contract(ty: &FieldContract, stem: &str, mode: super::super::native::Mode, declared: &TypeRef, package: &str) -> Result<(), SchemaError> {
+    let actual = projection_type_context(ty, stem, mode, true)?;
+    if qualify_projection(actual, package) != *declared { return Err(super::error("native IPC field contradicts its core native type".into())); }
+    Ok(())
+}
+pub(crate) fn qualify_projection(ty: TypeRef, package: &str) -> TypeRef {
+    match ty {
+        TypeRef::Named(name) => TypeRef::Named(if package.is_empty() || name.contains('.') { name } else { format!("{package}.{name}") }),
+        TypeRef::Optional(value) => TypeRef::Optional(Box::new(qualify_projection(*value, package))),
+        TypeRef::Repeated(value) => TypeRef::Repeated(Box::new(qualify_projection(*value, package))),
+        TypeRef::Set(value) => TypeRef::Set(Box::new(qualify_projection(*value, package))),
+        TypeRef::Map(key, value) => TypeRef::Map(Box::new(qualify_projection(*key, package)), Box::new(qualify_projection(*value, package))),
+        scalar => scalar,
+    }
+}
+fn projection_type_context(ty: &FieldContract, stem: &str, mode: super::super::native::Mode, native_contract: bool) -> Result<TypeRef, SchemaError> {
     if crate::model::CollectionContract::from_field(ty.field())?.is_some_and(|contract| contract.unique) {
         return Err(super::error("unique native collections need checked local and wire lowering".into()));
     }
     let mut declarations = Vec::new();
-    let mut policy = RustPolicy { declarations: &mut declarations, local: false, emit: false };
+    let mut policy = RustPolicy { declarations: &mut declarations, local: false, emit: false, native_contract };
     let value = super::super::native::render(&mut policy, ty, stem, mode)?;
     Ok(if ty.nullable() { TypeRef::Optional(Box::new(value.1)) } else { value.1 })
 }
@@ -221,6 +244,9 @@ struct RustPolicy<'a> {
     /// Whether the declarations are emitted into the `structures` module.
     local: bool,
     emit: bool,
+    /// The receiver has an explicit original native declaration, checked by the
+    /// only entry that enables this flag. Ordinary source admission keeps false.
+    native_contract: bool,
 }
 impl super::super::native::Policy for RustPolicy<'_> {
     type Value = (TokenStream, TypeRef, String);
@@ -263,7 +289,7 @@ impl super::super::native::Policy for RustPolicy<'_> {
                 let name = format_ident!("{name}");
                 return Ok(Some((quote!(crate::generated::extension_values::#name), projection, argument)));
             }
-            if ty.extension().is_none() && matches!(ty.data_type(), DataType::FixedSizeBinary(_) | DataType::Dictionary(..)) {
+            if !self.native_contract && ty.extension().is_none() && matches!(ty.data_type(), DataType::FixedSizeBinary(_) | DataType::Dictionary(..)) {
                 return Err(super::error(format!("no native language codec for {}; domain meaning requires an explicit declaration", ty.data_type())));
             }
         }
