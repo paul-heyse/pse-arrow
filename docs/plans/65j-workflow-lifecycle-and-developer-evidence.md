@@ -20,7 +20,8 @@ introduces no workflow runner, second verdict store or universal lifecycle enum.
 
 The [coordinator](65-proto-integrated-target.md) owns the combined target. This companion
 owns J01–J05 and integrates review [I04–I06 and I11](../plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md#I04).
-Implementation assumes completed Plan64 and may replace any of its mechanisms. Inspection
+Implementation starts alongside unfinished Plan64 under the operator's 2026-11-04 instruction,
+using actual working prerequisites and allowing replacement of overlapping mechanisms. Inspection
 at `0d9e921cf0c87b8a688a4cd96b68ca1f7f0001d5` supplies source observations, not
 completed-Plan64 acceptance. Core 3.4, heuristics 1.0, process-simulator 1.5 and test-assessment
 1.2 govern this design. All deliveries and benefits below remain **Proposed**.
@@ -121,7 +122,7 @@ migrated, retained, or explicitly reported incompatible.
 
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
-| J01 | planned | P01; current test and scientific evidence owners | Agree actual developer populations, construction roles, transitions and retained closure as design input before A01/A02/B01 freeze. Compare list/check/test/rustdoc, expected refusal, setup failure, zero match and incomplete capture. Requires no generated implementation. |
+| J01 | in-progress | P01; current test and scientific evidence owners | Shared passive report-observation contract and original terminal matching are implemented in source; remaining population/construction/closure agreement and working generated delivery remain. Compare list/check/test/rustdoc, expected refusal, setup failure, zero match and incomplete capture before A/B interfaces freeze. |
 | J02 | planned | J01; working narrow A/B records/options/decode policy; narrow G02 inspector | Deliver complete native report/inventory publication and independent readback using Buffa pool/dynamic inspection and one-way generated observations. Preserve original file/digest checks. Test foreign/malformed/oversized/missing-dependency evidence; delete replaced observation mappers/readers. |
 | J03 | planned | J02; native failed-test rerun and current listing | Bind exact rerun to original input/report/inventory and reconcile present listing. Test changed package/features/identity, absent evidence and stale binaries. Delete client-side command reconstruction; historical success never becomes present evidence. |
 | J04 | planned | J02/J03; existing invocation/raw/fixture custody and interpretation policy | Integrate family retention, interruption and cleanup. Test report without inventory, unavailable old policy, corrupt raw capture, active reader and failed release. Preserve fixture lifetime, capture completeness and native settlement separately; delete replaced reference/cleanup translations. |
@@ -150,6 +151,28 @@ selected producer/reader, promised retained interpretation, original rerun attri
 deletion of replaced paths, with all required qualification reported separately.
 
 ## Native sources
+
+### Initial native evidence delivery — 2026-11-04
+
+**Implemented in source, not yet Tested:** `execute::ReportObservation` provides independently
+decodable version, original invocation/action/outcome, inventory association, captured count,
+capture completeness and diagnostic facts. It contains no native `GroupObservation` or
+`TerminalResult` capability. Its `validate_against` operation checks supported interpretation
+and exact original terminal association while explicitly leaving byte custody, waited status
+and current execution eligibility to their native owners.
+
+Live performing-report validation and retained `test_inventory::captured_report` use that same
+contract. Retained reading now rejects an internally inconsistent report even when its bytes
+match the referenced digest. Inventory association and failed-test rerun reuse these facts;
+their duplicate private address/version/action headers were removed. Native `Report` remains
+serialize-only, and this change does not issue pass, readiness or settlement capabilities.
+
+Independent recorded-fact and mismatched interpretation/identity/action/outcome/capture controls
+were added. Native host preparation compiled the changed library successfully, but the selected
+tests did not start: foreground ownership refused a dedicated prior scope as its anchor
+(exit 125). This establishes source compilation, not a test pass. Working A/B observation
+projection, independent descriptor reading, explicit retained-dependency outcomes and complete
+J01–J05 population integration remain required. This checkpoint closes no package.
 
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.

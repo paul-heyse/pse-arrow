@@ -316,7 +316,7 @@ mod tests {
             &HostError::Ownership("original unit setup capture incomplete".into()),
             &RedactionPolicy::default(),
         );
-        let bytes = serde_json::to_vec(&serde_json::json!({"invocation":id,"action":"test","outcome":"incomplete","required_capture_complete":false,"failures":[failure],"observations":[]})).unwrap();
+        let bytes = serde_json::to_vec(&serde_json::json!({"version":1,"invocation":id,"action":"test","outcome":"incomplete","required_capture_complete":false,"failures":[failure],"observations":[]})).unwrap();
         let sha = crate::source_read::source_digest(std::str::from_utf8(&bytes).unwrap());
         let report_path = parent.join("report.json");
         std::fs::write(&report_path, &bytes).unwrap();

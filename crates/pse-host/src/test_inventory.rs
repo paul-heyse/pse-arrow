@@ -453,6 +453,7 @@ pub(crate) struct CapturedEvidence {
     pub report: Vec<u8>,
     pub inventory: Inventory,
     pub inventory_sha256: String,
+    pub observation: crate::test_workflow::execute::ReportObservation,
 }
 /// Read evidence as data, without treating decoded fields as native pass capabilities.
 pub(crate) fn captured(
@@ -461,15 +462,9 @@ pub(crate) fn captured(
     session: Option<&str>,
 ) -> Result<CapturedEvidence, HostError> {
     let CapturedReport {
-        id, report, parent, ..
+        id, report, parent, observation, ..
     } = captured_report(store, selector, session)?;
-    #[derive(Deserialize)]
-    struct Address {
-        invocation: CliInvocationId,
-        inventory: Option<String>,
-    }
-    let address: Address = serde_json::from_slice(&report).map_err(io::Error::other)?;
-    if address.invocation != id || address.inventory.as_deref() != Some("inventory/inventory.json")
+    if observation.inventory.as_deref() != Some("inventory/inventory.json")
     {
         return Err(invalid(
             "original report has no supported inventory association",
@@ -490,6 +485,7 @@ pub(crate) fn captured(
         report,
         inventory,
         inventory_sha256: sha,
+        observation,
     })
 }
 
@@ -499,6 +495,7 @@ pub(crate) struct CapturedReport {
     pub report: Vec<u8>,
     pub parent: std::path::PathBuf,
     pub original: Envelope<ManagedSummary>,
+    pub observation: crate::test_workflow::execute::ReportObservation,
 }
 pub(crate) fn captured_report(
     store: &InvocationStore,
@@ -531,11 +528,16 @@ pub(crate) fn captured_report(
     {
         return Err(invalid("original report bytes changed"));
     }
+    let observation: crate::test_workflow::execute::ReportObservation =
+        serde_json::from_slice(&report).map_err(io::Error::other)?;
+    observation.validate_against(&workflow.terminal)
+        .map_err(|error| HostError::Workflow(Box::new(error)))?;
     Ok(CapturedReport {
         id,
         report,
         parent,
         original: result,
+        observation,
     })
 }
 
@@ -554,6 +556,7 @@ pub fn read(
         report,
         inventory,
         inventory_sha256: sha,
+        ..
     } = captured(store, selector, session)?;
     let report_sha256 = digest(&report);
     #[derive(Deserialize)]

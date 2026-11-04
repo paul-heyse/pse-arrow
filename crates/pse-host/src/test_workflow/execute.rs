@@ -6,6 +6,6 @@ mod report;
 mod runner;
 pub use report::{
     Action, Bounds, FixturePending, Input, Outcome, Pending, Phase, PhaseKind, Report,
-    ReportReference, TerminalRecord,
+    ReportObservation, ReportReference, TerminalRecord,
 };
 pub use runner::run;

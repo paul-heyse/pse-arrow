@@ -10,7 +10,7 @@ use crate::{
     stream_records::{Frame, RecordFramer},
     test_workflow::{
         WorkflowError,
-        execute::{Action, Input, TerminalRecord},
+        execute::{Action, Input, ReportObservation, TerminalRecord},
     },
 };
 use serde::{Deserialize, Serialize};
@@ -386,16 +386,6 @@ impl Validated {
         (self.terminal, self.path, self.failures)
     }
 }
-/// Presentation fields from the digest-bound owner report, not a native verdict constructor.
-#[derive(Deserialize)]
-struct ReportFacts {
-    version: u32,
-    invocation: CliInvocationId,
-    action: Action,
-    outcome: crate::test_workflow::execute::Outcome,
-    required_capture_complete: bool,
-    failures: Vec<crate::envelope::ErrorRecord>,
-}
 /// Only the fixed-helper observer can construct this; decoding transport data grants no proof.
 pub(crate) struct ObservedTerminal {
     terminal: TerminalRecord,
@@ -469,7 +459,7 @@ pub(crate) async fn validate_report(
         };
         let facts = {
             let mut json = serde_json::Deserializer::from_reader(io::BufReader::new(&mut input));
-            let facts = ReportFacts::deserialize(&mut json).map_err(host)?;
+            let facts = ReportObservation::deserialize(&mut json).map_err(host)?;
             json.end().map_err(host)?;
             facts
         };
@@ -484,16 +474,7 @@ pub(crate) async fn validate_report(
                 "durable workflow report differs from original terminal digest",
             )));
         }
-        if facts.version != terminal.version
-            || facts.invocation != terminal.invocation
-            || facts.action != terminal.action
-            || facts.outcome != terminal.outcome
-            || facts.required_capture_complete != terminal.required_capture_complete
-        {
-            return Err(host(invalid(
-                "owner report facts differ from the original terminal",
-            )));
-        }
+        facts.validate_against(&terminal).map_err(host)?;
         Ok(Validated {
             terminal,
             path,

@@ -304,6 +304,52 @@ pub struct ReportReference {
     /// Original complete byte count.
     pub bytes: u64,
 }
+/// Independently decodable facts recorded by an original performing report.
+///
+/// This is an observation, not `Report`, a test verdict, fixture readiness or a
+/// physical-settlement capability. Additional report fields remain with their owners.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct ReportObservation {
+    /// Original report interpretation, not this reader's policy version.
+    pub version: u32,
+    /// Original performing invocation.
+    pub invocation: CliInvocationId,
+    /// Original action; listing and compiler success remain distinct from tests.
+    pub action: Action,
+    /// Original owner's reconciliation, never a newly issued verdict.
+    pub outcome: Outcome,
+    /// Original immutable inventory association, absent for some failed operations.
+    #[serde(default)]
+    pub inventory: Option<String>,
+    /// Actual captured test count when the performing owner established it.
+    #[serde(default)]
+    pub selected_tests: Option<usize>,
+    /// Original required capture completeness, independent of physical drain.
+    pub required_capture_complete: bool,
+    /// Original typed diagnostic observations.
+    pub failures: Vec<ErrorRecord>,
+}
+impl ReportObservation {
+    /// Check recorded facts against the original terminal without granting authority.
+    ///
+    /// The caller separately authenticates the terminal, report bytes and original
+    /// custody. Successful matching alone does not establish current execution eligibility.
+    pub fn validate_against(&self, terminal: &TerminalRecord) -> Result<(), WorkflowError> {
+        terminal.validate(&self.invocation, self.action)?;
+        if self.version != 1
+            || self.version != terminal.version
+            || self.invocation != terminal.invocation
+            || self.action != terminal.action
+            || self.outcome != terminal.outcome
+            || self.required_capture_complete != terminal.required_capture_complete
+        {
+            return Err(WorkflowError::Invalid(
+                "owner report facts differ from the original terminal".into(),
+            ));
+        }
+        Ok(())
+    }
+}
 /// Exactly one final JSONL frame. Root validates this original helper transport separately
 /// from raw capture, original native payload identity and physical descendant settlement.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -376,5 +422,58 @@ impl TerminalRecord {
             .map_err(crate::discovery::DiscoveryError::from)?;
         output.write_all(b"\n")?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod observation_tests {
+    use super::*;
+
+    fn original() -> (ReportObservation, TerminalRecord) {
+        let invocation = CliInvocationId::new();
+        let observation = serde_json::from_value(serde_json::json!({
+            "version": 1, "invocation": invocation, "action": "test",
+            "outcome": "failed", "inventory": "inventory/inventory.json",
+            "selected_tests": 2, "required_capture_complete": true, "failures": [],
+            "observations": [{"kind": "test", "private_native_verdict": "not reconstructed"}]
+        })).unwrap();
+        let terminal = TerminalRecord {
+            protocol: PROTOCOL.into(), version: 1, invocation, action: Action::Test,
+            outcome: Outcome::Failed,
+            report: ReportReference { path: REPORT.into(), sha256: "a".repeat(64), bytes: 1 },
+            required_capture_complete: true,
+        };
+        (observation, terminal)
+    }
+
+    #[test]
+    fn recorded_report_facts_are_decodable_without_native_verdict_construction() {
+        let (observation, terminal) = original();
+        observation.validate_against(&terminal).unwrap();
+        assert_eq!(observation.selected_tests, Some(2));
+        assert_eq!(observation.inventory.as_deref(), Some("inventory/inventory.json"));
+        assert_eq!(observation.outcome, Outcome::Failed);
+        assert!(!observation.outcome.successful(observation.action));
+        // Serialization exposes facts only, never the ignored native verdict population.
+        assert!(serde_json::to_value(observation).unwrap().get("observations").is_none());
+    }
+
+    #[test]
+    fn retained_report_facts_require_original_identity_interpretation_and_capture() {
+        let (mut observation, terminal) = original();
+        observation.version = 2;
+        assert!(observation.validate_against(&terminal).is_err());
+        observation.version = 1;
+        observation.invocation = CliInvocationId::new();
+        assert!(observation.validate_against(&terminal).is_err());
+        observation.invocation = terminal.invocation.clone();
+        observation.required_capture_complete = false;
+        assert!(observation.validate_against(&terminal).is_err());
+        observation.required_capture_complete = true;
+        observation.action = Action::Check;
+        assert!(observation.validate_against(&terminal).is_err());
+        observation.action = Action::Test;
+        observation.outcome = Outcome::TestsSucceeded;
+        assert!(observation.validate_against(&terminal).is_err());
     }
 }

@@ -17,9 +17,6 @@ use std::{
 
 #[derive(Deserialize)]
 struct HistoricalReport {
-    version: u32,
-    invocation: crate::envelope::CliInvocationId,
-    action: Action,
     observations: Vec<HistoricalGroup>,
 }
 #[derive(Deserialize)]
@@ -106,10 +103,7 @@ pub(super) fn resolve(
             let captured_evidence = crate::test_inventory::captured(&store, id.as_str(), None)?;
             let historical: HistoricalReport = serde_json::from_slice(&captured_evidence.report)
                 .map_err(crate::discovery::DiscoveryError::from)?;
-            if historical.version != 1
-                || historical.invocation != id
-                || historical.action != Action::Test
-            {
+            if captured_evidence.observation.action != Action::Test {
                 return Err(WorkflowError::Invalid(
                     "original performing report identity differs".into(),
                 ));
