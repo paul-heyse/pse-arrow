@@ -359,6 +359,16 @@ Typed option publication, semantic evolution checks and full consumer migration 
 work. Source associations are provenance, not exact spans or scientific identity. Structural
 tests and dependency checks do not establish scientific or assembled product qualification.
 
+> Decision: [ADR-0244](../../adr/0244-shared-proto-contract-adapter.md) (proposed; authorized Plan65 target).
+
+The selected shared Proto adapter belongs in lightweight `pse-contract-proto`: lossless Buffa
+descriptor acquisition, core-option correspondence and normalization feed the pure contract
+checker. Codegen keeps source graph lowering and compiler/plugin invocation; domain owners
+supply facet interpretation explicitly. An unavailable original policy yields Unknown.
+This boundary allows independent readers to reuse the checks without importing product code
+or adding wire dependencies to `pse-contract`. Implementation and consumer migration remain
+with Plan65 A02/G02/J02.
+
 ## 6. Relation families
 
 

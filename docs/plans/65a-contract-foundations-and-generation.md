@@ -57,6 +57,15 @@ at their existing owners. Code generation and compiler/plugin invocation remain 
 The new crate and dependency-placement decision require the coordinator's proposed ADR route
 before implementation; this plan does not declare that route accepted.
 
+Execution refinement, 2026-11-04: [proposed ADR-0244](../adr/0244-shared-proto-contract-adapter.md)
+places the selected Buffa descriptor adapter in `pse-contract-proto`. Generation and independent
+host inspection need the same lossless option acquisition, schema correspondence and normalized
+input to the pure checker. The host cannot import product-heavy codegen, and duplicating that
+adapter would repeat consequential interpretation. Move its implementation and focused tests;
+retain graph lowering/compiler invocation in tooling and domain facet callbacks at their owners.
+The pure crate remains wire-free. This is part of A02/G02/J02 delivery, not another vocabulary,
+descriptor service or new native authority.
+
 Alternatives were considered as complete routes. Retaining the graph in `pse-model` is adequate
 only while product consumers are its sole population; the selected host migration defeats that
 premise. Expanding `pse-vocabulary` mixes scalar vocabulary and construction/generation behavior.

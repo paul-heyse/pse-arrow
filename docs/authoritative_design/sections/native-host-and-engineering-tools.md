@@ -20,6 +20,14 @@ terminal custody remain sealed. Shared live/retained readers reconcile report ve
 action, outcome and capture with the original terminal and protected bytes. Neither independent
 inspection nor successful decode issues a present verdict or settlement capability.
 
+> Decision: [ADR-0244](../../adr/0244-shared-proto-contract-adapter.md) (proposed; authorized Plan65 target).
+
+Independent Proto inspection consumes the shared lightweight `pse-contract-proto` adapter
+under an explicit available policy and source selection. It shares option interpretation
+with generation without importing codegen or scientific dependencies. Reading an old world
+uses its own interpretation; a present descriptor cannot substitute for unavailable policy.
+Plan65 owns implementation and negative controls for this selected boundary.
+
 | Question or effect | Performing owner and boundary |
 |---|---|
 | Read source, syntax or a known declaration | Host source/query owners; no semantic preparation or product startup |
