@@ -58,6 +58,18 @@ but cannot issue permission based on their order, including two individually acc
 Local validity remains visible when governing permission is unavailable. Generated records and
 independent readback are still future A/B/F/G integration; this native change does not close I03.
 
+**Tested, targeted:** the native `scripts/pse test pse-runtime --lib --features solver-diffsol`
+selection covering `ambiguous_original_step_never_grants_product_permission`,
+`local_validity_cannot_grant_permission_without_original_scope`,
+`point_products_use_exact_original_point_and_independent_step_permission`,
+`dynamic_observable_nominal_is_bound_from_the_compiler_inventory` and
+`stopping_one_prepared_handle_preserves_an_independent_session` completed five tests with zero
+failures against the zero-failure target on 2026-11-04. The run used original user-scope custody,
+explicitly prepared compiler/KLU, explicit cache-off preparation/execution and consuming-closure
+Arrow validation. Native execution/capture settled completely. This establishes the selected
+native scope, including the independently specified analytic endpoint; property-CoolProp
+transport, generated Shutdown publication and assembled qualification remain unexercised.
+
 ## Native semantic foundations and selected composition
 
 Existing native and authored contracts already govern substantial science:
