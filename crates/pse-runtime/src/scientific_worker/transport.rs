@@ -505,7 +505,11 @@ pub(super) fn serve_with_preparation(
                     // A failed handle cannot erase unrelated prepared science. The parent
                     // still settles the actual process if this connection is abandoned.
                     if let Some(owner) = sessions.get_mut(&handle.generation) {
-                        owner.stop();
+                        // Native refusal before mutation (for example a replayed ordinal)
+                        // leaves the admitted preparation ready. Preserve that owner's decision.
+                        if owner.state() != super::SessionState::Ready {
+                            owner.stop();
+                        }
                     } else if let Ok(mut controls) = controls_lock(&native_controls) {
                         // Failed preparation never issued a live native handle.
                         controls.handles.remove(&handle.generation);

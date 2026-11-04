@@ -788,6 +788,14 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
     }), &proxy.scope, None).unwrap();
     assert!(matches!(response, p::Response::Values(values)
         if values.handle == survivor && values.values == [14., 15., 25.]));
+    for (invocation, successful) in [(10_000, false), (10_001, true)] {
+        let response = remote.exchange(p::Request::Evaluate(p::Evaluate {
+            handle: survivor.clone(), invocation, inputs: vec![3., 5.],
+            directions: vec![], cotangents: vec![], weights: vec![],
+        }), &proxy.scope, None).unwrap();
+        assert_eq!(matches!(response, p::Response::Values(_)), successful,
+            "a replay refused before mutation must not erase the admitted native preparation");
+    }
     assert!(matches!(
         remote.exchange(p::Request::Close(first), &proxy.scope, None).unwrap(),
         p::Response::Failure(_)
