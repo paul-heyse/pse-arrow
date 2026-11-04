@@ -56,18 +56,23 @@ pub(crate) fn settling() -> bool {
         .try_with(|value| !matches!(value, Value::None))
         .unwrap_or(false)
 }
-pub(crate) async fn settlement_scope<F, T>(
+pub(crate) fn settlement_scope<F, T>(
     fence: &AttemptFence,
     future: F,
-) -> Result<T, CanonicalError>
+) -> impl Future<Output = Result<T, CanonicalError>>
 where
     F: Future<Output = Result<T, CanonicalError>>,
 {
-    let mut value = Object::new();
-    value.insert("run", fence.run().to_owned());
-    value.insert("attempt", fence.attempt().to_owned());
-    value.insert("generation", codec::encode_uint(fence.generation())?);
-    SETTLEMENT.scope(Value::Object(value), future).await
+    // Close/reconcile/seal compose large request futures. Keep their one child
+    // outside the async argument/TaskLocalFuture state instead of duplicating it.
+    let future = Box::pin(future);
+    async move {
+        let mut value = Object::new();
+        value.insert("run", fence.run().to_owned());
+        value.insert("attempt", fence.attempt().to_owned());
+        value.insert("generation", codec::encode_uint(fence.generation())?);
+        SETTLEMENT.scope(Value::Object(value), future).await
+    }
 }
 fn invalid(message: impl Into<String>) -> CanonicalError {
     CanonicalError::Configuration(message.into())
@@ -1390,6 +1395,118 @@ mod schema_fence_control {
 }
 #[cfg(all(feature = "test-support", feature = "native-service"))]
 pub use schema_fence_control::SchemaFenceWrite;
+
+#[cfg(test)]
+mod settlement_scope_unit {
+    use super::*;
+    use std::{
+        pin::Pin,
+        sync::Mutex,
+        task::{Context, Poll},
+    };
+
+    fn fence() -> AttemptFence {
+        AttemptFence::from_row(crate::canonical_execution::CanonicalAttempt {
+            key: "scope-attempt".into(),
+            run: "scope-run".into(),
+            generation: 7,
+            claim_operation: "scope-claim".into(),
+            request: vec![].into(),
+            worker: "scope-worker".into(),
+            expires_at: 0,
+            phase: pse_model::generated::enums::CanonicalAttemptPhase::Ingesting,
+            close_generation: None,
+            outcome: None,
+            closed_manifest: None,
+            completion: None,
+            seed_manifest: None,
+            finalization_study: None,
+        })
+        .unwrap()
+    }
+
+    fn expected() -> Value {
+        let mut value = Object::new();
+        value.insert("run", "scope-run");
+        value.insert("attempt", "scope-attempt");
+        value.insert("generation", codec::encode_uint(7).unwrap());
+        Value::Object(value)
+    }
+
+    struct Probe {
+        observations: Arc<Mutex<Vec<Value>>>,
+        ready: bool,
+    }
+    impl Future for Probe {
+        type Output = Result<(), CanonicalError>;
+        fn poll(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Self::Output> {
+            self.observations.lock().unwrap().push(settlement_value());
+            if self.ready {
+                Poll::Ready(Ok(()))
+            } else {
+                Poll::Pending
+            }
+        }
+    }
+    impl Drop for Probe {
+        fn drop(&mut self) {
+            self.observations.lock().unwrap().push(settlement_value());
+        }
+    }
+
+    #[test]
+    fn settlement_scope_keeps_large_child_out_of_composed_caller_state() {
+        let fence = fence();
+        let payload = [0_u8; 64 * 1024];
+        let child = async move {
+            std::future::pending::<()>().await;
+            Ok(std::hint::black_box(payload))
+        };
+        let child_bytes = size_of_val(&child);
+        let scoped = settlement_scope(&fence, child);
+        assert!(size_of_val(&scoped) < child_bytes / 16);
+    }
+
+    #[test]
+    fn settlement_scope_ready_and_cancel_drop_keep_original_authority_and_restore_parent() {
+        for ready in [false, true] {
+            let fence = fence();
+            let observations = Arc::new(Mutex::new(Vec::new()));
+            let mut scoped = Box::pin(settlement_scope(
+                &fence,
+                Probe {
+                    observations: observations.clone(),
+                    ready,
+                },
+            ));
+            let parent = Value::String("enclosing-authority".into());
+            SETTLEMENT.sync_scope(parent.clone(), || {
+                let mut cx = Context::from_waker(std::task::Waker::noop());
+                assert_eq!(scoped.as_mut().poll(&mut cx).is_ready(), ready);
+                assert_eq!(settlement_value(), parent);
+            });
+            drop(scoped);
+            assert_eq!(*observations.lock().unwrap(), vec![expected(), expected()]);
+            assert_eq!(settlement_value(), Value::None);
+        }
+    }
+
+    #[test]
+    fn settlement_scope_unpolled_drop_keeps_ambient_authority() {
+        let fence = fence();
+        let observations = Arc::new(Mutex::new(Vec::new()));
+        let scoped = settlement_scope(
+            &fence,
+            Probe {
+                observations: observations.clone(),
+                ready: false,
+            },
+        );
+        assert!(observations.lock().unwrap().is_empty());
+        drop(scoped);
+        assert_eq!(*observations.lock().unwrap(), vec![Value::None]);
+    }
+}
 
 #[cfg(test)]
 mod tests {

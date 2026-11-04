@@ -391,8 +391,8 @@ async fn retry_stage_mutation<F, Q>(
     mut submit: F,
 ) -> Result<crate::transport::client::IndexedResults, CanonicalError>
 where
-    F: FnMut() -> Q,
-    Q: Future<Output = Result<crate::transport::client::IndexedResults, CanonicalError>>,
+    F: FnMut() -> Q + Send,
+    Q: Future<Output = Result<crate::transport::client::IndexedResults, CanonicalError>> + Send,
 {
     // The queue, every complete transaction and conflict pacing share one clock.
     // Dropping this future also drops the current request or backoff; no detached

@@ -32,19 +32,26 @@ pub fn original_deadline(budget: Duration) -> tokio::time::Instant {
 /// Enforce one original deadline across the supplied request and nested work.
 /// # Errors
 /// Timeout or the original typed request failure.
-pub async fn within_clock<F, T>(
+pub fn within_clock<'a, F, T>(
     deadline: tokio::time::Instant,
     future: F,
-) -> Result<T, CanonicalError>
+) -> futures_util::future::BoxFuture<'a, Result<T, CanonicalError>>
 where
-    F: Future<Output = Result<T, CanonicalError>>,
+    F: Future<Output = Result<T, CanonicalError>> + Send + 'a,
+    T: 'a,
 {
-    let deadline = OPERATION_DEADLINE
-        .try_with(|enclosing| (*enclosing).min(deadline))
-        .unwrap_or(deadline);
-    tokio::time::timeout_at(deadline, OPERATION_DEADLINE.scope(deadline, future))
-        .await
-        .map_err(|_| CanonicalError::Timeout)?
+    // Erase the complete clock state at its shared boundary. Callers retain one
+    // handle and a checked Send promise instead of recursively proving every
+    // nested request/settlement future. Tokio still owns polling and destruction
+    // within the original task-local deadline, selected lazily on first poll.
+    Box::pin(async move {
+        let deadline = OPERATION_DEADLINE
+            .try_with(|enclosing| (*enclosing).min(deadline))
+            .unwrap_or(deadline);
+        tokio::time::timeout_at(deadline, OPERATION_DEADLINE.scope(deadline, future))
+            .await
+            .map_err(|_| CanonicalError::Timeout)?
+    })
 }
 
 /// Carry a caller's original clock through nested requests without dropping its
@@ -113,7 +120,8 @@ impl<F: Future> Future for OperationScope<F> {
 /// Bound one native client operation, preserving its typed failure.
 pub async fn request<F, T>(future: F) -> Result<T, CanonicalError>
 where
-    F: IntoFuture<Output = Result<T, surrealdb_types::Error>>,
+    F: IntoFuture<Output = Result<T, surrealdb_types::Error>> + Send,
+    F::IntoFuture: Send,
 {
     within_clock(original_deadline(REQUEST_TIMEOUT), async {
         future.into_future().await.map_err(Into::into)
@@ -125,7 +133,8 @@ where
 /// A single checked RPC with a transport deadline; callers retry complete decisions.
 pub async fn bounded_query<F>(future: F) -> Result<client::IndexedResults, CanonicalError>
 where
-    F: IntoFuture<Output = Result<client::IndexedResults, surrealdb_types::Error>>,
+    F: IntoFuture<Output = Result<client::IndexedResults, surrealdb_types::Error>> + Send,
+    F::IntoFuture: Send,
 {
     complete_response(request(future).await?)
 }
@@ -148,8 +157,9 @@ pub async fn protected_query<F, Q>(
     mut build: F,
 ) -> Result<client::IndexedResults, CanonicalError>
 where
-    F: FnMut() -> Result<Q, CanonicalError>,
-    Q: IntoFuture<Output = Result<client::IndexedResults, surrealdb_types::Error>>,
+    F: FnMut() -> Result<Q, CanonicalError> + Send,
+    Q: IntoFuture<Output = Result<client::IndexedResults, surrealdb_types::Error>> + Send,
+    Q::IntoFuture: Send,
 {
     within_clock(original_deadline(REQUEST_TIMEOUT), async {
         let result = retry::retry_conflicts(retry::RetryPolicy::Guarded, operation, || {
@@ -384,5 +394,96 @@ mod operation_scope_unit {
         let child_bytes = size_of_val(&child);
         let scoped = crate::canonical::operation_scope(std::time::Instant::now(), child);
         assert!(size_of_val(&scoped) <= child_bytes + 4 * size_of::<tokio::time::Instant>());
+    }
+
+    #[test]
+    fn within_clock_keeps_large_child_out_of_composed_caller_state() {
+        let payload = [0_u8; 64 * 1024];
+        let child = async move {
+            std::future::pending::<()>().await;
+            Ok(std::hint::black_box(payload))
+        };
+        let child_bytes = size_of_val(&child);
+        let scoped = within_clock(tokio::time::Instant::now(), child);
+        assert!(size_of_val(&scoped) < child_bytes / 16);
+    }
+
+    #[tokio::test]
+    async fn within_clock_selects_parent_on_poll_and_destroys_ready_child_in_scope() {
+        let parent = std::time::Instant::now() + Duration::from_secs(1);
+        let expected = tokio::time::Instant::from_std(parent);
+        let (probe, clocks, _, dropped) = clock_probe(true);
+        let child = within_clock(expected + Duration::from_secs(30), async move {
+            probe.await;
+            Ok(())
+        });
+        operation_scope(parent, child).await.unwrap();
+        assert_eq!(
+            *clocks.lock().unwrap(),
+            vec![Some(expected), Some(expected)]
+        );
+        assert!(dropped.load(Ordering::Acquire));
+        assert_eq!(current_deadline(), None);
+    }
+
+    #[tokio::test]
+    async fn within_clock_cancel_drop_keeps_selected_parent_and_unpolled_drop_is_ambient() {
+        let parent = std::time::Instant::now() + Duration::from_secs(1);
+        let expected = tokio::time::Instant::from_std(parent);
+        let (probe, clocks, _, dropped) = clock_probe(false);
+        let mut child = Box::pin(within_clock(
+            expected + Duration::from_secs(30),
+            async move {
+                probe.await;
+                Ok(())
+            },
+        ));
+        operation_scope(
+            parent,
+            std::future::poll_fn(|cx| {
+                assert!(child.as_mut().poll(cx).is_pending());
+                Poll::Ready(())
+            }),
+        )
+        .await;
+        drop(child);
+        assert_eq!(
+            *clocks.lock().unwrap(),
+            vec![Some(expected), Some(expected)]
+        );
+        assert!(dropped.load(Ordering::Acquire));
+        let (probe, clocks, _, dropped) = clock_probe(false);
+        drop(within_clock(expected, async move {
+            probe.await;
+            Ok(())
+        }));
+        assert_eq!(*clocks.lock().unwrap(), vec![None]);
+        assert!(dropped.load(Ordering::Acquire));
+        assert_eq!(current_deadline(), None);
+    }
+
+    #[tokio::test]
+    async fn within_clock_expiry_preserves_tokio_ready_priority_and_scoped_pending_drop() {
+        let expired = tokio::time::Instant::now() - Duration::from_secs(1);
+        let (probe, clocks, _, dropped) = clock_probe(true);
+        within_clock(expired, async move {
+            probe.await;
+            Ok(())
+        })
+        .await
+        .unwrap();
+        assert_eq!(*clocks.lock().unwrap(), vec![Some(expired), Some(expired)]);
+        assert!(dropped.load(Ordering::Acquire));
+
+        let (probe, clocks, _, dropped) = clock_probe(false);
+        let result = within_clock(expired, async move {
+            probe.await;
+            Ok(())
+        })
+        .await;
+        assert!(matches!(result, Err(CanonicalError::Timeout)));
+        assert_eq!(*clocks.lock().unwrap(), vec![Some(expired), Some(expired)]);
+        assert!(dropped.load(Ordering::Acquire));
+        assert_eq!(current_deadline(), None);
     }
 }

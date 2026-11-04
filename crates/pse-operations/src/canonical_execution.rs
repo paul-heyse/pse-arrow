@@ -5005,10 +5005,11 @@ impl CanonicalStore {
         build: F,
     ) -> Result<crate::transport::client::IndexedResults, CanonicalError>
     where
-        F: FnMut() -> Result<Q, CanonicalError>,
+        F: FnMut() -> Result<Q, CanonicalError> + Send,
         Q: IntoFuture<
-            Output = Result<crate::transport::client::IndexedResults, surrealdb_types::Error>,
-        >,
+                Output = Result<crate::transport::client::IndexedResults, surrealdb_types::Error>,
+            > + Send,
+        Q::IntoFuture: Send,
     {
         let activity = self.admit_activity()?;
         activity

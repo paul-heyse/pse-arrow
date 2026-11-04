@@ -90,7 +90,7 @@ const PAGE: usize = 64;
 pub(crate) async fn postcommit_cleanup<T: Default>(
     deadline: tokio::time::Instant,
     operation: &'static str,
-    cleanup: impl Future<Output = Result<T, CanonicalError>>,
+    cleanup: impl Future<Output = Result<T, CanonicalError>> + Send,
 ) -> T {
     let result = if deadline <= tokio::time::Instant::now() {
         Err(CanonicalError::Timeout)
