@@ -523,6 +523,20 @@ impl TryFrom<pb::Response> for p::Response {
 mod tests {
     use super::*;
     use buffa::Message as _;
+
+    #[test]
+    fn shutdown_has_an_explicit_wire_operation_and_acknowledgement() {
+        let request = pb::Request::from(p::Request::Shutdown).encode_to_vec();
+        let response = pb::Response::from(p::Response::Shutdown).encode_to_vec();
+        assert!(matches!(
+            p::Request::try_from(decode::<pb::Request>(&request)).unwrap(),
+            p::Request::Shutdown
+        ));
+        assert!(matches!(
+            p::Response::try_from(decode::<pb::Response>(&response)).unwrap(),
+            p::Response::Shutdown
+        ));
+    }
     use protovalidate_buffa::Validate as _;
 
     fn handle() -> p::Handle {
