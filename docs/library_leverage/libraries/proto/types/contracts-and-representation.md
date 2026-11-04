@@ -27,9 +27,10 @@ validation. Companion inclusion is non-idempotent and requires a matching `Packa
 matches remain files with no automatically emitted include. Filenames and package membership
 must be checked before composition.
 
-**Important limit.** Buffa strips `source_code_info` from runtime descriptor embedding. A runtime
-pool is not a complete source-provenance artifact. Retain a separate complete generation corpus
-when source comments or spans matter.
+**Important limit.** Buffa's `encode_descriptor_set` strips `source_code_info` and applies
+feature overrides; `shared_descriptor_root_module` embeds caller-supplied bytes. Custom
+embedding can retain source info or omit effective overrides. Inspect the actual producer;
+source comments and genuine source provenance remain different responsibilities.
 
 Sources: [Buffa 0.9.2 generation source](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-codegen/src/lib.rs),
 [descriptor embedding](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-codegen/src/reflect.rs),

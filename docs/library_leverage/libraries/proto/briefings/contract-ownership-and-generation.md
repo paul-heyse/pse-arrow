@@ -68,9 +68,11 @@ Retain two deliberately different artifacts where their consumers need them:
   options, for compiler diagnostics, documentation and provenance.
 - The compact runtime descriptor corpus for linked reflection and schema discovery.
 
-Buffa 0.9.2 strips `source_code_info` when embedding reflection descriptors. That runtime artifact
-cannot reconstruct source comments or exact source ranges. Current host source relationships
-and syntax witnesses therefore remain relevant rather than being replaced by descriptor columns.
+Buffa 0.9.2's standard descriptor encoder strips `source_code_info`; its shared-root helper
+embeds supplied bytes. The custom engineering producer inspected for Plan65 passes full
+descriptors with owner comments. Settle typed metadata and effective feature semantics before
+compaction. Comments and placeholder descriptor spans cannot establish exact Rust source ranges;
+source relationships and syntax witnesses remain relevant.
 Scientific identity remains owned by the semantic hashing contract; neither descriptor bytes nor
 an arbitrary protobuf encoding becomes its replacement.
 

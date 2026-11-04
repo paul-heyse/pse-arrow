@@ -1,0 +1,155 @@
+---
+title: "Plan65e: Scientific portability and execution"
+status: proposed
+date: 2026-11-03
+adrs: []
+review_sources: [docs/library_leverage/reviews/proto/README.md]
+doc_role: plan
+doc_owner: docs/plans/65-proto-integrated-target.md
+doc_topics: [design, numerical-execution, preparation, validation]
+---
+
+# Scientific portability and execution
+
+## Target and baseline
+
+**Proposed:** give scientific source, preparation, capability, invocation and outcome products
+one explicit portable interpretation wherever exchange or independent inspection is useful.
+Keep library-owned mathematical programs, numerical buffers and solver workspaces in their
+effective native representations. Direct and isolated execution consume the same scientific
+meaning; placement does not create a second formulation or derivative authority.
+
+The [coordinator](65-proto-integrated-target.md) owns the combined design, rule decisions and
+completion. This companion owns E01–E06. Implementation starts after Plan64 is implemented;
+its complete scientific population and working worker/reference interfaces are the assumed
+baseline, not claimed current evidence. Current source was inspected at
+`f61286a5fa5894b480efe8584c8b3d9b76d1b1fb`, including concurrent projection edits. No product
+or science changes were made while authoring. The source reads are **Interface-checked**;
+every package and benefit below remains **Proposed**.
+
+The present routes expose useful variation: `pse-kernels` has `ProviderSpec`, `ProviderDemand`,
+`PreparedProviderRequest`, `ProviderLinearizationToken` and explicit `ExecutionScope`;
+`scientific_worker` transports a prepared water binding; `math/native_child.rs` reconstructs
+a closed provider-free KINSOL root using private Serde documents; `typed_math_portable`,
+kernel portable specifications and quantity receipts contain separate capture/restore forms.
+These are actual migration populations, not a demand to serialize arbitrary native state.
+Blueprint §7/§14–§18 supply existing scientific contracts; Plan65 may improve their realization.
+
+## Selected design and alternatives
+
+Use the pure structural contract owner from [65a](65a-contract-foundations-and-generation.md)
+for tags, shape, local constraints and typed options. Scientific owners supply physical
+meaning and contextual constructors. Generate Buffa records, checked native adapters,
+descriptor metadata and independent exchange bindings together. Keep exact scalar bits,
+ordered quantity/unit identities, precision/formulation/implementation identities and
+declared approximation scope explicit. A schema fingerprint is not a scientific cache key.
+
+Three portable products are deliberately distinct:
+
+| Product | Content and admissible consumer |
+| --- | --- |
+| Reconstructible scientific input | Authored body/source, resolved binding context, physical registry interpretation, unknown/row ordering, exact parameters, solver/evaluation policy and complete dependencies. A receiving compiler reconstructs and admits it; serialized admission labels confer no authority. |
+| Prepared capability/demand | Exact implementation/data/configuration identity, ordered ports, derivative product/order, validity regime and immutable prepared handle. The selected implementation confirms support before numerical execution. |
+| Outcome/evidence | Native termination and status, candidate availability, original-coordinate qualification, physical closure, usable extent and context. Transport success cannot substitute for any scientific conclusion. |
+
+Retain source versus optimized mathematical artifact distinctions. Do not reconstruct authored
+expressions from optimized evaluator instructions or claim that an exported instruction set
+preserves source shape. Opaque evaluator/provider closures, native thread state and factorizations
+remain process-local. Reuse native library artifact export only with its exact producer/version/
+profile contract and an actual receiving consumer; otherwise exchange reconstructible source.
+
+Replace the private root's mechanical Serde source/request/outcome vocabulary with generated
+source-owned records, keeping its existing narrow executable factory and parent-side original
+screening. Reuse its private bounded channel rather than forcing it through the engineering
+service. The implementation removes the old wire structs, conversion pairs and JSON framing
+after complete root controls pass. It does not widen the supported mathematical class implicitly.
+
+A universal Proto mathematical IR would duplicate library algebra and introduce conversions
+into hot callbacks. Keeping every private wire form indefinitely would repeat scientific
+interpretation as families grow. The selected mixed design removes repeated portable
+correspondence without making a codec the numerical engine. Proto-first external scientific
+contracts remain eligible when independently governed, through explicit native adoption.
+
+## Worker and coherent-batch interface
+
+Generalize the post-Plan64 worker as an explicitly prepared local placement. Preserve separate
+attempt, process/session, preparation generation and invocation identities. Every Evaluate
+references an admitted handle and exact demand. `Stop(handle)` cancels only that handle's work;
+`Close(handle)` retires only that prepared state after its invocations settle. Process shutdown
+closes admission, cancels and drains all remaining sessions, then reaps the child and joins I/O.
+Global session clearing is not the general target semantics.
+
+Add capability-declared `EvaluateBatch` for implementations that can evaluate useful groups of
+independent states or one explicitly ordered stateful batch. Each input has a point identity;
+the response preserves input order and per-point success/refusal. A batch-wide infrastructure
+failure and a point-local physical refusal are separate outcomes. Do not replay completed or
+uncertain points automatically. Shared preparation and buffer transfer are amortized; the
+backend must expose a genuine grouped operation, not hide a scalar RPC loop.
+
+Prepared linearizations and derivative tokens are opaque references bound to the admitted
+handle, input/branch context and provider generation. Invalidating the context invalidates
+the token. Support all existing kernel demand alternatives structurally, but reject unavailable
+products honestly. Never synthesize an action product by secretly materializing a dense matrix
+unless the selected scientific implementation explicitly supplies that realization.
+
+Use direct native calls by default for repeated callback evaluation. An isolated route is
+selected explicitly for independent implementation, foreign-runtime isolation or demonstrable
+operation benefit. Shared connection machinery does not globalize a single serial lane across
+unrelated attempts. Per-session native state stays owner-affine; concurrent independent sessions
+may run on independent admitted lanes. All retained buffers and reservations survive through
+actual native/I/O settlement, including cancellation and stale late replies.
+
+Buffa 0.9.2 `MessageView`, `OwnedView`, `ViewEncode`, `SizeCachePool` and backing-aware `Rope`
+are eligible physical mechanisms at source/artifact boundaries. They do not remove required
+native numeric buffer construction. Select compact copies where retaining a small view would
+pin a large allocation. ConnectRPC clients and transports provide protocol work; the prepared
+handle and native custody still establish scientific continuity and release.
+
+## Packages and migration
+
+| ID | State | Prerequisite | Delivery and targeted acceptance |
+| --- | --- | --- | --- |
+| E01 | planned | Completed Plan64 baseline; 65a structural contract and metadata decisions | Classify every portable source/spec/context/receipt shape in `typed_math_portable`, kernel portable and quantity receipt routes by reconstruction, inspection or private transport consumer. Define shared source-owned products and exact unsupported scope. Controls distinguish physical/datatype/configuration changes from compatible value-only changes; no unused universal artifact catalogue. |
+| E02 | planned | E01; working 65a generation and 65b adoption/validation | Generate portable scientific records/adapters and migrate their existing producers/readers. Cover ordering, exact bits, missing/unknown alternatives, original dependencies and refusal classes. Remove migrated capture/restore pairs and duplicated shape declarations; retain semantic reconstruction and qualification. Test every changed native variant in both directions with independent known-value expectations. |
+| E03 | planned | E02 closed-root slice; 65d transport/settlement primitives where shared | Replace the private KINSOL root wire vocabulary through its actual launch/reconstruct/solve/readback path. Preserve provider-free rejection, original registry/body checks, numerical policy and cancellation/drain. Compare direct and child outcomes on the same independently specified roots; inject malformed source, stale image, unknown completion and child failure. Delete replaced private wire/JSON-only helpers and their mechanism-only fixtures. |
+| E04 | planned | E02 provider slice; 65d session/custody behavior | Implement per-handle prepare/evaluate/stop/close and process-wide shutdown semantics across the post-64 provider population. Two independent sessions must prove no cross-cancellation, no stale-handle adoption, no global close and admission held through native and I/O drain. Migrate all worker clients, server handlers and fixtures together. |
+| E05 | planned | E04; real implementation-native grouped evaluation identified | Deliver capability-declared coherent batching with exact point identities and per-point outcomes. Integrate the current water implementation where it can reuse preparation across independent states and the action-capable provider control for demand fidelity. Mixed valid/invalid states, branch changes, nonfinite/truncated responses and failure after partial completion discriminate behavior. Remove redundant per-point RPC orchestration from migrated consumers. |
+| E06 | planned | E02–E05 functional population; 65f outcome and 65g independent readers | Integrate generated capability/outcome inspection and independent exchange across existing post-64 scientific modes. Record direct/isolated cold/warm complete-operation measurements including construction, transfer, validation and drain, without a presumed speedup. Supply implemented population and limitations to 65h; publish extension guidance and remove all superseded selected paths. |
+
+The E05 prerequisites are a bounded implementation question: does the selected native provider
+support coherent reuse across a group without changing point/state semantics? Inspect and test
+that implementation before exposing the capability. If not, retain honest scalar-only support
+for it and deliver the batch route through the independently specified action-capable control;
+do not advertise production batching. The coordinator must then narrow the promised population
+or select a genuinely useful batch-capable scientific implementation before declaring the
+production batching obligation complete. A synthetic control alone cannot close that promise.
+
+## Verification, extension and decision handoff
+
+Use source/admit → encode → independent decoder → receiving adoption → actual execution →
+outcome/readback journeys. Independent scientific expectations must not come from generated
+adapters or the candidate provider. Retain physically independent water/derivative controls
+and original equipment balances. Exact derivative actions are checked against independently
+constructed asymmetric cases that expose transpose/order mistakes.
+
+Challenge adding a physical provider capability, a solver outcome and a time/axis-bearing
+result without editing unrelated transport code. New science still needs its domain model,
+validity/derivative support and evidence. No new fluid model, solver algorithm, remote execution
+or distributed decomposition is implied by these structural extension controls.
+
+Targeted implementation tests run with the repository's pinned native routes and explicit
+force-validation for Arrow closures. Broad campaigns and hygiene belong to series scope end,
+owned by [65h](65h-integration-and-qualification.md). Wire fidelity, actual placement,
+scientific correctness and measured benefit are separate claims.
+
+Protocol/kernel/metadata changes follow the coordinator's proposed decision route before
+implementation. This plan is not ADR acceptance or current qualification. At closure report
+Implemented, named Tested and Measured conditions separately; migrate enduring meaning to
+the scientific architecture owners and retire completed planning through the repository route.
+
+## Sources
+
+- [Scientific discovery and exact current owner links](../library_leverage/libraries/proto/briefings/math-solvers-and-scientific-workers.md).
+- [Buffa 0.9.2 encoding sinks](https://github.com/anthropics/buffa/blob/v0.9.2/buffa/src/encode_sink.rs) and [ConnectRPC 0.9.1 clients](https://github.com/connectrpc/connect-rust/blob/v0.9.1/src/client/mod.rs).
+- [Maintained validation contract](../../vendor/protoc-gen-protovalidate-buffa/README.md), [local RPC reference](../libraries/proto/Local_RPC_and_Diagnostics_in_Rust.md) and [Buffa reference](../libraries/proto/Buffa.md).
+- Native solver interpretation uses the active native-solver-libraries reference; no solver release/ABI move is selected by this plan. Source pointers: `crates/pse-runtime/src/math/native_child.rs`, `scientific_worker/{protocol,proxy,transport,process}.rs`, `crates/pse-kernels/src/{lib,portable}.rs` and `crates/pse-compiler/src/typed_math_portable.rs`.

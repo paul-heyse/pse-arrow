@@ -9,6 +9,7 @@ resume stopped work or establish implementation, qualification or measured benef
 
 | Plan | Work and status owner |
 | --- | --- |
+| [65: Integrated Proto target](65-proto-integrated-target.md) | Proposed post-Plan64 target across contracts, storage, runtime, science, diagnostics and tooling; coordinator and eight companions own proposed work and acceptance. Publication does not authorize implementation. |
 | [64: Process-simulator target](64-process-simulator-target.md) | P0–P7 series with completed 64b/64c native delivery. The [D–G implementation checkpoint](64-process-simulator-target.md#d-through-g-implementation-checkpoint) records the requested stop, failing tests and skipped follow-ups; companion tables own remaining scope, including independent plan additions. |
 | [64i: Engineering contracts](64i-engineering-contracts-and-validation.md), [64j: Services and clients](64j-engineering-services-and-clients.md), [64k: Scientific workers](64k-prepared-scientific-workers.md) | Selected Proto expansion: source-owned generation/validation and working local service/worker deliveries. Coordinator owns review dispositions; new package tables own planned progress. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
@@ -17,6 +18,15 @@ resume stopped work or establish implementation, qualification or measured benef
 | [40: Simulation diagnostics](40-simulation-performance-diagnostics.md) | Native simulation diagnostics and its independent campaign status. |
 | [32: Workspace content lifecycle](32-workspace-content-lifecycle.md) | Document metadata, retention and native scope interpretation. |
 | [28: Unified simulation substrate](28-surrealdb-unified-substrate.md#current-checkpoint) | Canonical substrate and its independently authorized remaining work. |
+
+Plan65 companions: [contracts and generation](65a-contract-foundations-and-generation.md),
+[representation and validation](65b-representation-validation-and-interpretation.md),
+[storage and history](65c-storage-projections-and-history.md),
+[local operations](65d-local-operations-and-services.md),
+[scientific execution](65e-scientific-portability-and-execution.md),
+[diagnostics and results](65f-diagnostics-and-result-delivery.md),
+[intelligence and tooling](65g-code-intelligence-and-client-tooling.md), and
+[integrated acceptance](65h-integration-and-qualification.md).
 
 [Plan63: Code-intelligence and CLI robustness](63-code-intelligence-cli-robustness.md#outcome)
 is complete. Its coordinator owns O01–O08 disposition, integrated qualification and deliberate

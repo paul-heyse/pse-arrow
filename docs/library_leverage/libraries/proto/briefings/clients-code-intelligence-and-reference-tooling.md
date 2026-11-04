@@ -57,9 +57,10 @@ scientific answers. These are existing product/reference boundary owners.
 
 Publish a selected complete descriptor set alongside each generated client/contract package.
 Retain imports, custom options, defining package identity, source artifact identity and semantic
-interpretation version. Runtime reflection pools can omit source information: Buffa's embedded
-`FILE_DESCRIPTOR_SET_BYTES` strips `source_code_info`, so use the separate source-aware artifact
-when exact source/documentation attribution is needed. Schema text, descriptor symbol identity,
+interpretation version. Buffa's standard descriptor encoder strips `source_code_info`, while
+custom shared-root embedding preserves supplied bytes. The current engineering route supplies
+full descriptors. Inspect the selected producer and retain source-aware artifacts where needed;
+comments alone do not establish exact Rust provenance. Schema text, descriptor symbol identity,
 and byte-accurate source ranges are different products.
 
 Use Buffa 0.9.2 `DescriptorPool`, `DynamicMessage`, descriptor field/oneof/enum information and
