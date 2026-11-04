@@ -93,18 +93,28 @@ impl<T: ProjectionType, const N: usize> ProjectionType for [T; N] {
         let name = format!("Array{N}{element_name}");
         let length = u64::try_from(N)
             .map_err(|_| ProjectionError::invalid(&name, "array extent exceeds uint64"))?;
-        graph.declare::<Self>(&name, file!(), 1, Direction::Both, &[], &[], |graph| {
-            Ok(Shape::Record(vec![Field::of::<Vec<T>>(
-                graph,
-                "values",
-                1,
-                Direction::Both,
-                vec![LocalRule::Length {
-                    min: length,
-                    max: length,
-                }],
-            )?]))
-        })
+        let root =
+            graph.declare::<Self>(&name, file!(), 1, Direction::Both, &[], &[], |graph| {
+                Ok(Shape::Record(vec![Field::of::<Vec<T>>(
+                    graph,
+                    "values",
+                    1,
+                    Direction::Both,
+                    vec![LocalRule::Length {
+                        min: length,
+                        max: length,
+                    }],
+                )?]))
+            })?;
+        let element = T::projection_rust_path(graph)?;
+        graph.public_path::<Self>(&root, &format!("[{element};{N}]"))?;
+        Ok(root)
+    }
+    fn projection_rust_path(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+        Ok(format!("[{};{N}]", T::projection_rust_path(graph)?))
+    }
+    fn projection_argument_name(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
+        Ok(format!("Array{N}{}", T::projection_argument_name(graph)?))
     }
 }
 impl<T, const N: usize> ProjectionRecord for [T; N] {

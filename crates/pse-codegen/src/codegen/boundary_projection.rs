@@ -586,7 +586,7 @@ impl Lower<'_> {
                 }
                 field.label = Some(Label::LABEL_REPEATED);
                 let rules = self.base_rules(ty);
-                if rules.r#type.is_some() {
+                if rules.r#type.is_some() || !rules.cel.is_empty() {
                     self.options(&mut field, rules)?;
                 }
             }
@@ -635,7 +635,7 @@ impl Lower<'_> {
                 field.type_name = Some(entry_name);
                 parent.nested_type.push(entry);
                 let rules = self.base_rules(ty);
-                if rules.r#type.is_some() {
+                if rules.r#type.is_some() || !rules.cel.is_empty() {
                     self.options(&mut field, rules)?;
                 }
             }
@@ -666,6 +666,22 @@ impl Lower<'_> {
     fn base_rules(&self, ty: &TypeRef) -> FieldRules {
         let mut rules = FieldRules::default();
         match ty {
+            TypeRef::Set(inner)
+                if matches!(inner.as_ref(),TypeRef::Named(name)
+                if self.graph.definitions().get(name).is_some_and(|owner|matches!(owner.shape,Shape::StringEnum(_)))) =>
+            {
+                // String vocabularies retain their source-owned wrapper. The
+                // standard repeated.unique rule does not support message items;
+                // maintained CEL compares their actual declared scalar value.
+                rules.cel.push(Rule {
+                    id: Some("set.unique_vocabulary".into()),
+                    message: Some("set must not repeat a declared vocabulary member".into()),
+                    expression: Some(
+                        "this.all(x, this.filter(y, y.value == x.value).size() == 1)".into(),
+                    ),
+                    ..Default::default()
+                });
+            }
             TypeRef::Scalar(Scalar::I16) => {
                 rules.r#type = Some(
                     SInt32Rules {

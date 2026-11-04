@@ -19,12 +19,16 @@ macro_rules! projected_scalar {
 
         impl crate::boundary_projection::ProjectionType for $name {
             fn projection(graph: &mut crate::boundary_projection::ProjectionGraph) -> Result<crate::boundary_projection::TypeRef, crate::boundary_projection::ProjectionError> {
-                graph.declare::<Self>(stringify!($name), file!(), 1, crate::boundary_projection::Direction::Both,
+                #[allow(unused_qualifications, reason = "nutype's private defining module requires this exact checked public alias for cross-crate adapters")]
+                let _identity: fn(Self) -> crate::scalars::$name = |value| value;
+                let root = graph.declare::<Self>(stringify!($name), file!(), 1, crate::boundary_projection::Direction::Both,
                     &[], &[], |graph| Ok(crate::boundary_projection::Shape::Record(vec![
                         crate::boundary_projection::Field::of::<$ty>(graph, "value", 1,
                             crate::boundary_projection::Direction::Both,
                             vec![projected_scalar!(@rule $ty; $($validation)*)])?,
-                    ])))
+                    ])))?;
+                graph.public_path::<Self>(&root, concat!("crate::scalars::", stringify!($name)))?;
+                Ok(root)
             }
         }
         impl crate::boundary_projection::ValidateProjection for $name {

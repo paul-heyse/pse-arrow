@@ -5,35 +5,43 @@ use super::*;
 
 static PRODUCERS: AtomicU64 = AtomicU64::new(1);
 
+crate::diagnostic_boundary_record! {
+callback: diagnostic_producer_id_boundary; owner: observation::ProducerId; name: "DiagnosticProducerId"; version: 1;
+direction: Output; reserved_tags: []; reserved_names: [];
 /// A performing instance, not a scientific or cache identity.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProducerId {
     /// Actual enclosing diagnostic operation.
-    pub operation: OperationId,
+    pub operation: OperationId => 1;
     /// Unique performing instance within this process.
-    pub sequence: u64,
+    pub sequence: u64 => 2;
 }
+}
+crate::diagnostic_boundary_enum! {
+callback: diagnostic_producer_role_boundary; owner: observation::ProducerRole; name: "DiagnosticProducerRole"; version: 1;
+direction: Output; reserved_tags: []; reserved_names: [];
 /// Responsibility declared at the performing owner, never inferred from a metric prefix.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ProducerRole {
     /// Foreign solver callback boundary.
-    NativeCallback,
+    NativeCallback => 1;
     /// Original-to-native coordinate transport.
-    CoordinateTransport,
+    CoordinateTransport => 2;
     /// Original scientific oracle.
-    OriginalOracle,
+    OriginalOracle => 3;
     /// Native-issued iteration or safe return checkpoint.
-    NativeIteration,
+    NativeIteration => 4;
     /// Prepared mathematical demand evaluator.
-    Evaluator,
+    Evaluator => 5;
     /// Scientific property or implicit provider.
-    Provider,
+    Provider => 6;
     /// Workflow or publication stage.
-    Workflow,
+    Workflow => 7;
     /// Native factor/setup/solve owner.
-    NativeFactor,
+    NativeFactor => 8;
+}
 }
 /// Stable bounded producer declaration.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]

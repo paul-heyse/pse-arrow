@@ -3,6 +3,245 @@
 
 use super::*;
 
+#[test]
+fn diagnostic_observations_and_performing_locators_project_original_data_without_authority() {
+    use crate::diagnostic::{Observation, OperandContract, PhysicalObservation};
+    use pse_diagnostics::observation::{OperationId, ProducerId, ProducerRole};
+    let locator = ProducerId {
+        operation: OperationId {
+            process_instance: [7, 11],
+            sequence: 13,
+        },
+        sequence: 17,
+    };
+    let restored = ProducerId::from_projection_fields(locator.into_projection_fields()).unwrap();
+    assert_eq!(restored, locator);
+    let graph = ProjectionGraph::of::<ProducerId>().unwrap();
+    assert_eq!(
+        graph.definitions()["DiagnosticProducerId"]
+            .public_rust_path
+            .as_deref(),
+        Some("pse_diagnostics::observation::ProducerId")
+    );
+    assert_eq!(
+        graph.definitions()["DiagnosticOperationId"].direction,
+        Direction::Output
+    );
+    let role = ProducerRole::NativeFactor;
+    assert_eq!(
+        <ProducerRole as ProjectionAlternative<8>>::from_projection_alternative(()),
+        role
+    );
+    let contract = OperandContract {
+        quantity: [3; 16],
+        indices: vec![[[4; 16], [5; 16], [6; 16]]],
+    };
+    let value = Observation::Contracts(vec![contract]);
+    let bytes = serde_json::to_vec(&value).unwrap();
+    let fields =
+        <Observation as ProjectionAlternative<8>>::into_projection_alternative(value).unwrap();
+    let restored = <Observation as ProjectionAlternative<8>>::from_projection_alternative(fields);
+    assert_eq!(serde_json::to_vec(&restored).unwrap(), bytes);
+    assert!(Observation::Real(f64::NAN).validate_projection().is_err());
+    assert!(serde_json::to_vec(&Observation::Real(f64::NAN)).is_err());
+    let value = Observation::Physical(PhysicalObservation {
+        magnitude: -0.0,
+        quantity: pse_ids::SemanticId::from_bytes([1; 16]),
+        unit: pse_ids::SemanticId::from_bytes([2; 16]),
+        context: pse_ids::ContentHash::from_bytes([3; 32]),
+    });
+    value.validate_projection().unwrap();
+    let fields =
+        <Observation as ProjectionAlternative<4>>::into_projection_alternative(value).unwrap();
+    assert_eq!(fields.0.magnitude.to_bits(), (-0.0_f64).to_bits());
+    let graph = ProjectionGraph::of::<Observation>().unwrap();
+    assert!(
+        graph
+            .definitions()
+            .contains_key("DiagnosticOperandContract")
+    );
+    assert!(graph.definitions().contains_key("Array3Array16U8"));
+}
+
+#[test]
+fn named_tuple_records_and_multi_payload_alternatives_keep_original_native_json() {
+    crate::projection_tuple_struct! {
+        #[derive(Debug, PartialEq)]
+        struct Move {
+            projection: { name: "SourceMove", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+            path: String => { tag: 7, direction: Direction::Both, rules: [] };
+            input: usize => { tag: 2, direction: Direction::Both, rules: [] };
+        }
+    }
+    let value = Move {
+        path: "u".into(),
+        input: 3,
+    };
+    assert_eq!(
+        serde_json::to_vec(&value).unwrap(),
+        serde_json::to_vec(&("u", 3usize)).unwrap()
+    );
+    assert_eq!(serde_json::from_str::<Move>(r#"["u",3]"#).unwrap(), value);
+    assert!(serde_json::from_str::<Move>(r#"["u",3,4]"#).is_err());
+    assert!(serde_json::from_str::<Move>(r#"{"path":"u","input":3}"#).is_err());
+    assert_eq!(Move::FIELD_LAYOUT, &[(7, "path"), (2, "input")]);
+    let mut record = serde_json::to_value(schemars::schema_for!(Move)).unwrap();
+    let mut tuple = serde_json::to_value(schemars::schema_for!((String, usize))).unwrap();
+    record.as_object_mut().unwrap().remove("title");
+    tuple.as_object_mut().unwrap().remove("title");
+    assert_eq!(record, tuple);
+
+    crate::projection_tuple_enum! {
+        #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+        enum Expression {
+            projection: { name: "TupleExpression", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+            Variable [name: String => { tag: 1, direction: Direction::Both, rules: [] };] => 1;
+            Product [left: Box<Expression> => { tag: 8, direction: Direction::Both, rules: [] };
+                right: Box<Expression> => { tag: 2, direction: Direction::Both, rules: [] };] => 4;
+            Unit => 9;
+        }
+    }
+    let value = Expression::Product(
+        Box::new(Expression::Variable("a".into())),
+        Box::new(Expression::Variable("b".into())),
+    );
+    let json = r#"{"Product":[{"Variable":"a"},{"Variable":"b"}]}"#;
+    assert_eq!(serde_json::to_string(&value).unwrap(), json);
+    assert_eq!(serde_json::from_str::<Expression>(json).unwrap(), value);
+    let fields =
+        <Expression as ProjectionAlternative<4>>::into_projection_alternative(value.clone())
+            .unwrap();
+    assert_eq!(
+        <Expression as ProjectionAlternative<4>>::from_projection_alternative(fields),
+        value
+    );
+    assert_eq!(
+        <Expression as ProjectionAlternative<4>>::FIELD_LAYOUT,
+        &[(8, "left"), (2, "right")]
+    );
+    let graph = ProjectionGraph::of::<Expression>().unwrap();
+    let Shape::Alternatives(alternatives) = &graph.definitions()["TupleExpression"].shape else {
+        panic!("tuple expression")
+    };
+    assert_eq!(
+        alternatives[1]
+            .fields
+            .iter()
+            .map(|field| field.tag)
+            .collect::<Vec<_>>(),
+        vec![8, 2]
+    );
+}
+
+#[test]
+fn tuple_payload_attributes_rules_and_unprojected_native_states_are_source_owned() {
+    fn finite<S: serde::Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
+        if value.is_finite() {
+            serializer.serialize_f64(*value)
+        } else {
+            Err(serde::ser::Error::custom(
+                "finite source observation required",
+            ))
+        }
+    }
+    crate::projection_enum! {
+        #[derive(Debug, Default, serde::Serialize)]
+        #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
+        enum NativeSettings {
+            projection: { name: "NativeSettings", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+            @unprojected { #[default] #[serde(skip)] Default; }
+            Real(#[serde(serialize_with = "finite")] f64 => { rules: [LocalRule::Float64Domain(Float64Domain::Finite)] }) => 3;
+        }
+    }
+    assert!(NativeSettings::Default.validate_projection().is_err());
+    assert!(serde_json::to_string(&NativeSettings::Default).is_err());
+    assert!(
+        <NativeSettings as ProjectionAlternative<3>>::into_projection_alternative(
+            NativeSettings::Default
+        )
+        .is_err()
+    );
+    assert!(
+        NativeSettings::Real(f64::INFINITY)
+            .validate_projection()
+            .is_err()
+    );
+    assert!(serde_json::to_string(&NativeSettings::Real(f64::INFINITY)).is_err());
+    assert_eq!(
+        serde_json::to_string(&NativeSettings::Real(-0.0)).unwrap(),
+        r#"{"kind":"real","value":-0.0}"#
+    );
+    let graph = ProjectionGraph::of::<NativeSettings>().unwrap();
+    let Shape::Alternatives(alternatives) = &graph.definitions()["NativeSettings"].shape else {
+        panic!("source alternatives")
+    };
+    assert_eq!(alternatives.len(), 1);
+    assert_eq!(alternatives[0].tag, 3);
+    assert_eq!(
+        alternatives[0].fields[0].rules,
+        vec![LocalRule::Float64Domain(Float64Domain::Finite)]
+    );
+}
+
+#[test]
+fn remote_enum_binding_reuses_actual_variants_and_preserves_both_existing_json_forms() {
+    crate::projection_enum! {
+        @serde_remote {
+            #[derive(serde::Serialize, serde::Deserialize)]
+            #[serde(remote = "Signal", tag = "kind", content = "value", rename_all = "snake_case", deny_unknown_fields)]
+            enum SignalDocument;
+        }
+        #[derive(Clone, Debug, PartialEq, serde::Serialize)]
+        enum Signal {
+            projection: { name: "OriginalSignal", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+            Constant(String) => 1;
+            Periods(Vec<String>) => 2;
+        }
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    struct Request {
+        #[serde(with = "SignalDocument")]
+        signal: Signal,
+    }
+    let native = Signal::Constant("u".into());
+    assert_eq!(
+        serde_json::to_string(&native).unwrap(),
+        r#"{"Constant":"u"}"#
+    );
+    let bytes = r#"{"signal":{"kind":"constant","value":"u"}}"#;
+    assert_eq!(
+        serde_json::to_string(&Request {
+            signal: native.clone()
+        })
+        .unwrap(),
+        bytes
+    );
+    assert_eq!(
+        serde_json::from_str::<Request>(bytes).unwrap().signal,
+        native
+    );
+    let native = Signal::Periods(vec!["u0".into(), "u1".into()]);
+    let bytes = serde_json::to_string(&Request {
+        signal: native.clone(),
+    })
+    .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Request>(&bytes).unwrap().signal,
+        native
+    );
+    let graph = ProjectionGraph::of::<Signal>().unwrap();
+    let Shape::Alternatives(alternatives) = &graph.definitions()["OriginalSignal"].shape else {
+        panic!("native alternatives")
+    };
+    assert_eq!(
+        alternatives
+            .iter()
+            .map(|alternative| (alternative.name.as_str(), alternative.tag))
+            .collect::<Vec<_>>(),
+        vec![("Constant", 1), ("Periods", 2)]
+    );
+}
+
 crate::projection_struct! {
     #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
     pub struct CapturedProjectionFixture<T = u64> {
@@ -89,11 +328,12 @@ fn actual_study_point_facts_keep_nominal_occurrence_and_source_enum_meaning() {
 #[test]
 fn foreign_remote_binding_uses_one_field_table_and_checked_shared_access() {
     use super::{Adapted, CheckedProjectionRecord, ProjectionAdapter, SharedAdapter};
+    type NativeRangeAlias = std::ops::Range<u16>;
     crate::projection_remote! {
         #[derive(serde::Serialize, serde::Deserialize)]
         #[serde(remote = "std::ops::Range<u16>", deny_unknown_fields)]
         struct RangeBinding for std::ops::Range<u16> {
-            projection: { name: "BoundedNativeRange", rust_path: RangeBinding, version: 2,
+            projection: { name: "BoundedNativeRange", rust_path: RangeBinding, target_path: NativeRangeAlias, version: 2,
                 direction: Direction::Input, reserved_tags: [4], reserved_names: ["retired"] };
             start: u16 => { tag: 1, direction: Direction::Both, rules: [LocalRule::UnsignedRange { min: 1, max: 16 }] };
             end: u16 => { tag: 3, direction: Direction::Both, rules: [LocalRule::UnsignedRange { min: 1, max: 32 }] };
@@ -135,6 +375,13 @@ fn foreign_remote_binding_uses_one_field_table_and_checked_shared_access() {
     let graph = ProjectionGraph::of::<NativeOwner>().unwrap();
     let binding = &graph.definitions()["BoundedNativeRange"];
     assert!(binding.checked_record);
+    assert!(
+        binding
+            .public_rust_path
+            .as_ref()
+            .unwrap()
+            .contains("Adapted<NativeRangeAlias,RangeBinding>")
+    );
     assert_eq!(binding.direction, Direction::Input);
     assert_eq!(binding.reserved_tags, vec![4]);
     assert_eq!(binding.reserved_names, vec!["retired"]);

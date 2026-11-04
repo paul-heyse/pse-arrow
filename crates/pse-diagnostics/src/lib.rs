@@ -18,6 +18,7 @@ mod supervised_child;
 #[cfg(target_os = "linux")]
 pub use supervised_child::{DrainFailurePolicy, StderrCapture, SupervisedChild, SupervisionError};
 
+pub mod boundary;
 pub mod inspection;
 pub mod observation;
 /// SDK-independent process-host telemetry settings.
@@ -80,14 +81,18 @@ pub enum DiagnosticObservation {
     /// Ordered complete quantity/free-index operand contracts.
     Contracts(Vec<OperandContract>),
 }
+crate::diagnostic_boundary_record! {
+callback: diagnostic_operand_contract_boundary; owner: OperandContract; name: "DiagnosticOperandContract"; version: 1;
+direction: Output; reserved_tags: []; reserved_names: [];
 /// A complete registered quantity type plus its free-index obligations.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OperandContract {
     /// Immutable complete quantity-type identity.
-    pub quantity: [u8; 16],
+    pub quantity: [u8; 16] => 1;
     /// Ordered bound-index, domain and entity-kind identities.
-    pub indices: Vec<[[u8; 16]; 3]>,
+    pub indices: Vec<[[u8; 16]; 3]> => 2;
+}
 }
 impl DiagnosticFacts {
     /// Append an observation without coupling its owner to the public envelope.

@@ -31,6 +31,7 @@ pub struct OccurrenceKey(pub u32) {
 /// Operation-owned output role selected explicitly for continuation.
 pub use crate::generated::enums::StudySeedRole as SeedRole;
 
+crate::projection_enum! {
 /// Dependencies whose meaning does not depend on seed availability.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -42,10 +43,13 @@ pub use crate::generated::enums::StudySeedRole as SeedRole;
     deny_unknown_fields
 )]
 pub enum Dependency {
+    projection: { name: "StudyDependency", version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Release after terminal completion, including failure or cancellation.
-    Ordering(OccurrenceKey),
+    Ordering(OccurrenceKey) => 1;
     /// Require the operation owner's aggregate scientific permission.
-    UsableResult(OccurrenceKey),
+    UsableResult(OccurrenceKey) => 2;
+}
 }
 impl Dependency {
     /// Referenced occurrence.
@@ -62,66 +66,83 @@ pub use crate::generated::enums::StudyContinuationPermission as ContinuationPerm
 pub use crate::generated::enums::StudySeedNeed as SeedNeed;
 /// Explicit fallback choice for an unavailable continuation seed.
 pub use crate::generated::enums::StudyUnavailableSeedPolicy as UnavailableSeedPolicy;
+crate::projection_struct! {
 /// One selected predecessor role; never an arbitrary first result.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct SeedEdge {
+    projection: { name: "StudySeedEdge", version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Occurrence supplying the selected role.
-    pub predecessor: OccurrenceKey,
+    pub predecessor: OccurrenceKey => { tag: 1, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Output role admitted by the operation owner.
-    pub role: SeedRole,
+    pub role: SeedRole => { tag: 2, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Scientific predecessor requirement.
     #[serde(default)]
-    pub permission: ContinuationPermission,
+    pub permission: ContinuationPermission => { tag: 3, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Explicit fallback choice.
     #[serde(default)]
-    pub unavailable: UnavailableSeedPolicy,
+    pub unavailable: UnavailableSeedPolicy => { tag: 4, direction: crate::boundary_projection::Direction::Both, rules: [] };
 }
+}
+crate::projection_enum! {
 /// Declared start intent, separate from the chosen actual start.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum StartPolicy {
+    projection: { name: "StudyStartPolicy", version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Operation-owned fresh start.
-    Fresh,
+    Fresh => 1;
     /// Continue from one admitted predecessor role.
-    Continuation(SeedEdge),
+    Continuation(SeedEdge) => 2;
     /// Explicit supplied seed: incompatibility never falls back.
     Explicit {
         /// Role required from the supplied seed facts.
-        role: SeedRole,
+        role: SeedRole => { tag: 1, direction: crate::boundary_projection::Direction::Both, rules: [] };
         /// Immutable supplied artifact identity; facts cannot substitute another seed.
-        seed: SolutionId,
-    },
+        seed: SolutionId => { tag: 2, direction: crate::boundary_projection::Direction::Both, rules: [] };
+    } => 3;
 }
+}
+crate::projection_struct! {
 /// Policy slice of an admitted operation occurrence.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct PointPolicy {
+    projection: { name: "AdmittedStudyPointPolicy", version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Stable occurrence identity.
-    pub key: OccurrenceKey,
+    pub key: OccurrenceKey => { tag: 1, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Ordering and usable-result dependencies.
-    pub dependencies: Vec<Dependency>,
+    pub dependencies: Vec<Dependency> => { tag: 2, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Seed consumption capability, admitted by the operation owner.
-    pub seed_need: SeedNeed,
+    pub seed_need: SeedNeed => { tag: 3, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Authored start intent.
-    pub start: StartPolicy,
+    pub start: StartPolicy => { tag: 4, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Maximum attempts, including the initial attempt; timing belongs to the executor.
-    pub attempt_limit: u32,
+    pub attempt_limit: u32 => { tag: 5, direction: crate::boundary_projection::Direction::Both,
+        rules: [crate::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u32::MAX as u64 }] };
 }
+}
+crate::projection_struct! {
 /// Shared policy slice; immutable operation/binding payloads remain with their owners.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct OccurrenceGraph {
+    projection: { name: "StudyOccurrenceGraph", version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Deterministic authored occurrence order.
-    pub points: Vec<PointPolicy>,
+    pub points: Vec<PointPolicy> => { tag: 1, direction: crate::boundary_projection::Direction::Both, rules: [] };
+}
 }
 crate::projection_enum! {
 /// Compatibility is supplied by the operation owner for this consumer and selected role.

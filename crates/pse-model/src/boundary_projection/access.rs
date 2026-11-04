@@ -113,16 +113,6 @@ pub fn clone_adapter_field<T: Clone>(value: &T) -> T {
     value.clone()
 }
 
-/// Expand source-owned public aliases relative to the adapter's actual defining crate.
-/// This is Rust path wiring only; no field metadata is discovered from either path.
-pub fn adapter_public_path<A>(native: &str, adapter: &str) -> String {
-    format!(
-        "pse_model::boundary_projection::Adapted<{},{}>",
-        adapter_source_path::<A>(native),
-        adapter_source_path::<A>(adapter)
-    )
-}
-
 /// Resolve a public alias declared beside a source-local foreign binding.
 pub fn adapter_source_path<A>(path: &str) -> String {
     let owner = core::any::type_name::<A>()

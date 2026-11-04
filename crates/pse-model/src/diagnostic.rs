@@ -6,26 +6,34 @@ pub use crate::generated::enums::{
 };
 pub use pse_diagnostics::{DiagnosticCode, DiagnosticRule, DiagnosticStage, OperandContract};
 use pse_ids::{ContentHash, SemanticId};
+const MAGNITUDE_DOMAIN: crate::boundary_projection::Float64Domain =
+    crate::boundary_projection::Float64Domain::Finite;
 
 /// Registry-owned explicit nonfinite numerical failure observations.
 pub use crate::generated::enums::DiagnosticNonfiniteObservation as NonfiniteObservation;
+crate::projection_struct! {
 /// Finite physical evidence bound to its complete immutable quantity contract.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PhysicalObservation {
+    projection: { name: "DiagnosticPhysicalObservation", version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Finite canonical magnitude.
     #[serde(
         deserialize_with = "finite_number",
         serialize_with = "serialize_finite_number"
     )]
-    pub magnitude: f64,
+    pub magnitude: f64 => { tag: 1, direction: crate::boundary_projection::Direction::Both,
+        rules: [crate::boundary_projection::LocalRule::Float64Domain(MAGNITUDE_DOMAIN)] };
     /// Registered complete quantity contract.
-    pub quantity: SemanticId,
+    pub quantity: SemanticId => { tag: 2, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Declared canonical unit.
-    pub unit: SemanticId,
+    pub unit: SemanticId => { tag: 3, direction: crate::boundary_projection::Direction::Both, rules: [] };
     /// Immutable interpretation context.
-    pub context: ContentHash,
+    pub context: ContentHash => { tag: 4, direction: crate::boundary_projection::Direction::Both, rules: [] };
 }
+}
+crate::projection_enum! {
 /// Evidence distinguishes absence, finite numerical/physical values and nonfinite failures.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(
@@ -35,32 +43,35 @@ pub struct PhysicalObservation {
     deny_unknown_fields
 )]
 pub enum Observation {
+    projection: { name: "DiagnosticObservation", version: 1, direction: crate::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Evidence was not available.
-    Missing,
+    Missing => 1;
     /// A finite numerical observation (not necessarily a physical magnitude).
     Real(
         #[serde(
             deserialize_with = "finite_number",
             serialize_with = "serialize_finite_number"
         )]
-        f64,
-    ),
+        f64 => { rules: [crate::boundary_projection::LocalRule::Float64Domain(MAGNITUDE_DOMAIN)] }
+    ) => 2;
     /// Explicitly tagged nonfinite numerical failure evidence.
-    Nonfinite(NonfiniteObservation),
+    Nonfinite(NonfiniteObservation) => 3;
     /// Finite physical evidence bound to its complete immutable quantity contract.
-    Physical(PhysicalObservation),
+    Physical(PhysicalObservation) => 4;
     /// Exact counts or native codes.
-    Integer(i64),
+    Integer(i64) => 5;
     /// A checked predicate.
-    Boolean(bool),
+    Boolean(bool) => 6;
     /// Native status or explanatory detail.
-    Text(String),
+    Text(String) => 7;
     /// Ordered physical operand/free-index contracts, preserved structurally.
-    Contracts(Vec<OperandContract>),
+    Contracts(Vec<OperandContract>) => 8;
+}
 }
 fn finite_number<'de, D: serde::Deserializer<'de>>(d: D) -> Result<f64, D::Error> {
     let value = <f64 as serde::Deserialize>::deserialize(d)?;
-    if value.is_finite() {
+    if MAGNITUDE_DOMAIN.contains(value) {
         Ok(value)
     } else {
         Err(serde::de::Error::custom(
@@ -72,7 +83,7 @@ fn serialize_finite_number<S: serde::Serializer>(
     value: &f64,
     serializer: S,
 ) -> Result<S::Ok, S::Error> {
-    if value.is_finite() {
+    if MAGNITUDE_DOMAIN.contains(*value) {
         serializer.serialize_f64(*value)
     } else {
         Err(serde::ser::Error::custom(
@@ -83,7 +94,7 @@ fn serialize_finite_number<S: serde::Serializer>(
 impl Observation {
     /// Capture every IEEE value without losing infinity/NaN in JSON.
     pub fn number(value: f64) -> Self {
-        if value.is_finite() {
+        if MAGNITUDE_DOMAIN.contains(value) {
             Self::Real(value)
         } else {
             Self::Nonfinite(if value.is_nan() {

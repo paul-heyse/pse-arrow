@@ -150,14 +150,18 @@ impl Clock for WallClock {
     }
 }
 
+crate::diagnostic_boundary_record! {
+callback: diagnostic_operation_id_boundary; owner: observation::OperationId; name: "DiagnosticOperationId"; version: 1;
+direction: Output; reserved_tags: []; reserved_names: [];
 /// Process instance plus local sequence; never a semantic or cache identity.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OperationId {
     /// Process-local instance locator; not a semantic identity or attestation.
-    pub process_instance: [u64; 2],
+    pub process_instance: [u64; 2] => 1;
     /// Unique local operation sequence.
-    pub sequence: u64,
+    pub sequence: u64 => 2;
+}
 }
 /// Canonical diagnostic operation locator: 32 process hex digits and a decimal sequence.
 impl std::fmt::Display for OperationId {

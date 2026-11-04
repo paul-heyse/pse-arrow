@@ -7,16 +7,18 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 mod access;
+mod diagnostics;
 mod float_domain;
 mod generic;
 mod nominal;
 mod quantity;
 mod remote;
 mod standard;
+mod tuple;
 pub use access::{
     Adapted, AdapterError, AdapterFailure, CheckedProjectionRecord, ProjectionAdapter,
-    ProjectionAlternative, ProjectionRecord, SharedAdapter, adapter_public_path,
-    adapter_source_path, clone_adapter_field, validate_adapted,
+    ProjectionAlternative, ProjectionRecord, SharedAdapter, adapter_source_path,
+    clone_adapter_field, validate_adapted,
 };
 pub use float_domain::Float64Domain;
 pub use generic::generic_argument;
@@ -1067,10 +1069,18 @@ impl<T: ProjectionType + Ord> ProjectionType for BTreeSet<T> {
     }
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
         let element = T::projection(graph)?;
-        if !matches!(element, TypeRef::Scalar(_)) {
+        let supported = match &element {
+            TypeRef::Scalar(_) => true,
+            TypeRef::Named(name) => graph
+                .definitions()
+                .get(name)
+                .is_some_and(|owner| matches!(owner.shape, Shape::StringEnum(_))),
+            _ => false,
+        };
+        if !supported {
             return Err(ProjectionError::invalid(
                 std::any::type_name::<Self>(),
-                "unique set validation requires a scalar element projection",
+                "unique set validation requires a scalar or source-owned string vocabulary",
             ));
         }
         Ok(TypeRef::Set(Box::new(element)))
@@ -1365,16 +1375,30 @@ macro_rules! projection_struct {
 /// Declare an actual enum and its explicitly tagged payload alternatives together.
 #[macro_export]
 macro_rules! projection_enum {
+    (@serde_remote { $(#[$remote_meta:meta])* $remote_vis:vis enum $remote:ident; } $($native:tt)*) => {
+        $crate::projection_enum! { $($native)* }
+        $crate::projection_enum! { @remote_declaration { $(#[$remote_meta])* $remote_vis enum $remote; } $($native)* }
+    };
+    (@remote_declaration { $(#[$remote_meta:meta])* $remote_vis:vis enum $remote:ident; }
+        $(#[$native_meta:meta])* $native_vis:vis enum $native:ident {
+            projection: { $($projection:tt)* };
+            $($(#[$variant_meta:meta])* $variant:ident $(( $(#[$payload_meta:meta])* $payload:ty $(=> { rules: [$($payload_rule:expr),* $(,)?] })? ))? => $tag:expr;)*
+        }) => {
+            $(#[$remote_meta])* $remote_vis enum $remote {
+                $($(#[$variant_meta])* $variant $(( $(#[$payload_meta])* $payload ))?,)*
+            }
+    };
     ($(#[$meta:meta])* $vis:vis enum $name:ident {
         projection: { name: $wire:expr, $(rust_path: $public:path,)? version: $version:expr, direction: $direction:expr,
             reserved_tags: [$($reserved:expr),* $(,)?], reserved_names: [$($reserved_name:expr),* $(,)?] };
-        $($(#[$variant_meta:meta])* $variant:ident $(($payload:ty))? $({
+        $(@unprojected { $($(#[$local_variant_meta:meta])* $local_variant:ident;)* })?
+        $($(#[$variant_meta:meta])* $variant:ident $(( $(#[$payload_meta:meta])* $payload:ty $(=> { rules: [$($payload_rule:expr),* $(,)?] })? ))? $({
             $($(#[$field_meta:meta])* $field:ident : $ty:ty => {
                 tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] $(, representation: $representation:expr)? };)*
             $(@local { $($(#[$local_meta:meta])* $local:ident: $local_ty:ty = $local_default:expr;)* })?
         })? => $variant_tag:expr;)*
     }) => {
-        $(#[$meta])* $vis enum $name { $($(#[$variant_meta])* $variant $(($payload))? $({ $($(#[$field_meta])* $field: $ty,)* $($($(#[$local_meta])* $local: $local_ty,)*)? })?,)* }
+        $(#[$meta])* $vis enum $name { $($($(#[$local_variant_meta])* $local_variant,)*)? $($(#[$variant_meta])* $variant $(( $(#[$payload_meta])* $payload ))? $({ $($(#[$field_meta])* $field: $ty,)* $($($(#[$local_meta])* $local: $local_ty,)*)? })?,)* }
         $(#[allow(unused_qualifications, reason = "the explicit public alias is retained verbatim for generated cross-crate paths")]
         const _: fn($name) -> $public = |value| value;)?
         impl $crate::boundary_projection::ProjectionType for $name {
@@ -1383,7 +1407,7 @@ macro_rules! projection_enum {
                     let _ = &graph;
                     Ok($crate::boundary_projection::Shape::Alternatives(vec![$(
                         $crate::boundary_projection::Alternative { name: stringify!($variant).into(), tag: $variant_tag, fields: vec![
-                            $($crate::boundary_projection::Field::of::<$payload>(graph, "value", 1, $crate::boundary_projection::Direction::Both, vec![])?,)?
+                            $($crate::boundary_projection::Field::of::<$payload>(graph, "value", 1, $crate::boundary_projection::Direction::Both, vec![$($($payload_rule),*)?])?,)?
                             $($($crate::boundary_projection::Field::of::<$ty>(graph, stringify!($field), $tag, $field_direction, vec![$($rule),*])? $(.representation($representation)?)?,)*)?
                         ] },
                     )*]))
@@ -1395,12 +1419,18 @@ macro_rules! projection_enum {
         impl $crate::boundary_projection::ValidateProjection for $name {
             fn validate_at(&self, path: &str) -> ::core::result::Result<(), $crate::boundary_projection::ValidationError> {
                 let _ = path;
+                $($(if matches!(self, Self::$local_variant) {
+                    return Err($crate::boundary_projection::ValidationError::Rule {
+                        path: path.into(), rule: "alternative.unprojected",
+                        reason: concat!("native state ", stringify!($local_variant), " has no declared boundary representation").into(),
+                    });
+                })*)?
                 $(
                     $( #[allow(irrefutable_let_patterns, reason = "the source owner may declare one alternative; validation still uses its actual payload")]
                     if let Self::$variant(value) = self {
                         let value: &$payload = value;
-                        $crate::boundary_projection::ValidateProjection::validate_at(value,
-                            &$crate::boundary_projection::field_path(path, stringify!($variant)))?;
+                        $crate::boundary_projection::validate_field(value,
+                            &$crate::boundary_projection::field_path(path, stringify!($variant)), &[$($($payload_rule),*)?])?;
                     } )?
                     $( #[allow(irrefutable_let_patterns, reason = "the source owner may declare one alternative; validation still uses its actual fields")]
                     if let Self::$variant { $($field,)* .. } = self { $(

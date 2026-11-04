@@ -8,7 +8,7 @@
 #[macro_export]
 macro_rules! projection_remote {
     ($(#[$meta:meta])* $vis:vis struct $name:ident for $target:path {
-        projection: { name: $wire:expr, rust_path: $public:path, version: $version:expr, direction: $direction:expr,
+        projection: { name: $wire:expr, rust_path: $public:path, $(target_path: $native_public:ty,)? version: $version:expr, direction: $direction:expr,
             reserved_tags: [$($reserved:expr),* $(,)?], reserved_names: [$($reserved_name:expr),* $(,)?] };
         $($(#[$field_meta:meta])* $field_vis:vis $field:ident: $ty:ty => {
             tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] $(, adapter: $adapter:ty)? };)*
@@ -18,6 +18,8 @@ macro_rules! projection_remote {
         }
         #[allow(unused_qualifications, reason = "the source's public adapter alias must remain exact in generated cross-crate paths")]
         const _: fn($name) -> $public = |value| value;
+        $(#[allow(unused_qualifications, reason = "the public native alias is checked against the actual foreign target for generated downstream paths")]
+        const _: fn($target) -> $native_public = |value| value;)?
         impl $crate::boundary_projection::ProjectionAdapter<$target> for $name {
             const NAME: &'static str = $wire;
             const SOURCE: &'static str = file!();
@@ -28,9 +30,14 @@ macro_rules! projection_remote {
             const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[$(($tag, stringify!($field))),*];
             type Fields = ($($crate::projection_struct!(@ty $ty $(, $adapter)?),)*);
             fn public_path() -> Option<String> {
-                Some($crate::boundary_projection::adapter_public_path::<Self>(stringify!($target), stringify!($public)))
+                Some(format!("pse_model::boundary_projection::Adapted<{},{}>",
+                    <Self as $crate::boundary_projection::ProjectionAdapter<$target>>::native_path(),
+                    <Self as $crate::boundary_projection::ProjectionAdapter<$target>>::adapter_path()))
             }
-            fn native_path() -> String { $crate::boundary_projection::adapter_source_path::<Self>(stringify!($target)) }
+            fn native_path() -> String {
+                $crate::boundary_projection::adapter_source_path::<Self>(
+                    $crate::projection_remote!(@native $target $(, $native_public)?))
+            }
             fn adapter_path() -> String { $crate::boundary_projection::adapter_source_path::<Self>(stringify!($public)) }
             fn fields(graph: &mut $crate::boundary_projection::ProjectionGraph) -> Result<Vec<$crate::boundary_projection::Field>, $crate::boundary_projection::ProjectionError> {
                 let _ = &graph;
@@ -58,4 +65,6 @@ macro_rules! projection_remote {
             }
         }
     };
+    (@native $target:path, $public:ty) => { stringify!($public) };
+    (@native $target:path) => { stringify!($target) };
 }

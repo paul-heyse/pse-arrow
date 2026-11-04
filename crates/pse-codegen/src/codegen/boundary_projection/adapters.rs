@@ -176,17 +176,26 @@ impl Generator<'_> {
     }
     fn native(&self, owner: &Definition) -> Result<String, SchemaError> {
         let path = owner.public_rust_path.as_deref().unwrap_or(owner.rust_type);
-        let path = path
-            .strip_prefix(self.owner_crate)
-            .filter(|suffix| suffix.starts_with("::"))
-            .map_or_else(|| path.to_owned(), |suffix| format!("crate{suffix}"));
-        syn::parse_str::<syn::Type>(&path).map_err(|e| {
+        let mut native = syn::parse_str::<syn::Type>(path).map_err(|e| {
             error(format!(
                 "{} needs an explicit nameable native Rust type: {e}",
                 owner.name
             ))
         })?;
-        Ok(path)
+        struct LocalCrate<'a>(&'a str);
+        impl syn::visit_mut::VisitMut for LocalCrate<'_> {
+            fn visit_path_mut(&mut self, path: &mut syn::Path) {
+                syn::visit_mut::visit_path_mut(self, path);
+                if let Some(first) = path.segments.first_mut()
+                    && first.ident == self.0
+                {
+                    first.ident = syn::Ident::new("crate", first.ident.span());
+                    path.leading_colon = None;
+                }
+            }
+        }
+        syn::visit_mut::VisitMut::visit_type_mut(&mut LocalCrate(self.owner_crate), &mut native);
+        Ok(quote::quote!(#native).to_string())
     }
 
     fn wire(&self, path: &[String]) -> String {

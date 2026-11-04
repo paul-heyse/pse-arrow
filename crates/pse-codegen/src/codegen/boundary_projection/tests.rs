@@ -3,6 +3,54 @@
 
 use super::*;
 use std::collections::BTreeSet;
+
+#[test]
+fn source_vocabulary_sets_keep_wrappers_and_emit_maintained_uniqueness_rules() {
+    projection_struct! {
+        struct RequiredPasses {
+            projection: {name:"RequiredPasses",version:1,direction:Direction::Input,reserved_tags:[],reserved_names:[]};
+            passes: BTreeSet<pse_model::generated::enums::PresolvePass> => {tag:1,direction:Direction::Input,rules:[]};
+        }
+    }
+    let graph = ProjectionGraph::of::<RequiredPasses>().unwrap();
+    let set =
+        descriptors_with_imports(&graph, "pse.passes.v1", "passes.proto", &imports()).unwrap();
+    let file = set
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some("passes.proto"))
+        .unwrap();
+    let message = file
+        .message_type
+        .iter()
+        .find(|message| message.name.as_deref() == Some("RequiredPasses"))
+        .unwrap();
+    let field = &message.field[0];
+    assert_eq!(
+        field.type_name.as_deref(),
+        Some(".pse.passes.v1.PresolvePass")
+    );
+    let rules = field
+        .options
+        .as_option()
+        .unwrap()
+        .extension(&validate::FIELD)
+        .unwrap();
+    assert_eq!(rules.cel.len(), 1);
+    assert_eq!(rules.cel[0].id.as_deref(), Some("set.unique_vocabulary"));
+    assert!(
+        rules.cel[0]
+            .expression
+            .as_deref()
+            .unwrap()
+            .contains("y.value == x.value")
+    );
+    assert!(
+        native_adapters(&graph, &["RequiredPasses"], "crate::wire", "pse_codegen")
+            .unwrap()
+            .contains("from_items")
+    );
+}
 #[test]
 fn signed_registry_domains_lower_to_exact_sint64_rules_and_optional_presence() {
     projection_struct! {
@@ -46,6 +94,62 @@ fn signed_registry_domains_lower_to_exact_sint64_rules_and_optional_presence() {
 }
 use pse_model::boundary_projection::{Direction, LocalRule, ProjectionType, Service};
 use pse_model::{projection_enum, projection_struct};
+
+#[test]
+fn nested_native_paths_rewrite_the_consuming_crate_inside_generic_arguments() {
+    type Nested = GenericAdapterFixture<GenericAdapterFixture<pse_ids::SemanticId>>;
+    let graph = ProjectionGraph::of::<Nested>().unwrap();
+    let source = native_adapters(
+        &graph,
+        &["GenericAdapterFixtureForGenericAdapterFixtureForSemanticId"],
+        "crate::wire",
+        "pse_codegen",
+    )
+    .unwrap();
+    #[derive(Default)]
+    struct Paths {
+        external_self: bool,
+        nested_local: bool,
+    }
+    impl<'ast> syn::visit::Visit<'ast> for Paths {
+        fn visit_path(&mut self, path: &'ast syn::Path) {
+            if let Some(first) = path.segments.first() {
+                self.external_self |= first.ident == "pse_codegen";
+            }
+            if path
+                .segments
+                .first()
+                .is_some_and(|first| first.ident == "crate")
+                && path
+                    .segments
+                    .last()
+                    .is_some_and(|last| last.ident == "GenericAdapterFixture")
+                && let syn::PathArguments::AngleBracketed(arguments) =
+                    &path.segments.last().unwrap().arguments
+                && let Some(syn::GenericArgument::Type(syn::Type::Path(argument))) =
+                    arguments.args.first()
+                && argument
+                    .path
+                    .segments
+                    .first()
+                    .is_some_and(|first| first.ident == "crate")
+            {
+                self.nested_local = true;
+            }
+            syn::visit::visit_path(self, path);
+        }
+    }
+    let mut paths = Paths::default();
+    syn::visit::Visit::visit_file(&mut paths, &syn::parse_file(&source).unwrap());
+    assert!(
+        !paths.external_self,
+        "an adapter must not require its consuming crate as an external dependency"
+    );
+    assert!(
+        paths.nested_local,
+        "both generic owner and actual nested argument must use their local public paths"
+    );
+}
 
 projection_struct! {
     pub struct GenericAdapterFixture<T> {
