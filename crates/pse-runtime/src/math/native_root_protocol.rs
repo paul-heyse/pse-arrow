@@ -5,7 +5,6 @@ use pse_contract::boundary_projection::{Direction, LocalRule, ProjectionError, P
 use pse_ids::{ContentHash, SemanticId};
 use pse_math::{implicit::{Options, Unknown}, jets::EvaluationLimits};
 use pse_model::diagnostic::BoundaryDiagnostic;
-use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, time::Duration};
 
 /// Existing private root request/frame byte bound.
@@ -15,8 +14,7 @@ pub const RESPONSE_LIMIT: usize = 1 << 20;
 
 pse_contract::projection_struct! {
 /// Complete reconstructible input. Opaque recipe bytes retain their original replay authority.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub struct RootInput {
     projection: { name: "NativeRootInput", rust_path: crate::math::native_root_protocol::RootInput,
         version: 2, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
@@ -47,8 +45,7 @@ pub struct RootInput {
 pse_contract::projection_struct! {
 /// Current diagnostic context is transported separately from arithmetic identity.
 /// Decoding grants no authority: the receiving constructor checks the replayed body.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub struct RootBindings {
     projection: { name: "NativeRootBindings", rust_path: crate::math::native_root_protocol::RootBindings,
         version: 2, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
@@ -65,8 +62,7 @@ pub struct RootBindings {
 
 pse_contract::projection_struct! {
 /// Actual child image/build observations; independently checked by the original parent owner.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub struct Hello {
     projection: { name: "NativeRootHello", rust_path: crate::math::native_root_protocol::Hello,
         version: 2, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
@@ -90,8 +86,7 @@ pub struct Hello {
 }
 pse_contract::projection_struct! {
 /// One private admitted-process request; the receiver still verifies all original bindings.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub struct Request {
     projection: { name: "NativeRootRequest", rust_path: crate::math::native_root_protocol::Request,
         version: 2, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
@@ -111,7 +106,7 @@ pub struct Request {
 }
 pse_contract::projection_enum! {
     /// Child proposal or original typed refusal. Only the parent screens scientific usability.
-    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[derive(Clone, Debug)]
     pub enum RootOutcome {
         projection: { name: "NativeRootOutcome", rust_path: crate::math::native_root_protocol::RootOutcome,
             version: 2, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
@@ -123,8 +118,7 @@ pse_contract::projection_enum! {
 }
 pse_contract::projection_struct! {
 /// Exact private invocation outcome, without replay or scientific-admission authority.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub struct Response {
     projection: { name: "NativeRootResponse", rust_path: crate::math::native_root_protocol::Response,
         version: 2, direction: Direction::Both, reserved_tags: [], reserved_names: [] };

@@ -20,7 +20,6 @@ use pse_math::{
 use pse_model::HeapUsage;
 use pse_model::diagnostic::{BoundaryDiagnostic, DiagnosticProjection};
 use std::{
-    collections::BTreeMap,
     io::{self, Read, Write},
     os::{fd::AsFd, unix::net::UnixStream},
     path::{Path, PathBuf},
@@ -29,6 +28,7 @@ use std::{
     time::{Duration, Instant},
 };
 use super::native_root_protocol::{Hello, Request, Response, RootBindings, RootInput, RootOutcome, REQUEST_LIMIT, RESPONSE_LIMIT};
+mod wire;
 
 const PROTOCOL: &str = "pse.private-native-root.v2";
 /// Explicit child native-owner stack, charged to its parent's finite worker allocation.
@@ -305,13 +305,9 @@ impl MathService {
             // Immediate pool refusal cannot create admission hold-and-wait. This lease
             // remains live across every child exit/drain and all original evaluation.
             let _known = service.reserve("math:native-child-known-extents", known_bytes)?;
-            let wire = source.wire()?;
-            let payload = serde_json::to_vec(&wire).map_err(infrastructure)?;
-            if payload.len() > REQUEST_LIMIT {
-                return Err(MathRuntimeError::Limit("native child request frame limit"));
-            }
             let original = source.problem(&scope)?;
             original.validate_options(&source.options)?;
+            let payload = wire::encode(source.wire()?, REQUEST_LIMIT)?;
             let result = launch(&child, payload, &scope)?;
             checkpoint(&scope)?;
             if let Some(point) = &result.proposal {
@@ -511,9 +507,7 @@ fn launch(
             || hello.executable.sha256 != child.observation.sha256
             || hello.executable.canonical != child.executable
             || hello.native_build != native_profile()?
-            || serde_json::to_vec(&hello.build).map_err(infrastructure)?
-                != serde_json::to_vec(&pse_buildinfo::BuildInfo::captured())
-                    .map_err(infrastructure)?
+            || hello.build != pse_buildinfo::BuildInfo::captured()
         {
             return Err(MathRuntimeError::Internal(
                 "native child executable/build/profile/attempt handshake differs".into(),
@@ -546,7 +540,7 @@ fn launch(
             remaining,
             source: payload,
         };
-        send(&mut owned.channel, &envelope, REQUEST_LIMIT, scope)?;
+        send(&mut owned.channel, envelope, REQUEST_LIMIT, scope)?;
         let response: Response = receive(&mut owned.channel, RESPONSE_LIMIT, scope)?;
         if response.attempt != attempt
             || response.execution != execution
@@ -710,57 +704,18 @@ fn read_bytes(
     }
     Ok(())
 }
-fn send(
+fn send<T: wire::Frame>(
     channel: &mut UnixStream,
-    value: &impl serde::Serialize,
+    value: T,
     limit: usize,
     scope: &ExecutionScope,
 ) -> Result<(), MathRuntimeError> {
-    struct Count {
-        bytes: usize,
-        limit: usize,
-        exceeded: bool,
-    }
-    impl Write for Count {
-        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-            let Some(total) = self
-                .bytes
-                .checked_add(bytes.len())
-                .filter(|count| *count <= self.limit)
-            else {
-                self.exceeded = true;
-                return Err(io::Error::other("native child outgoing frame limit"));
-            };
-            self.bytes = total;
-            Ok(bytes.len())
-        }
-        fn flush(&mut self) -> io::Result<()> {
-            Ok(())
-        }
-    }
     checkpoint(scope)?;
-    let mut count = Count {
-        bytes: 0,
-        limit,
-        exceeded: false,
-    };
-    serde_json::to_writer(&mut count, value).map_err(|error| {
-        if count.exceeded {
-            MathRuntimeError::Limit("native child outgoing frame bytes")
-        } else {
-            MathRuntimeError::Internal(format!("native child frame serialization: {error}"))
-        }
-    })?;
-    let bytes = serde_json::to_vec(value).map_err(infrastructure)?;
-    if bytes.len() != count.bytes {
-        return Err(MathRuntimeError::Internal(
-            "native child frame extent changed".into(),
-        ));
-    }
+    let bytes = wire::encode(value, limit)?;
     write_bytes(channel, &(bytes.len() as u64).to_le_bytes(), scope)?;
     write_bytes(channel, &bytes, scope)
 }
-fn receive<T: serde::de::DeserializeOwned>(
+fn receive<T: wire::Frame>(
     channel: &mut UnixStream,
     limit: usize,
     scope: &ExecutionScope,
@@ -775,9 +730,7 @@ fn receive<T: serde::de::DeserializeOwned>(
     let mut bytes = vec![0; size];
     read_bytes(channel, &mut bytes, scope)?;
     checkpoint(scope)?;
-    serde_json::from_slice(&bytes).map_err(|error| {
-        MathRuntimeError::Internal(format!("native child admitted frame decoding: {error}"))
-    })
+    wire::decode(&bytes, limit)
 }
 
 /// Entry point of the private native worker, never a public stdin DTO admission API.
@@ -824,7 +777,7 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
         build: pse_buildinfo::BuildInfo::captured(),
         native_build: native_profile()?,
     };
-    send(&mut channel, &hello, RESPONSE_LIMIT, &startup)?;
+    send(&mut channel, hello.clone(), RESPONSE_LIMIT, &startup)?;
     let request: Request = receive(&mut channel, REQUEST_LIMIT, &startup)?;
     if request.attempt != attempt
         || request.remaining.is_zero()
@@ -877,7 +830,7 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
         tracing::info_span!("pse.native.child.response", pse.owner.stage = true, native.attempt = %attempt).entered();
     let sent = send(
         &mut channel,
-        &Response {
+        Response {
             attempt,
             execution: request.execution,
             request: request.request,
@@ -907,9 +860,7 @@ fn reconstruct_and_solve(
     scope: &ExecutionScope,
 ) -> Result<Vec<f64>, MathRuntimeError> {
     checkpoint(scope)?;
-    let wire: RootInput = serde_json::from_slice(&request.source).map_err(|error| {
-        MathRuntimeError::Internal(format!("native child admitted source decoding: {error}"))
-    })?;
+    let wire: RootInput = wire::decode(&request.source, REQUEST_LIMIT)?;
     if digest(&wire.registry) != wire.registry_digest || !wire.spec.providers.is_empty() {
         return Err(MathRuntimeError::Internal(
             "native child physical registry or provider closure differs".into(),

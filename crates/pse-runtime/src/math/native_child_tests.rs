@@ -33,24 +33,31 @@ fn private_native_frames_refuse_oversize_and_keep_original_stop() {
 }
 
 #[test]
-fn private_native_outgoing_frame_budget_differs_from_serialization_invariant() {
+fn private_native_outgoing_frame_budget_differs_from_native_contract_refusal() {
     let (_reader, mut writer) = UnixStream::pair().unwrap();
     let scope = ExecutionScope::new(Cancellation::default(), None);
-    let error = send(&mut writer, &vec![1_u8, 2, 3], 1, &scope).unwrap_err();
+    let response = || Response {
+        attempt: SemanticId::NIL,
+        execution: ContentHash::from_bytes([0; 32]),
+        request: ContentHash::from_bytes([0; 32]),
+        result: RootOutcome::Proposal(vec![2.0]),
+    };
+    let error = send(&mut writer, response(), 1, &scope).unwrap_err();
     assert_eq!(
         error
             .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
             .class,
         pse_model::diagnostic::BoundaryClass::ResourceLimit
     );
-    struct Broken;
-    impl serde::Serialize for Broken {
-        fn serialize<S: serde::Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
-            Err(serde::ser::Error::custom("admitted serializer failed"))
-        }
-    }
-    let error = send(&mut writer, &Broken, RESPONSE_LIMIT, &scope).unwrap_err();
-    assert!(matches!(error, MathRuntimeError::Internal(_)));
+    let invalid = Request {
+        diagnostic_parent: None,
+        attempt: SemanticId::NIL,
+        execution: ContentHash::from_bytes([0; 32]),
+        request: ContentHash::from_bytes([0; 32]),
+        remaining: Duration::ZERO,
+        source: vec![1],
+    };
+    let error = send(&mut writer, invalid, REQUEST_LIMIT, &scope).unwrap_err();
     assert_eq!(
         error
             .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
@@ -68,7 +75,6 @@ fn private_native_corrupt_admitted_frame_is_internal() {
     let error = receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope)
         .err()
         .expect("private frame must refuse");
-    assert!(matches!(error, MathRuntimeError::Internal(_)));
     let diagnostic = error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native);
     assert_eq!(
         diagnostic.class,
@@ -260,8 +266,8 @@ fn native_child_source_bindings_wire_keeps_actual_receiver_and_refuses_missing_m
     assert!(!source.bindings.checked_members().is_empty());
     assert!(!source.bindings.checked_sources().is_empty());
     assert!(!source.bindings.occurrences().is_empty());
-    let bytes = serde_json::to_vec(&source.wire().unwrap()).unwrap();
-    let wire: RootInput = serde_json::from_slice(&bytes).unwrap();
+    let bytes = wire::encode(source.wire().unwrap(), REQUEST_LIMIT).unwrap();
+    let wire: RootInput = wire::decode(&bytes, REQUEST_LIMIT).unwrap();
     assert_eq!(
         wire.source.bind(source.body.math()).unwrap(),
         source.bindings
@@ -630,7 +636,7 @@ fn private_native_fake_process() {
             native_profile().unwrap()
         },
     };
-    send(&mut channel, &hello, RESPONSE_LIMIT, &scope).unwrap();
+    send(&mut channel, hello, RESPONSE_LIMIT, &scope).unwrap();
     if mode == "foreign" {
         return;
     }
@@ -656,7 +662,7 @@ fn private_native_fake_process() {
     };
     let _ = send(
         &mut channel,
-        &Response {
+        Response {
             attempt,
             execution: request.execution,
             request: if mode == "response" {

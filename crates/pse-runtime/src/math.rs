@@ -12,6 +12,8 @@ pub mod modeling;
 #[cfg(all(unix, feature = "solver-kinsol"))]
 pub mod native_child;
 pub mod native_root_protocol;
+pub mod native_root_error;
+pub mod native_root_generated;
 pub(crate) mod numerics;
 pub mod portable;
 pub mod prediction;

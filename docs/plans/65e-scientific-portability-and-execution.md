@@ -410,8 +410,53 @@ cache-off `scripts/pse test pse-runtime --lib` source-graph selection separately
 This qualifies the graph's default-feature generation closure, not native solve execution.
 The Linux path control preserves non-UTF-8/NUL bytes and refuses native
 adoption of inspected Windows-wide data; Windows execution is not qualified. Generated
-publication, replacing the live JSON frame helpers, actual closed-root execution and refusal/
-cancellation/drain controls remain required before this envelope slice or E03 can close.
+publication and execution were subsequently exercised by the following envelope cutover;
+this initial graph control alone does not qualify native execution.
+
+**Implemented:** actual private root input, source bindings, build/file observations,
+handshake, request and proposal/refusal now use source-generated adapters, generated local
+validation and bounded Buffa. The JSON counting/frame helpers, protocol Serde derives and
+broken-serializer fixture are deleted. Encoding consumes owned records; framing does not
+clone recipe, registry or numerical buffers. The existing 16 MiB request / 1 MiB response
+limits remain; decoding additionally bounds element memory to four times its frame bound,
+recursion to 64 and retained unknown fields to 256. Unknown admitted meanings are refused
+after decoding rather than silently normalized. Structural adapters live separately from
+private channel functions; native data and generated messages remain inspectable without
+KINSOL preparation. Crate-visible private adapter entry points are the selected generator
+scope; the matching publication remains an integration obligation below.
+
+Original Buffa encode/decode and generated adoption/validation causes survive inside
+`NativeRootWireError` and existing typed runtime custody. Codec byte/element/depth/unknown
+allowance exhaustion is ResourceLimit; admitted-channel corruption is Internal. Shared
+crossing-error retained-extent accounting includes original vector/path/string capacities
+and map selectors, with checked overflow refusal. These structural checks grant no replay
+authority or scientific permission. Original problem/options validation precedes encoding,
+and the parent retains original-coordinate screening after decoding the child's proposal.
+Raw candidate floating-point bits, including nonfinite values, remain representable before
+that scientific screening. Existing native-profile hashing and receipt interpretation are
+unchanged; exact registry JSON and admitted recipe bytes remain staged leaves.
+
+**Tested, targeted on 2026-11-04:** genuine user scope, approved direnv unbounded mode,
+cache off, explicit compiler/KLU preparation and force-validation through
+`scripts/pse test pse-runtime --lib --features solver-kinsol` with
+`(test(math::native_child::) & !test(private_native_fake_process)) | test(private_protocol_retains_original_codec_and_rule_causes_with_owning_classes)`
+completed 17/17 with zero failures or pending work and complete original capture/settlement.
+This includes the exact external native child on independently specified roots, original
+residual screening and receiving source maps, provider/physical-context refusals, foreign
+attempt/build/request checks, corrupt/truncated/oversized frames, process death/reaping,
+queued original clocks, cancellation/late-output charges, readiness and the truthful strict
+complete-memory refusal. Independent codec controls preserve binary64 payload bits and
+refuse unknown fields/missing outcome; original typed rule causes remain inspectable.
+The source-built child uses the existing `pse-native-lane` executable with the narrow xtask
+`solver-kinsol` feature; `native-solvers` retains its aggregate meaning. Its explicit original
+artifact SHA256 was `9aa7ac6fe49296d566c2dfc9a3857814869a8a2381de43dc0dbd09a733932501`.
+The first feature check exposed missing adapter imports and unused imports, corrected before
+this run. This run retained eight generated Public-to-Crate visibility warnings; the scoped
+generator publication and its clean compile remain integration obligations, not a zero-warning
+claim. A separate default-feature typed-error control also passed 1/1. No measured speedup,
+complete native RSS bound or full E02/E03 closure is claimed. Remaining work includes full
+compiler-owned recipe/physical record conversion, contextual receipt reconstruction and
+the coordinator's assembled integration/qualification population.
 
 ## Verification, extension and decision handoff
 
