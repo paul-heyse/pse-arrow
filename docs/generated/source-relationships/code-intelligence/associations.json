@@ -1,8 +1,8 @@
 {
   "descriptor_sha256": "4894a2c4f56301628f0a8627553aad28d58c5b711da4780739b31dc22c179ca1",
   "inputs": {
-    "Cargo.lock": "0fd929952259e5f10286d9e4c990af9254fd71b54f977f4ba8510301bc864ce8",
-    "Cargo.toml": "84c5675e0533df0306e27db16c804d42311c9e82332e5886358983991f673ed2",
+    "Cargo.lock": "d2a3425d454b00ca67320c442b522e70c9990a3551b4338eae59442ad083620e",
+    "Cargo.toml": "f4c70f43bb2eca8cea5d080a8ebece993702925db5e3ba2bf850d5d365df270b",
     "crates/pse-host/proto/buf.gen.yaml": "a2c12699e9c7eb24cba739e18b2c777abb75734612894eb882834a6b80a26be3",
     "crates/pse-host/proto/buf.lock": "f167aece00cd881df9e57b220d5edeff1343c5020a6caed6b425a213f75991ee",
     "crates/pse-host/proto/buf.yaml": "647235719a93a58593b90d87641e03656ddcae35971f822322dc0e30eac528e0",
