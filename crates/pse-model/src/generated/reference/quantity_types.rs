@@ -98,6 +98,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityType
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.doc\":\"quantity_type_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"quantity_type\",\"pse.domain.role\":\"key\"},\"name\":\"quantity_type_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.doc".into(), "quantity_type_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -116,6 +121,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityType
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"name\",\"pse.domain.role\":\"payload\"},\"name\":\"name\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         ("pse.domain.doc".into(), "name".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -132,6 +142,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityType
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"quantity_kind_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.fk.column\":\"quantity_kind_id\",\"pse.domain.fk.relation\":\"reference.quantity_kinds\",\"pse.domain.identity\":\"quantity_kind\",\"pse.domain.role\":\"payload\",\"pse.semantic.reference\":\"{\\\"relation\\\":\\\"reference.quantity_kinds\\\",\\\"columns\\\":[{\\\"source\\\":[],\\\"target\\\":\\\"quantity_kind_id\\\"}],\\\"null_policy\\\":\\\"required\\\"}\"},\"name\":\"quantity_kind_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                         ("pse.domain.doc".into(), "quantity_kind_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -160,6 +175,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityType
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"basis_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.fk.column\":\"basis_id\",\"pse.domain.fk.relation\":\"reference.bases\",\"pse.domain.identity\":\"basis\",\"pse.domain.role\":\"payload\",\"pse.semantic.reference\":\"{\\\"relation\\\":\\\"reference.bases\\\",\\\"columns\\\":[{\\\"source\\\":[],\\\"target\\\":\\\"basis_id\\\"}],\\\"null_policy\\\":\\\"all_or_none\\\"}\"},\"name\":\"basis_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                         ("pse.domain.doc".into(), "basis_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -185,6 +205,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityType
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.doc\":\"reference_state_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.fk.column\":\"reference_state_id\",\"pse.domain.fk.relation\":\"reference.reference_states\",\"pse.domain.identity\":\"reference_state\",\"pse.domain.role\":\"payload\",\"pse.semantic.reference\":\"{\\\"relation\\\":\\\"reference.reference_states\\\",\\\"columns\\\":[{\\\"source\\\":[],\\\"target\\\":\\\"reference_state_id\\\"}],\\\"null_policy\\\":\\\"all_or_none\\\"}\"},\"name\":\"reference_state_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "5".into()),
                                         ("pse.domain.doc".into(), "reference_state_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -216,6 +241,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityType
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\",\"pse.domain.doc\":\"scale_kind\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ScaleKind\",\"pse.domain.role\":\"payload\"},\"name\":\"scale_kind\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "6".into()),
                                         ("pse.domain.doc".into(), "scale_kind".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
@@ -234,6 +264,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityType
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\",\"pse.domain.doc\":\"shape\",\"pse.domain.role\":\"payload\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"shape\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "7".into()),
                                         ("pse.domain.doc".into(), "shape".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -255,6 +290,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityType
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\",\"pse.domain.doc\":\"subject_kind\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"entity_kind\",\"pse.domain.role\":\"payload\"},\"name\":\"subject_kind\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "8".into()),
                                         ("pse.domain.doc".into(), "subject_kind".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -273,6 +313,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityType
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\",\"pse.domain.doc\":\"canonical_unit_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.fk.column\":\"unit_id\",\"pse.domain.fk.relation\":\"reference.units\",\"pse.domain.identity\":\"unit\",\"pse.domain.role\":\"payload\",\"pse.semantic.reference\":\"{\\\"relation\\\":\\\"reference.units\\\",\\\"columns\\\":[{\\\"source\\\":[],\\\"target\\\":\\\"unit_id\\\"}],\\\"null_policy\\\":\\\"required\\\"}\"},\"name\":\"canonical_unit_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "9".into()),
                                         ("pse.domain.doc".into(), "canonical_unit_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -298,6 +343,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityType
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\",\"pse.domain.doc\":\"nominal_magnitude\",\"pse.domain.role\":\"payload\"},\"name\":\"nominal_magnitude\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "10".into()),
                                         ("pse.domain.doc".into(), "nominal_magnitude".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -314,6 +364,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityType
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"11\",\"pse.domain.doc\":\"doc\",\"pse.domain.role\":\"payload\"},\"name\":\"doc\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "11".into()),
                                         ("pse.domain.doc".into(), "doc".into()),
                                         ("pse.domain.role".into(), "payload".into()),

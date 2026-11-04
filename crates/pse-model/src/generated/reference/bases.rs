@@ -73,6 +73,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceBasesRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.doc\":\"basis_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"basis\",\"pse.domain.role\":\"key\"},\"name\":\"basis_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.doc".into(), "basis_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -91,6 +96,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceBasesRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"kind\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"BasisKind\",\"pse.domain.role\":\"payload\"},\"name\":\"kind\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         ("pse.domain.doc".into(), "kind".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
@@ -109,6 +119,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceBasesRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"composition_basis\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"CompositionBasis\",\"pse.domain.role\":\"payload\"},\"name\":\"composition_basis\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                         ("pse.domain.doc".into(), "composition_basis".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
@@ -127,6 +142,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceBasesRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"rate_basis\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"RateBasis\",\"pse.domain.role\":\"payload\"},\"name\":\"rate_basis\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                         ("pse.domain.doc".into(), "rate_basis".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
@@ -145,6 +165,11 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceBasesRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.doc\":\"reference_conditions_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.fk.column\":\"reference_state_id\",\"pse.domain.fk.relation\":\"reference.reference_states\",\"pse.domain.identity\":\"reference_state\",\"pse.domain.role\":\"payload\",\"pse.semantic.reference\":\"{\\\"relation\\\":\\\"reference.reference_states\\\",\\\"columns\\\":[{\\\"source\\\":[],\\\"target\\\":\\\"reference_state_id\\\"}],\\\"null_policy\\\":\\\"all_or_none\\\"}\"},\"name\":\"reference_conditions_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "5".into()),
                                         ("pse.domain.doc".into(), "reference_conditions_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),

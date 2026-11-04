@@ -115,6 +115,11 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"target_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
@@ -130,6 +135,11 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"declaration_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
@@ -145,6 +155,11 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"power_rule_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
@@ -160,6 +175,11 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"actual_flow_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
@@ -175,6 +195,11 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\"},\"name\":\"exposure_expression\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "5".into()),
                                     ]),
                                 ),
@@ -189,6 +214,11 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"power_quantity_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "6".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
@@ -204,6 +234,11 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"power_unit_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "7".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
@@ -219,6 +254,11 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\"},\"name\":\"power_allowance\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "8".into()),
                                     ]),
                                 ),
@@ -233,6 +273,11 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"exposure_quantity_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "9".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
@@ -248,6 +293,11 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"exposure_unit_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "10".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
@@ -263,6 +313,11 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"11\"},\"name\":\"aggregate_exposure\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "11".into()),
                                     ]),
                                 ),
@@ -563,6 +618,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.doc\":\"requirement_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"key\"},\"name\":\"requirement_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.doc".into(), "requirement_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -580,6 +640,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"The instance owning the selected physical target.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"instance\",\"pse.domain.role\":\"payload\"},\"name\":\"instance_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         (
                                             "pse.domain.doc".into(),
@@ -601,6 +666,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"target_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"target_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                         ("pse.domain.doc".into(), "target_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -618,6 +688,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"target_kind\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"NumericalTarget\",\"pse.domain.role\":\"payload\"},\"name\":\"target_kind\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                         ("pse.domain.doc".into(), "target_kind".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
@@ -636,6 +711,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.doc\":\"quantity_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"quantity_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "5".into()),
                                         ("pse.domain.doc".into(), "quantity_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -653,6 +733,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\",\"pse.domain.doc\":\"unit_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"unit_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "6".into()),
                                         ("pse.domain.doc".into(), "unit_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -670,6 +755,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\",\"pse.domain.doc\":\"source\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"NumericalSource\",\"pse.domain.role\":\"payload\"},\"name\":\"source\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "7".into()),
                                         ("pse.domain.doc".into(), "source".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
@@ -688,6 +778,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\",\"pse.domain.doc\":\"science_revision\",\"pse.domain.role\":\"payload\"},\"name\":\"science_revision\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "8".into()),
                                         ("pse.domain.doc".into(), "science_revision".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -704,6 +799,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\",\"pse.domain.doc\":\"science_records\",\"pse.domain.role\":\"payload\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"science_records\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "9".into()),
                                         ("pse.domain.doc".into(), "science_records".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -725,6 +825,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\",\"pse.domain.doc\":\"response_quantity_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"response_quantity_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "10".into()),
                                         ("pse.domain.doc".into(), "response_quantity_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -742,6 +847,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"11\",\"pse.domain.doc\":\"response_unit_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"response_unit_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "11".into()),
                                         ("pse.domain.doc".into(), "response_unit_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -759,6 +869,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"12\",\"pse.domain.doc\":\"response\",\"pse.domain.role\":\"payload\"},\"name\":\"response\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "12".into()),
                                         ("pse.domain.doc".into(), "response".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -775,6 +890,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"13\",\"pse.domain.doc\":\"thermal_quantity_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"thermal_quantity_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "13".into()),
                                         ("pse.domain.doc".into(), "thermal_quantity_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -792,6 +912,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"14\",\"pse.domain.doc\":\"thermal_unit_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"thermal_unit_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "14".into()),
                                         ("pse.domain.doc".into(), "thermal_unit_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -809,6 +934,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"15\",\"pse.domain.doc\":\"thermal_resolution\",\"pse.domain.role\":\"payload\"},\"name\":\"thermal_resolution\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "15".into()),
                                         ("pse.domain.doc".into(), "thermal_resolution".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -825,6 +955,11 @@ for AuthoredCaloricRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"target_id\",\"nullable\":false},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"declaration_id\",\"nullable\":false},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"power_rule_id\",\"nullable\":false},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"actual_flow_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\"},\"name\":\"exposure_expression\",\"nullable\":false},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"power_quantity_id\",\"nullable\":false},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"power_unit_id\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\"},\"name\":\"power_allowance\",\"nullable\":false},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"exposure_quantity_id\",\"nullable\":false},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"exposure_unit_id\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"11\"},\"name\":\"aggregate_exposure\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":1}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"16\",\"pse.domain.doc\":\"consumers\",\"pse.domain.role\":\"payload\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"consumers\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "16".into()),
                                         ("pse.domain.doc".into(), "consumers".into()),
                                         ("pse.domain.role".into(), "payload".into()),

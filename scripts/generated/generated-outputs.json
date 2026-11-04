@@ -84,10 +84,6 @@
         {
           "path": "docs/generated/source-relationships/pse-developer-evidence-v1",
           "kind": "tree"
-        },
-        {
-          "path": "docs/generated/source-relationships/pse-developer-evidence-v1",
-          "kind": "tree"
         }
       ],
       "regenerate": [
@@ -441,6 +437,14 @@
         },
         {
           "path": "crates/pse-operations/src/canonical_control.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-operations/src/canonical_execution.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-operations/src/canonical_results.rs",
           "kind": "file"
         },
         {
@@ -1060,6 +1064,14 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-operations/src/canonical_execution.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-operations/src/canonical_results.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-operations/src/canonical_selection.rs",
           "kind": "file"
         },
@@ -1073,6 +1085,10 @@
         },
         {
           "path": "crates/pse-quantity/src/basis.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/conversion.rs",
           "kind": "file"
         },
         {
@@ -1100,11 +1116,23 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-quantity/src/operation.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/precondition.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-quantity/src/quantity_type.rs",
           "kind": "file"
         },
         {
           "path": "crates/pse-quantity/src/reference_state.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/registry.rs",
           "kind": "file"
         },
         {
@@ -1117,6 +1145,10 @@
         },
         {
           "path": "crates/pse-quantity/src/unit.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/unit_set.rs",
           "kind": "file"
         },
         {
@@ -1408,10 +1440,6 @@
         {
           "path": "docs/generated/source-relationships/pse-native-root-v2",
           "kind": "tree"
-        },
-        {
-          "path": "docs/generated/source-relationships/pse-native-root-v2",
-          "kind": "tree"
         }
       ],
       "regenerate": [
@@ -1448,6 +1476,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-diagnostics/src/lib.rs",
           "kind": "file"
         },
@@ -1481,6 +1513,62 @@
         },
         {
           "path": "crates/pse-model/src/generated/enums.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/basis.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/conversion.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/dimension.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/entity_kind.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/enums.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/ids.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/kind.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/operation.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/precondition.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/quantity_type.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/reference_state.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/registry.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/unit.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/unit_set.rs",
           "kind": "file"
         },
         {

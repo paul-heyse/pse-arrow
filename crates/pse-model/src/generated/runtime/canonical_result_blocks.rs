@@ -113,6 +113,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.canonical.readonly\":\"true\",\"pse.domain.canonical.record_key\":\"true\",\"pse.domain.doc\":\"key\",\"pse.domain.role\":\"key\"},\"name\":\"key\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.canonical.readonly".into(), "true".into()),
                                         ("pse.domain.canonical.record_key".into(), "true".into()),
@@ -131,6 +136,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"result_set\",\"pse.domain.role\":\"payload\"},\"name\":\"result_set\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         ("pse.domain.doc".into(), "result_set".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -147,6 +157,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"batch\",\"pse.domain.role\":\"payload\"},\"name\":\"batch\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                         ("pse.domain.doc".into(), "batch".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -163,6 +178,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"output\",\"pse.domain.role\":\"payload\"},\"name\":\"output\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                         ("pse.domain.doc".into(), "output".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -179,6 +199,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.doc\":\"partition\",\"pse.domain.role\":\"payload\"},\"name\":\"partition\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "5".into()),
                                         ("pse.domain.doc".into(), "partition".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -195,6 +220,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"UInt64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\",\"pse.domain.doc\":\"ordinal\",\"pse.domain.role\":\"payload\"},\"name\":\"ordinal\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "6".into()),
                                         ("pse.domain.doc".into(), "ordinal".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -211,6 +241,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"UInt64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\",\"pse.domain.doc\":\"start\",\"pse.domain.role\":\"payload\"},\"name\":\"start\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "7".into()),
                                         ("pse.domain.doc".into(), "start".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -227,6 +262,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"UInt64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\",\"pse.domain.doc\":\"end\",\"pse.domain.role\":\"payload\"},\"name\":\"end\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "8".into()),
                                         ("pse.domain.doc".into(), "end".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -243,6 +283,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"UInt64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\",\"pse.domain.doc\":\"rows\",\"pse.domain.role\":\"payload\"},\"name\":\"rows\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "9".into()),
                                         ("pse.domain.doc".into(), "rows".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -259,6 +304,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"UInt64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\",\"pse.domain.doc\":\"columns\",\"pse.domain.role\":\"payload\"},\"name\":\"columns\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "10".into()),
                                         ("pse.domain.doc".into(), "columns".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -275,6 +325,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"11\",\"pse.domain.doc\":\"coordinate_min\",\"pse.domain.role\":\"payload\"},\"name\":\"coordinate_min\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "11".into()),
                                         ("pse.domain.doc".into(), "coordinate_min".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -291,6 +346,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"12\",\"pse.domain.doc\":\"coordinate_max\",\"pse.domain.role\":\"payload\"},\"name\":\"coordinate_max\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "12".into()),
                                         ("pse.domain.doc".into(), "coordinate_max".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -307,6 +367,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"UInt64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"13\",\"pse.domain.doc\":\"payload_bytes\",\"pse.domain.role\":\"payload\"},\"name\":\"payload_bytes\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "13".into()),
                                         ("pse.domain.doc".into(), "payload_bytes".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -323,6 +388,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"14\",\"pse.domain.doc\":\"payload_digest\",\"pse.domain.role\":\"payload\"},\"name\":\"payload_digest\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "14".into()),
                                         ("pse.domain.doc".into(), "payload_digest".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -339,6 +409,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Binary\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"15\",\"pse.domain.doc\":\"statistics\",\"pse.domain.role\":\"payload\"},\"name\":\"statistics\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "15".into()),
                                         ("pse.domain.doc".into(), "statistics".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -355,6 +430,11 @@ for RuntimeCanonicalResultBlocksRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"16\",\"pse.domain.doc\":\"interpretation\",\"pse.domain.role\":\"payload\"},\"name\":\"interpretation\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "16".into()),
                                         ("pse.domain.doc".into(), "interpretation".into()),
                                         ("pse.domain.role".into(), "payload".into()),

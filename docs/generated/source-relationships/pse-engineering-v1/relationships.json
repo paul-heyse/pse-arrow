@@ -26060,6 +26060,358 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "CanonicalAttemptMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_attempts::RuntimeCanonicalAttemptsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_attempts::RuntimeCanonicalAttemptsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_attempts::RuntimeCanonicalAttemptsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_attempts::RuntimeCanonicalAttemptsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_attempts::RuntimeCanonicalAttemptsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_attempts::RuntimeCanonicalAttemptsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_attempts::RuntimeCanonicalAttemptsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_attempts::RuntimeCanonicalAttemptsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_attempts::RuntimeCanonicalAttemptsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_attempts::RuntimeCanonicalAttemptsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_attempts::RuntimeCanonicalAttemptsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptPhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalAttemptPhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptPhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalAttemptPhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptPhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalAttemptPhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptPhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalAttemptPhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptPhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalAttemptPhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptPhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalAttemptPhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptPhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalAttemptPhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptPhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalAttemptPhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptPhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalAttemptPhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptPhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalAttemptPhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalAttemptPhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalAttemptPhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "CanonicalContextCut",
       "declaration_kind": "rust_projection",
       "direction": "Both",
@@ -26412,6 +26764,182 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "CanonicalPayloadPlacement",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalPayloadPlacement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalPayloadPlacement",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalPayloadPlacement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalPayloadPlacement",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalPayloadPlacement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalPayloadPlacement",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalPayloadPlacement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalPayloadPlacement",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalPayloadPlacement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalPayloadPlacement",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalPayloadPlacement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalPayloadPlacement",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalPayloadPlacement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalPayloadPlacement",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalPayloadPlacement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalPayloadPlacement",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalPayloadPlacement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalPayloadPlacement",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalPayloadPlacement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalPayloadPlacement",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalPayloadPlacement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "CanonicalProducerClass",
       "declaration_kind": "rust_projection",
       "direction": "Both",
@@ -26934,6 +27462,390 @@
       "source_path": "crates/pse-schema/src/model/canonical.rs",
       "source_role": "semantic_owner",
       "source_symbol": "pse_model::generated::canonical::ProjectKey"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalProtectedResultSnapshot",
+      "declaration_kind": "native_projection_adapter",
+      "direction": "Output",
+      "generator_path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+      "generator_symbol": "native_adapters",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-adapters.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_results.rs",
+      "source_role": "adapter_root",
+      "source_symbol": "pse_operations::canonical_results::ResultRead"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalProtectedResultSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_results.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_results::ResultRead"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalProtectedResultSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_results.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_results::ResultRead"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalProtectedResultSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_results.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_results::ResultRead"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalProtectedResultSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_results.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_results::ResultRead"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalProtectedResultSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_results.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_results::ResultRead"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalProtectedResultSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_results.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_results::ResultRead"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalProtectedResultSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_results.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_results::ResultRead"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalProtectedResultSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_results.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_results::ResultRead"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalProtectedResultSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_results.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_results::ResultRead"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalProtectedResultSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_results.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_results::ResultRead"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalProtectedResultSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_results.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_results::ResultRead"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultBatchMetadata",
+      "declaration_kind": "native_projection_adapter",
+      "direction": "Both",
+      "generator_path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+      "generator_symbol": "native_adapters",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-adapters.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "adapter_root",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_batches::RuntimeCanonicalResultBatchesRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultBatchMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_batches::RuntimeCanonicalResultBatchesRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultBatchMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_batches::RuntimeCanonicalResultBatchesRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultBatchMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_batches::RuntimeCanonicalResultBatchesRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultBatchMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_batches::RuntimeCanonicalResultBatchesRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultBatchMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_batches::RuntimeCanonicalResultBatchesRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultBatchMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_batches::RuntimeCanonicalResultBatchesRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultBatchMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_batches::RuntimeCanonicalResultBatchesRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultBatchMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_batches::RuntimeCanonicalResultBatchesRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultBatchMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_batches::RuntimeCanonicalResultBatchesRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultBatchMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_batches::RuntimeCanonicalResultBatchesRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultBatchMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_batches::RuntimeCanonicalResultBatchesRow"
     },
     {
       "basis": "declared",
@@ -27318,6 +28230,934 @@
       "source_path": "crates/pse-schema/src/catalog/substrate.rs",
       "source_role": "semantic_owner",
       "source_symbol": "pse_model::generated::runtime::canonical_result_manifests::RuntimeCanonicalResultManifestsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultOutputMetadata",
+      "declaration_kind": "native_projection_adapter",
+      "direction": "Both",
+      "generator_path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+      "generator_symbol": "native_adapters",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-adapters.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "adapter_root",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultOutputMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultOutputMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultOutputMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultOutputMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultOutputMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultOutputMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultOutputMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultOutputMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultOutputMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultOutputMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultOutputMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetDescriptor",
+      "declaration_kind": "native_projection_adapter",
+      "direction": "Both",
+      "generator_path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+      "generator_symbol": "native_adapters",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-adapters.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_execution.rs",
+      "source_role": "adapter_root",
+      "source_symbol": "pse_operations::canonical_execution::ResultSetDescriptor"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetDescriptor",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_execution.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_execution::ResultSetDescriptor"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetDescriptor",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_execution.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_execution::ResultSetDescriptor"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetDescriptor",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_execution.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_execution::ResultSetDescriptor"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetDescriptor",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_execution.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_execution::ResultSetDescriptor"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetDescriptor",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_execution.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_execution::ResultSetDescriptor"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetDescriptor",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_execution.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_execution::ResultSetDescriptor"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetDescriptor",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_execution.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_execution::ResultSetDescriptor"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetDescriptor",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_execution.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_execution::ResultSetDescriptor"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetDescriptor",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_execution.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_execution::ResultSetDescriptor"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetDescriptor",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_execution.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_execution::ResultSetDescriptor"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetDescriptor",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-operations/src/canonical_execution.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_operations::canonical_execution::ResultSetDescriptor"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetMetadata",
+      "declaration_kind": "native_projection_adapter",
+      "direction": "Both",
+      "generator_path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+      "generator_symbol": "native_adapters",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-adapters.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "adapter_root",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalResultSetMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_runs::RuntimeCanonicalRunsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_runs::RuntimeCanonicalRunsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_runs::RuntimeCanonicalRunsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_runs::RuntimeCanonicalRunsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_runs::RuntimeCanonicalRunsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_runs::RuntimeCanonicalRunsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_runs::RuntimeCanonicalRunsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_runs::RuntimeCanonicalRunsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_runs::RuntimeCanonicalRunsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_runs::RuntimeCanonicalRunsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunMetadata",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/substrate.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::runtime::canonical_runs::RuntimeCanonicalRunsRow"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunPurpose",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalRunPurpose"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunPurpose",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalRunPurpose"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunPurpose",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalRunPurpose"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunPurpose",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalRunPurpose"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunPurpose",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalRunPurpose"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunPurpose",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalRunPurpose"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunPurpose",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalRunPurpose"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunPurpose",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalRunPurpose"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunPurpose",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalRunPurpose"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunPurpose",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalRunPurpose"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CanonicalRunPurpose",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CanonicalRunPurpose"
     },
     {
       "basis": "declared",

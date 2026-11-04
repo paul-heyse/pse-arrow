@@ -4,7 +4,10 @@
 
 use buffa::Message;
 use buffa_descriptor::{DescriptorPool, DynamicMessage, Value};
-use pse_model::generated::runtime::{canonical_result_blocks, canonical_result_manifests};
+use pse_model::generated::{
+    enums::{CanonicalAttemptPhase, CanonicalTerminalOutcome},
+    runtime::{canonical_attempts, canonical_result_blocks, canonical_result_manifests},
+};
 use pse_operations::{canonical_codec as codec, generated::surreal as storage};
 use std::sync::Arc;
 
@@ -146,4 +149,38 @@ fn readable_result_bits_and_future_wire_fields_do_not_grant_native_storage_adopt
     let future = pb::CanonicalResultBlockMetadata::decode_from_slice(&bytes).unwrap();
     assert!(!buffa_descriptor::ReflectMessage::unknown_fields(&future).is_empty());
     assert!(projection::decode_canonical_result_block_metadata(future).is_err());
+}
+
+#[test]
+fn original_attempt_metadata_preserves_signed_time_and_recorded_outcome_without_issuing_authority() {
+    let original = canonical_attempts::Row {
+        key: "original:attempt".into(),
+        run: "original:run".into(),
+        generation: u64::MAX,
+        claim_operation: "original:claim".into(),
+        request: vec![0, 255].into(),
+        worker: "original:worker".into(),
+        expires_at: -1,
+        phase: CanonicalAttemptPhase::Terminal,
+        close_generation: Some(u64::MAX),
+        outcome: Some(CanonicalTerminalOutcome::Partial),
+        closed_manifest: Some("original:manifest".into()),
+        completion: Some(Vec::new().into()),
+        seed_manifest: None,
+        finalization_study: None,
+    };
+    // The protected snapshot contains this native row. Data conversion cannot
+    // create ClosedManifest, ResultRead, a protection owner or scientific permission.
+    let wire: pb::CanonicalAttemptMetadata =
+        pse_contract_proto::support::encode_root(original.clone(), "attempt").unwrap();
+    let bytes = wire.encode_to_vec();
+    let independent = inspect("pse.engineering.v1.CanonicalAttemptMetadata", &bytes);
+    assert_eq!(independent.field_by_number(3), Some(&Value::U64(u64::MAX)));
+    assert_eq!(independent.field_by_number(7), Some(&Value::I64(-1)));
+    assert_eq!(independent.field_by_number(12), Some(&Value::Bytes(Vec::new())));
+    let restored: canonical_attempts::Row =
+        pse_contract_proto::support::decode_root(wire, "attempt").unwrap();
+    assert_eq!(restored, original);
+    let native = storage::encode_canonical_attempts(&restored).unwrap();
+    assert_eq!(storage::decode_canonical_attempts(native).unwrap(), original);
 }

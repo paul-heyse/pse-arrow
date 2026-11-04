@@ -70,6 +70,11 @@ for AuthoredFitCasesFieldParametersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"symbol_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
@@ -85,6 +90,11 @@ for AuthoredFitCasesFieldParametersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"fixed\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                     ]),
                                 ),
@@ -99,6 +109,11 @@ for AuthoredFitCasesFieldParametersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"value\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                     ]),
                                 ),
@@ -113,6 +128,11 @@ for AuthoredFitCasesFieldParametersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\"},\"name\":\"lower\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                     ]),
                                 ),
@@ -127,6 +147,11 @@ for AuthoredFitCasesFieldParametersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\"},\"name\":\"upper\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "5".into()),
                                     ]),
                                 ),
@@ -141,6 +166,11 @@ for AuthoredFitCasesFieldParametersItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\"},\"name\":\"scale\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "6".into()),
                                     ]),
                                 ),
@@ -298,6 +328,11 @@ for AuthoredFitCasesFieldExperimentsItemBindingsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"parameter_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
@@ -313,6 +348,11 @@ for AuthoredFitCasesFieldExperimentsItemBindingsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"path\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                     ]),
                                 ),
@@ -426,6 +466,11 @@ for AuthoredFitCasesFieldExperimentsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"instance\"},\"name\":\"experiment_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                         ("pse.domain.identity".into(), "instance".into()),
@@ -442,6 +487,11 @@ for AuthoredFitCasesFieldExperimentsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\"},\"name\":\"case_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                         ("pse.domain.identity".into(), "declaration".into()),
@@ -458,6 +508,11 @@ for AuthoredFitCasesFieldExperimentsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingAnalysisRoute\"},\"name\":\"route\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
                                         (
@@ -477,6 +532,11 @@ for AuthoredFitCasesFieldExperimentsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"parameter_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"path\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":4}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"bindings\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -652,6 +712,11 @@ for AuthoredFitCasesFieldObservationsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\"},\"name\":\"observation_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                         ("pse.domain.identity".into(), "declaration".into()),
@@ -668,6 +733,11 @@ for AuthoredFitCasesFieldObservationsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"value_attribute\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                     ]),
                                 ),
@@ -682,6 +752,11 @@ for AuthoredFitCasesFieldObservationsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"standard_deviation_attribute\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                     ]),
                                 ),
@@ -696,6 +771,11 @@ for AuthoredFitCasesFieldObservationsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"instance\"},\"name\":\"experiment_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                         ("pse.domain.identity".into(), "instance".into()),
@@ -712,6 +792,11 @@ for AuthoredFitCasesFieldObservationsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\"},\"name\":\"output_path\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "5".into()),
                                     ]),
                                 ),
@@ -726,6 +811,11 @@ for AuthoredFitCasesFieldObservationsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\"},\"name\":\"time\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "6".into()),
                                     ]),
                                 ),
@@ -740,6 +830,11 @@ for AuthoredFitCasesFieldObservationsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ObservationTimeBasis\"},\"name\":\"time_basis\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "7".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
                                         (
@@ -759,6 +854,11 @@ for AuthoredFitCasesFieldObservationsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"time_unit_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "8".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
@@ -774,6 +874,11 @@ for AuthoredFitCasesFieldObservationsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\"},\"name\":\"included\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "9".into()),
                                     ]),
                                 ),
@@ -788,6 +893,11 @@ for AuthoredFitCasesFieldObservationsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\"},\"name\":\"importance\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "10".into()),
                                     ]),
                                 ),
@@ -1022,6 +1132,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredFitCasesRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.doc\":\"fit_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"fit\",\"pse.domain.identity.owner\":\"true\",\"pse.domain.role\":\"key\"},\"name\":\"fit_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.doc".into(), "fit_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -1041,6 +1156,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredFitCasesRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"symbol_id\",\"nullable\":false},{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"fixed\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"value\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\"},\"name\":\"lower\",\"nullable\":true},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\"},\"name\":\"upper\",\"nullable\":true},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\"},\"name\":\"scale\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":4}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"parameters\",\"pse.domain.role\":\"payload\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"parameters\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         ("pse.domain.doc".into(), "parameters".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -1062,6 +1182,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredFitCasesRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"instance\"},\"name\":\"experiment_id\",\"nullable\":false},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\"},\"name\":\"case_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingAnalysisRoute\"},\"name\":\"route\",\"nullable\":false},{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"parameter_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"path\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":4}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"bindings\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":4}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"experiments\",\"pse.domain.role\":\"payload\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"experiments\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                         ("pse.domain.doc".into(), "experiments".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -1083,6 +1208,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredFitCasesRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\"},\"name\":\"observation_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"value_attribute\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"standard_deviation_attribute\",\"nullable\":true},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"instance\"},\"name\":\"experiment_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\"},\"name\":\"output_path\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\"},\"name\":\"time\",\"nullable\":true},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ObservationTimeBasis\"},\"name\":\"time_basis\",\"nullable\":true},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"time_unit_id\",\"nullable\":true},{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\"},\"name\":\"included\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\"},\"name\":\"importance\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":4}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"observations\",\"pse.domain.role\":\"payload\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"observations\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                         ("pse.domain.doc".into(), "observations".into()),
                                         ("pse.domain.role".into(), "payload".into()),

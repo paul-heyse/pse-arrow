@@ -120,6 +120,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.doc\":\"requirement_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"key\"},\"name\":\"requirement_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.doc".into(), "requirement_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -137,6 +142,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"The specialized definition the requirement belongs to: the root declaration of the model it is declared for. A modeling preparation's requirements name its root, an implicit block's trial hints their enclosing model's; a fit's parameter requirements name the one definition all its experiments specialize, and none when they specialize different ones.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\",\"pse.domain.role\":\"payload\"},\"name\":\"model_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         (
                                             "pse.domain.doc".into(),
@@ -159,6 +169,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"The case declaration the requirement belongs to: the solved root when it is a case or a test, otherwise absent.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\",\"pse.domain.role\":\"payload\"},\"name\":\"case_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                         (
                                             "pse.domain.doc".into(),
@@ -181,6 +196,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"The instance whose preparation declared the requirement: the solved root instance (a fit experiment's own instance), or the implicit block whose trial hints declared it. Absent for a fit's parameter requirements and a generated rate system's.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"instance\",\"pse.domain.role\":\"payload\"},\"name\":\"instance_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                         (
                                             "pse.domain.doc".into(),
@@ -203,6 +223,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.doc\":\"The fit whose parameter requirement this is; absent otherwise.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"fit\",\"pse.domain.role\":\"payload\"},\"name\":\"fit_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "5".into()),
                                         (
                                             "pse.domain.doc".into(),
@@ -225,6 +250,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\",\"pse.domain.doc\":\"target_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"target_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "6".into()),
                                         ("pse.domain.doc".into(), "target_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -242,6 +272,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\",\"pse.domain.doc\":\"target_kind\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"NumericalTarget\",\"pse.domain.role\":\"payload\"},\"name\":\"target_kind\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "7".into()),
                                         ("pse.domain.doc".into(), "target_kind".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
@@ -260,6 +295,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\",\"pse.domain.doc\":\"nominal\",\"pse.domain.role\":\"payload\"},\"name\":\"nominal\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "8".into()),
                                         ("pse.domain.doc".into(), "nominal".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -276,6 +316,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\",\"pse.domain.doc\":\"scaling_factor\",\"pse.domain.role\":\"payload\"},\"name\":\"scaling_factor\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "9".into()),
                                         ("pse.domain.doc".into(), "scaling_factor".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -292,6 +337,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\",\"pse.domain.doc\":\"absolute_tolerance\",\"pse.domain.role\":\"payload\"},\"name\":\"absolute_tolerance\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "10".into()),
                                         ("pse.domain.doc".into(), "absolute_tolerance".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -308,6 +358,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"11\",\"pse.domain.doc\":\"relative_tolerance\",\"pse.domain.role\":\"payload\"},\"name\":\"relative_tolerance\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "11".into()),
                                         ("pse.domain.doc".into(), "relative_tolerance".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -324,6 +379,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"12\",\"pse.domain.doc\":\"shared_engineering_allowance\",\"pse.domain.role\":\"payload\"},\"name\":\"shared_engineering_allowance\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "12".into()),
                                         (
                                             "pse.domain.doc".into(),
@@ -343,6 +403,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"13\",\"pse.domain.doc\":\"engineering_rule_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"engineering_rule\",\"pse.domain.role\":\"payload\"},\"name\":\"engineering_rule_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "13".into()),
                                         ("pse.domain.doc".into(), "engineering_rule_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -361,6 +426,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"14\",\"pse.domain.doc\":\"unit_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"unit_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "14".into()),
                                         ("pse.domain.doc".into(), "unit_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -378,6 +448,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"15\",\"pse.domain.doc\":\"coordinates\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"NumericalCoordinates\",\"pse.domain.role\":\"payload\"},\"name\":\"coordinates\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "15".into()),
                                         ("pse.domain.doc".into(), "coordinates".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
@@ -399,6 +474,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Int32\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"16\",\"pse.domain.doc\":\"priority\",\"pse.domain.role\":\"payload\"},\"name\":\"priority\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "16".into()),
                                         ("pse.domain.doc".into(), "priority".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -415,6 +495,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"17\",\"pse.domain.doc\":\"required\",\"pse.domain.role\":\"payload\"},\"name\":\"required\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "17".into()),
                                         ("pse.domain.doc".into(), "required".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -431,6 +516,11 @@ for AuthoredNumericalRequirementsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"18\",\"pse.domain.doc\":\"provenance\",\"pse.domain.role\":\"payload\"},\"name\":\"provenance\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "18".into()),
                                         ("pse.domain.doc".into(), "provenance".into()),
                                         ("pse.domain.role".into(), "payload".into()),

@@ -43,6 +43,11 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         "PhysicalInspectionDocument",
         "CanonicalResultManifest",
         "CanonicalResultBlockMetadata",
+        "CanonicalResultSetMetadata",
+        "CanonicalResultBatchMetadata",
+        "CanonicalResultOutputMetadata",
+        "CanonicalResultSetDescriptor",
+        "CanonicalProtectedResultSnapshot",
     ]);
     for service in graph.services().values() {
         for method in &service.methods {
@@ -171,6 +176,10 @@ fn engineering_graph() -> Result<ProjectionGraph> {
     let mut graph = pse_runtime::host_operations::engineering_contract::projection()?;
     graph.register::<pse_model::generated::runtime::canonical_result_manifests::Row>()?;
     graph.register::<pse_model::generated::runtime::canonical_result_blocks::Row>()?;
+    graph.register::<pse_model::generated::runtime::canonical_result_sets::Row>()?;
+    graph.register::<pse_model::generated::runtime::canonical_result_batches::Row>()?;
+    graph.register::<pse_model::generated::runtime::canonical_result_block_outputs::Row>()?;
+    graph.register::<pse_operations::canonical_results::ResultRead>()?;
     graph.register::<pse_runtime::workflow::ModelingDeclarationRequest>()?;
     graph.register::<pse_runtime::workflow::PreparationDiscoveryReport>()?;
     graph.register::<pse_runtime::workflow::PhysicalInspectionRequest>()?;
@@ -194,6 +203,23 @@ mod tests {
     use buffa_descriptor::generated::descriptor::FileDescriptorSet;
     use buffa_descriptor::{DescriptorPool, DynamicMessage, Value};
     use std::sync::Arc;
+
+    #[test]
+    fn protected_result_snapshot_exports_facts_without_an_inverse_or_live_custody() {
+        use pse_contract::boundary_projection::{ConstructionRole, Shape};
+        let graph = engineering_graph().unwrap();
+        let definition = &graph.definitions()["CanonicalProtectedResultSnapshot"];
+        assert_eq!(definition.construction, ConstructionRole::ObservationOnly);
+        let Shape::Record(fields) = &definition.shape else { panic!("snapshot must be a record") };
+        assert_eq!(fields.iter().map(|field| field.name.as_str()).collect::<Vec<_>>(),
+            ["run", "attempt", "manifest", "sets"]);
+        let adapters = boundary_projection::native_adapters(
+            &graph, &["CanonicalProtectedResultSnapshot"], "crate::pb", "pse_runtime",
+        ).unwrap();
+        assert!(adapters.contains("fn encode_canonical_protected_result_snapshot"));
+        assert!(!adapters.contains("fn decode_canonical_protected_result_snapshot"));
+        assert!(!adapters.contains("ReadOwner"));
+    }
 
     #[test]
     fn all_selected_world_metadata_has_typed_native_coverage() {

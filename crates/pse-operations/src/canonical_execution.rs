@@ -4188,20 +4188,25 @@ impl SealAck {
     }
 }
 
+pse_contract::projection_struct! {
 /// Exact frozen coordinate extent of one scientific result set.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ResultSetDescriptor {
+    projection: { name: "CanonicalResultSetDescriptor", version: 1,
+        direction: pse_contract::BoundaryDirection::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Immutable result-set coordinate identity.
-    pub key: String,
+    pub key: String => { tag: 1, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Scientific result-set name.
-    pub name: String,
+    pub name: String => { tag: 2, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// All admitted ordinals are exactly 0..batch_count.
-    pub batch_count: u64,
+    pub batch_count: u64 => { tag: 3, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Sum of admitted row coverage, independent of terminal quality.
-    pub row_count: u64,
+    pub row_count: u64 => { tag: 4, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Ordered framed digest of batch keys, payload digests and row coverage.
-    pub batches_digest: String,
+    pub batches_digest: String => { tag: 5, direction: pse_contract::BoundaryDirection::Both, rules: [] };
+}
 }
 
 /// Only a reconciled immutable selection can authorize terminal admission.

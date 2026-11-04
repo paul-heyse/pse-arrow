@@ -67,6 +67,11 @@ for RuntimeCanonicalResultManifestsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.canonical.readonly\":\"true\",\"pse.domain.canonical.record_key\":\"true\",\"pse.domain.doc\":\"key\",\"pse.domain.role\":\"key\"},\"name\":\"key\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.canonical.readonly".into(), "true".into()),
                                         ("pse.domain.canonical.record_key".into(), "true".into()),
@@ -85,6 +90,11 @@ for RuntimeCanonicalResultManifestsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"attempt\",\"pse.domain.role\":\"payload\"},\"name\":\"attempt\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         ("pse.domain.doc".into(), "attempt".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -101,6 +111,11 @@ for RuntimeCanonicalResultManifestsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"UInt64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"generation\",\"pse.domain.role\":\"payload\"},\"name\":\"generation\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                         ("pse.domain.doc".into(), "generation".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -117,6 +132,11 @@ for RuntimeCanonicalResultManifestsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"digest\",\"pse.domain.role\":\"payload\"},\"name\":\"digest\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                         ("pse.domain.doc".into(), "digest".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -133,6 +153,11 @@ for RuntimeCanonicalResultManifestsRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Binary\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.doc\":\"descriptors\",\"pse.domain.role\":\"payload\"},\"name\":\"descriptors\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "5".into()),
                                         ("pse.domain.doc".into(), "descriptors".into()),
                                         ("pse.domain.role".into(), "payload".into()),

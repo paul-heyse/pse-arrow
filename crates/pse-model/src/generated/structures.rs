@@ -150,6 +150,11 @@ for ModelingCellValueReferencesPathsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"path\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -169,6 +174,11 @@ for ModelingCellValueReferencesPathsItem {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingKeyCellKind\"},\"name\":\"kind\",\"nullable\":false},{\"data_type\":{\"Struct\":[{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"2\",\"pse.domain.structure\":\"ModelingCellValueBoolean\"},\"name\":\"boolean\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"3\",\"pse.domain.structure\":\"ModelingCellValueInteger\"},\"name\":\"integer\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"magnitude\",\"nullable\":false},{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"symbol\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"num\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"den\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.structure\":\"ModelingUnitFactor\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"unit\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"4\",\"pse.domain.structure\":\"ModelingCellValueQuantity\"},\"name\":\"quantity\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"5\",\"pse.domain.structure\":\"ModelingCellValueText\"},\"name\":\"text\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"scheme\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"6\",\"pse.domain.structure\":\"ModelingCellValueIdentifier\"},\"name\":\"identifier\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"path\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"7\",\"pse.domain.structure\":\"ModelingCellValueReference\"},\"name\":\"reference\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[[\\\"boolean\\\",1],[\\\"identifier\\\",5],[\\\"integer\\\",2],[\\\"quantity\\\",3],[\\\"reference\\\",6],[\\\"text\\\",4]],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.structure\":\"ModelingKeyCell\",\"pse.semantic.tagged_alternative\":\"{\\\"arms\\\":{\\\"boolean\\\":\\\"boolean\\\",\\\"identifier\\\":\\\"identifier\\\",\\\"integer\\\":\\\"integer\\\",\\\"quantity\\\":\\\"quantity\\\",\\\"reference\\\":\\\"reference\\\",\\\"text\\\":\\\"text\\\"},\\\"discriminator\\\":\\\"kind\\\"}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"keys\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -281,6 +291,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueRefe
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"path\",\"nullable\":false},{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingKeyCellKind\"},\"name\":\"kind\",\"nullable\":false},{\"data_type\":{\"Struct\":[{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"2\",\"pse.domain.structure\":\"ModelingCellValueBoolean\"},\"name\":\"boolean\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"3\",\"pse.domain.structure\":\"ModelingCellValueInteger\"},\"name\":\"integer\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"magnitude\",\"nullable\":false},{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"symbol\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"num\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"den\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.structure\":\"ModelingUnitFactor\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"unit\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"4\",\"pse.domain.structure\":\"ModelingCellValueQuantity\"},\"name\":\"quantity\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"5\",\"pse.domain.structure\":\"ModelingCellValueText\"},\"name\":\"text\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"scheme\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"6\",\"pse.domain.structure\":\"ModelingCellValueIdentifier\"},\"name\":\"identifier\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"path\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"7\",\"pse.domain.structure\":\"ModelingCellValueReference\"},\"name\":\"reference\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[[\\\"boolean\\\",1],[\\\"identifier\\\",5],[\\\"integer\\\",2],[\\\"quantity\\\",3],[\\\"reference\\\",6],[\\\"text\\\",4]],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.structure\":\"ModelingKeyCell\",\"pse.semantic.tagged_alternative\":\"{\\\"arms\\\":{\\\"boolean\\\":\\\"boolean\\\",\\\"identifier\\\":\\\"identifier\\\",\\\"integer\\\":\\\"integer\\\",\\\"quantity\\\":\\\"quantity\\\",\\\"reference\\\":\\\"reference\\\",\\\"text\\\":\\\"text\\\"},\\\"discriminator\\\":\\\"kind\\\"}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"keys\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"paths\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -384,6 +399,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueRow 
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"target\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -403,6 +423,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueRow 
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingKeyCellKind\"},\"name\":\"kind\",\"nullable\":false},{\"data_type\":{\"Struct\":[{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"2\",\"pse.domain.structure\":\"ModelingCellValueBoolean\"},\"name\":\"boolean\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"3\",\"pse.domain.structure\":\"ModelingCellValueInteger\"},\"name\":\"integer\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"magnitude\",\"nullable\":false},{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"symbol\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"num\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"den\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.structure\":\"ModelingUnitFactor\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"unit\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"4\",\"pse.domain.structure\":\"ModelingCellValueQuantity\"},\"name\":\"quantity\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"5\",\"pse.domain.structure\":\"ModelingCellValueText\"},\"name\":\"text\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"scheme\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"6\",\"pse.domain.structure\":\"ModelingCellValueIdentifier\"},\"name\":\"identifier\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"path\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"7\",\"pse.domain.structure\":\"ModelingCellValueReference\"},\"name\":\"reference\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[[\\\"boolean\\\",1],[\\\"identifier\\\",5],[\\\"integer\\\",2],[\\\"quantity\\\",3],[\\\"reference\\\",6],[\\\"text\\\",4]],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.structure\":\"ModelingKeyCell\",\"pse.semantic.tagged_alternative\":\"{\\\"arms\\\":{\\\"boolean\\\":\\\"boolean\\\",\\\"identifier\\\":\\\"identifier\\\",\\\"integer\\\":\\\"integer\\\",\\\"quantity\\\":\\\"quantity\\\",\\\"reference\\\":\\\"reference\\\",\\\"text\\\":\\\"text\\\"},\\\"discriminator\\\":\\\"kind\\\"}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"keys\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -1140,6 +1165,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCellUncertain
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingUncertaintyKind\"},\"name\":\"kind\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
                                         (
@@ -1159,6 +1189,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCellUncertain
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"magnitude\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                     ]),
                                 ),
@@ -1264,6 +1299,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCell {
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
                                         (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingCellKind\"},\"name\":\"kind\",\"nullable\":false},{\"data_type\":{\"Struct\":[{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"2\",\"pse.domain.structure\":\"ModelingCellValueBoolean\"},\"name\":\"boolean\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"3\",\"pse.domain.structure\":\"ModelingCellValueInteger\"},\"name\":\"integer\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"magnitude\",\"nullable\":false},{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"symbol\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"num\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"den\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.structure\":\"ModelingUnitFactor\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"unit\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"4\",\"pse.domain.structure\":\"ModelingCellValueQuantity\"},\"name\":\"quantity\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"5\",\"pse.domain.structure\":\"ModelingCellValueText\"},\"name\":\"text\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"scheme\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"6\",\"pse.domain.structure\":\"ModelingCellValueIdentifier\"},\"name\":\"identifier\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"path\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"7\",\"pse.domain.structure\":\"ModelingCellValueReference\"},\"name\":\"reference\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"path\",\"nullable\":false},{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingKeyCellKind\"},\"name\":\"kind\",\"nullable\":false},{\"data_type\":{\"Struct\":[{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"2\",\"pse.domain.structure\":\"ModelingCellValueBoolean\"},\"name\":\"boolean\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"3\",\"pse.domain.structure\":\"ModelingCellValueInteger\"},\"name\":\"integer\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"magnitude\",\"nullable\":false},{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"symbol\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"num\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"den\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.structure\":\"ModelingUnitFactor\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"unit\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"4\",\"pse.domain.structure\":\"ModelingCellValueQuantity\"},\"name\":\"quantity\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"5\",\"pse.domain.structure\":\"ModelingCellValueText\"},\"name\":\"text\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"scheme\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"6\",\"pse.domain.structure\":\"ModelingCellValueIdentifier\"},\"name\":\"identifier\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"path\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"7\",\"pse.domain.structure\":\"ModelingCellValueReference\"},\"name\":\"reference\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[[\\\"boolean\\\",1],[\\\"identifier\\\",5],[\\\"integer\\\",2],[\\\"quantity\\\",3],[\\\"reference\\\",6],[\\\"text\\\",4]],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.structure\":\"ModelingKeyCell\",\"pse.semantic.tagged_alternative\":\"{\\\"arms\\\":{\\\"boolean\\\":\\\"boolean\\\",\\\"identifier\\\":\\\"identifier\\\",\\\"integer\\\":\\\"integer\\\",\\\"quantity\\\":\\\"quantity\\\",\\\"reference\\\":\\\"reference\\\",\\\"text\\\":\\\"text\\\"},\\\"discriminator\\\":\\\"kind\\\"}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"keys\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"paths\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"8\"},\"name\":\"references\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"target\",\"nullable\":false},{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingKeyCellKind\"},\"name\":\"kind\",\"nullable\":false},{\"data_type\":{\"Struct\":[{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"2\",\"pse.domain.structure\":\"ModelingCellValueBoolean\"},\"name\":\"boolean\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"3\",\"pse.domain.structure\":\"ModelingCellValueInteger\"},\"name\":\"integer\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"magnitude\",\"nullable\":false},{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"symbol\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"num\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"den\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.structure\":\"ModelingUnitFactor\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"unit\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"4\",\"pse.domain.structure\":\"ModelingCellValueQuantity\"},\"name\":\"quantity\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"5\",\"pse.domain.structure\":\"ModelingCellValueText\"},\"name\":\"text\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"scheme\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"value\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"6\",\"pse.domain.structure\":\"ModelingCellValueIdentifier\"},\"name\":\"identifier\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"path\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"7\",\"pse.domain.structure\":\"ModelingCellValueReference\"},\"name\":\"reference\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[[\\\"boolean\\\",1],[\\\"identifier\\\",5],[\\\"integer\\\",2],[\\\"quantity\\\",3],[\\\"reference\\\",6],[\\\"text\\\",4]],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.structure\":\"ModelingKeyCell\",\"pse.semantic.tagged_alternative\":\"{\\\"arms\\\":{\\\"boolean\\\":\\\"boolean\\\",\\\"identifier\\\":\\\"identifier\\\",\\\"integer\\\":\\\"integer\\\",\\\"quantity\\\":\\\"quantity\\\",\\\"reference\\\":\\\"reference\\\",\\\"text\\\":\\\"text\\\"},\\\"discriminator\\\":\\\"kind\\\"}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"keys\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"9\"},\"name\":\"row\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[[\\\"boolean\\\",1],[\\\"identifier\\\",5],[\\\"integer\\\",2],[\\\"missing\\\",9],[\\\"quantity\\\",3],[\\\"reference\\\",6],[\\\"references\\\",7],[\\\"row\\\",8],[\\\"text\\\",4]],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.tagged_alternative\":\"{\\\"arms\\\":{\\\"boolean\\\":\\\"boolean\\\",\\\"identifier\\\":\\\"identifier\\\",\\\"integer\\\":\\\"integer\\\",\\\"missing\\\":null,\\\"quantity\\\":\\\"quantity\\\",\\\"reference\\\":\\\"reference\\\",\\\"references\\\":\\\"references\\\",\\\"row\\\":\\\"row\\\",\\\"text\\\":\\\"text\\\"},\\\"discriminator\\\":\\\"kind\\\"}\"},\"name\":\"value\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        (
                                             "pse.domain.boundary.shape".into(),
                                             "{\"alternatives\":[[\"boolean\",1],[\"identifier\",5],[\"integer\",2],[\"missing\",9],[\"quantity\",3],[\"reference\",6],[\"references\",7],[\"row\",8],[\"text\",4]],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}"
                                                 .into(),
@@ -1287,6 +1327,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCell {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingUncertaintyKind\"},\"name\":\"kind\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"magnitude\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"2\"},\"name\":\"uncertainty\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         (
                                             "pse.domain.boundary.shape".into(),
                                             "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}"
@@ -1395,6 +1440,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueBool
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
@@ -1489,6 +1539,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueIden
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"scheme\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -1508,6 +1563,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueIden
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"value\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                     ]),
                                 ),
@@ -1613,6 +1673,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueInte
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
@@ -1707,6 +1772,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueQuan
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"magnitude\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
@@ -1721,6 +1791,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueQuan
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"symbol\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"num\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"den\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.structure\":\"ModelingUnitFactor\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"unit\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -1830,6 +1905,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueRefe
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"path\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -1929,6 +2009,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueText
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"value\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
@@ -2028,6 +2113,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingColumnStorage
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"name\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
@@ -2042,6 +2132,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingColumnStorage
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"symbol\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"num\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"den\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.structure\":\"ModelingUnitFactor\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"storage_unit\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -2061,6 +2156,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingColumnStorage
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"scheme\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -2189,6 +2289,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCompleteness 
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"key\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
@@ -2203,6 +2308,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCompleteness 
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"set\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -2222,6 +2332,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingCompleteness 
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"Struct\":[{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"lower\",\"nullable\":false},{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"upper\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"3\",\"pse.domain.structure\":\"ModelingIntegerRange\"},\"name\":\"range\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         (
                                             "pse.domain.boundary.shape".into(),
                                             "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}"
@@ -2353,6 +2468,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingEnvelope {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"name\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
@@ -2367,6 +2487,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingEnvelope {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingTypeNode\"},\"name\":\"kind\",\"nullable\":false},{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"path\",\"nullable\":true},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"name\",\"nullable\":true},{\"data_type\":{\"Struct\":[{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"num\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"den\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"4\"},\"name\":\"exponent\",\"nullable\":true},{\"data_type\":{\"List\":{\"data_type\":\"UInt32\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"children\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.structure\":\"ModelingTypeArenaNode\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"type\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -2386,6 +2511,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingEnvelope {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"lower\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                     ]),
                                 ),
@@ -2400,6 +2530,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingEnvelope {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\"},\"name\":\"upper\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                     ]),
                                 ),
@@ -2533,6 +2668,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingEnvelopeGuard
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"carrier\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
@@ -2547,6 +2687,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingEnvelopeGuard
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"envelope\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                     ]),
                                 ),
@@ -2561,6 +2706,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingEnvelopeGuard
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingEnvelopeExtent\"},\"name\":\"extent\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
                                         (
@@ -2580,6 +2730,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingEnvelopeGuard
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"arguments\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -2717,6 +2872,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingIntegerRange 
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"lower\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
@@ -2731,6 +2891,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingIntegerRange 
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"upper\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                     ]),
                                 ),
@@ -3381,6 +3546,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingLineageEntry 
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingLineageKind\"},\"name\":\"kind\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
                                         (
@@ -3400,6 +3570,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingLineageEntry 
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"path\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -3514,6 +3689,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingProvenance {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"source\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -3533,6 +3713,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingProvenance {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"role\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -3552,6 +3737,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingProvenance {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingLineageKind\"},\"name\":\"kind\",\"nullable\":false},{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"path\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.structure\":\"ModelingLineageEntry\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"lineage\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -3710,6 +3900,11 @@ for ModelingTypeArenaNodeExponent {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"num\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
@@ -3724,6 +3919,11 @@ for ModelingTypeArenaNodeExponent {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"den\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                     ]),
                                 ),
@@ -3836,6 +4036,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingTypeArenaNode
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingTypeNode\"},\"name\":\"kind\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
                                         ("pse.domain.parameter".into(), "ModelingTypeNode".into()),
@@ -3852,6 +4057,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingTypeArenaNode
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"path\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -3871,6 +4081,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingTypeArenaNode
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"name\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                     ]),
                                 ),
@@ -3885,6 +4100,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingTypeArenaNode
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"Struct\":[{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"num\",\"nullable\":false},{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"den\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/modeling.rs\\\",\\\"version\\\":27}\",\"pse.domain.boundary.tag\":\"4\"},\"name\":\"exponent\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         (
                                             "pse.domain.boundary.shape".into(),
                                             "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}"
@@ -3904,6 +4124,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingTypeArenaNode
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"List\":{\"data_type\":\"UInt32\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"children\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "5".into()),
                                         (
                                             "pse.semantic.collection".into(),
@@ -4060,6 +4285,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingUnitFactor {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"symbol\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
@@ -4074,6 +4304,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingUnitFactor {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"num\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                     ]),
                                 ),
@@ -4088,6 +4323,11 @@ impl pse_contract::boundary_projection::ProjectionType for ModelingUnitFactor {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Int16\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"den\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                     ]),
                                 ),
@@ -4233,6 +4473,11 @@ impl pse_contract::boundary_projection::ProjectionType for ScientificCoordinateV
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"coordinate_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
@@ -4248,6 +4493,11 @@ impl pse_contract::boundary_projection::ProjectionType for ScientificCoordinateV
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"Struct\":[{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"value\",\"nullable\":false},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"quantity_type_id\",\"nullable\":false},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{},\"name\":\"unit_id\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.extension\":\"pse.quantity_value\"},\"name\":\"value\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         ("pse.domain.extension".into(), "pse.quantity_value".into()),
                                     ]),
@@ -4395,6 +4645,11 @@ impl pse_contract::boundary_projection::ProjectionType for VersionRequirement {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingVersionOperator\"},\"name\":\"operator\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
                                         (
@@ -4419,6 +4674,11 @@ impl pse_contract::boundary_projection::ProjectionType for VersionRequirement {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.semantic.integer_range\":\"[0,9223372036854775807]\"},\"name\":\"major\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         (
                                             "pse.semantic.integer_range".into(),
@@ -4442,6 +4702,11 @@ impl pse_contract::boundary_projection::ProjectionType for VersionRequirement {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.semantic.integer_range\":\"[0,9223372036854775807]\"},\"name\":\"minor\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                         (
                                             "pse.semantic.integer_range".into(),
@@ -4465,6 +4730,11 @@ impl pse_contract::boundary_projection::ProjectionType for VersionRequirement {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.semantic.integer_range\":\"[0,9223372036854775807]\"},\"name\":\"patch\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                         (
                                             "pse.semantic.integer_range".into(),

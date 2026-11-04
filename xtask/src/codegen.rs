@@ -551,9 +551,13 @@ fn normal_relative(path: &Path) -> bool {
 }
 
 fn validate_tree(tree: &GeneratedTree) -> Result<()> {
+    let mut roots = BTreeSet::new();
     for root in &tree.roots {
         if !normal_relative(root) {
             bail!("invalid generated root: {}", root.display());
+        }
+        if !roots.insert(root) {
+            bail!("generated tree repeats an output root: {}", root.display());
         }
     }
     for path in tree.files.keys() {
@@ -819,6 +823,20 @@ mod tests {
                 .path()
                 .join("scripts/generated/evidence_schema/catalogue.json")
                 .is_file()
+        );
+    }
+
+    #[test]
+    fn repeated_roots_refuse_before_publishing_ambiguous_ownership() {
+        let tree = GeneratedTree::empty(vec![
+            "generated/source-relationships".into(),
+            "generated/source-relationships".into(),
+        ]);
+        assert!(
+            validate_tree(&tree)
+                .unwrap_err()
+                .to_string()
+                .contains("repeats an output root")
         );
     }
 

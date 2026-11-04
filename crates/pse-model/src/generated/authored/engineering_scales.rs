@@ -93,6 +93,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredEngineeringSc
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.doc\":\"scale_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"engineering_scale\",\"pse.domain.identity.owner\":\"true\",\"pse.domain.role\":\"key\"},\"name\":\"scale_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.doc".into(), "scale_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -112,6 +117,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredEngineeringSc
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"The definition selecting this engineering scale.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\",\"pse.domain.role\":\"payload\"},\"name\":\"model_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         (
                                             "pse.domain.doc".into(),
@@ -133,6 +143,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredEngineeringSc
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"The selected case declaring this engineering scale.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\",\"pse.domain.role\":\"payload\"},\"name\":\"case_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                         (
                                             "pse.domain.doc".into(),
@@ -154,6 +169,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredEngineeringSc
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"The selected instance declaring this engineering scale.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"instance\",\"pse.domain.role\":\"payload\"},\"name\":\"instance_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                         (
                                             "pse.domain.doc".into(),
@@ -176,6 +196,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredEngineeringSc
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.doc\":\"The fit declaring this engineering scale.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"fit\",\"pse.domain.role\":\"payload\"},\"name\":\"fit_id\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "5".into()),
                                         (
                                             "pse.domain.doc".into(),
@@ -197,6 +222,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredEngineeringSc
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\",\"pse.domain.doc\":\"target_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"target_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "6".into()),
                                         ("pse.domain.doc".into(), "target_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -214,6 +244,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredEngineeringSc
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\",\"pse.domain.doc\":\"target_kind\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"NumericalTarget\",\"pse.domain.role\":\"payload\"},\"name\":\"target_kind\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "7".into()),
                                         ("pse.domain.doc".into(), "target_kind".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
@@ -232,6 +267,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredEngineeringSc
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\",\"pse.domain.doc\":\"quantity_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"quantity_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "8".into()),
                                         ("pse.domain.doc".into(), "quantity_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -249,6 +289,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredEngineeringSc
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\",\"pse.domain.doc\":\"unit_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"unit_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "9".into()),
                                         ("pse.domain.doc".into(), "unit_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -266,6 +311,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredEngineeringSc
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\",\"pse.domain.doc\":\"kind\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"EngineeringScaleKind\",\"pse.domain.role\":\"payload\"},\"name\":\"kind\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "10".into()),
                                         ("pse.domain.doc".into(), "kind".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
@@ -287,6 +337,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredEngineeringSc
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"11\",\"pse.domain.doc\":\"value\",\"pse.domain.role\":\"payload\"},\"name\":\"value\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "11".into()),
                                         ("pse.domain.doc".into(), "value".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -303,6 +358,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredEngineeringSc
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"12\",\"pse.domain.doc\":\"source\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"NumericalSource\",\"pse.domain.role\":\"payload\"},\"name\":\"source\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "12".into()),
                                         ("pse.domain.doc".into(), "source".into()),
                                         ("pse.domain.extension".into(), "pse.enum".into()),
@@ -321,6 +381,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredEngineeringSc
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Int32\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"13\",\"pse.domain.doc\":\"priority\",\"pse.domain.role\":\"payload\"},\"name\":\"priority\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "13".into()),
                                         ("pse.domain.doc".into(), "priority".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -337,6 +402,11 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredEngineeringSc
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"14\",\"pse.domain.doc\":\"provenance\",\"pse.domain.role\":\"payload\"},\"name\":\"provenance\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "14".into()),
                                         ("pse.domain.doc".into(), "provenance".into()),
                                         ("pse.domain.role".into(), "payload".into()),

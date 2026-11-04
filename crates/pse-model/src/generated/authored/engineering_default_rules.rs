@@ -75,6 +75,11 @@ for AuthoredEngineeringDefaultRulesRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.doc\":\"rule_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"engineering_rule\",\"pse.domain.identity.owner\":\"true\",\"pse.domain.role\":\"key\"},\"name\":\"rule_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                         ("pse.domain.doc".into(), "rule_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -94,6 +99,11 @@ for AuthoredEngineeringDefaultRulesRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"quantity_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"quantity_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                         ("pse.domain.doc".into(), "quantity_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -111,6 +121,11 @@ for AuthoredEngineeringDefaultRulesRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"unit_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"unit_id\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                         ("pse.domain.doc".into(), "unit_id".into()),
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
@@ -128,6 +143,11 @@ for AuthoredEngineeringDefaultRulesRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"physical_allowance\",\"pse.domain.role\":\"payload\"},\"name\":\"physical_allowance\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                         ("pse.domain.doc".into(), "physical_allowance".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -144,6 +164,11 @@ for AuthoredEngineeringDefaultRulesRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.doc\":\"relative_fraction\",\"pse.domain.role\":\"payload\"},\"name\":\"relative_fraction\",\"nullable\":true}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "5".into()),
                                         ("pse.domain.doc".into(), "relative_fraction".into()),
                                         ("pse.domain.role".into(), "payload".into()),
@@ -160,6 +185,11 @@ for AuthoredEngineeringDefaultRulesRow {
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\",\"pse.domain.doc\":\"provenance\",\"pse.domain.role\":\"payload\"},\"name\":\"provenance\",\"nullable\":false}"
+                                                .into(),
+                                        ),
                                         ("pse.domain.boundary.tag".into(), "6".into()),
                                         ("pse.domain.doc".into(), "provenance".into()),
                                         ("pse.domain.role".into(), "payload".into()),

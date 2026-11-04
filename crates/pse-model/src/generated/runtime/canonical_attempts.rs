@@ -73,6 +73,598 @@ impl PartialEq for RuntimeCanonicalAttemptsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl pse_contract::boundary_projection::ProjectionType for RuntimeCanonicalAttemptsRow {
+    fn projection(
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalAttemptMetadata",
+                "crates/pse-schema/src/catalog/substrate.rs",
+                1u32,
+                pse_contract::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    pse_contract::boundary_projection::Shape::Record(
+                        vec![
+                            pse_contract::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "key",
+                                    1u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.canonical.key\":\"attempt\",\"pse.domain.canonical.readonly\":\"true\",\"pse.domain.canonical.record_key\":\"true\",\"pse.domain.doc\":\"key\",\"pse.domain.role\":\"key\"},\"name\":\"key\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.canonical.key".into(), "attempt".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.canonical.record_key".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "key".into()),
+                                        ("pse.domain.role".into(), "key".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "run",
+                                    2u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.canonical.key\":\"run\",\"pse.domain.canonical.readonly\":\"true\",\"pse.domain.doc\":\"run\",\"pse.domain.role\":\"payload\"},\"name\":\"run\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        ("pse.domain.canonical.key".into(), "run".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "run".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                u64,
+                            >(
+                                    graph,
+                                    "generation",
+                                    3u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"UInt64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.canonical.readonly\":\"true\",\"pse.domain.doc\":\"generation\",\"pse.domain.role\":\"payload\"},\"name\":\"generation\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "generation".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "claim_operation",
+                                    4u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.canonical.key\":\"operation\",\"pse.domain.canonical.readonly\":\"true\",\"pse.domain.doc\":\"claim_operation\",\"pse.domain.role\":\"payload\"},\"name\":\"claim_operation\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        ("pse.domain.canonical.key".into(), "operation".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "claim_operation".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                crate::Bytes,
+                            >(
+                                    graph,
+                                    "request",
+                                    5u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Binary\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.canonical.readonly\":\"true\",\"pse.domain.doc\":\"request\",\"pse.domain.role\":\"payload\"},\"name\":\"request\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "5".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "request".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "worker",
+                                    6u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\",\"pse.domain.canonical.readonly\":\"true\",\"pse.domain.doc\":\"worker\",\"pse.domain.role\":\"payload\"},\"name\":\"worker\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "6".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "worker".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                i64,
+                            >(
+                                    graph,
+                                    "expires_at",
+                                    7u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":{\"Timestamp\":[\"Microsecond\",\"UTC\"]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\",\"pse.domain.doc\":\"expires_at\",\"pse.domain.role\":\"payload\"},\"name\":\"expires_at\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "7".into()),
+                                        ("pse.domain.doc".into(), "expires_at".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                crate::generated::enums::CanonicalAttemptPhase,
+                            >(
+                                    graph,
+                                    "phase",
+                                    8u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\",\"pse.domain.canonical.assert\":\"(($value='ingesting' AND $this.close_generation=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_awaiting_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_with_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest!=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value IN ['terminal','terminal_compacted'] AND (($value='terminal_compacted' AND $this.completion=NONE) OR ($value='terminal' AND ((type::record('canonical_runs',$this.run).purpose='study_admission' AND $this.outcome='failed' AND $this.completion=NONE) OR ($this.completion!=NONE AND !(type::record('canonical_runs',$this.run).purpose='study_admission' AND $this.outcome='failed'))))) AND $this.outcome IN ['succeeded','failed','partial','cancelled'] AND (type::record('canonical_runs',$this.run).purpose='study_admission' OR ($this.close_generation!=NONE AND $this.closed_manifest!=NONE))))\",\"pse.domain.canonical.transition\":\"ingesting\",\"pse.domain.canonical.transition_exception\":\"type::record('canonical_runs',$this.run).purpose='study_admission' AND $before IN ['ingesting','closed_awaiting_manifest','closed_with_manifest'] AND $value='terminal'\",\"pse.domain.doc\":\"phase\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"CanonicalAttemptPhase\",\"pse.domain.role\":\"payload\"},\"name\":\"phase\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "8".into()),
+                                        (
+                                            "pse.domain.canonical.assert".into(),
+                                            "(($value='ingesting' AND $this.close_generation=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_awaiting_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_with_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest!=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value IN ['terminal','terminal_compacted'] AND (($value='terminal_compacted' AND $this.completion=NONE) OR ($value='terminal' AND ((type::record('canonical_runs',$this.run).purpose='study_admission' AND $this.outcome='failed' AND $this.completion=NONE) OR ($this.completion!=NONE AND !(type::record('canonical_runs',$this.run).purpose='study_admission' AND $this.outcome='failed'))))) AND $this.outcome IN ['succeeded','failed','partial','cancelled'] AND (type::record('canonical_runs',$this.run).purpose='study_admission' OR ($this.close_generation!=NONE AND $this.closed_manifest!=NONE))))"
+                                                .into(),
+                                        ),
+                                        (
+                                            "pse.domain.canonical.transition".into(),
+                                            "ingesting".into(),
+                                        ),
+                                        (
+                                            "pse.domain.canonical.transition_exception".into(),
+                                            "type::record('canonical_runs',$this.run).purpose='study_admission' AND $before IN ['ingesting','closed_awaiting_manifest','closed_with_manifest'] AND $value='terminal'"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.doc".into(), "phase".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        (
+                                            "pse.domain.parameter".into(),
+                                            "CanonicalAttemptPhase".into(),
+                                        ),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                Option<u64>,
+                            >(
+                                    graph,
+                                    "close_generation",
+                                    9u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"UInt64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\",\"pse.domain.doc\":\"close_generation\",\"pse.domain.role\":\"payload\"},\"name\":\"close_generation\",\"nullable\":true}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "9".into()),
+                                        ("pse.domain.doc".into(), "close_generation".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                Option<crate::generated::enums::CanonicalTerminalOutcome>,
+                            >(
+                                    graph,
+                                    "outcome",
+                                    10u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\",\"pse.domain.canonical.assert\":\"$before=NONE OR $before=$value\",\"pse.domain.doc\":\"outcome\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"CanonicalTerminalOutcome\",\"pse.domain.role\":\"payload\"},\"name\":\"outcome\",\"nullable\":true}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "10".into()),
+                                        (
+                                            "pse.domain.canonical.assert".into(),
+                                            "$before=NONE OR $before=$value".into(),
+                                        ),
+                                        ("pse.domain.doc".into(), "outcome".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        (
+                                            "pse.domain.parameter".into(),
+                                            "CanonicalTerminalOutcome".into(),
+                                        ),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                Option<String>,
+                            >(
+                                    graph,
+                                    "closed_manifest",
+                                    11u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"11\",\"pse.domain.canonical.assert\":\"($value=NONE OR $value=$this.key) AND ($before=NONE OR $before=$value)\",\"pse.domain.doc\":\"closed_manifest\",\"pse.domain.role\":\"payload\"},\"name\":\"closed_manifest\",\"nullable\":true}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "11".into()),
+                                        (
+                                            "pse.domain.canonical.assert".into(),
+                                            "($value=NONE OR $value=$this.key) AND ($before=NONE OR $before=$value)"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.doc".into(), "closed_manifest".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                Option<crate::Bytes>,
+                            >(
+                                    graph,
+                                    "completion",
+                                    12u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Binary\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"12\",\"pse.domain.canonical.assert\":\"($this.phase!='terminal_compacted' OR $value=NONE) AND ($before=NONE OR $before=$value OR ($value=NONE AND $this.phase='terminal_compacted'))\",\"pse.domain.doc\":\"completion\",\"pse.domain.role\":\"payload\"},\"name\":\"completion\",\"nullable\":true}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "12".into()),
+                                        (
+                                            "pse.domain.canonical.assert".into(),
+                                            "($this.phase!='terminal_compacted' OR $value=NONE) AND ($before=NONE OR $before=$value OR ($value=NONE AND $this.phase='terminal_compacted'))"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.doc".into(), "completion".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                Option<String>,
+                            >(
+                                    graph,
+                                    "seed_manifest",
+                                    13u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"13\",\"pse.domain.canonical.seal_refusal\":\"PSE_REFUSAL:execution_terminal_seed_manifest_immutable\",\"pse.domain.canonical.sealed\":\"$before.phase IN ['terminal','terminal_compacted']\",\"pse.domain.doc\":\"seed_manifest\",\"pse.domain.role\":\"payload\"},\"name\":\"seed_manifest\",\"nullable\":true}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "13".into()),
+                                        (
+                                            "pse.domain.canonical.seal_refusal".into(),
+                                            "PSE_REFUSAL:execution_terminal_seed_manifest_immutable"
+                                                .into(),
+                                        ),
+                                        (
+                                            "pse.domain.canonical.sealed".into(),
+                                            "$before.phase IN ['terminal','terminal_compacted']".into(),
+                                        ),
+                                        ("pse.domain.doc".into(), "seed_manifest".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                Option<String>,
+                            >(
+                                    graph,
+                                    "finalization_study",
+                                    14u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"14\",\"pse.domain.canonical.key\":\"study\",\"pse.domain.canonical.readonly\":\"true\",\"pse.domain.doc\":\"finalization_study\",\"pse.domain.role\":\"payload\"},\"name\":\"finalization_study\",\"nullable\":true}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "14".into()),
+                                        ("pse.domain.canonical.key".into(), "study".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "finalization_study".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl pse_contract::boundary_projection::ProjectionRecord
+for RuntimeCanonicalAttemptsRow {
+    const VERSION: u32 = 1u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "key"),
+        (2u32, "run"),
+        (3u32, "generation"),
+        (4u32, "claim_operation"),
+        (5u32, "request"),
+        (6u32, "worker"),
+        (7u32, "expires_at"),
+        (8u32, "phase"),
+        (9u32, "close_generation"),
+        (10u32, "outcome"),
+        (11u32, "closed_manifest"),
+        (12u32, "completion"),
+        (13u32, "seed_manifest"),
+        (14u32, "finalization_study"),
+    ];
+    type Fields = (
+        String,
+        String,
+        u64,
+        String,
+        crate::Bytes,
+        String,
+        i64,
+        crate::generated::enums::CanonicalAttemptPhase,
+        Option<u64>,
+        Option<crate::generated::enums::CanonicalTerminalOutcome>,
+        Option<String>,
+        Option<crate::Bytes>,
+        Option<String>,
+        Option<String>,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (
+            self.r#key,
+            self.r#run,
+            self.r#generation,
+            self.r#claim_operation,
+            self.r#request,
+            self.r#worker,
+            self.r#expires_at,
+            self.r#phase,
+            self.r#close_generation,
+            self.r#outcome,
+            self.r#closed_manifest,
+            self.r#completion,
+            self.r#seed_manifest,
+            self.r#finalization_study,
+        )
+    }
+    fn from_projection_fields(
+        (
+            r#key,
+            r#run,
+            r#generation,
+            r#claim_operation,
+            r#request,
+            r#worker,
+            r#expires_at,
+            r#phase,
+            r#close_generation,
+            r#outcome,
+            r#closed_manifest,
+            r#completion,
+            r#seed_manifest,
+            r#finalization_study,
+        ): Self::Fields,
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#key,
+            r#run,
+            r#generation,
+            r#claim_operation,
+            r#request,
+            r#worker,
+            r#expires_at,
+            r#phase,
+            r#close_generation,
+            r#outcome,
+            r#closed_manifest,
+            r#completion,
+            r#seed_manifest,
+            r#finalization_study,
+        })
+    }
+}
+impl pse_contract::boundary_projection::ValidateProjection
+for RuntimeCanonicalAttemptsRow {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <u64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <crate::Bytes as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <crate::generated::enums::CanonicalAttemptPhase as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            u64,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            crate::generated::enums::CanonicalTerminalOutcome,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            String,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            crate::Bytes,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            String,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            String,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            pse_contract::boundary_projection::validate_field(
+                &self.r#key,
+                &pse_contract::boundary_projection::field_path(path, "key"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#run,
+                &pse_contract::boundary_projection::field_path(path, "run"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#generation,
+                &pse_contract::boundary_projection::field_path(path, "generation"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#claim_operation,
+                &pse_contract::boundary_projection::field_path(path, "claim_operation"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#request,
+                &pse_contract::boundary_projection::field_path(path, "request"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#worker,
+                &pse_contract::boundary_projection::field_path(path, "worker"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#expires_at,
+                &pse_contract::boundary_projection::field_path(path, "expires_at"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#phase,
+                &pse_contract::boundary_projection::field_path(path, "phase"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#close_generation,
+                &pse_contract::boundary_projection::field_path(path, "close_generation"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#outcome,
+                &pse_contract::boundary_projection::field_path(path, "outcome"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#closed_manifest,
+                &pse_contract::boundary_projection::field_path(path, "closed_manifest"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#completion,
+                &pse_contract::boundary_projection::field_path(path, "completion"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#seed_manifest,
+                &pse_contract::boundary_projection::field_path(path, "seed_manifest"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#finalization_study,
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "finalization_study",
+                ),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 impl RuntimeCanonicalAttemptsRow {
     /// Project the declared nominal lookup domain from native transport storage.
     pub fn key_domain(&self) -> crate::generated::canonical::AttemptKey {

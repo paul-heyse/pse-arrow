@@ -5099,6 +5099,7 @@ Commands:
   comparison          Compare explicitly addressed source, API, retained context or native world evidence
   schema              Navigate an explicitly supplied complete descriptor set, or compare schema worlds
   payload             Explain selected binary, JSON or textproto payloads without invoking an RPC
+  developer-evidence  Export source-generated observations from original private workflow evidence
   outline             Read written declarations or document headings without semantic preparation
   declaration         Read a known declaration, literal item, position or exact original range
   origin              Inspect the declared authored owner of an exact generated-source hit
@@ -5457,6 +5458,52 @@ Options:
 
       --original
           Include the exact original input bytes as base64
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect developer-evidence`
+
+~~~~text
+Export source-generated observations from original private workflow evidence
+
+Usage: pse inspect developer-evidence [OPTIONS] --from-result <FROM_RESULT> --output <OUTPUT>
+
+Options:
+  -C <checkout>
+
+
+      --from-result <FROM_RESULT>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --session <SESSION>
+
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --output <OUTPUT>
+
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --report-only
+          Export a report without requiring an original v2 inventory commitment
 
   -h, --help
           Print help (see a summary with '-h')

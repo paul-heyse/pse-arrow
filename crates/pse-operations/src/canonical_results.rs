@@ -374,16 +374,23 @@ impl CompletionRead {
     }
 }
 
+pse_contract::projection_struct! {
 /// An exact terminal attempt and its closed membership, pinned before paging.
 /// Failed and partial outcomes retain their actual class rather than substituting
 /// another run's values. Clone retains the same protected read owner.
 #[derive(Clone, Debug)]
 pub struct ResultRead {
-    run: Run,
-    attempt: Attempt,
-    manifest: Manifest,
-    sets: Vec<ResultSetDescriptor>,
-    owner: Arc<ReadOwner>,
+    projection: { name: "CanonicalProtectedResultSnapshot", version: 1,
+        direction: pse_contract::BoundaryDirection::Output, construction: ObservationOnly,
+        reserved_tags: [], reserved_names: [] };
+    run: Run => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    attempt: Attempt => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    manifest: Manifest => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    sets: Vec<ResultSetDescriptor> => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    @local {
+        owner: Arc<ReadOwner>;
+    }
+}
 }
 impl ResultRead {
     /// Retain allocation through file borrowers, tracked release and uncertain

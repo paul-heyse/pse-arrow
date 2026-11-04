@@ -1985,6 +1985,41 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 Allowed canonical members: `["usable", "qualified_unclosed", "seed_only", "diagnostic_only", "unusable"]`.
 
+## `CanonicalAttemptMetadata`
+
+Rust owner: `pse_model::generated::runtime::canonical_attempts::RuntimeCanonicalAttemptsRow`. Source: `crates/pse-schema/src/catalog/substrate.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.canonical.key": "attempt", "pse.domain.canonical.readonly": "true", "pse.domain.canonical.record_key": "true", "pse.domain.doc": "key", "pse.domain.role": "key"}` |
+| `run` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.canonical.key": "run", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "run", "pse.domain.role": "payload"}` |
+| `generation` | 3 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "generation", "pse.domain.role": "payload"}` |
+| `claim_operation` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.canonical.key": "operation", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "claim_operation", "pse.domain.role": "payload"}` |
+| `request` | 5 | `Scalar(Bytes)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "request", "pse.domain.role": "payload"}` |
+| `worker` | 6 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "worker", "pse.domain.role": "payload"}` |
+| `expires_at` | 7 | `Scalar(I64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.domain.doc": "expires_at", "pse.domain.role": "payload"}` |
+| `phase` | 8 | `Named("CanonicalAttemptPhase")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8", "pse.domain.canonical.assert": "(($value='ingesting' AND $this.close_generation=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_awaiting_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_with_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest!=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value IN ['terminal','terminal_compacted'] AND (($value='terminal_compacted' AND $this.completion=NONE) OR ($value='terminal' AND ((type::record('canonical_runs',$this.run).purpose='study_admission' AND $this.outcome='failed' AND $this.completion=NONE) OR ($this.completion!=NONE AND !(type::record('canonical_runs',$this.run).purpose='study_admission' AND $this.outcome='failed'))))) AND $this.outcome IN ['succeeded','failed','partial','cancelled'] AND (type::record('canonical_runs',$this.run).purpose='study_admission' OR ($this.close_generation!=NONE AND $this.closed_manifest!=NONE))))", "pse.domain.canonical.transition": "ingesting", "pse.domain.canonical.transition_exception": "type::record('canonical_runs',$this.run).purpose='study_admission' AND $before IN ['ingesting','closed_awaiting_manifest','closed_with_manifest'] AND $value='terminal'", "pse.domain.doc": "phase", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "CanonicalAttemptPhase", "pse.domain.role": "payload"}` |
+| `close_generation` | 9 | `Optional(Scalar(U64))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9", "pse.domain.doc": "close_generation", "pse.domain.role": "payload"}` |
+| `outcome` | 10 | `Optional(Named("CanonicalTerminalOutcome"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10", "pse.domain.canonical.assert": "$before=NONE OR $before=$value", "pse.domain.doc": "outcome", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "CanonicalTerminalOutcome", "pse.domain.role": "payload"}` |
+| `closed_manifest` | 11 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "11", "pse.domain.canonical.assert": "($value=NONE OR $value=$this.key) AND ($before=NONE OR $before=$value)", "pse.domain.doc": "closed_manifest", "pse.domain.role": "payload"}` |
+| `completion` | 12 | `Optional(Scalar(Bytes))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "12", "pse.domain.canonical.assert": "($this.phase!='terminal_compacted' OR $value=NONE) AND ($before=NONE OR $before=$value OR ($value=NONE AND $this.phase='terminal_compacted'))", "pse.domain.doc": "completion", "pse.domain.role": "payload"}` |
+| `seed_manifest` | 13 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "13", "pse.domain.canonical.seal_refusal": "PSE_REFUSAL:execution_terminal_seed_manifest_immutable", "pse.domain.canonical.sealed": "$before.phase IN ['terminal','terminal_compacted']", "pse.domain.doc": "seed_manifest", "pse.domain.role": "payload"}` |
+| `finalization_study` | 14 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "14", "pse.domain.canonical.key": "study", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "finalization_study", "pse.domain.role": "payload"}` |
+
+## `CanonicalAttemptPhase`
+
+Rust owner: `pse_model::generated::enums::CanonicalAttemptPhase`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["ingesting", "closed_awaiting_manifest", "closed_with_manifest", "terminal", "terminal_compacted"]`.
+
 ## `CanonicalContextCut`
 
 Rust owner: `pse_operations::canonical_contexts::ContextCut`. Source: `crates/pse-operations/src/canonical_contexts.rs`. Interpretation version: 1. Direction: `Both`.
@@ -2008,6 +2043,18 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `cut` | 1 | `Named("CanonicalContextCut")` | `Both` | `[]` | `{}` |
 | `effective_at_us` | 2 | `Scalar(I64)` | `Both` | `[]` | `{}` |
 | `context` | 3 | `Named("CanonicalProjectContext")` | `Both` | `[]` | `{}` |
+
+## `CanonicalPayloadPlacement`
+
+Rust owner: `pse_model::generated::enums::CanonicalPayloadPlacement`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["inline", "sealed"]`.
 
 ## `CanonicalProducerClass`
 
@@ -2054,6 +2101,42 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
 
+## `CanonicalProtectedResultSnapshot`
+
+Rust owner: `pse_operations::canonical_results::ResultRead`. Source: `crates/pse-operations/src/canonical_results.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `run` | 1 | `Named("CanonicalRunMetadata")` | `Output` | `[]` | `{}` |
+| `attempt` | 2 | `Named("CanonicalAttemptMetadata")` | `Output` | `[]` | `{}` |
+| `manifest` | 3 | `Named("CanonicalResultManifest")` | `Output` | `[]` | `{}` |
+| `sets` | 4 | `Repeated(Named("CanonicalResultSetDescriptor"))` | `Output` | `[]` | `{}` |
+
+## `CanonicalResultBatchMetadata`
+
+Rust owner: `pse_model::generated::runtime::canonical_result_batches::RuntimeCanonicalResultBatchesRow`. Source: `crates/pse-schema/src/catalog/substrate.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.canonical.readonly": "true", "pse.domain.canonical.record_key": "true", "pse.domain.doc": "key", "pse.domain.role": "key"}` |
+| `attempt` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.doc": "attempt", "pse.domain.role": "payload"}` |
+| `result_set` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.doc": "result_set", "pse.domain.role": "payload"}` |
+| `ordinal` | 4 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.doc": "ordinal", "pse.domain.role": "payload"}` |
+| `digest` | 5 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.doc": "digest", "pse.domain.role": "payload"}` |
+| `row_count` | 6 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.doc": "row_count", "pse.domain.role": "payload"}` |
+| `payload_binding` | 7 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.domain.doc": "payload_binding", "pse.domain.role": "payload"}` |
+| `placement` | 8 | `Named("CanonicalPayloadPlacement")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8", "pse.domain.doc": "placement", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "CanonicalPayloadPlacement", "pse.domain.role": "payload"}` |
+| `inline_key` | 9 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9", "pse.domain.doc": "inline_key", "pse.domain.role": "payload"}` |
+| `file_instance` | 10 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10", "pse.domain.doc": "file_instance", "pse.domain.role": "payload"}` |
+| `payload_index` | 11 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "11", "pse.domain.doc": "payload_index", "pse.domain.role": "payload"}` |
+| `payload_bytes` | 12 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "12", "pse.domain.doc": "payload_bytes", "pse.domain.role": "payload"}` |
+| `schema` | 13 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "13", "pse.domain.doc": "schema", "pse.domain.role": "payload"}` |
+| `encoding` | 14 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "14", "pse.domain.doc": "encoding", "pse.domain.role": "payload"}` |
+
 ## `CanonicalResultBlockMetadata`
 
 Rust owner: `pse_model::generated::runtime::canonical_result_blocks::RuntimeCanonicalResultBlocksRow`. Source: `crates/pse-schema/src/catalog/substrate.rs`. Interpretation version: 1. Direction: `Both`.
@@ -2092,6 +2175,94 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `generation` | 3 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.doc": "generation", "pse.domain.role": "payload"}` |
 | `digest` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.doc": "digest", "pse.domain.role": "payload"}` |
 | `descriptors` | 5 | `Scalar(Bytes)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.doc": "descriptors", "pse.domain.role": "payload"}` |
+
+## `CanonicalResultOutputMetadata`
+
+Rust owner: `pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow`. Source: `crates/pse-schema/src/catalog/substrate.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.canonical.readonly": "true", "pse.domain.canonical.record_key": "true", "pse.domain.doc": "key", "pse.domain.role": "key"}` |
+| `batch` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.doc": "batch", "pse.domain.role": "payload"}` |
+| `result_set` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.doc": "result_set", "pse.domain.role": "payload"}` |
+| `output` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.doc": "output", "pse.domain.role": "payload"}` |
+| `partition` | 5 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.doc": "partition", "pse.domain.role": "payload"}` |
+| `start` | 6 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.doc": "start", "pse.domain.role": "payload"}` |
+| `end` | 7 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.domain.doc": "end", "pse.domain.role": "payload"}` |
+| `coordinate_min` | 8 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8", "pse.domain.doc": "coordinate_min", "pse.domain.role": "payload"}` |
+| `coordinate_max` | 9 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9", "pse.domain.doc": "coordinate_max", "pse.domain.role": "payload"}` |
+| `interpretation` | 10 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10", "pse.domain.doc": "interpretation", "pse.domain.role": "payload"}` |
+
+## `CanonicalResultSetDescriptor`
+
+Rust owner: `pse_operations::canonical_execution::ResultSetDescriptor`. Source: `crates/pse-operations/src/canonical_execution.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `name` | 2 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `batch_count` | 3 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `row_count` | 4 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `batches_digest` | 5 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+## `CanonicalResultSetMetadata`
+
+Rust owner: `pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow`. Source: `crates/pse-schema/src/catalog/substrate.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.canonical.readonly": "true", "pse.domain.canonical.record_key": "true", "pse.domain.doc": "key", "pse.domain.role": "key"}` |
+| `attempt` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.doc": "attempt", "pse.domain.role": "payload"}` |
+| `name` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.doc": "name", "pse.domain.role": "payload"}` |
+| `interpretation` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.doc": "interpretation", "pse.domain.role": "payload"}` |
+| `next_ordinal` | 5 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.doc": "next_ordinal", "pse.domain.role": "payload"}` |
+| `row_count` | 6 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.doc": "row_count", "pse.domain.role": "payload"}` |
+
+## `CanonicalRunMetadata`
+
+Rust owner: `pse_model::generated::runtime::canonical_runs::RuntimeCanonicalRunsRow`. Source: `crates/pse-schema/src/catalog/substrate.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.canonical.key": "run", "pse.domain.canonical.readonly": "true", "pse.domain.canonical.record_key": "true", "pse.domain.doc": "key", "pse.domain.role": "key"}` |
+| `purpose` | 2 | `Named("CanonicalRunPurpose")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.canonical.assert": "($value='execution' AND $this.admission_study=NONE AND $this.admission_point=NONE) OR ($value='study_admission' AND $this.admission_study!=NONE AND $this.admission_point!=NONE)", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "purpose", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "CanonicalRunPurpose", "pse.domain.role": "payload"}` |
+| `admission_study` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.canonical.key": "study", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "admission_study", "pse.domain.fk.column": "key", "pse.domain.fk.relation": "runtime.canonical_studies", "pse.domain.role": "payload", "pse.semantic.reference": "{\"relation\":\"runtime.canonical_studies\",\"columns\":[{\"source\":[],\"target\":\"key\"}],\"null_policy\":\"all_or_none\"}"}` |
+| `admission_point` | 4 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.canonical.key": "study_point", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "admission_point", "pse.domain.fk.column": "key", "pse.domain.fk.relation": "runtime.canonical_study_points", "pse.domain.role": "payload", "pse.semantic.reference": "{\"relation\":\"runtime.canonical_study_points\",\"columns\":[{\"source\":[],\"target\":\"key\"}],\"null_policy\":\"all_or_none\"}"}` |
+| `research_selection` | 5 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.doc": "research_selection", "pse.domain.role": "payload"}` |
+| `research_dataset` | 6 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.doc": "research_dataset", "pse.domain.role": "payload"}` |
+| `problem` | 7 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.domain.canonical.key": "problem", "pse.domain.doc": "problem", "pse.domain.role": "payload"}` |
+| `revision` | 8 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8", "pse.domain.canonical.key": "revision", "pse.domain.doc": "revision", "pse.domain.role": "payload"}` |
+| `source_sequence` | 9 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9", "pse.domain.doc": "source_sequence", "pse.domain.role": "payload"}` |
+| `sequence` | 10 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10", "pse.domain.doc": "sequence", "pse.domain.role": "payload"}` |
+| `request` | 11 | `Scalar(Bytes)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "11", "pse.domain.doc": "request", "pse.domain.role": "payload"}` |
+| `source_selection` | 12 | `Scalar(Bytes)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "12", "pse.domain.doc": "source_selection", "pse.domain.role": "payload"}` |
+| `attestation` | 13 | `Scalar(Bytes)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "13", "pse.domain.doc": "attestation", "pse.domain.role": "payload"}` |
+| `interpretation` | 14 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "14", "pse.domain.doc": "interpretation", "pse.domain.role": "payload"}` |
+| `current_generation` | 15 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "15", "pse.domain.doc": "current_generation", "pse.domain.role": "payload"}` |
+| `current_attempt` | 16 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "16", "pse.domain.canonical.key": "attempt", "pse.domain.doc": "current_attempt", "pse.domain.role": "payload"}` |
+| `cancelled` | 17 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "17", "pse.domain.doc": "cancelled", "pse.domain.role": "payload"}` |
+| `terminal_attempt` | 18 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "18", "pse.domain.canonical.key": "attempt", "pse.domain.doc": "terminal_attempt", "pse.domain.role": "payload"}` |
+| `terminal_class` | 19 | `Optional(Named("CanonicalTerminalOutcome"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "19", "pse.domain.doc": "terminal_class", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "CanonicalTerminalOutcome", "pse.domain.role": "payload"}` |
+
+## `CanonicalRunPurpose`
+
+Rust owner: `pse_model::generated::enums::CanonicalRunPurpose`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["execution", "study_admission"]`.
 
 ## `CanonicalStudySummary`
 

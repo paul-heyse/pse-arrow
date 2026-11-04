@@ -58,6 +58,399 @@ impl PartialEq for RuntimeCanonicalResultBlockOutputsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl pse_contract::boundary_projection::ProjectionType
+for RuntimeCanonicalResultBlockOutputsRow {
+    fn projection(
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalResultOutputMetadata",
+                "crates/pse-schema/src/catalog/substrate.rs",
+                1u32,
+                pse_contract::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    pse_contract::boundary_projection::Shape::Record(
+                        vec![
+                            pse_contract::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "key",
+                                    1u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.canonical.readonly\":\"true\",\"pse.domain.canonical.record_key\":\"true\",\"pse.domain.doc\":\"key\",\"pse.domain.role\":\"key\"},\"name\":\"key\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.canonical.record_key".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "key".into()),
+                                        ("pse.domain.role".into(), "key".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "batch",
+                                    2u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"batch\",\"pse.domain.role\":\"payload\"},\"name\":\"batch\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        ("pse.domain.doc".into(), "batch".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "result_set",
+                                    3u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"result_set\",\"pse.domain.role\":\"payload\"},\"name\":\"result_set\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        ("pse.domain.doc".into(), "result_set".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "output",
+                                    4u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"output\",\"pse.domain.role\":\"payload\"},\"name\":\"output\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        ("pse.domain.doc".into(), "output".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "partition",
+                                    5u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.doc\":\"partition\",\"pse.domain.role\":\"payload\"},\"name\":\"partition\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "5".into()),
+                                        ("pse.domain.doc".into(), "partition".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                u64,
+                            >(
+                                    graph,
+                                    "start",
+                                    6u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"UInt64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\",\"pse.domain.doc\":\"start\",\"pse.domain.role\":\"payload\"},\"name\":\"start\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "6".into()),
+                                        ("pse.domain.doc".into(), "start".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                u64,
+                            >(
+                                    graph,
+                                    "end",
+                                    7u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"UInt64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\",\"pse.domain.doc\":\"end\",\"pse.domain.role\":\"payload\"},\"name\":\"end\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "7".into()),
+                                        ("pse.domain.doc".into(), "end".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                Option<f64>,
+                            >(
+                                    graph,
+                                    "coordinate_min",
+                                    8u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\",\"pse.domain.doc\":\"coordinate_min\",\"pse.domain.role\":\"payload\"},\"name\":\"coordinate_min\",\"nullable\":true}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "8".into()),
+                                        ("pse.domain.doc".into(), "coordinate_min".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                Option<f64>,
+                            >(
+                                    graph,
+                                    "coordinate_max",
+                                    9u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\",\"pse.domain.doc\":\"coordinate_max\",\"pse.domain.role\":\"payload\"},\"name\":\"coordinate_max\",\"nullable\":true}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "9".into()),
+                                        ("pse.domain.doc".into(), "coordinate_max".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "interpretation",
+                                    10u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.codegen.native_field".into(),
+                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\",\"pse.domain.doc\":\"interpretation\",\"pse.domain.role\":\"payload\"},\"name\":\"interpretation\",\"nullable\":false}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "10".into()),
+                                        ("pse.domain.doc".into(), "interpretation".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl pse_contract::boundary_projection::ProjectionRecord
+for RuntimeCanonicalResultBlockOutputsRow {
+    const VERSION: u32 = 1u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "key"),
+        (2u32, "batch"),
+        (3u32, "result_set"),
+        (4u32, "output"),
+        (5u32, "partition"),
+        (6u32, "start"),
+        (7u32, "end"),
+        (8u32, "coordinate_min"),
+        (9u32, "coordinate_max"),
+        (10u32, "interpretation"),
+    ];
+    type Fields = (
+        String,
+        String,
+        String,
+        String,
+        String,
+        u64,
+        u64,
+        Option<f64>,
+        Option<f64>,
+        String,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (
+            self.r#key,
+            self.r#batch,
+            self.r#result_set,
+            self.r#output,
+            self.r#partition,
+            self.r#start,
+            self.r#end,
+            self.r#coordinate_min,
+            self.r#coordinate_max,
+            self.r#interpretation,
+        )
+    }
+    fn from_projection_fields(
+        (
+            r#key,
+            r#batch,
+            r#result_set,
+            r#output,
+            r#partition,
+            r#start,
+            r#end,
+            r#coordinate_min,
+            r#coordinate_max,
+            r#interpretation,
+        ): Self::Fields,
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#key,
+            r#batch,
+            r#result_set,
+            r#output,
+            r#partition,
+            r#start,
+            r#end,
+            r#coordinate_min,
+            r#coordinate_max,
+            r#interpretation,
+        })
+    }
+}
+impl pse_contract::boundary_projection::ValidateProjection
+for RuntimeCanonicalResultBlockOutputsRow {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <u64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <u64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            pse_contract::boundary_projection::validate_field(
+                &self.r#key,
+                &pse_contract::boundary_projection::field_path(path, "key"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#batch,
+                &pse_contract::boundary_projection::field_path(path, "batch"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#result_set,
+                &pse_contract::boundary_projection::field_path(path, "result_set"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#output,
+                &pse_contract::boundary_projection::field_path(path, "output"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#partition,
+                &pse_contract::boundary_projection::field_path(path, "partition"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#start,
+                &pse_contract::boundary_projection::field_path(path, "start"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#end,
+                &pse_contract::boundary_projection::field_path(path, "end"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#coordinate_min,
+                &pse_contract::boundary_projection::field_path(path, "coordinate_min"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#coordinate_max,
+                &pse_contract::boundary_projection::field_path(path, "coordinate_max"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#interpretation,
+                &pse_contract::boundary_projection::field_path(path, "interpretation"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalResultBlockOutputsRow;
 impl crate::SemanticFrame for RuntimeCanonicalResultBlockOutputsRow {
