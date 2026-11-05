@@ -3759,6 +3759,83 @@ extrapolation permission,training closure andindependent numerical
 qualification remain open. Source/AST andunit-conversion arithmetic here
 executed no fitted helper,model initializer or solver.
 
+## SOEC design-point configuration and input closure — 2026-11-05
+
+**Interface-checked, source only:** C `power_generation/unit_models/soec_design.py`,
+`tests/test_soec_design.py` and `properties/natural_gas_PR.py` resolve the
+zero-dimensional design-point electrolysis consumer. This differs from the
+distributed SOC cell, its replication benchmarks and the dynamic controller
+plant above. It assembles three property translators, a stoichiometric
+reactor, a component separator, a sweep mixer and a sweep heater, connected
+by six expanded arcs. It has no electrode geometry, kinetic overpotential,
+electrical resistance, cell-count or storage model.
+
+| Selector or guard | Actual source population and admissibility boundary |
+|---|---|
+| Internal reaction EOS | `reaction_eos` accepts PR (default) or IDEAL. Internal components are exactly H2/H2O/O2 in Vap, with FTPx states. It selects reversed hydrogen-combustion stoichiometry, not a kinetic water-splitting law. The declared rate prefactor, activation energy and reaction-heat parameter are zero; reaction extent follows utilization and component balance, while species enthalpies carry formation energy. |
+| External packages | Hydrogen-side component set must be exactly H2/H2O; missing or extra components raise a configuration error. Oxygen-side set must contain O2, with other sweep species allowed. Both packages must actually supply the molar FTPx/enthalpy/phase interfaces used by translators and balances; merely passing the physical-package domain is insufficient. The selected helper offers PR or IDEAL vapor independently for each side. Its IDEAL liquid request is refused. |
+| Heat specification | `has_heat_transfer=False` (default) fixes module heat to zero. True removes that equation and adds a free thermal specification requiring a matching fixed heat, voltage or other independent design condition. Internal reactor and sweep heater always construct heat terms. Two reaction-EOS choices × two heat flags are four explicit design branches; independently changing the two external EOS packages expands candidate configurations, not proven interchangeable physics. |
+| Time and storage | Parent unit flags are inherited, but the internal mixer/separator/translators enforce their own steady restrictions and no accumulation law is authored here. Source scaling addresses time 0 explicitly. A parent time set or a dynamic flag is not a dynamic SOEC witness. Unsupported parent/child combinations remain refusals to exercise. |
+
+The helper's physical declaration uses mol/s, K and Pa; reference state
+298.15 K/101325 Pa, temperature bounds 273.15..2500 K, pressure bounds
+5e4..1e8 Pa and flow bounds 0..50000 mol/s. PR interaction coefficients
+are all zero for each selected component set. NIST caloric coefficients,
+critical/acentric data and the selected transport methods are inline in
+`natural_gas_PR.py`; no experimental CSV, trained surrogate, saved state,
+trainer binary or additional input file is read. These reference coefficients
+still need independent ordinary-source provenance/admission; this source
+closure does not publish them as ordinary electrochemical science.
+
+There are two named component tests, but **both call the IDEAL case**,
+including `test_soec_design_pr`. Their one scientific case fixes both inlet
+flows to 2 mol/s, temperature to 1023 K and pressure to 2e6 Pa. Hydrogen feed
+is H2 .01/H2O .99; sweep is O2 .2074/H2O .0099/CO2 .0003/N2 .7732/Ar .0092.
+Both outlet temperatures are fixed at 1023 K and water utilization at .7;
+module heat is zero by default. Initialization permits 30 iterations, then
+an Ipopt solve must terminate optimally with zero DOF. Source numerical
+assertions cover outlet H2 fraction .703 and cell potential 1.287 V with
+absolute .02 V allowance. They do not assert PR behavior, current, every
+outlet species, individual heat terms or a complete energy residual.
+
+Independent stoichiometric controls follow from those specified inputs:
+1.386 mol/s water consumption and additional hydrogen, .594 mol/s remaining
+water, 1.406 mol/s outlet hydrogen, .693 mol/s transferred oxygen and
+2.693 mol/s total sweep outlet, before the translator's trace convention.
+Current is twice Faraday's constant times water consumption and is positive
+for electrolysis here. Voltage is the source's total outlet-minus-inlet
+enthalpy expression **plus module heat**, divided by current. Native heat
+sign and boundary mapping must preserve that expression explicitly. A zero
+utilization/current request produces a voltage singularity; utilization,
+current and voltage have no authored physical bounds in this unit. Reverse,
+over-utilization and nonpositive-current cases require explicit admitted
+domains or failure correspondence, not optimal termination alone.
+
+The separator sends all O2 to the sweep side and none of H2/H2O. Sweep
+translation constrains non-O2 fractions to 1e-19 and obtains O2 by state
+normalization; this convention has a small added trace inventory. The
+hydrogen-inlet translator equates H2/H2O fractions, but its initialization
+assignment intended for inlet O2 instead addresses the **oxygen-side
+translator's outlet O2**. It does not add a hydrogen-inlet O2 constraint;
+that remaining fraction follows normalization. Retain the actual assignment
+and distinguish an initial guess from an equation or fixed specification.
+
+Initialization snapshots values/fixedness/activity with the fixed-variable
+StoreSpec, fixes inlets, releases outlets, initializes units sequentially,
+sets current from water consumption, solves the assembled block and restores
+the snapshot after success. A failed solve raises before restoration; no
+try/finally restoration is present. The snapshot is an in-memory helper
+product, not a required external initialization artifact.
+
+Native F05/D03 requires this design-point reaction/property/energy mapping,
+both complete outlet states, current and thermal/electrical accounting,
+selected EOS and fixed/free specification, physical-domain controls and
+original atom/energy checks. PR, nonadiabatic and mismatched external-EOS
+branches remain selected-case execution obligations. Distributed SOC,
+off-design response, ordinary coefficient provenance and independent
+numerical qualification remain required separately. No model or solver was
+executed for this declaration.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

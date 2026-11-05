@@ -440,6 +440,15 @@ test isbelow thestatedtraining range;inletT/P areunused anddomain bounds
 absent. Ordinary provenance/training,native admissibility/conservation and
 independent numerical qualification remainrequired.
 
+**Update, 2026-11-05 — SOEC design census:** the
+[design-point closure](64h-required-process-population.md#soec-design-point-configuration-and-input-closure--2026-11-05)
+resolves internal PR/IDEAL and adiabatic/thermal specification branches,
+external component guards and the sole ideal-gas operating case. Both named
+tests select IDEAL; PR remains unwitnessed. Translator initialization,
+zero-current division and failed-initialization restoration limits remain
+explicit. Ordinary data, native conservation/electrical mapping and complete
+independent numerical qualification remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
