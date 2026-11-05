@@ -524,6 +524,54 @@ fn finish_proxy(
 }
 
 #[test]
+fn shutdown_peer_exits_with_client_sender_live_before_parent_io_retirement() {
+    use pse_diagnostics::process_facts::{ProcessRead, ProcessReader};
+    let directory = tempfile::tempdir().unwrap();
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let mut proxy = finish_proxy("ordinary", &directory.path().join("native"), &service);
+    let mut remote = proxy.remote.take().unwrap();
+    drop(proxy);
+    let pid = remote.child.pid();
+    let endpoint = remote._endpoint.path().to_path_buf();
+    let (entered, release) = remote.io.as_mut().unwrap().delay_cleanup();
+    let scope = ExecutionScope::new(
+        pse_diagnostics::Cancellation::default(),
+        Some(Instant::now() + Duration::from_secs(5)),
+    );
+    assert!(matches!(
+        remote.exchange(p::Request::Shutdown, &scope, None).unwrap(),
+        p::Response::Shutdown
+    ));
+    remote.closed = true;
+    // No parent I/O stop or sender drop has occurred. Observe leader exit without
+    // reaping it; consuming retirement below still owns the reap and every join.
+    let reader = ProcessReader::default();
+    let end = Instant::now() + Duration::from_secs(5);
+    loop {
+        match reader.stat(pid) {
+            ProcessRead::Present(stat) if stat.state == 'Z' => break,
+            ProcessRead::Present(_) => {}
+            other => panic!("owned shutdown child observation changed: {other:?}"),
+        }
+        assert!(Instant::now() < end, "peer waited for parent sender drop");
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    let charged = pool.reserved();
+    assert!(charged > baseline);
+    let finish = std::thread::spawn(move || remote.finish(Vec::new()));
+    entered.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert!(!finish.is_finished());
+    assert!(endpoint.exists());
+    assert_eq!(pool.reserved(), charged);
+    release.send(()).unwrap();
+    finish.join().unwrap().unwrap();
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert!(!endpoint.exists());
+    assert_eq!(pool.reserved(), baseline);
+}
+
+#[test]
 fn provider_binding_finish_reaches_actual_remote_handles_process_and_io() {
     let directory = tempfile::tempdir().unwrap();
     let (service, pool, _native) = service();
@@ -1762,10 +1810,10 @@ fn original_deadline_expires_during_native_work_without_late_completion() {
             &context,
         )
         .unwrap_err();
-    assert!(matches!(
-        original_provider_error(&error),
-        ProviderError::Deadline
-    ));
+    assert!(
+        matches!(original_provider_error(&error), ProviderError::Deadline),
+        "original scientific deadline must survive settlement: {error:?}"
+    );
     assert!(!flag.load(std::sync::atomic::Ordering::Acquire));
     assert!(
         marker.exists(),

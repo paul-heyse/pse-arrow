@@ -139,6 +139,7 @@ fn received_outcome(
 }
 struct Outgoing {
     request: pb::Request,
+    shutdown: bool,
     timeout: Option<Duration>,
     reply: Reply,
 }
@@ -151,15 +152,14 @@ fn rpc_timeout(
     if !evaluating {
         return Ok(Some(scope.remaining(Duration::from_secs(30))?));
     }
-    scope
-        .deadline()
-        .map(|deadline| {
-            deadline
-                .checked_duration_since(now)
-                .filter(|remaining| !remaining.is_zero())
-                .ok_or_else(|| WorkerError::from(ProviderError::Deadline))
-        })
-        .transpose()
+    if scope.deadline().is_some_and(|deadline| deadline <= now) {
+        return Err(ProviderError::Deadline.into());
+    }
+    // The original scope owns scientific expiry. A derived RPC timer rounds
+    // its wire budget and can expire first, replacing that typed outcome with
+    // a protocol deadline. Parent checkpoints and the native remaining_ns scope
+    // enforce the original allowance without that competing timer.
+    Ok(None)
 }
 fn call_options(timeout: Option<Duration>) -> connectrpc::client::CallOptions {
     let options = connectrpc::client::CallOptions::default()
@@ -229,42 +229,61 @@ impl IoOwner {
                 };
                 let driver = tokio::spawn(connection);
                 let client = services::ScientificWorkerClient::new(OwnedTransport(sender), config);
+                let shutdown_acknowledged = AtomicBool::new(false);
                 let active = ready.send(Ok(())).is_ok();
                 use futures_util::{stream::FuturesUnordered, StreamExt as _};
                 let mut pending = FuturesUnordered::new();
-                while active {
-                    tokio::select! {
-                        completed = pending.next(), if !pending.is_empty() => {
-                            match completed {
-                                Some((failed, departed)) => {
-                                    if let Some(error) = departed { failures.push(error); }
-                                    if failed { break; }
-                                },
-                                None => break,
-                            }
-                        },
-                        result = receiver.recv(), if pending.len() < 2 => {
-                            let Some(outgoing) = result else { break; };
-                            let client = &client;
-                            pending.push(async move {
-                                let response = client.exchange_with_options(
-                                    outgoing.request, call_options(outgoing.timeout),
-                                ).await;
-                                let result = response
-                                    .map_err(WorkerError::Exchange)
-                                    .and_then(|response| {
-                                        let response = response.into_owned();
-                                        p::Response::try_from(response)
-                                    });
-                                deliver_reply(outgoing.reply, result)
-                            });
-                        },
-                        _ = stopping.cancelled() => break,
+                if active {
+                    loop {
+                        tokio::select! {
+                            completed = pending.next(), if !pending.is_empty() => {
+                                match completed {
+                                    Some((failed, departed)) => {
+                                        if let Some(error) = departed { failures.push(error); }
+                                        if failed { break; }
+                                    },
+                                    None => break,
+                                }
+                            },
+                            result = receiver.recv(), if pending.len() < 2 => {
+                                let Some(outgoing) = result else { break; };
+                                let client = &client;
+                                let shutdown_acknowledged = &shutdown_acknowledged;
+                                pending.push(async move {
+                                    let response = client.exchange_with_options(
+                                        outgoing.request, call_options(outgoing.timeout),
+                                    ).await;
+                                    let result = response
+                                        .map_err(WorkerError::Exchange)
+                                        .and_then(|response| {
+                                            let response = response.into_owned();
+                                            p::Response::try_from(response)
+                                        });
+                                    if outgoing.shutdown && matches!(&result, Ok(p::Response::Shutdown)) {
+                                        // Publish before waking the synchronous caller: its
+                                        // stop may win select before pending.next observes us.
+                                        shutdown_acknowledged.store(true, Ordering::Release);
+                                    }
+                                    deliver_reply(outgoing.reply, result)
+                                });
+                            },
+                            _ = stopping.cancelled() => break,
+                        }
                     }
                 }
                 drop(pending);
-                drop(client);
-                finish_driver(driver).await
+                if shutdown_acknowledged.load(Ordering::Acquire) {
+                    // The peer owns graceful GOAWAY after actual native Shutdown.
+                    // Keep its authenticated sender alive until that driver exits.
+                    let result = finish_driver(driver).await;
+                    drop(client);
+                    result
+                } else {
+                    // Startup, cancellation, failure and missing acknowledgements
+                    // cannot wait for a peer that never agreed to close.
+                    drop(client);
+                    finish_driver(driver).await
+                }
                 }.await;
                 if let Err(error) = result { failures.push(error); }
                 executor.finish(&mut failures).await;
@@ -341,6 +360,7 @@ impl IoOwner {
             ),
             std::time::Instant::now(),
         )?;
+        let shutdown = matches!(&request, p::Request::Shutdown);
         let request = pb::Request::try_from(request)?;
         let (reply, received) = std::sync::mpsc::channel();
         let sender = self
@@ -350,6 +370,7 @@ impl IoOwner {
         sender
             .try_send(Outgoing {
                 request,
+                shutdown,
                 timeout,
                 reply,
             })
@@ -730,7 +751,7 @@ pub(super) fn serve_with_preparation(
     listener.set_nonblocking(true).map_err(infrastructure)?;
     let controls = SharedControls::default();
     let native_controls = controls.clone();
-    let closed = Arc::new(AtomicBool::new(false));
+    let closed = pse_diagnostics::Cancellation::default();
     let drained = closed.clone();
     let (jobs, mut receiving) = tokio::sync::mpsc::channel::<Job>(1);
     let native = std::thread::Builder::new()
@@ -753,7 +774,7 @@ pub(super) fn serve_with_preparation(
                 };
                 let mut result: Result<p::Response, WorkerError> = (|| match job.request {
                     p::Request::Prepare(value) => {
-                        if drained.load(Ordering::Acquire)
+                        if drained.is_cancelled()
                             || sessions.len() >= 64
                             || sessions.contains_key(&value.handle.generation)
                         {
@@ -847,7 +868,9 @@ pub(super) fn serve_with_preparation(
                             Ok(mut controls) => controls.handles.clear(),
                             Err(error) => failures.push(error),
                         }
-                        drained.store(true, Ordering::Release);
+                        // Every native owner has settled; begin peer-led H2 drain
+                        // while the method still owns its response stream.
+                        drained.cancel();
                         super::retirement_result(failures)?;
                         Ok(p::Response::Shutdown)
                     }
@@ -862,15 +885,15 @@ pub(super) fn serve_with_preparation(
                     if let Some(owner) = sessions.get_mut(&handle.generation) {
                         // Native refusal before mutation (for example a replayed ordinal)
                         // leaves the admitted preparation ready. Preserve that owner's decision.
-                        if owner.state() != super::SessionState::Ready {
-                            if let Err(cleanup) = owner.stop() {
-                                result = Err(match result {
-                                    Err(cause) => WorkerError::Retirement {
-                                        causes: vec![cause, cleanup],
-                                    },
-                                    Ok(_) => cleanup,
-                                });
-                            }
+                        if owner.state() != super::SessionState::Ready
+                            && let Err(cleanup) = owner.stop()
+                        {
+                            result = Err(match result {
+                                Err(cause) => WorkerError::Retirement {
+                                    causes: vec![cause, cleanup],
+                                },
+                                Ok(_) => cleanup,
+                            });
                         }
                     } else if let Ok(mut controls) = controls_lock(&native_controls) {
                         // Failed preparation never issued a live native handle.
@@ -883,10 +906,10 @@ pub(super) fn serve_with_preparation(
                 let response = perturb_response_for_test(response);
                 if let Err(error) = job.completion.finish(response, preparation, |handle| {
                     let mut failures = Vec::new();
-                    if let Some(mut owner) = sessions.remove(&handle.generation) {
-                        if let Err(error) = owner.stop() {
-                            failures.push(error);
-                        }
+                    if let Some(mut owner) = sessions.remove(&handle.generation)
+                        && let Err(error) = owner.stop()
+                    {
+                        failures.push(error);
                     }
                     match controls_lock(&native_controls) {
                         Ok(mut controls) => {
@@ -942,10 +965,16 @@ pub(super) fn serve_with_preparation(
         // One numerical request and one bounded control request may coexist. Native
         // mutation stays on the single owned lane; cancellation is independently signaled.
         builder.max_concurrent_streams(2);
-        builder
-            .serve_connection(hyper_util::rt::TokioIo::new(stream), service)
-            .await
-            .map_err(infrastructure)
+        let connection = builder.serve_connection(hyper_util::rt::TokioIo::new(stream), service);
+        tokio::pin!(connection);
+        tokio::select! {
+            biased;
+            _ = closed.cancelled() => {
+                connection.as_mut().graceful_shutdown();
+                connection.await.map_err(WorkerError::Connection)
+            },
+            result = connection.as_mut() => result.map_err(WorkerError::Connection),
+        }
     });
     if let Ok(mut controls) = controls_lock(&controls) {
         controls.closed = true;
@@ -953,7 +982,7 @@ pub(super) fn serve_with_preparation(
             cancellation.cancel();
         }
     }
-    if !closed.load(Ordering::Acquire) {
+    if !closed.is_cancelled() {
         // A disconnected active RPC must settle its actual native call, even if
         // cooperative cancellation cannot interrupt the foreign instruction.
         parent_owner.terminate_unsettled_native();
@@ -1538,7 +1567,7 @@ mod tests {
     }
 
     #[test]
-    fn evaluation_options_preserve_original_optional_deadline_without_renewal() {
+    fn evaluation_options_leave_original_deadline_with_scientific_scope() {
         let control = pse_diagnostics::Cancellation::default();
         let now = std::time::Instant::now();
         let scope = ExecutionScope::new(control.clone(), None);
@@ -1554,13 +1583,14 @@ mod tests {
         let original = ExecutionScope::new(control.clone(), Some(now + Duration::from_secs(1800)));
         assert_eq!(
             call_options(rpc_timeout(&original, true, now).unwrap()).timeout(),
-            Some(Duration::from_secs(1800))
+            None
         );
         assert_eq!(
             call_options(rpc_timeout(&original, true, now + Duration::from_secs(601)).unwrap())
                 .timeout(),
-            Some(Duration::from_secs(1199))
+            None
         );
+        assert_eq!(original.deadline(), Some(now + Duration::from_secs(1800)));
         assert!(matches!(
             rpc_timeout(&original, true, now + Duration::from_secs(1801)),
             Err(WorkerError::Provider(ProviderError::Deadline))
