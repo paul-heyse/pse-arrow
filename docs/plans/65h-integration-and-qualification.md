@@ -3,7 +3,7 @@ title: "Plan65h: Integrated acceptance and handoff"
 status: in-progress
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [current-work, validation, performance]
@@ -29,7 +29,7 @@ establishes correspondence under that mapping, not independent physical meaning.
 ## Complete journeys and discriminators
 
 Consume early 65i/65j semantic agreement and P03's two complete working slices. H owns final
-reconciliation across A–G/I/J, not the first definition of scientific product meaning or developer
+reconciliation across A–G/I/J/K, not the first definition of scientific product meaning or developer
 evidence. A generated value is a mechanical assurance input; independent physical/format/history
 expectations remain necessary. The [Buffa 0.9.2 generator](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-codegen/src/lib.rs)
 `CodeGenConfig::generate_arbitrary` supplies bounded schema-driven construction under the
@@ -54,11 +54,50 @@ both expected scientific meaning and observed output from the same generated dec
 | Descriptor semantics and ingress | Required custom options survive actual acquisition chains; wire-compatible semantic changes are detected; generated/mutated values have expected acceptance/preservation/refusal | Independently specified options and old/new worlds, legal wire reordering and unknowns; I10 simplification only after equivalent alias/trailing/extern/allocation controls |
 
 These are required scenario families; their illustrative examples do not bound migration to
-one operation. H01 resolves the actual selected producer/consumer population from A–G/I/J and
+one operation. H01 resolves the actual selected producer/consumer population from A–G/I/J/K and
 preserves all important supported distinctions. Do not restore a retired harness merely to
 reuse an old command: use current Rust fixture/reference owners and their actual routes.
 
 ## Measurement and operational fit
+
+### November 5 acceptance additions
+
+The [new review](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md)
+adds the following **Proposed** scope to H01/H02. Each consumer migration supplies targeted
+evidence during functional work; H02 performs assembled qualification after selected
+functional scope, including [65k](65k-scientific-artifacts-and-native-reconstruction.md), is
+integrated. The operator-requested stop and previous evidence limits remain unchanged.
+
+| Producer/consumer contract | Discriminating planned acceptance |
+| --- | --- |
+| Scientific meaning and products | Existing selected mixture/CSTR/transient-fit consumers from 65i; reordered components, changed data/branch and refused temporal closure; exact experiment/trajectory/governing-attempt reference; raw readable evidence versus scientific permission |
+| Worker handoff and explicit finish | Cancel before/after queue reservation, definite non-submission, definite abandoned Prepare, lost waiter with live independent handle, late result and parent loss; original scientific failure plus reap/I/O failures without premature release |
+| Developer preparation | Conditional versus exact complete prerequisites; zero-match/pure selection prepares no unrelated science; explicit owner preparation; same complete helper context shares immutable capture, different contexts remain separate |
+| Generator and boundary policy | Compare A04's three complete routes using independently specified malformed/unsupported rules, warnings, imports/external types and collisions. Validate selected encoding/Edition/JSON support and original-policy reads without broadening compiled-world recognition |
+| Descriptor inspector | Payload/exact lookup avoids mandatory full presentation; required metadata still enforces; full counts/cursor/compare semantics retained; runtime/source-aware forms select the same compiled validator only when SourceCodeInfo is the sole difference |
+| Independent readers and evidence | Native discovery/explanation/submission/protected read; partial stream plus terminal failure; offline bundle larger than compact 64 MiB profile, missing/corrupt later member, capture-time omission, collision and failed final publication |
+| Scientific artifact activation | K's monomorphic receiver/membership/receipt population, exact bits and original qualification; supplier packing/MPFR/symbol relocation/stage restoration before any live delegation activation; actual original child screening and reap |
+
+H01 records exact package/target/filter/feature/fixture/reference selections when those
+consumers are available. Listing, compilation, captured observations and successful expected
+refusal remain distinct from scientific execution and qualification. Generated test inputs
+protect correspondence; independent literal/physical expectations challenge semantic mistakes.
+No package is complete while replaced selected production paths, callers or obsolete mechanism
+fixtures remain.
+
+H03 measures only selected benefit claims after correctness: generation preparation,
+payload-only acquisition, evidence acquisition and producer-to-release scientific readback,
+including retained backing state and cold/warm/native placement where relevant. Static
+removal of repeated work may justify design selection without a speed claim. Broad P06–P09
+decisions contribute their selected actual delivery only; deferred or rejected proposals
+do not silently widen H acceptance.
+
+Specific runtime/library protection is tested at the owner that promises it: Tokio 1.53.3
+queue reservation is not physical completion; tokio-util 0.7.19 TaskTracker is not task-result
+collection; Buffa's maintained view allocation budget is not RSS/adoption/mathematics
+coverage. [Queue API](https://docs.rs/tokio/1.53.3/tokio/sync/mpsc/struct.Sender.html#method.reserve_owned),
+[TaskTracker](https://docs.rs/tokio-util/0.7.19/tokio_util/task/struct.TaskTracker.html),
+[maintained view contract](../../vendor/buffa/pse-patch.md).
 
 Measure the matched complete path where a quantitative benefit is claimed: cold preparation,
 warm repeated use, production/selection, conversion/encoding, transfer/decode, useful native
@@ -76,8 +115,8 @@ host caps, serial lanes or a new permanent accounting system to make a benchmark
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| H01 | planned | Working selected A–G/I/J consumer contracts, P03 slices and actual post64 population; no dependency on I06/J05 final handoff evidence | Reconcile final acceptance population against early I01/J01 design inputs and all selected migrations; select exact native test/fixture/reference routes and independent controls without a second status ledger |
-| H02 | planned | All functional A–G/I/J scope integrated; P04; H01 acceptance population | Run required service/database/native/reference, developer evidence/rerun, scientific permission/invalidation and fault/recovery journeys; retain actual failures and corrected reruns; no listing/check/zero-match/expected scientific refusal mislabeled as successful scientific execution |
+| H01 | planned | Working selected A–G/I/J/K consumer contracts, P03 slices and actual post64 population; no dependency on I06/J05 final handoff evidence | Reconcile final acceptance population against early I01/J01 design inputs and all selected migrations; select exact native test/fixture/reference routes and independent controls without a second status ledger |
+| H02 | planned | All functional A–G/I/J/K scope integrated; P04; H01 acceptance population | Run required service/database/native/reference, developer evidence/rerun, scientific permission/invalidation and fault/recovery journeys; retain actual failures and corrected reruns; no listing/check/zero-match/expected scientific refusal mislabeled as successful scientific execution |
 | H03 | planned | H02 correctness and matched baseline/configuration | Measure selected whole-lifetime benefits and regressions; distinguish qualitative removals from Measured outcomes and explicitly defer only nonrequired measurements with triggers |
 | H04 | planned | H02/H03 plus complete generated replacement population | Run scope-end hygiene and selected governance/docs/native/powerset checks; fix failures; reconcile zero baseline, enduring contracts/operator guidance and deletion/retirement obligations |
 

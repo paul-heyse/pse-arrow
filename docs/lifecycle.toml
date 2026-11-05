@@ -6927,7 +6927,7 @@ heading = "Packages and migration"
 headers = ["ID", "State", "Prerequisite", "Delivery and targeted acceptance"]
 kind = "packet"
 id_column = 0
-id_pattern = '^(E[0-9]+)'
+id_pattern = '^(E01|E04|E05|E06)$'
 status_profile = "packet"
 status_column = 1
 
@@ -7056,4 +7056,93 @@ kind = "depends-on"
 [[relationships]]
 from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions::I11"
 to = "docs/plans/65-proto-integrated-target.md::package-state::P03"
+kind = "depends-on"
+
+# E02/E03 retain their labels after the scientific-artifact ownership extraction.
+[[scope_tables]]
+path = "docs/plans/65k-scientific-artifacts-and-native-reconstruction.md"
+name = "package-state"
+heading = "Packages and migration"
+headers = ["ID", "State", "Prerequisite", "Delivery and targeted acceptance"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E02|E03)$'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/65-proto-integrated-target.md"
+name = "improvement-dispositions-2026-11-05"
+heading = "November 5 improvement dispositions"
+headers = [
+  "Recommendation",
+  "Disposition",
+  "Work owner",
+  "Completion or settling evidence",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions-2026-11-05::I01"
+to = "docs/plans/65i-scientific-operations-and-product-semantics.md::package-state::I02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions-2026-11-05::I02"
+to = "docs/plans/65e-scientific-portability-and-execution.md::package-state::E04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions-2026-11-05::I03"
+to = "docs/plans/65j-workflow-lifecycle-and-developer-evidence.md::package-state::J05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions-2026-11-05::I04"
+to = "docs/plans/65a-contract-foundations-and-generation.md::package-state::A04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions-2026-11-05::I05"
+to = "docs/plans/65b-representation-validation-and-interpretation.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions-2026-11-05::I06"
+to = "docs/plans/65f-diagnostics-and-result-delivery.md::package-state::F04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions-2026-11-05::I07"
+to = "docs/plans/65d-local-operations-and-services.md::package-state::D05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions-2026-11-05::I08"
+to = "docs/plans/65g-code-intelligence-and-client-tooling.md::package-state::G03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions-2026-11-05::I09"
+to = "docs/plans/65k-scientific-artifacts-and-native-reconstruction.md::package-state::E03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions-2026-11-05::I10"
+to = "docs/plans/65g-code-intelligence-and-client-tooling.md::package-state::G02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions-2026-11-05::I11"
+to = "docs/plans/65g-code-intelligence-and-client-tooling.md::package-state::G02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions-2026-11-05::I12"
+to = "docs/plans/65j-workflow-lifecycle-and-developer-evidence.md::package-state::J04"
 kind = "depends-on"

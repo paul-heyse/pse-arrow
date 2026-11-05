@@ -3,7 +3,7 @@ title: "Plan65f: Diagnostics and result delivery"
 status: in-progress
 date: 2026-11-03
 adrs: [ADR-0224]
-review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [design, diagnostics, validation, performance]
@@ -133,6 +133,53 @@ or encoding. Retain the original full route when a consumer requests full eviden
 implement full reads as repeated public pages that each reparse/reconstruct the same source.
 Result metadata identifies axes/time/layout, physical quantities, completeness, qualification
 and Arrow payload protection. Do not replace columnar arrays with repeated generic values.
+
+### Complete selections and original evidence acquisition
+
+The November 5 review [I06](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I06),
+[I07](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I07)
+and [I12](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I12)
+extend the remaining F population. Selection intent, governing attempt, scientific coverage,
+examined scope, returned extent and terminal completeness must survive producer, canonical
+reader and independent presentation. Preserve the implemented F04 readable-root assurance:
+an output filter is not permission to omit global scalar keys or mandatory scientific inputs.
+Consume I's producer-owned experiment/trajectory/phase coordinates rather than infer
+scientific permission from stored rows or projected labels.
+
+F03's first large developer-evidence consumer is offline protected acquisition and staged
+bundle export from J04. A bounded metadata response names the original ordinal/role/extent/
+digest and recorded omission commitments; selected members are acquired incrementally.
+The current compact input/output profile remains bounded at 64 MiB. Both physical profiles
+consume one interpretation-three commitment model and performing-report attribution.
+Do not copy the full original closure into a Proto message merely to render bounded detail.
+Scientific result protection remains C-owned; no developer report migration into that store
+is implied. A service chunk route enters D06 only when an independently selected client
+requires it, not as a prerequisite for offline delivery.
+
+Use Tokio-util 0.7.19 `ReaderStream`/`StreamReader` where a consumed I/O boundary needs
+stream adapters and Bytes 1.12.1 `Bytes::from_owner` where backing ownership must outlive an
+await. They do not supply original-file pinning or publication atomicity; small slices may
+retain a larger allocation. Buffa 0.9.2 `OwnedView`, `ViewEncode`, `SizeCachePool`
+and segmented encoding apply only after producer selection, with actual backing retained.
+Compression or interceptors may flatten segments; measure the complete producer-to-release
+route before claiming benefit. Sources:
+[Tokio-util I/O](https://docs.rs/tokio-util/0.7.19/tokio_util/io/index.html),
+[Bytes ownership](https://docs.rs/bytes/1.12.1/bytes/struct.Bytes.html),
+[Buffa encoding](https://github.com/anthropics/buffa/blob/v0.9.2/buffa/src/encode_sink.rs).
+
+F02 must represent independent operation, native finish, reap and I/O-join failures without
+flattening original causes or treating unknown settlement as successful cleanup. Use
+ConnectRPC 0.9.1 `ErrorDetail::from_message`/`with_detail` for bounded recorded facts and
+`with_source` for local causes; the [error source](https://github.com/connectrpc/connect-rust/blob/v0.9.1/src/error.rs)
+defines that separation. A detail reference is not a readable-file capability.
+
+F03/F04 closure includes a bundle above 64 MiB, slow or escaped readers, corrupt/missing later
+members, original omissions followed by later file appearance, failed final publication,
+empty selection, late terminal error and independent release failure. J04 must establish the
+actual acquisition/release owner first: current InvocationStore has no general prune/dispose
+operation. Delete replaced full materialization, copied field maps and reference/cleanup
+translations with complete migrated consumers; neither codec replacement nor an honest
+size refusal alone establishes ordinary-workload fitness.
 
 ### Selected hydration and inspection assurance — 2026-11-04
 
@@ -302,9 +349,9 @@ checkpoint; these changes do not complete the remaining F04 producer/client popu
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
 | F01 | in-progress | Actual native consumer readiness; I01/J01 semantic design; 65a metadata and 65b policy identities | Completion-owned permission/local-validity and developer evidence observation slices are delivered; complete diagnostic/observation/outcome/result-description products across native diagnostics, runtime documents, producer facts, scientific product-use scope/coverage/selection and developer action/inventory/fixture/assertion/capture/settlement. Preserve every selected distinction with exhaustive mappings and independent records. |
-| F02 | in-progress | F01; 65a generated adapters and 65b violations | Semantic RPC family is integrated with typed detail dispositions, original causes, canonical corrections and recursive redaction. Complete the remaining native-to-CLI/local error populations with the same category fidelity. Recognized malformed, unknown, absent, multi-cause, rule/compiler/evaluator failures and oversized details must differ. Delete replaced string classification and duplicate field maps; keep native rendering where consumed. |
-| F03 | planned | F01/F02; narrow C scientific or J developer retention contract according to family | Deliver full evidence with bounded details and protected readback. Exercise omitted selectors, unknown counts, missing spans, expired locators, failed publication, report without inventory and forbidden verdict reconstruction. No summary implies complete retained evidence. Remove replaced inline blobs/readers together. |
-| F04 | in-progress | F01 selected metadata; 65d original-operation streaming/custody | Selected readable-root hydration with explicit narrower coverage is integrated and targeted-tested on main under proposed ADR-0224. Complete remaining post-64 progress/result-inspection producers and clients. Selection reaches producer; selected/full/empty output, continuation, partial final failure and backing-buffer release retain original semantics. Compare useful native/Arrow products rather than force a single format. Delete duplicate projection/extent passes only when equivalent protection moves. |
+| F02 | in-progress | F01; 65a generated adapters and 65b violations; D05/E04 explicit finish outcomes | Semantic RPC family is integrated with typed detail dispositions, original causes, canonical corrections and recursive redaction. Complete the remaining native-to-CLI/local error populations, including independent scientific action/reap/I/O-join failures and unknown settlement. [ConnectRPC 0.9.1 error APIs](https://github.com/connectrpc/connect-rust/blob/v0.9.1/src/error.rs) provide ErrorDetail::from_message/with_detail for bounded facts and with_source for local causes, not native authority. Recognized malformed, unknown, absent, multi-cause, rule/compiler/evaluator failures and oversized details must differ. Delete replaced string classification, cleanup string flattening and duplicate field maps with complete consumers; keep native rendering where consumed. |
+| F03 | planned | F01/F02; narrow C scientific or J04 developer acquisition/protection contract according to family | Deliver bounded metadata/details with complete protected evidence readback. First large developer consumer is offline original-member acquisition/staged export, sharing J's interpretation-three commitments with the compact 64 MiB profile. Use [Tokio-util 0.7.19 I/O adapters](https://docs.rs/tokio-util/0.7.19/tokio_util/io/index.html) only for transfer mechanics and [Bytes 1.12.1 owner-backed buffers](https://docs.rs/bytes/1.12.1/bytes/struct.Bytes.html) where async lifetime needs them; native owners retain attribution/publication/protection. Test a bundle above 64 MiB, omitted selectors, unknown counts, missing spans, corrupt later member, slow/escaped reader, expiry and failed final publication/release. No summary issues a verdict or implies complete retained evidence. Remove replaced inline blobs/full-closure materialization/readers together; D06 service transfer is conditional, not required for offline delivery. |
+| F04 | in-progress | F01 selected metadata; 65d original-operation streaming/custody; I producer-owned coordinates/attempts; C query/protection | Selected readable-root hydration with explicit narrower coverage is integrated and targeted-tested on main under proposed ADR-0224. Complete remaining progress/result producers and clients with selection intent, governing attempt, semantic coverage, returned extent and terminal completeness kept distinct. Preserve required global keys/scientific inputs and exact experiment/trajectory/phase associations; a selected Arrow view is not full scientific admission. [Buffa 0.9.2 segmented encoding](https://github.com/anthropics/buffa/blob/v0.9.2/buffa/src/encode_sink.rs) and OwnedView apply only after producer selection when their retained backing fits. Test selected/full/empty output, continuation, old mapping, partial final failure, escaped reader and backing release. Compare useful native/Arrow products; delete duplicate projection/extent passes only when equivalent protection moves. |
 | F05 | planned | F01 fact vocabulary; working F02/F04 consumers | Generate shared observation/sink projections and correlate CLI, OTLP, Perfetto and optional task observations through existing identities. Test unknown/disabled/stale/lost coverage, precise timestamps and Debug-versus-explicit-export redaction. Retire replaced string-unit/classification mirrors, retaining externally required wire schemas. |
 | F06 | planned | F02–F05; I scientific products and J05 developer population; 65g reader | Complete produce→summarize→publish→readback across validation/preparation/solve/provider/store/host failures plus list/check/rustdoc/test and exact rerun. Preserve native verdict ownership, raw versus scientific selection, disconnect and retained reads. Measure complete paths for materialization claims; hand evidence to H. |
 

@@ -3,7 +3,7 @@ title: "Plan65d: Local operations and service composition"
 status: proposed
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [design, deployment, libraries, validation]
@@ -149,6 +149,63 @@ task join failures, listener failure, native shutdown and transport drain preser
 Stop admission first; settle native effects; then drain/close transport and retain every independent
 cleanup failure. Neither a stopped listener nor an empty client stream proves native release.
 
+### Submitted work, lost observers and explicit finish
+
+The November 5 review [I02](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I02)
+and [I07](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I07)
+sharpen D04/D05 without changing their existing progress. D owns the shared transport/task
+contract; [65e E04](65e-scientific-portability-and-execution.md) owns the scientific
+handle-map mutation, native job submission and placement finish. Definite non-submission,
+submitted execution, lost acknowledgement and physical connection/process loss are separate.
+
+Select Tokio 1.53.3 `mpsc::Sender::reserve_owned` and `OwnedPermit::send` at the
+scientific handoff: wait for capacity before reversible preparation admission, then commit
+admission and synchronous submission with no intervening suspension. This removes the current
+control-map insertion before a cancellable `send(...).await`. Stop/Shutdown cancellation
+signals remain independently available to interrupt active native work rather than waiting
+behind that lane. The [Sender cancellation contract](https://docs.rs/tokio/1.53.3/tokio/sync/mpsc/struct.Sender.html#method.reserve_owned)
+and [owned permit](https://docs.rs/tokio/1.53.3/tokio/sync/mpsc/struct.OwnedPermit.html)
+characterize capacity ownership, not native scientific admission.
+
+ConnectRPC 0.9.1's `service::with_request_deadline` wraps unary dispatch in
+`tokio::time::timeout_at`; expiry may drop a method future while its submitted native
+job continues. Preserve the native permit through computation/bookkeeping. A failed response
+oneshot send records abandoned observation; it must not unconditionally terminate unrelated
+prepared handles on an otherwise live parent connection. Abandoned Prepare requires a
+performing-owner disposition; E04 closes that unacknowledged preparation after settlement
+unless an explicitly selected original-identity recovery operation makes it addressable.
+This decision applies to definite observing-method receiver departure. Successful oneshot
+delivery is not a network/client acknowledgement: later reply loss remains uncertain under
+the original handle/process identity and existing parent-custody policy.
+Actual parent/connection loss retains the existing whole-process containment policy.
+See the [exact service implementation](https://github.com/connectrpc/connect-rust/blob/v0.9.1/src/service.rs).
+
+Use result-bearing Tokio 1.53.3 `JoinSet` for task outcomes, including joining after
+`abort_all`; collect every independent teardown before returning aggregate errors.
+Tokio-util 0.7.19 `CancellationToken` signals cancellation; `TaskTracker` tracks
+destruction without retaining outputs, and `close` does not close admission. It is not
+a substitute for either result collection or the native admission state. Tokio-rayon 2.1.0
+submits eagerly and dropping its observation handle does not stop the closure: admission
+must be acquired before submission and retained inside physical work. Sources:
+[JoinSet](https://docs.rs/tokio/1.53.3/tokio/task/struct.JoinSet.html),
+[TaskTracker](https://docs.rs/tokio-util/0.7.19/tokio_util/task/struct.TaskTracker.html),
+[tokio-rayon](https://docs.rs/tokio-rayon/2.1.0/tokio_rayon/).
+
+The explicit scientific finish operation belongs to the existing placement owner, not an RPC
+observer: close admission, request the correct session/process shutdown, reap and join I/O,
+and return original typed failures together. Keep Drop as abandoned-owner containment.
+Unknown reap/I/O settlement retains custody/admission; merely attempting cleanup cannot
+release it. F projects the outcomes, while J records them without acquiring control.
+No new supervision framework or universal lifecycle enum is selected for this flat chain.
+
+Acceptance must distinguish cancelled reservation, definite enqueue failure, cancellation
+after enqueue, abandoned Prepare reply, deadline expiry with another usable handle, and
+actual parent loss. Combine original operation failure, reap failure, I/O panic and delayed
+destruction; all attempted failures survive, and charges end only after physical settlement.
+Remove the pre-enqueue mutation/unconditional reply-loss shutdown and ignored explicit-finish
+join results only with their complete caller/test migration. This remains planned work;
+the source-reviewed failure paths were not fault-executed during plan authoring.
+
 Worker `Stop(handle)` cancels only that handle's work; `Close(handle)` retires only its prepared
 state after invocations settle, as defined in 65e. Explicit session shutdown may retire that
 session's remaining handles; process shutdown closes admission and drains every owned session.
@@ -165,8 +222,8 @@ This table owns D-package progress, including the delivered D05 slice; 65h owns 
 | D01 | planned | Current usable native baseline; 65a effects/contract identity and 65b ingress semantics | Reconcile actual operation/transport populations and original identity/effect contracts. Select the shared native handler and authentication interfaces; remove no scientific guard as mechanical dispatch. Tests compare direct/client typed outcomes and refuse untrusted peer/context before native work. |
 | D02 | planned | D01 usable custody/lifecycle contract | Decide hosting with an exact released composition spike: custom Hyper versus available library host/Tonic adapter. Exercise original-image/reconnect refusal, preface/header timeout, shutdown with active native work and inner connection failure. Select library hosting only if it expresses every consumed obligation and removes worthwhile glue; otherwise use the selected released Hyper adapter. Record the chosen version/features and delete the losing production route. |
 | D03 | planned | D01; narrow 65a generated registrations; D02 selected host | Integrate typed effects, route policy, early protocol-aware rejection, binary ingress, whole-limit profiles and optional authorized health/reflection. Tests attack duplicate/replaced routes, unauthorized symbol disclosure, unsupported codec and no implicit preparation. Delete hand-maintained route/effect/health protocol mirrors. |
-| D04 | planned | D03; narrow 65f result and 65c identity contracts; 65i/65j authority design | Migrate submission/status/cancel/progress/readback to original identity and explicit terminal/partial outcomes. Decode observations without reconstructing native permission or settlement. Lost ACK never auto-replays effects. Test foreign/historical verdicts, cancelled observer with continuing work, reconnect, duplicate changed-request conflict and protected read after disconnect. Remove superseded polling/status/error translations. |
-| D05 | in-progress | D02/D03; 65e actual multi-session requirement | Inner/outer task failure and independent shutdown aggregation corrected and targeted-tested; remaining custody/session population stays open. Carry native/allocation custody through bodies and actual drain; test stalled readers, abandoned uploads, deadlines, long silence, child failure and session-scoped concurrency. Delete replaced choreography only after its complete population moves. |
+| D04 | planned | D03; narrow 65f result and 65c identity contracts; 65i/65j authority design | Migrate submission/status/cancel/progress/readback to original identity and explicit terminal/partial outcomes. Decode observations without reconstructing native permission or settlement. Lost ACK never auto-replays effects; distinguish definite non-submission, submitted execution, method receiver departure and uncertain network reply. E04 owns performing-handle retirement, while actual parent loss retains whole-process containment. Test foreign/historical verdicts, cancelled observer with continuing work, reconnect, duplicate changed-request conflict and protected read after disconnect. Remove superseded polling/status/error translations. |
+| D05 | in-progress | D02/D03; 65e actual multi-session requirement | Inner/outer task failure and independent shutdown aggregation corrected and targeted-tested; remaining custody/session population stays open. Carry native/allocation custody through bodies and actual drain. Use result-bearing [Tokio 1.53.3 JoinSet](https://docs.rs/tokio/1.53.3/tokio/task/struct.JoinSet.html), join after abort and collect independent cleanup failures; TaskTracker cannot replace admission or outcomes. Integrate E04's reserve-before-commit handoff and explicit placement finish, retaining charges through unknown reap/I/O settlement. Test stalled readers, abandoned uploads/Prepare receivers, deadlines, long silence, child failure and surviving independent sessions; keep connection-loss containment. Delete replaced choreography and ignored explicit-finish results only with complete caller migration. |
 | D06 | planned | D04/D05 producer ownership; selected large response consumer | Apply views/segmented encoding only where producer selection and representation already avoid work. Compare complete producer→encode→transport→decode→release. Compression/interceptor flattening and backing-buffer retention are countercontrols. Keep contiguous output when simpler; delete duplicate materialization only with equivalent extent protection. |
 | D07 | planned | All D functional migrations and selected 65c/e/f/g consumers | Run actual independent service/client journeys and failure/settlement population through 65h; document protocol/support/operation semantics, remove replaced paths and publish operator extension guidance. |
 

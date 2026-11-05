@@ -3,7 +3,7 @@ title: "Plan65i: Scientific operations and product semantics"
 status: proposed
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [design, numerical-execution, preparation, validation]
@@ -23,8 +23,10 @@ Those review IDs are source recommendations; I01–I06 in this document are impl
 packages with this plan as their sole progress owner.
 
 The [coordinator](65-proto-integrated-target.md) owns combined decisions and completion.
-[65e](65e-scientific-portability-and-execution.md) owns portable artifacts and execution
-placement; [65f](65f-diagnostics-and-result-delivery.md) owns reporting and readback. This
+[65k](65k-scientific-artifacts-and-native-reconstruction.md) owns E02/E03 scientific artifacts,
+reconstruction and narrow live delegation; [65e](65e-scientific-portability-and-execution.md)
+owns provider sessions and execution placement; [65f](65f-diagnostics-and-result-delivery.md)
+owns reporting and readback. This
 document owns the scientific meaning those mechanisms consume. It neither moves scientific
 behavior into the pure structural crate nor establishes a universal scientific ontology.
 
@@ -35,7 +37,8 @@ as of 2026-11-04 and may replace overlapping mechanisms. Each delivery consumes 
 native capability it needs; whole-Plan64 completion is not a prerequisite. No completed scientific implementation, product test or
 performance measurement is claimed here. Criteria: core 3.4, heuristics 1.0, process-simulator
 1.5 and test-assessment through the selected standard. Process-system breadth is the horizon;
-remote/distributed deployment and SurrealDB v4 are excluded from delivery.
+SurrealDB v4 is excluded. Broader chemical/deployment opportunities receive the coordinator's
+bounded decision packages before any additional scientific or deployment delivery is selected.
 
 ## Execution checkpoint — 2026-11-04
 
@@ -117,6 +120,58 @@ unrelated would repeat interpretation across clients and retained results. The s
 ground shares real scientific definitions and explicit translations without a global workflow
 state machine or Proto mathematical IR.
 
+### November 5 revision: concrete consumers and receiving correspondence
+
+The [November 5 review I01](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I01)
+sharpens I01–I06 below; its recommendation ID is distinct from this companion's package IDs.
+Authoring baseline is `1230a7e83`. The following are **Proposed migration/acceptance
+consumers**, selected from existing source; neither these reads nor plan revision establish
+their current numerical qualification.
+
+| Consumer and source | Exact route and purpose | Preserved independent distinction |
+| --- | --- | --- |
+| [BT ideal nested flash](../../packages/reference/seed-data/models/bt-ideal.pse): `nested_liquid`, `nested_two_phase`, `nested_vapor` over `BTIdealNested` | Existing authored steady/solve fixtures through `ModelingPackage::conform`; migrate component/phase correspondence and selected-regime observations into independent inspection | Retain benzene/toluene identities, fixture temperatures/composition, phase-fraction expectations and component closure. A selected regime is not a global thermodynamic-stability certificate |
+| [Controlled reacting CSTR](../../packages/reference/campaign/models/cstr-dynamics.pse): `cstr_integrated` | Existing authored integrated/integrate route, initial inventories/energy and samples at 0, 1, 5 and 20 seconds; migrate trajectory and governing coverage observations | Preserve current saponification/caloric assumptions and authored temperature/concentration checks. `cstr_simultaneous` is a cross-route discriminator, not permission to invent new chemistry or change tolerances |
+| [Transient fit owner controls](../../crates/pse-runtime/src/workflow/fitting/p09_tests.rs): `mixed_shared_parameter_gradient_uses_inline_forward_sensitivities` and `nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_contract` | Existing `prepare_fit_problem`/FitOracle route; move original experiment/prediction/schedule meaning into generated observations and independent product reading | The mixed fixture shares one parameter across a transient and a steady experiment; it is not two transient experiments. The scheduled control independently expects 73.5 rather than 74 because only the first interval is fitted |
+
+The common authored execution entry is
+[`ModelingPackage::conform`](../../crates/pse-runtime/src/workflow/modeling/conformance.rs),
+which discovers original tests and binds their typed fixtures; scientific execution still
+uses [declared native admission](../../crates/pse-runtime/src/workflow/modeling/declared.rs).
+I02 migrates these concrete producer/reader paths. I06 adds a two-transient-experiment
+extension discriminator only after its case and independent expected responses are specified;
+it does not silently widen the existing mixed fixture's claim.
+
+For material-bearing providers, bind ordered coordinates to the consuming authored selection
+at native receiving adoption. Existing
+[`ProviderShape` validation](../../crates/pse-kernels/src/shape.rs) checks extents, uniqueness,
+tuples and physical port contracts; it cannot establish that an axis denotes this operation's
+selected species/phases or that required interaction records were acquired. Retain the selected
+membership/data closure and an explicit map to scalar bindings. Reordered components either
+follow that map or refuse before evaluation. New membership must resolve newly required pair
+records. Scalar-only providers need no invented material-system metadata.
+
+Expose selected phase/regime, local mathematical regularity and available stability assessment
+as separate native facts with original selection/policy identity. Reuse the existing authored
+[nested equilibrium](../../packages/reference/thermodynamics/models/nested-equilibrium.pse)
+and [phase stability](../../packages/reference/thermodynamics/models/phase-stability.pse)
+owners. Preserve `RegimeCrossing` and
+[`ProviderLinearizationToken`](../../crates/pse-kernels/src/provider.rs) input/context binding.
+Neither deterministic regime choice nor a derivative array permits differentiating across a
+branch. An intentionally metastable operation remains eligible under its declared purpose;
+new flash algorithms, phase-envelope tracing and global stability search require separate
+scientific selection.
+
+Fitting admission must expose its current target interpretation: the integration column active
+at the start, with later scheduled intervals retaining authored values. This is intentional in
+[`IntegratedExperiment::Binding`](../../crates/pse-runtime/src/workflow/integrated.rs) and
+[`prepare_fit_problem`](../../crates/pse-runtime/src/workflow/fitting/modeling.rs).
+Select that interpretation for current requests and projected observations. A whole-schedule
+offset, selected later interval or fitted initial state is an additional capability, with a
+bounded native admission/derivative/initialization investigation and adopt/defer/reject outcome.
+Until selected and implemented, refuse such targets explicitly rather than treating every
+numeric path as equivalent.
+
 ## Product interpretation and use
 
 Record and expose what the original scientific owner established, at its actual scope:
@@ -139,11 +194,30 @@ Preserve ambiguous lookup refusal, unknown/missing evidence and per-product qual
 retains local validity separately from the governing `CandidateUse`. Generated observations
 may expose these facts, while owner-sealed admission/permission constructors remain native.
 
+### Producer-owned experiment and trajectory references
+
+Extend the native selector with references carrying the original experiment, producing attempt,
+selected product/output and necessary temporal/spatial coordinate scope. Bind the reference to
+the producer's assessment and governing final selection; ordinals, displayed paths and arbitrary
+`member` values cannot mint identity. Retain separate point references where they suffice.
+The current `ProductScope::governing` refusal of nonempty `member` and fit-specific task
+permission remain active until complete replacement; simply relaxing either guard is not
+the target. Select one native reference interpretation, then derive its wire/storage observations
+and migrate FitReport prediction/trajectory consumers, completion selectors and F/G readers
+together. Remove replaced reader-local permission conjunctions and repeated coordinate maps.
+
+Raw access may retain an experiment trajectory when aggregate fit assessment fails; an accepted
+estimate can coexist with withheld covariance. Scientific-use lookup must match the exact
+experiment, original attempt, scope and final accuracy decision, refusing ambiguous or foreign
+references. C/F retain protection and publication authority. Historical decoding describes the
+original decision; it never constructs a fresh grant.
+
 ## Concrete library realization at the boundary
 
 The science remains native. [65a](65a-contract-foundations-and-generation.md) generates its
 selected metadata and portable records using Buffa 0.9.2 `generate_with_diagnostics`, typed
-custom options and compatible companions through `apply_companions`. A generation diagnostic
+custom options and A04's selected supplier composition. Use `apply_companions` only for
+outputs whose package/layout contract fits it. A generation diagnostic
 must identify an unsupported selected scientific facet; silently emitting a generic string
 would create a second interpretation obligation in clients.
 
@@ -158,6 +232,19 @@ descriptor root at generation, `buffa-descriptor`'s `reflect` capability for dyn
 and JSON/text support only for their selected human/tool consumers. These feature selections
 change representation availability, not scientific support. Preserve exact tagged/runtime
 agreement when moving declarations into the pure structural foundation.
+
+For the new coordinate/phase/product observations, use owner-derived Buffa 0.9.2
+`generate_with_diagnostics` and vtable `ReflectMessage::for_each_set`; use
+`DescriptorPool`/`DynamicMessage::from_options` for the matched immutable world's typed
+metadata. Do not add a generated-to-dynamic encode/decode round trip solely to list fields.
+Sources: [generator contract](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-codegen/src/lib.rs),
+[vtable reflection](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/message.rs)
+and [dynamic option interpretation](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/dynamic.rs).
+Companion stitching is conditional on A04's selected supplier composition, not an obligation
+to use `apply_companions` for every output. The maintained validator generator 0.7.2
+discharges only its selected local rules on owned/view representations; its
+[bounded CEL/admission contract](../../vendor/protoc-gen-protovalidate-buffa/README.md)
+does not replace physical membership, fit-target interpretation or scientific permission.
 
 Use [65b](65b-representation-validation-and-interpretation.md)'s `buf.validate`/generated
 `Validate` composition for locally decidable shape and value rules, with actual supported
@@ -206,12 +293,12 @@ registry or storage projection. H01 retains final assembled-population reconcili
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| I01 | in-progress | Actual native semantic owners and coordinator decision scope; no completed-Plan64 or new-crate barrier | First operation/product owner agreement is recorded above; complete the selected population and A01/A02 metadata co-design with supported dynamic/product and independent refusal/use cases. Buffa options expose native meaning without defining physics. |
-| I02 | planned | I01 agreed meanings; narrow working A/B generation/adoption and existing native operation | Deliver authored source → admission/preparation → native execution → typed observation. Use generated `Validate` only for selected local rules and `DynamicMessage::from_options` for inspection. Preserve native route/procedure and physical guards. Migrate the selected producers/readers together and remove superseded mechanical interpretation. |
-| I03 | in-progress | I01 product-use design; narrow working I02/A/B and F/G readback | Completion-owned permission/local-validity observations and independent readback are narrowly delivered. Complete task/step/point, coverage, qualifier and selected-attempt facts through portable/native selectors and actual consumers. Generated reflection is observational; no decoded permission issues new authority. Independently test raw versus scientific access, ambiguity and historical/current interpretation; delete replaced client-derived permission conjunctions. |
-| I04 | planned | I01 consumed-dependency agreement and I02/I03 real products | Implement differential change controls at compiler/admission/artifact/projection/state owners. A Debug-only or unconsumed metadata change must not rebuild unchanged math; correlation/datum or derivative changes must invalidate/readmit affected science. Reuse existing dependency machinery, remove replaced blanket world-key invalidation and duplicate semantic-key derivation where present. |
-| I05 | planned | Working I02–I04 slices and ready E/F/G consumers | Complete the scientific population declared in I01 across supported post64 steady/dynamic/fitting/study/analysis operations and explicit unsupported combinations. Buffa generated adapters/typed options carry one meaning; native reconstruction and governing product selectors enforce it. Remove replaced mode/client-specific interpretation and obsolete fixtures with all migrated consumers. |
-| I06 | planned | I02–I05 functional scope; H01 agreed acceptance scenarios, not H02 qualification results | Establish extension locality and scientific product-use journeys with independent physical/semantic expectations; hand actual population and limits to H. Publish enduring contracts and delete remaining replaced selected routes. Measurements, if claimed, cover complete preparation/use/readback rather than wire-only timing. |
+| I01 | in-progress | Actual native semantic owners and coordinator decision scope; no completed-Plan64 or new-crate barrier | Preserve the first owner agreement; complete the named BT nested-flash, CSTR-integrated and mixed/scheduled-fit population. Define receiving membership/scalar correspondence, phase/regularity/stability facts, current first-interval target and producer reference meaning before generated fields. A02 typed options expose the native decisions; scalar providers gain no irrelevant chemistry metadata. Classify additional schedule targets/new phenomena through the coordinator's decision packages. |
+| I02 | planned | I01 agreed meanings; narrow working A/B generation/adoption; K-owned E02 receiving slice where portability is consumed | Deliver the three selected native producer→generated observation→independent reader paths. Use Buffa 0.9.2 `generate_with_diagnostics` and `DynamicMessage::from_options` under the [generation/reflection sources](#concrete-library-realization-at-the-boundary); maintained 0.7.2 [generated Validate](../../vendor/protoc-gen-protovalidate-buffa/README.md) checks local shape only. Preserve native material membership, route, datum and derivative eligibility. Challenge component permutation, missing pair data and spatial-without-temporal closure; migrate actual producers/readers and delete superseded maps. |
+| I03 | in-progress | I01 product-reference meaning; working I02/A/B plus F/G protected reading | Retain delivered completion observations. Add producer-owned experiment/trajectory references and exact assessment/final-attempt selection before projecting them. Use Buffa 0.9.2 [vtable reflection](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/message.rs) for observational reads; no inverse constructs permission. Cover failed aggregate fit with readable trajectory, accepted estimate with withheld covariance, ambiguous member, foreign experiment and nonselected accuracy attempt. Migrate FitReport/Completion/native selectors and F/G readers together; delete repeated coordinate maps and client permission conjunctions. |
+| I04 | planned | I01 consuming correspondence and I02/I03 real products | Implement differential change controls through existing granular compiler/native state owners: selected species/pair data, phase/branch policy, datum, derivative context and initial/scheduled inputs affect their actual consumers; unconsumed descriptor/redaction changes do not rebuild math. Preserve ProviderLinearizationToken and original preparation premises. Compare compatible value refresh with clean recomputation; remove replaced blanket-world invalidation and duplicate semantic keys only where found. |
+| I05 | planned | Working I02–I04 slices; ready E/F/G/C and K reconstruction consumers | Complete the selected post64 population and the concrete migration table, preserving current supported routes and explicit refusals. Derive observations using the same Buffa/maintained-validator composition in I02, while native reconstruction and selectors enforce use. Cross-check retained C/F products against their original experiment/attempt and required interpretation. Remove replaced mode/client interpretation, maps and obsolete fixtures with every migrated consumer. A new scientific target needs its separate selected delivery, not a wider generic enum. |
+| I06 | planned | I02–I05 functional scope; H01 agreed acceptance scenarios, not H02 results | Establish extension-locality and product-use journeys against independent physical/semantic expectations from the named source fixtures. Include the two-transient-experiment discriminator only with independently specified schedules/responses and original initial states. Preserve unsupported-closure refusal, metastable purpose, regime-crossing and raw/scientific distinctions. Hand actual population/limits to H, publish enduring contracts and delete remaining replaced routes. Any benefit measurement covers preparation→execution→readback, not just wire timing. |
 
 ## Verification and closure
 

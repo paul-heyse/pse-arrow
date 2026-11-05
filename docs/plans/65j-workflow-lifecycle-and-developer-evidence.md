@@ -3,7 +3,7 @@ title: "Plan65j: Workflow lifecycle and developer evidence"
 status: proposed
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [design, diagnostics, preparation, validation]
@@ -118,15 +118,100 @@ second canonical store. Forwarding, history, rerun, uncertain-effect recovery an
 admission remain separate operations. Retire readers only after promised interpretation is
 migrated, retained, or explicitly reported incompatible.
 
+## Explicit preparation and incrementally acquired originals
+
+The November 5 review [I03](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I03)
+and [I12](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I12)
+extend J01–J05's remaining behavior, not its prior evidence. Existing fixture declarations,
+readiness, source-build/capture, invocation publication and report/rerun owners remain the
+foundations. The current runner discovers and matches exact selected identities before
+preparation; `PreparedExecution::prepare` then returns on its first missing original
+environment input. Replace that single-failure experience with a complete selected account.
+
+Before listing, display narrower declarations as conditional requirements. After the original
+inventory is available, return all exact missing, refused and owner-required inputs together,
+including the owning preparation action and its retained output. Explanations/help remain
+passive. Zero-match prepares nothing; a pure selected test does not inherit every potential
+database/solver requirement in its binary.
+
+The first complete consumer is the already selected runtime library test workflow needing
+scientific inputs and the native lane. Its explicit preparation action composes the existing
+`xtask scientific-inputs` capsule owner and source-built `xtask` `pse-native-lane`
+target with its actual `solver-kinsol`/consumed compiler context; it never guesses
+target/debug paths or starts science as a side effect of inspection. Other demanded tools and
+modules retain their original source-build/selection owners and environment selectors remain
+eligible low-level input. Sources:
+[`fixtures.rs`](../../crates/pse-host/src/fixtures.rs),
+[`PreparedExecution`](../../crates/pse-host/src/fixtures/execution.rs),
+[`runner`](../../crates/pse-host/src/test_workflow/execute/runner.rs).
+
+Within one invocation, coalesce equivalent immutable helper preparation using the complete
+relevant source/compiler/native/feature context. Reuse the existing `BuildCapture` and
+`Executable` from [discovery](../../crates/pse-host/src/discovery.rs); retain each group's
+distinct association, inventory and original execution. Feature-name equality alone does not
+establish equivalence. Mutable databases, fixture lifetimes and scientific attempts remain
+fresh where their contracts require it. This adds no persistent artifact cache or new runner.
+
+J04's first large-evidence consumer is an offline native reader/exporter over protected
+original files and a staged directory bundle. Keep interpretation-three report/dependency
+commitments (ordinal, role, extent, digest and original omissions) as the only authority.
+A bounded manifest describes the selected original closure; acquire members incrementally,
+preserving their exact bytes. Use one commitment/adoption implementation for both this
+physical profile and the current compact single-message profile, whose input and output
+remain bounded at 64 MiB. Do not create a second verdict store, editable manifest or fallback
+that silently truncates a full account.
+
+The acquisition owner must select files from authenticated original commitments, establish
+identity/extent/digest and retain the opened protection through reading. Never accept arbitrary
+output/extraction paths from wire fields. For a staged export, create a private exclusive
+destination, acquire every required member, and publish the final manifest only after complete
+validation and synchronization. A failed prefix is not an advertised successful bundle.
+Reuse the invocation publisher's staging/sync/no-replace publication semantics; the exact
+[`publish_file` owner](../../crates/pse-host/src/invocation.rs) and its
+[`rustix::fs::renameat_with`](https://docs.rs/rustix/1.1.5/rustix/fs/fn.renameat_with.html)
+characterize atomic destination exclusion, not a new cleanup or retention service.
+
+Use Tokio-util 0.7.19 `ReaderStream`/`StreamReader` only for consumed streaming I/O,
+bounded channel reservations before transferring an allocation, and Bytes 1.12.1
+`Bytes::from_owner` when an owned backing must survive async use. Buffa projections carry
+bounded metadata, not all raw members in one repeated byte population. See
+[I/O adapters](https://docs.rs/tokio-util/0.7.19/tokio_util/io/index.html) and
+[Bytes](https://docs.rs/bytes/1.12.1/bytes/struct.Bytes.html). These libraries do not establish
+original attribution, file custody, full-bundle atomicity or scientific use.
+
+J04 must settle protection before claiming active-reader retirement. Current InvocationStore
+has no disposal/prune owner. Prefer protected opened-file acquisition for this reader when
+it discharges the selected lifetime; make directory-retention/support limits explicit.
+If interruption, deletion or cross-platform ownership requires more, design the minimal
+performing acquisition/disposal owner and route its actual contract change before dependent
+implementation. Do not assume a lease or invent a general retention manager to close the row.
+An omitted-at-capture member remains omitted even if a file appears later; reacquiring new bytes
+must never replace an old original promise.
+
+Recorded settlement remains passive. D05/E04's explicit result-bearing finish attempts all
+independent teardown, retains typed failures and holds admission while reap/I/O completion is
+unknown. J reports these outcomes without interpreting readability or process exit as control
+authority. D06 chunk services are conditional on a selected independent service consumer;
+offline J/F/G delivery can proceed without them.
+
+Acceptance pairs complete selected readiness, explicit preparation, actual execution, retained
+read and exact rerun after changed source. Include multiple missing inputs, conditionally
+irrelevant inputs, zero selection, equivalent versus different helper contexts, setup failure,
+interruption, failed cleanup, a complete bundle above 64 MiB, a slow/escaped reader, corrupt or
+missing later member, original omissions, destination collision and failed final publication.
+Delete replaced per-consumer preparation recipes, full-closure materialization and cleanup/
+reference translations only when their complete consumers migrate. No product test or
+performance benefit is established by these plan amendments.
+
 ## Packages and acceptance
 
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
-| J01 | in-progress | P01; current test and scientific evidence owners | Shared passive report-observation contract and original terminal matching are implemented in source; remaining population/construction/closure agreement and working generated delivery remain. Compare list/check/test/rustdoc, expected refusal, setup failure, zero match and incomplete capture before A/B interfaces freeze. |
-| J02 | in-progress | J01; working narrow A/B records/options/decode policy; narrow G02 inspector | Current report interpretation three seals original dependency commitments/omissions; source-generated one-way roots support explicit report, selection and full scopes. Independent binary readback and foreign/malformed/oversized/missing-import controls are narrowly tested. Full lifecycle/population delivery and retained raw-artifact protection remain. |
-| J03 | in-progress | J02; native failed-test rerun and current listing | Native rerun consumes authenticated original input and report/inventory commitments. The representative controlled failure/export/readback/exact-rerun journey passed for the earlier selection family; interpretation-three full dependency delivery and its new journey are recorded below. Complete changed package/features/identity, absent-evidence and stale-binary controls, and every selected consumer/deletion. Historical outcomes never become present evidence. |
-| J04 | planned | J02/J03; existing invocation/raw/fixture custody and interpretation policy | Integrate family retention, interruption and cleanup. Test report without inventory, unavailable old policy, corrupt raw capture, active reader and failed release. Preserve fixture lifetime, capture completeness and native settlement separately; delete replaced reference/cleanup translations. |
-| J05 | planned | J02–J04 full population; narrow F02 presentation and G02 reading | Complete list/check/rustdoc/test and exact rerun across assertion failure, passing expected-refusal test, zero match, setup failure, incomplete capture and interruption. Migrate every selected reader and remove replaced maps/fixtures; supply actual limits and population to H. |
+| J01 | in-progress | P01; current test and scientific evidence owners | Shared passive report-observation contract and original terminal matching are implemented in source; remaining population/construction/closure agreement and working generated delivery remain. Extend native fixture/readiness owners with conditional pre-list and exact post-list complete missing/refused/owner-required inputs and explicit preparation routes. Compare list/check/test/rustdoc, expected refusal, setup failure, zero match and incomplete capture before A/B interfaces freeze; passive inspection prepares nothing. |
+| J02 | in-progress | J01; working narrow A/B records/options/decode policy; narrow G02 inspector | Current report interpretation three seals original dependency commitments/omissions; source-generated one-way roots support explicit report, selection and full scopes. Independent binary readback and foreign/malformed/oversized/missing-import controls are narrowly tested. Define bounded manifest/member acquisition using that same commitment/adoption owner rather than a second verdict representation; keep compact input/output at 64 MiB. Full lifecycle/population delivery and retained raw-artifact protection remain; Buffa metadata decode grants no performing authority. |
+| J03 | in-progress | J02; native failed-test rerun and current listing; J01 exact prerequisite agreement | Native rerun consumes authenticated original input and report/inventory commitments. The representative controlled failure/export/readback/exact-rerun journey passed for the earlier selection family; interpretation-three full dependency delivery and its new journey are recorded below. Add explicit owner-composed capsule/native-lane/helper preparation and invocation-local equivalent BuildCapture reuse with distinct group attribution; keep mutable fixtures independent. Complete changed package/features/identity, absent-evidence, stale-binary and all-missing-prerequisite controls, and every selected consumer/deletion. Historical outcomes never become present evidence. |
+| J04 | planned | J02/J03; identified actual original-file acquisition/protection owner, not an assumed prune API | Deliver offline protected original-file reading and staged bundle export above the compact 64 MiB profile under one interpretation-three ordinal/role/extent/digest/omission commitment. Use the [existing invocation publisher](../../crates/pse-host/src/invocation.rs) staging/sync/no-replace behavior; [Tokio-util 0.7.19 ReaderStream/StreamReader](https://docs.rs/tokio-util/0.7.19/tokio_util/io/index.html) supply consumed I/O, not attribution or atomicity. Establish opened-file protection/support limits before active-reader retirement claims; design additional disposal ownership only if required. Test missing/corrupt later members, old policy, original omission, slow/escaped reader, collision, interrupted/failed publication and release. Preserve fixture/native/capture settlement separately; remove replaced full-closure copies and reference/cleanup translations only with complete consumers. |
+| J05 | planned | J02–J04 full population; narrow F02 presentation and G02 reading | Complete conditional/exact readiness → explicit preparation → list/check/rustdoc/test → compact or staged original evidence → independent read → exact rerun. Include assertion failure, passing expected-refusal test, zero match with no preparation, setup failure, incomplete capture, interruption and independent cleanup failures. Migrate every selected reader/exporter and remove replaced maps/fixtures/preparation recipes; supply actual limits and population to H. No service chunk transport or automatic pruning is a prerequisite of the offline consumer. |
 
 J01 supplies early design agreement. Narrow A/B implementation enables J02; G02's inspector
 slice need not await all G01 host families. F01 consumes J01 design, while J05 requires only

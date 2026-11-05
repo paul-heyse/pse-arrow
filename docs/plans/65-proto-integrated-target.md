@@ -3,7 +3,7 @@ title: "Plan65: Integrated Proto target alongside Plan64"
 status: in-progress
 date: 2026-11-03
 adrs: [ADR-0224, ADR-0241, ADR-0242, ADR-0243, ADR-0244, ADR-0245, ADR-0246]
-review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [current-work, design, libraries, validation]
@@ -176,12 +176,13 @@ require explicit migration or an explicit incompatibility result.
 | [65b Representation and validation](65b-representation-validation-and-interpretation.md) | Fidelity, rules, validation/adoption and retained interpretation |
 | [65c Storage and history](65c-storage-projections-and-history.md) | Exact mappings, query/graph projections, history and recovery |
 | [65d Local operations](65d-local-operations-and-services.md) | Hosting, identity/effects, clients, streams and settlement |
-| [65e Scientific execution](65e-scientific-portability-and-execution.md) | Portable artifacts, provider demands, batching and placement |
+| [65e Scientific execution](65e-scientific-portability-and-execution.md) | Provider demands, mutable sessions, batching, placement and E01/E06 integration; E02/E03 artifact ownership is in 65k |
 | [65f Diagnostics and results](65f-diagnostics-and-result-delivery.md) | Structured evidence, selected production and protected readback |
 | [65g Intelligence and tooling](65g-code-intelligence-and-client-tooling.md) | Host adoption, offline inspection, generated clients and references |
 | [65h Integrated acceptance](65h-integration-and-qualification.md) | Cross-domain extension/failure controls, benefit evidence and handoff |
 | [65i Scientific semantics](65i-scientific-operations-and-product-semantics.md) | Executable scientific operation/product-use contracts and dependency validity |
 | [65j Workflow evidence](65j-workflow-lifecycle-and-developer-evidence.md) | Developer evidence semantics, construction authority, retained-read and rerun lifecycle |
+| [65k Scientific artifacts](65k-scientific-artifacts-and-native-reconstruction.md) | E02/E03 immutable exchange, receiving reconstruction and narrow original-parent native delegation; sole package/evidence ownership extracted from 65e |
 
 Companion package tables own their native progress. This coordinator owns only P packages,
 the combined target and source dispositions. Documentation boundaries are not synchronization
@@ -218,6 +219,94 @@ These are dispositions of meaningful responsibilities, not an API-adoption quota
 improvements discovered during implementation update the owning target, affected consumers,
 dependencies and acceptance together. A changed source premise is corrected at its research
 home; the old account remains in Git rather than becoming a competing target.
+
+## November 5 improvement dispositions
+
+This revision integrates the [November 5 review](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md)
+at clean source baseline `1230a7e833fe31a809a077107bf2943cef3fc255`. The operator selected
+integration of all twelve recommendations and **decision packages first** for broader
+opportunities. Source findings are Interface-checked; revised designs and benefits remain
+Proposed. Authoring performs no product implementation or qualification and does not resume
+the stopped native-lane/test campaign. Earlier evidence retains its original conditions.
+
+The combined target is native scientific authority with operation-shaped generated contracts,
+transactional worker handoff, result-bearing physical finish, explicit complete preparation,
+demand-shaped inspection and protected original evidence acquisition. Generated schemas do
+not replace the domain model; semantic distinctions need not become physical tasks or stores.
+Exact existing positive scientific consumers are specified in 65i, with new scientific
+support distinguished from migration and extension discriminators.
+
+[65k](65k-scientific-artifacts-and-native-reconstruction.md) now owns E02/E03. Their original
+IDs, substantive assessments, status and evidence moved once; 65e retains provider sessions,
+batching and links at old anchors. This separates independent receiving reconstruction,
+durable evidence and one live original-parent delegation. It does not choose a new numerical
+IR or activate protobuf/native transfer on the strength of passive generation.
+
+The following I IDs refer only to the November 5 review. The November 3 table below retains
+its own namespace and dispositions. Contributions are linked; package progress remains at
+one owning companion rather than repeated in this table.
+
+| Recommendation | Disposition | Work owner | Completion or settling evidence |
+| --- | --- | --- | --- |
+| I01 | scheduled | 65i I01–I06; E01/E06; 65k E02; A/B/C/F/G consumers | Selected material coordinates, phase/regularity/stability, initial-interval fit meaning and experiment/trajectory product references govern actual native adoption and independent readback |
+| I02 | scheduled | 65e E04; D04/D05 | Queue reservation and reversible admission commit without suspension; definite abandoned Prepare is retired; unrelated sessions survive a lost waiter on a live connection; parent loss retains its distinct containment |
+| I03 | scheduled | 65j J01/J03/J05; G02/G04/G06 | Conditional versus exact all-missing prerequisite account, explicit preparation and complete-context invocation-local helper reuse with distinct group attribution |
+| I04 | scheduled | 65a A04; A03/A07; B03/B07 | Select plugins, reduced repeated plugin preparation or typed in-process composition after complete generated output/diagnostics/dependency/isolation comparison |
+| I05 | scheduled | 65b B01–B07; A02/A05/A06 | Each boundary enforces its supported format/rule/context/interpretation contract; retained original-world, strict-JSON and Edition limits remain explicit |
+| I06 | scheduled | 65f F04; C01–C06; B06/G/I/J | Selected intent reaches producer/storage, coverage and terminal extent stay distinct, and protected readers preserve exact values/history/release |
+| I07 | scheduled | 65d D05; 65e E04; F01/F02 | Native placement exposes explicit typed finish; every independent teardown is attempted and uncertain physical settlement retains custody/admission |
+| I08 | scheduled | 65g G03/G04; D/F/I/J | Independent discovery/explanation/native submission/selected readback journey, generated route facts, authenticated reconnect and attributable partial failure |
+| I09 | scheduled | 65k E02/E03; E06/I/C/H | Per-consumer transfer decision preserves original scientific admission, supplier prerequisites and parent verification; no competing production route or unqualified binary activation |
+| I10 | scheduled | 65g G02/G06; A04 | Payload/exact inspection avoids full presentation while required semantic checks, exhaustive counts and cursor ordering remain correct |
+| I11 | scheduled | 65g G02; A03/B | Shared typed effective-world recognition ignores only genuine SourceCodeInfo and selects exactly that world's compiled validation |
+| I12 | scheduled | 65j J02/J04; F03/G02/G04 | Offline original-commitment bundle with incremental protected member acquisition; >64 MiB closure, interruption, missing member and publication controls; no assumed prune owner |
+
+### Cross-contract readiness and library realization
+
+I01's native meanings precede new generated fields; I11 can reuse current effective-world
+semantics before broad migration. I02/I07 and J's preparation can proceed against existing
+owners without awaiting all A/B work. I04 is a bounded tooling decision, not a barrier to
+current generated consumers. J's offline evidence acquisition does not require D06 or a new
+canonical store. H reconciles each actual migration population and the complete assembled
+journeys; no whole-document completion barrier replaces these prerequisites.
+
+Each target and package body names the concrete library calls/configuration, release or
+maintained patch, composition, preservation limits and a precise characterization source.
+This is additive to design, migration and acceptance content. For example, Tokio 1.53.3
+`Sender::reserve_owned`/`OwnedPermit::send` separates cancellable capacity acquisition
+from native handoff; `JoinSet` retains results, while tokio-util 0.7.19 `TaskTracker`
+does not replace admission closure or result collection.
+[Queue source/API](https://docs.rs/tokio/1.53.3/tokio/sync/mpsc/struct.Sender.html#method.reserve_owned),
+[task tracking](https://docs.rs/tokio-util/0.7.19/tokio_util/task/struct.TaskTracker.html).
+Buffa 0.9.2, typed Connect codegen 0.9.0 and the maintained validator composition remain at
+A/B; checked numerical packing remains conditional at K. No source-list appendix substitutes
+for these explanations.
+
+### Broader opportunities: bounded decisions, not implied delivery
+
+P06–P09 own the decision outcomes below. A decision can adopt a bounded Plan65 amendment,
+defer with an observable trigger, reject with a reason, or identify principal work requiring
+a separately selected plan. A positive feasibility observation is not delivery completion.
+Only a selected concrete consumer extends dependent P04/H acceptance. Deciding these routes
+does not force multi-host scheduling, plugin unloading, broker delivery or new physical laws
+into the local core.
+
+| Decision | Concrete first consumer and comparison | Evidence and selection boundary |
+| --- | --- | --- |
+| P06 | Repeated independent local engineering client using an explicitly installed service/worker; compare current per-journey preparation with existing authenticated manager/systemd custody | Installation/update identity, reconnect/lost ACK, original readiness, activation result and drain; select a finite installed profile only if it improves this workflow. Fleet scheduling/credentials/distributed custody are separate principal work |
+| P07 | External reader of selected scientific result/provenance; compare current protected export/query with a continuity-bearing exporter | Establish whether snapshot access suffices. Durable change export requires event/cursor identity, acknowledgement, expiry/resync and native query freshness; no broker is a prerequisite |
+| P08 | One independently distributed provider implementation using current process isolation versus a versioned native ABI | Establish actual distribution need, physical/derivative contract, allocator/callback/thread/panic and unload lifetime. Proto supplies data contracts, not an ABI; defer ABI machinery without this consumer |
+| P09 | A chemical workflow beyond current migrated science using existing owner composition where possible | Separate new equations, applicability, derivatives and independent physical expectations from boundary migration. New temporal closure, electrochemistry or molecular algorithms require explicit scientific selection; do not infer support from generic records |
+
+### Decision routes and preservation
+
+Existing R01–R04 and proposed ADR-0241–0246 retain their actual statuses. Stronger queue
+handoff, explicit finish, lazy presentation and helper reuse preserve existing contracts;
+they do not by themselves need a governing rule change. Any actual change to product
+interpretation/construction, historical-read promise, metadata, hashing, kernel contract or
+ADR-0246 recipient scope is specified under P02 before dependent activation. Existing
+breaking-change authorization permits proposing replacements, not editing accepted ADRs.
+No additional rule waiver or scientific support is inferred by this revision.
 
 ## Decision and rule impacts
 
@@ -267,6 +356,10 @@ production foundation. Ordinary dependency moves remain ordinary pinned changes.
 | P03 | planned | P02; working narrow A/B generation/adoption and G02 inspection slices | Deliver both scientific admission→partial products→qualification→publication/readback and developer execution→full failed report/inventory→readback→exact rerun slices; include original cancellation/lost-ACK settlement; remove replaced maps/interpretations. Existing diagnostic slice is included, not dropped |
 | P04 | planned | Ready per-consumer contracts, not completion of every companion | Integrate all selected storage/runtime/scientific/host migrations, reconcile every companion and source disposition; no exemplar-only completion |
 | P05 | planned | All functional scope integrated, decisions settled, replacements deleted | Complete H qualification/benefit accounting, enduring architecture/operator guidance and retirement preflight; proposed benefits remain qualified by actual measurements |
+| P06 | planned | Current native installation/manager ownership and one independent local client | Decide the finite installed-worker/service consumer above; record outcome, actual custody/activation/readiness guarantees, conditional delivery or separate-plan boundary |
+| P07 | planned | C/F protected result/query contracts and an external reader | Decide snapshot/export versus continuity delivery with event/ACK/expiry semantics; record selected integration or revisit trigger |
+| P08 | planned | E provider capability and a concrete external distribution consumer | Decide process isolation versus ABI integration, including callback/release/unload duties; select no plugin framework by default |
+| P09 | planned | 65i scientific operation/product semantics and a candidate new chemical workflow | Decide existing composition versus new scientific work with independent evidence and explicit acceptance/support limits |
 
 Early owner/design agreement requires existing native semantics, not the new crate or complete
 65i/65j implementation. Working narrow A/B contracts then support I/J's first complete consumers;

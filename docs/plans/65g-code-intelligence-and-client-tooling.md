@@ -3,7 +3,7 @@ title: "Plan65g: Code intelligence and client tooling"
 status: proposed
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [design, libraries, preparation, validation]
@@ -87,6 +87,55 @@ from dynamic JSON strictness. Explicitly support selected WKT semantics and `Any
 do not blanket-map `.google.protobuf` to an implementation with different fidelity.
 Descriptor-provided source comments are useful explanation, not exact Rust byte ranges.
 
+### Acquired worlds, selected presentation and compiled binding
+
+Review [November 5 I10/I11](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I10)
+adds concrete G02 work at the inspected `1230a7e83` baseline. `Bundle::from_bytes`
+currently builds the full declaration/presentation index, even for a payload or exact-symbol
+request. `Bundle::compiled_world` compares raw bytes with embedded runtime artifacts,
+while the developer reader already recognizes the corresponding source-aware world.
+These are source-established gaps, not measured command latency or completed repairs.
+
+Split acquisition from optional presentation within the existing schema owner. Acquisition
+retains original bytes/checksum, complete import/structural validation and one
+`Arc<DescriptorPool>`. Exact payload/message requests use Buffa 0.9.2
+`DescriptorPool::message_by_name`, `file_containing_symbol` and linked descriptors rather
+than constructing all `Declaration` rows. Render comments, relationships and option details
+only for selected output. Use `DynamicMessage::from_options` for linked options without
+a JSON encode/parse pass when typed inspection suffices. Preserve the current report shapes
+and original bytes where their contracts require them.
+The [0.9.2 pool source](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/pool.rs)
+and [dynamic option source](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/dynamic.rs)
+characterize those lookup/interpretation mechanisms; they do not authorize skipping mandatory
+semantic-option checks from A/B.
+
+Select traversal from the question. Exact lookup resolves its descriptor directly; bounded
+search constructs only retained presentation rows. Exact counts/comparisons still examine
+their complete relevant universe. Keep deterministic ordering, continuation identity and
+cursor refusal. A broad-search session may lazily prepare a compact reusable index, but no
+global mutable pool or second schema graph is introduced. Optional presentation failure must
+not block a permitted binary inspection; malformed metadata required for that operation
+still refuses at its actual boundary. Migrate payload, exact declaration, search and compare
+consumers together, then delete unconditional indexing and unneeded JSON intermediates.
+
+Define a typed compiled-world match in the shared host schema/world owner, with one variant
+per actual generated decoder/validator family. Reuse the developer reader's
+[`same_runtime_world`](../../crates/pse-host/src/developer_evidence.rs) relation: decode
+both complete descriptors and remove only genuine `SourceCodeInfo` before comparison.
+File order, imports, options, effective features and unknown fields remain significant.
+The result selects only that world's compiled dispatch; it is not a compatibility result,
+historical policy resolver or native authority. Original acquired checksums stay unchanged.
+A04 derives the dispatch population from actual generated products rather than another
+hand-maintained family registry.
+
+Acceptance pairs a payload-only path that never builds full presentation with independently
+specified exact lookup/search/count/page/compare results. Inspect one malformed payload under
+runtime and source-aware artifacts: generated validation meaning must agree while artifact
+digests differ. Alter an option, feature, import or unknown field and require compiled-binding
+refusal. Preserve observation-only developer decoding. Source-aware recognition and
+demand-shaped presentation can ship on the ready A/B population without waiting for all
+G01 migrations or a strict-JSON upgrade.
+
 ## Independent local clients and reference exchange
 
 ### Early developer-evidence inspection
@@ -128,6 +177,36 @@ source, prepare, submit original work, observe/cancel and read protected product
 terminal failures after partial results and never automatically replays an uncertain submit.
 Health, reflection and connectivity are operational facts rather than scientific readiness.
 
+### Required independent engineering consumer
+
+For [November 5 I08](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I08),
+G03 delivers one complete generated Rust client operation over D's explicitly prepared
+authenticated endpoint: discover the approved contract and actual supported procedure,
+explain its declared constraints, preview an exact-parent edit, submit through the existing
+native operation owner, observe original identity and read selected protected results. Use a
+currently supported scientific case selected with I; do not implement new physics merely to
+complete a transport demonstration. G04 supplies a separately driven tool/runtime check
+where interoperability is claimed, not another instance of the same generated client.
+
+ConnectRPC 0.9.1 generated clients and `SharedHttp2Connection` reuse the authenticated
+connector. `ServerStream::message` distinguishes a message, successful terminal None and a
+terminal failure; retain a valid prefix as partial when a later error occurs. Exact-parent
+edit/admission and retry permission remain native; do not resubmit a lost-ACK effect.
+See the [client API](https://docs.rs/connectrpc/0.9.1/connectrpc/client/index.html) and
+[stream characterization](https://docs.rs/connectrpc/0.9.1/connectrpc/client/struct.ServerStream.html).
+For typed failure presentation use `ErrorDetail::from_message`/`with_detail`, keeping
+`with_source` local causes separate; [error source](https://github.com/connectrpc/connect-rust/blob/v0.9.1/src/error.rs).
+Unknown and malformed details, omitted full evidence and unauthorised descriptors remain
+distinct observations.
+
+The closure includes a changed parent/peer, native constraint refusal, unknown capability,
+cancel with later original settlement, lost acknowledgement and a terminal error after a
+valid result prefix. Replace client-specific field walkers and success classifiers once
+their consumers use G02/F's common meanings. Browser unary submission/server-streamed
+observation, installed workers and broader topologies remain coordinator decision packages;
+ordinary browser transport does not imply bidirectional provider-session support or make
+remote deployment a prerequisite of G03.
+
 Scientific references share only structural case/configuration/outcome contracts. Their actual
 calculations, physical conventions and expected values are constructed independently. Generate
 or dynamically load selected language bindings within the existing isolated reference
@@ -155,11 +234,11 @@ or the independent G03/G04 client/reference journeys.
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
 | G01 | in-progress | Current Plan64 source baseline; 65a pure contract and bundle slice | Developer report/diagnostic/path/test-identity owners now supply native source declarations and one-way captured roots. Remaining configuration/request/fact/graph/investigation families must preserve fallible context/path/provider hooks, guards, raw paths, original/adjusted facts and unknown alternatives, with every replaced map removed alongside its migrated callers. |
-| G02 | in-progress | Working narrow A/B family artifacts; G01 only for host families it migrates; I01/J01 design | First developer-evidence bundle and compiled reader are implemented; family/population qualification remains. Extend the same inspection to engineering/science/diagnostic worlds. Test option preservation/evolution, missing imports/interpretation, cross-pool identity, nesting and valid observation without native authority. Reuse the shared semantic checker; remove duplicate acquisition/walkers and JSON passes only with equivalent admission. |
-| G03 | planned | G02; 65d working native operation/client route | Deliver generated client packages, explicit offline/reflection discovery and independent local invocation through full operation/readback. Client-side message limits, terminal errors, reconnect auth, unauthorized reflection and expired protected results must remain observable. Delete superseded client-specific contract copies/dispatch translations. |
+| G02 | in-progress | Working narrow A/B artifacts; G01 only for migrated host families; I01/J01 design | Preserve the implemented developer reader and complete other selected worlds. Separate immutable acquisition from selected presentation; introduce typed compiled-world binding using only SourceCodeInfo removal. Migrate payload/exact lookup/search/compare together, preserving exact counts/cursors and mandatory semantic checking. Independently test runtime/source validation agreement, altered option/feature/import/unknown refusal, no full index for payload-only requests and observation without authority. Remove replaced eager indexing, Boolean binding and redundant JSON/walkers only after consumers move. |
+| G03 | planned | G02; D's working authenticated operations; I/F selected scientific consumer | Deliver generated Rust discovery/constraint explanation/exact-parent preview/native submission/original observation/selected protected-readback journey. Keep message limits, typed malformed/unknown details, reconnect auth and expired protection observable. Challenge changed parent, lost ACK and terminal failure after a valid prefix without duplicate submission. Remove replaced client contract copies, field walkers and success classifiers. Broader browser/installed-worker delivery is a separate decision, not a prerequisite. |
 | G04 | planned | G02; narrow E/F scientific/outcome and J03/J04 developer integrations according to family | Migrate independent reference helpers, diagnostic/developer readers and exact-rerun clients to approved bundles and generated/dynamic types. Test unknowns, exact bits, changed datum/formulation, original report/inventory binding, retained-context failure and complete coverage with independent expectations. Delete obsolete exchange/rerun maps while preserving authority and numerical independence. |
 | G05 | complete | Exact pinned rustdoc supplier and curated consumer population; G01/G02 only if a new projection cutover is selected | Retained the bounded Serde bridge after source comparison against a complete recursive conversion closure. Four native tests passed for recursive types, attributes, unavailable shapes, HRTB/capture/stability and format refusal against zero failures. The decision and revisit conditions below preserve the full curated contract without widening accepted formats. |
-| G06 | planned | G01–G05 selected consumers; 65a/b generation and fidelity controls | Complete developer-tool integration: compiler/plugin/edition/external mappings, explicit preparation, actionable generation diagnostics and Buf compatibility policy. Use one independently driven client/reference journey per actual supported contract family; reconcile every migrated consumer/deletion and supply evidence/limits to 65h. |
+| G06 | planned | G01–G05 selected consumers; ready A/B contracts, not whole-document barriers | Reconcile compiler/plugin/edition/external mappings, explicit preparation, actionable diagnostics and compatibility policy. Adopt A04's selected supplier route, verify complete dispatch population and no per-read whole-corpus presentation. Preserve one independently driven client/reference journey per supported family; reconcile every migrated consumer/deletion and give H actual coverage and limits. |
 
 G01's full population includes J01-selected developer observational families with no inverse
 native verdict/control constructors. G06 also reconciles J's completed developer reader

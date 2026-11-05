@@ -8,6 +8,11 @@ Plan64 and Plan65 now execute under one coordinator, with Proto delivery first a
 input fixes/census progressing where needed for its acceptance. Native package tables own current status and remaining decisions. Index inclusion does not
 resume stopped work or establish implementation, qualification or measured benefit.
 
+The November 5 review-driven **planning revision** integrates twelve recommendations and
+four bounded opportunity decisions. E02/E03 now have one owner in 65k; existing 65e anchors
+redirect there. This documentation revision does not resume production execution or the
+stopped qualification campaign.
+
 | Plan | Work and status owner |
 | --- | --- |
 | [65: Integrated Proto target](65-proto-integrated-target.md#consolidated-handoff--2026-11-04) | Stopped at the operator's request on 2026-11-05. Current worker changes are committed on main and merged worktrees removed. Receiving Clippy scopes passed; component/supplier controls passed 244/244 and 2/2. The native-lane prerequisite build was cancelled; the 87 selected runtime tests and final-source assembled qualification remain unrun. The coordinator and [65h checkpoint](65h-integration-and-qualification.md#consolidation-qualification--2026-11-04) own resumption and evidence limits; native package tables retain remaining delivery. |
@@ -28,8 +33,9 @@ Plan65 companions: [contracts and generation](65a-contract-foundations-and-gener
 [diagnostics and results](65f-diagnostics-and-result-delivery.md),
 [intelligence and tooling](65g-code-intelligence-and-client-tooling.md),
 [integrated acceptance](65h-integration-and-qualification.md),
-[scientific operation/product semantics](65i-scientific-operations-and-product-semantics.md), and
-[workflow lifecycle/developer evidence](65j-workflow-lifecycle-and-developer-evidence.md).
+[scientific operation/product semantics](65i-scientific-operations-and-product-semantics.md),
+[workflow lifecycle/developer evidence](65j-workflow-lifecycle-and-developer-evidence.md), and
+[scientific artifacts/native reconstruction](65k-scientific-artifacts-and-native-reconstruction.md).
 
 [Plan63: Code-intelligence and CLI robustness](63-code-intelligence-cli-robustness.md#outcome)
 is complete. Its coordinator owns O01–O08 disposition, integrated qualification and deliberate

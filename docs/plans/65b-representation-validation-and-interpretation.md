@@ -3,7 +3,7 @@ title: "Plan65b: Representation, validation and interpretation"
 status: proposed
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [current-work, design, libraries, validation]
@@ -79,6 +79,38 @@ historical record whose authority has expired; neither becomes current authority
 
 ## Concrete representation decisions
 
+### Executable boundary policy — November 5 revision
+
+Review [November 5 I05](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I05)
+requires B01's policy to be consumed by actual producers and readers. For every selected
+operation, bind the grammar/message, presence/unknown behavior, schema/edition feature
+support, generated-rule coverage, known native interpretation, contextual admission and
+construction direction. Keep those distinctions explicit in both successful output and
+unsupported/unevaluated outcomes. A schema that links is not proof that its generator emitted
+every rule or that a boundary invoked the generated validator.
+
+Use the existing A02 semantic checker to interpret options; do not introduce an independently
+editable policy catalogue. The policy selects mandatory checks before their properties are
+relied upon. G02 may defer optional presentation, but it must still run the structural and
+semantic checks required by the requested operation. Original-world inspection and current
+native adoption remain separate operations when their policies differ.
+
+B02/B07 consume G02's typed matched-world identity to select only that world's generated
+decoder/validator. The matching relation ignores only genuine `SourceCodeInfo`; it preserves
+file order, imports, options, effective features and unknown fields. A matched world neither
+changes the acquired artifact digest nor grants native admission or performer authority.
+The existing [`same_runtime_world` implementation](../../crates/pse-host/src/developer_evidence.rs)
+is the starting relation, not permission to normalize arbitrary wire-compatible schemas.
+Compare an independently malformed payload under runtime and source-aware artifacts, then
+alter a rule, feature, import or unknown field and require compiled-binding refusal.
+
+Library roles remain explicit: Buffa 0.9.2 `DescriptorPool` links and resolves a closed world,
+`DynamicMessage::from_options` reads linked metadata, and generated `Validate` checks its
+selected local rules. None constructs sealed native permission. See the
+[pool source](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/pool.rs),
+[dynamic reflection](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/dynamic.rs)
+and [maintained validator contract](../../vendor/protoc-gen-protovalidate-buffa/README.md).
+
 Use Buffa owned messages for ordinary first-party exchange and eager generated views for
 read-heavy borrowed payloads. `OwnedView` may retain backing `Bytes` across awaits. Read
 generated values through vtable `ReflectMessage::for_each_set` without dynamic materialization
@@ -136,6 +168,12 @@ retain the strict route or make only the independently justified narrower simpli
 This optional investigation cannot block the scientific/domain/lifecycle target; any claimed
 allocation or latency benefit requires a matched whole-boundary measurement.
 
+The November 5 revision retains this as a three-outcome decision: select a released complete
+generated route, select an independently justified narrower simplification, or retain the
+current strict route. Record the actual release/configuration and each imported external
+type's JSON policy beside that result. Do not let a source-aware compiled-world match turn
+`deny_unknown_json_fields` from an upstream-main lead into a capability of pinned 0.9.2.
+
 ## Validation composition
 
 Reuse A02's native semantic metadata checker when resolving this policy's approved world.
@@ -173,6 +211,16 @@ bridge adds reflection/CEL/layout and output constraints. Use the maintained ded
 generator for the stable first-party population; select a runtime validator only for an actual
 approved dynamic consumer with its complete lifecycle/cost justified in B04.
 
+Edition support is assessed across compiler, effective descriptor normalization, generator,
+validator and runtime for the selected schema population. Runtime validator 0.6.0's
+`normalize_edition_descriptor_set` and DELIMITED adaptation around prost-reflect are useful
+comparison mechanisms, not evidence of universal Editions support. Preserve explicit refusal
+when a selected feature is unsupported; compare normalized effective features and rule behavior
+with independently specified expectations. The
+[validation reference's Edition characterization](../libraries/proto/protobuf_validation_rust.md)
+and [0.6.0 runtime source](https://docs.rs/crate/prost-protovalidate/0.6.0/source/src/)
+characterize that bounded adaptation. No compiler upgrade or dynamic fallback is implied.
+
 ## Allocation, encoding and lifetime
 
 Match useful detail at the producer before hydration or encoding. Then choose physical library
@@ -196,10 +244,10 @@ their common discrimination controls without pretending a codec benchmark qualif
 
 | Package | Status | Inputs → deliverable | Migration/deletion and targeted acceptance |
 | --- | --- | --- | --- |
-| B01 | planned | Post-Plan64 population, 65i I01/65j J01 design products and A01/A02 semantics → explicit operation policies and historical interpretation | Classify every selected boundary as forwarding/archive/adoption/transformation/inspection, including non-reconstructible native authority; publish policy and identity associations once. Remove inherited implicit format assumptions. Test original-policy read versus current-policy adoption, unavailable old policy and proof-shaped observations that cannot issue current grants. |
-| B02 | planned | B01 policies and A03 world artifacts → faithful binary/JSON/text decode and fallible native adoption | Migrate host, engineering, worker, reference and selected durable diagnostic/document consumers. Remove replaced per-consumer presence/default/key/type checks only after equivalent shared policy exists. Test large integers, exact bits, alias keys, unknowns, fresh-decode merge and typed refusal. |
+| B01 | planned | Actual selected population, 65i I01/65j J01 design products and A01/A02 semantics → executable operation policies and historical interpretation | Classify every boundary as forwarding/archive/adoption/transformation/inspection, including non-reconstructible native authority. Bind grammar/world, presence/unknown behavior, feature and rule coverage, native interpretation and contextual admission to their actual enforcement owners. Remove inherited implicit format assumptions and duplicate policy tables. Test original-policy versus current adoption, unavailable old policy, unevaluated/unsupported rules and observations unable to issue current grants. |
+| B02 | planned | B01 policies, A03 artifacts and G02 typed world binding → faithful binary/JSON/text decode and fallible native adoption | Migrate host, engineering, worker, reference and selected durable consumers. Runtime/source-aware forms must select the same compiled validator only under the SourceCodeInfo-only relation. Settle the released strict-JSON select/narrow/retain decision before deleting checks. Test exact numbers, aliases, unknowns, trailing data, fresh-decode merge, altered feature/option/import/unknown-field binding refusal and preserved typed failures. |
 | B03 | planned | Actual selected local-rule needs plus A02 options → complete native/generated rule parity | Extend the narrow rule vocabulary where useful, update maintained preflight and owned/view generated validators, and delete duplicate local scalar checks. Test unsupported combinations, mixed arithmetic, error masking, codepoint/byte differences, outgoing violations and category-preserving failures. |
-| B04 | planned | Approved dynamic schema inspection/import consumer, B01 policy and closed descriptors → choose whether dynamic execution is warranted | Compare eager closed-world runtime validation with generated stable support and explicit unsupported refusal. A runtime choice must pass logical-clock replay, unknown constraints, filtered/FailFast scope, initialization and retained-world controls. If no consumer benefits, record non-selection and remove prototype-only code; do not install a fallback. |
+| B04 | planned | Approved dynamic schema inspection/import consumer, B01 policy and closed descriptors → choose whether dynamic execution is warranted | Compare eager closed-world runtime validation with generated support and explicit unsupported refusal. A selected runtime must pass logical-clock, filtered/FailFast scope, unknown-constraint, initialization and retained-world controls. Check the exact compiler/normalization/generator/runtime Edition chain rather than infer support from linking. If no consumer benefits, record non-selection and remove prototype-only code; no fallback is installed. |
 | B05 | planned | B02/B03 and selected external protocol population → exact WKT/Any/Proto2/alias conversion contracts | Configure only actual external mappings; migrate affected ProtoJSON readers/writers together. Delete redundant JSON conversion routes. Independently test Timestamp limits/offsets, signed Duration, FieldMask intent, nonfinite Value, required/default fields and unknown enum/extension behavior. |
 | B06 | planned | Actual D/F/G selected producer paths → demand-shaped representations and bounded lifetimes | Integrate eager views/owned values/direct reflection, bounded encoding and conditional segmented output; remove superseded temporary buffers and repeated conversions. Test async retention, oversized backing slices, compression/flattening, cumulative limits and cancellation release; compare matched complete boundaries for measured claims. |
 | B07 | planned | All selected population migrated → conformance/fidelity controls and documented extension route | Add a field/alternative/rule to one boundary and show generated/adopted/readback behavior; test stale-world reuse, mutable invalidation and public omission. Remove old adapters/fixtures only with migrated consumers. Hand assembled controls to65h; do not infer science or throughput from wire conformance. |

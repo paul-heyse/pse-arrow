@@ -3,7 +3,7 @@ title: "Plan65c: Storage projections and historical interpretation"
 status: proposed
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [design, storage, libraries, validation]
@@ -30,6 +30,13 @@ The [storage briefing](../library_leverage/libraries/proto/briefings/surrealdb-s
 [applicability](../library_leverage/libraries/proto/applicability.md), and source references below
 are **Interface-checked** inputs. Local compositions and benefits remain **Proposed**. No
 database, migration, replay or performance campaign was run to author this document.
+
+The [November 5 review I06](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I06)
+sharpens the remaining selected-read and historical-interpretation work at baseline
+`1230a7e83`. It identifies no new storage-codec defect: the existing exact native codecs,
+borrowed preflight, guarded effects and protected readers remain useful foundations.
+This revision selects concrete consumer integration below; its new targets are **Proposed**,
+without reclassifying historical tests as final-source qualification.
 
 ## Foundation assessment and alternatives
 
@@ -132,6 +139,65 @@ cursors may repeat entries; table-filtered empty batches may precede later relev
 Neither empty output nor a live reconnect proves caught-up status. Persist acknowledgements
 with the consumer effect where atomicity is required, otherwise make duplicate handling explicit.
 
+### Selected-result intent and exact reader population
+
+The first remaining complete consumer is the existing
+[`canonical_connected_results_reopens_declared_arrow_exact_range_and_cancellation` route](../../crates/pse-runtime/src/workflow/connected_results.rs),
+with [selected snapshot/escaped reader controls](../../crates/pse-runtime/src/workflow/result_snapshot.rs).
+Carry an exact original run/attempt, selected result set, column/coordinate intent and requested
+range from the native reader into query/projection planning. Returned extent, whether the
+request's semantic scope is complete, observation coverage and governing scientific permission
+remain separate facts. A selected source query should avoid unrelated detail hydration, but
+must retain the global scalar keys, source/schema/block protection and original predicates
+needed to establish its answer. F04's narrower readable-root inspection does not become
+full scientific admission or full-file validation.
+
+Use the existing canonical query/protected-result owners for current reads. Add an index,
+native query projection or mapping only where this selected consumer actually uses it; retain
+filters and field selection at the native access path until representation/admission requires
+materialization. A cached/maintained view is not the default: select a revision-bound view only
+when every related-record and absent-lookup dependency is accounted for. Otherwise execute the
+current guarded query. No new graph export or adjacency cache is needed for ordinary selected
+result access.
+
+Scientific product references from 65i add original experiment, producing attempt and
+trajectory/output coordinates where consumed. Storage preserves those identities without
+recomputing final-attempt choice or product permission. F owns user-visible selection/extent
+and diagnostics; G owns independent presentation. The protocol metadata snapshot is passive;
+the actual `ResultRead` protection and release task remain native. Migrate the selected
+producer, original manifest metadata, current query, retained interpretation and reader together,
+then delete replaced full-detail hydration, duplicate extent passes or field maps.
+
+### Library realization and historical acquisition
+
+For these selected mappings, generate explicit native conversions over SurrealDB-types 3.3.4
+`SurrealValue::{kind_of,into_value,from_value}` and `Kind` only where their consumed
+semantics fit. Preserve full-u64 Decimal handling, IEEE bits and domain-key conversions in
+the declared mapping rather than relying on convenience casts. The
+[trait source](https://docs.rs/crate/surrealdb-types/3.3.4/source/src/traits/surreal_value.rs)
+and [3.3 capability guide](../libraries/proto/Protobuf_SurrealDB_v3.3.md)
+characterize those structural APIs; they do not provide permissions, transactions or aggregate
+decode admission. Use `encode_proto/decode_proto` solely for a selected native-Value
+interchange consumer under the [3.3.4 codec contract](https://docs.rs/crate/surrealdb-types/3.3.4/source/src/proto/mod.rs).
+
+Independent metadata inspection uses Buffa 0.9.2 `DescriptorPool::decode`,
+`DynamicMessage::decode` and `field_by_number` with the artifact's approved immutable
+world. The [dynamic source](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/dynamic.rs)
+characterizes decoding/reflection, not storage or scientific authority. Resolve original
+descriptor/policy/mapping dependencies once for the retained artifact and keep their custody
+for the reader's lifetime. Missing original interpretation reports incompatibility/incompleteness;
+using today's schema because its field names match is not historical admission.
+Source/scientific artifact reconstruction consumes the E02/E03 contract in
+[65k](65k-scientific-artifacts-and-native-reconstruction.md), not mutable provider-session
+readiness from 65e.
+
+The first consumer does not require durable incremental delivery. C06 begins with a bounded
+decision for a named external analysis/export consumer: specify continuity, event identity,
+cursor/ordinal, acknowledgement/replay window and expiry recovery before selecting a changefeed
+or outbox. If no consumer requires that promise, retain current reads and close the investigation
+with documented non-selection. Upstream 3.3.5/MX 0.27 observations do not replace the patched
+3.3.4/MX 1.0 baseline, and v4 stays excluded.
+
 ## Scientific use, evidence closure and independent changes
 
 Consume [65i](65i-scientific-operations-and-product-semantics.md)'s operation/product-use
@@ -229,13 +295,13 @@ These controls do not establish the entire retained-policy population or assembl
 
 | ID | Status | Prerequisite | Result and completion obligation |
 | --- | --- | --- | --- |
-| C01 | in-progress | Actual native server/codec baseline; working 65a declarations/options and 65b fidelity policy | Result manifest/block metadata now has source-owned native/Proto mappings and explicit tags; source semantic/encoding preservation and three independent value controls pass. Complete protected readback and remaining exact field-policy controls; existing native transaction predicates remain authoritative. |
-| C02 | in-progress | C01 working generator; 65a usable contract graph and emitted adapters | Source-owned original run/attempt and result set/batch/output mappings plus the borrowed protected-result snapshot are generated on main with typed canonical lifecycle facets; the actual constant-completion protected snapshot/payload control passes. Complete the selected scientific/runtime metadata and canonical request/result population, preserving transaction predicates and preflight until equivalence; delete replaced mechanical copies with consumers and fixtures. |
-| C03 | planned | C01; 65b original-policy/adoption; 65i product-use and 65j evidence design; 65f evidence shape | Deliver retained artifact headers, complete family-specific context/descriptor/policy/mapping resolution and optional hybrid storage. Historical read, forwarding and current scientific use remain distinct. Test absent/expired/incomplete/incompatible/corrupt dependencies and active-reader protection; no retention of live fixture/worker readiness. Delete replaced ad hoc headers and repeated interpretation lookup. |
-| C04 | planned | C02/C03 schemas and protected publication; 65i dependency-validity contract | Implement coherent rebuild/activation and selected retained-data migration using shared option-evolution decisions. Separate artifact rebuilding from scientific invalidation and renewed admission. Attack interruption before/after publication, uncertain ACK, stale membership and unavailable original policy. Delete the replaced write path after complete cutover; retain only deliberately supported historical readers. |
-| C05 | planned | Actual graph/query consumers from C02; C04 interpretation generation | Migrate graph/query projections to explicit pair/occurrence identity and complete freshness dependencies. Prefer native access paths; repair initial/update identity and related-record invalidation controls. Remove redundant adjacency/materialization machinery where replaced. |
-| C06 | planned | C03/C04; an identified continuity consumer | Deliver durable incremental consumption only for that selected consumer: cursor/ordinal, duplicate policy, acknowledgement crash windows, expiry and reconstruction. If no selected operation promises continuity, close with a documented non-selection and implement no generic replay engine. |
-| C07 | planned | C01–C06 dispositions and all selected migrations | Supply 65h storage/publication acceptance, selected complete-operation measurements and enduring schema/recovery documentation. Reconcile all migrated producers, readers, generators, fixtures and deletions before completion. |
+| C01 | in-progress | Actual patched server/codec baseline; working 65a declarations/options and 65b fidelity policy | Preserve the delivered manifest/block mapping and its independent value controls. Complete exact checked field policies using 3.3.4 [SurrealValue/Kind characterization](../libraries/proto/Protobuf_SurrealDB_v3.3.md), retaining explicit u64 Decimal, IEEE-bit and identity conversions. Native predicates and borrowed preflight remain authoritative; test malformed/duplicate native values before any replaced admission is deleted. |
+| C02 | in-progress | C01 generator; working 65a graph/adapters; F04 selected-read contract | Preserve delivered run/attempt/set/batch/output metadata and protected snapshot controls. Complete the selected scientific/runtime and canonical request/result population, including exact column/coordinate/range intent through the named connected-results consumer. Use generated native codecs and Buffa 0.9.2 [independent dynamic metadata read](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/dynamic.rs); decoding cannot construct ResultRead custody. Delete replaced field maps/full-detail hydration only with their producer/readers and preserved predicates/global keys. |
+| C03 | planned | C01; 65b original interpretation; 65i producer references; K-owned E02 where source reconstruction is consumed; 65f retained-evidence contract | Resolve the original family-specific source/context, descriptor, validation and mapping closure once under actual reader custody; add original payload storage only for a selected preservation consumer. Current scientific use remains separate from historical read/forwarding. Exercise absent/expired/corrupt policy and ambiguous/foreign experiment/attempt references. Delete duplicate headers/interpretation lookup; don't retain live fixture/worker readiness or infer authority from a reflected snapshot. |
+| C04 | planned | C02/C03 publication; 65i dependency validity and shared A/B option evolution | Stage the new declared mapping privately, validate its original membership/dependencies, then activate one coherent generation. Retain current guarded-query access while a derived view is incomplete/stale. Contrast mapping-only rebuild with physical data/phase/derivative invalidation; test crash before/after activation, uncertain ACK and unavailable original policy. Delete replaced write paths only with all writers/readers migrated; historical readers retain their deliberate promise. |
+| C05 | planned | Named C02 query consumer; C04 generation; coordinator outcome for any broader graph inspection | Use current native selected-result queries first. For selected graph exploration, decide pair versus occurrence semantics, exact path/subgraph output and all related-record/absent-lookup dependencies before adding a projection/view. Native Kind/SurrealValue conversion in C01 does not establish freshness. Test initial/update identity, related-record mutation and empty-but-not-caught-up output. If no broader consumer is selected, record that disposition and add no adjacency/export machinery; remove redundant materialization only where equivalent access replaces it. |
+| C06 | planned | C03/C04; bounded coordinator decision selecting or declining a continuity consumer | Evaluate external analysis/export with a concrete continuity promise. If selected, implement source cursor plus mutation ordinal, event identity, duplicate policy, acknowledgement crash window and expiry/resynchronization under the exact patched server behavior characterized by the [storage account](../library_leverage/libraries/proto/briefings/surrealdb-storage-and-projections.md). Native Value Proto coding is not replay. Otherwise close with documented non-selection and no generic outbox/broker dependency. |
+| C07 | planned | C01–C06 decisions and all selected migrations | Hand H the actual selected producer→current query→protected read→original interpretation population, with empty/full/selected ranges, late terminal failure and failed-release controls. Supply matched complete-operation measurements only where claimed and enduring mapping/recovery guidance. Reconcile all producers/readers/generators/fixtures and deletions; emitted schemas or a native Value round trip alone cannot close publication/recovery. |
 
 The first actual vertical slice is retained diagnostic/result metadata from 65f. It establishes
 one useful generated mapping, independent read and original-policy behavior. C02 must then name

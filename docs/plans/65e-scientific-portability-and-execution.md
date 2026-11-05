@@ -2,8 +2,8 @@
 title: "Plan65e: Scientific portability and execution"
 status: in-progress
 date: 2026-11-03
-adrs: [ADR-0242, ADR-0243, ADR-0245, ADR-0246]
-review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
+adrs: [ADR-0242, ADR-0243]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [design, numerical-execution, preparation, validation]
@@ -20,7 +20,8 @@ effective native representations. Direct and isolated execution consume the same
 meaning; placement does not create a second formulation or derivative authority.
 
 The [coordinator](65-proto-integrated-target.md) owns the combined design, rule decisions and
-completion. This companion owns E01–E06. Execution is authorized alongside incomplete Plan64
+completion. This companion owns E01/E04/E05/E06. [65k](65k-scientific-artifacts-and-native-reconstruction.md)
+owns E02/E03, including their historical evidence and remaining qualification. Execution is authorized alongside incomplete Plan64
 as of 2026-11-04, including replacement of overlapping mechanisms. Individual deliveries
 consume actual native capabilities and working interfaces; whole-Plan64 completion is not a
 starting gate. Current source was inspected at
@@ -105,6 +106,10 @@ the native job and parent process reservation retain their own settlement duties
 describes polling and drop semantics. Those mechanisms use existing pinned dependencies and
 express the worker's serial mutable lane, not a new host-wide concurrency limit.
 
+E02/E03 package status now has one owner in
+[65k’s package table](65k-scientific-artifacts-and-native-reconstruction.md#packages-and-migration).
+Their labels and earlier evidence are preserved; this extraction is not completion or reset.
+
 ## Selected design and alternatives
 
 Use the pure structural contract owner from [65a](65a-contract-foundations-and-generation.md)
@@ -140,11 +145,11 @@ preserves source shape. Opaque evaluator/provider closures, native thread state 
 remain process-local. Reuse native library artifact export only with its exact producer/version/
 profile contract and an actual receiving consumer; otherwise exchange reconstructible source.
 
-Replace the private root's mechanical Serde source/request/outcome vocabulary with generated
-source-owned records, keeping its existing narrow executable factory and parent-side original
-screening. Reuse its private bounded channel rather than forcing it through the engineering
-service. The implementation removes the old wire structs, conversion pairs and JSON framing
-after complete root controls pass. It does not widen the supported mathematical class implicitly.
+The private root's artifact/envelope realization is selected in 65k against its actual
+receiving contract, retaining the narrow executable factory, bounded inherited channel and
+parent-side original screening. Generated correspondence does not itself select a protobuf
+mathematical body or qualify live native packing. Remove replaced wire/reconstruction
+mechanisms only at the complete selected consumer cutover; no new mathematical class follows.
 
 A universal Proto mathematical IR would duplicate library algebra and introduce conversions
 into hot callbacks. Keeping every private wire form indefinitely would repeat scientific
@@ -153,6 +158,49 @@ correspondence without making a codec the numerical engine. Proto-first external
 contracts remain eligible when independently governed, through explicit native adoption.
 
 ## Worker and coherent-batch interface
+
+### Transactional handoff and explicit placement finish — November 5 amendment
+
+This section integrates review [I02/I07](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I02)
+into E04. Current source admits Prepare into the handle map before awaiting job submission,
+and exits the shared native loop when its response receiver has departed. Correct these
+source-established hazards without conflating one method waiter with parent/process loss.
+
+Reserve queue capacity using Tokio 1.53.3 `Sender::reserve_owned` before reversible Prepare
+bookkeeping; commit that bookkeeping and `OwnedPermit::send` synchronously with no intervening
+await. A failed reservation has no native effect. Preserve independent immediate Stop/Shutdown
+signals so active indivisible FFI can observe cancellation rather than waiting behind itself.
+The native Job retains its `OwnedSemaphorePermit` until mutation and bookkeeping settle.
+[Capacity/transfer contract](https://docs.rs/tokio/1.53.3/tokio/sync/mpsc/struct.Sender.html#method.reserve_owned).
+
+Default disposition on **definite observing-method departure** during Prepare is performing-owner
+retirement after preparation/native work settles. No new recovery registry is selected.
+Loss of an Evaluate waiter on a still-live authenticated parent connection does not retire
+unrelated prepared handles. A successful oneshot send is not a wire/client ACK: later network
+reply loss remains an uncertain original outcome under existing parent/process custody.
+Explicit parent/connection loss still permits the existing whole-process containment policy.
+ConnectRPC 0.9.1's deadline wrapper can drop the method future through Tokio `timeout_at`;
+it does not settle the native job. [Exact wrapper](https://github.com/connectrpc/connect-rust/blob/v0.9.1/src/service.rs).
+
+At the scientific placement owner provide explicit result-bearing finish: close admission,
+request the appropriate handle/process shutdown, attempt independent process reap and I/O join,
+and preserve original typed scientific and cleanup failures. Outstanding handles/activity
+retain their owner and charges until actual settlement. Failure to establish reap or I/O
+completion must not release admission merely because cleanup was attempted. Drop remains
+best-effort abandonment containment and cannot certify a successful finish.
+Tokio `JoinSet` retains outcomes and requires joining after abort; tokio-util 0.7.19
+`TaskTracker` observes destruction but neither rejects post-close spawns nor preserves task
+results. Do not substitute it for performing-owner result collection.
+[JoinSet](https://docs.rs/tokio/1.53.3/tokio/task/struct.JoinSet.html),
+[TaskTracker](https://docs.rs/tokio-util/0.7.19/tokio_util/task/struct.TaskTracker.html).
+
+E04's actual controls must cover cancellation before/after reservation, definite non-submission,
+accepted native work, abandoned Prepare, lost waiter with an independently usable second
+handle, late completion and actual parent loss. Combine original failure, reap failure and
+I/O panic/delayed destruction, preserving every result and admission through the last physical
+owner. Remove pre-enqueue mutation, unconditional reply-loss shutdown and ignored cleanup
+results from the positive explicit finish path only after replacement controls pass.
+These are planned corrections; no new fault exercise or product implementation is claimed.
 
 Generalize the post-Plan64 worker as an explicitly prepared local placement. Preserve separate
 attempt, process/session, preparation generation and invocation identities. Every Evaluate
@@ -202,9 +250,7 @@ consumers; the whole descriptor world must not become a blanket mathematical pre
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
 | E01 | in-progress | Actual native capabilities; agreed scientific contract from 65i I01; co-designed 65a metadata | Initial concrete portable consumers are reconciled above; complete source/spec/context/receipt classification and bind each operation's inputs, support/refusal and product-use semantics before selecting projections. Preserve physical/configuration versus value-only change controls; no universal catalogue. |
-| E02 | in progress | E01; narrow working 65a/65b and receiving operation from 65i I02 | First remove kernel portable descriptor mirrors while retaining contextual receipt replay and truthful interpretation changes. Generate portable scientific records/adapters and migrate existing producers/readers. Buffa generation and supported `Validate` discharge local correspondence; native reconstruction and completion-owned selectors discharge scientific admission/use. Cover ordering, exact bits, missing/unknown alternatives, scope/coverage and refusal classes. Remove migrated capture/restore pairs and duplicated shape declarations; retain qualification. Test changed native variants against independent known meaning. |
-| E03 | in progress | E02 closed-root slice; 65d transport/settlement primitives where shared | Project actual native root/input/source-map/handshake/request/outcome owners, then activate generated bounded envelopes on the existing inherited channel. Preserve provider-free rejection, original registry/body checks, numerical policy and cancellation/drain. Compare direct and child outcomes on the same independently specified roots; inject malformed source, stale image, unknown completion and child failure. Delete replaced private wire/JSON-only helpers and their mechanism-only fixtures. |
-| E04 | in-progress | Existing provider slice; 65d custody behavior; 65i dependency policy; ADR-0242 | Source cutover separates per-handle Stop/Close from explicit Shutdown and generation cancellation. Complete generated publication, active-stop/independent-session controls and process/I/O drain acceptance; migrate all selected clients/server/fixtures without confusing mutable handle invalidation with immutable math or descriptor lifetime. |
+| E04 | in-progress | Existing provider slice; 65d custody behavior; 65i dependency policy; ADR-0242 | Preserve delivered per-handle Stop/Close versus Shutdown. Add transactional reservation/handoff and definite lost-waiter disposition, explicit typed placement finish with custody through reap/I/O join, and every cancellation/late-result/independent-handle control in the November 5 design. Tokio reserve_owned/OwnedPermit::send supply queue transfer, not native settlement. Complete generated publication and process acceptance; delete replaced submission/shutdown and ignored-cleanup branches with migrated clients/server/fixtures. |
 | E05 | in progress | E04; ADR-0243 precedes kernel and binding activation | Deliver capability-declared coherent batching with exact point identities and per-point outcomes. Integrate the current water implementation where it can reuse preparation across independent states and the action-capable provider control for demand fidelity. Mixed valid/invalid states, branch changes, nonfinite/truncated responses and failure after partial completion discriminate behavior. Remove redundant per-point RPC orchestration from migrated consumers. |
 | E06 | planned | E02–E05 functional population; 65i product-use contract; 65f outcome and 65g readers | Integrate generated capability/outcome inspection and independent exchange across supported post-64 modes; `DynamicMessage::from_options` exposes metadata while native selectors govern use. Prove raw versus scientific access, original task/step/point coverage and final-attempt interpretation. Record matched direct/isolated complete-operation measurements without presumed speedup. Supply actual population/limits to 65h and remove superseded selected paths. |
 
@@ -323,592 +369,53 @@ and complete-operation measurement; these controls do not establish speedup or a
 
 ## E02 native portable descriptor cutover
 
-The first E02 slice replaces `PortWire`, `ShapeWire` and `SpecWire` in the kernel portable
-owner with the actual `Port`, `ProviderShape`, `ProviderShapes` and `ProviderSpec` declarations.
-`ProviderRecord` v2 contains the native descriptor directly. Existing Serde 1.0.229
-[`Serialize`/`Deserialize` derives](https://github.com/serde-rs/serde/blob/v1.0.229/README.md)
-encode those named fields without a second native correspondence layer;
-[`deny_unknown_fields`](https://serde.rs/container-attrs.html#deny_unknown_fields) refuses
-unknown struct meaning instead of silently discarding keys. This uses the existing bounded
-JSON recipe route during this narrow migration; it does not claim the remaining Buffa
-scientific-input cutover is complete. Passive bidirectional source projection describes
-untrusted reconstructible data. Only native contextual receipt replay and exact provider-key
-comparison issue `AdmittedProvider`; no decoder constructs a factory or executable admission.
-
-The representation change is explicit: shape arrays become native named shape fields, raw
-derivative ordinals become the native enum, ProviderRecord advances to v2, admitted recipes
-to `pse.admitted-body.v3`, and runtime product envelopes/framing to v5. Bounded readers check
-interpretation headers before decoding representation-specific fields, so unsupported
-retained interpretations report incompatibility rather than masquerading as the current shape.
-The existing exact-artifact framing algorithm, provider semantic key and native scientific
-identity remain unchanged; new representation bytes naturally have a new artifact hash.
-Qualified receipt indexing and original replay authority remain intact. Shared shape accounting
-charges vector capacities and nested allocations exactly once, including retained spare slots.
-
-**Tested, targeted on 2026-11-04:** scoped cache-off `scripts/pse test pse-kernels pse-compiler
-pse-runtime --lib` selected and completed nine controls with zero failures or pending tests
-against the zero target, with original capture/settlement and actual Arrow validation complete.
-They cover real provider receipt reconstruction and independent `x*x+1` execution/refusal,
-changed descriptor-key refusal despite qualified byte membership, decoder refusal to issue
-receipt authority, unknown-field refusal, native record Data/version/direction metadata,
-shape capacity accounting, provider-free direct replay, retired recipe/envelope interpretations,
-and large opaque envelope hashing/forged extent. The initial seven-control population passed;
-a new source-projection test's misplaced module caused one discovery build failure and was
-corrected before this full nine-control rerun. Root-owned generated publication remains.
-Compiler-owned Recipe/source/physical co-declarations are subsequently delivered in the source
-graph slice below. Remaining E02 includes actual generated receiving adapters and complete
-dependency/context reconstruction. E03 replaces private JSON serialization of
-root input, source bindings and handshake/request/response on the existing bounded inherited
-channel, retaining provider-free admission, original image/build/registry checks, qualified
-recipe authority, original-coordinate screening and actual process custody. No kernel/ID owner
-acquires a Buffa dependency merely to encode this transitional descriptor representation.
+Substantive design, original evidence and remaining obligations moved without a status change to
+[65k](65k-scientific-artifacts-and-native-reconstruction.md#e02-native-portable-descriptor-cutover). This heading remains for existing references.
 
 ### E02 complete passive Recipe source graph
 
-The final scientific worktree handoff is integrated on main as `f0cba8780`.
-`pse_compiler::typed_math::scientific_recipe_projection()` now returns the source-owned graph
-of the actual private 17-field `Recipe`. Resolved syntax, support, selected-provider records,
-physical/mathematical receipts, native `BodySpec`, applicability and nominal body identity
-participate through their actual passive owners. The graph factory admits or restores nothing;
-it exposes no live Scheme, modeling Type, provider handle or qualified replay authority.
-Source presentation version one does not change the active JSON recipe interpretation three.
-
-**Tested, targeted on main:** `scripts/pse test pse-compiler --lib -E
-'test(scientific_recipe_source_graph_) | test(scientific_recipe_native_projection_)'`
-passed 2/2 with zero failures, pending tests or build warnings, in configured unbounded,
-cache-off mode with prepared compiler/KLU and complete original capture/native settlement.
-The controls check complete Data-only source closure and actual admission of an authored
-`doubled(x)=x+x` fixture, exact existing JSON after native field reconstruction, and refusal
-to restore syntax without original qualification. A worker's unnecessary-qualification warning
-was corrected before the clean main rerun. These controls do not exercise a protobuf Recipe.
-
-The private `pse.scientific_recipe.v4` family now publishes messages, eager/lazy views,
-maintained validation, native owned/borrowed adapters, policy and provenance from one actual
-`ProjectionOutput`, descriptor set and generation configuration. Both adapter families compile
-inside the private compiler owner; passive decoding grants no reconstruction authority.
-Production encoding and qualification still use interpretation three.
-
-**Tested, targeted on 2026-11-04:** `scripts/pse test pse-compiler pse-modeling --lib -E
-'test(scientific_recipe_owned_and_borrowed_) | test(scientific_recipe_source_graph_) |
-test(scientific_recipe_native_projection_) | test(resolved::records::restoration_tests::)'`
-passed 7/7 against zero failures, with no build warnings, configured unbounded placement,
-cache off, prepared compiler/KLU and complete original capture/settlement. The actual authored
-Recipe survives owned and borrowed binary adoption with exact existing JSON; root/nested
-unknowns, missing nested syntax and malformed digest width refuse. The restoration controls
-reject a forged unbounded formal count before allocation and charge every repeated selection's
-formal storage. Capture and restore share that accounting; existing native qualification
-remains required. The separate xtask `scientific_recipe_bundle_` control passed 1/1 and full
-`just codegen` published fourteen targets; its operations recursion warning remains a G08
-correction obligation rather than clean workspace evidence.
-
-Monomorphic same-root membership receivers, complete original workspace admission and full
-restoration bounds remain required. The existing JSON/qualification route stays active until
-those replacements and their refusal/drain controls are accepted.
+Substantive design, original evidence and remaining obligations moved without a status change to
+[65k](65k-scientific-artifacts-and-native-reconstruction.md#e02-complete-passive-recipe-source-graph). This heading remains for existing references.
 
 ## E03 closed-root envelope cutover
 
-The private v2 profile is `pse.private-native-root.v2`, with source-generated package
-`pse.native_root.v2`. It retains the existing bounded u64 little-endian inherited Unix-channel
-framing, one closed provider-free solve per child, original attempt/execution/request bindings,
-relative remaining lifetime, original-coordinate parent screening and process custody. There
-is no new service or process. `RootInput`, `RootBindings`, `Hello`, `Request`, `Response` and
-`RootOutcome::{Proposal,Refused}` are the actual owners; proposal decoding does not imply
-scientific acceptance. Their graph exposes native math controls, source locations, complete
-model diagnostics and passive applicability observations without wire mirrors. Recipe and
-registry declaration bytes remain opaque in this first envelope slice; receiving compiler/
-physical reconstruction still owns their admission and the existing qualified recipe permit.
-
-Build/file observations use their original native fields. Standard `PathBuf` projection carries
-an explicit `PlatformPathBytes` alternative: Unix bytes through
-[`OsStringExt::into_vec`/`from_vec`](https://doc.rust-lang.org/stable/std/os/unix/ffi/trait.OsStringExt.html),
-or Windows wide units through
-[`encode_wide`](https://doc.rust-lang.org/stable/std/os/windows/ffi/trait.OsStrExt.html) and
-[`from_wide`](https://doc.rust-lang.org/stable/std/os/windows/ffi/trait.OsStringExt.html).
-These APIs preserve non-UTF-8 bytes or ill-formed UTF-16; no Unicode/path normalization or
-filesystem effect occurs. Foreign platform data stays independently inspectable; checked
-native `PathBuf` construction refuses another platform. The source profile remains local,
-with the actual authenticated child image and current native platform.
-
-Buffa 0.9.2
-[`Message::try_encode_bounded`](https://docs.rs/buffa/0.9.2/buffa/trait.Message.html#method.try_encode_bounded)
-checks encoded size against the caller's allowance before writing, using the shared two-pass
-size cache; use its original `ExceedsBudget`/`MessageTooLarge` failure rather than a JSON
-counting serializer or a panic-capable encoder. The selected release source supplies this API;
-the broad guide's older one-error summary is not its full API contract.
-[`DecodeOptions`](https://docs.rs/buffa/0.9.2/buffa/struct.DecodeOptions.html) supplies separate
-frame bytes, repeated-element memory, recursion and unknown-field bounds. Generated local
-validators/adapters establish structural meaning, while the original source/registry/factory
-constructors retain scientific admission. Original typed codec/adoption errors must survive
-the private-channel Internal classification with their field/rule/cause details and custody.
-
-**Tested, targeted on 2026-11-04:** scoped, direnv-activated unbounded cache-off
-`scripts/pse test pse-contract pse-runtime --lib` discovered and completed the pure-path
-control, zero failures/pending/build warnings, with original capture/settlement complete.
-The initially expected graph control was excluded because its implementation module is
-solver-gated. Actual passive declarations and graph now live in the ungated
-`math::native_root_protocol` owner; the gated implementation consumes that same owner and
-retains its contextual constructors. The corrected default-feature, direnv-activated unbounded
-cache-off `scripts/pse test pse-runtime --lib` source-graph selection separately completed
-1/1 with zero failures/pending/build warnings and complete original capture/settlement.
-This qualifies the graph's default-feature generation closure, not native solve execution.
-The Linux path control preserves non-UTF-8/NUL bytes and refuses native
-adoption of inspected Windows-wide data; Windows execution is not qualified. Generated
-publication and execution were subsequently exercised by the following envelope cutover;
-this initial graph control alone does not qualify native execution.
-
-**Implemented:** actual private root input, source bindings, build/file observations,
-handshake, request and proposal/refusal now use source-generated adapters, generated local
-validation and bounded Buffa. The JSON counting/frame helpers, protocol Serde derives and
-broken-serializer fixture are deleted. Encoding consumes owned records; framing does not
-clone recipe, registry or numerical buffers. The existing 16 MiB request / 1 MiB response
-limits remain; decoding additionally bounds element memory to four times its frame bound,
-recursion to 64 and retained unknown fields to 256. Unknown admitted meanings are refused
-after decoding rather than silently normalized. Structural adapters live separately from
-private channel functions; native data and generated messages remain inspectable without
-KINSOL preparation. Crate-visible private adapter entry points are the selected generator
-scope, published on main. The first envelope snapshot below precedes the complete physical
-declaration cutover and its later main-branch controls.
-
-Original Buffa encode/decode and generated adoption/validation causes survive inside
-`NativeRootWireError` and existing typed runtime custody. Codec byte/element/depth/unknown
-allowance exhaustion is ResourceLimit; admitted-channel corruption is Internal. Shared
-crossing-error retained-extent accounting includes original vector/path/string capacities
-and map selectors, with checked overflow refusal. These structural checks grant no replay
-authority or scientific permission. Original problem/options validation precedes encoding,
-and the parent retains original-coordinate screening after decoding the child's proposal.
-Raw candidate floating-point bits, including nonfinite values, remain representable before
-that scientific screening. Existing native-profile hashing and receipt interpretation are
-unchanged. The first envelope snapshot left registry JSON and admitted recipe bytes as staged
-leaves; the physical declaration cutover below removes registry JSON. The admitted recipe
-continues through its original qualification interpretation pending the remaining decision.
-
-**Tested, targeted on 2026-11-04:** genuine user scope, approved direnv unbounded mode,
-cache off, explicit compiler/KLU preparation and force-validation through
-`scripts/pse test pse-runtime --lib --features solver-kinsol` with
-`(test(math::native_child::) & !test(private_native_fake_process)) | test(private_protocol_retains_original_codec_and_rule_causes_with_owning_classes)`
-completed 17/17 with zero failures or pending work and complete original capture/settlement.
-This includes the exact external native child on independently specified roots, original
-residual screening and receiving source maps, provider/physical-context refusals, foreign
-attempt/build/request checks, corrupt/truncated/oversized frames, process death/reaping,
-queued original clocks, cancellation/late-output charges, readiness and the truthful strict
-complete-memory refusal. Independent codec controls preserve binary64 payload bits and
-refuse unknown fields/missing outcome; original typed rule causes remain inspectable.
-The source-built child uses the existing `pse-native-lane` executable with the narrow xtask
-`solver-kinsol` feature; `native-solvers` retains its aggregate meaning. Its explicit original
-artifact SHA256 was `9aa7ac6fe49296d566c2dfc9a3857814869a8a2381de43dc0dbd09a733932501`.
-The first feature check exposed missing adapter imports and unused imports, corrected before
-this run. This run retained eight generated Public-to-Crate visibility warnings; the scoped
-generator publication and its clean compile remain integration obligations, not a zero-warning
-claim. A separate default-feature typed-error control also passed 1/1. No measured speedup,
-complete native RSS bound or full E02/E03 closure is claimed. Remaining work includes full
-compiler-owned recipe/physical record conversion, contextual receipt reconstruction and
-the coordinator's assembled integration/qualification population.
+Substantive design, original evidence and remaining obligations moved without a status change to
+[65k](65k-scientific-artifacts-and-native-reconstruction.md#e03-closed-root-envelope-cutover). This heading remains for existing references.
 
 ## Verification, extension and decision handoff
 
+Substantive design, original evidence and remaining obligations moved without a status change to
+[65k](65k-scientific-artifacts-and-native-reconstruction.md#verification-extension-and-decision-handoff). This heading remains for existing references.
+
 ### E02 complete physical declaration exchange
 
-**Implemented and generated on main:** `QuantityRegistryBuilder` and its
-complete declaration closure are source-projected at their native owners, including defined
-units, derived kinds, conversions, operation policies, optional unit-set positions and ordered
-reduction domains. Declaration vectors preserve duplicates for original atomic `build()`
-admission. Physical prerequisite predicates and declarations are passive typed data; the
-original `PhysicalPreconditions::new` reconstructs their ordered inventory. Neither decoding
-nor a declared invariant identity grants scientific permission.
-
-Private profile `pse.private-native-root.v3` carries the actual builder and prerequisite
-declarations in `RootInput` interpretation 3. `pse.native_root.v2` remains the generated
-namespace: this authenticated ephemeral channel has no retained reader or compatibility
-promise, and original-image/profile checks reject an old executable. There is one current
-writer/reader. Tag 5 and `registry_digest` are reserved after removing the redundant leaf
-checksum. The original request/image binding authenticates exact input bytes; the receiving
-owner independently rebuilds the registry and compares the complete native
-`physical_identity(registry, prerequisites)` against original `BodySpec.physical` before
-minting recipe replay authority. Frame/hash algorithms and scientific semantic keys do not
-change. The registry JSON serialization/parser and its mechanism-only fixture are removed;
-exact compiler recipe JSON remains intentionally authoritative pending the decision below.
-
-**Tested, targeted:** unbounded, cache-off `scripts/pse test pse-quantity --lib --features fixtures`
-completed the complete registry/prerequisite source control 1/1, zero failures, pending work
-or build warnings. It preserves exact existing declaration bytes, nonempty prerequisite
-values and native physical identity, retains duplicate declarations for `registry.unique_id`
-refusal, and distinguishes a valid changed scale despite unchanged declaration identities.
-The first test build used an unavailable default constructor (three errors), corrected to
-the actual native `new` constructor before this pass. The independent default-feature
-`scripts/pse test pse-runtime --lib` complete protocol-graph control separately passed 1/1
-with zero failures, pending work or build warnings. These are source-owner/graph checks;
-new generated codec activation and actual v3 child execution remain required. Prepared
-receiving controls cover nonempty prerequisites, duplicate units, changed unit scale,
-changed prerequisite meaning and missing prerequisites through the generated codec.
-
-**Tested, targeted on main, 2026-11-04:** after source-built native-lane publication with
-explicit compiler/KLU preparation, `scripts/pse test pse-runtime --lib --features solver-kinsol`
-using the 17-control filter above passed all 17, zero failures/pending/build warnings, configured
-unbounded mode and cache off, with original capture and native settlement complete. The actual
-`PSE_NATIVE_LANE_EXECUTABLE` artifact SHA256 was
-`b46a1a1dc5a34cc4a02a3744674fc49e446edcef449af8e320ad7c570697d47f`.
-The selection includes the generated typed-registry/prerequisite round trip, original physical
-identity and duplicate/scale/prerequisite refusal cases, alongside actual native child execution
-and original process/error controls. It resolves the earlier generated visibility warning
-obligation for this profile. Full recipe conversion, complete E02/E03 population, scientific
-extension and assembled H qualification remain open; no measured speedup or full RSS claim follows.
+Substantive design, original evidence and remaining obligations moved without a status change to
+[65k](65k-scientific-artifacts-and-native-reconstruction.md#e02-complete-physical-declaration-exchange). This heading remains for existing references.
 
 ### Remaining recipe qualification decision
 
-Full protobuf recipe conversion changes more than encoding: `QualifiedScientificRecipe`
-currently parses exact JSON to build the scoped structural membership index, and nested
-restore/replay requires exact record membership in addition to original request/qualification
-binding and complete receipt consumption. Current gates protect physical contract/boundary/
-inference/scheme records, physical and mathematical receipt streams, provider descriptors and
-prepared calls, selected provider joins, direct graph/function/support products, physical
-evidence and nominal type/value records. Raw protobuf fields cannot replace their native
-membership interpretation by accident.
-
-**Selected prerequisite direction, not accepted for full cutover:** prefer DOM-free native Serde traversal
-preserving the existing structural membership V1 over adding a second typed membership
-visitor. Serde's `Serializer::Ok` and compound serializer traits support native traversal
-without a JSON value tree; the exact pinned `serde_json` number, map-key, variant and
-surviving-subtree semantics remain part of the consumed contract. The
-[independent scoped review](../design_review/reviews/design_review_plan65_native_replay_membership_2026-11-04.md)
-now accepts the prerequisite architecture at Proposed strength in its follow-up assessment.
-[Proposed ADR-0245](../adr/0245-bound-native-recipe-membership.md) records RC01/RC02 before
-affected authority/hash implementation: monomorphic exact-byte decode-once receivers index
-and consume the same native root; deferred postorder range removal preserves overwritten-map
-survival; source-derived lazy-probe/eager-view/complete-validation/native-adoption/index/receipt/
-restoration phases use the original workspace. The selected adapter is borrowed eager-view
-adoption with preadmitted complete validation, rather than an unspecified owned/sink alternative.
-Future admitted protobuf interpretation is `pse.admitted-body.v4`; exact encoding changes its
-digest and binding without silently redefining structural V1. Unsupported integer/raw sentinel
-normalization refuses explicitly. F01–F03 remain open for implementation and original evidence;
-full protobuf activation remains Not Accept. The old JSON byte multiplier does not establish
-these new bounds. A versioned owner/tag/bit membership scheme remains a different semantic
-option, requiring deliberate complete-consumer migration rather than a claim of V1 preservation.
-Retain exact qualification/request binding and complete original receipt draining; ordinary
-decoded records must still lack authority. A staged DOM-backed native-root index is an
-alternative only if explicitly selected. A whole-payload permit without
-per-record membership would remove existing protections and is unsuitable. A new native-root
-qualification premise or changed membership/hash interpretation requires the coordinator's
-proposed ADR before implementation. Neither an artifact digest nor successful local wire validation
-may mint this authority. The existing recipe leaf remains unchanged until a complete approved
-replacement and its original reconstruction/refusal controls are in place.
+Substantive design, original evidence and remaining obligations moved without a status change to
+[65k](65k-scientific-artifacts-and-native-reconstruction.md#remaining-recipe-qualification-decision). This heading remains for existing references.
 
 ### Native membership prerequisite integration
 
-Main `f3e298eea` integrates the bounded prerequisite. Data-only
-`NativeMembershipLimits`/`NativeMembershipCounts` expose Serde traversal extents;
-`RecordAuthority::from_authenticated_native_root` remains unsafe and builds its own sorted
-index from the borrowed native root. No caller-supplied index is accepted. Native membership
-queries reuse the same normalizer, while typed budget/profile failures retain their source
-through quantity, modeling, kernel and compiler restoration. Production JSON v3 remains the
-live route; the monomorphic binary canonical/private receivers are test-only. Their by-value
-reconstruction consumes the same Recipe that was indexed and retains original binary bytes
-separately from the active JSON leaf.
-
-**Tested, targeted before main integration:** `scripts/pse test pse-ids --lib -E
-'test(scientific_replay::)'` passed 18/18; `scripts/pse test pse-compiler --lib -E
-'test(scientific_recipe_native_) | test(scientific_recipe_owned_and_borrowed_) |
-test(scientific_recipe_source_graph_)'` passed 10/10, zero failures, pending records or build
-warnings. Conditions were configured unbounded placement, cache off, prepared compiler/solver
-and complete original capture/native settlement. Controls include the actual Recipe's full
-surviving-node DOM differential, scalar binary reconstruction, local digest/interpretation/
-context refusals, and component replay with two real inference operations and two declaration
-boundaries: positive complete drain and missing/extra/reordered streams. That component scope
-does not claim the scalar body consumed those operations. The independent implementation
-review closed two prerequisite defects: erased prepared-provider membership errors and moving
-vector-growth overlap. Counts now cover three times counted traversal slots and actual owned
-key capacities; they do not bound decoded roots, validation, adoption or complete RSS.
-
-The isolated checkout was retired after its committed 18-file content matched main exactly;
-its original evidence is retained outside the checkout. Provider population, nonempty
-mathematical-proof ordering, real canonical/private authentication and full receiving admission
-remain open. No production activation or complete F01–F03 acceptance follows.
+Substantive design, original evidence and remaining obligations moved without a status change to
+[65k](65k-scientific-artifacts-and-native-reconstruction.md#native-membership-prerequisite-integration). This heading remains for existing references.
 
 ### Library-owned pre-growth prerequisite
 
-Main `44708962e` integrates the independently reviewed maintained Buffa/Buffa-codegen
-0.9.2 profile. `CodeGenConfig::allocation_accounted_views` defaults to false and is
-selected only for the private Recipe world. `DecodeContext::with_allocation_budget`
-shares a caller-owned `Cell` across descendants/merges; the runtime debits the full
-new backing layout before each fallible vector/box growth, retaining earlier charges
-for overlap and replacement. Layout overflow, exhausted allowance, unaccounted decoder
-and actual reservation failure remain distinct typed refusals. These APIs are maintained
-source functionality, not claims about the unmodified release; see the exact
-[runtime contract and source](../../vendor/buffa/pse-patch.md) and
-[generator contract and controls](../../vendor/buffa-codegen/pse-patch.md).
-
-The profile covers opted-in eager/lazy decode stores, packed extenders, singular/group/
-oneof boxes, fragments/raw elements and unknown-field backing. Child capability checks
-close ordinary-import and external-decoder bypasses. Explicit lazy traversal must check
-`LazyMessageView::allocation_accounted()` for **every selected root and child** before
-`decode_lazy_with_ctx`/`merge_lazy`: stock generated overrides can bypass the trait's
-default guard. Getters recreate contexts, so the selected complete probe must use raw
-fragments/elements with its original context. Owned decoding, validation/adoption,
-default caches, allocator metadata, stack and RSS remain outside this decoder claim.
-
-**Tested before main integration, configured unbounded/cache-off:** allocation controls
-passed 7/7, stock view controls 98/98, packed extenders 7/7, and the existing
-`pse-codegen:buffa_allocation` target passed its one wrapper control executing seven
-real generated controls, including stock-import refusal and accounted-external acceptance.
-The fixture compares default output byte-for-byte with the published 0.9.2 generator
-on those descriptors; it does not qualify every generator configuration. Source-pin
-controls passed 2/2 and `scripts/pse check pse-codegen --all-targets` passed, all with
-zero failures/build warnings and complete original capture/settlement. Main readiness
-passed after integration. Both changed supplier archives were independently compared
-with the cached published source. The clean checkout's 102 owned paths matched main
-before removal. Main regeneration passed all 14 targets; the combined
-`pse-ids`/`pse-compiler` native membership/Recipe selection passed 28/28 with zero
-failures/build warnings and complete capture/settlement. The actual generated decoder
-fixture also passed on main (one wrapper executing seven controls, zero build warnings).
-Full receiving-phase admission and activation remain open.
-
-The complete F03 envelope remains unresolved. The native graph and library enforcement
-prerequisite are now available. Main `d1e597de1` adds the source-generated complete lazy
-decode probe, sharing the final descriptor world, generator configuration and actual
-type/field naming with eager adapters. Every selected lazy root/child checks its accounting
-capability before low-level decode or merge. Singular fragments merge before descendant
-traversal; repeated raw children are visited individually; eager carveouts use their
-accounted eager decoders. Allocation, element and unknown-byte cells remain shared for the
-whole walk. Typed resource errors retain their original library error source. This is a
-decode prerequisite, not the full validation/adoption/restoration envelope. The source
-review cross-checked 119 reachable lazy structs and 230 deferred edges; pre-integration
-compiler controls passed 14/14 and generator traversal controls 3/3. The xtask bundle
-control's compilation completed, but storage exhaustion prevented artifact capture and its
-test body did not run. Final main generation passed all 14 targets with unchanged outputs.
-The integrated main compiler selection subsequently passed 15/15, zero failures/build warnings,
-pending records or incomplete original capture/settlement, using configured unbounded/cache-off
-compiler/KLU/solver and `scripts/pse test pse-compiler --lib -E
-'test(scientific_recipe_native_) | test(scientific_recipe_probe_) |
-test(scientific_recipe_owned_and_borrowed_) | test(scientific_recipe_source_graph_)'`.
-The initial main xtask selector omitted `product-schemas` and matched zero tests; it is not
-bundle acceptance. The corrected `scripts/pse test xtask --bin xtask --features product-schemas
--E 'test(scientific_recipe_bundle_)'` passed its one control on main, zero failures/build
-warnings/pending and complete original capture/settlement, in the same prepared native mode.
-The isolated checkout has been retired
-after content reconciliation. Receiving-phase admission and activation continue on main.
-The selected source-derived traversal can use Buffa 0.9.2
-[`decode_lazy_with_ctx`/`merge_lazy`, fragments and raw elements](https://docs.rs/buffa/0.9.2/src/buffa/view.rs.html)
-with one shared decode context. Default subtree getters recreate allowances. The
-[decode limits](https://docs.rs/buffa/0.9.2/src/buffa/message.rs.html) do not bound packed-scalar
-allocation, eager oneof/map subtrees, spare capacity or reallocation overlap. Some retained
-capacities lack public accessors; a qualified source-profile bound or small library-owned
-accounting interfaces must precede allocation, rather than infer admission from post-decode
-length. Reuse actual descriptor naming and the maintained validator's selected rules for
-complete violation/path and uniqueness scratch bounds; no fail-fast/sink substitution exists.
-Native adoption includes staging vectors overlapping final collections, original membership/
-receipt lifetimes and repeated formal restoration expansion. This source inspection establishes
-interfaces and missing realization work, not a measured memory bound or full cutover readiness.
-
-The actual borrowed view already receives complete validation through
-`decode_scientific_recipe_view` → `decode_view_root` → `wire.validate()` before native
-construction and `validate_projection()`. The maintained validator emits direct eager-view
-implementations; no temporary owned protobuf tree or duplicate validation pass is needed.
-See [borrowed crossing](../../crates/pse-contract-proto/src/support/borrowed.rs), the
-[maintained message emitter](../../vendor/protoc-gen-protovalidate-buffa/src/emit/mod.rs),
-and [repeated-rule lowering](../../vendor/protoc-gen-protovalidate-buffa/src/emit/repeated.rs).
-The receiving envelope must cover absent/default rule sites, complete violation vectors,
-path insertion/capacity overlap, a copied map key per descendant violation, formatted
-messages and allowed-list join temporaries. Three root uniqueness checks allocate reference
-HashSets in separate scopes; their scratch peak is the maximum, not the sum. The borrowed
-canonical map observes last-write-wins entries without allocation but has quadratic
-worst-case iteration. Current finite-CEL lowering uses integer comparisons/stack cells;
-future rules cannot silently inherit that profile or assumptions about nested validator
-error propagation. Native adapter staging vectors overlap final `Arc`/tree collections.
-These are source-grounded admission obligations, not established complete bounds.
+Substantive design, original evidence and remaining obligations moved without a status change to
+[65k](65k-scientific-artifacts-and-native-reconstruction.md#library-owned-pre-growth-prerequisite). This heading remains for existing references.
 
 ### Reconstruction population and native mathematics limit
 
-Further read-only inspection at `165faf093` follows reconstruction beyond decode and
-membership. [`ResolvedRecord::restore`](../../crates/pse-modeling/src/resolved/records.rs)
-shares one function product per identity, checks cycles/depth, and validates selected
-formal counts against the original function before charging syntax entries and allocating
-formal vectors. Required source facts include the sum of selected formal counts, not just
-distinct functions. Explicit value/type/quantity records restore their declared recursive
-members; indexed types do not instantiate an implicit Cartesian product. Price the actual
-boxes, strings and collection populations, including staging/final-collection overlap.
-
-Physical receipt replay clones complete entries/boundaries and keeps them throughout
-reconstruction; mathematical proof replay also clones entries and consumed branch bytes.
-Their recursive populations and overlapping lifetimes must enter the same receiving
-reservation. Authenticated proof replay consumes recorded results rather than rerunning
-the enclosed admission-only proof closures. Provider restoration constructs descriptors
-and prepared facts, not provider workers. See the actual
-[physical replay owner](../../crates/pse-quantity/src/resolved_receipts.rs),
-[proof replay owner](../../crates/pse-math/src/typed_receipts.rs) and
-[provider restoration](../../crates/pse-compiler/src/typed_math/provider_records.rs).
-
-Native mathematical reconstruction remains a consequential unresolved condition.
-`reconstruct_recipe` invokes `Request::admit_inner` and lowers source mathematics again.
-Body occurrence/slot limits bound selected construction work, but do not by themselves
-bound Symbolica coefficient bytes. For example, a source DAG of exact-integer repeated
-multiplication can grow coefficients far faster than its node count. This is a source-derived
-possibility, not an executed probe; the existing positive-integral-Pow defense does not
-cover multiplication. Partial construction can likewise allocate before returned-operation
-count checks. Do not infer a byte bound from these post-construction counts.
-
-Symbolica 3.0.1 `AtomView::{add,mul,pow,div}_with_ws_into` normalizes through reusable
-`Workspace` buffers without a byte-admission or cancellation argument. Its recycling
-cache does not bound peak live temporaries. Repository `ConstructionAdmission::try_grow`
-can extend the original live allowance before explicit allocations, but these arithmetic
-operators do not invoke it. Evaluator `direct_translation(true)`, alias DAGs, abort checks
-and optimizer limits apply to evaluator construction, not every earlier reconstruction
-operation. Formal-symbol registration also grows global native metadata in chunks of 8192;
-a chunk count is not an established byte bound. Sources are the exact-release
-[Atom arithmetic](https://docs.rs/symbolica/3.0.1/src/symbolica/atom.rs.html),
-[workspace implementation](https://docs.rs/symbolica/3.0.1/src/symbolica/state.rs.html),
-[typed arithmetic](../../crates/pse-math/src/typed.rs),
-[partial construction](../../crates/pse-math/src/typed_partial.rs),
-[construction admission](../../crates/pse-math/src/construction.rs) and
-[library construction](../../crates/pse-math/src/library.rs).
-
-Before F03 activation, resolve normalization, coefficient/partial growth and symbol
-registration alongside the source-derived passive populations. A payload multiplier,
-retained-capacity measurement, decoder-only budget or post-allocation operation refusal
-does not establish the required pre-allocation envelope. Current JSON v3 remains active;
-no canonical/private binary cutover or complete F01–F03 acceptance follows from this work.
-
-The next bounded design investigation should compare preserving already admitted native
-body facts against budgeting the full repeated preparation operation. A prepared-body transfer
-could avoid re-lowering, support analysis and derivative reconstruction, but is not established
-by serializing existing atoms or stages. The maintained Symbolica
-[`Atom::import`/`import_with_map` and `rename`](../../vendor/symbolica/src/atom/representation.rs)
-normalize during symbol remapping, including unchanged mappings; calling the ordinary
-`PreparedBody` constructor also repeats analysis. Any selected transfer therefore needs a
-supplier-owned checked canonical-atom load/remap that does not normalize, a native structural
-restore path, and preservation of original qualification, per-record membership and exact
-receipt consumption. Current replay drains receipts through lowering, so a different
-authority premise requires the proposed ADR route before implementation. This is a candidate
-for investigation, not an adopted bypass or a new universal mathematical IR.
-
-Alternatives retain their actual limits: supplier allocation enforcement would have to cover
-coefficient arithmetic, transformations and global metadata, not only Atom buffers; a
-conservative preflight needs justified arithmetic/partial/replacement bounds and an explicit
-unsupported-profile refusal; local materialization barriers can change mathematical
-realization and do not alone cover later substitution. Existing process custody and opaque
-allowances establish neither of those pre-allocation guarantees. A separately qualified
-kernel-enforced address-space ceiling would be a different closed-lane mechanism and would
-not qualify canonical in-process restoration. No new process limit is selected here.
-
-The candidate population is the existing native `PreparedBody`, not a new mathematical
-language. Its stages already distinguish Block, Require, Domain, Applicability, Branch and
-Provider. A bounded base-body snapshot would need the admitted stages/atoms, layouts and
-formal slots, output/effect slots, obligations and quantity maps, optional analyzed expressions,
-provider specifications, checked members/sources/occurrence tokens and accounting populations.
-Instance bindings, provider workers, original `Arc`/owner identities and demanded evaluator
-workspaces remain outside it. The existing same-process `BodyRetention` can reuse an
-`Arc<AdmittedBody>` after semantic/physical checks, but there is no passive cross-session
-constructor that avoids analysis. `PreparedBody` equality omits some accounting fields and
-is therefore insufficient as transfer acceptance. See
-[`PreparedBodyData` and construction](../../crates/pse-math/src/execution.rs),
-[native stage definitions](../../crates/pse-math/src/guarded.rs),
-[admitted-body owner](../../crates/pse-compiler/src/typed_math.rs) and
-[actual retained-body reuse](../../crates/pse-compiler/src/workspace/modeling/executable/grouped.rs).
-
-Supplier feasibility research finds no existing safe checked loader in the inspected exact
-3.0.1 source: `Atom::read` checks format/extent but enters internal unchecked representation;
-ordinary views/iterators assume valid packing and current-state references. `StateMap::is_empty`
-does not certify exact symbol definitions or state generation. Even an injective rename can
-change canonical ordering; generic comparison may materialize large coefficients, while
-symmetry/custom callbacks and polynomial/field coefficients add transformation and metadata
-obligations. A plausible first supplier profile would need safe packing inspection before
-ordinary views, authenticated canonical-producer provenance, exact state/symbol compatibility,
-prepriced output/order scratch and a bounded remapper excluding unsupported transformations.
-Identity-only loading avoids ordering repair but does not solve fresh-session reconstruction.
-Exposing the unchecked reader or suppressing normalization flags is not a valid prerequisite.
-These are bounded research conclusions, not established library functionality; precise source
-owners are `vendor/symbolica/src/{atom/representation.rs,atom/coefficient.rs,coefficient.rs,state.rs,normalize.rs}`.
-
-Keep current semantic-body and BodySpec definitions separate from any new payload encoding.
-The existing source/layout/physical/admission meaning must not silently become an atom-byte
-hash. Full source/physical/provider receipts remain attached until a reviewed native contract
-establishes their exact snapshot correspondence and complete consumption. Base `AdmittedBody`
-is Value-order mathematics: transferring it would not by itself avoid later demand-specific
-`PreparedSupport` differentiation, compaction or evaluator construction. Any such extension
-needs its own exact output/coordinate/order population and admission contract. First establish
-source-admission versus transferred-body equivalence and mutated layout, missing/duplicate
-tokens, stale symbol/physical/provider context and original receipt/refusal controls before
-using this candidate to discharge F03.
-
-Further supplier inspection refines the possible checked-transfer prerequisite. An exact-rational
-profile alone cannot cover ordinary current recipes: `literal_admitted` uses `Atom::num(f64)`
-outside its small-integral case, and Symbolica 3.0.1 converts that to MPFR-backed Float coefficients.
-Preserve the original coefficient realization; converting these to rationals is not equivalent.
-The supplier Float representation retains precision plus radix-16 text for both components.
-Its later `SerializedFloat::to_float` reaches unchecked Numerica parsing, so a checked loader
-must validate that representation before publication, while avoiding unadmitted numeric
-materialization during inspection. Exact sources are the native
-[literal owner](../../crates/pse-math/src/typed.rs), Symbolica's
-[coefficient representation](../../vendor/symbolica/src/coefficient.rs) and
-[packed atom coefficient](../../vendor/symbolica/src/atom/coefficient.rs).
-
-The candidate next prerequisite is supplier-owned checked canonical transfer, covering the
-actual coefficient population, bounded layout/remapping and preadmitted simultaneous buffers.
-An authenticated original canonical producer and independently checked safe packing are distinct
-premises. Injective symbol remapping can disturb ordering; comparison can materialize coefficients,
-so neither ordinary rename/normalize nor an assumed allocation-free sort discharges the bound.
-Explicit unsupported/reorder-required refusal is preferable to an unbounded fallback. Existing
-`PreparedBody::compact` demonstrates structural construction without analysis, but intentionally
-drops optional views and token inventories; it is not a complete restore constructor.
-Supplier transfer and a private full-body restore therefore remain separate prerequisites.
-The authority investigation first examines the existing original parent/child channel and exact
-consumed receipt associations; no durable/untrusted artifact admission or binary Recipe activation
-is selected by these source findings. A new proposed decision must precede that authority change.
-
-The [Serde 1.0.229 `Serializer` contract](https://docs.rs/serde/1.0.229/serde/ser/trait.Serializer.html)
-allows a native summary as `Ok`; `SerializeSeq`, `SerializeMap`, `SerializeStruct` and their
-variant counterparts expose elements, entries and completion without requiring a value DOM.
-Preservation must follow the [serde_json 1.0.151 native value serializer](https://github.com/serde-rs/json/blob/v1.0.151/src/value/ser.rs)
-and [number representation](https://github.com/serde-rs/json/blob/v1.0.151/src/number.rs), including
-the actual root's parsed-JSON versus native-value numeric behavior. These are enabling library
-interfaces; they do not supply the qualification or surviving-membership contract themselves.
-
-Use source/admit → encode → independent decoder → receiving adoption → actual execution →
-outcome/readback journeys. Independent scientific expectations must not come from generated
-adapters or the candidate provider. Retain physically independent water/derivative controls
-and original equipment balances. Exact derivative actions are checked against independently
-constructed asymmetric cases that expose transpose/order mistakes.
-
-Preserve 65i's spatial-without-temporal-closure refusal through reconstruction; use an existing
-supported dynamic model for positive preparation and independent inspection. Test a locally
-valid derived product with failed governing coverage and a nonselected accuracy attempt.
-Raw readers may expose them while ordinary scientific selection refuses or qualifies use.
-Interface-only changes must not rebuild unchanged mathematics; changed datum/data/applicability
-must invalidate or explicitly readmit affected science despite identical wire shape.
-
-Challenge adding a physical provider capability, a solver outcome and a time/axis-bearing
-result without editing unrelated transport code. New science still needs its domain model,
-validity/derivative support and evidence. No new fluid model, solver algorithm, remote execution
-or distributed decomposition is implied by these structural extension controls.
-
-Targeted implementation tests run with the repository's pinned native routes and explicit
-force-validation for Arrow closures. Broad campaigns and hygiene belong to series scope end,
-owned by [65h](65h-integration-and-qualification.md). Wire fidelity, actual placement,
-scientific correctness and measured benefit are separate claims.
-
-Protocol/kernel/metadata changes follow the coordinator's proposed decision route before
-implementation. This plan is not ADR acceptance or current qualification. At closure report
-Implemented, named Tested and Measured conditions separately; migrate enduring meaning to
-the scientific architecture owners and retire completed planning through the repository route.
+Substantive design, original evidence and remaining obligations moved without a status change to
+[65k](65k-scientific-artifacts-and-native-reconstruction.md#reconstruction-population-and-native-mathematics-limit). This heading remains for existing references.
 
 ### Live admitted-body delegation
 
-[Proposed ADR-0246](../adr/0246-live-admitted-body-delegation.md) concludes the bounded next-design
-investigation. The first consumer is the existing original private provider-free root child,
-whose live parent already owns the admitted body and independently screens the proposal.
-`compile_problem` consumes that body, bindings and numerical controls; full receipt/registry
-consumption belongs to source reconstruction. Retain complete original admission evidence with
-the parent and transfer the exact execution/diagnostic closure plus attempt-bound commitments.
-The child performs no source/receipt replay and gains no general scientific or publication
-authority. Canonical/durable replay retains ADR-0245's separate requirements.
-
-Supplier packing validation and complete native restoration must precede activation. Preserve
-Float realization and every guard, obligation, applicability/branch result and attribution
-inventory. Strictly increasing symbol IDs do not preserve canonical sums: mapping 256→511
-and 257→512 reverses the little-endian packed term ordering despite equal widths. Require
-supplier-established order preservation or bounded repair; source-order registration alone
-is insufficient. Subsequent support/derivative/evaluator preparation retains independent
-resource obligations. No supplier/native implementation or binary activation is claimed here.
-The current consolidation instruction ends this investigation at a reviewable proposed decision;
-implementation remains remaining E/F03 scope rather than work opened during qualification.
+Substantive design, original evidence and remaining obligations moved without a status change to
+[65k](65k-scientific-artifacts-and-native-reconstruction.md#live-admitted-body-delegation). This heading remains for existing references.
 
 ## Sources
 

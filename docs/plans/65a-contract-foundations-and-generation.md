@@ -3,7 +3,7 @@ title: "Plan65a: Contract foundations and generation"
 status: in-progress
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [current-work, design, libraries, preparation]
@@ -560,7 +560,7 @@ retain independent plugin outputs where that is simpler. Do not reproduce Buffa 
 assembly in each consumer. Keep `extern_path`, naming, excluded packages, validators and service
 generation consistent. A mapped Rust type must satisfy the contracts of its actual field position.
 
-A04's bounded supplier assessment selects separate plugin output trees for the current route.
+A04's bounded supplier assessment retained separate plugin output trees for the current route.
 The prepared service generator is **connectrpc-codegen 0.9.0**, distinct from runtime 0.9.1.
 Its `generate_services` emits package stitchers/companions, but the protoc response retains only
 name/content, losing Buffa package/kind metadata. The validator separately emits an import-aware
@@ -575,6 +575,58 @@ this consolidation. Sources: [service generator](https://docs.rs/crate/connectrp
 [validator layout](../../vendor/protoc-gen-protovalidate-buffa/src/emit/mod.rs) and
 [current orchestration](../../xtask/src/codegen/proto_projection.rs).
 
+### A04 complete supplier decision — November 5 revision
+
+Review [November 5 I04](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I04)
+reopens the composition decision at a concrete alternative, without changing the implemented
+baseline. The inspected tree at `1230a7e83` runs a separate validator preflight and plugin:
+`scan::gather` runs during preflight admission, again during plugin admission and again before
+rendering. Admission is private in the maintained binary while `scan` and `emit` are library
+modules. This is repeated structural preparation, not a measured bottleneck.
+
+Compare three complete routes before A04's cutover:
+
+| Route | Required realization and decision consequence |
+| --- | --- |
+| Existing subprocess composition | Preserve independent supplier trees, prepared-tool admission, diagnostics and process failure isolation; retain it when narrower tooling linkage outweighs preparation duplication. |
+| One admitted preparation inside the maintained plugin | Expose one tool-owned preparation/admission operation whose result contains the selected target scan and supported-rule diagnostics; render from that same result. Both plugin and external preflight must call that owner, without duplicating the corrected CEL admission rules. This can remove repeated scans without linking generators into xtask. |
+| Typed in-process composition | Call Connect codegen 0.9.0 `codegen::generate_services` with explicit `extern_paths`, obtaining `Vec<buffa_codegen::GeneratedFile>` with package/kind intact. Compose with Buffa 0.9.2 `generate_with_diagnostics` and the maintained validator preparation result, preserving useful supplier layouts and the existing publisher. Select only if complete preparation, diagnostics and generated-consumer equivalence justify the expanded tooling closure and reduced process isolation. |
+
+The [Connect API](https://docs.rs/connectrpc-codegen/0.9.0/connectrpc_codegen/codegen/fn.generate_services.html)
+and [supplier source](https://docs.rs/crate/connectrpc-codegen/0.9.0/source/src/codegen.rs)
+characterize the typed return that is lost across a protoc response.
+The maintained [validator entrypoint](../../vendor/protoc-gen-protovalidate-buffa/src/main.rs),
+[library](../../vendor/protoc-gen-protovalidate-buffa/src/lib.rs) and
+[admission contract](../../vendor/protoc-gen-protovalidate-buffa/README.md) define the actual
+0.7.2 generator correction to preserve. Its current emission options are not all the packaging
+options described by newer upstream references.
+
+`apply_companions` remains optional: it does not reject every orphan or deduplicate outputs.
+`SharedCorpusContext` may be reused only for equal complete corpora and relevant representation
+configuration; shared imports do not justify merging distinct worlds. Keep a single owner for
+file/package collision checking, source provenance and atomic publication. Preserve warnings
+instead of treating a diagnostic-returning generator as infallible. See the maintained
+[Buffa-codegen composition/configuration source](../../vendor/buffa-codegen/src/lib.rs).
+
+The decision closes with an explicit select/retain result and its reason, current worlds plus
+independently specified option/feature cases, imported/WKT and external mappings, missing or
+duplicate target refusal, malformed/unsupported CEL, owned/view rule parity, package/file
+collisions, warning attribution and complete generated consumers. Compare build dependencies,
+preparation work and failure behavior qualitatively; measure the complete generation boundary
+only for a quantitative claim. Delete redundant temporary serialization, scanning, stitching
+or subprocess glue only for the fully migrated route. Keep external plugin support where an
+actual independent plugin consumer needs it; it must delegate to the same maintained owner.
+
+### Contract-world consumers
+
+Review [November 5 I11](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I11)
+adds a concrete A03/G02 integration obligation: both published effective artifact forms must
+select the same compiled validation world when they differ only in genuine SourceCodeInfo.
+G02 owns the typed host recognition result and actual dispatch; A03 owns the published relation
+and preservation controls. Do not replace artifact digests, scientific dependency identity or
+historical interpretation with that recognition. A04's facade derives its dispatch population
+from actual generated outputs rather than adding another hand-maintained world registry.
+
 Prost consumers can use `prost_build::Config::compile_fds` or a deliberately prepared descriptor
 input with `skip_protoc_run`; they do not need another authored domain schema. Retain the external
 Prost/Tonic protocol route without converting every external message to Buffa in memory.
@@ -588,8 +640,8 @@ The table records current delivery state. Dependencies describe available produc
 | A01 | complete | Actual native baseline, 65i I01/65j J01 design inputs, proposed ADR-0241 and scoped independent assessment | Pure source-owned graph/macros/adoption extracted; owner implementations and all callers/generators moved; old foundation and temporary aliases deleted. Tests: contract 8/8, model 27/27, codegen 25/25, diagnostics 2/2; workspace all-target check zero errors/warnings. Integrated snapshot is 7e35abae2; H qualification remains separate. |
 | A02 | in-progress | Working A01 field/method semantics → versioned typed metadata option schema and owner emission | All three selected worlds publish typed owner/field/action/method options and all 20 native facet keys. Shared lossless acquisition/checking and native crossing helpers moved to independent pse-contract-proto; replaced implementation/comments/sidecar removed. Source-selected coverage, unknown policy/schema and original-pool controls pass. Native field-shape meaning, domain semantic normalization and independent host policy/readback remain in progress with A05/G02/J02. |
 | A03 | in-progress | A02 metadata plus declared effective feature settings → complete and runtime contract-world artifacts | Six source-derived worlds publish effective runtime and source-aware binary descriptors; independent nondefault-feature/typed-option controls and selected host acquisition checks pass. Complete remaining acquisition consumers and immutable old-world-reader obligations. Preserve full-source retention, effective semantics and unknown options through every selected route. |
-| A04 | planned | A03 closed worlds → shared generation composition for all four initial boundary populations | Integrate Buffa, packaging, validation, Connect and selected external Prost generation. Remove repeated module/descriptor assembly and hand-kept plugin naming maps. Test warning/refusal propagation, orphan companions, duplicate filenames, excluded packages and exact import identity. |
-| A05 | in-progress | A01–A04 narrow working slice plus B01/B02 adoption policy → complete native/protocol correspondence for selected populations | Selected host/engineering/worker/reference adapters and completion observations are delivered; the complete passive native Recipe source graph is integrated, with its targeted controls and remaining codec work owned by 65e. Complete native request/fact families, domain-owned document boundaries, and c/f/g consumer projections. Inventory actual remaining maps; classify semantic checks explicitly and remove all replaced mechanical maps. Test native→wire→native against independently constructed expected meaning, raw paths and missing/unknown alternatives. |
+| A04 | planned | A03 closed worlds → selected complete supplier composition and generated consumer facade | Decide existing subprocess, reduced plugin preparation or typed in-process composition as specified above. Preserve corrected validator admission and supplier layouts; reuse admitted scans where selected. Derive consumer dispatch from actual outputs. Remove replaced descriptor/module assembly, naming maps and preparation glue only after complete consumers migrate. Test target/CEL refusal, owned/view parity, warnings, orphan/collision/import/external mapping and effective-feature cases. |
+| A05 | in-progress | A01–A04 narrow working slice plus B01/B02 adoption policy → complete native/protocol correspondence for selected populations | Selected host/engineering/worker/reference adapters and completion observations are delivered; the complete passive native Recipe source graph is integrated, with its targeted controls and remaining E02/E03 codec work owned by [65k](65k-scientific-artifacts-and-native-reconstruction.md). Complete native request/fact families, domain-owned document boundaries, and c/f/g consumer projections. Inventory actual remaining maps; classify semantic checks explicitly and remove all replaced mechanical maps. Test native→wire→native against independently constructed expected meaning, raw paths and missing/unknown alternatives. |
 | A06 | planned | Current registry/function owners plus A02/A03 → source-declared selected storage/Arrow projection metadata consumed by C packages | Reuse source facts without decoding ProtoJSON or inferring database behavior from field spelling. Delete duplicate selected field/schema declarations with producer/consumer migration. Preserve transactional/domain-specific logic; test precise numeric, relationship and mapping-version changes. |
 | A07 | planned | Complete selected consumer migration → regeneration equivalence, extension controls and handoff | Add provider request, method effect, diagnostic and result facet through their actual owners and verify every selected projection follows. Run package compile/targeted checks during work and generation when declarations change; scope-end assembled/static checks belong to 65h. Delete remaining obsolete fixtures and parallel publication paths. |
 
