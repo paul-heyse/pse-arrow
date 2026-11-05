@@ -579,7 +579,13 @@ fn docker_runtime(root: &Path) -> Result<BTreeMap<String, String>, HostError> {
     Ok(runtime)
 }
 fn prepare_solver(root: &Path, env: &Environment) -> Result<PathBuf, HostError> {
-    if env.contains_key(OsStr::new("IPOPT_DIR")) {
+    if let Some(provided) = env.get(OsStr::new("IPOPT_DIR")) {
+        if let Ok((prefix, _)) = selected(env, "solver")
+            && Path::new(provided) == prefix
+            && apply_provider(root, env, "solver").is_ok()
+        {
+            return Ok(prefix);
+        }
         return prepare_external(root, env, "solver");
     }
     let pins: BTreeMap<String, String> = read_json(&root.join(".github/setup/solver-images.json"))?;
@@ -748,13 +754,9 @@ fn source_archive(env: &Environment, pin: &Pin) -> Result<PathBuf, HostError> {
     Ok(destination)
 }
 fn high_provider(root: &Path, env: &Environment) -> Result<PathBuf, HostError> {
-    let cargo = resolve_program(
-        env.get(OsStr::new("PSE_CORRECTNESS_REAL_CARGO"))
-            .or_else(|| env.get(OsStr::new("CARGO")))
-            .map(OsString::as_os_str)
-            .unwrap_or(OsStr::new("cargo")),
-        env,
-    )?;
+    // Cargo may be a rustup proxy: canonicalizing it changes argv[0] into
+    // `rustup`, losing Cargo dispatch. Reuse the command owner's Cargo resolver.
+    let cargo = crate::correctness::real_cargo_in(env)?;
     // Cargo's build-script message identifies the actual matching HiGHS unit and OUT_DIR.
     let output = Command::new(cargo)
         .args([
@@ -1086,7 +1088,8 @@ int main(void) {
  CHECK(PetscStrlcat(invalid,"x",4)==PETSC_ERR_ARG_SIZ && strcmp(invalid,"abcd")==0);
  CHECK(PetscStrlcat(invalid,"x",1)==PETSC_ERR_ARG_SIZ && strcmp(invalid,"abcd")==0);
  CHECK(PetscStrlcat(one.data,NULL,0)==PETSC_SUCCESS && one.data[0]==0);
- if(PetscPopErrorHandler()) return 3; return PetscFinalize();
+ if(PetscPopErrorHandler()) return 3;
+ return PetscFinalize();
 }
 "#,
     )?;
@@ -1276,6 +1279,54 @@ mod tests {
         let mut changed = env.clone();
         changed.insert("CFLAGS".into(), "-changed".into());
         assert!(apply_provider(directory.path(), &changed, "isolation").is_err());
+    }
+
+    #[test]
+    fn providers_solver_preparation_reuses_its_selected_original_without_external_import() {
+        let (checkout, env, prefix) = fixture("solver");
+        let pointer = directory(&env, "solver").unwrap().join("current.json");
+        let original_pointer = fs::read(&pointer).unwrap();
+        let selected = apply_provider(checkout.path(), &env, "solver").unwrap();
+        assert_eq!(prepare_solver(checkout.path(), &selected).unwrap(), prefix);
+        assert_eq!(fs::read(pointer).unwrap(), original_pointer);
+        assert!(
+            !validate_provider(&prefix, None)
+                .unwrap()
+                .identity
+                .construction
+                .contains_key("external")
+        );
+    }
+
+    #[test]
+    fn providers_highs_acquisition_preserves_cargo_proxy_dispatch() {
+        let checkout = tempfile::tempdir().unwrap();
+        let bin = checkout.path().join("bin");
+        fs::create_dir(&bin).unwrap();
+        let high = checkout.path().join("highs");
+        fs::create_dir_all(high.join("lib")).unwrap();
+        fs::create_dir_all(high.join("include/highs")).unwrap();
+        fs::write(high.join("lib/libhighs.a"), b"original archive").unwrap();
+        fs::write(high.join("include/highs/Highs.h"), b"original header").unwrap();
+        executable(
+            &bin.join("tool-dispatch"),
+            "#!/bin/sh\ncase \"$0\" in */cargo) printf '%s\\n' \"$TEST_CARGO_MESSAGE\";; *) exit 42;; esac\n",
+        );
+        std::os::unix::fs::symlink("tool-dispatch", bin.join("cargo")).unwrap();
+        let env = Environment::from([
+            ("PATH".into(), bin.into_os_string()),
+            (
+                "TEST_CARGO_MESSAGE".into(),
+                serde_json::json!({
+                    "reason": "build-script-executed",
+                    "package_id": "registry+fixture#highs-sys@1.15.0",
+                    "out_dir": high,
+                })
+                .to_string()
+                .into(),
+            ),
+        ]);
+        assert_eq!(high_provider(checkout.path(), &env).unwrap(), high);
     }
     #[test]
     fn providers_failed_build_preserves_previous_selection() {
