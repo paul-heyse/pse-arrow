@@ -77,15 +77,7 @@ impl pse_model::diagnostic::DiagnosticProjection for ProbeResourceError {}
 
 #[cfg(test)]
 fn probe_error(error: buffa::DecodeError) -> pse_math::MathError {
-    if matches!(
-        error,
-        buffa::DecodeError::AllocationLimitExceeded
-            | buffa::DecodeError::AllocationLayoutOverflow
-            | buffa::DecodeError::AllocationReserveFailed
-            | buffa::DecodeError::ElementMemoryLimitExceeded
-            | buffa::DecodeError::UnknownFieldLimitExceeded
-            | buffa::DecodeError::RecursionLimitExceeded
-    ) {
+    if decode_resource_refusal(&error) {
         let retained = size_of::<ProbeResourceError>();
         pse_math::MathError::Typed {
             retained,
@@ -395,6 +387,8 @@ mod native_receiving {
                 )
             }
             .unwrap();
+            // SAFETY: this is the same locally authored, exact-root fixture as
+            // the canonical receiver above; no runtime origin authority is claimed.
             let private = unsafe {
                 receive_private(
                     bytes.clone(),
@@ -473,9 +467,9 @@ mod native_receiving {
             let cancel = Arc::new(AtomicBool::new(false));
             let mut wrong_digest = scope(&bytes);
             wrong_digest.payload_digest = ContentHash::from_bytes([77; 32]);
-            // SAFETY: isolated negative fixtures preserve caller origin; corrupt
-            // content is deliberately offered to prove local receiver refusal.
             assert!(
+                // SAFETY: the local fixture supplies origin; deliberately corrupt
+                // digest content tests refusal without changing that premise.
                 unsafe {
                     receive_canonical(
                         bytes.clone(),
@@ -493,6 +487,8 @@ mod native_receiving {
             wrong.interpretation = "pse.admitted-body.v3".into();
             let encoded = payload(&wrong);
             assert!(
+                // SAFETY: this locally authored private fixture preserves origin;
+                // only its interpretation is changed to test explicit refusal.
                 unsafe {
                     receive_private(
                         encoded.clone(),
@@ -509,6 +505,8 @@ mod native_receiving {
             let mut context = recipe.spec.clone();
             context.physical = ContentHash::from_bytes([78; 32]);
             assert!(
+                // SAFETY: this local exact-root fixture supplies origin; the
+                // deliberately foreign expected context must be refused.
                 unsafe {
                     receive_canonical(
                         bytes.clone(),
@@ -523,6 +521,8 @@ mod native_receiving {
                 .is_err()
             );
             assert!(
+                // SAFETY: this locally authored private fixture supplies origin;
+                // the deliberately foreign expected body identity tests refusal.
                 unsafe {
                     receive_private(
                         bytes.clone(),
@@ -538,6 +538,8 @@ mod native_receiving {
             );
             cancel.store(true, Ordering::Relaxed);
             assert!(matches!(
+                // SAFETY: the same local exact-root fixture supplies origin;
+                // cancellation changes no lifetime or authentication premise.
                 unsafe {
                     receive_canonical(
                         bytes.clone(),
@@ -657,6 +659,8 @@ mod native_receiving {
                     .unwrap();
             let bytes = payload(&changed);
             assert!(
+                // SAFETY: the local private fixture supplies origin and exact
+                // root bytes; the added proof deliberately tests replay refusal.
                 unsafe {
                     receive_private(
                         bytes.clone(),

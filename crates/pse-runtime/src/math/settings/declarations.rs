@@ -5,17 +5,24 @@
 #[cfg(test)]
 mod projection_controls {
     use super::*;
-    use pse_contract::boundary_projection::{ProjectionGraph, ProjectionRecord, ValidateProjection};
+    use pse_contract::boundary_projection::{
+        ProjectionGraph, ProjectionRecord, ValidateProjection,
+    };
 
     #[test]
     fn actual_solve_settings_projection_preserves_original_default_bytes_and_identity() {
         let original = SolveSettings::default();
         let bytes = serde_json::to_vec(&original).unwrap();
-        let identity = pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &original).unwrap();
+        let identity =
+            pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &original).unwrap();
         original.validate_projection().unwrap();
-        let restored = SolveSettings::from_projection_fields(original.into_projection_fields()).unwrap();
+        let restored =
+            SolveSettings::from_projection_fields(original.into_projection_fields()).unwrap();
         assert_eq!(serde_json::to_vec(&restored).unwrap(), bytes);
-        assert_eq!(pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &restored).unwrap(), identity);
+        assert_eq!(
+            pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &restored).unwrap(),
+            identity
+        );
         let graph = ProjectionGraph::of::<SolveSettings>().unwrap();
         assert_eq!(graph.definitions()["SolveSettings"].version, 1);
         assert!(graph.definitions().contains_key("NativeBackendSettings"));
@@ -24,12 +31,17 @@ mod projection_controls {
 
     #[test]
     fn convexity_numeric_inputs_keep_signed_zero_and_refuse_nonfinite_number_loss() {
-        let mut settings = SolveSettings::default();
-        settings.convexity_absolute = Some(-0.0);
-        settings.convexity_relative = Some(0.0);
+        let mut settings = SolveSettings {
+            convexity_absolute: Some(-0.0),
+            convexity_relative: Some(0.0),
+            ..SolveSettings::default()
+        };
         let encoded = serde_json::to_vec(&settings).unwrap();
         let decoded: SolveSettings = serde_json::from_slice(&encoded).unwrap();
-        assert_eq!(decoded.convexity_absolute.unwrap().to_bits(), (-0.0_f64).to_bits());
+        assert_eq!(
+            decoded.convexity_absolute.unwrap().to_bits(),
+            (-0.0_f64).to_bits()
+        );
         for nonfinite in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
             settings.convexity_absolute = Some(nonfinite);
             assert!(serde_json::to_vec(&settings).is_err());

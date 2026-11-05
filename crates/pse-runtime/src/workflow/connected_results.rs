@@ -1070,7 +1070,7 @@ impl ResultReader {
                     // Original candidate permission is not a dual/sensitivity certificate.
                     if selected_dual_data(
                         self.output.as_ref().map(|output| output.field.as_str()),
-                        &batch,
+                        batch,
                         row,
                     ) {
                         use pse_model::generated::enums::DualQualification;

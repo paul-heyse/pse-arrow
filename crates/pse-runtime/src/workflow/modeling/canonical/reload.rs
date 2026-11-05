@@ -311,8 +311,16 @@ fn exact_document_sources(
 ) -> Result<Vec<BTreeMap<String, Vec<u8>>>, WorkflowError> {
     Ok(exact_document_inventory(services, package, parent, cancel)?
         .into_iter()
-        .map(|(_, files)| files)
+        .map(|package| package.files)
         .collect())
+}
+
+/// Exact loader bytes for one parent package, before any explicit file edits.
+/// The enclosing inventory preserves the original package order; callers retain
+/// the parent and their admitted source-copy allocation through consumption.
+struct ExactPackageDocuments {
+    package: SemanticId,
+    files: BTreeMap<String, Vec<u8>>,
 }
 
 fn exact_document_inventory(
@@ -320,7 +328,7 @@ fn exact_document_inventory(
     package: &ModelingPackage,
     parent: &delta::Parent,
     cancel: &crate::CancelSource,
-) -> Result<Vec<(SemanticId, BTreeMap<String, Vec<u8>>)>, WorkflowError> {
+) -> Result<Vec<ExactPackageDocuments>, WorkflowError> {
     let mut grouped = BTreeMap::<SemanticId, BTreeMap<String, Vec<u8>>>::new();
     let mut data_leases = Vec::new();
     for document in parent.documents.values() {
@@ -363,7 +371,10 @@ fn exact_document_inventory(
         }
         for package in &origins.packages {
             if let Some(source) = grouped.remove(&package.package) {
-                sources.push((package.package, source));
+                sources.push(ExactPackageDocuments {
+                    package: package.package,
+                    files: source,
+                });
             }
         }
     } else {
@@ -375,11 +386,18 @@ fn exact_document_inventory(
                 .get(&row.document_id)
                 .ok_or_else(|| contract("cold declaration document absent"))?;
             if let Some(source) = grouped.remove(&document.package_id.as_id()) {
-                sources.push((document.package_id.as_id(), source));
+                sources.push(ExactPackageDocuments {
+                    package: document.package_id.as_id(),
+                    files: source,
+                });
             }
         }
     }
-    sources.extend(grouped);
+    sources.extend(
+        grouped
+            .into_iter()
+            .map(|(package, files)| ExactPackageDocuments { package, files }),
+    );
     Ok(sources)
 }
 

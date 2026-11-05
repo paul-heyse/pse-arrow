@@ -27,12 +27,16 @@ mod duration_projection_controls {
     #[test]
     fn common_controls_and_integration_share_original_positive_time_domain() {
         for duration in [Duration::ZERO, Duration::from_nanos(1), Duration::MAX] {
-            let mut controls = Controls::default();
-            controls.time_limit = duration;
+            let controls = Controls {
+                time_limit: duration,
+                ..Controls::default()
+            };
             assert_eq!(controls.validate().is_ok(), !duration.is_zero());
             assert_eq!(controls.validate_projection().is_ok(), !duration.is_zero());
-            let mut integration = crate::dynamics::Profile::default();
-            integration.time_limit = duration;
+            let integration = crate::dynamics::Profile {
+                time_limit: duration,
+                ..crate::dynamics::Profile::default()
+            };
             assert_eq!(
                 integration.validate_projection().is_ok(),
                 !duration.is_zero()

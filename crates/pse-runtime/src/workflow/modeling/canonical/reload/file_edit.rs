@@ -87,12 +87,13 @@ impl ModelingPackage {
                     {
                         return Err(contract("source file edit requires a normal relative path"));
                     }
-                    let (_, files) = inventory
+                    let package = inventory
                         .iter_mut()
-                        .find(|(id, _)| *id == change.package)
+                        .find(|package| package.package == change.package)
                         .ok_or_else(|| {
                             contract("source file edit names a package outside its exact parent")
                         })?;
+                    let files = &mut package.files;
                     match &change.change {
                         SourceFileChange::Add(bytes) => {
                             if files.contains_key(&change.path) {
@@ -115,7 +116,7 @@ impl ModelingPackage {
                 }
                 let sources = inventory
                     .into_iter()
-                    .map(|(_, files)| files)
+                    .map(|package| package.files)
                     .collect::<Vec<_>>();
                 // This constructs the real SourceDelta with exact parser products, object order,
                 // document/fit changes and data owners before original parent CAS admission.

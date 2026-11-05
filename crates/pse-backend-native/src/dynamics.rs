@@ -3604,9 +3604,11 @@ mod remote_projection_tests {
         >;
         type Ode =
             Adapted<Arc<diffsol::OdeSolverOptions<f64>>, SharedAdapter<OdeOptionsProjection>>;
-        let mut initial = diffsol::InitialConditionSolverOptions::<f64>::default();
-        initial.max_newton_iterations = 27;
-        initial.armijo_constant = -0.0;
+        let initial = diffsol::InitialConditionSolverOptions::<f64> {
+            max_newton_iterations: 27,
+            armijo_constant: -0.0,
+            ..Default::default()
+        };
         let original = Arc::new(initial);
         let fields = Initial::new(original.clone())
             .try_into_projection_fields()
@@ -3618,9 +3620,11 @@ mod remote_projection_tests {
         assert_eq!(recovered.max_newton_iterations, 27);
         assert_eq!(recovered.armijo_constant.to_bits(), (-0.0_f64).to_bits());
         assert!(!Arc::ptr_eq(&original, &recovered));
-        let mut ode = diffsol::OdeSolverOptions::<f64>::default();
-        ode.max_timestep_growth = Some(f64::from_bits(0x7ff8_0000_0000_0042));
-        ode.min_timestep_growth = None;
+        let ode = diffsol::OdeSolverOptions::<f64> {
+            max_timestep_growth: Some(f64::from_bits(0x7ff8_0000_0000_0042)),
+            min_timestep_growth: None,
+            ..Default::default()
+        };
         let fields = Ode::new(Arc::new(ode))
             .try_into_projection_fields()
             .unwrap();

@@ -12,6 +12,21 @@ mod signed_integer;
 pub use borrowed::{decode_view_root, unknown_fields_view};
 pub use retained::RetainedExtentError;
 
+/// Recognize typed resource refusals from the maintained Buffa decode profile.
+/// This observes the original cause; it grants no decode or native admission.
+pub fn decode_resource_refusal(error: &buffa::DecodeError) -> bool {
+    matches!(
+        error,
+        buffa::DecodeError::MessageTooLarge
+            | buffa::DecodeError::RecursionLimitExceeded
+            | buffa::DecodeError::UnknownFieldLimitExceeded
+            | buffa::DecodeError::ElementMemoryLimitExceeded
+            | buffa::DecodeError::AllocationLimitExceeded
+            | buffa::DecodeError::AllocationLayoutOverflow
+            | buffa::DecodeError::AllocationReserveFailed
+    )
+}
+
 /// Original typed crossing failure; native permission and consumer presentation stay external.
 #[derive(Debug, thiserror::Error)]
 pub enum BoundaryProjectionError {
@@ -396,6 +411,28 @@ pub fn wire_map<K, V, M: FromIterator<(K, V)>>(pairs: impl Iterator<Item = (K, V
 mod tests {
     use super::*;
     use miette::Diagnostic;
+
+    #[test]
+    fn decode_resource_refusals_cover_the_maintained_profile_without_reclassifying_wire_failures() {
+        for error in [
+            buffa::DecodeError::MessageTooLarge,
+            buffa::DecodeError::RecursionLimitExceeded,
+            buffa::DecodeError::UnknownFieldLimitExceeded,
+            buffa::DecodeError::ElementMemoryLimitExceeded,
+            buffa::DecodeError::AllocationLimitExceeded,
+            buffa::DecodeError::AllocationLayoutOverflow,
+            buffa::DecodeError::AllocationReserveFailed,
+        ] {
+            assert!(decode_resource_refusal(&error), "{error:?}");
+        }
+        for error in [
+            buffa::DecodeError::UnexpectedEof,
+            buffa::DecodeError::InvalidUtf8,
+            buffa::DecodeError::UnaccountedView,
+        ] {
+            assert!(!decode_resource_refusal(&error), "{error:?}");
+        }
+    }
 
     #[test]
     fn arc_projection_items_clone_on_demand_and_retain_source() {

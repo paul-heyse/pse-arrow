@@ -59,7 +59,7 @@ impl LocalWaterFactory {
             .str("prepared-local-scientific-worker-v2")
             .hash(&water.configuration_key())
             .str(&executable.observation().sha256)
-            .part(executable.path().as_os_str().as_bytes())
+            .part(executable.canonical_path().as_os_str().as_bytes())
             .u64(executable.opaque_bytes() as u64);
         Ok(Self {
             water,

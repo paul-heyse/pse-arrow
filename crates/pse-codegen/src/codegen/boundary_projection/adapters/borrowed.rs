@@ -140,150 +140,41 @@ pub fn native_view_adapters(
     Ok(prettyplease::unparse(&parsed))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use pse_contract::boundary_projection::Direction;
-    pse_contract::projection_enum! {
-        pub(super) enum Outcome {
-            projection:{name:"Outcome",version:1,direction:Direction::Both,reserved_tags:[],reserved_names:[]};
-            Values(Vec<f64>) => 1;
-            Empty => 2;
-        }
-    }
-    pse_contract::projection_struct! {
-        pub(super) struct BorrowedFixture {
-            projection:{name:"BorrowedFixture",version:1,direction:Direction::Both,reserved_tags:[],reserved_names:[]};
-            exact:Option<i128> => {tag:1,direction:Direction::Both,rules:[]};
-            factors:Vec<i8> => {tag:2,direction:Direction::Both,rules:[]};
-            labels:std::collections::BTreeMap<String,Vec<Option<u64>>> => {tag:3,direction:Direction::Both,rules:[]};
-            identities:std::collections::BTreeMap<pse_ids::SemanticId,String> => {tag:4,direction:Direction::Both,rules:[]};
-            outcome:Outcome => {tag:5,direction:Direction::Both,rules:[]};
-        }
-    }
-    #[test]
-    fn borrowed_emission_uses_real_view_paths_and_logical_map_semantics() {
-        let graph = ProjectionGraph::of::<BorrowedFixture>().unwrap();
-        let descriptors = crate::codegen::boundary_projection::descriptors_with_imports(
-            &graph,
-            "pse.borrowed.v1",
-            "borrowed.proto",
-            &crate::codegen::boundary_projection::tests::imports(),
-        )
-        .unwrap();
-        let config = buffa_codegen::CodeGenConfig::default();
-        let target = NativeViewTarget {
-            descriptors: &descriptors,
-            selected_file: "borrowed.proto",
-            config: &config,
-            wire_root: "crate::pb",
-            owner_crate: "pse_codegen",
-            visibility: AdapterVisibility::Parent,
-        };
-        let rendered = native_view_adapters(&graph, &["BorrowedFixture"], target).unwrap();
-        syn::parse_file(&rendered).unwrap();
-        assert_direct_conversion_results(&rendered);
-        for expected in [
-            "BorrowedFixtureView<'buffer>",
-            "OutcomeView<'_>",
-            "iter_unique()",
-            "unique_pairs",
-            "unknown_fields_view",
-            "decode_view_root",
-            "from_projection_slice",
-        ] {
-            assert!(rendered.contains(expected), "{expected}: {rendered}");
-        }
-        let requested = vec!["borrowed.proto".into()];
-        let naming = buffa_codegen::context::CodeGenContext::for_generate(
-            &descriptors.file,
-            &requested,
-            &config,
-        );
-        assert!(
-            naming
-                .rust_type_relative_split(
-                    ".pse.borrowed.v1.BorrowedFixture.Field3Value",
-                    "pse.borrowed.v1",
-                    0
-                )
-                .is_some(),
-            "map value wrapper names come from the actual linked generation world"
-        );
-        for forbidden in [
-            "to_owned_message",
-            "DynamicMessage",
-            "NativeInto",
-            ".clone()",
-        ] {
-            assert!(!rendered.contains(forbidden), "{forbidden}");
-        }
-        let mut unavailable = config.clone();
-        unavailable.generate_views = false;
-        assert!(
-            native_view_adapters(
-                &graph,
-                &["BorrowedFixture"],
-                NativeViewTarget {
-                    config: &unavailable,
-                    ..target
-                }
-            )
-            .is_err()
-        );
-        unavailable = config.clone();
-        unavailable.preserve_unknown_fields = false;
-        assert!(
-            native_view_adapters(
-                &graph,
-                &["BorrowedFixture"],
-                NativeViewTarget {
-                    config: &unavailable,
-                    ..target
-                }
-            )
-            .is_err()
-        );
-    }
-    #[test]
-    fn borrowed_emission_never_reconstructs_observation_only_native_owners() {
-        pse_contract::projection_struct! {
-            struct Observation {
-                projection:{name:"Observation",version:1,direction:Direction::Output,construction:ObservationOnly,reserved_tags:[],reserved_names:[]};
-                count:u64 => {tag:1,direction:Direction::Output,rules:[]};
-            }
-        }
-        let graph = ProjectionGraph::of::<Observation>().unwrap();
-        let descriptors = crate::codegen::boundary_projection::descriptors_with_imports(
-            &graph,
-            "pse.borrowed.v1",
-            "borrowed.proto",
-            &crate::codegen::boundary_projection::tests::imports(),
-        )
-        .unwrap();
-        let config = buffa_codegen::CodeGenConfig::default();
-        assert!(
-            native_view_adapters(
-                &graph,
-                &["Observation"],
-                NativeViewTarget {
-                    descriptors: &descriptors,
-                    selected_file: "borrowed.proto",
-                    config: &config,
-                    wire_root: "crate::pb",
-                    owner_crate: "pse_codegen",
-                    visibility: AdapterVisibility::Parent
-                }
-            )
-            .is_err()
-        );
-    }
-}
-
 struct Borrowed<'a, 'b> {
     source: &'a Generator<'b>,
     package: &'a str,
 }
+
+/// A view field is a place; iterator and presence accessors already lend values.
+/// Keep that distinction until a Copy scalar or a borrowed native input is needed.
+#[derive(Clone, Copy)]
+enum ViewValue<'a> {
+    Place(&'a str),
+    Borrowed(&'a str),
+}
+
+impl<'a> ViewValue<'a> {
+    fn expression(self) -> &'a str {
+        match self {
+            Self::Place(value) | Self::Borrowed(value) => value,
+        }
+    }
+
+    fn copied(self) -> String {
+        match self {
+            Self::Place(value) => value.to_owned(),
+            Self::Borrowed(value) => format!("*({value})"),
+        }
+    }
+
+    fn borrowed(self) -> String {
+        match self {
+            Self::Place(value) => format!("&{value}"),
+            Self::Borrowed(value) => value.to_owned(),
+        }
+    }
+}
+
 impl Borrowed<'_, '_> {
     fn view(&self, path: &[String], lifetime: &str) -> Result<String, ProjectionCodegenError> {
         let fqn = format!(".{}.{}", self.package, path.join("."));
@@ -308,12 +199,18 @@ impl Borrowed<'_, '_> {
         for field in fields {
             let name = buffa_codegen::idents::make_field_ident(&field.name);
             let path = format!("&child_path(path,{:?})", field.name);
-            let input = if requires_scalar_presence(field) {
+            let present = requires_scalar_presence(field);
+            let input = if present {
                 format!("required(wire.{name}.as_ref(),{path})?")
             } else {
-                format!("&wire.{name}")
+                format!("wire.{name}")
             };
-            let value = self.decode(&field.ty, &input, &path, parent, field.tag, false)?;
+            let input = if present {
+                ViewValue::Borrowed(&input)
+            } else {
+                ViewValue::Place(&input)
+            };
+            let value = self.decode(&field.ty, input, &path, parent, field.tag, false)?;
             let _ = write!(out, "{value},");
         }
         out.push(')');
@@ -392,44 +289,48 @@ impl Borrowed<'_, '_> {
     fn decode(
         &self,
         ty: &TypeRef,
-        value: &str,
+        value: ViewValue<'_>,
         path: &str,
         parent: &[String],
         tag: u32,
         raw: bool,
     ) -> Result<String, ProjectionCodegenError> {
+        let expression = value.expression();
         Ok(match ty {
             TypeRef::Scalar(Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash) => format!(
-                "pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(*({value}),{path})?"
+                "pse_contract::boundary_projection::ProjectionBytes::from_projection_slice({expression},{path})?"
             ),
-            TypeRef::Scalar(Scalar::String) => format!("native_from::<_,&str>(*({value}),{path})?"),
+            TypeRef::Scalar(Scalar::String) => {
+                format!("native_from::<_,&str>({expression},{path})?")
+            }
             TypeRef::Scalar(Scalar::I128Bits) => {
-                format!("native_from::<_,&[u8]>(*({value}),{path})?")
+                format!("native_from::<_,&[u8]>({expression},{path})?")
             }
             TypeRef::Scalar(scalar) => format!(
-                "native_from::<_,{}>(*({value}),{path})?",
-                scalar_wire(*scalar)
+                "native_from::<_,{}>({},{path})?",
+                scalar_wire(*scalar),
+                value.copied()
             ),
             TypeRef::Named(name) => {
                 let actual = if raw {
-                    value.to_owned()
+                    value.borrowed()
                 } else {
-                    format!("required(({value}).as_option(),{path})?")
+                    format!("required({expression}.as_option(),{path})?")
                 };
                 let view = self.view(std::slice::from_ref(name), "'_")?;
                 format!("native_from::<_,&{view}>({actual},{path})?")
             }
             TypeRef::Optional(inner) => {
                 let input = if matches!(inner.as_ref(), TypeRef::Scalar(_)) {
-                    format!("({value}).as_ref()")
+                    format!("{expression}.as_ref()")
                 } else {
-                    format!("({value}).as_option()")
+                    format!("{expression}.as_option()")
                 };
                 let converted = if matches!(inner.as_ref(), TypeRef::Scalar(_) | TypeRef::Named(_))
                 {
-                    self.decode(inner, "value", path, parent, tag, true)?
+                    self.decode(inner, ViewValue::Borrowed("value"), path, parent, tag, true)?
                 } else {
-                    self.wrapper(inner, "value", path, parent, tag)?
+                    self.wrapper(inner, ViewValue::Borrowed("value"), path, parent, tag)?
                 };
                 let converted = conversion_result(&converted)?;
                 format!("{input}.map(|value|->Result<_,AdapterError>{{{converted}}}).transpose()?")
@@ -438,33 +339,49 @@ impl Borrowed<'_, '_> {
                 let indexed = "&format!(\"{current_path}[{index}]\")";
                 let converted = if matches!(inner.as_ref(), TypeRef::Scalar(_) | TypeRef::Named(_))
                 {
-                    self.decode(inner, "value", indexed, parent, tag, true)?
+                    self.decode(
+                        inner,
+                        ViewValue::Borrowed("value"),
+                        indexed,
+                        parent,
+                        tag,
+                        true,
+                    )?
                 } else {
-                    self.wrapper(inner, "value", indexed, parent, tag)?
+                    self.wrapper(inner, ViewValue::Borrowed("value"), indexed, parent, tag)?
                 };
                 let converted = conversion_result(&converted)?;
                 format!(
-                    "{{let current_path={path};let values=({value}).iter().enumerate().map(|(index,value)|->Result<_,AdapterError>{{{converted}}}).collect::<Result<Vec<_>,_>>()?;from_items(values,current_path)?}}"
+                    "{{let current_path={path};let values={expression}.iter().enumerate().map(|(index,value)|->Result<_,AdapterError>{{{converted}}}).collect::<Result<Vec<_>,_>>()?;from_items(values,current_path)?}}"
                 )
             }
             TypeRef::Map(key, item) => {
                 let entry = self.source.nested(parent, format!("Field{tag}Entry"));
                 if protobuf_map_key(key) {
-                    let key = self.decode(key, "key", path, &entry, 1, true)?;
+                    let key =
+                        self.decode(key, ViewValue::Borrowed("key"), path, &entry, 1, true)?;
                     let item = if matches!(item.as_ref(), TypeRef::Scalar(_) | TypeRef::Named(_)) {
-                        self.decode(item, "value", path, &entry, 2, true)?
+                        self.decode(item, ViewValue::Borrowed("value"), path, &entry, 2, true)?
                     } else {
-                        self.wrapper(item, "value", path, parent, tag)?
+                        self.wrapper(item, ViewValue::Borrowed("value"), path, parent, tag)?
                     };
                     format!(
-                        "unique_pairs(({value}).iter_unique().map(|(key,value)|->Result<_,AdapterError>{{Ok(({key},{item}))}}).collect::<Result<Vec<_>,_>>()?,{path})?"
+                        "unique_pairs({expression}.iter_unique().map(|(key,value)|->Result<_,AdapterError>{{Ok(({key},{item}))}}).collect::<Result<Vec<_>,_>>()?,{path})?"
                     )
                 } else {
-                    let key = self.decode(key, "&entry.key", path, &entry, 1, false)?;
-                    let item = self.decode(item, "&entry.value", path, &entry, 2, false)?;
+                    let key =
+                        self.decode(key, ViewValue::Place("entry.key"), path, &entry, 1, false)?;
+                    let item = self.decode(
+                        item,
+                        ViewValue::Place("entry.value"),
+                        path,
+                        &entry,
+                        2,
+                        false,
+                    )?;
                     let guard = self.guard("entry", path);
                     format!(
-                        "unique_pairs(({value}).iter().map(|entry|->Result<_,AdapterError>{{{guard}Ok(({key},{item}))}}).collect::<Result<Vec<_>,_>>()?,{path})?"
+                        "unique_pairs({expression}.iter().map(|entry|->Result<_,AdapterError>{{{guard}Ok(({key},{item}))}}).collect::<Result<Vec<_>,_>>()?,{path})?"
                     )
                 }
             }
@@ -473,14 +390,240 @@ impl Borrowed<'_, '_> {
     fn wrapper(
         &self,
         inner: &TypeRef,
-        value: &str,
+        value: ViewValue<'_>,
         path: &str,
         parent: &[String],
         tag: u32,
     ) -> Result<String, ProjectionCodegenError> {
         let nested = self.source.nested(parent, format!("Field{tag}Value"));
         let guard = self.guard("wrapped", path);
-        let decoded = self.decode(inner, "&wrapped.value", path, &nested, 1, false)?;
+        let decoded = self.decode(
+            inner,
+            ViewValue::Place("wrapped.value"),
+            path,
+            &nested,
+            1,
+            false,
+        )?;
+        let value = value.borrowed();
         Ok(format!("{{let wrapped={value};{guard}{decoded}}}"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pse_contract::boundary_projection::Direction;
+    pse_contract::projection_enum! {
+        pub(super) enum Outcome {
+            projection:{name:"Outcome",version:1,direction:Direction::Both,reserved_tags:[],reserved_names:[]};
+            Values(Vec<f64>) => 1;
+            Empty => 2;
+        }
+    }
+    pse_contract::projection_struct! {
+        pub(super) struct BorrowedFixture {
+            projection:{name:"BorrowedFixture",version:1,direction:Direction::Both,reserved_tags:[],reserved_names:[]};
+            exact:Option<i128> => {tag:1,direction:Direction::Both,rules:[]};
+            factors:Vec<i8> => {tag:2,direction:Direction::Both,rules:[]};
+            labels:std::collections::BTreeMap<String,Vec<Option<u64>>> => {tag:3,direction:Direction::Both,rules:[]};
+            identities:std::collections::BTreeMap<pse_ids::SemanticId,String> => {tag:4,direction:Direction::Both,rules:[]};
+            outcome:Outcome => {tag:5,direction:Direction::Both,rules:[]};
+            count:u64 => {tag:6,direction:Direction::Both,rules:[]};
+            label:String => {tag:7,direction:Direction::Both,rules:[]};
+            outcomes:Vec<Outcome> => {tag:8,direction:Direction::Both,rules:[]};
+            maybe_outcome:Option<Outcome> => {tag:9,direction:Direction::Both,rules:[]};
+        }
+    }
+    #[test]
+    fn borrowed_emission_uses_real_view_paths_and_logical_map_semantics() {
+        let graph = ProjectionGraph::of::<BorrowedFixture>().unwrap();
+        let descriptors = crate::codegen::boundary_projection::descriptors_with_imports(
+            &graph,
+            "pse.borrowed.v1",
+            "borrowed.proto",
+            &crate::codegen::boundary_projection::tests::imports(),
+        )
+        .unwrap();
+        let config = buffa_codegen::CodeGenConfig::default();
+        let target = NativeViewTarget {
+            descriptors: &descriptors,
+            selected_file: "borrowed.proto",
+            config: &config,
+            wire_root: "crate::pb",
+            owner_crate: "pse_codegen",
+            visibility: AdapterVisibility::Parent,
+        };
+        let rendered = native_view_adapters(&graph, &["BorrowedFixture"], target).unwrap();
+        syn::parse_file(&rendered).unwrap();
+        assert_direct_conversion_results(&rendered);
+        assert_borrowed_expression_shapes(&rendered);
+        for expected in [
+            "BorrowedFixtureView<'buffer>",
+            "OutcomeView<'_>",
+            "iter_unique()",
+            "unique_pairs",
+            "unknown_fields_view",
+            "decode_view_root",
+            "from_projection_slice",
+        ] {
+            assert!(rendered.contains(expected), "{expected}: {rendered}");
+        }
+        let requested = vec!["borrowed.proto".into()];
+        let naming = buffa_codegen::context::CodeGenContext::for_generate(
+            &descriptors.file,
+            &requested,
+            &config,
+        );
+        assert!(
+            naming
+                .rust_type_relative_split(
+                    ".pse.borrowed.v1.BorrowedFixture.Field3Value",
+                    "pse.borrowed.v1",
+                    0
+                )
+                .is_some(),
+            "map value wrapper names come from the actual linked generation world"
+        );
+        for forbidden in [
+            "to_owned_message",
+            "DynamicMessage",
+            "NativeInto",
+            ".clone()",
+        ] {
+            assert!(!rendered.contains(forbidden), "{forbidden}");
+        }
+        let mut unavailable = config.clone();
+        unavailable.generate_views = false;
+        assert!(
+            native_view_adapters(
+                &graph,
+                &["BorrowedFixture"],
+                NativeViewTarget {
+                    config: &unavailable,
+                    ..target
+                }
+            )
+            .is_err()
+        );
+        unavailable = config.clone();
+        unavailable.preserve_unknown_fields = false;
+        assert!(
+            native_view_adapters(
+                &graph,
+                &["BorrowedFixture"],
+                NativeViewTarget {
+                    config: &unavailable,
+                    ..target
+                }
+            )
+            .is_err()
+        );
+    }
+
+    fn assert_borrowed_expression_shapes(source: &str) {
+        use syn::visit::Visit;
+
+        fn unparenthesized(mut expression: &syn::Expr) -> &syn::Expr {
+            while let syn::Expr::Paren(paren) = expression {
+                expression = &paren.expr;
+            }
+            expression
+        }
+
+        #[derive(Default)]
+        struct Expressions {
+            copied_inputs: usize,
+        }
+
+        impl<'ast> Visit<'ast> for Expressions {
+            fn visit_expr_unary(&mut self, expression: &'ast syn::ExprUnary) {
+                if matches!(expression.op, syn::UnOp::Deref(_)) {
+                    assert!(
+                        !matches!(unparenthesized(&expression.expr), syn::Expr::Reference(_)),
+                        "a view field place must not be borrowed and immediately copied"
+                    );
+                    self.copied_inputs += 1;
+                }
+                syn::visit::visit_expr_unary(self, expression);
+            }
+
+            fn visit_expr_method_call(&mut self, expression: &'ast syn::ExprMethodCall) {
+                assert!(
+                    !matches!(
+                        unparenthesized(&expression.receiver),
+                        syn::Expr::Reference(_)
+                    ),
+                    "view accessors and iterators borrow their receivers themselves"
+                );
+                syn::visit::visit_expr_method_call(self, expression);
+            }
+
+            fn visit_expr_call(&mut self, expression: &'ast syn::ExprCall) {
+                if let syn::Expr::Path(function) = expression.func.as_ref()
+                    && let Some(function) = function.path.segments.last()
+                    && function.ident == "native_from"
+                    && let syn::PathArguments::AngleBracketed(arguments) = &function.arguments
+                    && arguments.args.iter().any(|argument| {
+                        matches!(
+                            argument,
+                            syn::GenericArgument::Type(syn::Type::Reference(_))
+                        )
+                    })
+                {
+                    assert!(
+                        !matches!(
+                            unparenthesized(expression.args.first().unwrap()),
+                            syn::Expr::Unary(syn::ExprUnary {
+                                op: syn::UnOp::Deref(_),
+                                ..
+                            })
+                        ),
+                        "borrowed native inputs use argument coercion without explicit dereference"
+                    );
+                }
+                syn::visit::visit_expr_call(self, expression);
+            }
+        }
+
+        let mut expressions = Expressions::default();
+        expressions.visit_file(&syn::parse_file(source).unwrap());
+        assert!(
+            expressions.copied_inputs > 0,
+            "numeric iterator and presence inputs must still be copied"
+        );
+    }
+    #[test]
+    fn borrowed_emission_never_reconstructs_observation_only_native_owners() {
+        pse_contract::projection_struct! {
+            struct Observation {
+                projection:{name:"Observation",version:1,direction:Direction::Output,construction:ObservationOnly,reserved_tags:[],reserved_names:[]};
+                count:u64 => {tag:1,direction:Direction::Output,rules:[]};
+            }
+        }
+        let graph = ProjectionGraph::of::<Observation>().unwrap();
+        let descriptors = crate::codegen::boundary_projection::descriptors_with_imports(
+            &graph,
+            "pse.borrowed.v1",
+            "borrowed.proto",
+            &crate::codegen::boundary_projection::tests::imports(),
+        )
+        .unwrap();
+        let config = buffa_codegen::CodeGenConfig::default();
+        assert!(
+            native_view_adapters(
+                &graph,
+                &["Observation"],
+                NativeViewTarget {
+                    descriptors: &descriptors,
+                    selected_file: "borrowed.proto",
+                    config: &config,
+                    wire_root: "crate::pb",
+                    owner_crate: "pse_codegen",
+                    visibility: AdapterVisibility::Parent
+                }
+            )
+            .is_err()
+        );
     }
 }

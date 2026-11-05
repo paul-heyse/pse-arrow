@@ -26,9 +26,10 @@ impl ModelingPackage {
             .scope(async {
                 let page = self.ordered_declaration_projection(
                     services,
-                    request.offset,
-                    request.limit,
-                    None,
+                    DeclarationReadSelection {
+                        page: request,
+                        selected: None,
+                    },
                     cancel,
                     "modeling:selected-declaration-header",
                     // Account the compact native header, generated message and complete encoded buffer.
@@ -144,9 +145,13 @@ mod tests {
         let page = package
             .ordered_declaration_projection(
                 &runtime.preparation_services(),
-                2,
-                1,
-                None,
+                super::DeclarationReadSelection {
+                    page: &crate::workflow::ModelingDeclarationRequest {
+                        offset: 2,
+                        limit: 1,
+                    },
+                    selected: None,
+                },
                 &crate::CancelSource::new(),
                 "test:selected-header-projection",
                 |_| {
@@ -167,6 +172,51 @@ mod tests {
             1,
             "unselected bodies never reach extent/copy functions"
         );
+        assert!(package.revision.delta_products.get().is_none());
+    }
+
+    #[tokio::test]
+    async fn selected_ids_filter_the_original_window_without_repagination() {
+        let runtime = crate::workflow::tests::runtime();
+        let rows = super::super::tests::parse(
+            "package p {param a:Scalar=1;param b:Scalar=2;param c:Scalar=3;}",
+        );
+        let package = runtime
+            .modeling_package(rows.clone(), crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let services = runtime.preparation_services();
+        let baseline = services.pool().reserved();
+        let selected = [0, 2, 3]
+            .map(|index| rows[index].declaration_id)
+            .into_iter()
+            .collect();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let page = package
+            .ordered_declaration_projection(
+                &services,
+                super::DeclarationReadSelection {
+                    page: &crate::workflow::ModelingDeclarationRequest {
+                        offset: 1,
+                        limit: 2,
+                    },
+                    selected: Some(&selected),
+                },
+                &crate::CancelSource::new(),
+                "test:selected-declaration-window",
+                |_| 0,
+                |row| {
+                    seen.borrow_mut().push(row.declaration_id);
+                    row.declaration_id
+                },
+            )
+            .unwrap();
+        assert_eq!(page.total, rows.len());
+        assert_eq!(page.rows, vec![rows[2].declaration_id]);
+        assert_eq!(*seen.borrow(), page.rows);
+        assert!(services.pool().reserved() > baseline);
+        drop(page);
+        assert_eq!(services.pool().reserved(), baseline);
         assert!(package.revision.delta_products.get().is_none());
     }
 }

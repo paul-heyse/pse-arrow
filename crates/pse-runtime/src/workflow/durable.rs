@@ -1090,6 +1090,58 @@ impl PublicationAcks {
             .unwrap_or_else(|| ResultAcknowledgments::new(fence)))
     }
 }
+/// Original scientific selection ready for canonical registration, not execution authority.
+/// Payloads retain their workflow owner's encoding; the primary revision is mandatory
+/// before publication can add the exact physical source closure.
+#[derive(Debug)]
+struct ExecutionSelection<'a> {
+    physical: &'a super::PhysicalContext,
+    revision: &'a Revision,
+    sources: &'a [Revision],
+    request: Vec<u8>,
+    source_selection: Vec<u8>,
+}
+impl<'a> ExecutionSelection<'a> {
+    fn new(
+        physical: &'a super::PhysicalContext,
+        inputs: &'a [Revision],
+        request: Vec<u8>,
+        source_selection: Vec<u8>,
+    ) -> Result<Self, WorkflowError> {
+        let (revision, sources) = inputs
+            .split_first()
+            .ok_or_else(|| contract("durable execution needs an exact scientific revision"))?;
+        Ok(Self {
+            physical,
+            revision,
+            sources,
+            request,
+            source_selection,
+        })
+    }
+
+    fn into_run_request(
+        self,
+        key: pse_model::generated::canonical::RunKey,
+        physical_revisions: &[Revision],
+        attestation: Vec<u8>,
+    ) -> pse_operations::canonical_execution::RunRequest {
+        let mut sources = self.sources.to_vec();
+        sources.extend_from_slice(physical_revisions);
+        pse_operations::canonical_execution::RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
+            key,
+            revision: self.revision.clone(),
+            sources,
+            request: self.request,
+            source_selection: self.source_selection,
+            attestation,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct DurableAttempt {
     worker_publication: Option<super::worker::PublicationHandoff>,
@@ -1404,7 +1456,10 @@ impl DurableAttempt {
         }
         .map_err(|error| contract(error.to_string()))?;
         self.register_selection(
-            run_id, services, physical, &inputs, request, selected, claim,
+            run_id,
+            services,
+            ExecutionSelection::new(physical, &inputs, request, selected)?,
+            claim,
         )
         .await
     }
@@ -1460,19 +1515,21 @@ impl DurableAttempt {
         self.register_selection(
             run_id,
             services,
-            physical,
-            &inputs,
-            serde_json::to_vec(&(1_u8, "horizon", run_id, identity))
+            ExecutionSelection::new(
+                physical,
+                &inputs,
+                serde_json::to_vec(&(1_u8, "horizon", run_id, identity))
+                    .map_err(|e| contract(e.to_string()))?,
+                serde_json::to_vec(&(
+                    3_u8,
+                    identity,
+                    physical.identity(),
+                    serde_json::from_slice::<serde_json::Value>(provenance)
+                        .map_err(|error| contract(error.to_string()))?,
+                    selected_sources,
+                ))
                 .map_err(|e| contract(e.to_string()))?,
-            serde_json::to_vec(&(
-                3_u8,
-                identity,
-                physical.identity(),
-                serde_json::from_slice::<serde_json::Value>(provenance)
-                    .map_err(|error| contract(error.to_string()))?,
-                selected_sources,
-            ))
-            .map_err(|e| contract(e.to_string()))?,
+            )?,
             true,
         )
         .await
@@ -1481,39 +1538,23 @@ impl DurableAttempt {
         &self,
         run_id: RunId,
         services: &super::SourceServices,
-        physical: &super::PhysicalContext,
-        inputs: &[Revision],
-        request: Vec<u8>,
-        selected: Vec<u8>,
+        selection: ExecutionSelection<'_>,
         claim: bool,
     ) -> Result<(), WorkflowError> {
-        let primary = inputs
-            .first()
-            .ok_or_else(|| contract("durable execution needs an exact scientific revision"))?;
         let physical_rows = self
             .operations
-            .put_physical_rows(services.preparation(), physical)
+            .put_physical_rows(services.preparation(), selection.physical)
             .await?;
-        let mut sources = inputs.iter().skip(1).cloned().collect::<Vec<_>>();
-        sources.extend(physical_rows.revisions.iter().cloned());
         let (run, _) = self.canonical_keys(run_id);
         let attestation = services.canonical()?.attestation();
-        let row = self
-            .operations
-            .store
-            .begin_run(&pse_operations::canonical_execution::RunRequest {
-                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
-                admission_study: None,
-                admission_point: None,
-                key: run.clone().into(),
-                revision: primary.clone(),
-                sources,
-                request,
-                source_selection: selected,
-                attestation: serde_json::to_vec(&(attestation.source, attestation.build))
-                    .map_err(|e| contract(e.to_string()))?,
-            })
-            .await?;
+        let request = selection.into_run_request(
+            run.clone().into(),
+            &physical_rows.revisions,
+            serde_json::to_vec(&(attestation.source, attestation.build))
+                .map_err(|e| contract(e.to_string()))?,
+        );
+        let row = self.operations.store.begin_run(&request).await?;
+        drop(request);
         drop(physical_rows);
         self.retain_run(row)?;
         if !claim {
@@ -7065,5 +7106,71 @@ mod lease_renewal_tests {
         assert!(first.duration_since(started) >= heartbeat);
         assert!(first.duration_since(started) < policy.lease() / 3);
         assert!(renewal.stop().await.is_none());
+    }
+}
+
+#[cfg(test)]
+mod execution_selection_tests {
+    use super::*;
+
+    fn revision(key: &str, sequence: u64) -> Revision {
+        Revision {
+            key: key.into(),
+            problem: "selection-fixture".into(),
+            sequence,
+            parent: None,
+            operation: format!("select:{key}"),
+            request: sequence.to_le_bytes().to_vec().into(),
+            interpretation: "selection-fixture.v1".into(),
+        }
+    }
+
+    #[test]
+    fn execution_selection_requires_original_science_before_registration() {
+        let physical = super::super::tests::physical();
+        let error = ExecutionSelection::new(&physical, &[], vec![], vec![]).unwrap_err();
+        assert!(matches!(error, WorkflowError::Input(_)));
+        assert!(
+            error
+                .to_string()
+                .contains("durable execution needs an exact scientific revision")
+        );
+    }
+
+    #[test]
+    fn execution_selection_preserves_owner_bytes_and_exact_ordered_revision_closure() {
+        let physical = super::super::tests::physical();
+        let inputs = [revision("primary", 7), revision("additional", 8)];
+        let physical_revisions = [revision("physical", 9)];
+        let request = br#"[1, "original request", -0.0]"#.to_vec();
+        let selected = br#"[3, { "original": true, "positions": [2,1] }]"#.to_vec();
+        let attestation = br#"["source", "build"]"#.to_vec();
+        let selection =
+            ExecutionSelection::new(&physical, &inputs, request.clone(), selected.clone()).unwrap();
+        assert!(std::ptr::eq(selection.physical, &physical));
+        let request_address = selection.request.as_ptr();
+        let selection_address = selection.source_selection.as_ptr();
+        let registered = selection.into_run_request(
+            "run:selection-fixture".into(),
+            &physical_revisions,
+            attestation.clone(),
+        );
+        assert_eq!(registered.key.as_str(), "run:selection-fixture");
+        assert_eq!(
+            registered.purpose,
+            pse_model::generated::enums::CanonicalRunPurpose::Execution
+        );
+        assert_eq!(registered.admission_study, None);
+        assert_eq!(registered.admission_point, None);
+        assert_eq!(registered.revision, inputs[0]);
+        assert_eq!(
+            registered.sources,
+            [inputs[1].clone(), physical_revisions[0].clone()]
+        );
+        assert_eq!(registered.request, request);
+        assert_eq!(registered.source_selection, selected);
+        assert_eq!(registered.attestation, attestation);
+        assert_eq!(registered.request.as_ptr(), request_address);
+        assert_eq!(registered.source_selection.as_ptr(), selection_address);
     }
 }

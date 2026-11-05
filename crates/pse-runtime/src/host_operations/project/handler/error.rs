@@ -20,7 +20,7 @@ pub enum ProjectOperationError {
     NativeDrain {
         /// Original native lane failure.
         #[source]
-        source: crate::math::MathRuntimeError,
+        source: Box<crate::math::MathRuntimeError>,
     },
     /// Neither the original action failure nor the drain failure replaces the other.
     #[error("{action}; terminal native drain also failed: {drain}")]
@@ -29,7 +29,7 @@ pub enum ProjectOperationError {
         #[source]
         action: Error,
         /// Original native drain failure.
-        drain: crate::math::MathRuntimeError,
+        drain: Box<crate::math::MathRuntimeError>,
     },
 }
 
@@ -63,9 +63,9 @@ fn original<'a>(
 pse_diagnostics::impl_diagnostic! {
     ProjectOperationError,
     code(this) { match this { Self::Action { source } | Self::ActionAndDrain { action: source, .. } if original(source.as_ref()).is_none() => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure), _ => None } },
-    forward(this) { match this { Self::Action { source } | Self::ActionAndDrain { action: source, .. } => original(source.as_ref()), Self::NativeDrain { source } => Some(source) } },
+    forward(this) { match this { Self::Action { source } | Self::ActionAndDrain { action: source, .. } => original(source.as_ref()), Self::NativeDrain { source } => Some(source.as_ref()) } },
     help(_this) { None },
-    related(this) { match this { Self::ActionAndDrain { action, drain } => { let mut errors: Vec<&dyn pse_diagnostics::TypedDiagnostic> = vec![drain]; if let Some(action) = original(action.as_ref()) { errors.push(action); } Some(Box::new(errors.into_iter())) }, _ => None } },
+    related(this) { match this { Self::ActionAndDrain { action, drain } => { let mut errors: Vec<&dyn pse_diagnostics::TypedDiagnostic> = vec![drain.as_ref()]; if let Some(action) = original(action.as_ref()) { errors.push(action); } Some(Box::new(errors.into_iter())) }, _ => None } },
     source(_this) { None }
 }
 
@@ -82,8 +82,13 @@ pub(super) fn settle_action<T>(
     match (action, drain) {
         (Ok(value), Ok(())) => Ok(value),
         (Err(source), Ok(())) => Err(ProjectOperationError::Action { source }),
-        (Ok(_), Err(source)) => Err(ProjectOperationError::NativeDrain { source }),
-        (Err(action), Err(drain)) => Err(ProjectOperationError::ActionAndDrain { action, drain }),
+        (Ok(_), Err(source)) => Err(ProjectOperationError::NativeDrain {
+            source: Box::new(source),
+        }),
+        (Err(action), Err(drain)) => Err(ProjectOperationError::ActionAndDrain {
+            action,
+            drain: Box::new(drain),
+        }),
     }
 }
 
@@ -134,7 +139,31 @@ mod tests {
         assert!(matches!(outcome,
             Err(ProjectOperationError::ActionAndDrain { action, drain })
                 if action.downcast_ref::<std::io::Error>().is_some()
-                    && matches!(&drain, crate::math::MathRuntimeError::Panic(reason) if reason == "original lane")
+                    && matches!(drain.as_ref(), crate::math::MathRuntimeError::Panic(reason) if reason == "original lane")
         ));
+    }
+
+    #[test]
+    fn completed_project_action_keeps_original_failed_native_drain_source() {
+        let error = settle_action(
+            Ok(()),
+            Err(crate::math::MathRuntimeError::Panic(
+                "original drain".into(),
+            )),
+        )
+        .unwrap_err();
+        let source = std::error::Error::source(&error).unwrap();
+        assert!(matches!(
+            source.downcast_ref::<crate::math::MathRuntimeError>(),
+            Some(crate::math::MathRuntimeError::Panic(reason)) if reason == "original drain"
+        ));
+        assert_eq!(
+            pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+            pse_diagnostics::TypedDiagnostic::diagnostic_code(
+                source
+                    .downcast_ref::<crate::math::MathRuntimeError>()
+                    .unwrap()
+            )
+        );
     }
 }

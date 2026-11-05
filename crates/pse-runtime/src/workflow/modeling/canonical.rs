@@ -28,6 +28,25 @@ struct DeclarationProjectionPage<T> {
     leases: Vec<Arc<pse_columnar::AllocationLease>>,
     frame: Arc<pse_columnar::AllocationLease>,
 }
+
+/// A window in authenticated ingress order, optionally restricted to exact IDs.
+/// Membership is applied after the window; it never repaginates selected IDs.
+struct DeclarationReadSelection<'a> {
+    page: &'a crate::workflow::ModelingDeclarationRequest,
+    selected: Option<&'a BTreeSet<DeclarationId>>,
+}
+
+impl DeclarationReadSelection<'_> {
+    fn capacity(&self, total: usize) -> usize {
+        let capacity = self.page.limit.min(total.saturating_sub(self.page.offset));
+        self.selected
+            .map_or(capacity, |ids| capacity.min(ids.len()))
+    }
+
+    fn includes(&self, id: &DeclarationId) -> bool {
+        self.selected.is_none_or(|ids| ids.contains(id))
+    }
+}
 pub(crate) use local::{AdmittedModelRevision, LocalSourcePremises};
 use local::{
     LocalInventory, LocalSourceObject, SourceMember, TypedObjectPayload, TypedSourceInputs,
@@ -1881,9 +1900,10 @@ impl ModelingPackage {
     ) -> Result<(usize, super::OwnedDeclarations), WorkflowError> {
         let page = self.ordered_declaration_projection(
             services,
-            offset,
-            limit,
-            selected,
+            DeclarationReadSelection {
+                page: &crate::workflow::ModelingDeclarationRequest { offset, limit },
+                selected,
+            },
             cancel,
             "modeling:selected-declaration-copy",
             |row| row.owned_bytes(),
@@ -1902,9 +1922,7 @@ impl ModelingPackage {
     fn ordered_declaration_projection<T>(
         &self,
         services: &crate::workflow::PreparationServices,
-        offset: usize,
-        limit: usize,
-        selected: Option<&BTreeSet<DeclarationId>>,
+        selection: DeclarationReadSelection<'_>,
         cancel: &crate::CancelSource,
         consumer: &str,
         extent: impl Fn(&Declaration) -> usize,
@@ -1915,8 +1933,7 @@ impl ModelingPackage {
         let (frame, frame_lease) = self
             .source_decode::<IngressFrame>(services, self.local_object(INGRESS_FRAME)?.as_ref())?;
         let total = frame.order.len();
-        let capacity = limit.min(total.saturating_sub(offset));
-        let capacity = selected.map_or(capacity, |ids| capacity.min(ids.len()));
+        let capacity = selection.capacity(total);
         let index = services.math().reserve(
             "modeling:declaration-page-index",
             capacity
@@ -1925,9 +1942,14 @@ impl ModelingPackage {
         )?;
         let mut rows = Vec::with_capacity(capacity);
         let mut leases = vec![index];
-        for id in frame.order.iter().skip(offset).take(limit) {
+        for id in frame
+            .order
+            .iter()
+            .skip(selection.page.offset)
+            .take(selection.page.limit)
+        {
             checkpoint(cancel)?;
-            if selected.is_some_and(|ids| !ids.contains(id)) {
+            if !selection.includes(id) {
                 continue;
             }
             let object = self.local_object(&logical(*id))?;

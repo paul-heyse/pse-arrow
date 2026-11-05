@@ -41,7 +41,7 @@ impl PreparedExecutable {
         })
     }
     /// Canonical explicitly selected image.
-    pub fn path(&self) -> &Path {
+    pub fn canonical_path(&self) -> &Path {
         &self.observation.canonical
     }
     /// Exact byte observation bound at explicit preparation.
@@ -83,7 +83,7 @@ impl PreparedExecutable {
             )
             .into());
         }
-        let actual = FileObservation::capture_scoped(self.path(), &|| {
+        let actual = FileObservation::capture_scoped(self.canonical_path(), &|| {
             scope
                 .check()
                 .map_err(|error| std::io::Error::other(error.to_string()))
@@ -97,7 +97,7 @@ impl PreparedExecutable {
                 "scientific worker executable changed after preparation",
             ));
         }
-        let mut command = Command::new(self.path());
+        let mut command = Command::new(self.canonical_path());
         #[cfg(all(test, feature = "property-coolprop"))]
         if let Some((entry, mode, marker)) = &self.test_entry {
             command

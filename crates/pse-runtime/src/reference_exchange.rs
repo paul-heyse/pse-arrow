@@ -1001,9 +1001,7 @@ mod tests {
         let final_outcome = wire.outcome.take().unwrap();
         let alternatives = [
             pb::ReferenceOutcome {
-                kind: Some(pb::reference_outcome::Kind::Completed(Box::new(
-                    pb::reference_outcome::Alternative1::default(),
-                ))),
+                kind: Some(pb::reference_outcome::Kind::Completed(Box::default())),
                 ..Default::default()
             },
             pb::ReferenceOutcome {
@@ -1071,7 +1069,7 @@ mod tests {
         let document = context
             .describe(&crate::workflow::PhysicalInspectionRequest {
                 query: crate::workflow::PhysicalInspectionQuery::Quantity {
-                    id: pse_quantity::standard::ids::quantity("temperature.point").into(),
+                    id: pse_quantity::standard::ids::quantity("temperature.point"),
                     unit: None,
                 },
                 offset: 0,

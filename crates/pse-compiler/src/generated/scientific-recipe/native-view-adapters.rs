@@ -38,67 +38,72 @@ impl<
             path,
         )?;
         let fields = (
-            (&wire.id)
+            wire
+                .id
                 .as_ref()
                 .map(|value| -> Result<_, AdapterError> {
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(value),
+                        value,
                         &child_path(path, "id"),
                     )
                 })
                 .transpose()?,
-            (&wire.coverage)
+            wire
+                .coverage
                 .as_ref()
                 .map(|value| -> Result<_, AdapterError> {
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(value),
+                        value,
                         &child_path(path, "coverage"),
                     )
                 })
                 .transpose()?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.owner),
+                wire.owner,
                 &child_path(path, "owner"),
             )?,
             {
                 let current_path = &child_path(path, "owner_lineage");
-                let values = (&wire.owner_lineage)
+                let values = wire
+                    .owner_lineage
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
+                            value,
                             &format!("{current_path}[{index}]"),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
             },
-            (&wire.evidence)
+            wire
+                .evidence
                 .as_ref()
                 .map(|value| -> Result<_, AdapterError> {
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(value),
+                        value,
                         &child_path(path, "evidence"),
                     )
                 })
                 .transpose()?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.form),
+                wire.form,
                 &child_path(path, "form"),
             )?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.call),
+                wire.call,
                 &child_path(path, "call"),
             )?,
             {
                 let current_path = &child_path(path, "records");
-                let values = (&wire.records)
+                let values = wire
+                    .records
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
+                            value,
                             &format!("{current_path}[{index}]"),
                         )
                     })
@@ -107,12 +112,13 @@ impl<
             },
             {
                 let current_path = &child_path(path, "dependencies");
-                let values = (&wire.dependencies)
+                let values = wire
+                    .dependencies
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
+                            value,
                             &format!("{current_path}[{index}]"),
                         )
                     })
@@ -125,10 +131,11 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.layer).as_option(), &child_path(path, "layer"))?,
+                required(wire.layer.as_option(), &child_path(path, "layer"))?,
                 &child_path(path, "layer"),
             )?,
-            (&wire.basis)
+            wire
+                .basis
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -139,10 +146,11 @@ impl<
                     >(value, &child_path(path, "basis"))
                 })
                 .transpose()?,
-            (&wire.reason)
+            wire
+                .reason
                 .as_ref()
                 .map(|value| -> Result<_, AdapterError> {
-                    native_from::<_, &str>(*(value), &child_path(path, "reason"))
+                    native_from::<_, &str>(value, &child_path(path, "reason"))
                 })
                 .transpose()?,
         );
@@ -186,7 +194,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.claim).as_option(), &child_path(path, "claim"))?,
+                required(wire.claim.as_option(), &child_path(path, "claim"))?,
                 &child_path(path, "claim"),
             )?,
             native_from::<
@@ -195,12 +203,13 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.region).as_option(), &child_path(path, "region"))?,
+                required(wire.region.as_option(), &child_path(path, "region"))?,
                 &child_path(path, "region"),
             )?,
             {
                 let current_path = &child_path(path, "dependencies");
-                let values = (&wire.dependencies)
+                let values = wire
+                    .dependencies
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -216,7 +225,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "inputs");
-                let values = (&wire.inputs)
+                let values = wire
+                    .inputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -232,7 +242,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "permissions");
-                let values = (&wire.permissions)
+                let values = wire
+                    .permissions
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -283,11 +294,11 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.id),
+                wire.id,
                 &child_path(path, "id"),
             )?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.scope),
+                wire.scope,
                 &child_path(path, "scope"),
             )?,
             native_from::<
@@ -297,19 +308,20 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.target_kind).as_option(),
+                    wire.target_kind.as_option(),
                     &child_path(path, "target_kind"),
                 )?,
                 &child_path(path, "target_kind"),
             )?,
             {
                 let current_path = &child_path(path, "targets");
-                let values = (&wire.targets)
+                let values = wire
+                    .targets
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
+                            value,
                             &format!("{current_path}[{index}]"),
                         )
                     })
@@ -319,11 +331,11 @@ impl<
             native_from::<
                 _,
                 bool,
-            >(*(&wire.allow_unknown), &child_path(path, "allow_unknown"))?,
+            >(wire.allow_unknown, &child_path(path, "allow_unknown"))?,
             native_from::<
                 _,
                 bool,
-            >(*(&wire.allow_extrapolation), &child_path(path, "allow_extrapolation"))?,
+            >(wire.allow_extrapolation, &child_path(path, "allow_extrapolation"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -375,7 +387,7 @@ impl<
                     native_from::<
                         _,
                         u64,
-                    >(*(&wire.predicate), &child_path(path, "predicate"))?,
+                    >(wire.predicate, &child_path(path, "predicate"))?,
                 );
                 Ok(
                     <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
@@ -451,7 +463,8 @@ impl<
                 let fields = (
                     {
                         let current_path = &child_path(path, "alternatives");
-                        let values = (&wire.alternatives)
+                        let values = wire
+                            .alternatives
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -499,7 +512,8 @@ impl<
         let fields = (
             {
                 let current_path = &child_path(path, "values");
-                let values = (&wire.values)
+                let values = wire
+                    .values
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -544,7 +558,8 @@ impl<
         let fields = (
             {
                 let current_path = &child_path(path, "values");
-                let values = (&wire.values)
+                let values = wire
+                    .values
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -1267,14 +1282,16 @@ impl<
             path,
         )?;
         let fields = (
-            native_from::<_, u64>(*(&wire.value), &child_path(path, "value"))?,
-            (&wire.exact_integer)
+            native_from::<_, u64>(wire.value, &child_path(path, "value"))?,
+            wire
+                .exact_integer
                 .as_ref()
                 .map(|value| -> Result<_, AdapterError> {
-                    native_from::<_, &[u8]>(*(value), &child_path(path, "exact_integer"))
+                    native_from::<_, &[u8]>(value, &child_path(path, "exact_integer"))
                 })
                 .transpose()?,
-            (&wire.unit)
+            wire
+                .unit
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -1315,7 +1332,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
         );
@@ -1348,7 +1365,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
         );
@@ -1387,7 +1404,7 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.bound_index).as_option(),
+                    wire.bound_index.as_option(),
                     &child_path(path, "bound_index"),
                 )?,
                 &child_path(path, "bound_index"),
@@ -1398,7 +1415,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.domain).as_option(), &child_path(path, "domain"))?,
+                required(wire.domain.as_option(), &child_path(path, "domain"))?,
                 &child_path(path, "domain"),
             )?,
             native_from::<
@@ -1407,7 +1424,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.kind).as_option(), &child_path(path, "kind"))?,
+                required(wire.kind.as_option(), &child_path(path, "kind"))?,
                 &child_path(path, "kind"),
             )?,
         );
@@ -1440,17 +1457,17 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.syntax),
+                wire.syntax,
                 &child_path(path, "syntax"),
             )?,
-            native_from::<_, u64>(*(&wire.ordinal), &child_path(path, "ordinal"))?,
+            native_from::<_, u64>(wire.ordinal, &child_path(path, "ordinal"))?,
             native_from::<
                 _,
                 &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::MathematicalPreparedProviderCallRecordView<
                     '_,
                 >,
             >(
-                required((&wire.prepared).as_option(), &child_path(path, "prepared"))?,
+                required(wire.prepared.as_option(), &child_path(path, "prepared"))?,
                 &child_path(path, "prepared"),
             )?,
         );
@@ -1491,12 +1508,13 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.function),
+                wire.function,
                 &child_path(path, "function"),
             )?,
             {
                 let current_path = &child_path(path, "wrt");
-                let values = (&wire.wrt)
+                let values = wire
+                    .wrt
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -1509,13 +1527,14 @@ impl<
                 from_items(values, current_path)?
             },
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.descriptor),
+                wire.descriptor,
                 &child_path(path, "descriptor"),
             )?,
-            native_from::<_, u64>(*(&wire.output), &child_path(path, "output"))?,
+            native_from::<_, u64>(wire.output, &child_path(path, "output"))?,
             {
                 let current_path = &child_path(path, "inputs");
-                let values = (&wire.inputs)
+                let values = wire
+                    .inputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -1535,7 +1554,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.result).as_option(), &child_path(path, "result"))?,
+                required(wire.result.as_option(), &child_path(path, "result"))?,
                 &child_path(path, "result"),
             )?,
             native_from::<
@@ -1544,7 +1563,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.prepared).as_option(), &child_path(path, "prepared"))?,
+                required(wire.prepared.as_option(), &child_path(path, "prepared"))?,
                 &child_path(path, "prepared"),
             )?,
         );
@@ -1583,12 +1602,13 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.identity),
+                wire.identity,
                 &child_path(path, "identity"),
             )?,
             {
                 let current_path = &child_path(path, "descriptors");
-                let values = (&wire.descriptors)
+                let values = wire
+                    .descriptors
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -1604,7 +1624,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "calls");
-                let values = (&wire.calls)
+                let values = wire
+                    .calls
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -1620,7 +1641,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "direct_calls");
-                let values = (&wire.direct_calls)
+                let values = wire
+                    .direct_calls
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -1640,7 +1662,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.premises).as_option(), &child_path(path, "premises"))?,
+                required(wire.premises.as_option(), &child_path(path, "premises"))?,
                 &child_path(path, "premises"),
             )?,
         );
@@ -1673,7 +1695,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
         );
@@ -1706,7 +1728,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
         );
@@ -1739,7 +1761,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
         );
@@ -1772,7 +1794,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
         );
@@ -1828,7 +1850,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
         );
@@ -1959,7 +1981,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
             native_from::<
@@ -1968,7 +1990,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.quantity).as_option(), &child_path(path, "quantity"))?,
+                required(wire.quantity.as_option(), &child_path(path, "quantity"))?,
                 &child_path(path, "quantity"),
             )?,
             native_from::<
@@ -1977,7 +1999,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.unit).as_option(), &child_path(path, "unit"))?,
+                required(wire.unit.as_option(), &child_path(path, "unit"))?,
                 &child_path(path, "unit"),
             )?,
         );
@@ -2009,9 +2031,9 @@ impl<
             path,
         )?;
         let fields = (
-            native_from::<_, u32>(*(&wire.version), &child_path(path, "version"))?,
+            native_from::<_, u32>(wire.version, &child_path(path, "version"))?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.key.as_ref(), &child_path(path, "key"))?),
+                required(wire.key.as_ref(), &child_path(path, "key"))?,
                 &child_path(path, "key"),
             )?,
             native_from::<
@@ -2020,7 +2042,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.spec).as_option(), &child_path(path, "spec"))?,
+                required(wire.spec.as_option(), &child_path(path, "spec"))?,
                 &child_path(path, "spec"),
             )?,
         );
@@ -2053,17 +2075,18 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
             {
                 let current_path = &child_path(path, "axes");
-                let values = (&wire.axes)
+                let values = wire
+                    .axes
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
+                            value,
                             &format!("{current_path}[{index}]"),
                         )
                     })
@@ -2072,7 +2095,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "coordinates");
-                let values = (&wire.coordinates)
+                let values = wire
+                    .coordinates
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -2084,12 +2108,13 @@ impl<
                             )?;
                             {
                                 let current_path = &format!("{current_path}[{index}]");
-                                let values = (&wrapped.value)
+                                let values = wrapped
+                                    .value
                                     .iter()
                                     .enumerate()
                                     .map(|(index, value)| -> Result<_, AdapterError> {
                                         pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                            *(value),
+                                            value,
                                             &format!("{current_path}[{index}]"),
                                         )
                                     })
@@ -2103,12 +2128,13 @@ impl<
             },
             {
                 let current_path = &child_path(path, "cells");
-                let values = (&wire.cells)
+                let values = wire
+                    .cells
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
+                            value,
                             &format!("{current_path}[{index}]"),
                         )
                     })
@@ -2146,7 +2172,8 @@ impl<
         let fields = (
             {
                 let current_path = &child_path(path, "inputs");
-                let values = (&wire.inputs)
+                let values = wire
+                    .inputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -2162,7 +2189,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "outputs");
-                let values = (&wire.outputs)
+                let values = wire
+                    .outputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -2221,7 +2249,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.shapes).as_option(), &child_path(path, "shapes"))?,
+                required(wire.shapes.as_option(), &child_path(path, "shapes"))?,
                 &child_path(path, "shapes"),
             )?,
             native_from::<
@@ -2231,26 +2259,27 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.derivative_source).as_option(),
+                    wire.derivative_source.as_option(),
                     &child_path(path, "derivative_source"),
                 )?,
                 &child_path(path, "derivative_source"),
             )?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.revision.as_ref(), &child_path(path, "revision"))?),
+                required(wire.revision.as_ref(), &child_path(path, "revision"))?,
                 &child_path(path, "revision"),
             )?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.data.as_ref(), &child_path(path, "data"))?),
+                required(wire.data.as_ref(), &child_path(path, "data"))?,
                 &child_path(path, "data"),
             )?,
             {
                 let current_path = &child_path(path, "inputs");
-                let values = (&wire.inputs)
+                let values = wire
+                    .inputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -2266,7 +2295,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "outputs");
-                let values = (&wire.outputs)
+                let values = wire
+                    .outputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -2287,7 +2317,7 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.derivatives).as_option(),
+                    wire.derivatives.as_option(),
                     &child_path(path, "derivatives"),
                 )?,
                 &child_path(path, "derivatives"),
@@ -2298,10 +2328,7 @@ impl<
                     '_,
                 >,
             >(
-                required(
-                    (&wire.smoothness).as_option(),
-                    &child_path(path, "smoothness"),
-                )?,
+                required(wire.smoothness.as_option(), &child_path(path, "smoothness"))?,
                 &child_path(path, "smoothness"),
             )?,
         );
@@ -2339,7 +2366,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.kind).as_option(), &child_path(path, "kind"))?,
+                required(wire.kind.as_option(), &child_path(path, "kind"))?,
                 &child_path(path, "kind"),
             )?,
             native_from::<
@@ -2348,7 +2375,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.exponent).as_option(), &child_path(path, "exponent"))?,
+                required(wire.exponent.as_option(), &child_path(path, "exponent"))?,
                 &child_path(path, "exponent"),
             )?,
         );
@@ -2388,29 +2415,30 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.definition),
+                wire.definition,
                 &child_path(path, "definition"),
             )?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.structure),
+                wire.structure,
                 &child_path(path, "structure"),
             )?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.physical),
+                wire.physical,
                 &child_path(path, "physical"),
             )?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.admissions),
+                wire.admissions,
                 &child_path(path, "admissions"),
             )?,
             {
                 let current_path = &child_path(path, "providers");
-                let values = (&wire.providers)
+                let values = wire
+                    .providers
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
+                            value,
                             &format!("{current_path}[{index}]"),
                         )
                     })
@@ -2418,7 +2446,7 @@ impl<
                 from_items(values, current_path)?
             },
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.policy),
+                wire.policy,
                 &child_path(path, "policy"),
             )?,
         );
@@ -2459,7 +2487,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.identity),
+                wire.identity,
                 &child_path(path, "identity"),
             )?,
             native_from::<
@@ -2469,14 +2497,15 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.registration).as_option(),
+                    wire.registration.as_option(),
                     &child_path(path, "registration"),
                 )?,
                 &child_path(path, "registration"),
             )?,
             {
                 let current_path = &child_path(path, "partial");
-                let values = (&wire.partial)
+                let values = wire
+                    .partial
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -2490,7 +2519,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "inputs");
-                let values = (&wire.inputs)
+                let values = wire
+                    .inputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -2506,7 +2536,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "input_conversions");
-                let values = (&wire.input_conversions)
+                let values = wire
+                    .input_conversions
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -2522,7 +2553,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "outputs");
-                let values = (&wire.outputs)
+                let values = wire
+                    .outputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -2538,7 +2570,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "output_conversions");
-                let values = (&wire.output_conversions)
+                let values = wire
+                    .output_conversions
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -2582,11 +2615,11 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.request),
+                wire.request,
                 &child_path(path, "request"),
             )?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.branches),
+                wire.branches,
                 &child_path(path, "branches"),
             )?,
         );
@@ -2618,10 +2651,11 @@ impl<
             path,
         )?;
         let fields = (
-            native_from::<_, u32>(*(&wire.version), &child_path(path, "version"))?,
+            native_from::<_, u32>(wire.version, &child_path(path, "version"))?,
             {
                 let current_path = &child_path(path, "entries");
-                let values = (&wire.entries)
+                let values = wire
+                    .entries
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -2755,10 +2789,7 @@ impl<
                     path,
                 )?;
                 let fields = (
-                    native_from::<
-                        _,
-                        bool,
-                    >(*(&wire.strict), &child_path(path, "strict"))?,
+                    native_from::<_, bool>(wire.strict, &child_path(path, "strict"))?,
                 );
                 Ok(
                     <pse_modeling::derived::AnnotationComponent as pse_contract::boundary_projection::ProjectionAlternative<
@@ -2784,10 +2815,7 @@ impl<
                     path,
                 )?;
                 let fields = (
-                    native_from::<
-                        _,
-                        bool,
-                    >(*(&wire.strict), &child_path(path, "strict"))?,
+                    native_from::<_, bool>(wire.strict, &child_path(path, "strict"))?,
                 );
                 Ok(
                     <pse_modeling::derived::AnnotationComponent as pse_contract::boundary_projection::ProjectionAlternative<
@@ -3065,7 +3093,7 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.relationship).as_option(),
+                    wire.relationship.as_option(),
                     &child_path(path, "relationship"),
                 )?,
                 &child_path(path, "relationship"),
@@ -3076,7 +3104,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.boundary).as_option(), &child_path(path, "boundary"))?,
+                required(wire.boundary.as_option(), &child_path(path, "boundary"))?,
                 &child_path(path, "boundary"),
             )?,
         );
@@ -3134,7 +3162,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.declaration).as_option(),
+                            wire.declaration.as_option(),
                             &child_path(path, "declaration"),
                         )?,
                         &child_path(path, "declaration"),
@@ -3171,7 +3199,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.instance).as_option(),
+                            wire.instance.as_option(),
                             &child_path(path, "instance"),
                         )?,
                         &child_path(path, "instance"),
@@ -3183,14 +3211,15 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.declaration).as_option(),
+                            wire.declaration.as_option(),
                             &child_path(path, "declaration"),
                         )?,
                         &child_path(path, "declaration"),
                     )?,
                     {
                         let current_path = &child_path(path, "coordinates");
-                        let values = (&wire.coordinates)
+                        let values = wire
+                            .coordinates
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -3285,10 +3314,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required(
-                            (&wire.domain).as_option(),
-                            &child_path(path, "domain"),
-                        )?,
+                        required(wire.domain.as_option(), &child_path(path, "domain"))?,
                         &child_path(path, "domain"),
                     )?,
                 );
@@ -3366,11 +3392,11 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.member),
+                        wire.member,
                         &child_path(path, "member"),
                     )?,
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.meaning),
+                        wire.meaning,
                         &child_path(path, "meaning"),
                     )?,
                 );
@@ -3404,11 +3430,11 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.owner).as_option(), &child_path(path, "owner"))?,
+                        required(wire.owner.as_option(), &child_path(path, "owner"))?,
                         &child_path(path, "owner"),
                     )?,
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.callee),
+                        wire.callee,
                         &child_path(path, "callee"),
                     )?,
                 );
@@ -3442,15 +3468,12 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.owner).as_option(), &child_path(path, "owner"))?,
+                        required(wire.owner.as_option(), &child_path(path, "owner"))?,
                         &child_path(path, "owner"),
                     )?,
-                    native_from::<
-                        _,
-                        u64,
-                    >(*(&wire.ordinal), &child_path(path, "ordinal"))?,
+                    native_from::<_, u64>(wire.ordinal, &child_path(path, "ordinal"))?,
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.meaning),
+                        wire.meaning,
                         &child_path(path, "meaning"),
                     )?,
                 );
@@ -3479,7 +3502,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.symbol),
+                        wire.symbol,
                         &child_path(path, "symbol"),
                     )?,
                 );
@@ -3508,13 +3531,10 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.family),
+                        wire.family,
                         &child_path(path, "family"),
                     )?,
-                    native_from::<
-                        _,
-                        u64,
-                    >(*(&wire.element), &child_path(path, "element"))?,
+                    native_from::<_, u64>(wire.element, &child_path(path, "element"))?,
                 );
                 Ok(
                     <pse_modeling::derived::Relationship as pse_contract::boundary_projection::ProjectionAlternative<
@@ -3541,7 +3561,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.content),
+                        wire.content,
                         &child_path(path, "content"),
                     )?,
                 );
@@ -3570,7 +3590,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.result),
+                        wire.result,
                         &child_path(path, "result"),
                     )?,
                 );
@@ -3599,7 +3619,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.closure),
+                        wire.closure,
                         &child_path(path, "closure"),
                     )?,
                 );
@@ -3628,7 +3648,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.symbol),
+                        wire.symbol,
                         &child_path(path, "symbol"),
                     )?,
                 );
@@ -3657,7 +3677,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.symbol),
+                        wire.symbol,
                         &child_path(path, "symbol"),
                     )?,
                 );
@@ -3686,7 +3706,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.balance),
+                        wire.balance,
                         &child_path(path, "balance"),
                     )?,
                 );
@@ -3715,11 +3735,11 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.balance),
+                        wire.balance,
                         &child_path(path, "balance"),
                     )?,
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.event),
+                        wire.event,
                         &child_path(path, "event"),
                     )?,
                 );
@@ -3748,11 +3768,11 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.state),
+                        wire.state,
                         &child_path(path, "state"),
                     )?,
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.equation),
+                        wire.equation,
                         &child_path(path, "equation"),
                     )?,
                 );
@@ -3781,7 +3801,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.state),
+                        wire.state,
                         &child_path(path, "state"),
                     )?,
                 );
@@ -3810,7 +3830,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.state),
+                        wire.state,
                         &child_path(path, "state"),
                     )?,
                 );
@@ -3839,7 +3859,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.test),
+                        wire.test,
                         &child_path(path, "test"),
                     )?,
                     native_from::<
@@ -3849,7 +3869,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.component).as_option(),
+                            wire.component.as_option(),
                             &child_path(path, "component"),
                         )?,
                         &child_path(path, "component"),
@@ -3880,7 +3900,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.target),
+                        wire.target,
                         &child_path(path, "target"),
                     )?,
                     native_from::<
@@ -3890,7 +3910,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.declaration).as_option(),
+                            wire.declaration.as_option(),
                             &child_path(path, "declaration"),
                         )?,
                         &child_path(path, "declaration"),
@@ -3901,7 +3921,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.kind).as_option(), &child_path(path, "kind"))?,
+                        required(wire.kind.as_option(), &child_path(path, "kind"))?,
                         &child_path(path, "kind"),
                     )?,
                     native_from::<
@@ -3911,7 +3931,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.component).as_option(),
+                            wire.component.as_option(),
                             &child_path(path, "component"),
                         )?,
                         &child_path(path, "component"),
@@ -3942,7 +3962,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.equation),
+                        wire.equation,
                         &child_path(path, "equation"),
                     )?,
                 );
@@ -3971,7 +3991,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.equation),
+                        wire.equation,
                         &child_path(path, "equation"),
                     )?,
                 );
@@ -4000,13 +4020,10 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.equation),
+                        wire.equation,
                         &child_path(path, "equation"),
                     )?,
-                    native_from::<
-                        _,
-                        u64,
-                    >(*(&wire.ordinal), &child_path(path, "ordinal"))?,
+                    native_from::<_, u64>(wire.ordinal, &child_path(path, "ordinal"))?,
                 );
                 Ok(
                     <pse_modeling::derived::Relationship as pse_contract::boundary_projection::ProjectionAlternative<
@@ -4033,7 +4050,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.symbol),
+                        wire.symbol,
                         &child_path(path, "symbol"),
                     )?,
                 );
@@ -4062,7 +4079,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.contribution),
+                        wire.contribution,
                         &child_path(path, "contribution"),
                     )?,
                 );
@@ -4091,7 +4108,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.closure),
+                        wire.closure,
                         &child_path(path, "closure"),
                     )?,
                 );
@@ -4120,7 +4137,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.closure),
+                        wire.closure,
                         &child_path(path, "closure"),
                     )?,
                 );
@@ -4149,7 +4166,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.balance),
+                        wire.balance,
                         &child_path(path, "balance"),
                     )?,
                 );
@@ -4178,7 +4195,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.balance),
+                        wire.balance,
                         &child_path(path, "balance"),
                     )?,
                 );
@@ -4207,7 +4224,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.balance),
+                        wire.balance,
                         &child_path(path, "balance"),
                     )?,
                 );
@@ -4236,7 +4253,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.balance),
+                        wire.balance,
                         &child_path(path, "balance"),
                     )?,
                 );
@@ -4265,7 +4282,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.balance),
+                        wire.balance,
                         &child_path(path, "balance"),
                     )?,
                 );
@@ -4294,7 +4311,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.balance),
+                        wire.balance,
                         &child_path(path, "balance"),
                     )?,
                 );
@@ -4323,7 +4340,7 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.closure),
+                        wire.closure,
                         &child_path(path, "closure"),
                     )?,
                 );
@@ -4357,13 +4374,10 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.role).as_option(), &child_path(path, "role"))?,
+                        required(wire.role.as_option(), &child_path(path, "role"))?,
                         &child_path(path, "role"),
                     )?,
-                    native_from::<
-                        _,
-                        u64,
-                    >(*(&wire.ordinal), &child_path(path, "ordinal"))?,
+                    native_from::<_, u64>(wire.ordinal, &child_path(path, "ordinal"))?,
                 );
                 Ok(
                     <pse_modeling::derived::Relationship as pse_contract::boundary_projection::ProjectionAlternative<
@@ -4395,13 +4409,10 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.role).as_option(), &child_path(path, "role"))?,
+                        required(wire.role.as_option(), &child_path(path, "role"))?,
                         &child_path(path, "role"),
                     )?,
-                    native_from::<
-                        _,
-                        u64,
-                    >(*(&wire.ordinal), &child_path(path, "ordinal"))?,
+                    native_from::<_, u64>(wire.ordinal, &child_path(path, "ordinal"))?,
                 );
                 Ok(
                     <pse_modeling::derived::Relationship as pse_contract::boundary_projection::ProjectionAlternative<
@@ -4436,12 +4447,13 @@ impl<
         let fields = (
             {
                 let current_path = &child_path(path, "sets");
-                let values = (&wire.sets)
+                let values = wire
+                    .sets
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
+                            value,
                             &format!("{current_path}[{index}]"),
                         )
                     })
@@ -4450,7 +4462,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "variables");
-                let values = (&wire.variables)
+                let values = wire
+                    .variables
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -4595,7 +4608,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.lower).as_option(), &child_path(path, "lower"))?,
+                required(wire.lower.as_option(), &child_path(path, "lower"))?,
                 &child_path(path, "lower"),
             )?,
             native_from::<
@@ -4604,7 +4617,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.upper).as_option(), &child_path(path, "upper"))?,
+                required(wire.upper.as_option(), &child_path(path, "upper"))?,
                 &child_path(path, "upper"),
             )?,
             native_from::<
@@ -4613,7 +4626,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.layer).as_option(), &child_path(path, "layer"))?,
+                required(wire.layer.as_option(), &child_path(path, "layer"))?,
                 &child_path(path, "layer"),
             )?,
         );
@@ -4646,7 +4659,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.member),
+                wire.member,
                 &child_path(path, "member"),
             )?,
             native_from::<
@@ -4655,7 +4668,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.values).as_option(), &child_path(path, "values"))?,
+                required(wire.values.as_option(), &child_path(path, "values"))?,
                 &child_path(path, "values"),
             )?,
             native_from::<
@@ -4665,7 +4678,7 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.temperature).as_option(),
+                    wire.temperature.as_option(),
                     &child_path(path, "temperature"),
                 )?,
                 &child_path(path, "temperature"),
@@ -4676,7 +4689,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.pressure).as_option(), &child_path(path, "pressure"))?,
+                required(wire.pressure.as_option(), &child_path(path, "pressure"))?,
                 &child_path(path, "pressure"),
             )?,
         );
@@ -4723,7 +4736,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.source).as_option(), &child_path(path, "source"))?,
+                required(wire.source.as_option(), &child_path(path, "source"))?,
                 &child_path(path, "source"),
             )?,
             native_from::<
@@ -4732,7 +4745,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.target).as_option(), &child_path(path, "target"))?,
+                required(wire.target.as_option(), &child_path(path, "target"))?,
                 &child_path(path, "target"),
             )?,
             native_from::<
@@ -4742,7 +4755,7 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.source_anchor).as_option(),
+                    wire.source_anchor.as_option(),
                     &child_path(path, "source_anchor"),
                 )?,
                 &child_path(path, "source_anchor"),
@@ -4754,7 +4767,7 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.target_anchor).as_option(),
+                    wire.target_anchor.as_option(),
                     &child_path(path, "target_anchor"),
                 )?,
                 &child_path(path, "target_anchor"),
@@ -4766,7 +4779,7 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.component_kind).as_option(),
+                    wire.component_kind.as_option(),
                     &child_path(path, "component_kind"),
                 )?,
                 &child_path(path, "component_kind"),
@@ -4777,17 +4790,18 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.state).as_option(), &child_path(path, "state"))?,
+                required(wire.state.as_option(), &child_path(path, "state"))?,
                 &child_path(path, "state"),
             )?,
             {
                 let current_path = &child_path(path, "provenance");
-                let values = (&wire.provenance)
+                let values = wire
+                    .provenance
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
+                            value,
                             &format!("{current_path}[{index}]"),
                         )
                     })
@@ -4796,7 +4810,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "anchors");
-                let values = (&wire.anchors)
+                let values = wire
+                    .anchors
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -4868,12 +4883,13 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.request).as_option(), &child_path(path, "request"))?,
+                required(wire.request.as_option(), &child_path(path, "request"))?,
                 &child_path(path, "request"),
             )?,
             {
                 let current_path = &child_path(path, "operands");
-                let values = (&wire.operands)
+                let values = wire
+                    .operands
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -4887,7 +4903,8 @@ impl<
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
             },
-            (&wire.resolved)
+            wire
+                .resolved
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -4928,7 +4945,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.identity),
+                wire.identity,
                 &child_path(path, "identity"),
             )?,
         );
@@ -4985,7 +5002,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.map).as_option(), &child_path(path, "map"))?,
+                        required(wire.map.as_option(), &child_path(path, "map"))?,
                         &child_path(path, "map"),
                     )?,
                     native_from::<
@@ -4994,7 +5011,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.slot).as_option(), &child_path(path, "slot"))?,
+                        required(wire.slot.as_option(), &child_path(path, "slot"))?,
                         &child_path(path, "slot"),
                     )?,
                 );
@@ -5028,7 +5045,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.map).as_option(), &child_path(path, "map"))?,
+                        required(wire.map.as_option(), &child_path(path, "map"))?,
                         &child_path(path, "map"),
                     )?,
                     native_from::<
@@ -5038,7 +5055,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.reconstruction).as_option(),
+                            wire.reconstruction.as_option(),
                             &child_path(path, "reconstruction"),
                         )?,
                         &child_path(path, "reconstruction"),
@@ -5074,7 +5091,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.map).as_option(), &child_path(path, "map"))?,
+                        required(wire.map.as_option(), &child_path(path, "map"))?,
                         &child_path(path, "map"),
                     )?,
                     native_from::<
@@ -5084,7 +5101,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.reconstruction).as_option(),
+                            wire.reconstruction.as_option(),
                             &child_path(path, "reconstruction"),
                         )?,
                         &child_path(path, "reconstruction"),
@@ -5096,7 +5113,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.reference).as_option(),
+                            wire.reference.as_option(),
                             &child_path(path, "reference"),
                         )?,
                         &child_path(path, "reference"),
@@ -5133,7 +5150,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.potential).as_option(),
+                            wire.potential.as_option(),
                             &child_path(path, "potential"),
                         )?,
                         &child_path(path, "potential"),
@@ -5170,7 +5187,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.translation).as_option(),
+                            wire.translation.as_option(),
                             &child_path(path, "translation"),
                         )?,
                         &child_path(path, "translation"),
@@ -5207,15 +5224,12 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.translation).as_option(),
+                            wire.translation.as_option(),
                             &child_path(path, "translation"),
                         )?,
                         &child_path(path, "translation"),
                     )?,
-                    native_from::<
-                        _,
-                        bool,
-                    >(*(&wire.source), &child_path(path, "source"))?,
+                    native_from::<_, bool>(wire.source, &child_path(path, "source"))?,
                     native_from::<
                         _,
                         &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::QuantityTypeIdView<
@@ -5223,7 +5237,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.coefficient).as_option(),
+                            wire.coefficient.as_option(),
                             &child_path(path, "coefficient"),
                         )?,
                         &child_path(path, "coefficient"),
@@ -5253,7 +5267,8 @@ impl<
                     path,
                 )?;
                 let fields = (
-                    (&wire.source)
+                    wire
+                        .source
                         .as_option()
                         .map(|value| -> Result<_, AdapterError> {
                             native_from::<
@@ -5270,14 +5285,12 @@ impl<
                             '_,
                         >,
                     >(
-                        required(
-                            (&wire.result).as_option(),
-                            &child_path(path, "result"),
-                        )?,
+                        required(wire.result.as_option(), &child_path(path, "result"))?,
                         &child_path(path, "result"),
                     )?,
-                    native_from::<_, i32>(*(&wire.factor), &child_path(path, "factor"))?,
-                    (&wire.exchange)
+                    native_from::<_, i32>(wire.factor, &child_path(path, "factor"))?,
+                    wire
+                        .exchange
                         .as_option()
                         .map(|value| -> Result<_, AdapterError> {
                             native_from::<
@@ -5319,10 +5332,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required(
-                            (&wire.source).as_option(),
-                            &child_path(path, "source"),
-                        )?,
+                        required(wire.source.as_option(), &child_path(path, "source"))?,
                         &child_path(path, "source"),
                     )?,
                 );
@@ -5520,7 +5530,8 @@ impl<
                     path,
                 )?;
                 let fields = (
-                    (&wire.exponent)
+                    wire
+                        .exponent
                         .as_option()
                         .map(|value| -> Result<_, AdapterError> {
                             native_from::<
@@ -5586,10 +5597,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required(
-                            (&wire.opcode).as_option(),
-                            &child_path(path, "opcode"),
-                        )?,
+                        required(wire.opcode.as_option(), &child_path(path, "opcode"))?,
                         &child_path(path, "opcode"),
                     )?,
                 );
@@ -5623,10 +5631,11 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.kind).as_option(), &child_path(path, "kind"))?,
+                        required(wire.kind.as_option(), &child_path(path, "kind"))?,
                         &child_path(path, "kind"),
                     )?,
-                    (&wire.domain)
+                    wire
+                        .domain
                         .as_option()
                         .map(|value| -> Result<_, AdapterError> {
                             native_from::<
@@ -5668,7 +5677,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.kind).as_option(), &child_path(path, "kind"))?,
+                        required(wire.kind.as_option(), &child_path(path, "kind"))?,
                         &child_path(path, "kind"),
                     )?,
                     native_from::<
@@ -5677,7 +5686,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.bound).as_option(), &child_path(path, "bound"))?,
+                        required(wire.bound.as_option(), &child_path(path, "bound"))?,
                         &child_path(path, "bound"),
                     )?,
                 );
@@ -5737,10 +5746,10 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.identity),
+                wire.identity,
                 &child_path(path, "identity"),
             )?,
-            native_from::<_, u64>(*(&wire.output), &child_path(path, "output"))?,
+            native_from::<_, u64>(wire.output, &child_path(path, "output"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -5795,7 +5804,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.map).as_option(), &child_path(path, "map"))?,
+                        required(wire.map.as_option(), &child_path(path, "map"))?,
                         &child_path(path, "map"),
                     )?,
                     native_from::<
@@ -5804,7 +5813,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.slot).as_option(), &child_path(path, "slot"))?,
+                        required(wire.slot.as_option(), &child_path(path, "slot"))?,
                         &child_path(path, "slot"),
                     )?,
                 );
@@ -5838,7 +5847,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.map).as_option(), &child_path(path, "map"))?,
+                        required(wire.map.as_option(), &child_path(path, "map"))?,
                         &child_path(path, "map"),
                     )?,
                     native_from::<
@@ -5848,7 +5857,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.reconstruction).as_option(),
+                            wire.reconstruction.as_option(),
                             &child_path(path, "reconstruction"),
                         )?,
                         &child_path(path, "reconstruction"),
@@ -5885,12 +5894,12 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.boundary).as_option(),
+                            wire.boundary.as_option(),
                             &child_path(path, "boundary"),
                         )?,
                         &child_path(path, "boundary"),
                     )?,
-                    native_from::<_, bool>(*(&wire.into), &child_path(path, "into"))?,
+                    native_from::<_, bool>(wire.into, &child_path(path, "into"))?,
                 );
                 Ok(
                     <pse_modeling::portable::RefinementWire as pse_contract::boundary_projection::ProjectionAlternative<
@@ -5936,14 +5945,15 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.ty).as_option(), &child_path(path, "ty"))?,
+                required(wire.ty.as_option(), &child_path(path, "ty"))?,
                 &child_path(path, "ty"),
             )?,
-            native_from::<_, u64>(*(&wire.start), &child_path(path, "start"))?,
-            native_from::<_, u64>(*(&wire.len), &child_path(path, "len"))?,
+            native_from::<_, u64>(wire.start, &child_path(path, "start"))?,
+            native_from::<_, u64>(wire.len, &child_path(path, "len"))?,
             {
                 let current_path = &child_path(path, "tuples");
-                let values = (&wire.tuples)
+                let values = wire
+                    .tuples
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -5955,7 +5965,8 @@ impl<
                             )?;
                             {
                                 let current_path = &format!("{current_path}[{index}]");
-                                let values = (&wrapped.value)
+                                let values = wrapped
+                                    .value
                                     .iter()
                                     .enumerate()
                                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -5976,7 +5987,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "domains");
-                let values = (&wire.domains)
+                let values = wire
+                    .domains
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -5990,7 +6002,8 @@ impl<
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
             },
-            (&wire.static_value)
+            wire
+                .static_value
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -6029,9 +6042,7 @@ impl<
             &[(1, "value")],
             path,
         )?;
-        let fields = (
-            native_from::<_, u64>(*(&wire.value), &child_path(path, "value"))?,
-        );
+        let fields = (native_from::<_, u64>(wire.value, &child_path(path, "value"))?,);
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
             )
@@ -6085,7 +6096,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.value).as_option(), &child_path(path, "value"))?,
+                        required(wire.value.as_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
                     )?,
                 );
@@ -6120,7 +6131,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.carrier).as_option(),
+                            wire.carrier.as_option(),
                             &child_path(path, "carrier"),
                         )?,
                         &child_path(path, "carrier"),
@@ -6204,9 +6215,7 @@ impl<
             &[(1, "value")],
             path,
         )?;
-        let fields = (
-            native_from::<_, u64>(*(&wire.value), &child_path(path, "value"))?,
-        );
+        let fields = (native_from::<_, u64>(wire.value, &child_path(path, "value"))?,);
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
             )
@@ -6241,7 +6250,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.kind).as_option(), &child_path(path, "kind"))?,
+                required(wire.kind.as_option(), &child_path(path, "kind"))?,
                 &child_path(path, "kind"),
             )?,
             native_from::<
@@ -6250,12 +6259,13 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.element).as_option(), &child_path(path, "element"))?,
+                required(wire.element.as_option(), &child_path(path, "element"))?,
                 &child_path(path, "element"),
             )?,
             {
                 let current_path = &child_path(path, "members");
-                let values = (&wire.members)
+                let values = wire
+                    .members
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -6304,7 +6314,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.owner).as_option(), &child_path(path, "owner"))?,
+                required(wire.owner.as_option(), &child_path(path, "owner"))?,
                 &child_path(path, "owner"),
             )?,
             native_from::<
@@ -6313,7 +6323,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.ty).as_option(), &child_path(path, "ty"))?,
+                required(wire.ty.as_option(), &child_path(path, "ty"))?,
                 &child_path(path, "ty"),
             )?,
             native_from::<
@@ -6322,7 +6332,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.predicate).as_option(), &child_path(path, "predicate"))?,
+                required(wire.predicate.as_option(), &child_path(path, "predicate"))?,
                 &child_path(path, "predicate"),
             )?,
             native_from::<
@@ -6331,7 +6341,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.reads).as_option(), &child_path(path, "reads"))?,
+                required(wire.reads.as_option(), &child_path(path, "reads"))?,
                 &child_path(path, "reads"),
             )?,
         );
@@ -6362,9 +6372,7 @@ impl<
             &[(1, "value")],
             path,
         )?;
-        let fields = (
-            native_from::<_, u64>(*(&wire.value), &child_path(path, "value"))?,
-        );
+        let fields = (native_from::<_, u64>(wire.value, &child_path(path, "value"))?,);
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
             )
@@ -6399,12 +6407,13 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.node).as_option(), &child_path(path, "node"))?,
+                required(wire.node.as_option(), &child_path(path, "node"))?,
                 &child_path(path, "node"),
             )?,
             {
                 let current_path = &child_path(path, "predicates");
-                let values = (&wire.predicates)
+                let values = wire
+                    .predicates
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -6420,7 +6429,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "inputs");
-                let values = (&wire.inputs)
+                let values = wire
+                    .inputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -6475,16 +6485,16 @@ impl<
             native_from::<
                 _,
                 &str,
-            >(*(&wire.implementation), &child_path(path, "implementation"))?,
+            >(wire.implementation, &child_path(path, "implementation"))?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.revision),
+                wire.revision,
                 &child_path(path, "revision"),
             )?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.data),
+                wire.data,
                 &child_path(path, "data"),
             )?,
-            native_from::<_, u64>(*(&wire.output), &child_path(path, "output"))?,
+            native_from::<_, u64>(wire.output, &child_path(path, "output"))?,
             native_from::<
                 _,
                 &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ExternalDerivativeSourceView<
@@ -6492,19 +6502,17 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.derivative_source).as_option(),
+                    wire.derivative_source.as_option(),
                     &child_path(path, "derivative_source"),
                 )?,
                 &child_path(path, "derivative_source"),
             )?,
-            native_from::<
-                _,
-                u32,
-            >(*(&wire.derivatives), &child_path(path, "derivatives"))?,
-            native_from::<_, u32>(*(&wire.smoothness), &child_path(path, "smoothness"))?,
+            native_from::<_, u32>(wire.derivatives, &child_path(path, "derivatives"))?,
+            native_from::<_, u32>(wire.smoothness, &child_path(path, "smoothness"))?,
             {
                 let current_path = &child_path(path, "shapes");
-                let values = (&wire.shapes)
+                let values = wire
+                    .shapes
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -6553,7 +6561,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.root).as_option(), &child_path(path, "root"))?,
+                required(wire.root.as_option(), &child_path(path, "root"))?,
                 &child_path(path, "root"),
             )?,
             native_from::<
@@ -6562,12 +6570,13 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.carrier).as_option(), &child_path(path, "carrier"))?,
+                required(wire.carrier.as_option(), &child_path(path, "carrier"))?,
                 &child_path(path, "carrier"),
             )?,
             {
                 let current_path = &child_path(path, "selected");
-                let values = (&wire.selected)
+                let values = wire
+                    .selected
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -6587,7 +6596,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.prototype).as_option(), &child_path(path, "prototype"))?,
+                required(wire.prototype.as_option(), &child_path(path, "prototype"))?,
                 &child_path(path, "prototype"),
             )?,
         );
@@ -6618,9 +6627,7 @@ impl<
             &[(1, "value")],
             path,
         )?;
-        let fields = (
-            native_from::<_, u64>(*(&wire.value), &child_path(path, "value"))?,
-        );
+        let fields = (native_from::<_, u64>(wire.value, &child_path(path, "value"))?,);
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
             )
@@ -6676,7 +6683,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.identity),
+                wire.identity,
                 &child_path(path, "identity"),
             )?,
             native_from::<
@@ -6686,7 +6693,7 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.declaration).as_option(),
+                    wire.declaration.as_option(),
                     &child_path(path, "declaration"),
                 )?,
                 &child_path(path, "declaration"),
@@ -6697,7 +6704,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.syntax).as_option(), &child_path(path, "syntax"))?,
+                required(wire.syntax.as_option(), &child_path(path, "syntax"))?,
                 &child_path(path, "syntax"),
             )?,
             native_from::<
@@ -6706,12 +6713,13 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.physical).as_option(), &child_path(path, "physical"))?,
+                required(wire.physical.as_option(), &child_path(path, "physical"))?,
                 &child_path(path, "physical"),
             )?,
             {
                 let current_path = &child_path(path, "formals");
-                let values = (&wire.formals)
+                let values = wire
+                    .formals
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -6727,7 +6735,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "signature");
-                let values = (&wire.signature)
+                let values = wire
+                    .signature
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -6743,7 +6752,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "arguments");
-                let values = (&wire.arguments)
+                let values = wire
+                    .arguments
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -6759,7 +6769,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "selections");
-                let values = (&wire.selections)
+                let values = wire
+                    .selections
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -6775,7 +6786,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "literals");
-                let values = (&wire.literals)
+                let values = wire
+                    .literals
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -6795,10 +6807,11 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.result).as_option(), &child_path(path, "result"))?,
+                required(wire.result.as_option(), &child_path(path, "result"))?,
                 &child_path(path, "result"),
             )?,
-            (&wire.body)
+            wire
+                .body
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -6809,7 +6822,8 @@ impl<
                     >(value, &child_path(path, "body"))
                 })
                 .transpose()?,
-            (&wire.validity)
+            wire
+                .validity
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -6822,7 +6836,8 @@ impl<
                 .transpose()?,
             {
                 let current_path = &child_path(path, "envelopes");
-                let values = (&wire.envelopes)
+                let values = wire
+                    .envelopes
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -6838,7 +6853,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "applicability");
-                let values = (&wire.applicability)
+                let values = wire
+                    .applicability
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -6854,7 +6870,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "prerequisites");
-                let values = (&wire.prerequisites)
+                let values = wire
+                    .prerequisites
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -6868,7 +6885,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "admissions");
-                let values = (&wire.admissions)
+                let values = wire
+                    .admissions
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -6882,7 +6900,8 @@ impl<
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
             },
-            (&wire.reduction_admission)
+            wire
+                .reduction_admission
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -6893,7 +6912,8 @@ impl<
                     >(value, &child_path(path, "reduction_admission"))
                 })
                 .transpose()?,
-            (&wire.reduction)
+            wire
+                .reduction
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -6904,7 +6924,8 @@ impl<
                     >(value, &child_path(path, "reduction"))
                 })
                 .transpose()?,
-            (&wire.reduction_selection)
+            wire
+                .reduction_selection
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -6915,7 +6936,8 @@ impl<
                     >(value, &child_path(path, "reduction_selection"))
                 })
                 .transpose()?,
-            (&wire.physical_operation)
+            wire
+                .physical_operation
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -6926,7 +6948,8 @@ impl<
                     >(value, &child_path(path, "physical_operation"))
                 })
                 .transpose()?,
-            (&wire.output_boundary)
+            wire
+                .output_boundary
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -6939,7 +6962,8 @@ impl<
                 .transpose()?,
             {
                 let current_path = &child_path(path, "body_inputs");
-                let values = (&wire.body_inputs)
+                let values = wire
+                    .body_inputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -6949,7 +6973,8 @@ impl<
                                 &wrapped.__buffa_unknown_fields,
                                 &format!("{current_path}[{index}]"),
                             )?;
-                            (&wrapped.value)
+                            wrapped
+                                .value
                                 .as_option()
                                 .map(|value| -> Result<_, AdapterError> {
                                     native_from::<
@@ -6972,12 +6997,13 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.validity_reads).as_option(),
+                    wire.validity_reads.as_option(),
                     &child_path(path, "validity_reads"),
                 )?,
                 &child_path(path, "validity_reads"),
             )?,
-            (&wire.external)
+            wire
+                .external
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -6988,7 +7014,8 @@ impl<
                     >(value, &child_path(path, "external"))
                 })
                 .transpose()?,
-            (&wire.continuity)
+            wire
+                .continuity
                 .as_ref()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<_, u32>(*(value), &child_path(path, "continuity"))
@@ -7024,7 +7051,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.identity),
+                wire.identity,
                 &child_path(path, "identity"),
             )?,
             native_from::<
@@ -7034,15 +7061,12 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.declaration).as_option(),
+                    wire.declaration.as_option(),
                     &child_path(path, "declaration"),
                 )?,
                 &child_path(path, "declaration"),
             )?,
-            native_from::<
-                _,
-                u64,
-            >(*(&wire.formal_count), &child_path(path, "formal_count"))?,
+            native_from::<_, u64>(wire.formal_count, &child_path(path, "formal_count"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -7071,9 +7095,7 @@ impl<
             &[(1, "value")],
             path,
         )?;
-        let fields = (
-            native_from::<_, u64>(*(&wire.value), &child_path(path, "value"))?,
-        );
+        let fields = (native_from::<_, u64>(wire.value, &child_path(path, "value"))?,);
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
             )
@@ -7104,7 +7126,8 @@ impl<
         let fields = (
             {
                 let current_path = &child_path(path, "axes");
-                let values = (&wire.axes)
+                let values = wire
+                    .axes
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -7120,7 +7143,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "members");
-                let values = (&wire.members)
+                let values = wire
+                    .members
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -7188,10 +7212,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required(
-                            (&wire.number).as_option(),
-                            &child_path(path, "number"),
-                        )?,
+                        required(wire.number.as_option(), &child_path(path, "number"))?,
                         &child_path(path, "number"),
                     )?,
                 );
@@ -7226,7 +7247,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.reference).as_option(),
+                            wire.reference.as_option(),
                             &child_path(path, "reference"),
                         )?,
                         &child_path(path, "reference"),
@@ -7262,7 +7283,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.value).as_option(), &child_path(path, "value"))?,
+                        required(wire.value.as_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
                     )?,
                 );
@@ -7296,7 +7317,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.op).as_option(), &child_path(path, "op"))?,
+                        required(wire.op.as_option(), &child_path(path, "op"))?,
                         &child_path(path, "op"),
                     )?,
                     native_from::<
@@ -7305,7 +7326,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.lhs).as_option(), &child_path(path, "lhs"))?,
+                        required(wire.lhs.as_option(), &child_path(path, "lhs"))?,
                         &child_path(path, "lhs"),
                     )?,
                     native_from::<
@@ -7314,7 +7335,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.rhs).as_option(), &child_path(path, "rhs"))?,
+                        required(wire.rhs.as_option(), &child_path(path, "rhs"))?,
                         &child_path(path, "rhs"),
                     )?,
                 );
@@ -7349,14 +7370,15 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.function).as_option(),
+                            wire.function.as_option(),
                             &child_path(path, "function"),
                         )?,
                         &child_path(path, "function"),
                     )?,
                     {
                         let current_path = &child_path(path, "args");
-                        let values = (&wire.args)
+                        let values = wire
+                            .args
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -7402,14 +7424,15 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.function).as_option(),
+                            wire.function.as_option(),
                             &child_path(path, "function"),
                         )?,
                         &child_path(path, "function"),
                     )?,
                     {
                         let current_path = &child_path(path, "args");
-                        let values = (&wire.args)
+                        let values = wire
+                            .args
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -7455,14 +7478,15 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.function).as_option(),
+                            wire.function.as_option(),
                             &child_path(path, "function"),
                         )?,
                         &child_path(path, "function"),
                     )?,
                     {
                         let current_path = &child_path(path, "wrt");
-                        let values = (&wire.wrt)
+                        let values = wire
+                            .wrt
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -7476,7 +7500,8 @@ impl<
                     },
                     {
                         let current_path = &child_path(path, "args");
-                        let values = (&wire.args)
+                        let values = wire
+                            .args
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -7522,14 +7547,15 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.selection).as_option(),
+                            wire.selection.as_option(),
                             &child_path(path, "selection"),
                         )?,
                         &child_path(path, "selection"),
                     )?,
                     {
                         let current_path = &child_path(path, "args");
-                        let values = (&wire.args)
+                        let values = wire
+                            .args
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -7574,7 +7600,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.kind).as_option(), &child_path(path, "kind"))?,
+                        required(wire.kind.as_option(), &child_path(path, "kind"))?,
                         &child_path(path, "kind"),
                     )?,
                     native_from::<
@@ -7583,13 +7609,11 @@ impl<
                             '_,
                         >,
                     >(
-                        required(
-                            (&wire.binder).as_option(),
-                            &child_path(path, "binder"),
-                        )?,
+                        required(wire.binder.as_option(), &child_path(path, "binder"))?,
                         &child_path(path, "binder"),
                     )?,
-                    (&wire.filter)
+                    wire
+                        .filter
                         .as_option()
                         .map(|value| -> Result<_, AdapterError> {
                             native_from::<
@@ -7606,7 +7630,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.body).as_option(), &child_path(path, "body"))?,
+                        required(wire.body.as_option(), &child_path(path, "body"))?,
                         &child_path(path, "body"),
                     )?,
                 );
@@ -7640,12 +7664,13 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.value).as_option(), &child_path(path, "value"))?,
+                        required(wire.value.as_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
                     )?,
                     {
                         let current_path = &child_path(path, "prerequisites");
-                        let values = (&wire.prerequisites)
+                        let values = wire
+                            .prerequisites
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -7690,7 +7715,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.value).as_option(), &child_path(path, "value"))?,
+                        required(wire.value.as_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
                     )?,
                     native_from::<
@@ -7700,7 +7725,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.evidence).as_option(),
+                            wire.evidence.as_option(),
                             &child_path(path, "evidence"),
                         )?,
                         &child_path(path, "evidence"),
@@ -7743,13 +7768,11 @@ impl<
                             '_,
                         >,
                     >(
-                        required(
-                            (&wire.binder).as_option(),
-                            &child_path(path, "binder"),
-                        )?,
+                        required(wire.binder.as_option(), &child_path(path, "binder"))?,
                         &child_path(path, "binder"),
                     )?,
-                    (&wire.filter)
+                    wire
+                        .filter
                         .as_option()
                         .map(|value| -> Result<_, AdapterError> {
                             native_from::<
@@ -7766,7 +7789,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.value).as_option(), &child_path(path, "value"))?,
+                        required(wire.value.as_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
                     )?,
                     native_from::<
@@ -7776,7 +7799,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.accumulator).as_option(),
+                            wire.accumulator.as_option(),
                             &child_path(path, "accumulator"),
                         )?,
                         &child_path(path, "accumulator"),
@@ -7787,7 +7810,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.item).as_option(), &child_path(path, "item"))?,
+                        required(wire.item.as_option(), &child_path(path, "item"))?,
                         &child_path(path, "item"),
                     )?,
                     native_from::<
@@ -7796,7 +7819,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.step).as_option(), &child_path(path, "step"))?,
+                        required(wire.step.as_option(), &child_path(path, "step"))?,
                         &child_path(path, "step"),
                     )?,
                 );
@@ -7830,7 +7853,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.body).as_option(), &child_path(path, "body"))?,
+                        required(wire.body.as_option(), &child_path(path, "body"))?,
                         &child_path(path, "body"),
                     )?,
                     native_from::<
@@ -7839,10 +7862,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required(
-                            (&wire.domain).as_option(),
-                            &child_path(path, "domain"),
-                        )?,
+                        required(wire.domain.as_option(), &child_path(path, "domain"))?,
                         &child_path(path, "domain"),
                     )?,
                 );
@@ -7877,7 +7897,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.predicate).as_option(),
+                            wire.predicate.as_option(),
                             &child_path(path, "predicate"),
                         )?,
                         &child_path(path, "predicate"),
@@ -7913,7 +7933,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.guard).as_option(), &child_path(path, "guard"))?,
+                        required(wire.guard.as_option(), &child_path(path, "guard"))?,
                         &child_path(path, "guard"),
                     )?,
                     native_from::<
@@ -7922,7 +7942,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.then).as_option(), &child_path(path, "then"))?,
+                        required(wire.then.as_option(), &child_path(path, "then"))?,
                         &child_path(path, "then"),
                     )?,
                     native_from::<
@@ -7932,7 +7952,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.otherwise).as_option(),
+                            wire.otherwise.as_option(),
                             &child_path(path, "otherwise"),
                         )?,
                         &child_path(path, "otherwise"),
@@ -7964,7 +7984,8 @@ impl<
                 let fields = (
                     {
                         let current_path = &child_path(path, "bindings");
-                        let values = (&wire.bindings)
+                        let values = wire
+                            .bindings
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -7984,7 +8005,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.body).as_option(), &child_path(path, "body"))?,
+                        required(wire.body.as_option(), &child_path(path, "body"))?,
                         &child_path(path, "body"),
                     )?,
                 );
@@ -8018,9 +8039,7 @@ impl<
             &[(1, "value")],
             path,
         )?;
-        let fields = (
-            native_from::<_, u64>(*(&wire.value), &child_path(path, "value"))?,
-        );
+        let fields = (native_from::<_, u64>(wire.value, &child_path(path, "value"))?,);
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
             )
@@ -8074,7 +8093,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.op).as_option(), &child_path(path, "op"))?,
+                        required(wire.op.as_option(), &child_path(path, "op"))?,
                         &child_path(path, "op"),
                     )?,
                     native_from::<
@@ -8083,7 +8102,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.lhs).as_option(), &child_path(path, "lhs"))?,
+                        required(wire.lhs.as_option(), &child_path(path, "lhs"))?,
                         &child_path(path, "lhs"),
                     )?,
                     native_from::<
@@ -8092,7 +8111,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.rhs).as_option(), &child_path(path, "rhs"))?,
+                        required(wire.rhs.as_option(), &child_path(path, "rhs"))?,
                         &child_path(path, "rhs"),
                     )?,
                 );
@@ -8126,7 +8145,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.value).as_option(), &child_path(path, "value"))?,
+                        required(wire.value.as_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
                     )?,
                     native_from::<
@@ -8135,10 +8154,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required(
-                            (&wire.domain).as_option(),
-                            &child_path(path, "domain"),
-                        )?,
+                        required(wire.domain.as_option(), &child_path(path, "domain"))?,
                         &child_path(path, "domain"),
                     )?,
                 );
@@ -8172,7 +8188,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.left).as_option(), &child_path(path, "left"))?,
+                        required(wire.left.as_option(), &child_path(path, "left"))?,
                         &child_path(path, "left"),
                     )?,
                     native_from::<
@@ -8181,7 +8197,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.right).as_option(), &child_path(path, "right"))?,
+                        required(wire.right.as_option(), &child_path(path, "right"))?,
                         &child_path(path, "right"),
                     )?,
                 );
@@ -8215,7 +8231,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.left).as_option(), &child_path(path, "left"))?,
+                        required(wire.left.as_option(), &child_path(path, "left"))?,
                         &child_path(path, "left"),
                     )?,
                     native_from::<
@@ -8224,7 +8240,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.right).as_option(), &child_path(path, "right"))?,
+                        required(wire.right.as_option(), &child_path(path, "right"))?,
                         &child_path(path, "right"),
                     )?,
                 );
@@ -8258,7 +8274,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.value).as_option(), &child_path(path, "value"))?,
+                        required(wire.value.as_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
                     )?,
                 );
@@ -8292,7 +8308,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.value).as_option(), &child_path(path, "value"))?,
+                        required(wire.value.as_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
                     )?,
                 );
@@ -8320,7 +8336,7 @@ impl<
                     path,
                 )?;
                 let fields = (
-                    native_from::<_, bool>(*(&wire.value), &child_path(path, "value"))?,
+                    native_from::<_, bool>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
                     <pse_modeling::resolved::ResolvedPredicate as pse_contract::boundary_projection::ProjectionAlternative<
@@ -8376,9 +8392,7 @@ impl<
             &[(1, "value")],
             path,
         )?;
-        let fields = (
-            native_from::<_, u64>(*(&wire.value), &child_path(path, "value"))?,
-        );
+        let fields = (native_from::<_, u64>(wire.value, &child_path(path, "value"))?,);
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
             )
@@ -8413,12 +8427,13 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.syntax).as_option(), &child_path(path, "syntax"))?,
+                required(wire.syntax.as_option(), &child_path(path, "syntax"))?,
                 &child_path(path, "syntax"),
             )?,
             {
                 let current_path = &child_path(path, "functions");
-                let values = (&wire.functions)
+                let values = wire
+                    .functions
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -8467,10 +8482,11 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.kind).as_option(), &child_path(path, "kind"))?,
+                required(wire.kind.as_option(), &child_path(path, "kind"))?,
                 &child_path(path, "kind"),
             )?,
-            (&wire.domain)
+            wire
+                .domain
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -8487,7 +8503,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.prototype).as_option(), &child_path(path, "prototype"))?,
+                required(wire.prototype.as_option(), &child_path(path, "prototype"))?,
                 &child_path(path, "prototype"),
             )?,
         );
@@ -8525,12 +8541,13 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.carrier).as_option(), &child_path(path, "carrier"))?,
+                required(wire.carrier.as_option(), &child_path(path, "carrier"))?,
                 &child_path(path, "carrier"),
             )?,
             {
                 let current_path = &child_path(path, "selected");
-                let values = (&wire.selected)
+                let values = wire
+                    .selected
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -8598,10 +8615,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required(
-                            (&wire.symbol).as_option(),
-                            &child_path(path, "symbol"),
-                        )?,
+                        required(wire.symbol.as_option(), &child_path(path, "symbol"))?,
                         &child_path(path, "symbol"),
                     )?,
                 );
@@ -8635,10 +8649,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required(
-                            (&wire.binder).as_option(),
-                            &child_path(path, "binder"),
-                        )?,
+                        required(wire.binder.as_option(), &child_path(path, "binder"))?,
                         &child_path(path, "binder"),
                     )?,
                 );
@@ -8672,12 +8683,13 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.group).as_option(), &child_path(path, "group"))?,
+                        required(wire.group.as_option(), &child_path(path, "group"))?,
                         &child_path(path, "group"),
                     )?,
                     {
                         let current_path = &child_path(path, "indices");
-                        let values = (&wire.indices)
+                        let values = wire
+                            .indices
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -8724,7 +8736,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.id),
+                wire.id,
                 &child_path(path, "id"),
             )?,
             native_from::<
@@ -8733,7 +8745,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.ty).as_option(), &child_path(path, "ty"))?,
+                required(wire.ty.as_option(), &child_path(path, "ty"))?,
                 &child_path(path, "ty"),
             )?,
             native_from::<
@@ -8742,7 +8754,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.role).as_option(), &child_path(path, "role"))?,
+                required(wire.role.as_option(), &child_path(path, "role"))?,
                 &child_path(path, "role"),
             )?,
             native_from::<
@@ -8751,10 +8763,11 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.domain).as_option(), &child_path(path, "domain"))?,
+                required(wire.domain.as_option(), &child_path(path, "domain"))?,
                 &child_path(path, "domain"),
             )?,
-            (&wire.definition)
+            wire
+                .definition
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -8800,7 +8813,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.kind).as_option(), &child_path(path, "kind"))?,
+                required(wire.kind.as_option(), &child_path(path, "kind"))?,
                 &child_path(path, "kind"),
             )?,
             native_from::<
@@ -8809,12 +8822,13 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.origin).as_option(), &child_path(path, "origin"))?,
+                required(wire.origin.as_option(), &child_path(path, "origin"))?,
                 &child_path(path, "origin"),
             )?,
             {
                 let current_path = &child_path(path, "values");
-                let values = (&wire.values)
+                let values = wire
+                    .values
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -8830,7 +8844,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "uncertainties");
-                let values = (&wire.uncertainties)
+                let values = wire
+                    .uncertainties
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -8887,14 +8902,15 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.dependencies).as_option(),
+                    wire.dependencies.as_option(),
                     &child_path(path, "dependencies"),
                 )?,
                 &child_path(path, "dependencies"),
             )?,
             {
                 let current_path = &child_path(path, "roots");
-                let values = (&wire.roots)
+                let values = wire
+                    .roots
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -8914,12 +8930,13 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.context).as_option(), &child_path(path, "context"))?,
+                required(wire.context.as_option(), &child_path(path, "context"))?,
                 &child_path(path, "context"),
             )?,
             {
                 let current_path = &child_path(path, "records");
-                let values = (&wire.records)
+                let values = wire
+                    .records
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -8935,7 +8952,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "edges");
-                let values = (&wire.edges)
+                let values = wire
+                    .edges
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -8951,7 +8969,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "selected");
-                let values = (&wire.selected)
+                let values = wire
+                    .selected
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -8995,17 +9014,18 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.argument),
+                wire.argument,
                 &child_path(path, "argument"),
             )?,
             {
                 let current_path = &child_path(path, "axes");
-                let values = (&wire.axes)
+                let values = wire
+                    .axes
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
+                            value,
                             &format!("{current_path}[{index}]"),
                         )
                     })
@@ -9014,7 +9034,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "coordinates");
-                let values = (&wire.coordinates)
+                let values = wire
+                    .coordinates
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9026,12 +9047,13 @@ impl<
                             )?;
                             {
                                 let current_path = &format!("{current_path}[{index}]");
-                                let values = (&wrapped.value)
+                                let values = wrapped
+                                    .value
                                     .iter()
                                     .enumerate()
                                     .map(|(index, value)| -> Result<_, AdapterError> {
                                         pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                            *(value),
+                                            value,
                                             &format!("{current_path}[{index}]"),
                                         )
                                     })
@@ -9043,7 +9065,7 @@ impl<
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
             },
-            native_from::<_, u64>(*(&wire.start), &child_path(path, "start"))?,
+            native_from::<_, u64>(wire.start, &child_path(path, "start"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -9072,9 +9094,7 @@ impl<
             &[(1, "value")],
             path,
         )?;
-        let fields = (
-            native_from::<_, u64>(*(&wire.value), &child_path(path, "value"))?,
-        );
+        let fields = (native_from::<_, u64>(wire.value, &child_path(path, "value"))?,);
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
             )
@@ -9118,12 +9138,13 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.identity),
+                wire.identity,
                 &child_path(path, "identity"),
             )?,
             {
                 let current_path = &child_path(path, "symbols");
-                let values = (&wire.symbols)
+                let values = wire
+                    .symbols
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9139,7 +9160,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "nodes");
-                let values = (&wire.nodes)
+                let values = wire
+                    .nodes
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9155,7 +9177,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "predicates");
-                let values = (&wire.predicates)
+                let values = wire
+                    .predicates
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9171,7 +9194,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "binders");
-                let values = (&wire.binders)
+                let values = wire
+                    .binders
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9187,7 +9211,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "functions");
-                let values = (&wire.functions)
+                let values = wire
+                    .functions
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9203,7 +9228,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "evidence");
-                let values = (&wire.evidence)
+                let values = wire
+                    .evidence
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9219,7 +9245,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "carriers");
-                let values = (&wire.carriers)
+                let values = wire
+                    .carriers
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9235,7 +9262,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "groups");
-                let values = (&wire.groups)
+                let values = wire
+                    .groups
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9251,7 +9279,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "member_ranges");
-                let values = (&wire.member_ranges)
+                let values = wire
+                    .member_ranges
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9267,7 +9296,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "finite_folds");
-                let values = (&wire.finite_folds)
+                let values = wire
+                    .finite_folds
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9283,7 +9313,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "outputs");
-                let values = (&wire.outputs)
+                let values = wire
+                    .outputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9299,7 +9330,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "validity");
-                let values = (&wire.validity)
+                let values = wire
+                    .validity
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9361,7 +9393,7 @@ impl<
                     path,
                 )?;
                 let fields = (
-                    native_from::<_, bool>(*(&wire.value), &child_path(path, "value"))?,
+                    native_from::<_, bool>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
                     <pse_modeling::portable::ValueWire as pse_contract::boundary_projection::ProjectionAlternative<
@@ -9387,7 +9419,7 @@ impl<
                     path,
                 )?;
                 let fields = (
-                    native_from::<_, i64>(*(&wire.value), &child_path(path, "value"))?,
+                    native_from::<_, i64>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
                     <pse_modeling::portable::ValueWire as pse_contract::boundary_projection::ProjectionAlternative<
@@ -9413,7 +9445,7 @@ impl<
                     path,
                 )?;
                 let fields = (
-                    native_from::<_, u64>(*(&wire.bits), &child_path(path, "bits"))?,
+                    native_from::<_, u64>(wire.bits, &child_path(path, "bits"))?,
                     native_from::<
                         _,
                         &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::QuantityTypeIdView<
@@ -9421,7 +9453,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.quantity).as_option(),
+                            wire.quantity.as_option(),
                             &child_path(path, "quantity"),
                         )?,
                         &child_path(path, "quantity"),
@@ -9452,10 +9484,10 @@ impl<
                 )?;
                 let fields = (
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.id),
+                        wire.id,
                         &child_path(path, "id"),
                     )?,
-                    native_from::<_, u64>(*(&wire.bits), &child_path(path, "bits"))?,
+                    native_from::<_, u64>(wire.bits, &child_path(path, "bits"))?,
                     native_from::<
                         _,
                         &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::QuantityTypeIdView<
@@ -9463,7 +9495,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.quantity).as_option(),
+                            wire.quantity.as_option(),
                             &child_path(path, "quantity"),
                         )?,
                         &child_path(path, "quantity"),
@@ -9493,7 +9525,7 @@ impl<
                     path,
                 )?;
                 let fields = (
-                    native_from::<_, &str>(*(&wire.value), &child_path(path, "value"))?,
+                    native_from::<_, &str>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
                     <pse_modeling::portable::ValueWire as pse_contract::boundary_projection::ProjectionAlternative<
@@ -9525,7 +9557,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.id).as_option(), &child_path(path, "id"))?,
+                        required(wire.id.as_option(), &child_path(path, "id"))?,
                         &child_path(path, "id"),
                     )?,
                     native_from::<
@@ -9534,7 +9566,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.kind).as_option(), &child_path(path, "kind"))?,
+                        required(wire.kind.as_option(), &child_path(path, "kind"))?,
                         &child_path(path, "kind"),
                     )?,
                 );
@@ -9569,13 +9601,13 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.enumeration).as_option(),
+                            wire.enumeration.as_option(),
                             &child_path(path, "enumeration"),
                         )?,
                         &child_path(path, "enumeration"),
                     )?,
                     pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                        *(&wire.member),
+                        wire.member,
                         &child_path(path, "member"),
                     )?,
                 );
@@ -9609,13 +9641,10 @@ impl<
                             '_,
                         >,
                     >(
-                        required(
-                            (&wire.scheme).as_option(),
-                            &child_path(path, "scheme"),
-                        )?,
+                        required(wire.scheme.as_option(), &child_path(path, "scheme"))?,
                         &child_path(path, "scheme"),
                     )?,
-                    native_from::<_, &str>(*(&wire.value), &child_path(path, "value"))?,
+                    native_from::<_, &str>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
                     <pse_modeling::portable::ValueWire as pse_contract::boundary_projection::ProjectionAlternative<
@@ -9647,18 +9676,16 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.id).as_option(), &child_path(path, "id"))?,
+                        required(wire.id.as_option(), &child_path(path, "id"))?,
                         &child_path(path, "id"),
                     )?,
                     unique_pairs(
-                        (&wire.bindings)
+                        wire
+                            .bindings
                             .iter_unique()
                             .map(|(key, value)| -> Result<_, AdapterError> {
                                 Ok((
-                                    native_from::<
-                                        _,
-                                        &str,
-                                    >(*(key), &child_path(path, "bindings"))?,
+                                    native_from::<_, &str>(key, &child_path(path, "bindings"))?,
                                     native_from::<
                                         _,
                                         &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingStaticValueFactsView<
@@ -9702,7 +9729,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.declaration).as_option(),
+                            wire.declaration.as_option(),
                             &child_path(path, "declaration"),
                         )?,
                         &child_path(path, "declaration"),
@@ -9738,26 +9765,28 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.table).as_option(), &child_path(path, "table"))?,
+                        required(wire.table.as_option(), &child_path(path, "table"))?,
                         &child_path(path, "table"),
                     )?,
                     {
                         let current_path = &child_path(path, "names");
-                        let values = (&wire.names)
+                        let values = wire
+                            .names
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
                                 native_from::<
                                     _,
                                     &str,
-                                >(*(value), &format!("{current_path}[{index}]"))
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
                     },
                     {
                         let current_path = &child_path(path, "fields");
-                        let values = (&wire.fields)
+                        let values = wire
+                            .fields
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9798,7 +9827,8 @@ impl<
                 let fields = (
                     {
                         let current_path = &child_path(path, "values");
-                        let values = (&wire.values)
+                        let values = wire
+                            .values
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9839,7 +9869,8 @@ impl<
                 let fields = (
                     {
                         let current_path = &child_path(path, "values");
-                        let values = (&wire.values)
+                        let values = wire
+                            .values
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -9885,7 +9916,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.quantity).as_option(),
+                            wire.quantity.as_option(),
                             &child_path(path, "quantity"),
                         )?,
                         &child_path(path, "quantity"),
@@ -9922,7 +9953,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.reference).as_option(),
+                            wire.reference.as_option(),
                             &child_path(path, "reference"),
                         )?,
                         &child_path(path, "reference"),
@@ -9989,7 +10020,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.contract).as_option(), &child_path(path, "contract"))?,
+                required(wire.contract.as_option(), &child_path(path, "contract"))?,
                 &child_path(path, "contract"),
             )?,
             native_from::<
@@ -9998,10 +10029,7 @@ impl<
                     '_,
                 >,
             >(
-                required(
-                    (&wire.conversion).as_option(),
-                    &child_path(path, "conversion"),
-                )?,
+                required(wire.conversion.as_option(), &child_path(path, "conversion"))?,
                 &child_path(path, "conversion"),
             )?,
             native_from::<
@@ -10010,7 +10038,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.literal).as_option(), &child_path(path, "literal"))?,
+                required(wire.literal.as_option(), &child_path(path, "literal"))?,
                 &child_path(path, "literal"),
             )?,
             native_from::<
@@ -10020,7 +10048,7 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.conditional).as_option(),
+                    wire.conditional.as_option(),
                     &child_path(path, "conditional"),
                 )?,
                 &child_path(path, "conditional"),
@@ -10061,7 +10089,7 @@ impl<
             path,
         )?;
         let fields = (
-            native_from::<_, u64>(*(&wire.function), &child_path(path, "function"))?,
+            native_from::<_, u64>(wire.function, &child_path(path, "function"))?,
             native_from::<
                 _,
                 &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractRecordView<
@@ -10069,14 +10097,15 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.nominal_result).as_option(),
+                    wire.nominal_result.as_option(),
                     &child_path(path, "nominal_result"),
                 )?,
                 &child_path(path, "nominal_result"),
             )?,
             {
                 let current_path = &child_path(path, "wrt");
-                let values = (&wire.wrt)
+                let values = wire
+                    .wrt
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -10090,7 +10119,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "inputs");
-                let values = (&wire.inputs)
+                let values = wire
+                    .inputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -10104,7 +10134,8 @@ impl<
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
             },
-            (&wire.body_result)
+            wire
+                .body_result
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -10115,7 +10146,8 @@ impl<
                     >(value, &child_path(path, "body_result"))
                 })
                 .transpose()?,
-            (&wire.partial)
+            wire
+                .partial
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -10165,14 +10197,14 @@ impl<
             path,
         )?;
         let fields = (
-            native_from::<_, u64>(*(&wire.slot), &child_path(path, "slot"))?,
+            native_from::<_, u64>(wire.slot, &child_path(path, "slot"))?,
             native_from::<
                 _,
                 &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingTypeRecordView<
                     '_,
                 >,
             >(
-                required((&wire.ty).as_option(), &child_path(path, "ty"))?,
+                required(wire.ty.as_option(), &child_path(path, "ty"))?,
                 &child_path(path, "ty"),
             )?,
             native_from::<
@@ -10181,10 +10213,11 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.contract).as_option(), &child_path(path, "contract"))?,
+                required(wire.contract.as_option(), &child_path(path, "contract"))?,
                 &child_path(path, "contract"),
             )?,
-            (&wire.operation)
+            wire
+                .operation
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -10195,7 +10228,8 @@ impl<
                     >(value, &child_path(path, "operation"))
                 })
                 .transpose()?,
-            (&wire.literal)
+            wire
+                .literal
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -10206,7 +10240,8 @@ impl<
                     >(value, &child_path(path, "literal"))
                 })
                 .transpose()?,
-            (&wire.boundary)
+            wire
+                .boundary
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -10217,7 +10252,8 @@ impl<
                     >(value, &child_path(path, "boundary"))
                 })
                 .transpose()?,
-            (&wire.call)
+            wire
+                .call
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -10228,7 +10264,8 @@ impl<
                     >(value, &child_path(path, "call"))
                 })
                 .transpose()?,
-            (&wire.range)
+            wire
+                .range
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -10239,7 +10276,8 @@ impl<
                     >(value, &child_path(path, "range"))
                 })
                 .transpose()?,
-            (&wire.exponent)
+            wire
+                .exponent
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -10290,7 +10328,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.lower).as_option(), &child_path(path, "lower"))?,
+                required(wire.lower.as_option(), &child_path(path, "lower"))?,
                 &child_path(path, "lower"),
             )?,
             native_from::<
@@ -10299,7 +10337,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.upper).as_option(), &child_path(path, "upper"))?,
+                required(wire.upper.as_option(), &child_path(path, "upper"))?,
                 &child_path(path, "upper"),
             )?,
             native_from::<
@@ -10309,7 +10347,7 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.lower_difference).as_option(),
+                    wire.lower_difference.as_option(),
                     &child_path(path, "lower_difference"),
                 )?,
                 &child_path(path, "lower_difference"),
@@ -10321,7 +10359,7 @@ impl<
                 >,
             >(
                 required(
-                    (&wire.upper_difference).as_option(),
+                    wire.upper_difference.as_option(),
                     &child_path(path, "upper_difference"),
                 )?,
                 &child_path(path, "upper_difference"),
@@ -10366,16 +10404,17 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.identity),
+                wire.identity,
                 &child_path(path, "identity"),
             )?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.syntax),
+                wire.syntax,
                 &child_path(path, "syntax"),
             )?,
             {
                 let current_path = &child_path(path, "nodes");
-                let values = (&wire.nodes)
+                let values = wire
+                    .nodes
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -10391,7 +10430,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "outputs");
-                let values = (&wire.outputs)
+                let values = wire
+                    .outputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -10407,7 +10447,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "inputs");
-                let values = (&wire.inputs)
+                let values = wire
+                    .inputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -10427,10 +10468,11 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.premises).as_option(), &child_path(path, "premises"))?,
+                required(wire.premises.as_option(), &child_path(path, "premises"))?,
                 &child_path(path, "premises"),
             )?,
-            (&wire.boolean)
+            wire
+                .boolean
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -10441,7 +10483,8 @@ impl<
                     >(value, &child_path(path, "boolean"))
                 })
                 .transpose()?,
-            (&wire.reduction)
+            wire
+                .reduction
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -10452,7 +10495,8 @@ impl<
                     >(value, &child_path(path, "reduction"))
                 })
                 .transpose()?,
-            (&wire.reduction_output)
+            wire
+                .reduction_output
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -10784,7 +10828,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.declaration).as_option(),
+                            wire.declaration.as_option(),
                             &child_path(path, "declaration"),
                         )?,
                         &child_path(path, "declaration"),
@@ -10821,7 +10865,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.declaration).as_option(),
+                            wire.declaration.as_option(),
                             &child_path(path, "declaration"),
                         )?,
                         &child_path(path, "declaration"),
@@ -10858,7 +10902,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.declaration).as_option(),
+                            wire.declaration.as_option(),
                             &child_path(path, "declaration"),
                         )?,
                         &child_path(path, "declaration"),
@@ -10869,7 +10913,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.map).as_option(), &child_path(path, "map"))?,
+                        required(wire.map.as_option(), &child_path(path, "map"))?,
                         &child_path(path, "map"),
                     )?,
                 );
@@ -10903,10 +10947,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required(
-                            (&wire.scheme).as_option(),
-                            &child_path(path, "scheme"),
-                        )?,
+                        required(wire.scheme.as_option(), &child_path(path, "scheme"))?,
                         &child_path(path, "scheme"),
                     )?,
                 );
@@ -10941,7 +10982,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.quantity).as_option(),
+                            wire.quantity.as_option(),
                             &child_path(path, "quantity"),
                         )?,
                         &child_path(path, "quantity"),
@@ -10953,7 +10994,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.refinement).as_option(),
+                            wire.refinement.as_option(),
                             &child_path(path, "refinement"),
                         )?,
                         &child_path(path, "refinement"),
@@ -10990,7 +11031,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.declaration).as_option(),
+                            wire.declaration.as_option(),
                             &child_path(path, "declaration"),
                         )?,
                         &child_path(path, "declaration"),
@@ -11027,7 +11068,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.declaration).as_option(),
+                            wire.declaration.as_option(),
                             &child_path(path, "declaration"),
                         )?,
                         &child_path(path, "declaration"),
@@ -11064,7 +11105,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.declaration).as_option(),
+                            wire.declaration.as_option(),
                             &child_path(path, "declaration"),
                         )?,
                         &child_path(path, "declaration"),
@@ -11101,7 +11142,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.element).as_option(),
+                            wire.element.as_option(),
                             &child_path(path, "element"),
                         )?,
                         &child_path(path, "element"),
@@ -11137,10 +11178,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required(
-                            (&wire.domain).as_option(),
-                            &child_path(path, "domain"),
-                        )?,
+                        required(wire.domain.as_option(), &child_path(path, "domain"))?,
                         &child_path(path, "domain"),
                     )?,
                     native_from::<
@@ -11150,7 +11188,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.element).as_option(),
+                            wire.element.as_option(),
                             &child_path(path, "element"),
                         )?,
                         &child_path(path, "element"),
@@ -11182,7 +11220,8 @@ impl<
                 let fields = (
                     {
                         let current_path = &child_path(path, "elements");
-                        let values = (&wire.elements)
+                        let values = wire
+                            .elements
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -11228,7 +11267,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.declaration).as_option(),
+                            wire.declaration.as_option(),
                             &child_path(path, "declaration"),
                         )?,
                         &child_path(path, "declaration"),
@@ -11265,7 +11304,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.declaration).as_option(),
+                            wire.declaration.as_option(),
                             &child_path(path, "declaration"),
                         )?,
                         &child_path(path, "declaration"),
@@ -11302,7 +11341,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.declaration).as_option(),
+                            wire.declaration.as_option(),
                             &child_path(path, "declaration"),
                         )?,
                         &child_path(path, "declaration"),
@@ -11339,7 +11378,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.declaration).as_option(),
+                            wire.declaration.as_option(),
                             &child_path(path, "declaration"),
                         )?,
                         &child_path(path, "declaration"),
@@ -11371,7 +11410,8 @@ impl<
                 let fields = (
                     {
                         let current_path = &child_path(path, "arguments");
-                        let values = (&wire.arguments)
+                        let values = wire
+                            .arguments
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -11391,10 +11431,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required(
-                            (&wire.result).as_option(),
-                            &child_path(path, "result"),
-                        )?,
+                        required(wire.result.as_option(), &child_path(path, "result"))?,
                         &child_path(path, "result"),
                     )?,
                 );
@@ -11429,7 +11466,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.element).as_option(),
+                            wire.element.as_option(),
                             &child_path(path, "element"),
                         )?,
                         &child_path(path, "element"),
@@ -11466,14 +11503,15 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.element).as_option(),
+                            wire.element.as_option(),
                             &child_path(path, "element"),
                         )?,
                         &child_path(path, "element"),
                     )?,
                     {
                         let current_path = &child_path(path, "axes");
-                        let values = (&wire.axes)
+                        let values = wire
+                            .axes
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -11525,7 +11563,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.value).as_option(), &child_path(path, "value"))?,
+                required(wire.value.as_option(), &child_path(path, "value"))?,
                 &child_path(path, "value"),
             )?,
         );
@@ -11609,7 +11647,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.value).as_option(), &child_path(path, "value"))?,
+                required(wire.value.as_option(), &child_path(path, "value"))?,
                 &child_path(path, "value"),
             )?,
         );
@@ -11688,7 +11726,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
         );
@@ -11757,7 +11795,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.quantity).as_option(), &child_path(path, "quantity"))?,
+                required(wire.quantity.as_option(), &child_path(path, "quantity"))?,
                 &child_path(path, "quantity"),
             )?,
             native_from::<
@@ -11766,7 +11804,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.context).as_option(), &child_path(path, "context"))?,
+                required(wire.context.as_option(), &child_path(path, "context"))?,
                 &child_path(path, "context"),
             )?,
             native_from::<
@@ -11775,7 +11813,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.source).as_option(), &child_path(path, "source"))?,
+                required(wire.source.as_option(), &child_path(path, "source"))?,
                 &child_path(path, "source"),
             )?,
             native_from::<
@@ -11784,18 +11822,15 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.target).as_option(), &child_path(path, "target"))?,
+                required(wire.target.as_option(), &child_path(path, "target"))?,
                 &child_path(path, "target"),
             )?,
-            native_from::<_, u64>(*(&wire.scale_bits), &child_path(path, "scale_bits"))?,
-            native_from::<
-                _,
-                u64,
-            >(*(&wire.offset_bits), &child_path(path, "offset_bits"))?,
+            native_from::<_, u64>(wire.scale_bits, &child_path(path, "scale_bits"))?,
+            native_from::<_, u64>(wire.offset_bits, &child_path(path, "offset_bits"))?,
             native_from::<
                 _,
                 bool,
-            >(*(&wire.already_canonical), &child_path(path, "already_canonical"))?,
+            >(wire.already_canonical, &child_path(path, "already_canonical"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -11825,14 +11860,14 @@ impl<
             path,
         )?;
         let fields = (
-            native_from::<_, u64>(*(&wire.bits), &child_path(path, "bits"))?,
+            native_from::<_, u64>(wire.bits, &child_path(path, "bits"))?,
             native_from::<
                 _,
                 &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::QuantityTypeIdView<
                     '_,
                 >,
             >(
-                required((&wire.quantity).as_option(), &child_path(path, "quantity"))?,
+                required(wire.quantity.as_option(), &child_path(path, "quantity"))?,
                 &child_path(path, "quantity"),
             )?,
         );
@@ -11870,7 +11905,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.source).as_option(), &child_path(path, "source"))?,
+                required(wire.source.as_option(), &child_path(path, "source"))?,
                 &child_path(path, "source"),
             )?,
             native_from::<
@@ -11879,10 +11914,10 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.target).as_option(), &child_path(path, "target"))?,
+                required(wire.target.as_option(), &child_path(path, "target"))?,
                 &child_path(path, "target"),
             )?,
-            native_from::<_, u64>(*(&wire.scale_bits), &child_path(path, "scale_bits"))?,
+            native_from::<_, u64>(wire.scale_bits, &child_path(path, "scale_bits"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -11923,7 +11958,8 @@ impl<
             path,
         )?;
         let fields = (
-            (&wire.named)
+            wire
+                .named
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -11936,7 +11972,8 @@ impl<
                 .transpose()?,
             {
                 let current_path = &child_path(path, "kinds");
-                let values = (&wire.kinds)
+                let values = wire
+                    .kinds
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -11952,7 +11989,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "qualified");
-                let values = (&wire.qualified)
+                let values = wire
+                    .qualified
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -11968,7 +12006,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "axes");
-                let values = (&wire.axes)
+                let values = wire
+                    .axes
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -11984,7 +12023,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "indices");
-                let values = (&wire.indices)
+                let values = wire
+                    .indices
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -12000,7 +12040,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "factors");
-                let values = (&wire.factors)
+                let values = wire
+                    .factors
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -12020,15 +12061,13 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.dimension).as_option(), &child_path(path, "dimension"))?,
+                required(wire.dimension.as_option(), &child_path(path, "dimension"))?,
                 &child_path(path, "dimension"),
             )?,
-            native_from::<_, u64>(*(&wire.scale_bits), &child_path(path, "scale_bits"))?,
-            native_from::<
-                _,
-                bool,
-            >(*(&wire.pure_number), &child_path(path, "pure_number"))?,
-            (&wire.formula)
+            native_from::<_, u64>(wire.scale_bits, &child_path(path, "scale_bits"))?,
+            native_from::<_, bool>(wire.pure_number, &child_path(path, "pure_number"))?,
+            wire
+                .formula
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -12074,7 +12113,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.value).as_option(), &child_path(path, "value"))?,
+                required(wire.value.as_option(), &child_path(path, "value"))?,
                 &child_path(path, "value"),
             )?,
         );
@@ -12112,7 +12151,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.exponents).as_option(), &child_path(path, "exponents"))?,
+                required(wire.exponents.as_option(), &child_path(path, "exponents"))?,
                 &child_path(path, "exponents"),
             )?,
         );
@@ -12145,13 +12184,14 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.authority),
+                wire.authority,
                 &child_path(path, "authority"),
             )?,
-            native_from::<_, &str>(*(&wire.operation), &child_path(path, "operation"))?,
+            native_from::<_, &str>(wire.operation, &child_path(path, "operation"))?,
             {
                 let current_path = &child_path(path, "operands");
-                let values = (&wire.operands)
+                let values = wire
+                    .operands
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -12167,7 +12207,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "powers");
-                let values = (&wire.powers)
+                let values = wire
+                    .powers
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -12219,7 +12260,8 @@ impl<
         let fields = (
             {
                 let current_path = &child_path(path, "operands");
-                let values = (&wire.operands)
+                let values = wire
+                    .operands
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -12239,7 +12281,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.result).as_option(), &child_path(path, "result"))?,
+                required(wire.result.as_option(), &child_path(path, "result"))?,
                 &child_path(path, "result"),
             )?,
             native_from::<
@@ -12248,12 +12290,13 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.selected).as_option(), &child_path(path, "selected"))?,
+                required(wire.selected.as_option(), &child_path(path, "selected"))?,
                 &child_path(path, "selected"),
             )?,
             {
                 let current_path = &child_path(path, "conversions");
-                let values = (&wire.conversions)
+                let values = wire
+                    .conversions
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -12269,7 +12312,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "operand_scales");
-                let values = (&wire.operand_scales)
+                let values = wire
+                    .operand_scales
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -12281,10 +12325,7 @@ impl<
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
             },
-            native_from::<
-                _,
-                u64,
-            >(*(&wire.result_scale), &child_path(path, "result_scale"))?,
+            native_from::<_, u64>(wire.result_scale, &child_path(path, "result_scale"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -12315,7 +12356,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.request),
+                wire.request,
                 &child_path(path, "request"),
             )?,
             native_from::<
@@ -12324,7 +12365,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.result).as_option(), &child_path(path, "result"))?,
+                required(wire.result.as_option(), &child_path(path, "result"))?,
                 &child_path(path, "result"),
             )?,
         );
@@ -12362,7 +12403,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.value).as_option(), &child_path(path, "value"))?,
+                required(wire.value.as_option(), &child_path(path, "value"))?,
                 &child_path(path, "value"),
             )?,
         );
@@ -12394,17 +12435,14 @@ impl<
             path,
         )?;
         let fields = (
-            native_from::<_, u32>(*(&wire.operand), &child_path(path, "operand"))?,
+            native_from::<_, u32>(wire.operand, &child_path(path, "operand"))?,
             native_from::<
                 _,
                 &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ConversionIdView<
                     '_,
                 >,
             >(
-                required(
-                    (&wire.conversion).as_option(),
-                    &child_path(path, "conversion"),
-                )?,
+                required(wire.conversion.as_option(), &child_path(path, "conversion"))?,
                 &child_path(path, "conversion"),
             )?,
         );
@@ -12461,7 +12499,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.rule).as_option(), &child_path(path, "rule"))?,
+                        required(wire.rule.as_option(), &child_path(path, "rule"))?,
                         &child_path(path, "rule"),
                     )?,
                 );
@@ -12496,14 +12534,15 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.operation).as_option(),
+                            wire.operation.as_option(),
                             &child_path(path, "operation"),
                         )?,
                         &child_path(path, "operation"),
                     )?,
                     {
                         let current_path = &child_path(path, "operand_permutation");
-                        let values = (&wire.operand_permutation)
+                        let values = wire
+                            .operand_permutation
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
@@ -12548,7 +12587,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.operation),
+                wire.operation,
                 &child_path(path, "operation"),
             )?,
             native_from::<
@@ -12557,7 +12596,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.source).as_option(), &child_path(path, "source"))?,
+                required(wire.source.as_option(), &child_path(path, "source"))?,
                 &child_path(path, "source"),
             )?,
             native_from::<
@@ -12566,10 +12605,10 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.target).as_option(), &child_path(path, "target"))?,
+                required(wire.target.as_option(), &child_path(path, "target"))?,
                 &child_path(path, "target"),
             )?,
-            native_from::<_, u64>(*(&wire.scale_bits), &child_path(path, "scale_bits"))?,
+            native_from::<_, u64>(wire.scale_bits, &child_path(path, "scale_bits"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -12600,7 +12639,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.request),
+                wire.request,
                 &child_path(path, "request"),
             )?,
             native_from::<
@@ -12609,7 +12648,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.result).as_option(), &child_path(path, "result"))?,
+                required(wire.result.as_option(), &child_path(path, "result"))?,
                 &child_path(path, "result"),
             )?,
         );
@@ -12642,7 +12681,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.operation),
+                wire.operation,
                 &child_path(path, "operation"),
             )?,
             native_from::<
@@ -12651,7 +12690,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.source).as_option(), &child_path(path, "source"))?,
+                required(wire.source.as_option(), &child_path(path, "source"))?,
                 &child_path(path, "source"),
             )?,
             native_from::<
@@ -12660,10 +12699,10 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.target).as_option(), &child_path(path, "target"))?,
+                required(wire.target.as_option(), &child_path(path, "target"))?,
                 &child_path(path, "target"),
             )?,
-            native_from::<_, u64>(*(&wire.scale_bits), &child_path(path, "scale_bits"))?,
+            native_from::<_, u64>(wire.scale_bits, &child_path(path, "scale_bits"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -12699,7 +12738,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.key).as_option(), &child_path(path, "key"))?,
+                required(wire.key.as_option(), &child_path(path, "key"))?,
                 &child_path(path, "key"),
             )?,
             native_from::<
@@ -12708,7 +12747,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.exponent).as_option(), &child_path(path, "exponent"))?,
+                required(wire.exponent.as_option(), &child_path(path, "exponent"))?,
                 &child_path(path, "exponent"),
             )?,
         );
@@ -12740,8 +12779,8 @@ impl<
             path,
         )?;
         let fields = (
-            native_from::<_, i32>(*(&wire.num), &child_path(path, "num"))?,
-            native_from::<_, i32>(*(&wire.den), &child_path(path, "den"))?,
+            native_from::<_, i32>(wire.num, &child_path(path, "num"))?,
+            native_from::<_, i32>(wire.den, &child_path(path, "den"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -12771,10 +12810,11 @@ impl<
             path,
         )?;
         let fields = (
-            native_from::<_, u32>(*(&wire.version), &child_path(path, "version"))?,
+            native_from::<_, u32>(wire.version, &child_path(path, "version"))?,
             {
                 let current_path = &child_path(path, "entries");
-                let values = (&wire.entries)
+                let values = wire
+                    .entries
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -12790,7 +12830,8 @@ impl<
             },
             {
                 let current_path = &child_path(path, "boundaries");
-                let values = (&wire.boundaries)
+                let values = wire
+                    .boundaries
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -12846,7 +12887,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.quantity).as_option(), &child_path(path, "quantity"))?,
+                required(wire.quantity.as_option(), &child_path(path, "quantity"))?,
                 &child_path(path, "quantity"),
             )?,
             native_from::<
@@ -12855,7 +12896,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.context).as_option(), &child_path(path, "context"))?,
+                required(wire.context.as_option(), &child_path(path, "context"))?,
                 &child_path(path, "context"),
             )?,
             native_from::<
@@ -12864,7 +12905,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.source).as_option(), &child_path(path, "source"))?,
+                required(wire.source.as_option(), &child_path(path, "source"))?,
                 &child_path(path, "source"),
             )?,
             native_from::<
@@ -12873,14 +12914,11 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.target).as_option(), &child_path(path, "target"))?,
+                required(wire.target.as_option(), &child_path(path, "target"))?,
                 &child_path(path, "target"),
             )?,
-            native_from::<_, u64>(*(&wire.scale_bits), &child_path(path, "scale_bits"))?,
-            native_from::<
-                _,
-                u64,
-            >(*(&wire.offset_bits), &child_path(path, "offset_bits"))?,
+            native_from::<_, u64>(wire.scale_bits, &child_path(path, "scale_bits"))?,
+            native_from::<_, u64>(wire.offset_bits, &child_path(path, "offset_bits"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -12916,7 +12954,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.value).as_option(), &child_path(path, "value"))?,
+                required(wire.value.as_option(), &child_path(path, "value"))?,
                 &child_path(path, "value"),
             )?,
         );
@@ -12974,7 +13012,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.quantity).as_option(),
+                            wire.quantity.as_option(),
                             &child_path(path, "quantity"),
                         )?,
                         &child_path(path, "quantity"),
@@ -13011,7 +13049,7 @@ impl<
                         >,
                     >(
                         required(
-                            (&wire.contract).as_option(),
+                            wire.contract.as_option(),
                             &child_path(path, "contract"),
                         )?,
                         &child_path(path, "contract"),
@@ -13041,7 +13079,7 @@ impl<
                     path,
                 )?;
                 let fields = (
-                    native_from::<_, &str>(*(&wire.name), &child_path(path, "name"))?,
+                    native_from::<_, &str>(wire.name, &child_path(path, "name"))?,
                 );
                 Ok(
                     <pse_quantity::resolved::receipts::SchemeWire as pse_contract::boundary_projection::ProjectionAlternative<
@@ -13073,7 +13111,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.value).as_option(), &child_path(path, "value"))?,
+                        required(wire.value.as_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
                     )?,
                 );
@@ -13107,7 +13145,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.left).as_option(), &child_path(path, "left"))?,
+                        required(wire.left.as_option(), &child_path(path, "left"))?,
                         &child_path(path, "left"),
                     )?,
                     native_from::<
@@ -13116,7 +13154,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.right).as_option(), &child_path(path, "right"))?,
+                        required(wire.right.as_option(), &child_path(path, "right"))?,
                         &child_path(path, "right"),
                     )?,
                 );
@@ -13150,7 +13188,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.left).as_option(), &child_path(path, "left"))?,
+                        required(wire.left.as_option(), &child_path(path, "left"))?,
                         &child_path(path, "left"),
                     )?,
                     native_from::<
@@ -13159,7 +13197,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.right).as_option(), &child_path(path, "right"))?,
+                        required(wire.right.as_option(), &child_path(path, "right"))?,
                         &child_path(path, "right"),
                     )?,
                 );
@@ -13193,7 +13231,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.value).as_option(), &child_path(path, "value"))?,
+                        required(wire.value.as_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
                     )?,
                     native_from::<
@@ -13202,7 +13240,7 @@ impl<
                             '_,
                         >,
                     >(
-                        required((&wire.power).as_option(), &child_path(path, "power"))?,
+                        required(wire.power.as_option(), &child_path(path, "power"))?,
                         &child_path(path, "power"),
                     )?,
                 );
@@ -13239,7 +13277,8 @@ impl<
         let fields = (
             {
                 let current_path = &child_path(path, "factors");
-                let values = (&wire.factors)
+                let values = wire
+                    .factors
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -13283,7 +13322,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
         );
@@ -13316,7 +13355,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
         );
@@ -13361,10 +13400,11 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.kind).as_option(), &child_path(path, "kind"))?,
+                required(wire.kind.as_option(), &child_path(path, "kind"))?,
                 &child_path(path, "kind"),
             )?,
-            (&wire.basis)
+            wire
+                .basis
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -13375,7 +13415,8 @@ impl<
                     >(value, &child_path(path, "basis"))
                 })
                 .transpose()?,
-            (&wire.reference_state)
+            wire
+                .reference_state
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -13392,15 +13433,13 @@ impl<
                     '_,
                 >,
             >(
-                required(
-                    (&wire.scale_kind).as_option(),
-                    &child_path(path, "scale_kind"),
-                )?,
+                required(wire.scale_kind.as_option(), &child_path(path, "scale_kind"))?,
                 &child_path(path, "scale_kind"),
             )?,
             {
                 let current_path = &child_path(path, "shape");
-                let values = (&wire.shape)
+                let values = wire
+                    .shape
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -13414,7 +13453,8 @@ impl<
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
             },
-            (&wire.subject_kind)
+            wire
+                .subject_kind
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -13478,7 +13518,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
         );
@@ -13554,8 +13594,9 @@ impl<
             native_from::<
                 _,
                 &str,
-            >(*(&wire.interpretation), &child_path(path, "interpretation"))?,
-            (&wire.semantic_identity)
+            >(wire.interpretation, &child_path(path, "interpretation"))?,
+            wire
+                .semantic_identity
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -13572,7 +13613,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.syntax).as_option(), &child_path(path, "syntax"))?,
+                required(wire.syntax.as_option(), &child_path(path, "syntax"))?,
                 &child_path(path, "syntax"),
             )?,
             native_from::<
@@ -13581,7 +13622,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.support).as_option(), &child_path(path, "support"))?,
+                required(wire.support.as_option(), &child_path(path, "support"))?,
                 &child_path(path, "support"),
             )?,
             native_from::<
@@ -13590,12 +13631,13 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.providers).as_option(), &child_path(path, "providers"))?,
+                required(wire.providers.as_option(), &child_path(path, "providers"))?,
                 &child_path(path, "providers"),
             )?,
             {
                 let current_path = &child_path(path, "inputs");
-                let values = (&wire.inputs)
+                let values = wire
+                    .inputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -13610,21 +13652,19 @@ impl<
                 from_items(values, current_path)?
             },
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.physical),
+                wire.physical,
                 &child_path(path, "physical"),
             )?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.structure),
+                wire.structure,
                 &child_path(path, "structure"),
             )?,
-            native_from::<_, u64>(*(&wire.slots), &child_path(path, "slots"))?,
-            native_from::<
-                _,
-                u64,
-            >(*(&wire.occurrences), &child_path(path, "occurrences"))?,
+            native_from::<_, u64>(wire.slots, &child_path(path, "slots"))?,
+            native_from::<_, u64>(wire.occurrences, &child_path(path, "occurrences"))?,
             {
                 let current_path = &child_path(path, "outputs");
-                let values = (&wire.outputs)
+                let values = wire
+                    .outputs
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -13640,12 +13680,13 @@ impl<
             },
             {
                 let current_path = &child_path(path, "checked_members");
-                let values = (&wire.checked_members)
+                let values = wire
+                    .checked_members
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
+                            value,
                             &format!("{current_path}[{index}]"),
                         )
                     })
@@ -13654,12 +13695,13 @@ impl<
             },
             {
                 let current_path = &child_path(path, "checked_sources");
-                let values = (&wire.checked_sources)
+                let values = wire
+                    .checked_sources
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
+                            value,
                             &format!("{current_path}[{index}]"),
                         )
                     })
@@ -13668,12 +13710,13 @@ impl<
             },
             {
                 let current_path = &child_path(path, "occurrence_tokens");
-                let values = (&wire.occurrence_tokens)
+                let values = wire
+                    .occurrence_tokens
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
+                            value,
                             &format!("{current_path}[{index}]"),
                         )
                     })
@@ -13686,7 +13729,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.receipts).as_option(), &child_path(path, "receipts"))?,
+                required(wire.receipts.as_option(), &child_path(path, "receipts"))?,
                 &child_path(path, "receipts"),
             )?,
             native_from::<
@@ -13695,7 +13738,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.proofs).as_option(), &child_path(path, "proofs"))?,
+                required(wire.proofs.as_option(), &child_path(path, "proofs"))?,
                 &child_path(path, "proofs"),
             )?,
             native_from::<
@@ -13704,7 +13747,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.spec).as_option(), &child_path(path, "spec"))?,
+                required(wire.spec.as_option(), &child_path(path, "spec"))?,
                 &child_path(path, "spec"),
             )?,
         );
@@ -13737,7 +13780,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
         );
@@ -13776,7 +13819,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.first),
+                wire.first,
                 &child_path(path, "first"),
             )?,
             native_from::<
@@ -13785,7 +13828,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.second).as_option(), &child_path(path, "second"))?,
+                required(wire.second.as_option(), &child_path(path, "second"))?,
                 &child_path(path, "second"),
             )?,
         );
@@ -13829,7 +13872,8 @@ for (
         let fields = (
             {
                 let current_path = &child_path(path, "first");
-                let values = (&wire.first)
+                let values = wire
+                    .first
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -13843,7 +13887,8 @@ for (
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
             },
-            (&wire.second)
+            wire
+                .second
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
@@ -13899,7 +13944,7 @@ for (
                     '_,
                 >,
             >(
-                required((&wire.first).as_option(), &child_path(path, "first"))?,
+                required(wire.first.as_option(), &child_path(path, "first"))?,
                 &child_path(path, "first"),
             )?,
             native_from::<
@@ -13908,7 +13953,7 @@ for (
                     '_,
                 >,
             >(
-                required((&wire.second).as_option(), &child_path(path, "second"))?,
+                required(wire.second.as_option(), &child_path(path, "second"))?,
                 &child_path(path, "second"),
             )?,
         );
@@ -13952,7 +13997,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.first).as_option(), &child_path(path, "first"))?,
+                required(wire.first.as_option(), &child_path(path, "first"))?,
                 &child_path(path, "first"),
             )?,
             native_from::<
@@ -13961,7 +14006,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.second).as_option(), &child_path(path, "second"))?,
+                required(wire.second.as_option(), &child_path(path, "second"))?,
                 &child_path(path, "second"),
             )?,
         );
@@ -14005,7 +14050,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.first).as_option(), &child_path(path, "first"))?,
+                required(wire.first.as_option(), &child_path(path, "first"))?,
                 &child_path(path, "first"),
             )?,
             native_from::<
@@ -14014,7 +14059,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.second).as_option(), &child_path(path, "second"))?,
+                required(wire.second.as_option(), &child_path(path, "second"))?,
                 &child_path(path, "second"),
             )?,
         );
@@ -14058,12 +14103,13 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.first).as_option(), &child_path(path, "first"))?,
+                required(wire.first.as_option(), &child_path(path, "first"))?,
                 &child_path(path, "first"),
             )?,
             {
                 let current_path = &child_path(path, "second");
-                let values = (&wire.second)
+                let values = wire
+                    .second
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -14112,14 +14158,14 @@ impl<
             path,
         )?;
         let fields = (
-            native_from::<_, &str>(*(&wire.first), &child_path(path, "first"))?,
+            native_from::<_, &str>(wire.first, &child_path(path, "first"))?,
             native_from::<
                 _,
                 &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingTypeFactsView<
                     '_,
                 >,
             >(
-                required((&wire.second).as_option(), &child_path(path, "second"))?,
+                required(wire.second.as_option(), &child_path(path, "second"))?,
                 &child_path(path, "second"),
             )?,
         );
@@ -14157,14 +14203,14 @@ impl<
             path,
         )?;
         let fields = (
-            native_from::<_, &str>(*(&wire.first), &child_path(path, "first"))?,
+            native_from::<_, &str>(wire.first, &child_path(path, "first"))?,
             native_from::<
                 _,
                 &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
                     '_,
                 >,
             >(
-                required((&wire.second).as_option(), &child_path(path, "second"))?,
+                required(wire.second.as_option(), &child_path(path, "second"))?,
                 &child_path(path, "second"),
             )?,
         );
@@ -14202,14 +14248,14 @@ impl<
             path,
         )?;
         let fields = (
-            native_from::<_, &str>(*(&wire.first), &child_path(path, "first"))?,
+            native_from::<_, &str>(wire.first, &child_path(path, "first"))?,
             native_from::<
                 _,
                 &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalRatioView<
                     '_,
                 >,
             >(
-                required((&wire.second).as_option(), &child_path(path, "second"))?,
+                required(wire.second.as_option(), &child_path(path, "second"))?,
                 &child_path(path, "second"),
             )?,
         );
@@ -14247,14 +14293,14 @@ impl<
             path,
         )?;
         let fields = (
-            native_from::<_, u64>(*(&wire.first), &child_path(path, "first"))?,
+            native_from::<_, u64>(wire.first, &child_path(path, "first"))?,
             native_from::<
                 _,
                 &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractRecordView<
                     '_,
                 >,
             >(
-                required((&wire.second).as_option(), &child_path(path, "second"))?,
+                required(wire.second.as_option(), &child_path(path, "second"))?,
                 &child_path(path, "second"),
             )?,
         );
@@ -14294,17 +14340,17 @@ impl<
             path,
         )?;
         let fields = (
-            native_from::<_, &str>(*(&wire.first), &child_path(path, "first"))?,
+            native_from::<_, &str>(wire.first, &child_path(path, "first"))?,
             native_from::<
                 _,
                 &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingUncertaintyKindView<
                     '_,
                 >,
             >(
-                required((&wire.second).as_option(), &child_path(path, "second"))?,
+                required(wire.second.as_option(), &child_path(path, "second"))?,
                 &child_path(path, "second"),
             )?,
-            native_from::<_, u64>(*(&wire.third), &child_path(path, "third"))?,
+            native_from::<_, u64>(wire.third, &child_path(path, "third"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -14342,10 +14388,10 @@ impl<
             path,
         )?;
         let fields = (
-            native_from::<_, &str>(*(&wire.first), &child_path(path, "first"))?,
-            native_from::<_, u64>(*(&wire.second), &child_path(path, "second"))?,
+            native_from::<_, &str>(wire.first, &child_path(path, "first"))?,
+            native_from::<_, u64>(wire.second, &child_path(path, "second"))?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(&wire.third),
+                wire.third,
                 &child_path(path, "third"),
             )?,
         );
@@ -14390,10 +14436,11 @@ for (
             path,
         )?;
         let fields = (
-            native_from::<_, u64>(*(&wire.first), &child_path(path, "first"))?,
+            native_from::<_, u64>(wire.first, &child_path(path, "first"))?,
             {
                 let current_path = &child_path(path, "second");
-                let values = (&wire.second)
+                let values = wire
+                    .second
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
@@ -14413,7 +14460,7 @@ for (
                     '_,
                 >,
             >(
-                required((&wire.third).as_option(), &child_path(path, "third"))?,
+                required(wire.third.as_option(), &child_path(path, "third"))?,
                 &child_path(path, "third"),
             )?,
         );
@@ -14451,7 +14498,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.unit).as_option(), &child_path(path, "unit"))?,
+                required(wire.unit.as_option(), &child_path(path, "unit"))?,
                 &child_path(path, "unit"),
             )?,
             native_from::<
@@ -14460,7 +14507,7 @@ impl<
                     '_,
                 >,
             >(
-                required((&wire.exponent).as_option(), &child_path(path, "exponent"))?,
+                required(wire.exponent.as_option(), &child_path(path, "exponent"))?,
                 &child_path(path, "exponent"),
             )?,
         );
@@ -14493,7 +14540,7 @@ impl<
         )?;
         let fields = (
             pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                *(required(wire.id.as_ref(), &child_path(path, "id"))?),
+                required(wire.id.as_ref(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
         );

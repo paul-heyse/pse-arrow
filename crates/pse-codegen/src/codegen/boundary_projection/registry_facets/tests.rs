@@ -285,7 +285,7 @@ fn registry_options_refuse_schema_allocation_and_native_vocabulary_drift() {
                 identity.field.push(hidden);
             }
             "default" => identity.field[0].default_value = Some("future".into()),
-            _ => unreachable!(),
+            _ => panic!("unknown registry facet alteration fixture: {alteration}"),
         }
         let changed = OptionEncoder::new(&imports).unwrap();
         assert!(

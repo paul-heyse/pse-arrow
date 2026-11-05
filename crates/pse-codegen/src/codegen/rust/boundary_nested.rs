@@ -37,61 +37,6 @@ pub(super) fn render(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use arrow_schema::DataType;
-    use pse_contract::boundary_projection::Direction as BoundaryDirection;
-
-    #[test]
-    fn native_selected_payloads_supply_checked_oneof_access_without_another_native_type() {
-        let payload = FieldContract::structure(vec![
-            FieldContract::nonnegative(7)
-                .with_name("count")
-                .with_boundary_tag(9),
-        ])
-        .with_name("payload")
-        .optional()
-        .with_boundary_shape(BoundaryShape::native(file!(), 1, BoundaryDirection::Both));
-        let value = FieldContract::structure(vec![
-            FieldContract::native(DataType::Utf8).with_name("kind"),
-            payload,
-        ])
-        .with_alternative(
-            &TaggedAlternative::new("kind", [("present".into(), "payload".into())])
-                .with_unit("absent"),
-        )
-        .with_boundary_shape(
-            BoundaryShape::native(file!(), 1, BoundaryDirection::Both)
-                .alternatives([("present".into(), 4), ("absent".into(), 11)]),
-        );
-        let mut declarations = Vec::new();
-        let actual =
-            super::super::types::logical(&value, "OriginalValue", &mut declarations).unwrap();
-        assert_eq!(actual.to_string(), "OriginalValue");
-        let file: syn::File = syn::parse2(quote!(#(#declarations)*)).unwrap();
-        let mut alternatives = Vec::new();
-        for item in &file.items {
-            if let syn::Item::Impl(item) = item
-                && let Some((path, _)) = &item.trait_
-                && path
-                    .segments
-                    .last()
-                    .is_some_and(|part| part.ident == "ProjectionAlternative")
-            {
-                alternatives.push(item);
-            }
-        }
-        assert_eq!(alternatives.len(), 2);
-        let emitted = quote!(#(#alternatives)*).to_string();
-        assert!(emitted.contains("self . selected () . is_err ()"));
-        assert!(emitted.contains("from_present") && emitted.contains("from_absent"));
-        let records = quote!(#(#declarations)*).to_string();
-        assert!(records.contains("SignedRange") && records.contains("9u32"));
-        assert!(records.contains("Shape :: Alternatives"));
-    }
-}
-
 fn payload_type(ty: &TokenStream) -> Result<TokenStream, SchemaError> {
     let ty: syn::Type = syn::parse2(ty.clone()).map_err(|error| super::error(error.to_string()))?;
     let syn::Type::Path(path) = ty else {
@@ -221,4 +166,59 @@ fn alternatives(
         }
         #(#accessors)*
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use arrow_schema::DataType;
+    use pse_contract::boundary_projection::Direction as BoundaryDirection;
+
+    #[test]
+    fn native_selected_payloads_supply_checked_oneof_access_without_another_native_type() {
+        let payload = FieldContract::structure(vec![
+            FieldContract::nonnegative(7)
+                .with_name("count")
+                .with_boundary_tag(9),
+        ])
+        .with_name("payload")
+        .optional()
+        .with_boundary_shape(BoundaryShape::native(file!(), 1, BoundaryDirection::Both));
+        let value = FieldContract::structure(vec![
+            FieldContract::native(DataType::Utf8).with_name("kind"),
+            payload,
+        ])
+        .with_alternative(
+            &TaggedAlternative::new("kind", [("present".into(), "payload".into())])
+                .with_unit("absent"),
+        )
+        .with_boundary_shape(
+            BoundaryShape::native(file!(), 1, BoundaryDirection::Both)
+                .alternatives([("present".into(), 4), ("absent".into(), 11)]),
+        );
+        let mut declarations = Vec::new();
+        let actual =
+            super::super::types::logical(&value, "OriginalValue", &mut declarations).unwrap();
+        assert_eq!(actual.to_string(), "OriginalValue");
+        let file: syn::File = syn::parse2(quote!(#(#declarations)*)).unwrap();
+        let mut alternatives = Vec::new();
+        for item in &file.items {
+            if let syn::Item::Impl(item) = item
+                && let Some((path, _)) = &item.trait_
+                && path
+                    .segments
+                    .last()
+                    .is_some_and(|part| part.ident == "ProjectionAlternative")
+            {
+                alternatives.push(item);
+            }
+        }
+        assert_eq!(alternatives.len(), 2);
+        let emitted = quote!(#(#alternatives)*).to_string();
+        assert!(emitted.contains("self . selected () . is_err ()"));
+        assert!(emitted.contains("from_present") && emitted.contains("from_absent"));
+        let records = quote!(#(#declarations)*).to_string();
+        assert!(records.contains("SignedRange") && records.contains("9u32"));
+        assert!(records.contains("Shape :: Alternatives"));
+    }
 }

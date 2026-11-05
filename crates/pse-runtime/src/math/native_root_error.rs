@@ -51,12 +51,8 @@ impl NativeRootWireError {
 pse_diagnostics::impl_diagnostic! {
     NativeRootWireError,
     code(this) {
-        let resource = match this {
-            Self::Encode(buffa::EncodeError::MessageTooLarge | buffa::EncodeError::ExceedsBudget { .. }) => true,
-            Self::Decode(buffa::DecodeError::MessageTooLarge | buffa::DecodeError::ElementMemoryLimitExceeded
-                | buffa::DecodeError::UnknownFieldLimitExceeded | buffa::DecodeError::RecursionLimitExceeded) => true,
-            _ => false,
-        };
+        let resource = matches!(this, Self::Encode(buffa::EncodeError::MessageTooLarge | buffa::EncodeError::ExceedsBudget { .. }))
+            || matches!(this, Self::Decode(error) if pse_contract_proto::support::decode_resource_refusal(error));
         Some(if resource { pse_diagnostics::DiagnosticCode::RuntimeResourceLimit } else { pse_diagnostics::DiagnosticCode::InternalInvariant })
     },
     forward(this) { match this { Self::Projection(error) => Some(error), _ => None } },
@@ -80,6 +76,32 @@ impl pse_model::diagnostic::DiagnosticProjection for NativeRootWireError {}
 mod tests {
     use super::*;
     use pse_model::diagnostic::{BoundaryClass, DiagnosticProjection as _};
+    #[test]
+    fn private_decode_backing_refusals_keep_original_resource_causes() {
+        for original in [
+            buffa::DecodeError::AllocationLimitExceeded,
+            buffa::DecodeError::AllocationLayoutOverflow,
+            buffa::DecodeError::AllocationReserveFailed,
+        ] {
+            let error = NativeRootWireError::Decode(original.clone()).into_runtime();
+            assert_eq!(
+                error
+                    .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
+                    .class,
+                BoundaryClass::ResourceLimit
+            );
+            let mut source: Option<&dyn std::error::Error> = Some(&error);
+            let mut found = false;
+            while let Some(current) = source {
+                found |= current
+                    .downcast_ref::<buffa::DecodeError>()
+                    .is_some_and(|cause| cause == &original);
+                source = current.source();
+            }
+            assert!(found, "original decode cause was lost");
+        }
+    }
+
     #[test]
     fn private_protocol_retains_original_codec_and_rule_causes_with_owning_classes() {
         let error = NativeRootWireError::Encode(buffa::EncodeError::ExceedsBudget {
