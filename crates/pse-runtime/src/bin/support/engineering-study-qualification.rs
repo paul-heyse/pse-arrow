@@ -6,7 +6,7 @@ use futures_util::FutureExt as _;
 pub(super) use pse_host::study_qualification::Args;
 use pse_host::{
     discovery::{BuildCapture, Executable},
-    envelope::{CliInvocationId, Completeness, Settlement},
+    envelope::{CliInvocationId, Completeness, Settlement, SubjectState},
     invocation::InvocationStore,
     managed::result::ManagedSummary,
     paths::CheckoutState,
@@ -52,15 +52,19 @@ impl std::error::Error for Failure {}
 #[derive(Debug)]
 struct NativeWaitFailure {
     invocation: CliInvocationId,
+    refusals: Vec<String>,
     failures: Vec<pse_host::envelope::ErrorRecord>,
 }
 impl std::fmt::Display for NativeWaitFailure {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             formatter,
-            "original native wait {} reported incomplete or failed settlement",
+            "original native wait {} refused cleanup",
             self.invocation
         )?;
+        for refusal in &self.refusals {
+            write!(formatter, "; {refusal}")?;
+        }
         for failure in &self.failures {
             write!(formatter, "; {}", failure.message)?;
         }
@@ -117,21 +121,38 @@ fn settled_original(
     observed: &pse_host::envelope::Envelope<serde_json::Value>,
     original: &pse_host::envelope::Envelope<ManagedSummary>,
 ) -> Result<(), Error> {
+    let mut refusals = Vec::new();
     if observed.payload.get("original_invocation") != Some(&serde_json::to_value(id)?)
         || original.invocation_id != *id
-        || observed.settlement != Settlement::Complete
-        || observed.observation.completeness != Completeness::Complete
-        || original.observation.completeness != Completeness::Complete
-        || original.payload.child_exit != Some(0)
-        || !observed.failures.is_empty()
     {
+        refusals.push("original invocation identity does not match".into());
+    }
+    if observed.settlement != Settlement::Complete {
+        refusals.push("current native drain is incomplete".into());
+    }
+    if observed.observation.completeness != Completeness::Complete {
+        refusals.push("current native observation is incomplete".into());
+    }
+    if original.observation.completeness != Completeness::Complete {
+        refusals.push("original native observation is incomplete".into());
+    }
+    match original.payload.child_exit {
+        None => refusals.push("original child exit was not observed".into()),
+        Some(exit) if exit != 0 && original.subject_state != SubjectState::Cancelled => {
+            refusals.push(format!("original action failed with child exit {exit}"));
+        }
+        Some(_) => {}
+    }
+    if !refusals.is_empty() || !observed.failures.is_empty() {
         return Err(Box::new(NativeWaitFailure {
             invocation: id.clone(),
+            refusals,
             failures: observed.failures.clone(),
         }));
     }
-    // The historical outcome may be Interrupted. Only this current native wait
-    // establishes drain; its original report/outcome is never rewritten.
+    // A typed cancelled original may have a nonzero child exit. Only this current
+    // native wait establishes drain; the original report/outcome is never rewritten.
+    // A successful phase still requires its original TestsSucceeded workflow report.
     Ok(())
 }
 
@@ -1549,12 +1570,63 @@ mod tests {
         );
         observed.settlement = Settlement::Complete;
         assert!(settled_original(&id, &observed, &original).is_ok());
-        observed.settlement = Settlement::Unknown;
-        assert!(settled_original(&id, &observed, &original).is_err());
-        observed.settlement = Settlement::Complete;
+        original.subject_state = SubjectState::Cancelled;
+        original.payload.child_exit = Some(137);
+        assert!(settled_original(&id, &observed, &original).is_ok());
         original.payload.child_exit = Some(3);
+        assert!(settled_original(&id, &observed, &original).is_ok());
+        original.payload.child_exit = Some(137);
+        for settlement in [Settlement::Unknown, Settlement::Incomplete] {
+            observed.settlement = settlement;
+            let error = settled_original(&id, &observed, &original).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("current native drain is incomplete")
+            );
+            assert!(!error.to_string().contains("original action failed"));
+        }
+        observed.settlement = Settlement::Complete;
+        for completeness in [Completeness::Partial, Completeness::Unknown] {
+            observed.observation.completeness = completeness;
+            let error = settled_original(&id, &observed, &original).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("current native observation is incomplete")
+            );
+        }
+        observed.observation.completeness = Completeness::Complete;
+        original.observation.completeness = Completeness::Partial;
         assert!(settled_original(&id, &observed, &original).is_err());
-        original.payload.child_exit = Some(0);
+        original.observation.completeness = Completeness::Complete;
+        original.payload.child_exit = None;
+        let error = settled_original(&id, &observed, &original).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("original child exit was not observed")
+        );
+        original.payload.child_exit = Some(137);
+        original.outcome = CommandOutcome::Failure;
+        for subject in [SubjectState::Failed, SubjectState::NotApplicable] {
+            original.subject_state = subject;
+            let error = settled_original(&id, &observed, &original).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("original action failed with child exit 137")
+            );
+            assert!(!error.to_string().contains("drain is incomplete"));
+        }
+        original.outcome = CommandOutcome::Interrupted;
+        original.subject_state = SubjectState::Cancelled;
+        observed.payload = serde_json::json!({"original_invocation":CliInvocationId::new()});
+        assert!(settled_original(&id, &observed, &original).is_err());
+        observed.payload = serde_json::json!({"original_invocation":id});
+        original.invocation_id = CliInvocationId::new();
+        assert!(settled_original(&id, &observed, &original).is_err());
+        original.invocation_id = id.clone();
         observed.failures.push(ErrorRecord::from_typed(
             &pse_host::HostError::Ownership("independent native release failed".into()),
             &RedactionPolicy::from_environment(),
@@ -1568,6 +1640,9 @@ mod tests {
                 .contains("independent native release failed")
         );
         assert_eq!(original.outcome, CommandOutcome::Interrupted);
+        assert_eq!(original.subject_state, SubjectState::Cancelled);
+        assert_eq!(original.payload.child_exit, Some(137));
+        assert_eq!(original.payload.native_lifetime_pending, Some(true));
         assert_eq!(original.settlement, Settlement::Unknown);
     }
 }
