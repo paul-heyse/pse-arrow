@@ -2994,6 +2994,77 @@ complete property/derivative validity,remainingmethod/state selections and
 independent numerical evidence. Source/AST dictionary inspection here didnot
 evaluate activityexpressions orqualify thepinned referenceenvironment.
 
+## Henry forms and noncondensable-water configuration closure — 2026-11-05
+
+**Interface-checked, source only:** C `modular_properties/phase_equil/
+henry.py`,its `tests/test_henry.py`,the Henry-validation branch in
+`base/generic_property.py`,and`examples/CO2_H2O_Ideal_VLE.py` withits matching
+test resolve twodistinct required roles:Henry-method/form support anda
+condenser property definition withCO2 excluded fromliquid. They arenot
+interchangeable dissolved-CO2 models.
+
+Henry forms areexactlyHcp=c/p,Kpc=p/c,Hxp=x/p,Kpx=p/x,withmolar concentration
+c,molefractionx andpressurep. Units arerespectivelymol/(m³ Pa),Pa m³/mol,
+Pa⁻¹ andPa. Pressure helperdivides concentrationbyH ormultipliesbyK;log helper
+uses correspondinglog concentration±log coefficient. Electrolyte inputs must
+explicitlyselecttrue orapparent concentrationbasis;nonelectrolyte usesnormal
+phasecomposition. A concentrationform's vapor/liquid equilibriumratio needs
+the liquid molardensity atthesame composition;one coefficient value cannot
+be reinterpreted asa molefractioncoefficient withoutthat density andunits.
+
+The genericbuilder validatesphase existence/liquidtype,method,type enum and,
+forelectrolytes,basis presence. With `phases_in_equilibrium` configured,it
+**refuses everyform exceptKpx**. The non-Kpx helper branches therefore do not
+establish fullphase-equilibrium support. MEA'strue-basis Kpc callback above
+isusedbyits separate single-liquid reactiveproperty/mass-transfer consumer;
+it isnot evidence forarbitrary Kpc fullVLE. CubicEOS Henry refusal remains
+independent ofthegeneric Kpx allowance. Invalidtype Dummy isatest refusal,
+not afifth scientificform. Customcoefficient methods remain source-specific
+callbacks,not afinite universal modelcatalog.
+
+`ConstantH` returns thephase'sconfigured `henry_ref` unchanged withzeroT
+derivative. Its constructiontest usesdummyH2O,Kpx=86 Pa,reference300 K/1e5 Pa.
+The four equilibriumratio helpertests instead usecoefficient7 intheform's
+ownunits,liquiddensity3 mol/m³,pressure5 Pa andliquidfraction .5,withdummy
+EOS. Expectedratios are3/35,21/5,1/35 and7/5 inHcp/Kpc/Hxp/Kpx order.
+These arbitrarysmall syntheticvalues checkunits/conversion,not scientific
+waterHenrydata oraphysical equilibrium solve. No temperaturelaw,dataset,
+trainer orexternal-functionEOS isselected bythese methodtests.
+
+The CO2–water definitionhasthree phase-component members:H2O inLiq/Vap and
+CO2 inVap only. BothphaseEOS areIdeal,FTPx,SmoothVLE/IdealBubbleDew with
+waterfugacity equality;noHenrylaw,finiteaqueous CO2 orelectrolyte speciation
+isselected. InlinewaterPerrys liquiddensity/Cp/enthalpy andNIST vapor
+Shomate/saturation,plusCO2 NIST vaporcaloric data,usethe298.15 K/101325 Pa
+reference. Waterliquid formationenthalpy is−285830 J/mol;vapors aredeclared0
+atthereference. Preserve thatdatum inheatduty comparison. Flowbounds0..20
+mol/s(initial10),T273.15..1000 K(initial323.15),P50000..1e7 Pa(initial108900)
+areconstructor limits,not validatedproperty envelopes. Sourcecited water
+density range273.16..333.15 K,liquidCp273.16..533.15 K,saturation255.9..373 K,
+vaporShomate500..1700 K,andCO2 Shomate298..1200 K differ;selectedlow-temperature
+vaporcaloric/saturation extrapolations needexplicitordinary permissions and
+comparison allowances ratherthanasingle combined boundsclaim.
+
+The isolatedstate point is10 mol/s,323.15 K/108900 Pa,H2O/CO2 .5/.5. Source
+targets liquidwater1,vaporwater .11501/vaporCO2 .88499 andvaporfraction .56498
+(absolute1e-4). Aseparate cooledflash hasfeed9.89433124673833 mol/s,
+396.79057912844183 K,183430 Pa,CO2/H2O .13805801934749645/.8619419806525035,
+deltaP0 andoutletT initially313.15 K;duty issolved. The sweeprequests50
+linearly spacedoutlet temperatures313..396 K inclusive,two50-entry target
+lists andthesamefeed. Vaporflow/feedfraction targetsrange .14388→1;duty
+targets−396276.55508→−275.30623 W. Everypoint checksoptimal termination,
+fractionabsolute1e-4 anddutyrelative1e-4;retain completephase/component/energy
+closure anddatum beyondthose selectedassertions. This isacooling/duty-design
+experiment,not anadiabatic outlet-temperature solve.
+
+The full source/CSV-free closure isinlineproperty coefficients,methods and
+50-point referenceoutput lists. Ordinarycoefficient provenance/envelope and
+theoracle comparisonroles remain separate. Native D02/D04 needraggedphase
+membership,waterproperty/datum,coolingfixed/free correspondence,Henry-form
+permissions andinvalid-combination refusals. Independentpinned-environment
+initialization/solve/derivative evidence remainsopen;AST listinspection
+confirmed targetlistsizes only andexecuted noEOS,Henry expression orsolver.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

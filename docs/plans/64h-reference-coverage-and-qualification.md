@@ -373,6 +373,14 @@ roles. Ordinary data admission,native charge/species/property acceptance,
 remaining configurations andindependent numerical execution remain required;
 expression assignments do notestablish a solved electrolyte process.
 
+**Update, 2026-11-05 — Henry/noncondensable property census:** the
+[form/condensation closure](64h-required-process-population.md#henry-forms-and-noncondensable-water-configuration-closure--2026-11-05)
+resolves fourHenry forms withfull-VLE Kpx-only admission,theactual synthetic
+conversion controls,andtheCO2-excluded-from-liquid waterdefinition withits
+50-point cooledflash sweep. Ordinary extrapolation/datum permissions,native
+form/phase mapping andindependent numerical qualification remainrequired;
+thecondenser case doesnot qualifydissolved CO2 science.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
