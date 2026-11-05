@@ -828,6 +828,31 @@ source-admission versus transferred-body equivalence and mutated layout, missing
 tokens, stale symbol/physical/provider context and original receipt/refusal controls before
 using this candidate to discharge F03.
 
+Further supplier inspection refines the possible checked-transfer prerequisite. An exact-rational
+profile alone cannot cover ordinary current recipes: `literal_admitted` uses `Atom::num(f64)`
+outside its small-integral case, and Symbolica 3.0.1 converts that to MPFR-backed Float coefficients.
+Preserve the original coefficient realization; converting these to rationals is not equivalent.
+The supplier Float representation retains precision plus radix-16 text for both components.
+Its later `SerializedFloat::to_float` reaches unchecked Numerica parsing, so a checked loader
+must validate that representation before publication, while avoiding unadmitted numeric
+materialization during inspection. Exact sources are the native
+[literal owner](../../crates/pse-math/src/typed.rs), Symbolica's
+[coefficient representation](../../vendor/symbolica/src/coefficient.rs) and
+[packed atom coefficient](../../vendor/symbolica/src/atom/coefficient.rs).
+
+The candidate next prerequisite is supplier-owned checked canonical transfer, covering the
+actual coefficient population, bounded layout/remapping and preadmitted simultaneous buffers.
+An authenticated original canonical producer and independently checked safe packing are distinct
+premises. Injective symbol remapping can disturb ordering; comparison can materialize coefficients,
+so neither ordinary rename/normalize nor an assumed allocation-free sort discharges the bound.
+Explicit unsupported/reorder-required refusal is preferable to an unbounded fallback. Existing
+`PreparedBody::compact` demonstrates structural construction without analysis, but intentionally
+drops optional views and token inventories; it is not a complete restore constructor.
+Supplier transfer and a private full-body restore therefore remain separate prerequisites.
+The authority investigation first examines the existing original parent/child channel and exact
+consumed receipt associations; no durable/untrusted artifact admission or binary Recipe activation
+is selected by these source findings. A new proposed decision must precede that authority change.
+
 The [Serde 1.0.229 `Serializer` contract](https://docs.rs/serde/1.0.229/serde/ser/trait.Serializer.html)
 allows a native summary as `Ok`; `SerializeSeq`, `SerializeMap`, `SerializeStruct` and their
 variant counterparts expose elements, entries and completion without requiring a value DOM.
@@ -863,6 +888,27 @@ Protocol/kernel/metadata changes follow the coordinator's proposed decision rout
 implementation. This plan is not ADR acceptance or current qualification. At closure report
 Implemented, named Tested and Measured conditions separately; migrate enduring meaning to
 the scientific architecture owners and retire completed planning through the repository route.
+
+### Live admitted-body delegation
+
+[Proposed ADR-0246](../adr/0246-live-admitted-body-delegation.md) concludes the bounded next-design
+investigation. The first consumer is the existing original private provider-free root child,
+whose live parent already owns the admitted body and independently screens the proposal.
+`compile_problem` consumes that body, bindings and numerical controls; full receipt/registry
+consumption belongs to source reconstruction. Retain complete original admission evidence with
+the parent and transfer the exact execution/diagnostic closure plus attempt-bound commitments.
+The child performs no source/receipt replay and gains no general scientific or publication
+authority. Canonical/durable replay retains ADR-0245's separate requirements.
+
+Supplier packing validation and complete native restoration must precede activation. Preserve
+Float realization and every guard, obligation, applicability/branch result and attribution
+inventory. Strictly increasing symbol IDs do not preserve canonical sums: mapping 256→511
+and 257→512 reverses the little-endian packed term ordering despite equal widths. Require
+supplier-established order preservation or bounded repair; source-order registration alone
+is insufficient. Subsequent support/derivative/evaluator preparation retains independent
+resource obligations. No supplier/native implementation or binary activation is claimed here.
+The current consolidation instruction ends this investigation at a reviewable proposed decision;
+implementation remains remaining E/F03 scope rather than work opened during qualification.
 
 ## Sources
 

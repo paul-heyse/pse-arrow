@@ -1727,6 +1727,13 @@ fingerprint does not independently attest native archive bytes. Child work owns 
 original-space screening and actual reap before charge release. It neither acquires canonical
 worker authority nor distributes one solve.
 
+> Proposed decision: [ADR-0246](../../adr/0246-live-admitted-body-delegation.md) replaces private
+> source reconstruction only after checked supplier/native transfer qualification. One original
+> authenticated child executes its parent's live admitted result under the same request, clock,
+> compatibility, screening and actual-reap custody. The parent retains original evidence; passive
+> decoding issues no transferable grant. Full prepared solves, providers, durable adoption and
+> complete child memory/RSS guarantees remain outside that target. Current execution is unchanged.
+
 Concurrent SCIP uses quiescent process exclusion for its selected process-static tinycthread
 TPI pool, held through `SCIPfree` and native joins. Before launch, a joined fresh-thread probe
 with a separately admitted explicit stack observes OpenMP/MKL defaults and domains. Nonserial

@@ -609,6 +609,14 @@ drain. Actual source-profile expansion, including scalar function formal counts,
 before allocation. Decoded DTOs grant no workspace or scientific authority. Plan65e retains
 the full activation obligations; current JSON qualification remains until replacement passes.
 
+> Proposed decision: [ADR-0246](../../adr/0246-live-admitted-body-delegation.md) selects a separate
+> private-child target: delegate one execution of the live parent's already admitted native body.
+> The parent retains complete original admission evidence through reap and original verification;
+> the child receives the checked execution/diagnostic closure and attempt-bound commitments.
+> This supplies no generic body, record-replay or publication authority and performs no source/
+> receipt replay. Supplier transfer/full restoration remain unimplemented; canonical replay and
+> current JSON v3 remain unchanged. Plan65e owns activation and resource obligations.
+
 > Decision: [ADR-0217](../../adr/0217-project-editing-and-historical-context.md) (proposed; Plan51b owns passive discovery implementation).
 
 Preparation discovery exposes bounded metadata from existing resident products and canonical

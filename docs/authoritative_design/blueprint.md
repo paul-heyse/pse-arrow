@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 353
+revision: 354
 date: 2026-11-04
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 354 | 2026-11-04 | Propose one-attempt execution delegation of a live admitted native body to its original private root child, retaining parent admission evidence and verification (§14.3/§18.8). | Proposed ADR-0246 before supplier/native changes. Checked packing/remapping, full restoration and receiving activation remain Plan65e obligations; JSON v3 and canonical replay remain active. |
 | 353 | 2026-11-04 | Include existing scientific-permission inputs in selected inspection hydration before its first read; preserve metadata-view behavior and permission decisions (§19.2). | Refine proposed ADR-0224/Plan65 F04 after discovering the permission reader; implementation and receiving acceptance remain open. Formal status unchanged. |
 | 352 | 2026-11-04 | Propose selected-root result-inspection hydration with explicit observational validation coverage, complete source/key/predicate protection and unchanged full native admission (§19.2/§21.1). | Proposed ADR-0224 amendment before Plan65 F04 implementation; exact Arrow/DataFusion/native interfaces assessed, production implementation and qualification remain with Plan65f. Formal status unchanged. |
 | 351 | 2026-11-04 | Propose exact-byte/same-native-root recipe qualification, DOM-free surviving structural membership V1 and phased receiving workspace admission (§5.3/§14.3). | Proposed ADR-0245 after independent Accept-scoped prerequisite assessment; existing JSON v3 stays authoritative until complete protobuf v4 implementation and targeted activation evidence. Formal acceptance and assembled qualification remain separate. |
