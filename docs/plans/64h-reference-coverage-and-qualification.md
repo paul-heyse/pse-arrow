@@ -669,6 +669,14 @@ and200-state/400-root derivative controls remain distinct from physical
 flashes. Original property data,phase availability/stability and independent
 full physical/derivative qualification remain required.
 
+**Update, 2026-11-05 — conduit/extension-boundary census:** the
+[pipe/scaler/skeleton closure](64h-required-process-population.md#generic-pipe-stream-scaling-and-skeleton-authoring-closure--2026-11-05)
+resolves the zero-transfer1D pipe,identity-only stream-scaler fixtures and
+unitless custom skeleton/default/callback roles. Distributed per-length
+terms,extensive/intensive authority and a callback's ineffective intermediate
+solve condition remain explicit. Ordinary closure data and complete
+nonidentity/physical/custom/dynamic qualification remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

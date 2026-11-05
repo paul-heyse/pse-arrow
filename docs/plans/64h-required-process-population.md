@@ -5687,6 +5687,34 @@ independent physical phase/flash/component qualification remain required.
 Only source/AST inspection and finite-grid arithmetic ran;no EOS,external
 root,phase-equilibrium or solver execution was performed.
 
+## Generic pipe, stream scaling and skeleton authoring closure — 2026-11-05
+
+**Interface-checked, source only:** C `models/unit_models/
+{pipe,stream_scaler,skeleton_model}.py` and `tests/
+{test_pipe,test_stream_scaler,test_skeleton_unit_model}.py` close three
+additional declaration/extension boundaries. Their only scientific/property
+inputs are inline fixtures and the previously identified saponification,
+legacy BT and IAPWS packages;no data file,trainer or snapshot is read.
+
+| Owner | Exact configurations and actual source selection |
+|---|---|
+| Pipe | Generic1D balance conduit,not a hydraulic friction model. Inherited dynamic/holdup;material/energy defaults use property policy,momentum pressureTotal;phase equilibrium/heat/pressure changeFalse. Default normalized domain[0,1],finite difference/BACKWARD,20 elements,3 collocation points. Explicit alternative balances/DAE transformations require their CV/property products and closure;heat/pressure flags introduce distributed unknown terms,not constitutive laws. Geometry volume=area×length. Native1D owner's current dynamic refusal is distinct from upstream CV accumulation selections. |
+| Pipe liquid fixture | Steady saponification **without reactions**,heat/pressure flagsTrue;flow1 m3/s(not .001),303.15 K,101325 Pa,concentrations water55388,NaOH100,ethyl acetate100,products1e-8 mol/m3. Length .5 m,area .1 m2,volume .05 m3,all distributed heat and pressure-change terms fixed0. Targets unchanged P/T/NaOH concentration,component flows and original enthalpy-flow conservation. Initializer variants supply inlet values unfixed,with product zeros instead of1e-8. They do not exercise residence-time kinetics,heat transfer or pressure loss. |
+| StreamScaler | Steady/no holdup only;one defined/no-phase-equilibrium property state,positive dimensionless multiplier initialized1. Outlet is expressions over inlet state,not a second independently closed property state. Actual source scales every port member whose **name contains `flow`**;other members pass through. This source naming heuristic must not become native scientific authority:authored extensive/intensive roles and units govern the native mapping. No mass/energy creation is authorized by an arbitrary multiplier;parallel-unit count/representation boundary needs explicit meaning. |
+| StreamScaler fixtures | All multiplier1:liquid saponification .001 m3/s,303.15 K/101325 Pa,55388/100/100/1e-8/1e-8;liquid-only BT5 mol/s,365 K/101325 Pa,.5/.5;IAPWS100 mol/s,h5000 J/mol/101325 Pa. These identity-scale checks do not exercise a nonunit multiplier,reverse inference from outlet,near-zero or invalid scaling,or a custom port whose extensive quantity lacks the `flow` spelling. |
+| SkeletonUnitModel | Process block with dynamic restrictedFalse,custom callable initializer selection and consumer-defined ports/variables/constraints. It adds no property package,balance,units,storage or constitutive science. Port member argument must be a dictionary;initialization requires zero DOF for both default/custom callbacks. Automatic inlet fixing uses `inlet` in port name,so differently named boundaries require explicit consumer handling. This is an extension mechanism,not an automatically physical unit. |
+| Skeleton fixture/default/custom | Two synthetic component-flow coordinates copied unchanged,temperature_out=temperature_in+10,pressure_out=pressure_in−10. Feed component values2/2,T325,P200→2/2,T335,P190,abs.001. Variables are **unitless**;do not assign physical K/Pa or claim energy conservation from names alone. Four unspecified inlet DOF cause explicit initializer refusal;fixed inputs permit default initialization and later solve. Modern default-initializer check supplies inlet values unfixed and restores those roles. Custom callback deactivates T/P equations,fixes temporary outlets325/200,then restores;its `degrees_of_freedom == 0` compares the function object rather than calling it,so its conditional intermediate solve does not run. The separate final solve supplies the output check. |
+
+Native D04/D05/E03 requires authored units,physical extensive/intensive
+mapping,actual transfer/storage/correlation closures,complete boundary and
+initialization fixed/free roles,zero-DOF/domain refusals and stable custom
+declaration semantics. Pipe distributed heat/pressure terms are per-length
+quantities,not total equipment duty/drop;their zero fixture does not test
+that distinction numerically. Original ordinary property/closure data,
+nonidentity scaler behavior and full independent physical/custom/dynamic/
+derivative qualification remain required. Only source/AST inspection ran;
+no unit or initializer executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
