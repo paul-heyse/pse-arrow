@@ -77,13 +77,14 @@ impl pse_model::diagnostic::DiagnosticProjection for ProbeResourceError {}
 
 #[cfg(test)]
 fn probe_error(error: buffa::DecodeError) -> pse_math::MathError {
-    if matches!(error,
+    if matches!(
+        error,
         buffa::DecodeError::AllocationLimitExceeded
-        | buffa::DecodeError::AllocationLayoutOverflow
-        | buffa::DecodeError::AllocationReserveFailed
-        | buffa::DecodeError::ElementMemoryLimitExceeded
-        | buffa::DecodeError::UnknownFieldLimitExceeded
-        | buffa::DecodeError::RecursionLimitExceeded
+            | buffa::DecodeError::AllocationLayoutOverflow
+            | buffa::DecodeError::AllocationReserveFailed
+            | buffa::DecodeError::ElementMemoryLimitExceeded
+            | buffa::DecodeError::UnknownFieldLimitExceeded
+            | buffa::DecodeError::RecursionLimitExceeded
     ) {
         let retained = size_of::<ProbeResourceError>();
         pse_math::MathError::Typed {
@@ -187,8 +188,8 @@ mod native_receiving {
         // adoption, membership, receipts and reconstruction still need original
         // workspace admission. Drop the probe before entering those phases.
         let backing = std::cell::Cell::new(allowance.probe.backing_bytes);
-        let probe = super::probe_recipe(&payload, allowance.probe, &backing)
-            .map_err(super::probe_error)?;
+        let probe =
+            super::probe_recipe(&payload, allowance.probe, &backing).map_err(super::probe_error)?;
         drop(probe);
         let view = buffa::DecodeOptions::new()
             .decode_view::<wire::__buffa::view::ScientificRecipeView<'_>>(&payload)
@@ -350,18 +351,30 @@ mod native_receiving {
             let mut budget = allowance(&recipe);
             budget.probe.backing_bytes = 0;
             // SAFETY: isolated compiler-issued fixture; no production origin is minted.
-            let error = unsafe { index_exact_recipe(
-                bytes.clone(), scope(&bytes), &recipe.spec, recipe.semantic_identity,
-                &cancel, budget,
-            ) }.err().unwrap();
+            let error = unsafe {
+                index_exact_recipe(
+                    bytes.clone(),
+                    scope(&bytes),
+                    &recipe.spec,
+                    recipe.semantic_identity,
+                    &cancel,
+                    budget,
+                )
+            }
+            .err()
+            .unwrap();
             let MathError::Typed { cause, .. } = error else {
                 panic!("decode resource refusal must remain typed")
             };
-            assert_eq!(cause.as_ref().diagnostic_code(),
-                Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit));
+            assert_eq!(
+                cause.as_ref().diagnostic_code(),
+                Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit)
+            );
             let original = cause.as_ref().source().unwrap();
-            assert!(matches!(original.downcast_ref::<buffa::DecodeError>(),
-                Some(buffa::DecodeError::AllocationLimitExceeded)));
+            assert!(matches!(
+                original.downcast_ref::<buffa::DecodeError>(),
+                Some(buffa::DecodeError::AllocationLimitExceeded)
+            ));
         }
         #[test]
         fn scientific_recipe_native_receivers_decode_index_and_consume_same_actual_root() {
@@ -796,8 +809,10 @@ mod tests {
         let unknown = Cell::new(generous.unknown_fields);
         let elements = Cell::new(generous.element_bytes);
         let ctx = buffa::DecodeContext::new(generous.depth, &unknown)
-            .with_element_memory(&elements).with_allocation_budget(&root_budget);
-        ctx.require_allocation_accounted(wire::ScientificRecipeLazyView::allocation_accounted()).unwrap();
+            .with_element_memory(&elements)
+            .with_allocation_budget(&root_budget);
+        ctx.require_allocation_accounted(wire::ScientificRecipeLazyView::allocation_accounted())
+            .unwrap();
         let root = wire::ScientificRecipeLazyView::decode_lazy_with_ctx(&bytes, ctx).unwrap();
         let root_requested = usize::MAX - root_budget.get();
         drop(root);
@@ -813,22 +828,29 @@ mod tests {
         use std::cell::Cell;
         let mut child = wire::ModelingResolvedSymbolIx::default();
         child.__buffa_unknown_fields.push(buffa::UnknownField {
-            number: 99, data: buffa::UnknownFieldData::Varint(1),
+            number: 99,
+            data: buffa::UnknownFieldData::Varint(1),
         });
         let bytes = wire::ScientificRecipe {
-            inputs: vec![child.clone(), child], ..Default::default()
-        }.encode_to_vec();
+            inputs: vec![child.clone(), child],
+            ..Default::default()
+        }
+        .encode_to_vec();
         let remaining = Cell::new(0);
         let mut limits = probe_limits(1024 * 1024);
         limits.unknown_fields = 2;
         super::probe_recipe(&bytes, limits, &remaining).unwrap();
         limits.unknown_fields = 1;
-        assert!(matches!(super::probe_recipe(&bytes, limits, &remaining),
-            Err(buffa::DecodeError::UnknownFieldLimitExceeded)));
+        assert!(matches!(
+            super::probe_recipe(&bytes, limits, &remaining),
+            Err(buffa::DecodeError::UnknownFieldLimitExceeded)
+        ));
         limits.unknown_fields = 2;
         limits.element_bytes = 2 * size_of::<&[u8]>() - 1;
-        assert!(matches!(super::probe_recipe(&bytes, limits, &remaining),
-            Err(buffa::DecodeError::ElementMemoryLimitExceeded)));
+        assert!(matches!(
+            super::probe_recipe(&bytes, limits, &remaining),
+            Err(buffa::DecodeError::ElementMemoryLimitExceeded)
+        ));
     }
 
     #[test]
@@ -844,7 +866,8 @@ mod tests {
         };
         bytes.extend(split.encode_to_vec());
         let remaining = Cell::new(0);
-        let probe = super::probe_recipe(&bytes, probe_limits(16 * 1024 * 1024), &remaining).unwrap();
+        let probe =
+            super::probe_recipe(&bytes, probe_limits(16 * 1024 * 1024), &remaining).unwrap();
         assert_eq!(probe.spec.fragments().len(), 2);
         assert_eq!(probe.to_owned_message().unwrap(), projected);
     }
@@ -857,7 +880,8 @@ mod tests {
         // Buffa emits a malformed deferred input occurrence without requiring a
         // second parser or a synthetic semantic schema in the probe.
         wire.__buffa_unknown_fields.push(buffa::UnknownField {
-            number: 6, data: buffa::UnknownFieldData::LengthDelimited(vec![0x80]),
+            number: 6,
+            data: buffa::UnknownFieldData::LengthDelimited(vec![0x80]),
         });
         let bytes = wire.encode_to_vec();
         assert!(wire::ScientificRecipeLazyView::decode_lazy(&bytes).is_ok());

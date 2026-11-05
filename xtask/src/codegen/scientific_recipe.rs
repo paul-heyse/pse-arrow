@@ -87,7 +87,8 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
                     "native_decode_probe"
                 } else {
                     "native_projection_adapter"
-                }.into(),
+                }
+                .into(),
                 source_path: Some(owner.source.into()),
                 source_symbol: Some(owner.rust_type.into()),
                 source_role: "typed_owner".into(),
@@ -96,7 +97,8 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
                     "crates/pse-codegen/src/codegen/boundary_projection/lazy_probe.rs"
                 } else {
                     "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs"
-                }.into(),
+                }
+                .into(),
                 generator_symbol: symbol.into(),
                 output_path: destination.join(name).to_string_lossy().into_owned(),
                 direction: Some(owner.direction.as_str().into()),
@@ -202,7 +204,11 @@ mod tests {
                 .count(),
             1
         );
-        for name in ["native-adapters.rs", "native-view-adapters.rs", "lazy-decode-probe.rs"] {
+        for name in [
+            "native-adapters.rs",
+            "native-view-adapters.rs",
+            "lazy-decode-probe.rs",
+        ] {
             assert!(tree.relationships.iter().any(|relationship| {
                 relationship.declaration_key == "ScientificRecipe"
                     && relationship.output_path == destination.join(name).to_string_lossy()

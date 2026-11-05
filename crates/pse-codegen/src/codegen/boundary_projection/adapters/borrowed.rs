@@ -286,8 +286,14 @@ struct Borrowed<'a, 'b> {
 impl Borrowed<'_, '_> {
     fn view(&self, path: &[String], lifetime: &str) -> Result<String, ProjectionCodegenError> {
         let fqn = format!(".{}.{}", self.package, path.join("."));
-        super::super::local_view_path(self.source.naming, self.package,
-            self.source.wire_root, &fqn, "View", lifetime)
+        super::super::local_view_path(
+            self.source.naming,
+            self.package,
+            self.source.wire_root,
+            &fqn,
+            "View",
+            lifetime,
+        )
     }
     fn guard(&self, value: &str, path: &str) -> String {
         format!("unknown_fields_view(&{value}.__buffa_unknown_fields,{path})?;")
