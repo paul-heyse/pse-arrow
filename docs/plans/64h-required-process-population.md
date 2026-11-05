@@ -1426,6 +1426,128 @@ and resolved the seven/five integrated heater selections without model imports
 or reference execution. Upstream skip guards do not waive required prerequisites
 in the local fail-on-missing reference route.
 
+## SOC replication inputs, variants and cache roles — 2026-11-05
+
+**Interface-checked, source only:** C's
+`power_generation/unit_models/soc_submodels/tests/test_herring_replication{,_thin,_interconnect,_heat_loss}.py`
+provides a concrete electrochemical benchmark population. The recursive model
+closure is `solid_oxide_cell.py`, `solid_oxide_module_simple.py`, channel,
+porous/conductive slab, contact resistor, triple-phase boundary and `common.py`.
+Stacks additionally use explicit **ideal** natural-gas property configurations
+for H2/H2O/N2 and O2/N2; importing `natural_gas_PR.get_prop` does not select PR
+in these cases. IAPWS95 saturation functions convert measured dew points into
+steam feed fractions, so the water external-function/artifact closure remains
+required even for an otherwise gas-only cell benchmark.
+
+The actual input CSV `tests/data_cache/herring-et-al-data.csv` has five rows:
+
+| Case | N2/H2 standard cm³/min for ten cells | Dew point/inlet °C | Maximum stack voltage |
+|---|---|---|---|
+| 1 | 1011/205 | 48.5/800 | 12.5 V |
+| 2 | 2017/411 | 70.4/800 | 13 V |
+| 3 | 1017/410 | 83.8/800 | 16 V |
+| 4 | 2018/411 | 82.9/800 | 16 V |
+| 5 | 2018/411 | 83.2/830 | 16 V |
+
+Every case uses85910 Pa, ten cells, and oxygen feed3500 standard cm³/min for
+the stack at .21 O2/.79 N2. Source standard-volume conversion uses101300 Pa,
+273.15 K and R8.31; do not substitute another standard condition. Fuel H2O
+fraction is saturation pressure at the measured dew point divided by85910 Pa;
+the measured dry N2/H2 flows then determine wet total flow and fractions.
+Single-cell flow is one tenth of the stack flow. The first voltage is computed
+from the source enthalpy/entropy Nernst expression (F96485,R8.31,reference
+pressure101300 Pa); each case then solves11 evenly spaced cell voltages through
+0.9×maximum-stack-voltage/10. This is five configured feeds ×11 actual voltage
+points per replication variant, not an unbounded parameter catalog.
+
+| Variant/source role | Actual physical/numerical selection and expected-data source |
+|---|---|
+| Base replication | Steady cell, cocurrent,10 axial finite volumes from11 uniform faces; one through-thickness volume per resolved fuel electrode, oxygen electrode and electrolyte. Solid holdup constructed (`has_holdup=True`) but parent dynamic=False and gas holdup defaultsFalse. Temperature variation across thickness and all four contact resistances included; no interconnect flux. Reads `case_1.csv`…`case_5.csv`. |
+| `_thin` replication | Same feeds/axial mesh, both electrodes replaced by thin resistance elements, no electrode x-grids. Resolved electrolyte remains. Fuel/oxygen electrode area resistance is the corresponding base resistivity×23/21 µm thickness, with contact fraction1 and thermal exponent0. Electrode diffusion, thermal mass and spatial resolution are not established by a matching electrical resistance. Reads `case_1_thin.csv`…`case_5_thin.csv`. |
+| `_interconnect` replication | Resolved electrodes/electrolyte, no holdup, adds periodic interconnect flux and one through-thickness interconnect volume. Reads `case_1_interconnect.csv`…`case_5_interconnect.csv`. |
+| `_heat_loss` replication | Same interconnect configuration with a heat-loss port, but fixture fixes total heat loss to zero. It actually reads the **interconnect** cache files. `case_1_heat_loss.csv`…`case_5_heat_loss.csv` are shipped but not consumed by these replication functions. Do not infer a nonzero-loss sweep from their filenames. |
+| Custom voltage-drop extension | Interconnect configuration with six extra drops (fuel/oxygen electrodes, electrolyte, interconnect and both reaction boundaries), all fixed zero. Repeats the55-point sweep against the interconnect caches. This checks the zero extension, not a degradation law or nonzero drop response. |
+| Exchange-current modifier extension | Heat-loss-port configuration, total heat loss zero, both reaction-boundary logarithmic exchange-current modifiers fixed zero. Repeats the55 points against the interconnect caches. This does not qualify a nonzero modifier/degradation law. |
+
+Across these six declared regression entry points there are330 source solve
+requests; zero extensions/zero heat loss deliberately repeat baseline science.
+This count describes only this bounded replication population, not independent
+scientific experiments or all SOC configurations. All four original replication
+functions have identical ASTs: actual differences enter through model/parameter
+configuration and selected cache. Each run uses Ipopt, user scaling,tol1e-6,
+max_iter100 and checks optimal/status-ok plus `model_check` at every voltage.
+
+Shared fixed cell geometry is .08×.08 m active plane,1.09e-3 m fuel/oxygen
+channels and100 W/(m²·K) channel heat-transfer coefficients. Fuel electrode
+thickness23 µm, porosity .37,tortuosity3, solid heat capacity450 J/(kg·K),
+density3210 kg/m³,conductivity2.16 W/(m·K),resistivity8.856e-6 Ω·m with
+zero thermal exponent; oxygen electrode21 µm,.37,3,430,3030,2.16 and
+1.425e-4 Ω·m respectively. Electrolyte thickness140 µm,heat capacity470,
+density5160,conductivity2.16,resistivity pre-exponential1.07e-4 Ω·m and
+temperature exponent dividend7237 K. Included interconnect is460 µm,630,
+7700,25 and1.2e-6 Ω·m with zero thermal exponent. Contact pre-exponentials
+are .55e-4 at the two electrode/mesh interfaces and .15e-4 at the two
+mesh/interconnect interfaces, with fraction1 and zero thermal exponent.
+Fuel/oxygen reaction-boundary exchange-current pre-exponentials5.5e8/7e8,
+activation energies100/110 kJ/mol, both charge-transfer coefficients1, and
+composition powers H2 .5,H2O .1/O2 .5 are fixed, not trained by these tests.
+Stoichiometry includes gas species, vacancy, oxide ion and electrons; preserve
+its per-electron convention and the negative-current electrolysis sign.
+`common.py` owns inline gas caloric/entropy, elemental and collision/diffusion
+tables; its15 admitted gas species are not15 experimentally exercised feeds.
+
+There are20 cached case CSVs, each11 rows with14 physical/report columns plus
+index: voltage, average current density/axial temperature, and fuel/oxygen
+outlet flows,temperatures,pressures and compositions. They are outputs of the
+upstream model, compared at relative tolerance .003; they are **regression
+oracles**, not independent measurements or ordinary coefficient data.
+`sweep_5_kazempoor_replication.csv` is a separate44-point, headerless
+current-density/voltage curve from a literature-model replication. Only case5
+compares interpolated curve current against minus modeled current, with3%
+relative/50 A/m² absolute allowance. It is distinct from both the five operating
+rows and the cached cell results. The selected cocurrent, zero-loss model does
+not reproduce a crossflow furnace experiment without model discrepancy; the
+Herring/Kazempoor scientific attributions in the pinned tests and explicit allowances retain that
+boundary. No trainer, saved initialization, ROM or external CFD executable is
+loaded by these replication tests. Ordinary calibration/provenance and test-data
+independence still need their own admission.
+
+Initialization supplies a separate fixed benchmark at1.288 V,1103.15 K,
+85910 Pa,fuel .000484863 mol/s per cell with H2 .0630491/H2O .6273812/
+N2 .3095697, and the same oxygen feed above. Each of the four variants has
+single-cell and10-cell-module initialization roles; module fuel flow is
+.00484863 mol/s. These check spatial current and outlet states, then release
+11 input degrees of freedom and verify initializer preservation. Heat-loss
+tests separately fix1.5 W/cell or15 W/10-cell module and check the changed
+current/compositions/outlet temperatures using `ipopt_v2` with scaled writing.
+Those are the nonzero heat-loss cases, not a hidden55-point loss sweep.
+
+The cell declarations additionally expose independent thin/resolved electrolyte
+and, when selected, interconnect choices; contact on/off; co/counterflow;
+gas/solid holdup; custom voltage and exchange-current modifiers. Source refusals
+exclude gas holdup without other holdup, heat loss without interconnect flux,
+crossflow, thickness grids supplied for thin regions, nonzero/nonunit mesh
+endpoints or non-increasing grids, and `include_temperature_x_thermo=False`.
+Module/cell heat-loss configuration must agree. These constraints bound
+admissible configurations without treating the Boolean Cartesian product as
+qualified science. `test_solid_oxide_cell.py` adds six steady structural
+fixtures: counterflow/contact/holdup; cocurrent/no-contact/no-holdup; each with
+interconnect; and no-contact interconnect heat-loss or exchange-current ports.
+Their axial/electrode/electrolyte/interconnect meshes and species differ from
+the replication benchmark; these build/unit checks are not solved voltage
+curves. Remaining submodel thermal/material-boundary, gas-holdup/dynamic,
+SOEC-design and X controller/operating-table/saved-initialization populations
+remain required and unresolved here.
+
+No native matched SOC declaration/case was found in bounded process/reference
+inspection. E03/F05/G05 still require ordinary electrochemical/transport data,
+physical domain and charge/element/energy closure, native layer/port/work sign,
+state/pool correspondence and independent numerical evidence. Ephemeral
+AST/CSV checks confirmed the five×eleven sweep constants, identical sweep
+functions, actual cache readers,20×11 cached rows and44 literature-curve
+points. No model import, reference solve, measured result or compatibility
+claim follows from those source checks.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

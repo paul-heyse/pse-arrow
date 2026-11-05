@@ -217,6 +217,17 @@ full plant closure, ordinary data, native wet-state/level/inventory physics and
 independent execution remain open. No dynamic capability is inferred from a test
 name or a dynamic parent alone.
 
+**Update, 2026-11-05 — SOC replication input/cache closure:** the
+[electrochemical census](64h-required-process-population.md#soc-replication-inputs-variants-and-cache-roles--2026-11-05)
+separates five operating inputs, a44-point literature-model curve and20×11
+upstream cached result rows. It resolves six55-point regression variants,
+zero-extension distinctions, single-cell/10-cell initialization and actual
+nonzero heat-loss cases, together with property/helper dependencies and
+configuration refusals. Heat-loss replication reads interconnect caches with
+heat loss fixed zero; no nonzero sweep or independent experimental acceptance
+is inferred. Full submodel/dynamic/SOEC/controller closure, ordinary data,
+native correspondence and independent execution remain open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
