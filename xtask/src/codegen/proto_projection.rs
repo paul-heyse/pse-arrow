@@ -203,10 +203,10 @@ fn plugin_response(
         bail!("{name}: {}", String::from_utf8_lossy(&output.stderr));
     }
     let response = CodeGeneratorResponse::decode_from_slice(&output.stdout)?;
-    if let Some(error) = &response.error {
-        if !error.is_empty() {
-            bail!("{name}: {error}");
-        }
+    if let Some(error) = &response.error
+        && !error.is_empty()
+    {
+        bail!("{name}: {error}");
     }
     Ok(response)
 }

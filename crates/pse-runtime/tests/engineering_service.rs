@@ -221,7 +221,7 @@ async fn prepared_engineering_connector_refuses_stale_and_replaced_original_payl
 #[cfg(feature = "solver-kinsol")]
 #[tokio::test(flavor = "multi_thread")]
 async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect() {
-    use pb::source_file_change::{Alternative1, Alternative2, Alternative3, Kind};
+    use pb::source_file_change::{Alternative1, Alternative2, Kind};
     use sha2::Digest as _;
     let selected_endpoint = endpoint();
     let mut client = EngineeringClient::connect(selected_endpoint.clone())
@@ -421,7 +421,7 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         &inspected_edit_operation,
         &inspected_edit.local_revision,
         "models/retained.pse",
-        Kind::Remove(Box::new(Alternative3::default())),
+        Kind::Remove(Box::default()),
     )
     .await;
     let inspected = client

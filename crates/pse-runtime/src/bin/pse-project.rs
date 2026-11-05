@@ -28,14 +28,14 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     #[cfg(feature = "product-operators")]
-    Project(project_tools::ProjectArgs),
+    Project(Box<project_tools::ProjectArgs>),
     /// Read one bounded versioned passive observation request from stdin.
     Observe,
 }
 fn main() -> std::process::ExitCode {
     let result: Result<i32, Box<dyn std::error::Error + Send + Sync>> = match Cli::parse().command {
         #[cfg(feature = "product-operators")]
-        Command::Project(args) => project_tools::run(args).map(|()| 0),
+        Command::Project(args) => project_tools::run(*args).map(|()| 0),
         Command::Observe => {
             pse_runtime::tooling::reader::serve(std::io::stdin().lock(), std::io::stdout().lock())
                 .map_err(Into::into)

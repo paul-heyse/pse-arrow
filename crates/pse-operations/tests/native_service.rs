@@ -37,8 +37,11 @@ fn fixture_spec() -> Result<NativeServiceSpec, NativeServiceError> {
     Ok(NativeServiceSpec {
         server,
         helper: PathBuf::from(
-            std::env::var_os("CARGO_BIN_EXE_pse-canonical-service")
-                .expect("Cargo/nextest supplies the selected runtime service executable"),
+            std::env::var_os("CARGO_BIN_EXE_pse-canonical-service").ok_or(
+                NativeServiceError::Refused(
+                    "Cargo/nextest must supply the selected runtime service executable",
+                ),
+            )?,
         ),
         module_source,
         state_parent: std::env::temp_dir(),
@@ -661,51 +664,56 @@ async fn native_service_original_v2_target_and_old_module_resume_after_restart()
 }
 
 #[tokio::test]
-async fn native_service_retained_v2_old_module_upgrades_to_explicit_prepared_target() {
-    retained_old_module_upgrade(false).await;
+async fn native_service_retained_v2_old_module_upgrades_to_explicit_prepared_target()
+-> Result<(), NativeServiceError> {
+    retained_old_module_upgrade(false).await
 }
 
 #[tokio::test]
-async fn native_service_retained_v3_old_module_upgrades_to_explicit_prepared_target() {
-    retained_old_module_upgrade(true).await;
+async fn native_service_retained_v3_old_module_upgrades_to_explicit_prepared_target()
+-> Result<(), NativeServiceError> {
+    retained_old_module_upgrade(true).await
 }
 
-async fn retained_old_module_upgrade(schema_v3: bool) {
-    let mut spec = fixture_spec().unwrap();
-    spec.module_source = predecessor_module().unwrap();
+async fn retained_old_module_upgrade(schema_v3: bool) -> Result<(), NativeServiceError> {
+    let mut spec = fixture_spec()?;
+    spec.module_source = predecessor_module()?;
     let target = if let Some(record) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
-        NativeModuleSource::Prepared(
-            pse_host::study_module::select(
-                &PathBuf::from(record),
-                pse_host::study_module::Variant::Production,
-            )
-            .unwrap(),
-        )
+        NativeModuleSource::Prepared(pse_host::study_module::select(
+            &PathBuf::from(record),
+            pse_host::study_module::Variant::Production,
+        )?)
     } else {
         NativeModuleSource::RecordedState(PathBuf::from(
-            std::env::var_os("PSE_NATIVE_FIXTURE_TARGET_MODULE_STATE")
-                .expect("explicit new module source state required"),
+            std::env::var_os("PSE_NATIVE_FIXTURE_TARGET_MODULE_STATE").ok_or(
+                NativeServiceError::Refused("explicit new module source state required"),
+            )?,
         ))
     };
     let mut service = if schema_v3 {
-        NativeCanonicalService::new_v3_upgrade_fixture(spec, target).unwrap()
+        NativeCanonicalService::new_v3_upgrade_fixture(spec, target)?
     } else {
-        NativeCanonicalService::new_v2_upgrade_fixture(spec, target).unwrap()
+        NativeCanonicalService::new_v2_upgrade_fixture(spec, target)?
     };
     let state = service.state().to_path_buf();
     let configuration: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(state.join("config.json")).unwrap()).unwrap();
+        serde_json::from_slice(&std::fs::read(state.join("config.json"))?)
+            .map_err(std::io::Error::other)?;
     let old_hash = configuration["study_module"]["sha256"]
         .as_str()
-        .unwrap()
+        .ok_or(NativeServiceError::Refused(
+            "original module hash absent from fixture configuration",
+        ))?
         .to_owned();
     let target_hash = configuration["schema_migration_target"]["sha256"]
         .as_str()
-        .unwrap()
+        .ok_or(NativeServiceError::Refused(
+            "migration target module hash absent from fixture configuration",
+        ))?
         .to_owned();
     assert_ne!(old_hash, target_hash);
-    let credentials = std::fs::read(state.join("credentials.json")).unwrap();
-    let original_receipt = std::fs::read(state.join("original-module-receipt.json")).unwrap();
+    let credentials = std::fs::read(state.join("credentials.json"))?;
+    let original_receipt = std::fs::read(state.join("original-module-receipt.json"))?;
     eprintln!(
         "native module-upgrade fixture state={} original_service={} old_module={old_hash} target_module={target_hash}",
         state.display(),
@@ -723,14 +731,13 @@ async fn retained_old_module_upgrade(schema_v3: bool) {
                 Ok(request)
             })
         })
-        .await
-        .unwrap();
-    let recorded = serde_json::to_vec(&request).unwrap();
-    let old = serde_json::to_value(&request).unwrap();
+        .await?;
+    let recorded = serde_json::to_vec(&request).map_err(std::io::Error::other)?;
+    let old = serde_json::to_value(&request).map_err(std::io::Error::other)?;
     assert_eq!(old["predecessor"]["study_module_sha256"], old_hash);
     assert_eq!(old["target_module"]["receipt"]["sha256"], target_hash);
-    let stopped = service.try_into_stopped().unwrap();
-    let mut service = stopped.reopen().unwrap();
+    let stopped = service.try_into_stopped().map_err(std::io::Error::other)?;
+    let mut service = stopped.reopen().map_err(std::io::Error::other)?;
     eprintln!(
         "native module-upgrade fixture state={} reopened_service={}",
         state.display(),
@@ -744,7 +751,8 @@ async fn retained_old_module_upgrade(schema_v3: bool) {
                     .await?;
                 let maintenance = service.maintenance().await?;
                 assert_eq!(
-                    serde_json::to_value(maintenance.inspect().await?.predecessor).unwrap(),
+                    serde_json::to_value(maintenance.inspect().await?.predecessor)
+                        .map_err(std::io::Error::other)?,
                     old["predecessor"]
                 );
                 let pending = maintenance.begin(request.clone()).await?;
@@ -755,7 +763,10 @@ async fn retained_old_module_upgrade(schema_v3: bool) {
                     )
                     .await?;
                 let receipt = closed.apply_receipt().await?;
-                assert_eq!(serde_json::to_vec(receipt.request()).unwrap(), recorded);
+                assert_eq!(
+                    serde_json::to_vec(receipt.request()).map_err(std::io::Error::other)?,
+                    recorded
+                );
                 // Publication is explicitly separate from the committed database activation.
                 assert!(
                     CanonicalStore::connect_ready(&CanonicalOptions::from_state(service.state())?)
@@ -764,24 +775,37 @@ async fn retained_old_module_upgrade(schema_v3: bool) {
                 );
                 service.promote_activated_module(&receipt)?;
                 // Recover selection from the original durable receipt after discarding local success.
-                let recovered = maintenance.reconcile_receipt(&request).await?.unwrap();
+                let recovered = maintenance.reconcile_receipt(&request).await?.ok_or(
+                    NativeServiceError::Refused(
+                        "original module activation receipt absent during publication recovery",
+                    ),
+                )?;
                 service.promote_activated_module(&recovered)?;
                 let ready = service.connect().await?;
                 assert_eq!(
                     ready.fence().version(),
                     pse_schema::catalog::substrate::SCHEMA_VERSION
                 );
-                let marker =
-                    serde_json::to_value(maintenance.inspect().await?.predecessor).unwrap();
+                let marker = serde_json::to_value(maintenance.inspect().await?.predecessor)
+                    .map_err(std::io::Error::other)?;
                 assert_eq!(marker["study_module_sha256"], target_hash);
                 for field in ["issuing_store", "payload_incarnation", "interpretation"] {
                     assert_eq!(marker[field], old["predecessor"][field]);
                 }
                 assert_eq!(
                     marker["study_module_sha256"],
-                    receipt.target_module().unwrap().sha256()
+                    receipt
+                        .target_module()
+                        .ok_or(NativeServiceError::Refused(
+                            "original activation receipt has no prepared target module"
+                        ),)?
+                        .sha256()
                 );
-                let reconciled = maintenance.reconcile_receipt(&request).await?.unwrap();
+                let reconciled = maintenance.reconcile_receipt(&request).await?.ok_or(
+                    NativeServiceError::Refused(
+                        "original module activation receipt absent during final reconciliation",
+                    ),
+                )?;
                 assert_eq!(reconciled.request(), &request);
                 ready.store().canonical_run("native-fixture-probe").await?;
                 ready
@@ -794,18 +818,15 @@ async fn retained_old_module_upgrade(schema_v3: bool) {
                 Ok(())
             })
         })
-        .await
-        .unwrap();
+        .await?;
+    assert_eq!(std::fs::read(state.join("credentials.json"))?, credentials);
     assert_eq!(
-        std::fs::read(state.join("credentials.json")).unwrap(),
-        credentials
-    );
-    assert_eq!(
-        std::fs::read(state.join("original-module-receipt.json")).unwrap(),
+        std::fs::read(state.join("original-module-receipt.json"))?,
         original_receipt
     );
-    service.dispose().unwrap();
+    service.dispose()?;
     assert!(!state.exists());
+    Ok(())
 }
 
 #[cfg(feature = "test-support")]

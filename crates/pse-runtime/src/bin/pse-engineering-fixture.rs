@@ -308,15 +308,14 @@ async fn run(args: Args) -> Result<(), Error> {
         .as_deref()
         .map(worker_allocation)
         .transpose()?;
-    if let Some(finish) = &args.finish_request {
-        if !finish.is_absolute()
+    if let Some(finish) = &args.finish_request
+        && (!finish.is_absolute()
             || finish.try_exists()?
             || args.study_worker_start.as_ref() == Some(finish)
             || args.study_worker_started.as_ref() == Some(finish)
-            || &args.ready == finish
-        {
-            return Err("keeper finish request requires a fresh distinct absolute path".into());
-        }
+            || &args.ready == finish)
+    {
+        return Err("keeper finish request requires a fresh distinct absolute path".into());
     }
     for request in [&args.drain_request, &args.drained].into_iter().flatten() {
         if !request.is_absolute()
@@ -421,10 +420,10 @@ async fn run(args: Args) -> Result<(), Error> {
     // Every independent teardown is attempted even after launch ambiguity, body
     // failure or panic. The frontend never receives this performing worker owner.
     let mut failures: Vec<Error> = Vec::new();
-    if let Some(worker) = &mut worker {
-        if let Err(error) = worker.shutdown(terminal).await {
-            failures.push(Box::new(error));
-        }
+    if let Some(worker) = &mut worker
+        && let Err(error) = worker.shutdown(terminal).await
+    {
+        failures.push(Box::new(error));
     }
     if let Err(error) = service.shutdown(terminal).await {
         failures.push(Box::new(error));
@@ -501,10 +500,10 @@ async fn run(args: Args) -> Result<(), Error> {
         &mut failures,
         || {
             let mut causes: Vec<Error> = Vec::new();
-            if let Some(worker) = &mut worker {
-                if let Err(error) = worker.dispose() {
-                    causes.push(Box::new(error));
-                }
+            if let Some(worker) = &mut worker
+                && let Err(error) = worker.dispose()
+            {
+                causes.push(Box::new(error));
             }
             if let Err(error) = service.dispose() {
                 causes.push(Box::new(error));
