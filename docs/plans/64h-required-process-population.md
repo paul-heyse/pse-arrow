@@ -5561,6 +5561,69 @@ source/cost/parameter provenance and independent statistical/conservation/
 feasibility/derivative products remain required G02/H01 work. Only source,
 CSV and gzip/JSON inspection ran;no reconciliation or fitting executed.
 
+## Reaction-method coordinates and precipitation controls — 2026-11-05
+
+**Interface-checked, source only:** C `modular_properties/reactions/
+{rate_constant,rate_forms,dh_rxn,equilibrium_constant,equilibrium_forms}.py`,
+their tests,`test_solubility_product_verification.py` and generic reaction/
+concentration utilities resolve method selectors and a finite precipitation
+consumer. These supplement the actual reactor/kinetic cases above;dummy
+method fixtures are not additional identified physical chemistry. No file,
+trainer or external dataset is consumed by these methods/tests.
+
+| Method selection | Admissible coordinates,parameters and actual source control |
+|---|---|
+| Arrhenius/power-law rate | Reaction basis mass/molar;concentration form mole fraction,mass fraction,activity,molarity,molality or partial pressure. Missing concentration selection is explicitly refused;unknown reaction basis/form does not silently default. Prefactor units depend on flow basis and total reaction order;activation energy remains molar energy even for mass-basis rate. Default orders are minus reactant stoichiometry,products0;explicit order maps override and omitted map members become0. Rate includes no automatic reverse/equilibrium factor. |
+| Constant reaction enthalpy | Supplied reference heat,returned temperature independent;energy per mol or per mass follows reaction basis. Dummy control supplies rate heat1 and equilibrium heat10 J/mol. Formation/reference consistency with participating property packages remains independent ordinary-data work;the heat selector does not reconcile their datums. |
+| Constant/van't Hoff equilibrium constant | Same six concentration selectors;fraction/activity forms dimensionless,others carry concentration units raised to net order. Constant uses reference K;van't Hoff adds referenceT and reaction heat. Direct exponential/log-equation representations differ in state/initialization roles. Missing form is refused;inherent electrolyte reactions use true-species phase membership. |
+| Gibbs equilibrium constant | Only mole fraction or activity and **constant reaction enthalpy** are accepted. Molarity,molality,partial pressure,mass fraction and nonconstant heat are not general supported combinations. Uses reference reaction entropy/enthalpy;referenceT is declared but the current log expression evaluates those constant values with actualT. It is distinct from a GibbsReactor's element-potential minimization mechanism. |
+| Power/log equilibrium forms | Default order uses signed stoichiometry for nonsolids and0 for solids;explicit maps may replace it. Product form equates K to concentration product;log form sums selected log terms. The source constructs participating terms based on nonzero initial order values;changing a previously omitted order later cannot be assumed to create a new term. All-zero orders,zero/negative concentrations,negative/fractional orders and missing log-property products need explicit completeness/domain controls. |
+| Product/log solubility forms | Require at least one stoichiometrically participating solid component;otherwise explicit refusal. Add smoothed precipitation complementarity using sum of participating solid molar flows,normalized by that flow plus s_norm. Default eps1e-4,s_norm1e-4 or available reference K,s_scale1(product)/10(log). Product form removes units from saturation gap and solid flow;log form uses logK/log concentrations. This numeric normalization/smoothing convention must be declared;it is not an exact complementarity or a phase-activity model. |
+
+The Arrhenius dummy p1/c1→2 p1/c2 tests use prefactor1,activation500
+J/mol,T300 K,target .81836(rel.001). Four tested forms(mole fraction,
+molarity,molality,partial pressure),each direct and converted units,give8
+controls;mass-fraction/activity and mass-rate basis are declared method
+options with separate unexercised requirements. Conversions use .5 kJ/mol
+and prefactors .001 kmol/(m3 s),3600/hour,1000 g/(m3 s),or .001
+kmol/(m3 s Pa),respectively. They are equivalent-unit controls,not8
+different kinetic mechanisms.
+
+Constant-K tests have7 controls across these four concentration forms;
+van't Hoff has8 direct/converted controls,K_ref1,T_ref500 K(900 Rankine),
+dummy heat1 J/mol and actual300 K. Gibbs dummy entropy1 J/(mol K),
+heat2 J/mol uses the same500/300 K reference/actual coordinates. Their
+asserted returned K≈1 can come from the **initialized logK=0** variable;
+they also inspect the defining equation. That does not establish solved
+thermochemical temperature dependence or a physically calibrated equilibrium
+dataset. Rate/power/log/solubility order tests use synthetic p1/p2,c1/c2
+membership,default versus explicit orders[1,2,3,4] and missing-solid
+refusals;no native chemical identity follows from those dummy names.
+
+The precipitation consumer selects FpcTP,IDEAL liquid H2O/Na+/Cl− and
+solid NaCl,constant mole-fraction Ksp .008235,stoichiometry one solid
+formula unit→one Na+ and one Cl−. State bounds flow0..1000 mol/s,
+T273.15..450 K,P50000..1e6 Pa,reference300 K/1e5 Pa.
+Component enthalpy is a dummy function of temperature;unit energy balance
+is omitted,outletT fixed298.15 K,inletP101325 Pa. This is an ideal
+salt-disappearance/complementarity check,not electrolyte activity,
+electroneutrality,solubility-versus-T or dissolution-energy validation.
+
+| Precipitation fixture | Finite inputs and source products |
+|---|---|
+| Single saturated state | Water55.56 mol/s,solid1 mol/s,Na+20,19,…,3 mol/s(18 cases),Cl− solved from positive seed2.5. Asymmetric ion inputs intentionally do not impose electroneutrality. Ion mole-fraction product .008235(abs1e-8),optimal termination. |
+| Single subsaturated state | Water55.56;Na+/Cl− grid0..10 each,select i×j<40:89 pairs. Selected zero ion feeds become1e-8 mol/s;solid seeded0,phase fractions seeded .25. Source expects solid≈0(abs1e-5),optimal. Single-state `rxn[0].eps=1e-14` assignment does not target parameter `rparams.reaction_S1.eps`;the actual smoothing retains1e-4. |
+| Equilibrium unit | Same water,T/P and trace inlet ions1e-8;energy omitted. **Actual** parameter eps1e-14. Solid inlet0,1,…,5 mol/s(6),6.16(1),7,…,20(14):21 cases. The zero-case source writes a comparison instead of assignment,so solid feed really remains0. Below saturation,outlet solid≈0(abs1.1e-6) and ions≈input solid(rel/abs1e-6). At6.16,outlet solid≈0(abs.0011),each ion6.159876(rel1e-5);above saturation,same dissolved ion target and solid+Na conserved(rel1e-5). |
+
+Native D03/F01 requires actual phase/component membership,concentration/
+rate/extent basis,dimensional K and kinetic prefactors,formation/heat datum,
+log/product state roles,precipitation smoothing/normalization and zero/phase
+boundary behavior. Original coefficient/provenance data and full physical,
+element/charge/energy,domain/derivative and independent method/reactor
+qualification remain required. These dummy/ideal controls do not close the
+broader reaction family or electrolyte population. Only source/AST inspection
+and finite-loop arithmetic ran;no method/property/reaction solve executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

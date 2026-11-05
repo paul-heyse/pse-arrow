@@ -653,6 +653,14 @@ the actual12-case boiler loop. The historical DMF model_data helper is
 absent from pinned2.13;its filtering/statistical/API behavior remains held
 reference work without moving the pin or excluding required G02 science.
 
+**Update, 2026-11-05 — reaction/precipitation census:** the
+[method-coordinate closure](64h-required-process-population.md#reaction-method-coordinates-and-precipitation-controls--2026-11-05)
+resolves six concentration forms,mass/molar rate bases,actual Gibbs/solid
+guards and18/89/21 precipitation input populations. Dummy expression
+checks,initialized logK and differing effective smoothing remain explicit;
+original chemistry/data,charge/energy/derivative and independent full
+method/reactor qualification remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
