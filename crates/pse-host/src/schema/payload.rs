@@ -906,15 +906,7 @@ fn join_output(
 ) -> Result<Vec<u8>, SchemaError> {
     output.join().unwrap_or_else(|payload| {
         Err(SchemaError::OutputReaderPanic(
-            payload
-                .downcast_ref::<String>()
-                .cloned()
-                .or_else(|| {
-                    payload
-                        .downcast_ref::<&str>()
-                        .map(|text| (*text).to_owned())
-                })
-                .unwrap_or_else(|| "non-text output-reader panic payload".into()),
+            pse_diagnostics::panic::settle_payload(payload, "non-text output-reader panic payload"),
         ))
     })
 }
@@ -1258,6 +1250,32 @@ mod tests {
             convert(&mut command, 3, Instant::now() + Duration::from_secs(5)).unwrap();
         assert_eq!(bytes, b"abc");
         assert_eq!(warnings, "warning");
+    }
+    #[test]
+    fn schema_payload_output_reader_settles_panicking_payload_destructor() {
+        struct PanickingDrop;
+        impl Drop for PanickingDrop {
+            fn drop(&mut self) {
+                panic!("reader payload destructor");
+            }
+        }
+        let reader = std::thread::spawn(|| -> Result<Vec<u8>, SchemaError> {
+            std::panic::panic_any(PanickingDrop);
+        });
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| join_output(reader)))
+            .expect("reader panic payload destruction must remain contained");
+        let error = result.unwrap_err();
+        assert_eq!(
+            pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+            Some(pse_diagnostics::DiagnosticCode::WorkflowPanic),
+        );
+        let SchemaError::OutputReaderPanic(detail) = error else {
+            panic!("typed reader panic expected")
+        };
+        assert_eq!(
+            detail,
+            "non-text output-reader panic payload; panic payload destruction also panicked: reader payload destructor"
+        );
     }
     #[test]
     fn schema_payload_conversion_limit_and_deadline_physically_settle_processes() {
