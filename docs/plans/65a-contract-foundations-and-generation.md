@@ -682,8 +682,10 @@ isolated checks passed: host/xtask all-target compilation, 39 host controls, fiv
 generator/source-world/structured-CEL controls and fourteen generation targets, against
 zero test failures. The final formatted-source regeneration emitted identical tested
 facade bytes. Independent descriptor enumeration, required graph rules, unknown enums,
-wire/order fidelity and foreign/import nonbinding are covered. Receiving-main checks
-remain separate. The authentic Recipe `into` owned-accessor warning remains visible;
+wire/order fidelity and foreign/import nonbinding are covered. Receiving-main
+`scripts/pse test pse-host --lib --profile local -E 'test(schema::)'` passed 30/30
+against zero failures, with complete capture/settlement in unbounded, cache-off mode.
+Receiving regeneration is in progress. The authentic Recipe `into` owned-accessor warning remains visible;
 this is not a zero-warning generation claim.
 
 Imported-message CEL is narrower than complete import visibility: the maintained scanner

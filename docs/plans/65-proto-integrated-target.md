@@ -709,8 +709,9 @@ implementation checkouts; receiving checks remain separate. Replay deletes the i
 deep copies and their copy-only pricing rather than allocating another admitted copy.
 The required scientific configuration/input census continues under its existing packet
 owner. See [65a](65a-contract-foundations-and-generation.md#a04-complete-supplier-decision--november-5-revision)
-for the generated facade and
-[65k](65k-scientific-artifacts-and-native-reconstruction.md#reconstruction-population-and-native-mathematics-limit).
+for the generated facade and its receiving 30/30 schema pass; see
+[65k](65k-scientific-artifacts-and-native-reconstruction.md#reconstruction-population-and-native-mathematics-limit)
+for receipt ownership and remaining receiving admission.
 Integrate coherent changes on main and retain actual per-packet acceptance limits.
 Plan64e's storage/distributed-physics E02/E03 remain distinct from Plan65k's portability E02/E03.
 
