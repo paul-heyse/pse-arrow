@@ -69,13 +69,10 @@ mod tests {
     }
     #[test]
     fn nominal_projection_macro_keeps_consumer_result_alias_out_of_trait_signatures() {
-        let local: Result<_> = Ok(LocalResultNominal(12));
-        let value = local.unwrap();
-        let fields = value.into_projection_fields();
-        assert_eq!(
-            LocalResultNominal::from_projection_fields(fields).unwrap(),
-            LocalResultNominal(12)
-        );
+        let fields = LocalResultNominal(12).into_projection_fields();
+        let restored: Result<_> =
+            LocalResultNominal::from_projection_fields(fields).map_err(|_| ());
+        assert_eq!(restored.unwrap(), LocalResultNominal(12));
         ProjectionGraph::of::<LocalResultNominal>().unwrap();
     }
 }

@@ -211,10 +211,10 @@ impl State {
         if self.actual.edges > bound {
             return Err(Error::Limit("child summaries"));
         }
-        if let Some(bound) = self.bounds {
-            if self.actual.entries > bound.entries {
-                return Err(Error::Limit("object summaries"));
-            }
+        if let Some(bound) = self.bounds
+            && self.actual.entries > bound.entries
+        {
+            return Err(Error::Limit("object summaries"));
         }
         Ok(())
     }

@@ -503,8 +503,8 @@ mod tests {
         ));
         let counts =
             count_native_membership(&value, limits, limits.count_scratch_bytes().unwrap()).unwrap();
-        // SAFETY: isolated source fixture; too-small budget must refuse atomically.
         assert!(matches!(
+            // SAFETY: isolated source fixture; too-small budget must refuse atomically.
             unsafe {
                 RecordAuthority::from_authenticated_native_root(
                     &value,
