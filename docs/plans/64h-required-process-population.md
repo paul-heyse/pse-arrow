@@ -2634,6 +2634,109 @@ parameter selections andnative NRTL/Wilson correspondences remain open.
 AST/source reads established selections andtest roles only;no property model
 or solver was executed andno upstream skip policy is adopted.
 
+## NRTL fitting and local uncertainty input closure — 2026-11-05
+
+**Interface-checked, source only:** X `docs/param_est/
+parameter_estimation_nrtl_using_{state_block,unit_model}.ipynb` andtheir
+solution/doc/test renderings select two model-consumer routes for one fitted
+BT interaction definition. C `apps/uncertainty_propagation/examples/
+{NRTL_model_scripts,uncertainty_propagation_NRTL,rooney_biegler,
+uncertainty_propagation_rooney,simple_opt_problem}.py`, `uncertainties.py`,
+`sens.py` and`tests/test_uncertainties.py` add parameter covariance andlocal
+optimized-output sensitivity products. These products remain separate from
+an ordinary forward state solve or a Bayesian/robust inference claim.
+
+X `docs/param_est/BT_NRTL_dataset.csv`,C example CSV andC test CSV have exactly
+equal parsed records,despite different file bytes. Each contains50 rows with
+columns temperature,liq_benzene,vap_benzene:temperature365.5–371.1470588 K,
+liquid benzene .28914901–.480953385,vapor benzene .484824184–.692441237.
+Thus this is one input population used by three consumers,not150 independent
+experiments. Both phase compositions in a row are observations at the same
+temperature. The notebook labels them experimental data,butthe read sources
+do not establish original measurement/noise provenance. Retain them as
+oracle/fit inputs until B separately admits ordinary scientific provenance;
+no noise sampler orgenerated uncertainty is implied by their scatter.
+
+Both notebook routes use legacy BT NRTL,FTPz,two-phase,flow1 mol/s,
+pressure101325 Pa andoverall benzene/toluene .5/.5. Diagonal alpha/tau are0;
+off-diagonal alpha isfixed .3. Two dimensionless off-diagonal tau values are
+shared across all50 experiments,initialized−.9/1.4 andbounded[−5,5]. They are
+constant parameters over the dataset's temperature range,not a fitted
+temperature-dependent law. Initialization first uses368 K with tau fixed;
+the experiment then fixes its actual temperature andthe estimation interface
+selects the two unknowns. The state-block route uses phase compositions
+directly;the flash route adds fixed zero duty/deltaP andconsumes flash outlet
+phase ports. It must retain energy andport closure even when fitted tau and
+composition targets correspond.
+
+Each row becomes one Experiment. Its two benzene outputs are labeled;
+measurement_error isNone andthe selected Estimator objective isSSE.
+The state route wraps outputs in singleton indexed Expressions;the flash
+route labels outlet variables directly. Unknown-parameter identity is
+tau[benzene,toluene] then tau[toluene,benzene]. The source targets objective
+5.07496e-4,tau−.89876/1.41048. State objective comparison has relative1e-3;
+flash objective comparison has absolute .1,which is much larger than the
+target. Do not adopt that loose guard as native scientific acceptance.
+Four-bootstrap resampling with seed542 is commented out;it is an exposed
+extension request,not an actually executed bootstrap population orconfidence
+region. No holdout dataset ornoise variance is supplied by these notebooks.
+
+The base/solution/usr notebooks contain an incomplete exercise function
+followed by the complete function that replaces it. In the unit-model
+exercise the temperature setter incorrectly points to `state_block`;the
+complete function selects `flash.inlet` correctly. Doc/test renderings retain
+the complete function;exercise rendering retains the incomplete one. Select
+the complete scientific route for execution rather than counting these
+instructional variants as distinct science orpromoting the exercise to an
+independent reference. Full normalized wrapper equivalence outside these
+inspected functions remains separate from this scoped correspondence.
+
+C NRTL covariance uses the same50 rows andphysical flash,butinitializes
+off-diagonal tau .1690/−.1559 before estimation. Its residual sum for both
+benzene phase observations ismultiplied by10000,andits objective target is
+5.0749685783 rather than the notebook's5.07496e-4. The source covariance target
+is[[.01194738,−.02557055],[−.02557055,.05490639]] in that tau order. Record the
+objective normalization andcovariance sample count explicitly:the owner
+defaults covariance_n to50 rows,not100 scalar observations. It calls
+parmest's legacy callback-based Estimator and`theta_est(calc_cov=True)`;
+compatibility with pinned Pyomo6.10.1 remains execution-readiness work,
+independent ofthe notebooks' newer Experiment interface.
+
+The uncertain optimization model fixes the same368 K,adiabatic flash point,
+leaves tau free for sensitivity machinery,andminimizes
+exp(−.3*tau[toluene,benzene]);the first tau has zero direct objective
+coefficient. Propagation evaluates at fitted tau bysetting equal lower/upper
+bounds andforms local total derivatives through the solved equations. The
+source targets objective-gradient component−.19649493 andpropagated objective
+**variance** .00211994998,not a standard deviation or Monte Carlo interval.
+Constraint covariance isanother output role. Parameter order,derivative sign,
+state/parameter columns,reference point andactive constraints must remain
+matched. The source uses Ipopt NL/ASL,k_aug anddot_sens andtheir generated
+Jacobian/row/column files. Those are execution intermediates,not frozen
+scientific inputs;exact executable versions andisolated working-directory
+ownership remain prerequisites. No missing-executable skip is admissible in
+the local parity route.
+
+`NRTL_model_opt_infeasible` isnot an established infeasible case:its test is
+xfail with an explicit source note that the model isfeasible. It retains the
+same physics/objective andomits an initialization call. Preserve this as a
+failed historical failure control;G01/G03 still need a genuine,declared
+infeasible control with appropriate diagnosis instead of inheriting its name.
+
+The companion Rooney–Biegler fit is a separate analytic benchmark:response
+A*(1−exp(−k*h));six(h,y) records(1,8.3),(2,10.3),(3,19),(4,16),(5,15.6),(7,19.8),
+initial A15/k.5,andtwo shared unknowns withoutselected bounds. The downstream
+output isresponse at h10. Source targets fit objective4.3317112137,A19.1425753,
+k.531091377,covariance[[6.30579403,−.4395341],[−.4395341,.04193591]] andoutput
+variance5.4543933775. The standalone quadratic sensitivity example uses
+p1=10/p2=5,links x1+x2=p1 andx2+x3=p2,objective p1*x1+p2*x2²+p1*p2,
+three unbounded primal variables andparameter covariance diag(2,1) in p1/p2
+order;its commented0..10 bounds are **not** actual constraints.
+It is an analytic derivative/propagation control,not a process experiment.
+Remaining API/refusal tests,covariance definiteness/identifiability,ordinary
+data admission,native case/output mapping andindependent execution remain
+open. CSV/JSON/AST reads here ran no estimator,property initializer orsolver.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
@@ -2662,7 +2765,7 @@ each consumer's originating point/step/coverage and required-versus-optional pro
 | Required demand / owner | Exact upstream case/configuration and dependency closure | Native/data/reference decision needed |
 | --- | --- | --- |
 | NRTL and PR inference — G02/D02 | X register rows 11/12 NRTL state-block/flash using `docs/param_est/BT_NRTL_dataset.csv`; row 37 CO2–bmimPF6 PR flash fitting using `docs/properties/CO2_IL_298.csv`; C `apps/uncertainty_propagation/examples/NRTL_model_scripts.py` | Shared parameters across experiments, experimental state/basis/noise mapping, bounds and covariance/identifiability demands must be explicit. The datasets have different scientific roles from feed data. Native fitting starting surfaces do not establish either complete parameter recovery or appropriate uncertainty. |
-| Local uncertainty/sensitivity — G03/G01 | [C uncertainty examples][uncertainty]: Rooney–Biegler and NRTL fits, optimized output and intentionally infeasible NRTL optimization; `sens.py`/`uncertainties.py` | Exact covariance/derivative convention and optimized reference point are prerequisites. Preserve infeasible/ill-conditioned outcomes. This source does not establish general Bayesian, robust or Monte Carlo equivalence; selected broader native methods have extension evidence. |
+| Local uncertainty/sensitivity — G03/G01 | [C uncertainty examples][uncertainty]: Rooney–Biegler and NRTL fits, optimized output andthe NRTL control named infeasible (source says feasible); `sens.py`/`uncertainties.py` | Exact covariance/derivative convention and optimized reference point are prerequisites. Preserve infeasible/ill-conditioned outcomes;the named feasible control does not establish them. This source does not establish general Bayesian, robust or Monte Carlo equivalence; selected broader native methods have extension evidence. |
 | Robustness population — G03/H04 | [V robustness][robustness] CSTR, flash, Gibbs/equilibrium reactors, HX0D, isothermal pressure changer, each with JSON baseline/source configuration; e.g. flash declares 200 Latin-hypercube samples | Imported JSON baseline statistics are historical observations, not a zero-failure waiver. Need actual realized input population, bounds/sampler/version, initialization and failed-case policy; a sampling count is not a configuration count. Do not silently drop failed samples. |
 | PySMO training/evaluation/embedding — G04 | C polynomial/RBF/kriging and sampling tests; X `pysmo_basics`, reformer flowsheet, best-practices utility `mod/surrogates/AR_training_methods.py`; X `docs/surrogates/reformer-data.csv` and PySMO `data_files/` | Preserve fitted family, terms/kernel/options, scaling, train/validation split, domains, persisted JSON, evaluation outputs, equation embedding and optimization separately. Inspect remaining benchmark/helper variants before closing the population. |
 | ALAMO — G04 | X reformer pipeline plus sCO2 ALAMO training → embedding → optimization; `alamo_surrogate.json`, run/control artifacts; C `core/surrogate/alamopy.py` | External trainer executable/version is required for trainer reproduction; a shipped fitted JSON can support separately selected artifact evaluation/embedding evidence. It cannot prove the training stage. ALAMO absence holds required execution. |

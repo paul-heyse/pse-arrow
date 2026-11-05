@@ -338,6 +338,15 @@ interaction defaults;fitted VLE is separate required science. Placeholder
 liquid density,lazy property readiness,remaining selections,ordinary input
 admission andnative/independent numerical acceptance remain open.
 
+**Update, 2026-11-05 — NRTL fit/uncertainty census:** the
+[statistical input closure](64h-required-process-population.md#nrtl-fitting-and-local-uncertainty-input-closure--2026-11-05)
+resolves one50-row BT dataset across state/flash/propagation consumers,two
+shared bounded tau unknowns,objective/covariance normalization,local output
+variance,analytic controls andthe actual feasible status ofthe control named
+infeasible. Original data provenance,estimator/external derivative-tool
+compatibility,native statistical products andindependent numerical evidence
+remain open;commented bootstrap isnot completed confidence-region science.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
