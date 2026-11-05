@@ -3582,6 +3582,110 @@ solver/initialization compatibility,fullconservation andindependent complete
 trajectory qualification remainrequired E02/F02/G05/H04. Source/AST reads
 ran nosteady plant,controller,rollingcopy,modelinitialization orsolver.
 
+## Supercritical steam-cycle and SCPC configuration closure — 2026-11-05
+
+**Interface-checked, source only:** C `flowsheets/supercritical_steam_cycle/
+supercritical_steam_cycle.py`, `supercritical_power_plant/{
+boiler_subflowsheet_build,SCPC_full_plant}.py` and `test/{test_scsc,
+test_scpc_plant}.py`, plus X `docs/power_gen/supercritical/
+supercritical_{steam_cycle,power_plant}.ipynb`, resolve three assembled
+case roles. Standalone steam-cycle andboiler-network construction are
+dependencies oftheconnectedplant,not evidence thattheir specifications or
+outputs remainunchanged aftercoupling. Allselected experiments aresteady.
+
+Steamcycle usesIAPWS95 PH/MIX andfourparallel inletstages,HP7/IP10/LP11,
+HPsplits4/7,IP5/10,LP4/8/10/11,HP7 reheatdisconnect andthreeoutlets atIP10.
+It includescondenser,hotwell,condensate/boiler-feed/drain pumps,feedwater
+heater/extraction train andboiler-feed-pump turbine. Mainsteam fixes24.23e6
+Pa/62710 J/mol,flowpressure-driven (21000 mol/s isaguess),inletcoefficient
+4.6e-4,outletcoefficient .32. Fourlinear throttlevalves haveCv .0009 and
+opening .9 each. HP/IP/LP regularstages fixratio .8/.78/.76 andefficiency .9.
+Reheat haszero pressurechange,866 K outlet andlinkedHP/IP flow. Standalone
+boilerpressureloss fraction .1 closesfeedwater-to-mainsteam pressure;the
+detailed boiler laterreplaces it.
+
+Condenser coolingwater2.5e6 mol/s,1700 J/mol,500000 Pa,area13000 m² and
+U15000 W/(m² K);makeuph2500 J/mol/P101325 Pa,condensatepump efficiency .8/
+deltaP1e6 Pa arefixed. Heaterareas,Uvalues,pump efficiencies andextraction
+initial guesses areinline source inputs intheexistingfeedwater-heater
+population. Initialization seedsbackpressure3500 Pa andspecifiedextraction
+fractions,thenreleases extractions/backpressure totheheater/condenser
+closure. Source steadygrosspower target622.38 MW (absolute .01 MW),zeroDOF
+andallactive equalityresiduals<5e-4. The valvechange sets**onlyparallelvalve1**
+opening .25;otherthree remain .9 andsource targets594.66 MW. This ispartial
+admission,not a uniform throttle-to25% experiment. The testdoesnot assert
+optimaltermination forthechangedpoint;retainthatindependent obligation.
+
+`main(initialize_from_file=None,store_initialization=None)` performsfresh
+initialization bydefault. Optionalfileloading restoresdefaultStoreSpec and
+skipsinitialization;there isno selectedshipped scientificsnapshot inthese
+modern wrappers. Optionalnew snapshots areoutputs. PFDtemplate isC
+`supercritical_steam_cycle.svg`;modernnotebooks also displayX
+`Boiler_scpc_PFD.svg`. Templates arepresentationinputs,not thermaldata.
+Stream tables/PFD results anddisplayedgrosspower arenot additional numerical
+acceptance. Bothmodern notebookfamilies invoke theexistingC owners without
+addinganotherparameter dataset orscientifictrainer.
+
+Boilernetwork usesfourcountercurrent,in-line BoilerHeatExchanger units
+ECON/PrSH/FSH/RH,watercold/fluegashot,pressurechange onboth sides,noholdup.
+ECON selectsLiq water/no radiation;otherthree selectVap/radiation. Waterwall
+andplaten aregenericHeater units withimposed duties,not coal/fireside or
+waterwall/metal transportmodels. FSHfluegas splits .75 toreheater/.25
+toprimarysuperheater,recombines andentersECON;steam runsECON→waterwall→
+primary→platen→finishing→spraymixer. This selectedsplit differsfromsome
+independent initializationflow guesses (.85/.18) thatarefreed onconnection.
+
+Suppliedfluegas nominal21290.6999 mol/s hasH2O .0869,CO2 .1449,N2 .7434,
+O2 .0247,NO .0006,SO2 .002. Factors sum**1.0025**;actualcomponentflows
+mustnot besilently normalized. FSHgasinlet1300.335 K/100145 Pa isphysical
+networkboundary;ECON682.335 K,PrSH/RH1180.335 K areinitializationstates
+laterfreed atconnectedports. ECONfeedwater initial24194.177 mol/s,
+26922222.222 Pa,14990.97 J/mol;RHinitial21235.27 mol/s,3677172.33638 Pa,
+53942.7569 J/mol. Waterwallheat751 MW andplaten55 MW arefixed initially.
+The fourbank geometries,cold-phase correlations,emissivity .7,fouling and
+HTC/pressure-drop corrections areinline requiredinputs. Native coal/fireside
+science cannotbeinferred fromtheprescribedfluegas andheaterduties.
+
+Othersteam initialstates useIAPWS enthalpy evaluatedatPrSH773.15 K/
+24865516.722 Pa,FSH823.15 K/24790249.01 Pa,platen798.15 K/24790249.01 Pa,
+waterwall588.15 K/25449000 Pa,andattemperator875.15 K/24865516.722 Pa.
+Sprayinitial flow .001 mol/s has**122e6 Pa** pressurefixed whileitsenthalpy
+iscomputedfrom563.15 K/**25.449e6 Pa**. PreservetheactualindependentP/h
+specification;do not re-evaluateenthalpy at122 MPa orcallthisthesameT/P
+point. Couplednetwork inletseeds arefreed selectivelybyunfix_inlets;
+spray/FSHphysicalboundaries remainexplicitconsumerroles.
+
+Standaloneboilertest fixesATMP1 outlet62710.01 J/mol andfrees sprayflow,
+checksoptimality andECONoutlet521.009 K. Its `pytest.approx(521.009,1)` uses
+relative1 (100%),so itdoesnot supplyaprecise temperatureacceptance bound.
+The networkconstructor byitself doesnot initialize/solve;source testorder
+prepares itthroughinitialize/unfix/ratingspecification. Reproduction needs
+thatcomplete boundedprocedure andphysicalcheck products.
+
+ConnectedSCPC firstsolves thesteamcycle,builds/initializes boilernetwork,
+solvesdisconnected,thenconnectsFWH8→ECON,ATMP1→HP,HP7→RH andRH→IP1.
+Itdeactivates lumpedboiler pressure/flowclosure andreheatflow/P/T equations,
+freescoupled ports,thenfixesmainsteampressure24.23e6 Pa andattemperator
+outlet62710.01 J/mol while**freeingplatenheat**. Mainsteamenthalpy control
+thereforechangesaduty-designrole,not simplya622.38 MW cycleextension.
+Hotwellmakeup lowerbound isrelaxed to−1 mol/s,andfinalsolve strips**all
+variablebounds** withareversibletransformation withoutrestoring thembefore
+return. Thoseareactualreference allowances;native state/flow/efficiency/
+property-validity acceptance mustbechecked independently ratherthan adopted
+asanordinaryfeasibility waiver. FinalIpopt selectstol1e-6/ma27/max_iter40.
+Coreconnectedplant testassertsoptimaltermination only;nofullplantpower,
+component/element/energy,bankprofile ororiginal coalbalanceoracle follows.
+
+The selectedclosure containsinlineproperty/geometry inputs,Helmholtz
+waterexternalartifacts,fluegas caloric/transport andpresentationtemplates;
+noCSV,coaltrainer,saved-stateinput orphysicaltime trajectory isloaded by
+default. Original empirical/geometry/fluegas provenance,envelopes andsigned
+work/duty/boundary accounting remainordinary-source obligations. Native
+F02/D02/D04 needeachstandalone/coupled specification role,partialadmission,
+profile/conservation andproperdomain products. Archivedsupercritical wrapper
+comparison andremainingunitcategorical cases stillremainrequiredcensuswork.
+Source/AST readsran noenthalpyfunction,network,serializer,initializer orsolver.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

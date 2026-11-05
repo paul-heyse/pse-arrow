@@ -424,6 +424,14 @@ integral resets. Source dynamicplanttests constructonly androlling output
 appends lackoptimality guards. Native physical/controller carryover,ordinary
 coefficients andcomplete independent numerical trajectories remainrequired.
 
+**Update, 2026-11-05 — supercritical/SCPC census:** the
+[cycle/network closure](64h-required-process-population.md#supercritical-steam-cycle-and-scpc-configuration-closure--2026-11-05)
+resolves pressure-drivensteamcycle/partialadmission,imposed-duty/fluegas
+boilernetwork andconnectedplaten-duty design. Fluefactors1.0025,sprayP/h
+seed mismatch,weakstandalonetemperatureguard andfinalboundstripping remain
+explicit. Ordinary data/nativefeasibility andfullindependent scientific
+qualification remainrequired;optimalityalone doesnotcloseSCPC physics.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
