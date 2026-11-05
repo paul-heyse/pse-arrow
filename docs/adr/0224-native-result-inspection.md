@@ -87,8 +87,13 @@ insufficient. The existing reader/lifetime authority is unchanged.
 ### Plan65 selected-hydration amendment — 2026-11-04
 
 **Proposed; Interface-checked:** selected readable inspection decodes the requested complete
-Arrow roots, existing context roots, all scalar primary-key roots and every bound relation-check
-dependency. Preserve whole-file schema/footer/block extent, complete-message layout, original
+Arrow roots, existing context roots, all scalar primary-key roots, every bound relation-check
+dependency and the original scientific-permission algorithm's accessed roots. Preserve that
+algorithm and its independent axes while applying the same projection before its first read;
+cursor validation reuses the resolved selection rather than performing another full read.
+Non-Values metadata views retain their existing permission-read behavior; there is no expanded
+zero-decode guarantee for assessed completion. Preserve whole-file schema/footer/block extent,
+complete-message layout, original
 protection and allocation grants before decoding. Validate every retained root with the existing
 immutable native `ValidationContext::column` / `PreparedLocalContract::evaluate` contracts,
 evaluate all original relation predicates, and check scalar-key uniqueness across the entire

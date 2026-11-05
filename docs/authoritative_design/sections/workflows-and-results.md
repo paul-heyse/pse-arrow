@@ -549,12 +549,15 @@ allocation and cancellation/drain remain native; exact Arrow IPC remains the com
 Inspection grants no scientific usability or publication authority.
 
 > Proposed Plan65 F04 amendment under ADR-0224: readable inspection may hydrate only requested
-> roots, existing context, scalar keys and all bound relation-predicate dependencies. Full
+> roots, existing context, scalar keys, all bound relation-predicate dependencies and the unchanged
+> scientific-permission algorithm's accessed roots, including its first read. Full
 > source/schema/block protection and complete-batch key/predicate checks remain; retained roots
 > receive native column checks, while omitted roots' local values are explicitly unchecked.
 > Version-three inspection roots expose this narrower observational coverage. This does not
 > construct a full-relation `FieldCheckedBatch`; full IPC/scientific readers retain full admission.
 > Implementation and targeted qualification remain with Plan65f.
+> Non-Values metadata views retain their existing permission-read behavior; this amendment adds
+> no zero-decode guarantee for assessed completion.
 
 Result inspection copies the exact producer Completion's governing scientific permission and,
 for statistical products, its recorded product permission. Product-local mathematical validity

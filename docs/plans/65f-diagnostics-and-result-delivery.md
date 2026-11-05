@@ -140,7 +140,9 @@ and Arrow payload protection. Do not replace columnar arrays with repeated gener
 protected snapshot owner with Arrow 59.3
 [`FileDecoder::with_projection`](https://docs.rs/arrow-ipc/59.3.0/arrow_ipc/reader/struct.FileDecoder.html#method.with_projection)
 before native array hydration. Derive one retained-root set from requested paths, existing
-context behavior, all scalar primary keys and all bound relation-check dependencies. A nested
+context behavior, all scalar primary keys, all bound relation-check dependencies and the unchanged
+scientific-permission algorithm's input roots. Apply the same projection before that algorithm's
+first read; compare a cursor against its resolved selection without a second full read. A nested
 selection retains its complete root and current composite-context behavior. Do not route through
 DataFusion's current snapshot scan merely to obtain projection: that path already hydrates and
 exports a full checked batch before projecting.
