@@ -2321,7 +2321,7 @@ mod modeling_failure_tests {
         assert!(runs[2].error.is_none());
 
         let RunRequest::Modeling(request) = result.request() else {
-            unreachable!();
+            panic!("the original modeling run must retain its modeling request");
         };
         let mut task_failure = RunResult::joined(
             result.run_id,

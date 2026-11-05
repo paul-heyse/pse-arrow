@@ -10,7 +10,7 @@ use pse_kernels::{
 };
 use pse_runtime::{
     ResourceBudget, SharedRuntime,
-    scientific_worker::{LocalWaterFactory, PreparedExecutable},
+    scientific_worker::{LocalWaterFactory, PreparedExecutable, WorkerError},
 };
 use std::{
     num::NonZeroUsize,
@@ -21,16 +21,28 @@ use std::{
     time::{Duration, Instant},
 };
 
-fn runtime(directory: &std::path::Path) -> Arc<SharedRuntime> {
-    let count = |n| NonZeroUsize::new(n).unwrap();
-    SharedRuntime::build(ResourceBudget {
-        memory_limit_bytes: count(1 << 30),
+#[derive(Debug, thiserror::Error)]
+enum FixtureError {
+    #[error("invalid nonzero scientific fixture budget: {0}")]
+    Budget(#[from] std::num::TryFromIntError),
+    #[error(transparent)]
+    Runtime(#[from] pse_runtime::RuntimeError),
+    #[error(transparent)]
+    Worker(#[from] WorkerError),
+    #[error(transparent)]
+    Join(#[from] tokio::task::JoinError),
+}
+
+fn runtime(directory: &std::path::Path) -> Result<Arc<SharedRuntime>, FixtureError> {
+    let count = NonZeroUsize::try_from;
+    Ok(SharedRuntime::build(ResourceBudget {
+        memory_limit_bytes: count(1usize << 30)?,
         spill_dir: directory.to_path_buf(),
         max_temp_dir_bytes: 1 << 30,
-        top_consumers: count(8),
+        top_consumers: count(8)?,
         threads: pse_engine::ThreadBudget {
-            pool_threads: count(16),
-            target_partitions: count(16),
+            pool_threads: count(16)?,
+            target_partitions: count(16)?,
         },
         execution: Default::default(),
         cache: pse_runtime::CacheBudget::disabled(1),
@@ -38,18 +50,18 @@ fn runtime(directory: &std::path::Path) -> Arc<SharedRuntime> {
             workspace_bytes: 16 << 20,
             ..Default::default()
         },
-    })
-    .unwrap()
+    })?)
 }
-fn executable() -> PreparedExecutable {
-    PreparedExecutable::observe(env!("CARGO_BIN_EXE_pse-scientific-worker"), 64 << 20).unwrap()
+fn executable() -> Result<PreparedExecutable, WorkerError> {
+    PreparedExecutable::observe(env!("CARGO_BIN_EXE_pse-scientific-worker"), 64 << 20)
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn actual_worker_matches_complete_water_jets_orders_regimes_and_repeated_calls() {
-    tokio::task::spawn_blocking(|| {
+async fn actual_worker_matches_complete_water_jets_orders_regimes_and_repeated_calls()
+-> Result<(), FixtureError> {
+    tokio::task::spawn_blocking(|| -> Result<(), FixtureError> {
         let temporary = tempfile::tempdir().unwrap();
-        let runtime = runtime(temporary.path());
+        let runtime = runtime(temporary.path())?;
         let registry = pse_quantity::standard::standard_registry().unwrap();
         for (regime, point) in [
             (WaterRegime::Liquid, [300.0, 996.556 / 0.018_015_268]),
@@ -57,9 +69,13 @@ async fn actual_worker_matches_complete_water_jets_orders_regimes_and_repeated_c
             (WaterRegime::Supercritical, [650.0, 500.0 / 0.018_015_268]),
         ] {
             let direct = WaterFactory::prepare(&registry, regime).unwrap();
-            let remote =
-                LocalWaterFactory::prepare(executable(), &registry, regime, runtime.math().clone())
-                    .unwrap();
+            let remote = LocalWaterFactory::prepare(
+                executable()?,
+                &registry,
+                regime,
+                runtime.math().clone(),
+            )
+            .unwrap();
             assert_eq!(direct.spec(), remote.spec());
             assert_ne!(direct.configuration_key(), remote.configuration_key());
             let stop = pse_diagnostics::Cancellation::default();
@@ -134,19 +150,21 @@ async fn actual_worker_matches_complete_water_jets_orders_regimes_and_repeated_c
                 }
             }
         }
+        Ok(())
     })
-    .await
-    .unwrap();
+    .await??;
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn actual_worker_preserves_trial_refusal_and_original_stop_without_stale_success() {
-    tokio::task::spawn_blocking(|| {
+async fn actual_worker_preserves_trial_refusal_and_original_stop_without_stale_success()
+-> Result<(), FixtureError> {
+    tokio::task::spawn_blocking(|| -> Result<(), FixtureError> {
         let temporary = tempfile::tempdir().unwrap();
-        let runtime = runtime(temporary.path());
+        let runtime = runtime(temporary.path())?;
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let factory = LocalWaterFactory::prepare(
-            executable(),
+            executable()?,
             &registry,
             WaterRegime::Vapor,
             runtime.math().clone(),
@@ -242,13 +260,14 @@ async fn actual_worker_preserves_trial_refusal_and_original_stop_without_stale_s
             Err(ProviderError::Cancelled)
         ));
         drop(provider);
+        Ok(())
     })
-    .await
-    .unwrap();
+    .await??;
+    Ok(())
 }
 
 #[test]
-fn actual_process_custody_retains_admission_until_kill_and_reap() {
+fn actual_process_custody_retains_admission_until_kill_and_reap() -> Result<(), FixtureError> {
     #[derive(Debug)]
     struct Admission(Arc<AtomicBool>);
     impl Drop for Admission {
@@ -263,7 +282,7 @@ fn actual_process_custody_retains_admission_until_kill_and_reap() {
         pse_diagnostics::Cancellation::default(),
         Some(Instant::now() + Duration::from_secs(10)),
     );
-    let mut child = executable()
+    let mut child = executable()?
         .launch(
             &directory.path().join("worker.sock"),
             pse_ids::SemanticId::from_bytes([9; 16]),
@@ -284,4 +303,5 @@ fn actual_process_custody_retains_admission_until_kill_and_reap() {
     child.drain(Duration::ZERO).unwrap();
     assert!(released.load(Ordering::Acquire));
     assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    Ok(())
 }

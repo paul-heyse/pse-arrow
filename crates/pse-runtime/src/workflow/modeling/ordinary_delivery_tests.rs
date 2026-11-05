@@ -227,8 +227,7 @@ async fn execute_journey(
                     ordinary_reference::check(
                         name,
                         &package,
-                        case,
-                        declared.analysis.instance,
+                        &declared.analysis,
                         result,
                         false,
                         services.preparation(),
@@ -265,8 +264,7 @@ async fn execute_journey(
                     ordinary_reference::check(
                         name,
                         &package,
-                        case,
-                        declared.analysis.instance,
+                        &declared.analysis,
                         attempt.result.as_ref().map_err(|cause| cause.to_string())?,
                         true,
                         services.preparation(),
@@ -306,8 +304,7 @@ async fn execute_journey(
                 ordinary_reference::check(
                     name,
                     &package,
-                    case,
-                    declared.analysis.instance,
+                    &declared.analysis,
                     &result,
                     false,
                     services.preparation(),

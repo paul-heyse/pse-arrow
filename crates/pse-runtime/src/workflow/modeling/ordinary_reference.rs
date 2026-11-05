@@ -487,6 +487,501 @@ fn coordinates(recycle: bool) -> Vec<(String, String, bool)> {
     roles
 }
 
+pub(super) fn check(
+    name: &str,
+    package: &ModelingPackage,
+    analysis: &ModelingAnalysis,
+    result: &ModelingResult,
+    failed: bool,
+    services: &crate::workflow::PreparationServices,
+    inputs: &OriginalInputs,
+) -> TestResult {
+    // Declared before every response/contract payload so final guards outlive them
+    // even though each phase can only be admitted after its original inputs exist.
+    let retained_owners: [Arc<pse_columnar::AllocationLease>; 3];
+    let verification_owner = services.math().reserve(
+        "ordinary-reference:source-verification",
+        inputs.verification_bound()?,
+    )?;
+    if inputs.owner.is_none() {
+        return Err("original reference inputs lost their allocation owner".into());
+    }
+    if let Err(cause) = inputs.verify_checkout() {
+        return Err(Box::new(ReferenceDiagnosticFailure {
+            phase: "original source snapshot refused",
+            cause,
+            diagnostics: String::new(),
+            _owners: [Some(verification_owner.clone()), None, None],
+        }));
+    }
+    let root = &inputs.root;
+    let recycle = matches!(name, "ordinary_recycle" | "ordinary_overheated");
+    let case_name = match name {
+        "ordinary_recycle" => "ordinary_delivery.ideal_recycle",
+        "ordinary_overheated" => "ordinary_delivery.overheated_recycle_failure",
+        "ordinary_exchanger" => "ordinary_delivery.exchanger_design",
+        "ordinary_rating" => "ordinary_delivery.exchanger_rating",
+        "ordinary_arithmetic_closure" => "ordinary_delivery.exchanger_arithmetic",
+        _ => return Err("no independent constructor for selected original case".into()),
+    };
+    let roles = coordinates(recycle);
+    let keys = fixed_keys(name, recycle);
+    let mapping_storage = roles
+        .iter()
+        .try_fold(
+            roles
+                .capacity()
+                .checked_mul(size_of::<(String, String, bool)>())
+                .ok_or("mapping extent overflow")?,
+            |bytes, (key, matching, _)| {
+                bytes
+                    .checked_add(key.capacity())?
+                    .checked_add(matching.capacity())
+            },
+        )
+        .ok_or("mapping extent overflow")?;
+    let mapping_storage = keys
+        .iter()
+        .try_fold(
+            mapping_storage
+                .checked_add(
+                    keys.capacity()
+                        .checked_mul(size_of::<String>())
+                        .ok_or("mapping extent overflow")?,
+                )
+                .ok_or("mapping extent overflow")?,
+            |bytes, key| bytes.checked_add(key.capacity()),
+        )
+        .ok_or("mapping extent overflow")?;
+    let container_bytes = crate::reference_exchange::case_contract_container_bound(
+        roles.len(),
+        keys.len(),
+        &inputs.artifacts,
+        mapping_storage
+            .checked_add(case_name.len())
+            .ok_or("mapping extent overflow")?,
+    )?
+    .checked_add(source_hash_scratch(&inputs.artifacts, &keys, case_name)?)
+    .ok_or("contract preparation extent overflow")?;
+    let preparation_owner = services
+        .math()
+        .reserve("ordinary-reference:contract-containers", container_bytes)?;
+    // Rebind the finite source-role intake under its admitted container owner.
+    let (roles, mut keys) = (roles, keys);
+    let mut physical_owners = Vec::new();
+    let mut observables = Vec::new();
+    let mut selection = Vec::new();
+    let mut allowances = Vec::new();
+    let product = result.prepared.model.model.compiled();
+    let model = &product.model;
+    let targets =
+        product.numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady)?;
+    let numerics = result.prepared.solve.numerics();
+    for (key, matching, path) in roles {
+        // A failed attempt still has the entire original authored output population.
+        // Metadata comes from its admitted declarations, never from a rejected
+        // candidate's availability or an opportunistically shortened report list.
+        let mut found = model.annotations.iter().filter(|annotation| {
+            let pse_modeling::annotation::AnnotationValue::Report(label) = &annotation.value else {
+                return false;
+            };
+            if path {
+                model
+                    .symbols
+                    .get(&annotation.target)
+                    .is_some_and(|symbol| symbol.lineage.path.ends_with(&matching))
+            } else {
+                label == &matching
+            }
+        });
+        let annotation = found
+            .next()
+            .ok_or_else(|| format!("original reference coordinate absent: {key}"))?;
+        if found.next().is_some() {
+            return Err(format!("ambiguous original reference coordinate: {key}").into());
+        }
+        let symbol = model
+            .symbols
+            .get(&annotation.target)
+            .ok_or("reported original scalar absent")?;
+        let quantity = symbol
+            .ty
+            .quantity_scheme()
+            .ok_or("reported original physical scheme absent")?
+            .resolve(package.physical_context().quantities(), &Default::default())?;
+        let unit = package
+            .physical_context()
+            .quantities()
+            .quantity_type(quantity)?
+            .canonical_unit;
+        let target = targets
+            .target(annotation.target)
+            .ok_or_else(|| format!("original output numerical owner absent: {key}"))?;
+        if target.quantity != quantity || target.unit != unit {
+            return Err(format!(
+                "original output physical correspondence differs from its numerical owner: {key}"
+            )
+            .into());
+        }
+        // This is a frozen physical output-resolution criterion, independently
+        // tested against the foreign value. Native termination does not establish
+        // this error bound. The original rules, tagged scales and caloric consuming
+        // requirements supply its magnitude without reading either result value.
+        let context = output_context(
+            package.physical_context(),
+            numerics,
+            &target.specification(),
+        )
+        .map_err(|cause| format!("original reference output context absent for {key}: {cause}"))?;
+        allowances.push(ComparisonAllowance {
+            output: annotation.target,
+            absolute: context.budget,
+            relative: 0.,
+        });
+        selection.push(ReferenceReportSelection {
+            output: annotation.target,
+            source: annotation.lineage.declaration,
+            target: annotation.target,
+        });
+        observables.push(ReferenceObservableContract {
+            output: annotation.target,
+            key,
+            physical: physical(
+                package,
+                quantity.as_id(),
+                Some(unit.as_id()),
+                &mut physical_owners,
+            )?,
+        });
+    }
+    let fixture = model
+        .fixtures
+        .get(&analysis.instance)
+        .ok_or("original fixture specification absent")?;
+    let mut specification = Vec::new();
+    for key in keys.drain(..) {
+        let authored = format!(
+            "root.{}",
+            key.replace("[benzene]", "[chem.benzene]")
+                .replace("[toluene]", "[chem.toluene]")
+        );
+        let value = fixture.specifications.get(&authored).ok_or_else(|| {
+            format!(
+                "original fixed input absent: {authored}; actual={:?}",
+                fixture.specifications.keys()
+            )
+        })?;
+        if value.fixed != Some(true) {
+            return Err(format!("reference input is not fixed: {key}").into());
+        }
+        let magnitude = value
+            .value
+            .ok_or("original fixed input has no selected magnitude")?;
+        let symbol = model
+            .symbols
+            .get(&value.target)
+            .ok_or("fixed input symbol absent")?;
+        let scheme = symbol
+            .ty
+            .quantity_scheme()
+            .ok_or("fixed input physical scheme absent")?;
+        let quantity =
+            scheme.resolve(package.physical_context().quantities(), &Default::default())?;
+        specification.push(ReferenceFixedInput {
+            key,
+            value: magnitude,
+            physical: physical(package, quantity.as_id(), None, &mut physical_owners)?,
+        });
+    }
+    let input_artifacts = inputs.artifacts.clone();
+    let artifact_bytes = serde_json::to_vec(
+        &input_artifacts
+            .iter()
+            .map(|input| (&input.path, input.sha256.as_slice()))
+            .collect::<Vec<_>>(),
+    )?;
+    let source = pse_ids::preimage::hash(&artifact_bytes);
+    let formulation =
+        pse_ids::preimage::hash(&serde_json::to_vec(&(1_u32, case_name, &artifact_bytes))?);
+    let configuration = pse_ids::preimage::hash(&serde_json::to_vec(
+        &specification
+            .iter()
+            .map(|input| {
+                (
+                    &input.key,
+                    input.value.to_bits(),
+                    input.physical.quantity.id.as_id(),
+                )
+            })
+            .collect::<Vec<_>>(),
+    )?);
+    drop(artifact_bytes);
+    let meaning = ReferenceMeaning {
+        case: analysis.root.as_id(),
+        source,
+        formulation,
+        physical: package.physical_context().identity(),
+        configuration,
+    };
+    let required = observables
+        .iter()
+        .map(|coordinate| coordinate.output)
+        .collect::<Vec<_>>();
+    // Only the original source metadata selects admission. These unused numeric
+    // placeholders are neither candidate values nor independent expected answers.
+    let original_shape = ReferenceEnvelope {
+        version: 1,
+        meaning: meaning.clone(),
+        required: required.clone(),
+        outcome: if failed {
+            ReferenceOutcome::Failed {
+                code: "trial_rejected".into(),
+                stage: "overheated_tear".into(),
+            }
+        } else {
+            ReferenceOutcome::Completed {
+                outputs: observables
+                    .iter()
+                    .map(
+                        |observable| pse_model::reference_exchange::ReferenceObservable {
+                            id: observable.output,
+                            quantity: observable.physical.quantity.id.as_id(),
+                            unit: observable.physical.representation_unit.id.as_id(),
+                            basis: observable.physical.quantity.key.basis.map(|id| id.as_id()),
+                            datum: observable
+                                .physical
+                                .quantity
+                                .key
+                                .reference_state
+                                .map(|id| id.as_id()),
+                            value: 0.,
+                        },
+                    )
+                    .collect(),
+                blocks: Vec::new(),
+            }
+        },
+    };
+    let admission = crate::reference_exchange::ScalarAdmission::new(&original_shape, LIMIT)?;
+    let response_bytes = admission
+        .custody_bound(
+            LOG_LIMIT
+                .checked_add(TRUNCATED_LOG.len())
+                .ok_or("diagnostic extent overflow")?,
+        )?
+        .checked_add(
+            admission
+                .native_envelope_bound()?
+                .checked_mul(4)
+                .ok_or("native comparison custody overflow")?,
+        )
+        .and_then(|bytes| bytes.checked_add(size_of::<ReferenceDiagnosticFailure>()))
+        .ok_or("complete scalar custody overflow")?;
+    let response_owner = services
+        .math()
+        .reserve("ordinary-reference:scalar-response-custody", response_bytes)?;
+    let contract = ReferenceCaseContract {
+        version: Default::default(),
+        case_name: case_name.into(),
+        meaning: meaning.clone(),
+        observables,
+        specification,
+        artifacts: input_artifacts,
+    };
+    let encoding_owner = services.math().reserve(
+        "ordinary-reference:contract-encoding",
+        crate::reference_exchange::case_contract_encoding_bound(&contract, LIMIT)?,
+    )?;
+    retained_owners = [preparation_owner, encoding_owner, response_owner];
+    let owners = &retained_owners;
+    let bytes = match crate::reference_exchange::encode_case_contract(contract, LIMIT) {
+        Ok(bytes) => bytes,
+        Err(cause) => {
+            return Err(reference_failure(
+                "request encoding refused",
+                cause,
+                String::new(),
+                owners,
+            ));
+        }
+    };
+    drop(physical_owners);
+    let scratch = tempfile::tempdir()?;
+    let request = scratch.path().join("case.bin");
+    let response = scratch.path().join("reference.bin");
+    std::fs::write(&request, &bytes)?;
+    // An explicitly selected retained destination permits the independent producer's
+    // own full contract mutation controls to reuse these actual native descriptions.
+    let short = case_name
+        .strip_prefix("ordinary_delivery.")
+        .ok_or("ordinary case namespace absent")?;
+    let evidence = if let Some(destination) = std::env::var_os("PSE_ORDINARY_REFERENCE_CONTRACTS") {
+        let destination = PathBuf::from(destination);
+        if !destination.is_absolute() || !destination.is_dir() {
+            return Err("contract evidence destination must already exist and be absolute".into());
+        }
+        std::fs::write(destination.join(format!("{short}.contract.bin")), &bytes)?;
+        Some(destination)
+    } else {
+        None
+    };
+    // Source/native and generated wire validation already occur in encode. The
+    // generic codec's roundtrip/unknown preservation is tested by its own controls;
+    // a redundant local decode would keep a second metadata forest through solve.
+    drop(bytes);
+    let python = PathBuf::from(
+        std::env::var_os("PSE_ORDINARY_REFERENCE_PYTHON")
+            .ok_or("explicit locked ordinary reference interpreter absent")?,
+    );
+    if !python.is_absolute() || !python.is_file() {
+        return Err("reference interpreter must be an existing absolute file".into());
+    }
+    let log = scratch.path().join("reference.log");
+    let diagnostic_sink = std::fs::File::create(&log)?;
+    let mut command = Command::new(python);
+    command
+        .arg("-I")
+        .arg(root.join("tests/reference/ordinary_reference_driver.py"))
+        .arg("--descriptors")
+        .arg(root.join("crates/pse-runtime/src/generated/reference-exchange/descriptor.bin"))
+        .arg("--contract")
+        .arg(&request)
+        .arg("--output")
+        .arg(&response)
+        .current_dir(scratch.path())
+        .env_remove("PYTHONPATH")
+        .env_remove("PYTHONHOME")
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(diagnostic_sink.try_clone()?))
+        .stderr(Stdio::from(diagnostic_sink));
+    let mut child = pse_diagnostics::SupervisedChild::spawn(
+        &mut command,
+        pse_diagnostics::DrainFailurePolicy::Refuse(Duration::from_secs(30)),
+        None,
+    )?;
+    if let Err(error) = child.wait_ready(None, Some(Instant::now() + Duration::from_secs(240))) {
+        let drained = child.cancel();
+        let diagnostic = diagnostics(&log, evidence.as_deref(), short)
+            .map(|(text, _)| text)
+            .unwrap_or_else(|cause| format!("diagnostic capture failed: {cause}"));
+        return Err(reference_failure(
+            "did not complete",
+            format!("{error}; drain={drained:?}"),
+            diagnostic,
+            owners,
+        ));
+    }
+    let settled = child.wait();
+    let (diagnostic, exceeded) =
+        diagnostics(&log, evidence.as_deref(), short).map_err(|cause| {
+            reference_failure(
+                "diagnostic capture failed",
+                cause,
+                format!("child settlement={settled:?}"),
+                owners,
+            )
+        })?;
+    let status = match settled {
+        Ok(status) => status,
+        Err(cause) => {
+            return Err(reference_failure("drain failed", cause, diagnostic, owners));
+        }
+    };
+    if !status.success() {
+        return Err(reference_failure(
+            "refused",
+            status.to_string(),
+            diagnostic,
+            owners,
+        ));
+    }
+    if exceeded {
+        return Err(reference_failure(
+            "diagnostics exceeded their finite extent",
+            "bounded log truncated",
+            diagnostic,
+            owners,
+        ));
+    }
+    if let Err(cause) = inputs.verify_checkout() {
+        return Err(reference_failure(
+            "source snapshot changed",
+            cause,
+            diagnostic,
+            owners,
+        ));
+    }
+    let reference = match (|| -> TestResult<_> {
+        let payload = read_bounded(&response, LIMIT)?;
+        Ok(admission.decode(&payload)?)
+    })() {
+        Ok(reference) => reference,
+        Err(cause) => {
+            return Err(reference_failure(
+                "response refused",
+                cause,
+                diagnostic,
+                owners,
+            ));
+        }
+    };
+    let lease = if failed {
+        None
+    } else {
+        Some(result.reference_observations(&selection)?)
+    };
+    let candidate = ReferenceEnvelope {
+        version: 1,
+        meaning,
+        required: required.clone(),
+        outcome: if failed {
+            ReferenceOutcome::Failed {
+                code: "trial_rejected".into(),
+                stage: "overheated_tear".into(),
+            }
+        } else {
+            ReferenceOutcome::Completed {
+                outputs: lease
+                    .as_ref()
+                    .ok_or("native scalar allocation absent")?
+                    .iter()
+                    .cloned()
+                    .collect(),
+                blocks: Vec::new(),
+            }
+        },
+    };
+    if let Err(cause) = compare(&candidate, reference.known(), &allowances) {
+        return Err(reference_failure(
+            "scalar comparison failed",
+            cause,
+            diagnostic,
+            owners,
+        ));
+    }
+    if let ReferenceOutcome::Completed { outputs, .. } = &candidate.outcome {
+        let mut wrong = candidate.clone();
+        let ReferenceOutcome::Completed {
+            outputs: values, ..
+        } = &mut wrong.outcome
+        else {
+            return Err("completed population absent".into());
+        };
+        values[0].value += 1000.;
+        assert!(compare(&wrong, reference.known(), &allowances).is_err());
+        let mut missing = candidate.clone();
+        if let ReferenceOutcome::Completed { outputs, .. } = &mut missing.outcome {
+            outputs.pop();
+        }
+        assert!(compare(&missing, reference.known(), &allowances).is_err());
+        assert_eq!(outputs.len(), required.len());
+    }
+    let mut wrong = candidate.clone();
+    wrong.meaning.formulation = pse_ids::ContentHash::NIL;
+    assert!(compare(&wrong, reference.known(), &allowances).is_err());
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -960,505 +1455,4 @@ mod tests {
         );
         Ok(())
     }
-}
-
-pub(super) fn check(
-    name: &str,
-    package: &ModelingPackage,
-    case: DeclarationId,
-    instance: InstanceId,
-    result: &ModelingResult,
-    failed: bool,
-    services: &crate::workflow::PreparationServices,
-    inputs: &OriginalInputs,
-) -> TestResult {
-    // Declared before every response/contract payload so final guards outlive them
-    // even though each phase can only be admitted after its original inputs exist.
-    let retained_owners: [Arc<pse_columnar::AllocationLease>; 3];
-    let verification_owner = services.math().reserve(
-        "ordinary-reference:source-verification",
-        inputs.verification_bound()?,
-    )?;
-    if inputs.owner.is_none() {
-        return Err("original reference inputs lost their allocation owner".into());
-    }
-    if let Err(cause) = inputs.verify_checkout() {
-        return Err(Box::new(ReferenceDiagnosticFailure {
-            phase: "original source snapshot refused",
-            cause,
-            diagnostics: String::new(),
-            _owners: [Some(verification_owner.clone()), None, None],
-        }));
-    }
-    let root = &inputs.root;
-    let recycle = matches!(name, "ordinary_recycle" | "ordinary_overheated");
-    let case_name = match name {
-        "ordinary_recycle" => "ordinary_delivery.ideal_recycle",
-        "ordinary_overheated" => "ordinary_delivery.overheated_recycle_failure",
-        "ordinary_exchanger" => "ordinary_delivery.exchanger_design",
-        "ordinary_rating" => "ordinary_delivery.exchanger_rating",
-        "ordinary_arithmetic_closure" => "ordinary_delivery.exchanger_arithmetic",
-        _ => return Err("no independent constructor for selected original case".into()),
-    };
-    let roles = coordinates(recycle);
-    let keys = fixed_keys(name, recycle);
-    let mapping_storage = roles
-        .iter()
-        .try_fold(
-            roles
-                .capacity()
-                .checked_mul(size_of::<(String, String, bool)>())
-                .ok_or("mapping extent overflow")?,
-            |bytes, (key, matching, _)| {
-                bytes
-                    .checked_add(key.capacity())?
-                    .checked_add(matching.capacity())
-            },
-        )
-        .ok_or("mapping extent overflow")?;
-    let mapping_storage = keys
-        .iter()
-        .try_fold(
-            mapping_storage
-                .checked_add(
-                    keys.capacity()
-                        .checked_mul(size_of::<String>())
-                        .ok_or("mapping extent overflow")?,
-                )
-                .ok_or("mapping extent overflow")?,
-            |bytes, key| bytes.checked_add(key.capacity()),
-        )
-        .ok_or("mapping extent overflow")?;
-    let container_bytes = crate::reference_exchange::case_contract_container_bound(
-        roles.len(),
-        keys.len(),
-        &inputs.artifacts,
-        mapping_storage
-            .checked_add(case_name.len())
-            .ok_or("mapping extent overflow")?,
-    )?
-    .checked_add(source_hash_scratch(&inputs.artifacts, &keys, case_name)?)
-    .ok_or("contract preparation extent overflow")?;
-    let preparation_owner = services
-        .math()
-        .reserve("ordinary-reference:contract-containers", container_bytes)?;
-    // Rebind the finite source-role intake under its admitted container owner.
-    let (roles, mut keys) = (roles, keys);
-    let mut physical_owners = Vec::new();
-    let mut observables = Vec::new();
-    let mut selection = Vec::new();
-    let mut allowances = Vec::new();
-    let product = result.prepared.model.model.compiled();
-    let model = &product.model;
-    let targets =
-        product.numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady)?;
-    let numerics = result.prepared.solve.numerics();
-    for (key, matching, path) in roles {
-        // A failed attempt still has the entire original authored output population.
-        // Metadata comes from its admitted declarations, never from a rejected
-        // candidate's availability or an opportunistically shortened report list.
-        let mut found = model.annotations.iter().filter(|annotation| {
-            let pse_modeling::annotation::AnnotationValue::Report(label) = &annotation.value else {
-                return false;
-            };
-            if path {
-                model
-                    .symbols
-                    .get(&annotation.target)
-                    .is_some_and(|symbol| symbol.lineage.path.ends_with(&matching))
-            } else {
-                label == &matching
-            }
-        });
-        let annotation = found
-            .next()
-            .ok_or_else(|| format!("original reference coordinate absent: {key}"))?;
-        if found.next().is_some() {
-            return Err(format!("ambiguous original reference coordinate: {key}").into());
-        }
-        let symbol = model
-            .symbols
-            .get(&annotation.target)
-            .ok_or("reported original scalar absent")?;
-        let quantity = symbol
-            .ty
-            .quantity_scheme()
-            .ok_or("reported original physical scheme absent")?
-            .resolve(package.physical_context().quantities(), &Default::default())?;
-        let unit = package
-            .physical_context()
-            .quantities()
-            .quantity_type(quantity)?
-            .canonical_unit;
-        let target = targets
-            .target(annotation.target)
-            .ok_or_else(|| format!("original output numerical owner absent: {key}"))?;
-        if target.quantity != quantity || target.unit != unit {
-            return Err(format!(
-                "original output physical correspondence differs from its numerical owner: {key}"
-            )
-            .into());
-        }
-        // This is a frozen physical output-resolution criterion, independently
-        // tested against the foreign value. Native termination does not establish
-        // this error bound. The original rules, tagged scales and caloric consuming
-        // requirements supply its magnitude without reading either result value.
-        let context = output_context(
-            package.physical_context(),
-            numerics,
-            &target.specification(),
-        )
-        .map_err(|cause| format!("original reference output context absent for {key}: {cause}"))?;
-        allowances.push(ComparisonAllowance {
-            output: annotation.target,
-            absolute: context.budget,
-            relative: 0.,
-        });
-        selection.push(ReferenceReportSelection {
-            output: annotation.target,
-            source: annotation.lineage.declaration,
-            target: annotation.target,
-        });
-        observables.push(ReferenceObservableContract {
-            output: annotation.target,
-            key,
-            physical: physical(
-                package,
-                quantity.as_id(),
-                Some(unit.as_id()),
-                &mut physical_owners,
-            )?,
-        });
-    }
-    let fixture = model
-        .fixtures
-        .get(&instance)
-        .ok_or("original fixture specification absent")?;
-    let mut specification = Vec::new();
-    for key in keys.drain(..) {
-        let authored = format!(
-            "root.{}",
-            key.replace("[benzene]", "[chem.benzene]")
-                .replace("[toluene]", "[chem.toluene]")
-        );
-        let value = fixture.specifications.get(&authored).ok_or_else(|| {
-            format!(
-                "original fixed input absent: {authored}; actual={:?}",
-                fixture.specifications.keys()
-            )
-        })?;
-        if value.fixed != Some(true) {
-            return Err(format!("reference input is not fixed: {key}").into());
-        }
-        let magnitude = value
-            .value
-            .ok_or("original fixed input has no selected magnitude")?;
-        let symbol = model
-            .symbols
-            .get(&value.target)
-            .ok_or("fixed input symbol absent")?;
-        let scheme = symbol
-            .ty
-            .quantity_scheme()
-            .ok_or("fixed input physical scheme absent")?;
-        let quantity =
-            scheme.resolve(package.physical_context().quantities(), &Default::default())?;
-        specification.push(ReferenceFixedInput {
-            key,
-            value: magnitude,
-            physical: physical(package, quantity.as_id(), None, &mut physical_owners)?,
-        });
-    }
-    let input_artifacts = inputs.artifacts.clone();
-    let artifact_bytes = serde_json::to_vec(
-        &input_artifacts
-            .iter()
-            .map(|input| (&input.path, input.sha256.as_slice()))
-            .collect::<Vec<_>>(),
-    )?;
-    let source = pse_ids::preimage::hash(&artifact_bytes);
-    let formulation =
-        pse_ids::preimage::hash(&serde_json::to_vec(&(1_u32, case_name, &artifact_bytes))?);
-    let configuration = pse_ids::preimage::hash(&serde_json::to_vec(
-        &specification
-            .iter()
-            .map(|input| {
-                (
-                    &input.key,
-                    input.value.to_bits(),
-                    input.physical.quantity.id.as_id(),
-                )
-            })
-            .collect::<Vec<_>>(),
-    )?);
-    drop(artifact_bytes);
-    let meaning = ReferenceMeaning {
-        case: case.as_id(),
-        source,
-        formulation,
-        physical: package.physical_context().identity(),
-        configuration,
-    };
-    let required = observables
-        .iter()
-        .map(|coordinate| coordinate.output)
-        .collect::<Vec<_>>();
-    // Only the original source metadata selects admission. These unused numeric
-    // placeholders are neither candidate values nor independent expected answers.
-    let original_shape = ReferenceEnvelope {
-        version: 1,
-        meaning: meaning.clone(),
-        required: required.clone(),
-        outcome: if failed {
-            ReferenceOutcome::Failed {
-                code: "trial_rejected".into(),
-                stage: "overheated_tear".into(),
-            }
-        } else {
-            ReferenceOutcome::Completed {
-                outputs: observables
-                    .iter()
-                    .map(
-                        |observable| pse_model::reference_exchange::ReferenceObservable {
-                            id: observable.output,
-                            quantity: observable.physical.quantity.id.as_id(),
-                            unit: observable.physical.representation_unit.id.as_id(),
-                            basis: observable.physical.quantity.key.basis.map(|id| id.as_id()),
-                            datum: observable
-                                .physical
-                                .quantity
-                                .key
-                                .reference_state
-                                .map(|id| id.as_id()),
-                            value: 0.,
-                        },
-                    )
-                    .collect(),
-                blocks: Vec::new(),
-            }
-        },
-    };
-    let admission = crate::reference_exchange::ScalarAdmission::new(&original_shape, LIMIT)?;
-    let response_bytes = admission
-        .custody_bound(
-            LOG_LIMIT
-                .checked_add(TRUNCATED_LOG.len())
-                .ok_or("diagnostic extent overflow")?,
-        )?
-        .checked_add(
-            admission
-                .native_envelope_bound()?
-                .checked_mul(4)
-                .ok_or("native comparison custody overflow")?,
-        )
-        .and_then(|bytes| bytes.checked_add(size_of::<ReferenceDiagnosticFailure>()))
-        .ok_or("complete scalar custody overflow")?;
-    let response_owner = services
-        .math()
-        .reserve("ordinary-reference:scalar-response-custody", response_bytes)?;
-    let contract = ReferenceCaseContract {
-        version: Default::default(),
-        case_name: case_name.into(),
-        meaning: meaning.clone(),
-        observables,
-        specification,
-        artifacts: input_artifacts,
-    };
-    let encoding_owner = services.math().reserve(
-        "ordinary-reference:contract-encoding",
-        crate::reference_exchange::case_contract_encoding_bound(&contract, LIMIT)?,
-    )?;
-    retained_owners = [preparation_owner, encoding_owner, response_owner];
-    let owners = &retained_owners;
-    let bytes = match crate::reference_exchange::encode_case_contract(contract, LIMIT) {
-        Ok(bytes) => bytes,
-        Err(cause) => {
-            return Err(reference_failure(
-                "request encoding refused",
-                cause,
-                String::new(),
-                owners,
-            ));
-        }
-    };
-    drop(physical_owners);
-    let scratch = tempfile::tempdir()?;
-    let request = scratch.path().join("case.bin");
-    let response = scratch.path().join("reference.bin");
-    std::fs::write(&request, &bytes)?;
-    // An explicitly selected retained destination permits the independent producer's
-    // own full contract mutation controls to reuse these actual native descriptions.
-    let short = case_name
-        .strip_prefix("ordinary_delivery.")
-        .ok_or("ordinary case namespace absent")?;
-    let evidence = if let Some(destination) = std::env::var_os("PSE_ORDINARY_REFERENCE_CONTRACTS") {
-        let destination = PathBuf::from(destination);
-        if !destination.is_absolute() || !destination.is_dir() {
-            return Err("contract evidence destination must already exist and be absolute".into());
-        }
-        std::fs::write(destination.join(format!("{short}.contract.bin")), &bytes)?;
-        Some(destination)
-    } else {
-        None
-    };
-    // Source/native and generated wire validation already occur in encode. The
-    // generic codec's roundtrip/unknown preservation is tested by its own controls;
-    // a redundant local decode would keep a second metadata forest through solve.
-    drop(bytes);
-    let python = PathBuf::from(
-        std::env::var_os("PSE_ORDINARY_REFERENCE_PYTHON")
-            .ok_or("explicit locked ordinary reference interpreter absent")?,
-    );
-    if !python.is_absolute() || !python.is_file() {
-        return Err("reference interpreter must be an existing absolute file".into());
-    }
-    let log = scratch.path().join("reference.log");
-    let diagnostic_sink = std::fs::File::create(&log)?;
-    let mut command = Command::new(python);
-    command
-        .arg("-I")
-        .arg(root.join("tests/reference/ordinary_reference_driver.py"))
-        .arg("--descriptors")
-        .arg(root.join("crates/pse-runtime/src/generated/reference-exchange/descriptor.bin"))
-        .arg("--contract")
-        .arg(&request)
-        .arg("--output")
-        .arg(&response)
-        .current_dir(scratch.path())
-        .env_remove("PYTHONPATH")
-        .env_remove("PYTHONHOME")
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(diagnostic_sink.try_clone()?))
-        .stderr(Stdio::from(diagnostic_sink));
-    let mut child = pse_diagnostics::SupervisedChild::spawn(
-        &mut command,
-        pse_diagnostics::DrainFailurePolicy::Refuse(Duration::from_secs(30)),
-        None,
-    )?;
-    if let Err(error) = child.wait_ready(None, Some(Instant::now() + Duration::from_secs(240))) {
-        let drained = child.cancel();
-        let diagnostic = diagnostics(&log, evidence.as_deref(), short)
-            .map(|(text, _)| text)
-            .unwrap_or_else(|cause| format!("diagnostic capture failed: {cause}"));
-        return Err(reference_failure(
-            "did not complete",
-            format!("{error}; drain={drained:?}"),
-            diagnostic,
-            &owners,
-        ));
-    }
-    let settled = child.wait();
-    let (diagnostic, exceeded) =
-        diagnostics(&log, evidence.as_deref(), short).map_err(|cause| {
-            reference_failure(
-                "diagnostic capture failed",
-                cause,
-                format!("child settlement={settled:?}"),
-                &owners,
-            )
-        })?;
-    let status = match settled {
-        Ok(status) => status,
-        Err(cause) => {
-            return Err(reference_failure(
-                "drain failed",
-                cause,
-                diagnostic,
-                &owners,
-            ));
-        }
-    };
-    if !status.success() {
-        return Err(reference_failure(
-            "refused",
-            status.to_string(),
-            diagnostic,
-            &owners,
-        ));
-    }
-    if exceeded {
-        return Err(reference_failure(
-            "diagnostics exceeded their finite extent",
-            "bounded log truncated",
-            diagnostic,
-            &owners,
-        ));
-    }
-    if let Err(cause) = inputs.verify_checkout() {
-        return Err(reference_failure(
-            "source snapshot changed",
-            cause,
-            diagnostic,
-            owners,
-        ));
-    }
-    let reference = match (|| -> TestResult<_> {
-        let payload = read_bounded(&response, LIMIT)?;
-        Ok(admission.decode(&payload)?)
-    })() {
-        Ok(reference) => reference,
-        Err(cause) => {
-            return Err(reference_failure(
-                "response refused",
-                cause,
-                diagnostic,
-                &owners,
-            ));
-        }
-    };
-    let lease = if failed {
-        None
-    } else {
-        Some(result.reference_observations(&selection)?)
-    };
-    let candidate = ReferenceEnvelope {
-        version: 1,
-        meaning,
-        required: required.clone(),
-        outcome: if failed {
-            ReferenceOutcome::Failed {
-                code: "trial_rejected".into(),
-                stage: "overheated_tear".into(),
-            }
-        } else {
-            ReferenceOutcome::Completed {
-                outputs: lease
-                    .as_ref()
-                    .ok_or("native scalar allocation absent")?
-                    .iter()
-                    .cloned()
-                    .collect(),
-                blocks: Vec::new(),
-            }
-        },
-    };
-    if let Err(cause) = compare(&candidate, reference.known(), &allowances) {
-        return Err(reference_failure(
-            "scalar comparison failed",
-            cause,
-            diagnostic,
-            &owners,
-        ));
-    }
-    if let ReferenceOutcome::Completed { outputs, .. } = &candidate.outcome {
-        let mut wrong = candidate.clone();
-        let ReferenceOutcome::Completed {
-            outputs: values, ..
-        } = &mut wrong.outcome
-        else {
-            return Err("completed population absent".into());
-        };
-        values[0].value += 1000.;
-        assert!(compare(&wrong, reference.known(), &allowances).is_err());
-        let mut missing = candidate.clone();
-        if let ReferenceOutcome::Completed { outputs, .. } = &mut missing.outcome {
-            outputs.pop();
-        }
-        assert!(compare(&missing, reference.known(), &allowances).is_err());
-        assert_eq!(outputs.len(), required.len());
-    }
-    let mut wrong = candidate.clone();
-    wrong.meaning.formulation = pse_ids::ContentHash::NIL;
-    assert!(compare(&wrong, reference.known(), &allowances).is_err());
-    Ok(())
 }

@@ -926,7 +926,7 @@ async fn horizon(
                     2
                 ]),
             }],
-            moves: vec![crate::workflow::ControllerMove {
+            moves: vec![ControllerMove {
                 path: "x".into(),
                 input: 0,
             }],

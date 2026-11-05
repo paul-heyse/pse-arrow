@@ -122,7 +122,7 @@ fn polynomial_products(
         (1, 1) => *x,
         (2, 0) => 0.0,
         (2, 1) => 2.0 * y,
-        _ => unreachable!(),
+        _ => panic!("controlled polynomial derivative indices must be admitted"),
     };
     let second = |row, a, b| match (row, a, b) {
         (0, 0, 0) | (2, 1, 1) => 2.0,
@@ -261,10 +261,11 @@ fn controlled_child() {
                 };
                 let demand = ProviderRequest { outputs: request.outputs.iter().map(|&n| n as usize).collect(),
                     order: handler::order(request.order)?, demand: request.demand.restore()? };
-                return super::super::PreparedSession::prepare_water(request.handle.into(), &registry,
-                    regime, &spec, request.configuration, demand,
-                    handler::scientific_scope(cancellation, request.remaining_ns, Instant::now())?,
-                    request.result_limit as usize);
+                let scope = handler::scientific_scope(cancellation, request.remaining_ns, Instant::now())?;
+                scope.check()?;
+                let factory = WaterFactory::prepare(&registry, regime)?;
+                return super::super::PreparedSession::prepare(request.handle.into(), &factory,
+                    &spec, request.configuration, demand, scope, request.result_limit as usize);
             }
             let factory = ControlledFactory {
                 spec: spec.clone(),
@@ -1542,18 +1543,16 @@ fn parent_loss_terminates_actual_active_native_process() {
         };
         let alive = if same_process {
             match std::fs::read_dir(format!("/proc/{pid}/task")) {
-                Ok(tasks) => tasks
-                    .map(|task| {
-                        let tid = task.unwrap().file_name().to_str().unwrap().parse().unwrap();
-                        match reader.stat(tid) {
-                            ProcessRead::Present(stat) => !matches!(stat.state, 'Z' | 'X'),
-                            ProcessRead::Absent => false,
-                            other => {
-                                panic!("child thread lifetime observation unavailable: {other:?}")
-                            }
+                Ok(mut tasks) => tasks.any(|task| {
+                    let tid = task.unwrap().file_name().to_str().unwrap().parse().unwrap();
+                    match reader.stat(tid) {
+                        ProcessRead::Present(stat) => !matches!(stat.state, 'Z' | 'X'),
+                        ProcessRead::Absent => false,
+                        other => {
+                            panic!("child thread lifetime observation unavailable: {other:?}")
                         }
-                    })
-                    .any(|live| live),
+                    }
+                }),
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
                 Err(error) => panic!("child thread inventory unavailable: {error}"),
             }

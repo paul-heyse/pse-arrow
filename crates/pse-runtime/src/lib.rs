@@ -89,5 +89,9 @@ pub mod workflow;
 #[path = "../../../tests/fixtures/scientific-inputs.rs"]
 mod scientific_inputs;
 
+#[cfg(all(test, any(feature = "solver-kinsol", feature = "solver-ipopt")))]
+#[path = "../../../tests/fixtures/reference-source-fixture.rs"]
+mod reference_source_fixture;
+
 #[cfg(all(test, feature = "engineering-service"))]
 mod result_metadata_projection_tests;

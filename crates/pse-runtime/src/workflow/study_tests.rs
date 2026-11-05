@@ -2639,7 +2639,7 @@ async fn canonical_issued_study_retry_preserves_original_population_and_refuses_
         .declarations(&runtime.preparation_services())
         .await
         .unwrap()
-        .into_iter()
+        .iter()
         .find(|declaration| declaration.name == "fixed")
         .unwrap()
         .declaration_id;

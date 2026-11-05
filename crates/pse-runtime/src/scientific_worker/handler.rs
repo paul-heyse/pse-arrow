@@ -213,10 +213,11 @@ pub(super) fn prepare(
     // Parent retains its original absolute clock across transfer. A child clock
     // exists only when that original scope has one; reuse never renews it.
     let scope = scientific_scope(cancellation, request.remaining_ns, received_at)?;
-    PreparedSession::prepare_water(
+    scope.check()?;
+    let factory = pse_backend_native::coolprop::WaterFactory::prepare(&registry, regime)?;
+    PreparedSession::prepare(
         request.handle.into(),
-        &registry,
-        regime,
+        &factory,
         admitted.spec(),
         request.configuration,
         demand,

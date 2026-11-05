@@ -9,9 +9,9 @@ fn private_native_frames_refuse_oversize_and_keep_original_stop() {
         .write_all(&((RESPONSE_LIMIT + 1) as u64).to_le_bytes())
         .unwrap();
     let scope = ExecutionScope::new(Cancellation::default(), None);
-    let error = receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope)
-        .err()
-        .expect("private frame must refuse");
+    let Err(error) = receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope) else {
+        panic!("private frame must refuse");
+    };
     assert!(matches!(error, MathRuntimeError::Limit(_)));
     assert_eq!(
         error
@@ -21,9 +21,9 @@ fn private_native_frames_refuse_oversize_and_keep_original_stop() {
     );
     let cancel = Cancellation::new(true);
     let scope = ExecutionScope::new(cancel, None);
-    let error = receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope)
-        .err()
-        .expect("private frame must refuse");
+    let Err(error) = receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope) else {
+        panic!("private frame must refuse");
+    };
     assert_eq!(
         error
             .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
@@ -72,9 +72,9 @@ fn private_native_corrupt_admitted_frame_is_internal() {
     writer.write_all(&1_u64.to_le_bytes()).unwrap();
     writer.write_all(b"?").unwrap();
     let scope = ExecutionScope::new(Cancellation::default(), None);
-    let error = receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope)
-        .err()
-        .expect("private frame must refuse");
+    let Err(error) = receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope) else {
+        panic!("private frame must refuse");
+    };
     let diagnostic = error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native);
     assert_eq!(
         diagnostic.class,

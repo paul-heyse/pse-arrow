@@ -307,7 +307,9 @@ impl ProcessCustody {
             measurement
                 .observations
                 .lock()
-                .unwrap()
+                // Recording an already-settled child's facts must not panic
+                // during teardown. Keep the poison marker for the reader.
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .push(ChildMeasurement {
                     pid: self.process.id(),
                     identity: measurement.identity,
@@ -343,6 +345,17 @@ pub(super) struct ParentGuard {
 }
 #[cfg(feature = "property-coolprop")]
 impl ParentGuard {
+    /// Contain an uninterruptible foreign call after its authenticated parent
+    /// connection is lost. Only this standalone child process owner may exit;
+    /// the parent still observes and settles the actual process lifetime.
+    #[allow(
+        clippy::exit,
+        reason = "the isolated process owner must terminate an abandoned indivisible native call without running destructors against it"
+    )]
+    pub(super) fn terminate_unsettled_native(self) -> ! {
+        std::process::exit(125)
+    }
+
     pub(super) fn start(parent: u32) -> Result<Self, WorkerError> {
         use std::sync::atomic::{AtomicBool, Ordering};
         let expected =

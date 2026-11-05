@@ -2,11 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Reusable actual-reference C4 request fixture; coupled execution belongs to Plan 25k.
 use super::*;
+use crate::reference_source_fixture::{reference_family_sources, rows};
 use crate::workflow::tests::{compiler_profile, physical, runtime_on};
 use pse_structural::flowsheet::{Decision, Policy};
-
-#[path = "../../../../../../tests/fixtures/reference-source-fixture.rs"]
-mod source_fixture;
 
 pub(in crate::workflow) struct ReferenceRecycleFixture {
     pub runtime: Runtime,
@@ -22,8 +20,8 @@ pub(in crate::workflow) struct ReferenceRecycleFixture {
 pub(in crate::workflow) async fn actual_reference_recycle_fixture(
     cancel: &crate::CancelSource,
 ) -> Result<ReferenceRecycleFixture, WorkflowError> {
-    let source = source_fixture::reference_family_sources("recycle-reference");
-    let rows = source_fixture::rows(&source);
+    let source = reference_family_sources("recycle-reference");
+    let rows = rows(&source);
     let namespace = rows
         .iter()
         .find(|r| r.parent_id.is_none() && r.name == "recycle_flash")

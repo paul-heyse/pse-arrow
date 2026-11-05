@@ -435,7 +435,7 @@ pub(super) fn serve_with_preparation(
     use services::ScientificWorkerExt as _;
     use tower_service::Service as _;
 
-    let _parent = ParentGuard::start(parent)?;
+    let parent_owner = ParentGuard::start(parent)?;
     let listener = std::os::unix::net::UnixListener::bind(&endpoint).map_err(infrastructure)?;
     std::fs::set_permissions(
         &endpoint,
@@ -631,7 +631,7 @@ pub(super) fn serve_with_preparation(
     if !closed.load(Ordering::Acquire) {
         // A disconnected active RPC must settle its actual native call, even if
         // cooperative cancellation cannot interrupt the foreign instruction.
-        std::process::exit(125);
+        parent_owner.terminate_unsettled_native();
     }
     drop(jobs);
     native

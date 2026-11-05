@@ -17,14 +17,22 @@ use crate::host_operations::engineering::generated::{DESCRIPTORS, pb::pse::engin
 // Buffa 0.9.2 links the published closure, then decodes by descriptor without the
 // generated message type. This is a separate read path with literal expected tags.
 // https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/dynamic.rs
-fn inspect(name: &str, bytes: &[u8]) -> DynamicMessage {
-    let pool = Arc::new(DescriptorPool::decode(DESCRIPTORS).unwrap());
-    let message = pool.message_index(name).unwrap();
-    DynamicMessage::decode(pool, message, bytes).unwrap()
+type TestResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+fn inspect(name: &str, bytes: &[u8]) -> TestResult<DynamicMessage> {
+    let pool = Arc::new(DescriptorPool::decode(DESCRIPTORS)?);
+    let message = pool.message_index(name).ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("published engineering world has no expected message {name}"),
+        )
+    })?;
+    Ok(DynamicMessage::decode(pool, message, bytes)?)
 }
 
 #[test]
-fn result_manifest_projections_preserve_unsigned_extent_opaque_bytes_and_declared_text() {
+fn result_manifest_projections_preserve_unsigned_extent_opaque_bytes_and_declared_text()
+-> TestResult {
     let original = canonical_result_manifests::Row {
         key: "record:declared-text".into(),
         attempt: "attempt:original".into(),
@@ -35,7 +43,7 @@ fn result_manifest_projections_preserve_unsigned_extent_opaque_bytes_and_declare
     let bytes = projection::encode_canonical_result_manifest(original.clone())
         .unwrap()
         .encode_to_vec();
-    let independent = inspect("pse.engineering.v1.CanonicalResultManifest", &bytes);
+    let independent = inspect("pse.engineering.v1.CanonicalResultManifest", &bytes)?;
     assert_eq!(
         independent.field_by_number(1),
         Some(&Value::String("record:declared-text".into()))
@@ -64,6 +72,7 @@ fn result_manifest_projections_preserve_unsigned_extent_opaque_bytes_and_declare
         storage::decode_canonical_result_manifests(native).unwrap(),
         original
     );
+    Ok(())
 }
 
 fn block() -> canonical_result_blocks::Row {
@@ -88,7 +97,7 @@ fn block() -> canonical_result_blocks::Row {
 }
 
 #[test]
-fn result_block_projections_keep_signed_zero_presence_and_empty_binary_distinct() {
+fn result_block_projections_keep_signed_zero_presence_and_empty_binary_distinct() -> TestResult {
     for statistics in [None, Some(Vec::new().into()), Some(vec![0, 255].into())] {
         let original = canonical_result_blocks::Row {
             statistics,
@@ -97,7 +106,7 @@ fn result_block_projections_keep_signed_zero_presence_and_empty_binary_distinct(
         let bytes = projection::encode_canonical_result_block_metadata(original.clone())
             .unwrap()
             .encode_to_vec();
-        let independent = inspect("pse.engineering.v1.CanonicalResultBlockMetadata", &bytes);
+        let independent = inspect("pse.engineering.v1.CanonicalResultBlockMetadata", &bytes)?;
         assert_eq!(independent.field_by_number(6), Some(&Value::U64(u64::MAX)));
         assert_eq!(
             independent.field_by_number(11),
@@ -124,10 +133,12 @@ fn result_block_projections_keep_signed_zero_presence_and_empty_binary_distinct(
             original
         );
     }
+    Ok(())
 }
 
 #[test]
-fn readable_result_bits_and_future_wire_fields_do_not_grant_native_storage_adoption() {
+fn readable_result_bits_and_future_wire_fields_do_not_grant_native_storage_adoption() -> TestResult
+{
     let bits = 0x7ff8_0000_0000_1234;
     let raw = canonical_result_blocks::Row {
         coordinate_min: Some(f64::from_bits(bits)),
@@ -136,7 +147,7 @@ fn readable_result_bits_and_future_wire_fields_do_not_grant_native_storage_adopt
     let mut bytes = projection::encode_canonical_result_block_metadata(raw)
         .unwrap()
         .encode_to_vec();
-    let independent = inspect("pse.engineering.v1.CanonicalResultBlockMetadata", &bytes);
+    let independent = inspect("pse.engineering.v1.CanonicalResultBlockMetadata", &bytes)?;
     assert_eq!(independent.field_by_number(11), Some(&Value::U64(bits)));
     let wire = pb::CanonicalResultBlockMetadata::decode_from_slice(&bytes).unwrap();
     let restored = projection::decode_canonical_result_block_metadata(wire).unwrap();
@@ -149,11 +160,12 @@ fn readable_result_bits_and_future_wire_fields_do_not_grant_native_storage_adopt
     let future = pb::CanonicalResultBlockMetadata::decode_from_slice(&bytes).unwrap();
     assert!(!buffa_descriptor::ReflectMessage::unknown_fields(&future).is_empty());
     assert!(projection::decode_canonical_result_block_metadata(future).is_err());
+    Ok(())
 }
 
 #[test]
 fn original_attempt_metadata_preserves_signed_time_and_recorded_outcome_without_issuing_authority()
-{
+-> TestResult {
     let original = canonical_attempts::Row {
         key: "original:attempt".into(),
         run: "original:run".into(),
@@ -175,7 +187,7 @@ fn original_attempt_metadata_preserves_signed_time_and_recorded_outcome_without_
     let wire: pb::CanonicalAttemptMetadata =
         pse_contract_proto::support::encode_root(original.clone(), "attempt").unwrap();
     let bytes = wire.encode_to_vec();
-    let independent = inspect("pse.engineering.v1.CanonicalAttemptMetadata", &bytes);
+    let independent = inspect("pse.engineering.v1.CanonicalAttemptMetadata", &bytes)?;
     assert_eq!(independent.field_by_number(3), Some(&Value::U64(u64::MAX)));
     assert_eq!(independent.field_by_number(7), Some(&Value::I64(-1)));
     assert_eq!(
@@ -190,4 +202,5 @@ fn original_attempt_metadata_preserves_signed_time_and_recorded_outcome_without_
         storage::decode_canonical_attempts(native).unwrap(),
         original
     );
+    Ok(())
 }

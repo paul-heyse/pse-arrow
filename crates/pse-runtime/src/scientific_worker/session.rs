@@ -247,30 +247,3 @@ impl PreparedSession {
         self.state = SessionState::Closed;
     }
 }
-
-#[cfg(feature = "property-coolprop")]
-impl PreparedSession {
-    /// Reconstruct water science from actual admitted physical declarations.
-    pub fn prepare_water(
-        handle: SessionHandle,
-        registry: &pse_quantity::QuantityRegistry,
-        regime: pse_backend_native::coolprop::WaterRegime,
-        expected: &ProviderSpec,
-        configuration: pse_ids::ContentHash,
-        request: ProviderRequest,
-        scope: ExecutionScope,
-        result_limit: usize,
-    ) -> Result<Self, WorkerError> {
-        scope.check()?;
-        let factory = pse_backend_native::coolprop::WaterFactory::prepare(registry, regime)?;
-        Self::prepare(
-            handle,
-            &factory,
-            expected,
-            configuration,
-            request,
-            scope,
-            result_limit,
-        )
-    }
-}
