@@ -661,8 +661,30 @@ The focused composition suite passed 67 controls without warnings; the subsequen
 and import-retention suite passed 63. Receiving-main `just codegen` completed all 14 targets,
 and generated consumers compile in the expanded native workspace Clippy selection recorded
 in [65h](65h-integration-and-qualification.md#source-integration-wrap-up--2026-11-05).
-Complete receiving validation, authored Buf cutover, generated facades and the remaining
-option/feature population still own A04 acceptance. No performance benefit has been measured.
+Authored Buf cutover and the remaining receiving option/feature population still own
+A04 acceptance. No performance benefit has been measured.
+
+The resumed compiled-facade slice is integrated on main from `89c22c769`.
+`xtask::codegen::proto_dispatch` traverses the actual supplier module/include trees with
+`syn::parse_file`, pairs owned
+[`buffa::MessageName::FULL_NAME`](https://docs.rs/buffa/0.9.2/buffa/trait.MessageName.html)
+implementations with the emitted maintained `Validate` implementations, and publishes
+the Rust dispatch facade. It does not infer Rust names from descriptors or keep another
+editable catalog. Missing validators, duplicate message/Rust identities, recursive or
+escaping includes refuse generation. Lifetime-bearing views are not owned decode targets.
+The [maintained validator](../../vendor/protoc-gen-protovalidate-buffa/README.md) still
+owns rule realization; the facade selects that implementation rather than replacing it.
+
+Both current host worlds are complete under this mechanism: 99 code-intelligence and
+44 developer-evidence owned messages. The consumer deletes both handwritten payload
+catalogs while preserving compiled-world binding and passive observation. Original
+isolated checks passed: host/xtask all-target compilation, 39 host controls, five
+generator/source-world/structured-CEL controls and fourteen generation targets, against
+zero test failures. The final formatted-source regeneration emitted identical tested
+facade bytes. Independent descriptor enumeration, required graph rules, unknown enums,
+wire/order fidelity and foreign/import nonbinding are covered. Receiving-main checks
+remain separate. The authentic Recipe `into` owned-accessor warning remains visible;
+this is not a zero-warning generation claim.
 
 Imported-message CEL is narrower than complete import visibility: the maintained scanner
 admits selected messages into its CEL schema index. Traversing an unselected imported message
@@ -711,7 +733,7 @@ The table records current delivery state. Dependencies describe available produc
 | A01 | complete | Actual native baseline, 65i I01/65j J01 design inputs, proposed ADR-0241 and scoped independent assessment | Pure source-owned graph/macros/adoption extracted; owner implementations and all callers/generators moved; old foundation and temporary aliases deleted. Tests: contract 8/8, model 27/27, codegen 25/25, diagnostics 2/2; workspace all-target check zero errors/warnings. Integrated snapshot is 7e35abae2; H qualification remains separate. |
 | A02 | in-progress | Working A01 field/method semantics → versioned typed metadata option schema and owner emission | All three selected worlds publish typed owner/field/action/method options and all 20 native facet keys. Shared lossless acquisition/checking and native crossing helpers moved to independent pse-contract-proto; replaced implementation/comments/sidecar removed. Source-selected coverage, unknown policy/schema and original-pool controls pass. Native field-shape meaning, domain semantic normalization and independent host policy/readback remain in progress with A05/G02/J02. |
 | A03 | in-progress | A02 metadata plus declared effective feature settings → complete and runtime contract-world artifacts | Six source-derived worlds publish effective runtime and source-aware binary descriptors; independent nondefault-feature/typed-option controls and selected host acquisition checks pass. Complete remaining acquisition consumers and immutable old-world-reader obligations. Preserve full-source retention, effective semantics and unknown options through every selected route. |
-| A04 | in-progress | A03 closed worlds → selected complete supplier composition and generated consumer facade | Source-owned worlds now use typed in-process Buffa/Connect composition and one validator preparation, preserving supplier layouts and warnings; per-projection subprocess/preflight glue is deleted. Focused composition/exclusion controls and receiving-main generation pass. Complete receiving consumer/validation and full option/feature coverage, migrate authored Buf worlds, and derive consumer dispatch/facades from actual outputs. Remove replaced descriptor/module assembly and naming maps with their complete consumers; retain explicit unsupported imported-message CEL scope. |
+| A04 | in-progress | A03 closed worlds → selected complete supplier composition and generated consumer facade | Source-owned worlds use typed in-process Buffa/Connect composition and one validator preparation, preserving supplier layouts and warnings; per-projection subprocess/preflight glue is deleted. Both host payload catalogs are replaced by dispatch derived from actual emitted message/validator identities; original full-population controls pass. Complete receiving consumer/validation and full option/feature coverage, migrate authored Buf worlds, and remove remaining replaced descriptor/module assembly and naming maps with complete consumers; retain explicit unsupported imported-message CEL scope. |
 | A05 | in-progress | A01–A04 narrow working slice plus B01/B02 adoption policy → complete native/protocol correspondence for selected populations | Selected host/engineering/worker/reference adapters and completion observations are delivered; the complete passive native Recipe source graph is integrated, with its targeted controls and remaining E02/E03 codec work owned by [65k](65k-scientific-artifacts-and-native-reconstruction.md). Complete native request/fact families, domain-owned document boundaries, and c/f/g consumer projections. Inventory actual remaining maps; classify semantic checks explicitly and remove all replaced mechanical maps. Test native→wire→native against independently constructed expected meaning, raw paths and missing/unknown alternatives. |
 | A06 | planned | Current registry/function owners plus A02/A03 → source-declared selected storage/Arrow projection metadata consumed by C packages | Reuse source facts without decoding ProtoJSON or inferring database behavior from field spelling. Delete duplicate selected field/schema declarations with producer/consumer migration. Preserve transactional/domain-specific logic; test precise numeric, relationship and mapping-version changes. |
 | A07 | planned | Complete selected consumer migration → regeneration equivalence, extension controls and handoff | Add provider request, method effect, diagnostic and result facet through their actual owners and verify every selected projection follows. Run package compile/targeted checks during work and generation when declarations change; scope-end assembled/static checks belong to 65h. Delete remaining obsolete fixtures and parallel publication paths. |
