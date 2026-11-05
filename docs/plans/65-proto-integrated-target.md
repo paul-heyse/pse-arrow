@@ -701,7 +701,9 @@ The targeted population then passed 214/217, including the original scientific d
 three actual-child controls exposed a remaining H2 peer-close race. The receiving socket
 custody correction and targeted verification are tracked in
 [65h](65h-integration-and-qualification.md#resumed-joint-receiving-verification).
-No whole-series acceptance follows from these focused results.
+The symmetric peer-EOF correction now passes all thirteen selected receiving controls,
+including unchanged scientific deadline and independent-failure assertions; stress and
+broader receiving selections continue. No whole-series acceptance follows.
 
 Generated host dispatch and both physical/mathematical consuming receipt-replay cutovers
 are now merged on main. Original complete-population and ownership controls pass in their

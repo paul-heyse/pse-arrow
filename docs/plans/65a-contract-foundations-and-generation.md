@@ -685,7 +685,9 @@ facade bytes. Independent descriptor enumeration, required graph rules, unknown 
 wire/order fidelity and foreign/import nonbinding are covered. Receiving-main
 `scripts/pse test pse-host --lib --profile local -E 'test(schema::)'` passed 30/30
 against zero failures, with complete capture/settlement in unbounded, cache-off mode.
-Receiving regeneration is in progress. The authentic Recipe `into` owned-accessor warning remains visible;
+Receiving regeneration completed all fourteen targets; independent engineering comparison
+also passed after its declared generator repaired a malformed on-disk token. The authentic
+Recipe `into` owned-accessor warning remains visible;
 this is not a zero-warning generation claim.
 
 Imported-message CEL is narrower than complete import visibility: the maintained scanner

@@ -345,10 +345,28 @@ an original `ConnectionReset` at peer EOF. Server connection completion can like
 unread client shutdown bytes, so its authenticated read half now survives logical H2
 completion and drains to the parent's write EOF after actual native Shutdown. Both sides
 half-close writing before their final receive drain; neither error is filtered. This
-symmetric correction is awaiting receiving verification.
+symmetric correction now passes receiving verification.
 
-Next receiving work reruns those controls, the full selected population and actual
-shutdown/deadline stress. Mathematical proof replay
+**Tested:** `scripts/pse test pse-runtime --lib --profile local` with
+`engineering-service,property-coolprop,native-solvers` and the thirteen selected socket,
+retirement, acknowledgement, deadline and engineering-ingress controls passed **13/13**
+against zero failures. Conditions: configured unbounded placement, cache off, prepared
+compiler/KLU/solver/isolation/Uno/PETSc and explicit Arrow validation; complete original
+capture and settlement. The original scientific ten-second deadline, exact independent
+failure counts and late-I/O admission assertions are unchanged. Both inner connection
+and outer task failures remain observable. This is a focused receiving result, not H02.
+
+Receiving generation completed all fourteen targets. An independent engineering comparison
+detected a malformed on-disk derive token; the declared generator restored its exact output
+and a fresh comparison passed. The affected discovery build failed before test bodies;
+the thirteen-control pass follows repair. No generated file was edited by hand. The
+authentic Recipe owned-accessor warning remains visible, so generation is not claimed
+warning-free. The integrated host schema selection separately passed 30/30.
+
+Current receiving work stresses eight actual shutdown/deadline/custody controls over
+twenty iterations, inspecting the actual summaries rather than process exit alone. Then
+rerun the broader selected population, including both consuming receipt cutovers, and
+the earlier scientific/runtime population with explicit current fixtures. Mathematical proof replay
 has separately integrated through [65k](65k-scientific-artifacts-and-native-reconstruction.md#reconstruction-population-and-native-mathematics-limit);
 its original five focused tests do not qualify the whole Recipe receiver. H01–H04 and both
 series remain open.
