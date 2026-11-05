@@ -929,8 +929,90 @@ heat/material balances, pressure losses and correlation/geometry products with
 rating/design freedoms explicit. Ordinary membrane/MEA/plate inputs, valid
 correlation envelopes, the sweep-normalization and odd-pass issues, uninstantiated
 categorical variants and actual native/reference cases remain open. The custom
-pervaporation notebook's separate empirical flux, glycol-water recycle and design
+pervaporation notebook's separate empirical flux, glycol-water feeds and design
 role remain required under D05/G06; this gas-membrane slice cannot discharge them.
+
+## Custom glycol/water pervaporation closure — 2026-11-05
+
+**Interface-checked, source only:** X
+`notebooks/docs/unit_models/operations/skeleton_unit.ipynb` and its `_doc`,
+`_test`, `_usr` versions have identical full parsed Python statements, including
+assertions. They supply one authored custom unit with two scientific roles:
+fixed-feed simulation and inverse feed-composition optimization. Its only local
+import is the adjacent `eg_h2o_ideal.py`; recursively inspect that exact helper
+and `operations/tests/test_eg_h2o_ideal.py`, not a same-named unrelated property
+example. The notebook's literature diagram describes a recycle process, but the
+actual executable topology is two feeds→mixer→custom pervaporation→two products,
+with no recycle arc. Native correspondence follows the constructed model.
+
+| Role / exact selected input | Scientific meaning and fixed/free specification |
+| --- | --- |
+| Custom unit / baseline simulation | Steady skeleton, one liquid representation and water/ethylene-glycol molar component flows. Water feed: water=0.34, glycol=1e-6 mol/s; glycol feed: water=1e-6, glycol=0.66 mol/s. Both at318.15 K/101325 Pa. Membrane area=6 m2; permeate vacuum=1300 Pa. Thus total mixed input is1.000002 mol/s, retaining the two trace flows. |
+| Empirical component flux | Water/glycol activation energies=51000/53000 J/mol and preexponentials=5611320/22358.88 mol/(s m2). Each permeate rate is area times its preexponential and activation exponential at inlet T. There is no composition, partial-pressure, density or vacuum dependence in this selected empirical flux law. Retentate is inlet minus permeate component flow. Do not replace it with the gas membrane's driving-force law. |
+| Thermal/pressure representation | Retentate and permeate share inlet temperature; retentate keeps inlet pressure, permeate uses fixed vacuum. Positive reported condensation-duty magnitude is the sum of permeate molar rates times fixed latent heats40660/56900 J/mol. Product property blocks remain liquid-only: no wet-vapor/VLE/condenser thermodynamics is constructed. Keep this simplified assessment boundary distinct from a full energy-conserving phase-change unit. |
+| Inverse design/optimization | Free the dominant water-feed water rate and glycol-feed glycol rate; constrain their sum to1 mol/s while retaining both1e-6 trace flows. Maximize mixed-inlet water mole fraction with separation factor≥100; all temperatures, pressures, area and empirical coefficients remain fixed. Separation factor is the permeate water/glycol mole ratio divided by the inlet ratio. This is feed design, not an area optimum or a transient recycle. |
+| Custom initialization / authoring role | Notebook attaches a user initializer, fixes supplied states, calculates custom variables from their constraints, solves the unit, then releases inlet states and solves the assembled flowsheet. That custom authored law/port/initialization workflow remains required D05/G06 behavior; reproducing Python callback syntax is not required. Solver availability and an actual initialization/assembled solve remain execution prerequisites. |
+
+The scientific lead is Du–Chakma–Feng 2008 (DOI
+10.1016/j.seppur.2008.08.004), with the chosen empirical coefficients inline in
+the notebook. Their relation to the measured membrane, operating envelope and
+temperature dependence needs original-source ordinary admission. The selected
+temperature is a single operating point, not certification across all positive
+temperatures or feed compositions. Native acceptance must explicitly address
+nonnegative retained flows, composition/ratio singularities and reachable design
+specifications; unconstrained algebraic variables do not establish those domains.
+
+The helper selects FpcTP, one liquid Ideal phase and water/ethylene-glycol
+components; Perrys liquid density/caloric and RPP4 ideal-gas caloric/vapor-pressure
+coefficients are inline. Reference T/P are298.15 K/1e5 Pa; numeric state bounds
+are flow[0,1000] mol/s, T[273.15,450] K, P[1e3,1e6] Pa. Formation enthalpies,
+component parameters and units remain those exact declarations; NIST/Reid/Perry
+leads identify original coefficient provenance, not ordinary permission. The
+single-liquid consumer does not activate a liquid/vapor equilibrium merely
+because the component dictionaries contain vapor-pressure methods.
+
+### Adjacent helper validation population and recursive prerequisites
+
+The helper test's `TestStateBlock` is a separate FpcTP property witness: water
+and glycol each100 mol/s at300 K/101325 Pa. Its inherited PropertyTestHarness
+adds API/CV/state-management controls. The numeric pure-method tests explicitly
+parameterize component {water,ethylene_glycol} × test_point {0,1}, four inputs
+per role:
+
+| Exact class/method role | Water / glycol selected temperature pairs and interpretation |
+| --- | --- |
+| `TestPerrysProperties::test_liquid_densities` | Water273.16/333.15 K; glycol260.15/719.7 K; pure-component flow100 mol/s/P101325 Pa. The glycol point and other out-of-bound temperatures are present source inputs, not implicitly admitted by the helper's450 K upper state bound. |
+| `TestPerrysProperties::test_liquid_heat_capacities_enthalpy` | Water273.16/533.15 K; glycol260.15/493.15 K; independent enthalpy-difference checks reference298 K for both components, with the exact expected Cp/reference values at this test owner. |
+| `TestRPP4Properties::test_vapor_heat_capacities_enthalpy` | Water545/632 K; glycol500/600 K; switch the pure-component phase to ideal vapor, pure flow100 mol/s/P101325 Pa; enthalpy-difference references500/400 K respectively. |
+| `TestRPP4Properties::test_saturation_pressures` | Water300.25/350.16 K; glycol387/473 K; same explicitly selected pure vapor property construction. Vapor-pressure evaluation is distinct from the pervaporation unit's empirical flux. |
+
+Thus there are sixteen parameterized pure-method inputs plus the fixed mixture
+property witness; they are not sixteen membrane operating cases. Numeric
+reference arrays, rounded heat-capacity/enthalpy conventions and out-of-bounds
+requests remain exact oracle inputs requiring admissibility/evidence assessment;
+they cannot certify the ordinary package over their enclosing range.
+
+The complete selected closure is the notebook's inline custom functions and
+parameters, adjacent property helper, generic property/FpcTP/Ideal/Perrys/RPP4,
+Feed/Mixer/Product/SkeletonUnitModel, core state propagation/arc expansion and
+constraint-calculation helpers, plus its selected solver and notebook runner.
+The process image is explanatory, not a coefficient artifact. No CSV, trained
+model, external trainer or saved initial state is loaded. The X2.10.0 declaration
+still does not establish compatibility with core2.13.0; local import resolution,
+helper validity and solver/notebook execution must be qualified at the existing
+reference owner without changing the core pin silently.
+
+Native ordinary authored relations, ports/state/initialization, optimization and
+assessment owners are the target extension workflow. The inspected process and
+thermodynamic native models contain no pervaporation consumer matching this
+empirical law; this bounded search is not a whole-tree absence claim. D05/G06
+must supply the real authored custom case and fixed/free roles, with independent
+ordinary inputs from B/D02 and native/reference output identities. Compare every
+component product, inlet/permeate fraction, separation factor, latent-duty report,
+optimized feed and physical domain/material residual. An analytic calculation of
+the empirical law is a useful independent check, not proof of real-membrane
+validity. Both roles, helper scientific controls, original-data admission and
+matched execution remain required; none ran in this census slice.
 
 ## Original scientific source leads
 

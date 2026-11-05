@@ -164,6 +164,16 @@ Ordinary scientific admission, remaining configurations and matched native/refer
 execution remain open. Custom glycol pervaporation remains a separate required
 extension consumer; no source issue or unavailable dependency removes it.
 
+**Update, 2026-11-05 — custom pervaporation source closure:** the crosswalk's
+[custom glycol/water closure](64h-required-process-population.md#custom-glycolwater-pervaporation-closure--2026-11-05)
+resolves one science across four identical notebook renderings, fixed-feed and
+inverse-feed-design roles, the exact empirical/latent-duty inputs and adjacent
+property helper. Its actual topology has no recycle arc; the required custom-unit
+workflow remains distinct from the membrane model. Sixteen explicit helper
+pure-method parameter inputs and the mixture witness retain their own validity
+questions, including requests beyond the helper's numeric state bounds. Ordinary
+data, native authoring consumers and actual core2.13.0 reference execution remain open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
