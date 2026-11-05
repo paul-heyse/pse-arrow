@@ -474,6 +474,11 @@ pub fn readiness(
 /// Native causes survive declaration and owner-admission refusal.
 #[derive(Debug, thiserror::Error)]
 pub enum FixtureError {
+    /// All missing explicit inputs for the exact selected population, before preparation.
+    #[error(
+        "selected fixture inputs {0:?} are unprepared; select their original preparation owners before execution"
+    )]
+    MissingInputs(Vec<Input>),
     /// This prerequisite still requires its actual source/evidence owner to admit it.
     #[error(
         "fixture input {0:?} is unprepared; select its original preparation owner before execution"
@@ -494,7 +499,7 @@ pub enum FixtureError {
 }
 pse_diagnostics::impl_diagnostic! {
     FixtureError,
-    code(this) { match this { Self::Unprepared(_) => Some(pse_diagnostics::DiagnosticCode::FixtureUnprepared), Self::Owner(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error), Self::Capture(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error), _ => Some(pse_diagnostics::DiagnosticCode::ConfigInvalid) } },
+    code(this) { match this { Self::Unprepared(_) | Self::MissingInputs(_) => Some(pse_diagnostics::DiagnosticCode::FixtureUnprepared), Self::Owner(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error), Self::Capture(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error), _ => Some(pse_diagnostics::DiagnosticCode::ConfigInvalid) } },
     forward(this) { match this { Self::Owner(error) => Some(error), Self::Capture(error) => Some(error), _ => None } },
     help(_this) { None }, related(_this) { None }, source(_this) { None }
 }

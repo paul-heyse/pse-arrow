@@ -124,14 +124,19 @@ impl PreparedExecution {
             .iter()
             .flat_map(|requirement| requirement.inputs().iter().copied())
             .collect();
-        for &input in &demand {
-            if let Some(variable) = original_input_variable(input, environment)
-                && environment
-                    .get(OsStr::new(variable))
-                    .is_none_or(|value| value.is_empty())
-            {
-                return Err(FixtureError::Unprepared(input));
-            }
+        let missing: Vec<_> = demand
+            .iter()
+            .copied()
+            .filter(|&input| {
+                original_input_variable(input, environment).is_some_and(|variable| {
+                    environment
+                        .get(OsStr::new(variable))
+                        .is_none_or(|value| value.is_empty())
+                })
+            })
+            .collect();
+        if !missing.is_empty() {
+            return Err(FixtureError::MissingInputs(missing));
         }
         if demand.contains(&Input::ServiceHelper)
             || demand.contains(&Input::Worker)
@@ -209,21 +214,25 @@ impl PreparedExecution {
                     .or_insert_with(|| BTreeSet::from([base_feature.to_owned()]));
                 features.extend(requirement.unit().features.iter().cloned());
             }
-            for (group, features) in groups {
+            // All other build inputs are fixed by this invocation: checkout, environment
+            // (including compiler/native selection), package, binary and host target.
+            // Coalesce actual helper build requests, not the independent fixture groups.
+            let workers = capture_worker_groups(groups, |group, features| {
                 let artifacts = build(
                     root,
                     environment,
                     &destination.join(format!("{directory}-{group}")),
                     "pse-runtime",
-                    &features.into_iter().collect::<Vec<_>>(),
+                    features,
                     &[binary],
                 )?;
-                if let Some(executable) = artifacts
+                artifacts
                     .into_iter()
                     .find_map(|(name, executable)| (name == binary).then_some(executable))
-                {
-                    selected.workers.insert((input, group), executable);
-                }
+                    .ok_or_else(|| invalid("source-built worker helper is absent"))
+            })?;
+            for (group, executable) in workers {
+                selected.workers.insert((input, group), executable);
             }
         }
         if demand.contains(&Input::ProductReader) {
@@ -392,6 +401,63 @@ impl PreparedExecution {
             command.arguments.extend(policy);
         }
         Ok(command)
+    }
+}
+
+fn capture_worker_groups(
+    groups: BTreeMap<usize, BTreeSet<String>>,
+    mut capture: impl FnMut(usize, &[String]) -> Result<Executable, FixtureError>,
+) -> Result<BTreeMap<usize, Executable>, FixtureError> {
+    let mut builds = BTreeMap::<BTreeSet<String>, Vec<usize>>::new();
+    for (group, features) in groups {
+        builds.entry(features).or_default().push(group);
+    }
+    let mut workers = BTreeMap::new();
+    for (features, groups) in builds {
+        let executable = capture(groups[0], &features.into_iter().collect::<Vec<_>>())?;
+        for group in groups {
+            workers.insert(group, executable.clone());
+        }
+    }
+    Ok(workers)
+}
+
+#[cfg(test)]
+mod capture_tests {
+    use super::*;
+
+    #[test]
+    fn equivalent_helper_requests_share_capture_with_distinct_group_associations() {
+        let groups = BTreeMap::from([
+            (1, BTreeSet::from(["base".into()])),
+            (2, BTreeSet::from(["base".into()])),
+            (3, BTreeSet::from(["base".into(), "extra".into()])),
+        ]);
+        let mut calls = Vec::new();
+        let workers = capture_worker_groups(groups, |group, features| {
+            calls.push(features.to_vec());
+            Ok(Executable {
+                original: format!("original-{group}").into(),
+                captured: format!("captured-{group}").into(),
+                sha256: group.to_string(),
+                bytes: 1,
+            })
+        })
+        .unwrap();
+        assert_eq!(calls.len(), 2);
+        assert_eq!(workers.len(), 3);
+        assert_eq!(workers[&1], workers[&2]);
+        assert_ne!(workers[&1], workers[&3]);
+        let mut empty_calls = 0;
+        assert!(
+            capture_worker_groups(BTreeMap::new(), |_, _| {
+                empty_calls += 1;
+                Err(invalid("empty selection must not capture"))
+            })
+            .unwrap()
+            .is_empty()
+        );
+        assert_eq!(empty_calls, 0);
     }
 }
 

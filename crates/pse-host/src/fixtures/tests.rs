@@ -110,8 +110,36 @@ fn unsupported_evidence_input_refuses_before_preparation_or_service_effects() {
     .unwrap_err();
     assert!(matches!(
         error,
-        FixtureError::Unprepared(Input::ScientificInputs)
+        FixtureError::MissingInputs(ref inputs) if inputs == &[Input::ScientificInputs]
     ));
+    assert!(!destination.exists());
+}
+
+#[test]
+fn exact_selection_reports_every_missing_original_input_before_effects() {
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("must-not-be-created");
+    let mut requirement = requirement();
+    requirement.declaration.inputs.extend([
+        Input::ScientificInputs,
+        Input::NativeLane,
+        Input::EngineeringEndpoint,
+    ]);
+    let environment = BTreeMap::from([("PSE_ENGINEERING_ENDPOINT".into(), "".into())]);
+    let error =
+        PreparedExecution::prepare(directory.path(), &environment, &destination, &[requirement])
+            .unwrap_err();
+    let FixtureError::MissingInputs(inputs) = error else {
+        panic!("expected the complete missing-input population");
+    };
+    assert_eq!(
+        inputs,
+        [
+            Input::EngineeringEndpoint,
+            Input::ScientificInputs,
+            Input::NativeLane
+        ]
+    );
     assert!(!destination.exists());
 }
 
@@ -168,7 +196,7 @@ fn explicit_predecessor_receipt_precedes_state_without_implicit_preparation() {
             &destination,
             &[requirement]
         ),
-        Err(FixtureError::Unprepared(Input::PredecessorModuleState))
+        Err(FixtureError::MissingInputs(ref inputs)) if inputs == &[Input::PredecessorModuleState]
     ));
     assert!(!destination.exists());
 }
