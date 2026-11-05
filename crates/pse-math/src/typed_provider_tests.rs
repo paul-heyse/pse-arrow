@@ -253,7 +253,7 @@ fn replay(
         )
     }
     .unwrap();
-    pse_quantity::resolved::receipts::replay(&receipts, permit.records(), || record.restore())
+    pse_quantity::resolved::receipts::replay(receipts, permit.records(), || record.restore())
 }
 #[test]
 fn prepared_provider_record_requires_exact_qualified_membership_and_restores_all_nested_facts() {

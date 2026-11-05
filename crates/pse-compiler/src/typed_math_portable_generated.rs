@@ -639,7 +639,7 @@ mod native_receiving {
                 }
                 .unwrap();
                 let result = pse_quantity::resolved::receipts::replay(
-                    &indexed.recipe.receipts,
+                    indexed.recipe.receipts,
                     &indexed.records,
                     journey,
                 );
@@ -694,8 +694,10 @@ mod native_receiving {
                 )
             }
             .unwrap();
+            // These independent refusals deliberately reuse the same indexed
+            // fixture. Production reconstruction consumes its one original root.
             let profile = pse_quantity::resolved::receipts::replay(
-                &indexed.recipe.receipts,
+                indexed.recipe.receipts.clone(),
                 &indexed.records,
                 || pse_quantity::resolved::receipts::require_record(&i128::MAX),
             )
@@ -708,7 +710,7 @@ mod native_receiving {
             ));
             let oversized = vec![0_u8; budget.limits.nodes + 1];
             let limit = pse_quantity::resolved::receipts::replay(
-                &indexed.recipe.receipts,
+                indexed.recipe.receipts.clone(),
                 &indexed.records,
                 || pse_quantity::resolved::receipts::require_record(&oversized),
             )
@@ -726,7 +728,7 @@ mod native_receiving {
             );
             let declaration = pse_ids::SemanticId::from_bytes([92; 16]);
             let restored = pse_quantity::resolved::receipts::replay(
-                &indexed.recipe.receipts,
+                indexed.recipe.receipts,
                 &indexed.records,
                 || {
                     foreign

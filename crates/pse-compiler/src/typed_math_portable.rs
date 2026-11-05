@@ -493,7 +493,7 @@ fn reconstruct_recipe(
         slots: recipe.slots,
         occurrences: recipe.occurrences,
     };
-    let mut body = pse_quantity::resolved::receipts::replay(&recipe.receipts, records, || {
+    let mut body = pse_quantity::resolved::receipts::replay(recipe.receipts, records, || {
         let syntax = recipe
             .syntax
             .restore(limits.occurrences)
@@ -657,7 +657,7 @@ fn region_composition_refuses_qualified_restored_support_as_live_context() {
         )
     }
     .unwrap();
-    region.support = pse_quantity::resolved::receipts::replay(&stream, recipe.records(), || {
+    region.support = pse_quantity::resolved::receipts::replay(stream, recipe.records(), || {
         Ok::<_, pse_quantity::QuantityError>(record.restore(&region.syntax))
     })
     .unwrap()

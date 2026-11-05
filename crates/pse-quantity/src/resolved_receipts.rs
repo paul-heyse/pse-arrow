@@ -634,15 +634,16 @@ pub fn capture<T, E: From<QuantityError>>(
         },
     ))
 }
-/// Reconstruct only from a caller-qualified immutable product. Every requested operation
-/// must match the next concrete receipt; the inference implementation is never invoked.
+/// Consume receipts from a caller-qualified immutable product. Move their original
+/// backing into the replay session rather than making an overlapping deep copy.
+/// Every request must match its next receipt; inference is never invoked.
 pub fn replay<T, E: From<QuantityError>>(
-    stream: &ReceiptStream,
+    stream: ReceiptStream,
     authority: &pse_ids::scientific_replay::RecordAuthority,
     f: impl FnOnce() -> Result<T, E>,
 ) -> Result<T, E> {
     if !authority
-        .admits(stream)
+        .admits(&stream)
         .map_err(QuantityError::RecordMembership)?
     {
         return Err(refusal(
@@ -655,9 +656,9 @@ pub fn replay<T, E: From<QuantityError>>(
         return Err(refusal("physical.receipt", "unsupported receipt interpretation").into());
     }
     let reset = begin(State::Replay {
-        entries: stream.entries.clone(),
+        entries: stream.entries,
         position: 0,
-        boundaries: stream.boundaries.clone(),
+        boundaries: stream.boundaries,
         boundary_position: 0,
         authority: authority.clone(),
     })?;
@@ -1041,3 +1042,167 @@ impl SchemeRecord {
 #[cfg(test)]
 #[path = "resolved_receipts_projection_tests.rs"]
 mod projection_tests;
+
+#[cfg(test)]
+mod replay_tests {
+    use super::*;
+    use pse_ids::scientific_replay::{
+        QualifiedScientificRecipe, RecordAuthority, admitted_recipe_payload_hash,
+    };
+
+    fn journey(
+        registry: &QuantityRegistry,
+    ) -> Result<(Vec<ResolvedInference>, Vec<AdmittedOutputBoundary>), QuantityError> {
+        let quantity = registry.neutral_dimensionless().unwrap();
+        let contract = ResolvedPhysicalContract::named(quantity, IndexSet::new(), registry)?;
+        let operations = [OpRequest::Add, OpRequest::Mul]
+            .into_iter()
+            .map(|operation| {
+                infer_operation(
+                    &operation,
+                    &[contract.clone(), contract.clone()],
+                    None,
+                    registry,
+                    &crate::infer::NoInvariantFacts,
+                )
+            })
+            .collect::<Result<_, _>>()?;
+        let boundaries = [47, 48]
+            .into_iter()
+            .map(|identity| {
+                AdmittedOutputBoundary::declared(
+                    pse_ids::SemanticId::from_bytes([identity; 16]),
+                    contract.clone(),
+                    quantity,
+                    registry,
+                )
+            })
+            .collect::<Result<_, _>>()?;
+        Ok((operations, boundaries))
+    }
+
+    #[allow(
+        unsafe_code,
+        reason = "isolated owner-captured physical receipt fixture tests replay without issuing production authority"
+    )]
+    fn authority(stream: &ReceiptStream) -> RecordAuthority {
+        let payload = serde_json::to_vec(stream).unwrap();
+        let digest = admitted_recipe_payload_hash(&payload);
+        // SAFETY: this private fixture controls the exact complete receipt stream,
+        // including deliberate corruptions used only to test fail-closed replay.
+        unsafe {
+            QualifiedScientificRecipe::from_canonical_product(
+                payload,
+                digest,
+                pse_ids::ContentHash::from_bytes([29; 32]),
+                pse_ids::ContentHash::from_bytes([31; 32]),
+            )
+        }
+        .unwrap()
+        .records()
+        .clone()
+    }
+
+    #[test]
+    fn physical_receipt_replay_moves_original_backing_and_preserves_complete_outcomes() {
+        let registry = crate::generated::standard_registry().unwrap();
+        let (original, mut stream) = capture(|| journey(&registry)).unwrap();
+        assert_eq!(stream.entries.len(), 2);
+        assert_eq!(stream.boundaries.len(), 2);
+        stream.entries.reserve(17);
+        stream.boundaries.reserve(19);
+        stream.entries[0].result.operands.reserve(23);
+        let authority = authority(&stream);
+        let backing = (
+            stream.entries.as_ptr(),
+            stream.boundaries.as_ptr(),
+            stream.entries[0].result.operands.as_ptr(),
+            stream.entries.capacity(),
+            stream.boundaries.capacity(),
+            stream.entries[0].result.operands.capacity(),
+        );
+        let restored = replay(stream, &authority, || {
+            SESSION.with(|session| match &*session.borrow() {
+                Some(State::Replay {
+                    entries,
+                    boundaries,
+                    ..
+                }) => {
+                    assert_eq!(
+                        (
+                            entries.as_ptr(),
+                            boundaries.as_ptr(),
+                            entries[0].result.operands.as_ptr(),
+                            entries.capacity(),
+                            boundaries.capacity(),
+                            entries[0].result.operands.capacity(),
+                        ),
+                        backing
+                    );
+                }
+                _ => panic!("expected physical replay session"),
+            });
+            journey(&registry)
+        })
+        .unwrap();
+        for (original, restored) in original.0.iter().zip(&restored.0) {
+            let mut expected =
+                pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
+            let mut actual =
+                pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
+            original.frame(&mut expected);
+            restored.frame(&mut actual);
+            assert_eq!(actual.finish_hash(), expected.finish_hash());
+        }
+        assert_eq!(restored.1, original.1);
+        assert!(SESSION.with(|session| session.borrow().is_none()));
+        assert!(require_record(&InferenceRecord::capture(&restored.0[0])).is_err());
+    }
+
+    #[test]
+    fn physical_receipt_replay_preserves_membership_version_and_cleanup_refusals() {
+        let registry = crate::generated::standard_registry().unwrap();
+        let (_, stream) = capture(|| journey(&registry)).unwrap();
+        let original_authority = authority(&stream);
+        // Independent corruptions deliberately retain the original fixture data.
+        let mut changed = stream.clone();
+        changed.entries[0].request = pse_ids::ContentHash::from_bytes([99; 32]);
+        let membership: Result<(), QuantityError> = replay(changed, &original_authority, || {
+            panic!("foreign receipt stream must refuse before restoration")
+        });
+        assert!(
+            membership
+                .unwrap_err()
+                .to_string()
+                .contains("physical receipts are absent")
+        );
+
+        let mut old = stream.clone();
+        old.version = 2;
+        let old_authority = authority(&old);
+        let version: Result<(), QuantityError> = replay(old, &old_authority, || {
+            panic!("unsupported receipt version must refuse before restoration")
+        });
+        assert!(
+            version
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported receipt interpretation")
+        );
+
+        let failed: Result<(), QuantityError> = replay(stream, &original_authority, || {
+            Err(refusal(
+                "physical.receipt.test",
+                "injected reconstruction refusal",
+            ))
+        });
+        assert!(
+            failed
+                .unwrap_err()
+                .to_string()
+                .contains("injected reconstruction refusal")
+        );
+        assert!(SESSION.with(|session| session.borrow().is_none()));
+        journey(&registry).unwrap();
+    }
+}
