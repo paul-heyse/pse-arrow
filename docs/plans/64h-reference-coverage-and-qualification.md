@@ -612,6 +612,15 @@ membrane inputs,recycle/initialization roles and arbitrary steady inventory
 probes are explicit. Ordinary provenance,physical inventory identification,
 unselected branches and full independent dynamic qualification remain open.
 
+**Update, 2026-11-05 — archive wrapper/ROM census:** the
+[archive distinction](64h-required-process-population.md#archived-supercritical-wrappers-and-sofc-rom-artifact-distinction--2026-11-05)
+resolves same scientific SCPC/steam wrapper calls,while retaining coordinator
+disposition. NGFC's9-input/48-output kriging and archived SOFC's46-output
+neural artifact have exact hashes,coordinates,bounds,temperature-conversion
+and snapshot-role declarations; their cases differ. Complete archived plant
+design/dispatch/cost consumers,ordinary training provenance and independent
+runtime/physical qualification remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

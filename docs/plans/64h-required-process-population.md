@@ -5125,6 +5125,102 @@ dynamic configurations and complete independent balance/recovery/derivative
 qualification remain required. No contactor,property,initializer or solver
 was executed in this census.
 
+## Archived supercritical wrappers and SOFC ROM artifact distinction — 2026-11-05
+
+**Interface-checked, source only:** AST comparison of X `archive/power_gen/
+supercritical/{supercritical_power_plant_src,supercritical_steam_cycle_src}.ipynb`
+with modern `docs/power_gen/supercritical/{supercritical_power_plant,
+supercritical_steam_cycle}.ipynb` resolves their scientific correspondence.
+Only resource-loading and stream-table import statements differ. Both plant
+wrappers call core SCPC `main()` without altered physical inputs; both steam
+wrappers call core steam-cycle `main()`,then change throttle valve1 opening
+value to .25 and re-solve. Neither adds a source dataset,new property/unit
+formulation or independent numerical target. Resource SVGs are presentation
+inputs. These are same-case wrapper candidates for coordinator disposition;
+this source comparison does not drop required core/modern plant behavior or
+qualify archived Python API execution.
+
+Archived NGFC and SOFC are **different scientific models**,not wrappers
+around the modern physical SOC module. Their ROM inputs and closures are:
+
+| Artifact/consumer | Exact reference artifact and formulation |
+|---|---|
+| X `mod/power_gen/{NGFC_flowsheet,SOFC_ROM}.py`,archive NGFC notebook | Working-directory `kriging_coefficients.dat`,7099277 bytes,SHA256 `4b4ae68e1cec2b4ba065b1b8521e71b2560141d9ebdb3ab03fb5d226521085f6`. Stdlib decoding finds765771 scalar coefficients,matching9 inputs,48 outputs,13424 samples: input/output means/scales,sample coordinates,9 Gaussian correlation coefficients,10×48 linear-trend coefficients and13424×48 residual weights. No trainer/raw original simulation campaign is supplied by this consumer. |
+| X `archive/power_gen/sofc/{sofc,sofc_rom}.py` | Working-directory `sofc_rom_data.json`,1395610 bytes,SHA256 `b2168e42d94affd5bf9cc508c92cabdc46ed63ef48545f3906b94c22ea5777e7`. Actual weight shapes9×32,32×200,200×200,200×256,256×46; corresponding biases32/200/200/256/46 and input/output means/scales9/46. Four hidden sigmoid layers,linear final46-output layer. The source description's five outputs refers to five named consumer products,not the actual full output dimension. All shipped scales are positive; this is artifact inspection,not model evaluation or a general zero-scale guard. |
+
+Both artifacts order their nine coordinates as current density,fuel inlet
+temperature,internal reforming,air inlet temperature,air recirculation,
+oxygen/carbon ratio,fuel utilization,air utilization,pressure. Common numeric
+bounds are density2000..6000 A/m2,fuel15..600 Celsius,reforming0..1,
+recirculation0...8,O/C1.5..3,fuel utilization .4...95. Kriging air
+temperature225..800 Celsius,air utilization0...833,pressure1..2.5 atm
+**differ** from neural550..800,.125...833,1..5 atm. These are selected
+optimization bounds,not independently demonstrated training validity.
+Kriging subtracts273 in its flowsheet Kelvin-to-Celsius links; neural
+subtracts273.15. Preserve the actual .15 K difference for matched reference
+inputs. Neural mapping of voltage/anode outlet/cathode outlet/max cell/
+cell-temperature difference uses output indices0/10/12/7/9; kriging uses
+1/11/13/8/10. Other46/48-vector outputs need their actual declared meaning
+before claiming complete surrogate products; an index shift is not a safe
+universal correspondence.
+
+NGFC's steady model uses natural-gas PR helper packages with11 fuel,
+8 syngas and5 air components,plus H2/CO/CH4 combustion reactions;
+reforming/prereforming use Gibbs mechanisms. Its cold-start specification
+sets fresh natural gas1161.9 mol/s,288.15 K,3447379 Pa,CH4/C2H6/
+C3H8/C4H10/CO2/N2 .931/.032/.007/.004/.01/.016,remaining
+CO/H2/H2O/O2/Ar traces1e-11. Reformer steam422 K/206843 Pa,
+water1 plus trace other species; reformer1060.93 K/137895 Pa,
+expander outlet206843 Pa/efficiency .9. Recuperator/reformer/Gibbs,
+air compression/intercooling,cathode/anode recycling,oxygen split,
+combustion/expanders and HRSG relations are source-owned prerequisites,
+not a single SOC boundary. Initial power-island feed3639 mol/s is a
+temporary disconnected specification replaced by connection to the reformer.
+
+ROM setup fixes current4000,fuel348.33 Celsius,reforming .6,
+air recirculation .5,O/C2.1,fuel utilization .8,pressure1 atm;
+max cell750 Celsius and cell difference100 K determine air temperature/
+utilization. The notebook then supplies a **second specification**:
+fuel348.3 Celsius,air617.3 Celsius,air utilization .4488,free max
+cell/cell difference; other fixed ROM coordinates persist. It re-solves
+with Ipopt/MA97 and asserts zero DOF,optimal status,net659.8 MW(rel.1),
+HHV efficiency .6248(rel.0001),CO2 emissions291.2 g/kWh(rel.1).
+Fuel HHV908839.23 J/mol and CO2 molar mass44.01 g/mol enter these
+reporting relations. Steam-cycle efficiency .38,inverter efficiency .97,
+Faraday96487 C/mol and reformer steam heating .050735 MJ/mol are
+separate supplied scientific approximations; steam heating is tied to422 K,
+not a universal steam enthalpy law.
+
+Default notebook `reinit=False,resolve=False` takes bundled NGFC initialized
+and solved JSON snapshots when present: format4,root `NGFC no CCS`,
+dated2024-04-19. Missing snapshots/reinit selects cold construction/
+initialization; `resolve` selects solve from initialized state. Pre-ROM uses
+MA57,full ROM MA97,both tol1e-7,max200,user scaling. Saved model values
+are initialization/fixed-state/reference-result material,not independent
+ordinary model data or evidence that those solves ran now. NGFC's second
+specification includes a new solve even after loading a solved snapshot.
+
+Archived SOFC initial snapshot is format4,root `unknown`,2022-11-30;
+its local network helper and cost helper are additional dependencies. Its
+fresh gas is1.1116 kmol/s,288.15 K,137.895 kPa,with .931/.032/.007/
+.004/.01/.016 hydrocarbon/CO2/N2 fractions and1e-19 CO/H2/H2O traces;
+air11.444 kmol/s,288.15 K,101.353 kPa with H2O/CO2/N2/O2/Ar
+.0104/.0003/.7722/.2077/.0094. ROM current4000,fuel utilization .85,
+O/C2.1,reforming1,pressure1 differ from NGFC. Thus even shared fuel
+fractions do not make their properties,units,topology,ROM or physical case
+equivalent. The full archived SOFC design/dispatch/cost consumer and the
+standalone SOEC/combined/rSOFC branches remain separate closure work.
+
+Native F02/G04 requires explicit serialized family/dimensions,coordinate
+units/order/scaling,output semantics,artifact revision and original training
+provenance/envelope,then selected evaluation/embedding/optimization products.
+These files are reference artifacts until a separate ordinary admission;
+trained coefficients never substitute for an independent oracle dataset.
+Working-directory artifact resolution,old snapshot schema compatibility,
+trainer reconstruction,all unexamined plant inputs and full independent
+physical/derivative/optimization qualification remain required. Only AST,
+JSON/gzip decoding and coefficient counting ran; no ROM or plant executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
@@ -5175,7 +5271,7 @@ each consumer's originating point/step/coverage and required-versus-optional pro
 | Held NETL-32D fixed-bed notebook | Required, held execution: `held/flowsheets/CO2_adsorption_desorption/CO2_Adsorption_Desorption_1DFixedBed.ipynb` → `mod/co2_adsorption_desorption/{NETL_32D_gas_phase_thermo,NETL_32D_solid_phase_thermo,NETL_32D_adsorption_reactions,simulation_utilities}.py` plus core fixed bed/PETSc. This is not zeolite TSA0D and cannot be deduplicated into that row. Resolve adsorption/desorption input profiles, inventory transfer, parameters and PETSc compatibility. |
 | Archived reconciliation: boiler, economizer parmest/reconciliation | Conditional supplemental source selection remains open; scientific reconciliation is already mandatory G02 behavior. Read/archive-specific inputs, covariance/noise and boiler/economizer models before deciding whether these add cases to the existing required workflow. Tree presence alone neither selects nor excludes them. |
 | Archived NGFC, rSOFC/SOEC, SOEC, SOFC, combined SOFC/SOEC, subcritical boiler | Conditional archived entry-point selection; released core power/SOC behavior remains required above. Models/ROMs/helper data may differ from modern cases; content equivalence and all nested prerequisites have not been established. No blanket duplicate/exclusion declaration. |
-| Archived supercritical plant/steam-cycle entry points | Candidate duplicates of modern entry points; retain pending content/scientific comparison. Core/modern plant cases remain required even if archived wrappers retire. |
+| Archived supercritical plant/steam-cycle entry points | Scientific comparison above resolves identical core calls/inputs and the same .25 throttle change; differences are resource/table imports. Same-case wrapper candidates await coordinator disposition. Core/modern plant cases remain required even if archived wrappers retire. |
 | Six archived MatOpt design families and C `apps/matopt` | Conditional supplemental whole-distribution track, outside the process-only equivalence claim. Retain materials-design scope for any later whole-release claim; no deletion or rejection of the library. |
 | Archived PECOS data quality | Conditional supplemental workflow; do not claim its application-specific data-quality behavior from native process inspection. |
 | Archived DMF and embedded workspace copy | Excluded obsolete infrastructure mechanics; retain any scientific artifact selected by an actual required consumer. The copied workspace notebook is a source duplicate candidate, not an extra scientific workflow. |
