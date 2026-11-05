@@ -34,7 +34,7 @@ interpretation three remains active until a complete selected replacement qualif
 | Consumer | Required meaning and target | Activation prerequisite |
 | --- | --- | --- |
 | Independent/canonical receiving reconstruction | Reconstructible source, original physical/context selection and exact receipt/membership interpretation; receiver performs contextual admission | Complete record population, original root/receipt consumption, bounded phases, retained old-policy disposition and actual receiving controls |
-| Original live parent to its one provider-free private child | Parent retains original admission/evidence and proposal screening; child receives only the checked mathematical/execution closure it needs | ADR-0246 scope, checked supplier packing/restoration including MPFR and relocated symbols, full stage/layout/guard preservation and physical custody |
+| Original live parent to its one provider-free private child | Parent retains original admission/evidence and proposal screening; child receives its already prepared unknown-coordinate Value/First execution closure | ADR-0246 scope, checked supplier f64 evaluator restoration, complete compiled stage/layout/guard/attribution and CSC support, fresh scratch and physical custody; no symbolic body/MPFR restoration |
 | Prepared provider session | Immutable specification is exchanged here; mutable prepared handles, cancellation, batch state and process shutdown stay in 65e | E04/E05 capability and session controls; no serialized live closures/workspaces |
 
 No artifact digest or generated validator constructs a scientific capability. Portable request
@@ -67,14 +67,15 @@ number/map-key/variant/surviving-subtree semantics. The existing ADR-0245 prereq
 limits below remain binding on that route. An unrelated typed visitor, a whole-payload permit
 or raw Proto fields cannot replace membership by shape agreement.
 
-For live transfer, load the active native-solver-libraries skill and inspect the maintained
-Symbolica/Numerica sources selected by Cargo before implementation. The existing supplier
-investigation below establishes gaps, not a released checked transfer API. Require complete
-non-rational/MPFR coefficients, symbol remap and canonical packed ordering, native stage and
-source occurrence restoration, quantity/layout/obligation correspondence and all settings.
-Same-width symbols or `PreparedBody` equality alone are insufficient. Unknown supplier bounds
-remain a blocked activation prerequisite; do not impose a new host resource cap or fabricate
-an RSS guarantee. Neither proposed ADR is accepted or implemented by this document.
+For live transfer, inspect the exact maintained supplier and native sources before implementation.
+The refined private-child profile below transfers the parent's already compiled f64 program,
+not its symbolic atoms. Preserve constant bits, operation order and every compiled stage/layout/
+attribution fact; retain full original rational/MPFR source and preparation evidence with the
+parent. Stock evaluator serde/bincode loading is not checked execution admission. Canonical
+source receiving keeps its separate membership, receipt and reconstruction obligations; no
+general body-deserialization authority follows. Unknown required supplier/native bounds still
+block activation; do not impose a new host resource cap or fabricate an RSS guarantee.
+Neither proposed ADR is accepted by this revision.
 
 ## Delivery sequence and targeted acceptance
 
@@ -82,7 +83,7 @@ an RSS guarantee. Neither proposed ADR is accepted or implemented by this docume
    complete one canonical/private native receiving slice against working A/B records.
 2. Finish qualification/receipt membership and complete phase admission before binary activation.
    Keep allocation, validation, adoption and mathematical reconstruction limits separate.
-3. Settle the live-child supplier route independently. If its checked packing/restoration cannot
+3. Settle the live-child checked f64 program and compiled-stage route independently. If it cannot
    establish the consumed contract, retain the currently qualified source reconstruction and
    record the actual unresolved capability; no placeholder bypass is allowed.
 4. Migrate each selected producer and receiver together; remove the replaced DTOs, decode/index
@@ -102,7 +103,7 @@ no execution pass. Controls proposed here do not assert support for new scientif
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
 | E02 | in progress | E01; narrow working 65a/65b and receiving operation from 65i I02 | First remove kernel portable descriptor mirrors while retaining contextual receipt replay and truthful interpretation changes. Generate portable scientific records/adapters and migrate existing producers/readers. Buffa generation and supported `Validate` discharge local correspondence; native reconstruction and completion-owned selectors discharge scientific admission/use. Cover ordering, exact bits, missing/unknown alternatives, scope/coverage and refusal classes. Remove migrated capture/restore pairs and duplicated shape declarations; retain qualification. Test changed native variants against independent known meaning. |
-| E03 | in progress | E02 closed-root slice; 65d transport/settlement primitives where shared | Project actual native root/input/source-map/handshake/request/outcome owners, then activate generated bounded envelopes on the existing inherited channel. Preserve provider-free rejection, original registry/body checks, numerical policy and cancellation/drain. Compare direct and child outcomes on the same independently specified roots; inject malformed source, stale image, unknown completion and child failure. Delete replaced private wire/JSON-only helpers and their mechanism-only fixtures. |
+| E03 | in progress | Parent-admitted closed-root preparation; working generated envelope; 65d transport/settlement primitives | Refined ADR-0246 selects the parent's compiled unknown First template, which includes Value, with checked supplier f64 loading and complete native compiled-stage/root-core restoration. Separate execution from preparation without dummy bodies or weakened source checks; preserve provider-free restrictions, original context/attribution, numerical policy and cancellation/drain. Test actual direct/child roots, malformed layouts/programs, stale image, substituted commitments and unknown completion. Activate and delete the selected private source-reconstruction path only after complete acceptance; canonical/source E02 remains separate. |
 
 E02/E03 retain their previous labels. Old 65e anchors redirect here; this table alone owns
 their progress. The detailed historical assessments below supply preserved prerequisites and
@@ -682,7 +683,7 @@ materialization during inspection. Exact sources are the native
 [coefficient representation](../../vendor/symbolica/src/coefficient.rs) and
 [packed atom coefficient](../../vendor/symbolica/src/atom/coefficient.rs).
 
-The candidate next prerequisite is supplier-owned checked canonical transfer, covering the
+The earlier candidate next prerequisite was supplier-owned checked canonical transfer, covering the
 actual coefficient population, bounded layout/remapping and preadmitted simultaneous buffers.
 An authenticated original canonical producer and independently checked safe packing are distinct
 premises. Injective symbol remapping can disturb ordering; comparison can materialize coefficients,
@@ -733,24 +734,75 @@ the scientific architecture owners and retire completed planning through the rep
 
 ### Live admitted-body delegation
 
-[Proposed ADR-0246](../adr/0246-live-admitted-body-delegation.md) concludes the bounded next-design
-investigation. The first consumer is the existing original private provider-free root child,
-whose live parent already owns the admitted body and independently screens the proposal.
-`compile_problem` consumes that body, bindings and numerical controls; full receipt/registry
-consumption belongs to source reconstruction. Retain complete original admission evidence with
-the parent and transfer the exact execution/diagnostic closure plus attempt-bound commitments.
-The child performs no source/receipt replay and gains no general scientific or publication
-authority. Canonical/durable replay retains ADR-0245's separate requirements.
+[Proposed ADR-0246](../adr/0246-live-admitted-body-delegation.md) is refined during resumed
+execution before private transfer implementation. The selected next target is the original
+parent's **compiled unknown-coordinate First execution template**, which already includes its
+Value programs. The parent prepares this product through `source.problem(&scope)` before
+encoding today. KINSOL residual/Jacobian/JVP callbacks and `Problem::verify` use the unknown
+worker; they need no subsequent parameter-derivative preparation. This removes more repeated
+work than copying a symbolic body and then compiling it again in the child.
 
-Supplier packing validation and complete native restoration must precede activation. Preserve
-Float realization and every guard, obligation, applicability/branch result and attribution
-inventory. Strictly increasing symbol IDs do not preserve canonical sums: mapping 256→511
-and 257→512 reverses the little-endian packed term ordering despite equal widths. Require
-supplier-established order preservation or bounded repair; source-order registration alone
-is insufficient. Subsequent support/derivative/evaluator preparation retains independent
-resource obligations. No supplier/native implementation or binary activation is claimed here.
-The current consolidation instruction ends this investigation at a reviewable proposed decision;
-implementation remains remaining E/F03 scope rather than work opened during qualification.
+Symbolica 3.0.1
+[`ExpressionEvaluator<T>` serialization](../../vendor/symbolica/src/evaluate/evaluator.rs)
+supplies serde/bincode realization of its existing stack/instructions/results. Its stock
+decoders construct fields without validating indices before unchecked evaluation, and may
+restore external-function tags or settings with expression trees. Use supplier-owned borrowed
+export/sizing and checked restoration of the existing **f64** interpreter instead. Preserve
+constant bits, instruction/operand order, parameter/constant boundary, stack extent and result
+aliases. Validate nonempty Add/Mul, operand/destination/result indices, protected slots,
+definition-before-read, fixed builtin identity/arity, complete extent and pre-growth admission.
+Refuse external functions, callbacks and unsupported instruction/control-flow profiles. Omit
+preparation-only optimization/hot-start state; promise execution correspondence, not later
+preparation/vectorization equivalence. Do not implement an independent arithmetic interpreter.
+Sources: [private and exported instruction owners](../../vendor/symbolica/src/evaluate/instruction.rs),
+[external-function restoration](../../vendor/symbolica/src/evaluate/external.rs) and
+[native evaluator preparation](../../crates/pse-math/src/library/admission.rs).
+
+The native execution/preparation separation is equally necessary. Extract the immutable numeric
+signature/layout/program owner from `CompiledBody` and fresh mutable frame/scratch behavior
+from the current worker, retaining **one existing stage engine**. Existing source-bearing
+callers retain their original `SourceBindings::check_compiled` checks. The parent issues a
+complete immutable execution-attribution projection after those checks; its original private
+endpoint binds that projection to this attempt. The child does not manufacture a general
+source-binding witness or a dummy `PreparedBody`. General future product preparation stays
+with its source owner; the child explicitly supports only the fixed transferred demands.
+
+| Consumed execution owner | Required complete transferred/restored population |
+| --- | --- |
+| Signature and product | SelectedPartials, nondirectional Value/First; inputs/input formals, slots/outputs, layouts and first layout, row/coordinate order and actual execution limits |
+| Block | Existing evaluator program, argument/value extents, gather/scatter, source and finite-check ranges/checked ends |
+| Require | Argument, condition, minimum order, source and optional lineage |
+| Domain | Nested Value stages, local frame, captures/read ordering, layout, argument/token and full lineage |
+| Applicability | Nested stages/frame/captures/layout, predicates, observation inputs, token and complete plan/region/dependency/permission facts |
+| Branch | Comparison operands/operator, both arms and separation requirement; reject providers recursively |
+| Root execution core | Original id/identity, ordered unknown IDs/intervals and residual rows/offsets, fixed parameters, derivative requirement/order, structural CSC support, scope and admission |
+| Attribution and fresh state | Exact instance/member/source/occurrence association; zero structural argument slots and poison gathered arguments/results/nested frames under existing reset rules; never copy warmed worker values |
+
+Factor the root execution core from general `Problem` source/parameter/factor machinery so
+existing KINSOL and original verification consume the same core. Recompute/check retained and
+scratch extents from actual restored populations rather than accepting serialized allowances.
+Admission, source identity, observation and scientific permission remain separate. The parent
+retains complete original admission/evidence through proposal screening and reap. Canonical/
+durable receiving remains under ADR-0245; this route neither replays receipts nor changes their
+membership/hash interpretation.
+
+**Interface-checked only:** actual `compile_selected` builds orders through the selected ceiling,
+and source review follows the consumed fields through the stage interpreter and callbacks.
+Confirm the actual emitted supplier instruction population with the existing root/guard/branch/
+applicability fixtures before choosing the initial checked profile. Qualify asymmetric/sparse
+Jacobian layouts, every refusal/attribution class, malformed programs/layouts/check ranges,
+substituted commitments, denied growth/cancellation, fresh mutable state, original verification
+and reap. Child entry must perform no source admission, symbolic analysis/differentiation or
+MPFR restoration. No complete loader, native split, activation, memory bound or speed claim is
+established by this source investigation. Packed-atom inspection remains useful passive work;
+canonical atom remapping is not the next prerequisite for this private profile.
+
+Sources: [parent preparation and child path](../../crates/pse-runtime/src/math/native_child.rs),
+[compiled stages/order selection/worker](../../crates/pse-math/src/execution.rs),
+[root construction/evaluation/verification](../../crates/pse-math/src/implicit.rs),
+[KINSOL oracle](../../crates/pse-backend-native/src/implicit.rs),
+[original binding checks](../../crates/pse-math/src/source_bindings.rs) and
+[self-contained applicability plans](../../crates/pse-model/src/applicability.rs).
 
 ## Sources
 

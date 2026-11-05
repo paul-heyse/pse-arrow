@@ -363,9 +363,15 @@ the thirteen-control pass follows repair. No generated file was edited by hand. 
 authentic Recipe owned-accessor warning remains visible, so generation is not claimed
 warning-free. The integrated host schema selection separately passed 30/30.
 
-Current receiving work stresses eight actual shutdown/deadline/custody controls over
-twenty iterations, inspecting the actual summaries rather than process exit alone. Then
-rerun the broader selected population, including both consuming receipt cutovers, and
+**Tested:** `cargo-pse-correctness nextest run --locked -p pse-runtime --lib --profile local`
+with the same runtime features and eight selected actual shutdown/deadline/custody controls,
+`--stress-count 20`, passed all twenty iterations: **160 selected executions, zero failures**.
+Every iteration summary reports eight passed; the aggregate reports 20/20 passed. The owned
+generic run retains complete raw output and settlement; this is direct Nextest stress evidence,
+not a newly issued fixed-workflow report verdict. Native/unbounded/cache-off/validation
+conditions remain as above. Neither the original deadline nor failure-count assertions changed.
+
+Next rerun the broader selected population, including both consuming receipt cutovers, and
 the earlier scientific/runtime population with explicit current fixtures. Mathematical proof replay
 has separately integrated through [65k](65k-scientific-artifacts-and-native-reconstruction.md#reconstruction-population-and-native-mathematics-limit);
 its original five focused tests do not qualify the whole Recipe receiver. H01–H04 and both

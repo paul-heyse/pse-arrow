@@ -675,8 +675,10 @@ escaping includes refuse generation. Lifetime-bearing views are not owned decode
 The [maintained validator](../../vendor/protoc-gen-protovalidate-buffa/README.md) still
 owns rule realization; the facade selects that implementation rather than replacing it.
 
-Both current host worlds are complete under this mechanism: 99 code-intelligence and
-44 developer-evidence owned messages. The consumer deletes both handwritten payload
+Both current host worlds are complete under this mechanism: 122 code-intelligence and
+138 developer-evidence owned messages, including nested carriers (260 total). The earlier
+143-message summary was corrected against actual emitted match arms and recursive descriptor
+population; this corrects accounting, not a missing dispatch implementation. The consumer deletes both handwritten payload
 catalogs while preserving compiled-world binding and passive observation. Original
 isolated checks passed: host/xtask all-target compilation, 39 host controls, five
 generator/source-world/structured-CEL controls and fourteen generation targets, against
