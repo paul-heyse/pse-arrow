@@ -603,6 +603,15 @@ remains a control; V's explicit component/T/P mapping does not supply an
 energy-equivalence claim. Exact property bases,phase presentation,traces,
 ordinary data and full independent physical qualification remain required.
 
+**Update, 2026-11-05 — multistream contactor census:** the
+[transfer/diafiltration closure](64h-required-process-population.md#multistream-contactor-imposed-transfer-and-diafiltration-closure--2026-11-05)
+resolves per-stream graph,feed,side-feed,reaction,energy/pressure and
+inventory controls; imposed-transfer and zero-transfer controls remain
+distinct from the three-stage Li/Co recovery model. Actual mass/hour basis,
+membrane inputs,recycle/initialization roles and arbitrary steady inventory
+probes are explicit. Ordinary provenance,physical inventory identification,
+unselected branches and full independent dynamic qualification remain open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

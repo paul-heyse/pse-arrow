@@ -5037,6 +5037,94 @@ and feed-flash completeness,phase/zero-trace and underdetermination controls,
 original mass/element/energy checks and full independent property/unit
 qualification remain required. Only source/AST inspection ran.
 
+## Multistream contactor, imposed transfer and diafiltration closure — 2026-11-05
+
+**Interface-checked, source only:** C `models/unit_models/mscontactor.py`
+and `tests/test_mscontactor.py` resolve a staged balance framework and
+three distinct consumer specifications. The separate membrane case above
+uses this framework but does not establish its general admissible
+population. No external input file,trainer or saved-state artifact is read;
+initialization saves/restores current state in memory. The Li/Co example
+identifies Wamble/Eugene/Phillip/Dowling,ACS Sustainable Chemistry &
+Engineering2022,10,12207–12225,Figure2 CaseIII as its original scientific
+lead; that provenance still needs independent ordinary-source admission.
+
+At least two streams are required. Finite elements are an explicit integer
+selection with no source positive-count domain guard; scientific consumers
+use2 or10. Each stream independently selects property/reaction packages,
+forward(default)/backward direction,feedTrue(default)/False,side-stream
+element subset(defaultNone),rate/equilibrium reactionsFalse,energy and
+pressure balancesTrue,external heat/heat of reaction/pressure changeFalse.
+Unit dynamic/holdup follow inherited consistency rules; enabled holdup adds
+per-element volume,per-stream volume fractions summing1 and phase
+fractions; dynamics adds material/energy accumulations. Volume is **per
+element**, not total cascade volume. Energy/pressure switches do not add
+an unselected thermal/hydraulic law.
+
+Default interactions are all unordered stream pairs; a supplied list
+selects the actual graph. Shared component names determine material
+interaction membership; positive transfer enters the first stream from the
+second,with an opposite contribution to the other stream. A pair with no
+shared components and no heterogeneous reaction is refused. Streams must
+use the same mass/molar flow basis,although dimensional flow terms are
+converted to the first stream's units. Side feeds must belong to the actual
+element set; forward/backward direction changes inlet/outlet and neighbor
+selection. Native correspondence requires explicit local component meaning,
+not a universal chemical-equivalence rule inferred from spelling.
+
+Reaction flags require a reaction package. Rate/equilibrium reaction index,
+stoichiometry and heterogeneous build/index hooks are validated separately;
+heat-of-reaction selection without rate/equilibrium extents is refused.
+Inherent reactions,per-stream equilibrium/rate reactions and heterogeneous
+reactions are separate source hooks. Balance/extent variables alone do not
+supply rate,partition,membrane,heat-transfer or pressure-drop closures.
+The source tests exercise isolated2-element frame variations: missing feed,
+side feed1(valid)/10(invalid),both stream side feeds at1/2,external heat,
+omitted energy/pressure balance,deltaP,dynamic accumulation and each
+reaction hook. Their dummy property densities42/energy density43 and
+synthetic reactions are structural controls,not independently physical
+thermodynamic/kinetic cases. Arbitrary graph/flag products remain subject
+to complete-closure and physical-domain checks.
+
+| Consumer | Actual finite scientific specification and outputs |
+|---|---|
+| Two-element imposed-transfer control | Steady two streams,first forward/second backward; synthetic molar-flow/enthalpy-flow/pressure states. Stream1 solvent1/solute1/solute2/solute3=2/3/4/5 mol/s,energy5000 W,P120000 Pa; stream2 solvent2/solute1/solute2=11/12/13 mol/s,energy7000 W,P200000 Pa. At each element,solute1 transfer+.5,solute2−.5 mol/s and energy+100 W into stream1. Outputs first2/4/3/5 mol/s/5200 W,second11/11/14 mol/s/6800 W,unchanged pressures(rel1e-5),optimal/zero DOF. These are imposed transfer inputs,not calculated extraction equilibrium. |
+| Ten-element saponification-state initializer | Both forward,steady,two same-package liquid streams; no reactions,all material/energy transfers fixed0. Inlet1 .001 m3/s,303.15 K,101325 Pa,concentrations55388/100/100/0/0; inlet2 .002 m3/s,323.15 K,200000 Pa,55388/50/50/50/50 mol/m3. Inlets are supplied as values,not fixed; initializer temporarily fixes/releases state. Both holdupFalse/True variants preserve16 inlet DOF and assert unchanged states at all elements. HoldupTrue fixes each element1 m3 and stream1 fraction .5; source spot checks water27694 mol in both,stream1 reactants50/products0,stream2 each nonwater species25 mol. This is a no-transfer initializer control,not a reactive separation. |
+| Li/Co diafiltration cascade | Three10-element contactors,two2-inlet mixers,six arcs forming recycles; all streams forward,no energy/pressure equations,no permeate feed,stage3 retentate side feed at element10. Custom single-phase mass-basis state uses m3/hour and kg/m3,constant solvent density1000 kg/m3 and positive flow/concentration lower bounds1e-8. It has no temperature,pressure,enthalpy or equation of state. Membrane solvent flux .1 m/hour,width1.5 m,sieving Li1.3/Co .5. Transfer is prescribed by area/flux and a logarithmic retentate concentration/flow relation; stage3 relation explicitly mixes its side feed before sieving. |
+
+The cascade routes stage1 permeate plus stage3 retentate through mixer1
+to stage2 retentate inlet; stage2 permeate plus fresh diafiltrate through
+mixer2 to stage3 retentate inlet; stage2 retentate feeds stage1. Final
+products are stage3 permeate and stage1 retentate. Fresh diafiltrate30 m3/h,
+Li .1/Co .2 kg/m3; fresh side feed100 m3/h,Li1.7/Co17 kg/m3.
+Stage lengths start10 m for staged initialization and are then fixed756.4 m
+each for the full solve. The stage3 temporary inlet seed equals fresh
+diafiltrate; subsequent inlet guesses propagate stage outputs and are
+unfixed before the full recycle solve. They are not additional final feeds.
+
+Both holdupFalse/True cases assert solvent/Li/Co conservation(rel1e-5),
+Li recovery .9451 in stage3 permeate and Co recovery .6378 in stage1
+retentate(rel1e-4),optimal solves/zero DOF. The holdupTrue steady variant
+fixes per-element stage volumes .1/1/10 m3 and retentate fractions
+.1/.5/.9,with complementary permeate fractions. These geometry values
+are independent initializer probes,not derived from756.4 m membrane
+length or a physically identified residence time. Source spot holdups
+retain full stage/stream/element/species coordinates,including solvent
+stage1 retentate10/permeate90,stage2 both500,stage3 retentate9000/
+permeate1000 kg. Steady recovery agreement does not qualify a dynamic
+trajectory at these arbitrary inventory choices.
+
+Native D02/E03/F01 requires explicit stream graph/directions,bases and
+component membership,side-feed mixing,actual transfer/partition law,
+reaction/energy/pressure closure,per-element inventories and restored
+fixed/free roles. Logarithmic sieving requires positive volume flow and
+concentrations; constant solvent density does not imply a full solution
+density/mass-fraction law. Original sieving/flux/property provenance,
+physical geometry/inventory identification,unselected multistream/reaction/
+dynamic configurations and complete independent balance/recovery/derivative
+qualification remain required. No contactor,property,initializer or solver
+was executed in this census.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
