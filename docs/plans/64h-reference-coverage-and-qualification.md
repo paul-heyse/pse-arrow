@@ -271,6 +271,16 @@ All requested stages remain required: actual optimization,ordinary data/datum,
 reference/runtime compatibility andnative predictive/physical acceptance are
 still open. No training/evaluation/solve was run by this census.
 
+**Update, 2026-11-05 — reformer trainer/artifact closure:** the
+[reformer census](64h-required-process-population.md#reformer-surrogate-inputs-family-selection-and-optimization--2026-11-05)
+resolves2800-row/13-output data,all five trainer choices,standalone fixed/free
+probes andbounded H2 optimization. It records missing Keras scaler metadata,
+kriging filename mismatch,truncated unselected polynomial artifact,existing-fit
+ALAMO omission andstandalone C3H8/C4H10 positional reversal. Those source
+limitations neither authorize silent repairs nor remove required family/stage
+scope. Ordinary provenance/domain/held-out checks,native mapping andexact
+reference environment/execution remain open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

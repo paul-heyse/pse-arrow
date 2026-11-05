@@ -1995,6 +1995,104 @@ JSON/ZIP reads confirmed500 rows,artifact bounds/scalers/layers,wrapper
 differences,14 arcs andabsence of any objective; no trainer,model,network
 evaluation,reference solver or native scientific case was executed.
 
+## Reformer surrogate inputs, family selection and optimization — 2026-11-05
+
+**Interface-checked, source only:** X
+`docs/surrogates/{alamo/alamo_flowsheet_optimization,pysmo/pysmo_flowsheet_optimization,omlt/keras_flowsheet_optimization,best_practices_optimization}*.ipynb`
+and `mod/surrogates/AR_training_methods.py` close the selected reformer source
+paths. Each four-wrapper group has one scientific AST after assertion removal.
+Training,artifact evaluation,embedding and bounded optimization remain separate
+G04 demands; no helper availability set is an execution/qualification result.
+
+`reformer-data.csv` has2800 rows,15 columns. Inputs are Bypass_Fraction
+.1–.8 andNG_Steam_Ratio .8–1.2. Ordered targets are Steam_Flow,
+Reformer_Duty,AR,C2H6,**C3H8,C4H10**,CH4,CO,CO2,H2,H2O,N2,O2.
+These exact output labels/order,flow/duty units,composition basis and generating
+process/datum need explicit native/ordinary-data correspondence. A picture
+`AR_PFD.png` is presentation input,not a process declaration or conservation
+closure. The fitted examples themselves instantiate independent output Vars,
+not reformer reaction/equilibrium/energy laws or normalized composition
+constraints; nonnegativity and sum-to-one are not enforced on fitted fractions.
+
+| Training family | Actual selected100-row experiment and artifact |
+|---|---|
+| Standalone ALAMO |Unseeded pandas sample100 from2800,then80/20 split seed100. Fit13 outputs using constant/linear,multi2power[1,2],monomial[2,3],ratio[1,2],max10 terms/output. Requires ALAMO executable; FileNotFound catches a specific unavailable-trainer case and guards later stages. Local reference still fails missing required training. Save fitted JSON before constructing a wider-bound in-memory object. Shipped subdirectory artifact's bypass bounds .110144928–.8 differ from root artifact .110144928–.789855072. |
+| Standalone PySMO polynomial |Same unseeded sample100/80–20 seed100;degree6,multinomialsTrue,internal .8 split,10 cross-validations,default Pyomo least squares. Saves/loads `pysmo_poly_surrogate.json` in its working directory with declared .1–.8/.8–1.2 bounds. A shipped file named `pysmo/pysmo_poly_surr.json` is a different artifact and is truncated after `input_labels`; it fails JSON parsing and cannot be an implicit substitute. |
+| Standalone Keras |NumPy46/Python1342/TensorFlow62 seeds,100 sampled rows,80/20 seed100 plotting split. Fit/scalers use all100 selected rows with Keras validation_split .2;outer20-row plot set is not independent of that fit/normalization. Network2→40→40→13,tanh hidden/linear output,Adam,MSE/MAE metrics,1000 epochs. Best-loss checkpoint `.mdl_wts.keras` is written but not reloaded; final weights are exported. Process hash/CUDA environment assignments occur after TensorFlow import,so runtime determinism/device setup remains to establish. |
+| Shared helper additional families |Polynomial as above; Gaussian RBF with Pyomo solution andregularizationTrue; kriging with numerical_gradientsTrue/regularizationTrue; neural same2×40 tanh/1000-epoch route; ALAMO same basis/term choices. All use the shared sample100,80/20 seed100; comments saying seed2800 do not change the actual seed. Numerical-gradient kriging selects the core's SciPy gradient fitting route; no external CFD/property source is consulted. |
+
+The helper imports TensorFlow andall five trainer families eagerly,andsets
+global seeds on import. `train_load_surrogates(retrain=False)` still reads/
+samples the dataset even when fits exist; it trains absent artifacts. Its
+filename/control behavior must be resolved explicitly:
+
+- Existing root ALAMO JSON bypasses training but is **not added** to the
+  returned type set; freshly trained ALAMO is added. Missing ALAMO is caught
+  and omitted. Therefore a comparison can silently lose required ALAMO scope;
+  the local declaration must retain it as held,not interpret set membership
+  as the required denominator.
+- The helper requests `pysmo_kriging_surrogate.json`,but the shipped root
+  file is `pysmo_krig_surrogate.json`. Default non-retrain mode therefore
+  still requires kriging training. Polynomial/RBF filenames do match their
+  shipped root artifacts; all three PySMO types are added to the returned
+  set whether trained or merely found.
+- Root and`omlt/keras_surrogate/keras_model.keras` archives both identify
+  Keras3.4.1 andthe2→40→40→13 network. **Neither folder contains the required
+  `idaes_info.json`** with labels,bounds andnormalizing scalers. Core loading
+  requires that file. The helper only tests for `.keras`,skips retraining
+  andadds KERAS to its set; that does not make either shipped pair executable.
+  Standalone training can generate a new complete artifact,but it is a new
+  fit,not recovery of missing metadata for the shipped weights.
+
+All three standalone notebooks embed outputs in positional order with
+**C4H10 before C3H8**,opposite to dataset/artifact output labels. Core maps
+by position,so the named hydrocarbon outputs are exchanged. The shared
+best-practices functions use the correct C3H8-before-C4H10 order. Do not copy
+the swapped mapping or silently repair oracle outputs; retain an explicit
+reference-distinction/correctness control before native comparisons.
+
+The standalone physical-input probe fixes bypass .5 andNG/steam ratio1,
+solves with Ipopt andreports all13 outputs. It then frees both inputs,
+maximizes fitted H2 andconstrains fitted N2≤.34 within fitted/input bounds.
+Source asserts |H2−.33|≤.01 but only N2≤.4+1e-8,looser than its actual
+constraint; no independent global optimum or solver termination proof is
+provided by those scalars. ALAMO reloads its saved narrower-bound artifact,
+so in-memory widened training plots do not establish the optimization domain.
+Neural embedding explicitly selects full-space smooth OMLT,not ReLU or
+global mixed-integer optimization.
+
+Best-practices calls the shared helper,then explicitly removes KERAS from
+the returned trainer set. With shipped root ALAMO present,the actual returned
+comparison families are therefore the three PySMO types; ALAMO participates
+only if freshly trained/added. The notebook randomly selects10 dataset cases
+after helper training/loading; exact case identities depend on preceding
+training paths andtheir random-state effects. Each selected family gets ten
+fixed-input embedded solves,reporting relative steam/duty errors andabsolute
+C2H6/CH4/H2/O2 errors,then one H2-maximizing,N2≤.34 solve. The helper type
+order comes from a set,not a declared stable campaign order. Bare exception
+handlers retry solves once but do not provide a qualified failure policy,
+optimal termination check or original physical-domain acceptance. Plots/
+displayed tables alone do not establish error tolerances or held-out accuracy.
+All five families andtheir requested stages remain required despite these
+selected-loop omissions.
+
+Recursive reference inputs are the shared2800-row CSV,selected root/family
+JSON orcomplete neural archive+metadata,helper source,andcore ALAMO/PySMO/
+scaling/sampling/surrogate/OMLT/plotting owners. GeneratedALAMO controls/traces,
+PDFs,checkpoints andnew fits are outputs,not original physical data; historical
+model files require exact filenames andformat readiness,not name-based aliasing.
+Reference placement must isolate generated fits from immutable shipped
+artifacts andbind bare working-directory file paths. Exact ALAMO,TensorFlow/
+Keras,OMLT,SciPy/NumPy/pandas andIpopt versions remain to freeze with core2.13.0;
+Python imports or Keras archive metadata do not establish this environment.
+Native G04/data/physical-output mapping still needs explicit implement/reuse/
+refuse selections for each stage; existing fitting/surrogate machinery is not
+a matched full pipeline. PySMO-basics/benchmark helpers,core parameterized
+sampling/regression andneural/ONNX representation cases remain separate
+required closure. Ephemeral AST/CSV/JSON/ZIP checks established2800×15 data,
+wrapper correspondence,actual file gaps/truncation andlayer metadata; no fit,
+artifact evaluation,optimization or native scientific case was executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
