@@ -87,6 +87,48 @@ algorithm. The build-freshness corrections retain the existing CMake/compiler op
 bundled SUNDIALS tree also contains the separately described changes below. No speed
 or scientific qualification claim follows from this provenance reconciliation.
 
+## Passive Symbolica packing inspection
+
+The maintained Symbolica 3.0.1 `atom::packing::inspect_packing` API inspects a
+restricted raw packed-atom profile without allocating traversal storage, building
+atoms/views, materializing coefficients, normalizing or registering symbols. It uses
+caller-provisioned `PackingFrame` storage and refuses insufficient capacity. Checked
+cursors validate integer widths, lengths/counts, child extents, bounded parent/root
+exhaustion and denominators. The supported nodes are Num, plain Var/Fun, Pow, Mul
+(including its first-coefficient flag) and Add. Symbol occurrences go to the caller's
+eligibility callback; its original generic error is returned unchanged. Callbacks
+are provisional until inspection completes and own their own effects/resources.
+
+Real/complex small and large rational components are inspected as bytes. Field,
+polynomial, special coefficients, attributed symbols and unsupported node flags
+(including NOT_NORMALIZED) explicitly refuse. Rational reduction/GCD, minimal
+encodings, simplification and canonical packed ordering remain producer provenance.
+A summary does not authorize constructing an Atom, imply destination-state
+compatibility or establish remapping/native execution authority.
+
+Float inspection follows the locked Numerica 3.0.1 serializer and Rug 1.30.0 MPFR
+backend: two independently bounded precision/text components, with zero spelled
+exactly `0` and a strict finite lowercase radix-16 subset otherwise. It checks the
+u32 precision against caller-supplied backend bounds, decimal exponents against
+the native C `long` range, exact significant-bit span against precision and the
+normalized binary exponent against the caller-supplied *current* MPFR exponent
+range. Nonzero text starts with a nonzero digit and has at most the producer's
+`1+(precision+2)/4` radix-16 digits (MPFR `get_str.c`, `get_str_ndigits`), avoiding
+unbounded zero padding in the later parser's signed mantissa counters.
+No default exponent range or numeric parser is used. Exact sources are
+Numerica `domains/float/multiprecision.rs` (`serialize`/`deserialize`), Rug
+`float/big.rs` (`parse`/`AssignRound<ParseIncomplete>`) and its bundled MPFR 4.2.2
+`src/strtofr.c` exponent parsing. Rug accepts textual exponents that MPFR's `strtol`
+can saturate; the strict profile rejects those before any numeric construction.
+The eventual Rug parser's `text.len()+2` arithmetic is checked here, but its
+allocation and all later numeric construction need their own admission.
+
+Supplier controls exercise actual node/rational producers and Float serializer
+fixtures across precisions, truncations/corruptions, malformed lengths/counts and
+denominators, explicit refusals, caller scratch exhaustion and original callback
+errors. This is a passive prerequisite: neither all possible Float forms nor
+canonical remapping, native-body restoration or live transfer is established.
+
 ## Bundled SUNDIALS integration and upstream defect
 
 The Rust wrapper remains 0.6.2, with its published 7.1.1 archive retained as the

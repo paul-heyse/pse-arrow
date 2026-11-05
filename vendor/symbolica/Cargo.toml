@@ -132,6 +132,10 @@ wasm = [
 name = "symbolica"
 path = "src/lib.rs"
 
+[[test]]
+name = "packing"
+path = "tests/packing.rs"
+
 [[example]]
 name = "algebraic_factor_expression"
 path = "examples/algebraic_factor_expression.rs"

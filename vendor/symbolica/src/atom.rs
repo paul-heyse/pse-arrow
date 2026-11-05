@@ -41,6 +41,7 @@
 mod alias;
 mod coefficient;
 mod core;
+pub mod packing;
 mod properties;
 pub mod representation;
 

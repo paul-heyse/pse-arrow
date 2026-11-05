@@ -1,3 +1,627 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index ed021999967265189ddf4c83192d1ec606259650..2e1a88a1131313311acbb788159c09053d45e6f2 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -132,6 +132,10 @@ wasm = [
+ name = "symbolica"
+ path = "src/lib.rs"
+ 
++[[test]]
++name = "packing"
++path = "tests/packing.rs"
++
+ [[example]]
+ name = "algebraic_factor_expression"
+ path = "examples/algebraic_factor_expression.rs"
+diff --git a/src/atom.rs b/src/atom.rs
+index 51600220a103d0ee1bda3c554f7df62f1fb3dadf..06238ad5c24d220743b962b86d70a6c49e4fc0c5 100644
+--- a/src/atom.rs
++++ b/src/atom.rs
+@@ -41,6 +41,7 @@
+ mod alias;
+ mod coefficient;
+ mod core;
++pub mod packing;
+ mod properties;
+ pub mod representation;
+ 
+diff --git a/src/atom/coefficient.rs b/src/atom/coefficient.rs
+index a32e9695635e55c4c908162c4f36197485037a2e..51182bd44b6416a34fda29488bba2a6c65757a1d 100644
+--- a/src/atom/coefficient.rs
++++ b/src/atom/coefficient.rs
+@@ -22,10 +22,10 @@ const U16_NUM: u8 = 0b00000010;
+ const U32_NUM: u8 = 0b00000011;
+ const U64_NUM: u8 = 0b00000100;
+ const FIN_NUM: u8 = 0b00000101;
+-const ARB_NUM: u8 = 0b00000111;
++pub(super) const ARB_NUM: u8 = 0b00000111;
+ const RAT_POLY: u8 = 0b00001000;
+-const FLOAT: u8 = 0b00001001;
+-const COMPLEX: u8 = 0b00001010;
++pub(super) const FLOAT: u8 = 0b00001001;
++pub(super) const COMPLEX: u8 = 0b00001010;
+ const INDETERMINATE: u8 = 0b00001100;
+ const COMPLEX_INFINITY: u8 = 0b00001101;
+ const DIRECTED_INFINITY: u8 = 0b00001111;
+@@ -33,10 +33,10 @@ const U8_DEN: u8 = 0b00010000;
+ const U16_DEN: u8 = 0b00100000;
+ const U32_DEN: u8 = 0b00110000;
+ const U64_DEN: u8 = 0b01000000;
+-const ARB_DEN: u8 = 0b01110000;
+-const NUM_MASK: u8 = 0b00001111;
+-const DEN_MASK: u8 = 0b01110000;
+-const SIGN: u8 = 0b10000000;
++pub(super) const ARB_DEN: u8 = 0b01110000;
++pub(super) const NUM_MASK: u8 = 0b00001111;
++pub(super) const DEN_MASK: u8 = 0b01110000;
++pub(super) const SIGN: u8 = 0b10000000;
+ 
+ /// Read only the length when traversing an atom; avoid the full fraction dispatch.
+ #[inline(always)]
+diff --git a/src/atom/packing.rs b/src/atom/packing.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..3e9a7a939c648329c936fc9ac0212c18f253214a
+--- /dev/null
++++ b/src/atom/packing.rs
+@@ -0,0 +1,524 @@
++//! Passive, allocation-free inspection of a restricted packed-atom profile.
++//!
++//! This module reads bytes directly. It never constructs an atom/view, materializes a
++//! coefficient, normalizes mathematics or registers symbols. Success establishes only
++//! the documented layout and finite Float profile, not canonical producer provenance,
++//! destination-state compatibility, remapping correctness or authority to publish an Atom.
++
++use super::{
++    coefficient::{ARB_DEN, ARB_NUM, COMPLEX, DEN_MASK, FLOAT, NUM_MASK, SIGN},
++    representation::{
++        ADD_ID, FUN_ID, MUL_HAS_COEFF_FLAG, MUL_ID, NUM_ID, POW_ID, TYPE_MASK, VAR_ID,
++    },
++};
++
++/// The actual receiving backend's supported precision and *current* exponent range.
++/// The caller must supply these observations; there is deliberately no default.
++#[derive(Clone, Copy, Debug)]
++pub struct FloatEnvironment {
++    pub min_precision: u32,
++    pub max_precision: u32,
++    pub min_exponent: i64,
++    pub max_exponent: i64,
++}
++
++/// Caller-owned traversal storage. One frame is needed for the root, plus one for
++/// each simultaneously open composite. An undersized slice refuses without growth.
++#[derive(Clone, Copy, Debug, Default)]
++pub struct PackingFrame {
++    end: usize,
++    remaining: usize,
++    exact: bool,
++    first_coefficient: bool,
++}
++
++/// A plain symbol occurrence. Eligibility belongs to the callback's state owner.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub struct PackedSymbol {
++    pub id: u32,
++    pub function: bool,
++}
++
++/// Counts describe the inspected bytes, with no retained numeric/symbolic objects.
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
++pub struct PackingSummary {
++    pub bytes: usize,
++    pub nodes: usize,
++    pub numbers: usize,
++    pub variables: usize,
++    pub functions: usize,
++    pub powers: usize,
++    pub products: usize,
++    pub sums: usize,
++    pub rational_components: usize,
++    pub large_rational_bytes: usize,
++    pub float_components: usize,
++    pub float_text_bytes: usize,
++    pub max_depth: usize,
++}
++
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub enum PackingIssue {
++    Truncated,
++    ArithmeticOverflow,
++    InvalidTag,
++    UnsupportedFlags,
++    UnsupportedSymbolAttributes,
++    UnsupportedCoefficient,
++    InvalidPackedInteger,
++    InvalidDenominator,
++    InvalidRational,
++    InvalidExtent,
++    TrailingBytes,
++    InsufficientScratch,
++    InvalidFloatEnvironment,
++    InvalidFloatPrecision,
++    UnsupportedFloatText,
++    FloatExponentRange,
++    InexactFloatText,
++    MissingProductCoefficient,
++}
++
++/// Callback errors are retained unchanged, including non-cloneable state.
++#[derive(Debug, PartialEq, Eq)]
++pub enum PackingError<E> {
++    Layout { offset: usize, issue: PackingIssue },
++    Symbol(E),
++}
++
++impl<E: std::fmt::Display> std::fmt::Display for PackingError<E> {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        match self {
++            Self::Layout { offset, issue } => write!(f, "packed atom at byte {offset}: {issue:?}"),
++            Self::Symbol(error) => error.fmt(f),
++        }
++    }
++}
++
++impl<E: std::error::Error + 'static> std::error::Error for PackingError<E> {}
++
++type LayoutResult<T> = Result<T, (usize, PackingIssue)>;
++
++struct Cursor<'a> {
++    data: &'a [u8],
++    pos: usize,
++    end: usize,
++}
++
++impl<'a> Cursor<'a> {
++    fn take(&mut self, size: usize) -> LayoutResult<&'a [u8]> {
++        let end = self
++            .pos
++            .checked_add(size)
++            .ok_or((self.pos, PackingIssue::ArithmeticOverflow))?;
++        if end > self.end {
++            return Err((self.pos, PackingIssue::Truncated));
++        }
++        let bytes = &self.data[self.pos..end];
++        self.pos = end;
++        Ok(bytes)
++    }
++
++    fn byte(&mut self) -> LayoutResult<u8> {
++        Ok(self.take(1)?[0])
++    }
++
++    fn integer(&mut self, width: u8) -> LayoutResult<u64> {
++        let size = match width {
++            1 => 1,
++            2 => 2,
++            3 => 4,
++            4 => 8,
++            _ => return Err((self.pos, PackingIssue::InvalidPackedInteger)),
++        };
++        let mut value = 0;
++        for (i, byte) in self.take(size)?.iter().enumerate() {
++            value |= u64::from(*byte) << (i * 8);
++        }
++        Ok(value)
++    }
++
++    // Sign is meaningful only for small rationals or large-rational byte counts.
++    fn pair(&mut self, signed: bool) -> LayoutResult<(u64, u64, bool)> {
++        let start = self.pos;
++        let tag = self.byte()?;
++        if !signed && tag & SIGN != 0 {
++            return Err((start, PackingIssue::InvalidPackedInteger));
++        }
++        let num = self.integer(tag & NUM_MASK)?;
++        let den = match (tag & DEN_MASK) >> 4 {
++            0 => 1,
++            width => self.integer(width)?,
++        };
++        Ok((num, den, tag & SIGN != 0))
++    }
++
++    fn usize(&self, value: u64) -> LayoutResult<usize> {
++        usize::try_from(value).map_err(|_| (self.pos, PackingIssue::ArithmeticOverflow))
++    }
++
++    fn extent(&self, length: u64) -> LayoutResult<usize> {
++        let end = self
++            .pos
++            .checked_add(self.usize(length)?)
++            .ok_or((self.pos, PackingIssue::ArithmeticOverflow))?;
++        if end > self.end {
++            return Err((self.pos, PackingIssue::InvalidExtent));
++        }
++        Ok(end)
++    }
++}
++
++/// Inspect one raw packed atom (without the export-version/u64 stream framing).
++///
++/// `symbol` is called once per Var/Fun occurrence in traversal order, after its
++/// local layout is checked. It must check eligibility against caller-owned state.
++/// Calls are provisional until this entire function succeeds: a later malformed
++/// descendant can still refuse. The scanner grants no capability and performs no
++/// allocation; callback effects/allocations and provisioning scratch belong to the
++/// caller. NOT_NORMALIZED, attributed symbols, nonordinary flags and special,
++/// field and polynomial coefficients explicitly refuse. Reduced fractions,
++/// mathematical simplification and canonical ordering remain producer obligations.
++pub fn inspect_packing<E>(
++    data: &[u8],
++    scratch: &mut [PackingFrame],
++    floats: FloatEnvironment,
++    mut symbol: impl FnMut(PackedSymbol) -> Result<(), E>,
++) -> Result<PackingSummary, PackingError<E>> {
++    inspect(data, scratch, floats, &mut symbol)
++}
++
++fn inspect<E>(
++    data: &[u8],
++    scratch: &mut [PackingFrame],
++    floats: FloatEnvironment,
++    symbol: &mut impl FnMut(PackedSymbol) -> Result<(), E>,
++) -> Result<PackingSummary, PackingError<E>> {
++    let layout = |(offset, issue)| PackingError::Layout { offset, issue };
++    if floats.min_precision == 0
++        || floats.min_precision > floats.max_precision
++        || floats.min_exponent > floats.max_exponent
++    {
++        return Err(layout((0, PackingIssue::InvalidFloatEnvironment)));
++    }
++    let Some(root) = scratch.first_mut() else {
++        return Err(layout((0, PackingIssue::InsufficientScratch)));
++    };
++    *root = PackingFrame {
++        end: data.len(),
++        remaining: 1,
++        exact: true,
++        first_coefficient: false,
++    };
++    let mut used = 1;
++    let mut cursor = Cursor {
++        data,
++        pos: 0,
++        end: data.len(),
++    };
++    let mut summary = PackingSummary {
++        bytes: data.len(),
++        ..PackingSummary::default()
++    };
++    while used != 0 {
++        let frame = &mut scratch[used - 1];
++        if frame.remaining == 0 {
++            if frame.exact && cursor.pos != frame.end {
++                return Err(layout((cursor.pos, PackingIssue::TrailingBytes)));
++            }
++            used -= 1;
++            continue;
++        }
++        cursor.end = frame.end;
++        frame.remaining -= 1;
++        let start = cursor.pos;
++        let tag = cursor.byte().map_err(layout)?;
++        let kind = tag & TYPE_MASK;
++        let allowed = if kind == MUL_ID {
++            MUL_HAS_COEFF_FLAG
++        } else {
++            0
++        };
++        if tag & !TYPE_MASK & !allowed != 0 {
++            return Err(layout((start, PackingIssue::UnsupportedFlags)));
++        }
++        if frame.first_coefficient {
++            if kind != NUM_ID {
++                return Err(layout((start, PackingIssue::MissingProductCoefficient)));
++            }
++            frame.first_coefficient = false;
++        }
++        summary.nodes = summary
++            .nodes
++            .checked_add(1)
++            .ok_or_else(|| layout((start, PackingIssue::ArithmeticOverflow)))?;
++        summary.max_depth = summary.max_depth.max(used);
++        let children = match kind {
++            NUM_ID => {
++                summary.numbers += 1;
++                coefficient(&mut cursor, floats, &mut summary).map_err(layout)?;
++                None
++            }
++            VAR_ID => {
++                summary.variables += 1;
++                let (id, extra, _) = cursor.pair(false).map_err(layout)?;
++                if extra != 1 {
++                    return Err(layout((start, PackingIssue::UnsupportedSymbolAttributes)));
++                }
++                let id = u32::try_from(id)
++                    .map_err(|_| layout((start, PackingIssue::InvalidPackedInteger)))?;
++                symbol(PackedSymbol {
++                    id,
++                    function: false,
++                })
++                .map_err(PackingError::Symbol)?;
++                None
++            }
++            FUN_ID => {
++                summary.functions += 1;
++                // function_metadata/skip_packed_function require an unsigned,
++                // denominator-free length tag, not merely a pair whose value is 1.
++                let width = cursor.byte().map_err(layout)?;
++                let length = cursor.integer(width).map_err(layout)?;
++                let end = cursor.extent(length).map_err(layout)?;
++                cursor.end = end;
++                let (id, count, _) = cursor.pair(false).map_err(layout)?;
++                let id = u32::try_from(id)
++                    .map_err(|_| layout((start, PackingIssue::UnsupportedSymbolAttributes)))?;
++                symbol(PackedSymbol { id, function: true }).map_err(PackingError::Symbol)?;
++                Some(PackingFrame {
++                    end,
++                    remaining: cursor.usize(count).map_err(layout)?,
++                    exact: true,
++                    first_coefficient: false,
++                })
++            }
++            MUL_ID | ADD_ID => {
++                if kind == MUL_ID {
++                    summary.products += 1;
++                } else {
++                    summary.sums += 1;
++                }
++                let (count, length, _) = cursor.pair(false).map_err(layout)?;
++                let end = cursor.extent(length).map_err(layout)?;
++                if tag & MUL_HAS_COEFF_FLAG != 0 && count == 0 {
++                    return Err(layout((start, PackingIssue::MissingProductCoefficient)));
++                }
++                Some(PackingFrame {
++                    end,
++                    remaining: cursor.usize(count).map_err(layout)?,
++                    exact: true,
++                    first_coefficient: tag & MUL_HAS_COEFF_FLAG != 0,
++                })
++            }
++            POW_ID => {
++                summary.powers += 1;
++                Some(PackingFrame {
++                    end: cursor.end,
++                    remaining: 2,
++                    exact: false,
++                    first_coefficient: false,
++                })
++            }
++            _ => return Err(layout((start, PackingIssue::InvalidTag))),
++        };
++        if let Some(child) = children {
++            if child.remaining > child.end - cursor.pos {
++                return Err(layout((start, PackingIssue::InvalidExtent)));
++            }
++            let Some(slot) = scratch.get_mut(used) else {
++                return Err(layout((start, PackingIssue::InsufficientScratch)));
++            };
++            *slot = child;
++            used += 1;
++        }
++    }
++    Ok(summary)
++}
++
++fn rational(cursor: &mut Cursor<'_>, summary: &mut PackingSummary) -> LayoutResult<()> {
++    let start = cursor.pos;
++    let tag = cursor.byte()?;
++    if tag == ARB_NUM | ARB_DEN {
++        let (num, den, _) = cursor.pair(true)?;
++        let n = cursor.usize(num)?;
++        let d = cursor.usize(den)?;
++        // Positive magnitude byte arrays, not GMP values. A zero numerator may
++        // have zero bytes, but a denominator must contain a nonzero magnitude.
++        cursor.take(n)?;
++        let denominator = cursor.take(d)?;
++        if !denominator.iter().any(|byte| *byte != 0) {
++            return Err((start, PackingIssue::InvalidDenominator));
++        }
++        let total = n
++            .checked_add(d)
++            .ok_or((start, PackingIssue::ArithmeticOverflow))?;
++        summary.large_rational_bytes = summary
++            .large_rational_bytes
++            .checked_add(total)
++            .ok_or((start, PackingIssue::ArithmeticOverflow))?;
++    } else if (1..=4).contains(&(tag & NUM_MASK)) {
++        cursor.pos = start;
++        let (num, den, negative) = cursor.pair(true)?;
++        // The ordinary reader returns i64 numerator AND i64 denominator.
++        if den == 0 || den > i64::MAX as u64 {
++            return Err((start, PackingIssue::InvalidDenominator));
++        }
++        if num > i64::MAX as u64 + u64::from(negative) {
++            return Err((start, PackingIssue::InvalidRational));
++        }
++    } else {
++        return Err((start, PackingIssue::UnsupportedCoefficient));
++    }
++    summary.rational_components += 1;
++    Ok(())
++}
++
++fn coefficient(
++    cursor: &mut Cursor<'_>,
++    floats: FloatEnvironment,
++    summary: &mut PackingSummary,
++) -> LayoutResult<()> {
++    let start = cursor.pos;
++    match cursor.byte()? {
++        COMPLEX => {
++            rational(cursor, summary)?;
++            rational(cursor, summary)?;
++        }
++        FLOAT => {
++            for _ in 0..2 {
++                let length = cursor.integer(4)?;
++                let length = cursor.usize(length)?;
++                let component_start = cursor.pos;
++                let bytes = cursor.take(length)?;
++                let Some(precision_bytes) = bytes.get(..4) else {
++                    return Err((component_start, PackingIssue::Truncated));
++                };
++                let mut precision = [0; 4];
++                precision.copy_from_slice(precision_bytes);
++                let precision = u32::from_le_bytes(precision);
++                if !(floats.min_precision..=floats.max_precision).contains(&precision) {
++                    return Err((component_start, PackingIssue::InvalidFloatPrecision));
++                }
++                finite_float(&bytes[4..], precision, floats)
++                    .map_err(|issue| (component_start + 4, issue))?;
++                summary.float_components += 1;
++                summary.float_text_bytes = summary
++                    .float_text_bytes
++                    .checked_add(length - 4)
++                    .ok_or((component_start, PackingIssue::ArithmeticOverflow))?;
++            }
++        }
++        _ => {
++            cursor.pos = start;
++            rational(cursor, summary)?;
++        }
++    }
++    Ok(())
++}
++
++// Numerica 3.0.1 serializes zero as exactly `0`, otherwise Rug's lowercase
++// radix-16, None-digit output. This deliberately strict finite subset excludes
++// Rug's permissive whitespace, separators, specials, + signs and p exponents.
++// No Rug/GMP/MPFR parse, numeric allocation or coefficient materialization occurs.
++fn finite_float(text: &[u8], precision: u32, env: FloatEnvironment) -> Result<(), PackingIssue> {
++    text.len()
++        .checked_add(2)
++        .ok_or(PackingIssue::ArithmeticOverflow)?; // eventual Rug parser reserve
++    if text == b"0" {
++        return Ok(());
++    }
++    let text = text.strip_prefix(b"-").unwrap_or(text);
++    let mut before = 0usize;
++    let mut digits = 0usize;
++    let mut point = false;
++    let mut first = None;
++    let mut last = (0usize, 0u8);
++    let mut index = 0;
++    while index < text.len() && text[index] != b'@' {
++        let byte = text[index];
++        if byte == b'.' {
++            if point || digits == 0 {
++                return Err(PackingIssue::UnsupportedFloatText);
++            }
++            point = true;
++            before = digits;
++        } else {
++            let digit = match byte {
++                b'0'..=b'9' => byte - b'0',
++                b'a'..=b'f' => byte - b'a' + 10,
++                _ => return Err(PackingIssue::UnsupportedFloatText),
++            };
++            if digit != 0 {
++                first.get_or_insert((digits, digit));
++                last = (digits, digit);
++            }
++            digits = digits
++                .checked_add(1)
++                .ok_or(PackingIssue::ArithmeticOverflow)?;
++        }
++        index += 1;
++    }
++    if digits == 0 || (point && before == digits) {
++        return Err(PackingIssue::UnsupportedFloatText);
++    }
++    if !point {
++        before = digits;
++    }
++    let mut exponent = 0i128;
++    if index < text.len() {
++        let exp = &text[index + 1..];
++        let (negative, exp) = match exp.strip_prefix(b"-") {
++            Some(d) => (true, d),
++            None => (false, exp),
++        };
++        if exp.is_empty() {
++            return Err(PackingIssue::UnsupportedFloatText);
++        }
++        for byte in exp {
++            if !byte.is_ascii_digit() {
++                return Err(PackingIssue::UnsupportedFloatText);
++            }
++            exponent = exponent
++                .checked_mul(10)
++                .and_then(|v| v.checked_add(i128::from(*byte - b'0')))
++                .ok_or(PackingIssue::FloatExponentRange)?;
++        }
++        if negative {
++            exponent = -exponent;
++        }
++        if exponent < std::os::raw::c_long::MIN as i128
++            || exponent > std::os::raw::c_long::MAX as i128
++        {
++            return Err(PackingIssue::FloatExponentRange);
++        }
++    }
++    let Some((first_index, first_digit)) = first else {
++        return Err(PackingIssue::UnsupportedFloatText);
++    };
++    // MPFR 4.2.2 get_str_ndigits(16, p) = 1 + (p + 2) / 4.
++    // The producer starts with a nonzero digit. Excluding leading-zero and
++    // excessive padding also keeps strtofr's signed mantissa counters faithful
++    // before it removes zeros; a small exact span alone does not bound them.
++    let producer_digits = 1 + (u64::from(precision) + 2) / 4;
++    if first_index != 0
++        || digits as u128 > u128::from(producer_digits)
++        || digits as u128 > std::os::raw::c_long::MAX as u128
++    {
++        return Err(PackingIssue::UnsupportedFloatText);
++    }
++    let first_bits = 8 - first_digit.leading_zeros();
++    let span = (last.0 - first_index) as i128 * 4 + i128::from(first_bits)
++        - i128::from(last.1.trailing_zeros());
++    if span > i128::from(precision) {
++        return Err(PackingIssue::InexactFloatText);
++    }
++    let e = (before as i128 - first_index as i128 - 1 + exponent)
++        .checked_mul(4)
++        .and_then(|v| v.checked_add(i128::from(first_bits)))
++        .ok_or(PackingIssue::FloatExponentRange)?;
++    if e < i128::from(env.min_exponent) || e > i128::from(env.max_exponent) {
++        return Err(PackingIssue::FloatExponentRange);
++    }
++    Ok(())
++}
+diff --git a/src/atom/representation.rs b/src/atom/representation.rs
+index 8c90a1dd6de9c14c3d47c945b75f0a5a595c8008..36fd188de3ea15c67789dc379b7e8b5eada780dc 100644
+--- a/src/atom/representation.rs
++++ b/src/atom/representation.rs
+@@ -29,13 +29,13 @@ use super::{
+ /// The current export format identifier for atom data.
+ const ATOM_EXPORT_FORMAT: u8 = 1;
+ 
+-const NUM_ID: u8 = 1;
+-const VAR_ID: u8 = 2;
+-const FUN_ID: u8 = 3;
+-const MUL_ID: u8 = 4;
+-const ADD_ID: u8 = 5;
+-const POW_ID: u8 = 6;
+-const TYPE_MASK: u8 = 0b00000_111;
++pub(super) const NUM_ID: u8 = 1;
++pub(super) const VAR_ID: u8 = 2;
++pub(super) const FUN_ID: u8 = 3;
++pub(super) const MUL_ID: u8 = 4;
++pub(super) const ADD_ID: u8 = 5;
++pub(super) const POW_ID: u8 = 6;
++pub(super) const TYPE_MASK: u8 = 0b00000_111;
+ const NOT_NORMALIZED: u8 = 0b10000_000;
+ const SYM_LINEAR_FLAG: u8 = 0b01000_000;
+ const SYM_SYMMETRIC_FLAG: u8 = 0b00100_000;
+@@ -52,7 +52,7 @@ const SYM_EXTRA_WILDCARD_LEVEL_2: u32 = 0b10_000;
+ const SYM_EXTRA_WILDCARD_LEVEL_3: u32 = 0b11_000;
+ const SYM_EXTRA_FLAT_FLAG: u32 = 0b1_00_000;
+ 
+-const MUL_HAS_COEFF_FLAG: u8 = 0b01000000;
++pub(super) const MUL_HAS_COEFF_FLAG: u8 = 0b01000000;
+ 
+ const ZERO_DATA: [u8; 3] = [NUM_ID, 1, 0];
+ 
 diff --git a/src/poly/univariate.rs b/src/poly/univariate.rs
 index ea11041071da2240d1d097f0bd9f0ef2d9ab7f23..fab6c117a4920a354ded673f3e20a7c2873f138f 100644
 --- a/src/poly/univariate.rs
@@ -330,3 +954,533 @@ index 7fac867d337cb888371313162b1b6d976ab350a3..730cf12253f607f9299ffdd959fc415b
      /// Approximate the single root of the polynomial in the interval (lower, higher) with a given tolerance
      /// using bisection.
      pub fn refine_root_interval(
+diff --git a/tests/packing.rs b/tests/packing.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..dfd1924e00fca0df6e3fc1ca62eba98f68af4b2c
+--- /dev/null
++++ b/tests/packing.rs
+@@ -0,0 +1,524 @@
++use std::convert::Infallible;
++use symbolica::{
++    atom::{Atom, packing::*},
++    coefficient::Coefficient,
++    domains::{
++        float::{Complex, Float},
++        rational::Rational,
++    },
++    parse,
++};
++
++fn environment() -> FloatEnvironment {
++    FloatEnvironment {
++        min_precision: rug::float::prec_min(),
++        max_precision: rug::float::prec_max(),
++        min_exponent: i64::from(rug::float::exp_min()),
++        max_exponent: i64::from(rug::float::exp_max()),
++    }
++}
++
++fn inspect(bytes: &[u8]) -> Result<PackingSummary, PackingError<Infallible>> {
++    inspect_packing(
++        bytes,
++        &mut [PackingFrame::default(); 128],
++        environment(),
++        |_| Ok(()),
++    )
++}
++
++fn bytes(atom: &Atom) -> &[u8] {
++    atom.as_view().get_data()
++}
++
++fn issue(bytes: &[u8], expected: PackingIssue) {
++    assert!(
++        matches!(inspect(bytes), Err(PackingError::Layout { issue, .. }) if issue == expected),
++        "{bytes:?}: {:?}",
++        inspect(bytes)
++    );
++}
++
++// Malformed text is spliced only into bytes from a safe supplier-created Float;
++// these bytes are never passed to an Atom constructor or coefficient parser.
++fn finite_float(text: &[u8], precision: u32, env: FloatEnvironment) -> Result<(), PackingIssue> {
++    let one = Atom::num(Coefficient::Float(Complex {
++        re: Float::with_val(1, 1),
++        im: Float::with_val(1, 0),
++    }));
++    let mut packed = bytes(&one).to_vec();
++    assert_eq!(&packed[..2], &[1, 9]);
++    let length = u64::from_le_bytes(packed[2..10].try_into().unwrap()) as usize;
++    packed.splice(14..10 + length, text.iter().copied());
++    packed[2..10].copy_from_slice(&(text.len() as u64 + 4).to_le_bytes());
++    packed[10..14].copy_from_slice(&precision.to_le_bytes());
++    match inspect_packing(&packed, &mut [PackingFrame::default(); 8], env, |_| {
++        Ok::<_, Infallible>(())
++    }) {
++        Ok(_) => Ok(()),
++        Err(PackingError::Layout { issue, .. }) => Err(issue),
++        Err(PackingError::Symbol(never)) => match never {},
++    }
++}
++
++#[test]
++fn supplier_nodes_and_symbol_occurrences() {
++    let atom = parse!("packing_f(packing_x, packing_y^2) + 3*packing_x*packing_y");
++    let mut refs = Vec::new();
++    let result = inspect_packing(
++        bytes(&atom),
++        &mut [PackingFrame::default(); 32],
++        environment(),
++        |s| {
++            refs.push(s);
++            Ok::<_, Infallible>(())
++        },
++    )
++    .unwrap();
++    assert_eq!(
++        (
++            result.sums,
++            result.functions,
++            result.powers,
++            result.products
++        ),
++        (1, 1, 1, 1)
++    );
++    assert_eq!((result.numbers, result.variables), (2, 4));
++    assert_eq!(result.nodes, 10);
++    assert_eq!(result.bytes, bytes(&atom).len());
++    assert_eq!(refs.iter().filter(|s| s.function).count(), 1);
++    assert_eq!(refs.len(), 5);
++    assert!(result.max_depth >= 3);
++}
++
++#[test]
++fn actual_wide_headers_and_deep_caller_frames() {
++    let names = (0..300)
++        .map(|index| format!("packing_wide_{index}"))
++        .collect::<Vec<_>>();
++    for (separator, function) in [("+", false), ("*", false), (",", true)] {
++        let arguments = names.join(separator);
++        let source = if function {
++            format!("packing_many({arguments})")
++        } else {
++            arguments
++        };
++        let atom = parse!(&source);
++        let result = inspect(bytes(&atom)).unwrap();
++        assert_eq!(result.nodes, 301);
++        assert_eq!(result.variables, 300);
++        if function {
++            assert_eq!(bytes(&atom)[1], 2); // actual u16 byte length
++        } else {
++            assert_eq!(bytes(&atom)[1], 0x22); // actual u16 count/u16 length
++        }
++    }
++    let source = format!(
++        "{}packing_leaf{}",
++        "packing_deep(".repeat(64),
++        ")".repeat(64)
++    );
++    let atom = parse!(&source);
++    assert_eq!(inspect(bytes(&atom)).unwrap().max_depth, 65);
++    assert!(matches!(
++        inspect_packing(
++            bytes(&atom),
++            &mut [PackingFrame::default(); 64],
++            environment(),
++            |_| Ok::<_, Infallible>(())
++        ),
++        Err(PackingError::Layout {
++            issue: PackingIssue::InsufficientScratch,
++            ..
++        })
++    ));
++}
++
++#[test]
++fn actual_small_large_and_mixed_complex_rationals() {
++    let real = Rational::from(rug::Rational::from((
++        (rug::Integer::from(1) << 131_072u32) + 1,
++        (rug::Integer::from(1) << 65_536u32) + 3,
++    )));
++    let small = Rational::from((3, 7));
++    for (re, im, large_count) in [
++        (small.clone(), Rational::from(0), 0),
++        (Rational::from((257, 65537)), Rational::from(0), 0),
++        (Rational::from((65537, 257)), Rational::from(0), 0),
++        (Rational::from((1, i64::MAX)), Rational::from(0), 0),
++        (Rational::from(i64::MIN), Rational::from(0), 0),
++        (Rational::from((-i64::MAX, 1)), small.clone(), 0),
++        (real.clone(), Rational::from(0), 1),
++        (real.clone(), small.clone(), 1),
++        (small.clone(), real.clone(), 1),
++        (real.clone(), real.clone(), 2),
++    ] {
++        let is_complex = im != Rational::from(0);
++        let atom = Atom::num(Coefficient::Complex(Complex { re, im }));
++        let summary = inspect(bytes(&atom)).unwrap();
++        assert_eq!(summary.rational_components, if is_complex { 2 } else { 1 });
++        assert_eq!(summary.large_rational_bytes != 0, large_count != 0);
++        if large_count != 0 {
++            assert!(summary.large_rational_bytes >= 24_576 * large_count);
++        }
++    }
++}
++
++#[test]
++fn actual_float_serializer_profile_and_exact_components() {
++    for precision in [1, 2, 3, 7, 24, 53, 64, 113, 256, 1024] {
++        for value in [
++            0.0,
++            -0.0,
++            1.0,
++            -2.0,
++            0.1,
++            f64::MIN_POSITIVE,
++            f64::MAX,
++            f64::from_bits(1),
++        ] {
++            let re = Float::with_val(precision, value);
++            let im = Float::with_val(precision + 1, -0.125);
++            let real_text = re.serialize();
++            let imaginary_text = im.serialize();
++            let atom = Atom::num(Coefficient::Float(Complex { re, im }));
++            let packed = bytes(&atom);
++            let before = packed.to_vec();
++            let result = inspect(packed)
++                .unwrap_or_else(|e| panic!("p={precision} v={value}: {real_text:?}: {e:?}"));
++            assert_eq!(packed, before);
++            assert_eq!(result.float_components, 2);
++            assert_eq!(
++                result.float_text_bytes,
++                real_text.len() + imaginary_text.len()
++            );
++            let real_length = u64::from_le_bytes(packed[2..10].try_into().unwrap()) as usize;
++            assert_eq!(&packed[10..14], &precision.to_le_bytes());
++            assert_eq!(&packed[14..10 + real_length], real_text);
++            let im_start = 10 + real_length + 8;
++            assert_eq!(
++                &packed[im_start..im_start + 4],
++                &(precision + 1).to_le_bytes()
++            );
++            assert_eq!(&packed[im_start + 4..], imaginary_text);
++        }
++    }
++}
++
++#[test]
++fn every_truncation_and_trailing_byte_refuses() {
++    let atoms = [
++        parse!("packing_g(packing_a, packing_b^3)+7*packing_a*packing_b"),
++        parse!(
++            "123456789012345678901234567890123456789012345678901234567890/99999999999999999999999999999999999999999999991"
++        ),
++        Atom::num(Coefficient::Float(Complex {
++            re: Float::with_val(53, 0.1),
++            im: Float::with_val(113, 1.5),
++        })),
++    ];
++    for atom in atoms {
++        let packed = bytes(&atom);
++        assert!(inspect(packed).is_ok());
++        for end in 0..packed.len() {
++            assert!(
++                inspect(&packed[..end]).is_err(),
++                "accepted truncation {end} of {packed:?}"
++            );
++        }
++        let mut trailing = packed.to_vec();
++        trailing.push(0);
++        issue(&trailing, PackingIssue::TrailingBytes);
++    }
++}
++
++#[test]
++fn byte_corruptions_never_enter_unchecked_supplier_views() {
++    for atom in [
++        parse!("packing_h(packing_c^2, packing_c+3)*packing_d"),
++        Atom::num(Coefficient::Float(Complex {
++            re: Float::with_val(17, 0.1),
++            im: Float::with_val(29, 1.5),
++        })),
++    ] {
++        let original = bytes(&atom);
++        let mut corrupt = original.to_vec();
++        for offset in 0..original.len() {
++            for byte in 0..=u8::MAX {
++                corrupt[offset] = byte;
++                let _ = inspect(&corrupt); // accepted mutations remain passive bytes
++            }
++            corrupt[offset] = original[offset];
++        }
++    }
++}
++
++#[test]
++fn scratch_capacity_and_original_callback_error() {
++    let atom = parse!("packing_k(packing_q^2)");
++    assert!(matches!(
++        inspect_packing(
++            bytes(&atom),
++            &mut [],
++            environment(),
++            |_| Ok::<_, Infallible>(())
++        ),
++        Err(PackingError::Layout {
++            issue: PackingIssue::InsufficientScratch,
++            ..
++        })
++    ));
++    assert!(matches!(
++        inspect_packing(
++            bytes(&atom),
++            &mut [PackingFrame::default(); 2],
++            environment(),
++            |_| Ok::<_, Infallible>(())
++        ),
++        Err(PackingError::Layout {
++            issue: PackingIssue::InsufficientScratch,
++            ..
++        })
++    ));
++    struct Original {
++        payload: Box<u8>,
++    }
++    let error = Original {
++        payload: Box::new(17),
++    };
++    let pointer = (&*error.payload) as *const u8;
++    let mut error = Some(error);
++    let result = inspect_packing(
++        bytes(&atom),
++        &mut [PackingFrame::default(); 8],
++        environment(),
++        |_| Err(error.take().unwrap()),
++    );
++    match result {
++        Err(PackingError::Symbol(original)) => {
++            assert_eq!((&*original.payload) as *const u8, pointer)
++        }
++        _ => panic!("callback error was lost"),
++    }
++}
++
++#[test]
++fn headers_counts_parent_exhaustion_and_denominators() {
++    let atom = parse!("packing_j(packing_u, packing_v)");
++    let original = bytes(&atom);
++    // This actual small function has a u8 byte length and u8/u8 symbol/count pair.
++    assert_eq!(&original[..2], &[3, 1]);
++    let name_width_tag = original[3] & 15;
++    assert!((1..=4).contains(&name_width_tag));
++    assert_eq!(original[3] & 0x70, 0x10);
++    let count_offset = 4 + (1usize << (name_width_tag - 1));
++    let mut corrupt = original.to_vec();
++    corrupt[2] -= 1;
++    assert!(inspect(&corrupt).is_err());
++    corrupt.copy_from_slice(original);
++    corrupt[count_offset] = 1;
++    issue(&corrupt, PackingIssue::TrailingBytes);
++    corrupt[count_offset] = u8::MAX;
++    issue(&corrupt, PackingIssue::InvalidExtent);
++    corrupt.copy_from_slice(original);
++    corrupt[1] = 0x81;
++    issue(&corrupt, PackingIssue::InvalidPackedInteger);
++    corrupt.copy_from_slice(original);
++    corrupt[1] = 0x11;
++    corrupt.insert(3, 1); // denominator value 1 still violates the length grammar
++    issue(&corrupt, PackingIssue::InvalidPackedInteger);
++    let atom = Atom::num(Rational::from((3, 7)));
++    let mut corrupt = bytes(&atom).to_vec();
++    assert_eq!(corrupt, [1, 0x11, 3, 7]);
++    corrupt[3] = 0;
++    issue(&corrupt, PackingIssue::InvalidDenominator);
++    let atom = parse!("packing_u*packing_v");
++    let mut corrupt = bytes(&atom).to_vec();
++    corrupt[0] |= 0x40;
++    issue(&corrupt, PackingIssue::MissingProductCoefficient);
++}
++
++#[test]
++fn large_rational_counts_zero_denominator_and_partial_payload() {
++    let atom = parse!(
++        "123456789012345678901234567890123456789012345678901/99999999999999999999999999999999999999999999"
++    );
++    let original = bytes(&atom);
++    assert_eq!(original[1], 0x77);
++    assert_eq!(original[2] & 0x7f, 0x11);
++    let n = usize::from(original[3]);
++    let d = usize::from(original[4]);
++    let mut corrupt = original.to_vec();
++    corrupt[5 + n..5 + n + d].fill(0);
++    issue(&corrupt, PackingIssue::InvalidDenominator);
++    corrupt.copy_from_slice(original);
++    corrupt[2] = 0x44; // complete u64/u64 lengths must exist before payload use
++    corrupt[3..19].fill(0xff);
++    assert!(inspect(&corrupt).is_err());
++    corrupt.copy_from_slice(original);
++    corrupt[2] = 0x51; // unsupported denominator-width tag, never a shift
++    issue(&corrupt, PackingIssue::InvalidPackedInteger);
++}
++
++#[test]
++fn unsupported_flags_attributes_and_coefficients() {
++    let atom = parse!("packing_plain");
++    for flag in [8, 16, 32, 64, 128] {
++        let mut corrupt = bytes(&atom).to_vec();
++        corrupt[0] |= flag;
++        issue(&corrupt, PackingIssue::UnsupportedFlags);
++    }
++    let mut corrupt = bytes(&atom).to_vec();
++    assert_eq!(corrupt[1] & 0x70, 0);
++    corrupt[1] |= 0x10;
++    corrupt.push(3); // actual attributed Var's extra*2+1 representation
++    issue(&corrupt, PackingIssue::UnsupportedSymbolAttributes);
++    let attributed = Atom::var(symbolica::symbol!("packing_real"; Real));
++    issue(
++        bytes(&attributed),
++        PackingIssue::UnsupportedSymbolAttributes,
++    );
++    let atom = Atom::num(1);
++    for tag in [0, 5, 6, 7, 8, 11, 12, 13, 14, 15, 0x87, 0xf7] {
++        let mut corrupt = bytes(&atom).to_vec();
++        corrupt[1] = tag;
++        issue(&corrupt, PackingIssue::UnsupportedCoefficient);
++    }
++    for value in [f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
++        let atom = Atom::num(Coefficient::Float(Complex {
++            re: Float::with_val(53, value),
++            im: Float::with_val(53, 0),
++        }));
++        issue(bytes(&atom), PackingIssue::UnsupportedFloatText);
++    }
++}
++
++#[test]
++fn strict_float_text_exact_span_exponents_and_environment() {
++    let env = FloatEnvironment {
++        min_precision: 1,
++        max_precision: 1024,
++        min_exponent: -100,
++        max_exponent: 100,
++    };
++    for text in [
++        b"".as_slice(),
++        b"-0",
++        b"0.0",
++        b"-0@3",
++        b"nan",
++        b"@Inf@",
++        b"+1",
++        b" 1",
++        b"1_0",
++        b"1p0",
++        b"a@+1",
++        b"1@",
++        b".1",
++        b"1.",
++        b"1..1",
++        b"1@1@1",
++        b"1\0",
++        b"A",
++        b"00a",
++    ] {
++        assert!(finite_float(text, 53, env).is_err(), "{text:?}");
++    }
++    for text in [
++        b"1@99999999999999999999999999".as_slice(),
++        b"1@-9999999999999999999999999",
++        b"1@26",
++        b"1@-26",
++    ] {
++        assert_eq!(
++            finite_float(text, 53, env),
++            Err(PackingIssue::FloatExponentRange),
++            "{text:?}"
++        );
++    }
++    assert_eq!(
++        finite_float(b"1.1", 4, env),
++        Err(PackingIssue::InexactFloatText)
++    );
++    assert!(finite_float(b"1.1", 5, env).is_ok());
++    assert!(finite_float(b"8", 1, env).is_ok());
++    assert_eq!(
++        finite_float(b"8.000", 1, env),
++        Err(PackingIssue::UnsupportedFloatText)
++    );
++    assert!(finite_float(b"1@24", 1, env).is_ok());
++    assert!(finite_float(b"1@-25", 1, env).is_ok());
++    assert_eq!(
++        finite_float(
++            b"1@24",
++            1,
++            FloatEnvironment {
++                max_exponent: 96,
++                ..env
++            }
++        ),
++        Err(PackingIssue::FloatExponentRange)
++    );
++    assert_eq!(
++        finite_float(
++            b"1@-25",
++            1,
++            FloatEnvironment {
++                min_exponent: -98,
++                ..env
++            }
++        ),
++        Err(PackingIssue::FloatExponentRange)
++    );
++    assert!(finite_float(b"0", 1, env).is_ok());
++}
++
++#[test]
++fn float_component_extents_and_precision_refuse_before_parsing() {
++    let atom = Atom::num(Coefficient::Float(Complex {
++        re: Float::with_val(53, 0.1),
++        im: Float::with_val(113, 1.5),
++    }));
++    let original = bytes(&atom);
++    for length in [0, 1, 2, 3, u64::MAX] {
++        let mut corrupt = original.to_vec();
++        corrupt[2..10].copy_from_slice(&length.to_le_bytes());
++        assert!(inspect(&corrupt).is_err());
++    }
++    let mut corrupt = original.to_vec();
++    corrupt[10..14].copy_from_slice(&0u32.to_le_bytes());
++    issue(&corrupt, PackingIssue::InvalidFloatPrecision);
++    let real_length = u64::from_le_bytes(original[2..10].try_into().unwrap()) as usize;
++    corrupt.copy_from_slice(original);
++    let imaginary_start = 10 + real_length + 8;
++    corrupt[imaginary_start..imaginary_start + 4].copy_from_slice(&0u32.to_le_bytes());
++    issue(&corrupt, PackingIssue::InvalidFloatPrecision);
++    let mut env = environment();
++    env.max_precision = 52;
++    assert!(matches!(
++        inspect_packing(original, &mut [PackingFrame::default(); 8], env, |_| Ok::<
++            _,
++            Infallible,
++        >(
++            ()
++        )),
++        Err(PackingError::Layout {
++            issue: PackingIssue::InvalidFloatPrecision,
++            ..
++        })
++    ));
++    env.min_precision = 54;
++    assert!(matches!(
++        inspect_packing(original, &mut [PackingFrame::default(); 8], env, |_| Ok::<
++            _,
++            Infallible,
++        >(
++            ()
++        )),
++        Err(PackingError::Layout {
++            issue: PackingIssue::InvalidFloatEnvironment,
++            ..
++        })
++    ));
++}

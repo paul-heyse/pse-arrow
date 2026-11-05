@@ -22,10 +22,10 @@ const U16_NUM: u8 = 0b00000010;
 const U32_NUM: u8 = 0b00000011;
 const U64_NUM: u8 = 0b00000100;
 const FIN_NUM: u8 = 0b00000101;
-const ARB_NUM: u8 = 0b00000111;
+pub(super) const ARB_NUM: u8 = 0b00000111;
 const RAT_POLY: u8 = 0b00001000;
-const FLOAT: u8 = 0b00001001;
-const COMPLEX: u8 = 0b00001010;
+pub(super) const FLOAT: u8 = 0b00001001;
+pub(super) const COMPLEX: u8 = 0b00001010;
 const INDETERMINATE: u8 = 0b00001100;
 const COMPLEX_INFINITY: u8 = 0b00001101;
 const DIRECTED_INFINITY: u8 = 0b00001111;
@@ -33,10 +33,10 @@ const U8_DEN: u8 = 0b00010000;
 const U16_DEN: u8 = 0b00100000;
 const U32_DEN: u8 = 0b00110000;
 const U64_DEN: u8 = 0b01000000;
-const ARB_DEN: u8 = 0b01110000;
-const NUM_MASK: u8 = 0b00001111;
-const DEN_MASK: u8 = 0b01110000;
-const SIGN: u8 = 0b10000000;
+pub(super) const ARB_DEN: u8 = 0b01110000;
+pub(super) const NUM_MASK: u8 = 0b00001111;
+pub(super) const DEN_MASK: u8 = 0b01110000;
+pub(super) const SIGN: u8 = 0b10000000;
 
 /// Read only the length when traversing an atom; avoid the full fraction dispatch.
 #[inline(always)]
