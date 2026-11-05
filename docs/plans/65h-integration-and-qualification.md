@@ -338,9 +338,17 @@ the public driver and all client executor tasks finish. It explicitly polls the 
 drain to Pending before releasing that write. This discriminates actual socket custody
 from sender/task retention alone.
 
-Current receiving work runs that control with the unchanged three failing child controls
-and the child-exits-before-parent-I/O-retirement control. Their result, the full selected
-population and shutdown/deadline stress remain to be established. Mathematical proof replay
+The first socket-custody run passed **7/8 against zero failures**: the real gated-H2
+control, two previously failing child controls, child-before-I/O retirement and all three
+engineering-ingress controls passed. The remaining provider-binding finish control reported
+an original `ConnectionReset` at peer EOF. Server connection completion can likewise leave
+unread client shutdown bytes, so its authenticated read half now survives logical H2
+completion and drains to the parent's write EOF after actual native Shutdown. Both sides
+half-close writing before their final receive drain; neither error is filtered. This
+symmetric correction is awaiting receiving verification.
+
+Next receiving work reruns those controls, the full selected population and actual
+shutdown/deadline stress. Mathematical proof replay
 has separately integrated through [65k](65k-scientific-artifacts-and-native-reconstruction.md#reconstruction-population-and-native-mathematics-limit);
 its original five focused tests do not qualify the whole Recipe receiver. H01–H04 and both
 series remain open.
