@@ -286,9 +286,93 @@ impl Drop for IoOwner {
 
 struct Job {
     request: p::Request,
-    response: tokio::sync::oneshot::Sender<p::Response>,
+    completion: NativeCompletion,
+}
+struct NativeCompletion {
+    response: tokio::sync::oneshot::Sender<NativeReply>,
     // The native job, rather than the observing RPC, owns numerical-lane admission.
     _work: Option<tokio::sync::OwnedSemaphorePermit>,
+}
+impl NativeCompletion {
+    fn deliver(self, response: p::Response) -> std::sync::mpsc::Receiver<DeliveryDisposition> {
+        let (observed, observation) = std::sync::mpsc::channel();
+        // If the method has departed, dropping the undelivered payload transfers
+        // its admission back to the native owner just like a later guard drop.
+        let _ = self.response.send(NativeReply {
+            response,
+            delivery: Delivery {
+                observed: Some(observed),
+                work: self._work,
+            },
+        });
+        observation
+    }
+    fn finish(
+        self,
+        response: p::Response,
+        preparation: Option<p::Handle>,
+        retire: impl FnOnce(p::Handle) -> Result<(), WorkerError>,
+    ) -> Result<(), WorkerError> {
+        settle_delivery(self.deliver(response), preparation, retire)
+    }
+}
+#[derive(Debug)]
+struct NativeReply {
+    response: p::Response,
+    delivery: Delivery,
+}
+#[derive(Debug)]
+struct Delivery {
+    observed: Option<std::sync::mpsc::Sender<DeliveryDisposition>>,
+    work: Option<tokio::sync::OwnedSemaphorePermit>,
+}
+#[derive(Debug)]
+enum DeliveryDisposition {
+    Consumed,
+    Abandoned(Option<tokio::sync::OwnedSemaphorePermit>),
+}
+impl Delivery {
+    fn consume(mut self) {
+        if let Some(observed) = self.observed.take() {
+            let _ = observed.send(DeliveryDisposition::Consumed);
+        }
+        // No await follows consumption in the observing method. Its native work
+        // is settled, so release admission before returning the encoded response.
+        self.work.take();
+    }
+}
+impl Drop for Delivery {
+    fn drop(&mut self) {
+        if let Some(observed) = self.observed.take() {
+            let _ = observed.send(DeliveryDisposition::Abandoned(self.work.take()));
+        }
+    }
+}
+fn settle_delivery(
+    observation: std::sync::mpsc::Receiver<DeliveryDisposition>,
+    preparation: Option<p::Handle>,
+    retire: impl FnOnce(p::Handle) -> Result<(), WorkerError>,
+) -> Result<(), WorkerError> {
+    match observation.recv().map_err(infrastructure)? {
+        DeliveryDisposition::Consumed => Ok(()),
+        DeliveryDisposition::Abandoned(_work) => {
+            // Local method departure is known, unlike a lost wire reply after
+            // consumption. Hold returned admission through native retirement.
+            if let Some(handle) = preparation {
+                retire(handle)?;
+            }
+            Ok(())
+        }
+    }
+}
+#[derive(Debug)]
+struct Submitted {
+    response: tokio::sync::oneshot::Receiver<NativeReply>,
+}
+#[derive(Debug)]
+enum SubmissionError {
+    Admission(WorkerError),
+    Departed,
 }
 #[derive(Default)]
 struct HandleControls {
@@ -296,6 +380,23 @@ struct HandleControls {
     handles: BTreeMap<SemanticId, (p::Handle, pse_diagnostics::Cancellation)>,
 }
 impl HandleControls {
+    fn signal(&self, request: &p::Request) -> Result<(), WorkerError> {
+        if self.closed {
+            return Err(
+                ProviderError::Contract("scientific worker admission is closed".into()).into(),
+            );
+        }
+        match request {
+            p::Request::Stop(handle) => self.control(handle)?.cancel(),
+            p::Request::Shutdown => {
+                for (_, cancellation) in self.handles.values() {
+                    cancellation.cancel();
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
     fn admit(&mut self, request: &p::Request) -> Result<(), WorkerError> {
         if self.closed {
             return Err(
@@ -356,10 +457,57 @@ fn encode_response(value: p::Response) -> Result<pb::Response, connectrpc::Conne
     pb::Response::try_from(value)
         .map_err(|error| connectrpc::ConnectError::internal(error.to_string()))
 }
+fn join_native(
+    runtime: tokio::runtime::Runtime,
+    native: std::thread::JoinHandle<()>,
+) -> Result<(), WorkerError> {
+    // Hyper's connection future can depart before its spawned method tasks.
+    // Destroy their delivery guards before joining the lane that observes them.
+    drop(runtime);
+    native
+        .join()
+        .map_err(|_| infrastructure("scientific worker native lane panicked"))
+}
 struct Server {
     jobs: tokio::sync::mpsc::Sender<Job>,
     controls: SharedControls,
     work: Arc<tokio::sync::Semaphore>,
+}
+impl Server {
+    async fn submit(
+        &self,
+        request: p::Request,
+        work: Option<tokio::sync::OwnedSemaphorePermit>,
+    ) -> Result<Submitted, SubmissionError> {
+        let immediate = matches!(&request, p::Request::Stop(_) | p::Request::Shutdown);
+        if immediate {
+            // Cancellation must reach active native work even while its queue is
+            // full. The later queued operation owns physical retirement.
+            controls_lock(&self.controls)
+                .and_then(|controls| controls.signal(&request))
+                .map_err(SubmissionError::Admission)?;
+        }
+        let permit = self
+            .jobs
+            .clone()
+            .reserve_owned()
+            .await
+            .map_err(|_| SubmissionError::Departed)?;
+        controls_lock(&self.controls)
+            .and_then(|mut controls| controls.admit(&request))
+            .map_err(SubmissionError::Admission)?;
+        // Admission and handoff have no suspension point. A canceled reservation
+        // cannot leave a phantom prepared handle in the control map.
+        let (response, received) = tokio::sync::oneshot::channel();
+        permit.send(Job {
+            request,
+            completion: NativeCompletion {
+                response,
+                _work: work,
+            },
+        });
+        Ok(Submitted { response: received })
+    }
 }
 impl services::ScientificWorker for Server {
     async fn exchange<'a>(
@@ -392,28 +540,27 @@ impl services::ScientificWorker for Server {
         } else {
             None
         };
-        let admitted =
-            controls_lock(&self.controls).and_then(|mut controls| controls.admit(&request));
-        if let Err(error) = admitted {
-            return Ok(connectrpc::Response::new(encode_response(
-                p::Response::Failure(handler::failure(error)),
-            )?));
-        }
-        let (response, received) = tokio::sync::oneshot::channel();
-        self.jobs
-            .send(Job {
-                request,
-                response,
-                _work: work,
-            })
-            .await
-            .map_err(|_| {
-                connectrpc::ConnectError::unavailable("scientific worker native lane departed")
-            })?;
-        let response = received.await.map_err(|_| {
+        let submitted = match self.submit(request, work).await {
+            Ok(submitted) => submitted,
+            Err(SubmissionError::Admission(error)) => {
+                return Ok(connectrpc::Response::new(encode_response(
+                    p::Response::Failure(handler::failure(error)),
+                )?));
+            }
+            Err(SubmissionError::Departed) => {
+                return Err(connectrpc::ConnectError::unavailable(
+                    "scientific worker native lane departed",
+                ));
+            }
+        };
+        let reply = submitted.response.await.map_err(|_| {
             connectrpc::ConnectError::unavailable("scientific worker native completion unavailable")
         })?;
-        Ok(connectrpc::Response::new(encode_response(response)?))
+        let response = connectrpc::Response::new(encode_response(reply.response)?);
+        // This final synchronous section acknowledges only local method
+        // consumption. The transport can still lose the later network reply.
+        reply.delivery.consume();
+        Ok(response)
     }
 }
 
@@ -454,6 +601,10 @@ pub(super) fn serve_with_preparation(
         .spawn(move || {
             let mut sessions = BTreeMap::<SemanticId, PreparedSession>::new();
             while let Some(job) = receiving.blocking_recv() {
+                let preparation = match &job.request {
+                    p::Request::Prepare(value) => Some(value.handle.clone()),
+                    _ => None,
+                };
                 let handle = match &job.request {
                     p::Request::Prepare(value) => Some(value.handle.clone()),
                     p::Request::Evaluate(value) => Some(value.handle.clone()),
@@ -572,10 +723,19 @@ pub(super) fn serve_with_preparation(
                     result.unwrap_or_else(|error| p::Response::Failure(handler::failure(error)));
                 #[cfg(test)]
                 let response = perturb_response_for_test(response);
-                // Native mutation and its handle bookkeeping have settled. Release
-                // that lane before the acknowledgement can trigger another request.
-                drop(job._work);
-                if job.response.send(response).is_err() {
+                if job
+                    .completion
+                    .finish(response, preparation, |handle| {
+                        if let Some(mut owner) = sessions.remove(&handle.generation) {
+                            owner.stop();
+                        }
+                        controls_lock(&native_controls)?
+                            .handles
+                            .remove(&handle.generation);
+                        Ok(())
+                    })
+                    .is_err()
+                {
                     break;
                 }
             }
@@ -634,9 +794,7 @@ pub(super) fn serve_with_preparation(
         parent_owner.terminate_unsettled_native();
     }
     drop(jobs);
-    native
-        .join()
-        .map_err(|_| infrastructure("scientific worker native lane panicked"))?;
+    join_native(runtime, native)?;
     result
 }
 
@@ -694,20 +852,385 @@ mod tests {
     use super::*;
     use tower_service::Service as _;
 
+    fn handle(generation: u8) -> p::Handle {
+        p::Handle {
+            attempt: SemanticId::from_bytes([1; 16]),
+            session: SemanticId::from_bytes([2; 16]),
+            generation: SemanticId::from_bytes([generation; 16]),
+        }
+    }
+
+    fn preparation(handle: p::Handle) -> p::Request {
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let descriptor = pse_backend_native::coolprop::descriptor(
+            &registry,
+            pse_backend_native::coolprop::WaterRegime::Liquid,
+        )
+        .unwrap();
+        p::Request::Prepare(p::Prepare {
+            version: 2,
+            handle,
+            spec: pse_kernels::portable::ProviderRecord::capture(&descriptor),
+            configuration: pse_ids::ContentHash::from_bytes([1; 32]),
+            regime: "liquid".into(),
+            outputs: vec![0],
+            order: 0,
+            demand: p::Demand::CompleteJets,
+            remaining_ns: None,
+            result_limit: 4096,
+            physical: handler::physical_identity(&registry).unwrap(),
+            registry: registry.to_builder(),
+        })
+    }
+
+    fn completion(
+        work: Option<tokio::sync::OwnedSemaphorePermit>,
+    ) -> (NativeCompletion, Submitted) {
+        let (response, received) = tokio::sync::oneshot::channel();
+        (
+            NativeCompletion {
+                response,
+                _work: work,
+            },
+            Submitted { response: received },
+        )
+    }
+
+    fn server() -> (Server, tokio::sync::mpsc::Receiver<Job>) {
+        let (jobs, receiving) = tokio::sync::mpsc::channel(1);
+        (
+            Server {
+                jobs,
+                controls: SharedControls::default(),
+                work: Arc::new(tokio::sync::Semaphore::new(1)),
+            },
+            receiving,
+        )
+    }
+
+    fn fill_queue(server: &Server) {
+        let (completion, _observer) = completion(None);
+        assert!(
+            server
+                .jobs
+                .try_send(Job {
+                    request: p::Request::Shutdown,
+                    completion
+                })
+                .is_ok()
+        );
+    }
+
     #[test]
     fn abandoned_observer_does_not_release_a_native_job_admission() {
         let lane = Arc::new(tokio::sync::Semaphore::new(1));
         let permit = lane.clone().try_acquire_owned().unwrap();
-        let (response, observer) = tokio::sync::oneshot::channel();
+        let (completion, observer) = completion(Some(permit));
         let job = Job {
             request: p::Request::Shutdown,
-            response,
-            _work: Some(permit),
+            completion,
         };
         drop(observer);
         assert!(lane.clone().try_acquire_owned().is_err());
         drop(job);
         assert!(lane.try_acquire_owned().is_ok());
+    }
+
+    #[tokio::test]
+    async fn canceled_queue_reservation_never_commits_preparation_or_leaks_admission() {
+        let (server, mut receiving) = server();
+        fill_queue(&server);
+        let work = server.work.clone().try_acquire_owned().unwrap();
+        let mut waiting = Box::pin(server.submit(preparation(handle(3)), Some(work)));
+        assert!(futures_util::poll!(waiting.as_mut()).is_pending());
+        assert!(controls_lock(&server.controls).unwrap().handles.is_empty());
+        assert_eq!(server.work.available_permits(), 0);
+        drop(waiting);
+        assert_eq!(server.work.available_permits(), 1);
+        drop(receiving.recv().await.unwrap());
+        assert!(matches!(
+            receiving.try_recv(),
+            Err(tokio::sync::mpsc::error::TryRecvError::Empty)
+        ));
+        assert!(controls_lock(&server.controls).unwrap().handles.is_empty());
+    }
+
+    #[tokio::test]
+    async fn departed_native_queue_refuses_before_preparation_commit() {
+        let (server, receiving) = server();
+        drop(receiving);
+        let work = server.work.clone().try_acquire_owned().unwrap();
+        assert!(matches!(
+            server.submit(preparation(handle(3)), Some(work)).await,
+            Err(SubmissionError::Departed)
+        ));
+        assert!(controls_lock(&server.controls).unwrap().handles.is_empty());
+        assert_eq!(server.work.available_permits(), 1);
+    }
+
+    #[tokio::test]
+    async fn lost_preparation_observer_retires_only_its_handle_before_releasing_admission() {
+        let (server, mut receiving) = server();
+        let survivor = handle(4);
+        let cancellation = pse_diagnostics::Cancellation::default();
+        controls_lock(&server.controls).unwrap().handles.insert(
+            survivor.generation,
+            (survivor.clone(), cancellation.clone()),
+        );
+        let orphan = handle(3);
+        let work = server.work.clone().try_acquire_owned().unwrap();
+        let observer = server
+            .submit(preparation(orphan.clone()), Some(work))
+            .await
+            .unwrap();
+        let job = receiving.recv().await.unwrap();
+        assert!(
+            controls_lock(&server.controls)
+                .unwrap()
+                .control(&orphan)
+                .is_ok()
+        );
+        drop(observer);
+        let mut retired = false;
+        job.completion
+            .finish(
+                p::Response::Prepared(p::Prepared {
+                    handle: orphan.clone(),
+                    batch_supported: false,
+                }),
+                Some(orphan.clone()),
+                |actual| {
+                    assert_eq!(actual, orphan);
+                    assert_eq!(server.work.available_permits(), 0);
+                    controls_lock(&server.controls)?
+                        .handles
+                        .remove(&actual.generation);
+                    retired = true;
+                    Ok(())
+                },
+            )
+            .unwrap();
+        assert!(retired);
+        assert_eq!(server.work.available_permits(), 1);
+        let controls = controls_lock(&server.controls).unwrap();
+        assert!(controls.control(&orphan).is_err());
+        assert!(controls.control(&survivor).is_ok());
+        assert!(!cancellation.is_cancelled());
+    }
+
+    #[tokio::test]
+    async fn prepared_reply_departure_before_or_after_poll_returns_admission_for_retirement() {
+        for polled in [false, true] {
+            let (server, mut receiving) = server();
+            let orphan = handle(3);
+            let survivor = handle(4);
+            let cancellation = pse_diagnostics::Cancellation::default();
+            controls_lock(&server.controls).unwrap().handles.insert(
+                survivor.generation,
+                (survivor.clone(), cancellation.clone()),
+            );
+            let work = server.work.clone().try_acquire_owned().unwrap();
+            let observer = server
+                .submit(preparation(orphan.clone()), Some(work))
+                .await
+                .unwrap();
+            let job = receiving.recv().await.unwrap();
+            // The response send succeeds while the observing method still exists.
+            // Neither the unpolled payload nor a polled-but-unconsumed payload
+            // establishes local method consumption.
+            let observation = job.completion.deliver(p::Response::Prepared(p::Prepared {
+                handle: orphan.clone(),
+                batch_supported: false,
+            }));
+            assert!(matches!(
+                observation.try_recv(),
+                Err(std::sync::mpsc::TryRecvError::Empty)
+            ));
+            if polled {
+                let reply = observer.response.await.unwrap();
+                assert!(
+                    matches!(&reply.response, p::Response::Prepared(value) if value.handle == orphan)
+                );
+                drop(reply);
+            } else {
+                drop(observer);
+            }
+            assert_eq!(server.work.available_permits(), 0);
+            let mut retired = false;
+            settle_delivery(observation, Some(orphan.clone()), |actual| {
+                assert_eq!(actual, orphan);
+                assert_eq!(server.work.available_permits(), 0);
+                controls_lock(&server.controls)?
+                    .handles
+                    .remove(&actual.generation);
+                retired = true;
+                Ok(())
+            })
+            .unwrap();
+            assert!(retired);
+            assert_eq!(server.work.available_permits(), 1);
+            let controls = controls_lock(&server.controls).unwrap();
+            assert!(controls.control(&orphan).is_err());
+            assert!(controls.control(&survivor).is_ok());
+            assert!(!cancellation.is_cancelled());
+        }
+    }
+
+    #[tokio::test]
+    async fn consumed_preparation_does_not_treat_later_wire_loss_as_method_departure() {
+        let (server, mut receiving) = server();
+        let prepared = handle(3);
+        let work = server.work.clone().try_acquire_owned().unwrap();
+        let observer = server
+            .submit(preparation(prepared.clone()), Some(work))
+            .await
+            .unwrap();
+        let job = receiving.recv().await.unwrap();
+        let observation = job.completion.deliver(p::Response::Prepared(p::Prepared {
+            handle: prepared.clone(),
+            batch_supported: false,
+        }));
+        let reply = observer.response.await.unwrap();
+        let encoded = encode_response(reply.response).unwrap();
+        reply.delivery.consume();
+        assert_eq!(server.work.available_permits(), 1);
+        // No network delivery is claimed. Losing these bytes cannot manufacture
+        // a second native outcome or retire an already consumed preparation.
+        drop(encoded);
+        settle_delivery(observation, Some(prepared.clone()), |_| {
+            panic!("wire delivery uncertainty is not local method abandonment")
+        })
+        .unwrap();
+        assert!(
+            controls_lock(&server.controls)
+                .unwrap()
+                .control(&prepared)
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn transport_runtime_drops_pending_shutdown_method_before_native_join() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (completion, observer) = completion(None);
+        let drained = Arc::new(AtomicBool::new(false));
+        let native_drained = drained.clone();
+        let native = std::thread::spawn(move || {
+            native_drained.store(true, Ordering::Release);
+            completion
+                .finish(p::Response::Shutdown, None, |_| {
+                    panic!("shutdown has no orphan preparation")
+                })
+                .unwrap();
+        });
+        runtime.block_on(async {
+            let reply = observer.response.await.unwrap();
+            assert!(matches!(&reply.response, p::Response::Shutdown));
+            tokio::spawn(async move {
+                let _unconsumed = reply;
+                std::future::pending::<()>().await;
+            });
+            tokio::task::yield_now().await;
+        });
+        assert!(drained.load(Ordering::Acquire));
+        assert!(!native.is_finished());
+        join_native(runtime, native).unwrap();
+    }
+
+    #[tokio::test]
+    async fn stop_and_shutdown_signal_while_queue_capacity_is_unavailable() {
+        for shutdown in [false, true] {
+            let (server, mut receiving) = server();
+            let first = handle(3);
+            let second = handle(4);
+            let a = pse_diagnostics::Cancellation::default();
+            let b = pse_diagnostics::Cancellation::default();
+            {
+                let mut controls = controls_lock(&server.controls).unwrap();
+                controls
+                    .handles
+                    .insert(first.generation, (first.clone(), a.clone()));
+                controls
+                    .handles
+                    .insert(second.generation, (second, b.clone()));
+            }
+            fill_queue(&server);
+            let _native_work = server.work.clone().try_acquire_owned().unwrap();
+            let request = if shutdown {
+                p::Request::Shutdown
+            } else {
+                p::Request::Stop(first)
+            };
+            let mut waiting = Box::pin(server.submit(request, None));
+            assert!(futures_util::poll!(waiting.as_mut()).is_pending());
+            assert!(a.is_cancelled());
+            assert_eq!(b.is_cancelled(), shutdown);
+            assert!(!controls_lock(&server.controls).unwrap().closed);
+            drop(receiving.recv().await.unwrap());
+            let _observer = waiting.await.unwrap();
+            assert_eq!(controls_lock(&server.controls).unwrap().closed, shutdown);
+            assert!(receiving.recv().await.is_some());
+        }
+    }
+
+    #[tokio::test]
+    async fn lost_evaluation_observer_does_not_retire_handles_or_close_native_queue() {
+        let (server, mut receiving) = server();
+        let first = handle(3);
+        let survivor = handle(4);
+        for handle in [&first, &survivor] {
+            controls_lock(&server.controls)
+                .unwrap()
+                .handles
+                .insert(handle.generation, (handle.clone(), Default::default()));
+        }
+        let work = server.work.clone().try_acquire_owned().unwrap();
+        let observer = server
+            .submit(
+                p::Request::Evaluate(p::Evaluate {
+                    handle: first.clone(),
+                    invocation: 1,
+                    inputs: vec![1.],
+                    directions: vec![],
+                    cotangents: vec![],
+                    weights: vec![],
+                }),
+                Some(work),
+            )
+            .await
+            .unwrap();
+        let job = receiving.recv().await.unwrap();
+        drop(observer);
+        job.completion
+            .finish(
+                p::Response::Failure(p::Failure::Trial("original refusal".into())),
+                None,
+                |_| panic!("lost evaluation cannot retire a preparation"),
+            )
+            .unwrap();
+        assert_eq!(server.work.available_permits(), 1);
+        let next = server
+            .submit(p::Request::Close(survivor.clone()), None)
+            .await
+            .unwrap();
+        let job = receiving.recv().await.unwrap();
+        let observed = job
+            .completion
+            .deliver(p::Response::Closed(survivor.clone()));
+        let reply = next.response.await.unwrap();
+        assert!(matches!(reply.response, p::Response::Closed(actual) if actual == survivor));
+        reply.delivery.consume();
+        settle_delivery(observed, None, |_| {
+            panic!("delivered close cannot retire another preparation")
+        })
+        .unwrap();
+        let controls = controls_lock(&server.controls).unwrap();
+        assert!(!controls.closed);
+        assert!(controls.control(&first).is_ok());
+        assert!(controls.control(&survivor).is_ok());
     }
 
     #[test]
