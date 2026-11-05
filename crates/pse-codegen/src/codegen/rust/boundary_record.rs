@@ -251,12 +251,48 @@ mod tests {
             super::super::super::native::Mode::Domain,
         )
         .unwrap();
-        syn::parse2::<syn::File>(emitted.clone()).unwrap();
+        let file = syn::parse2::<syn::File>(emitted.clone()).unwrap();
+        let validation = file
+            .items
+            .iter()
+            .find_map(|item| {
+                let syn::Item::Impl(item) = item else {
+                    return None;
+                };
+                item.items.iter().find_map(|item| match item {
+                    syn::ImplItem::Fn(function) if function.sig.ident == "validate_at" => {
+                        Some(function)
+                    }
+                    _ => None,
+                })
+            })
+            .unwrap();
+        let syn::Stmt::Expr(syn::Expr::If(guard), _) = &validation.block.stmts[0] else {
+            panic!("field validation must remain guarded by its original recursive requirement");
+        };
+        let fields = guard.then_branch.stmts.iter().map(|statement| {
+            let syn::Stmt::Expr(syn::Expr::Try(attempt), _) = statement else {
+                panic!("field validation must propagate its original failure");
+            };
+            let syn::Expr::Call(call) = attempt.expr.as_ref() else {
+                panic!("expected a field-validation call");
+            };
+            let syn::Expr::Reference(reference) = &call.args[0] else {
+                panic!("field validation must borrow the original field");
+            };
+            let syn::Expr::Field(field) = reference.expr.as_ref() else {
+                panic!("field validation must select the original field");
+            };
+            assert!(matches!(field.base.as_ref(), syn::Expr::Path(base) if base.path.is_ident("self")));
+            let syn::Member::Named(name) = &field.member else {
+                panic!("expected a named registry field");
+            };
+            syn::ext::IdentExt::unraw(name).to_string()
+        }).collect::<Vec<_>>();
+        assert_eq!(fields, ["bounded", "text"]);
         let emitted = emitted.to_string();
         assert!(emitted.contains("NEEDS_RECURSIVE_VALIDATION : bool = true"));
         assert!(emitted.contains("SignedRange"));
-        assert!(emitted.contains("& self . bounded"));
-        assert!(emitted.contains("& self . text"));
         assert_eq!(
             emitted.matches(":: validate_field (").count(),
             columns.len()
