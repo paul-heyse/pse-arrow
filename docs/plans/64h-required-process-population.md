@@ -1128,6 +1128,113 @@ trajectory/refinement/error checks and closed-loop/reduced native/reference
 execution remain open. This finite source closure supplies E01/G01 input decisions
 and does not establish E02/G05/H04 acceptance or native MHE.
 
+## Methane/iron fixed-bed inventory closure — 2026-11-05
+
+**Interface-checked, source only:** C `gas_solid_contactors` supplies distinct
+0D reservoir-gas/solid-inventory and 1D flowing-gas/stationary-solid models,
+their `test_FB0D.py`/`test_FB1D.py` fixtures and `flowsheets/dyn_TGA_example.py`.
+Both consume the exact `properties/methane_iron_OC_reduction/{gas_phase_thermo,
+solid_phase_thermo,hetero_reactions}.py` closure. These source families supply
+E02/E03/F03 inputs; no reference solve, kinetic acceptance or native distributed
+bed follows from this census. Oxygen/iron oxidation, moving/bubbling beds and
+NETL-32D adsorption/desorption remain distinct required selections.
+
+### Categorical configurations and guards
+
+| Actual owner / choices | Effective construction/scientific boundary |
+| --- | --- |
+| FixedBed0D | Own ConfigBlock requires dynamic=True and has_holdup=True. Energy defaults enthalpyTotal; its broad EnergyBalanceType enum is accepted, but implementation branches only on none versus non-none, not separate phase/total/internal-energy laws. Only enthalpyTotal/none are selected by these fixtures. Independent gas/solid property packages and reaction package/arguments are explicit. It holds evolving solid mass/composition/porosity/temperature against externally fixed gas composition/T/P, without a gas-throughflow/control-volume material balance. It is not a generic steady vessel or a0D approximation that preserves all1D transport. |
+| FixedBed0D energy none | Adds an isothermal-solid constraint at later times rather than merely dropping temperature closure. EnthalpyTotal instead evolves solid energy through the selected reaction heat. Both retain solid material storage; no dynamic/steady switch removes it. |
+| FixedBed1D dynamic/holdup | Outer flags inherit UnitModel defaults, but the gas CV is explicitly constructed dynamic=True/holdup=True and solid material accumulation always exists. Parent/unit consistency therefore requires a dynamic enclosing problem; a nominal enum/default is not a supported steady bed. Solid state has no solid-flow transport; stationary inventory is indexed over time/length. |
+| FixedBed1D discretization | Actual defaults are10 spatial elements, initial normalized grid[0,1], finite difference, unspecified scheme,3 collocation points. Forward flow resolves BACKWARD difference; reverse flow resolves FORWARD difference; forward collocation resolves Radau. Reverse collocation, opposite upwind choices and non-Radau collocation are refused. The config's descriptive20-element default is stale; the constructor selects10. Mesh/order are numerical settings separate from physical bed dimensions. |
+| FixedBed1D balances/reactions | Defaults componentTotal/enthalpyTotal/pressureTotal. Gas property and optional homogeneous reaction package are separate from solid property and optional heterogeneous package. Reaction-package presence selects gas reaction/heat or cross-phase transfer; has_equilibrium_reactions defaults False and needs actual supported package behavior if enabled. Exposed generic balance enum values pass into CV construction; neither an arbitrary enum nor a package name establishes all equations/products used by the bed's specialized solid/transfer closure. |
+| Pressure and thermal law | Actual has_pressure_change default=True with Ergun; alternatives simple correlation or no pressure change remain separate. The simple law uses its explicit0.2/s coefficient and density difference; Ergun uses particle size, voidage, viscosity and gas velocity/density. Non-none energy includes interphase gas/solid heat and transport correlations; energy none instead ties gas/solid temperatures to initial solid temperature with appropriate initial/inlet exceptions. No-pressure/no-energy cases must preserve those actual equations rather than losing closure. |
+
+`test_FB1D.py::test_config_validation` retains five direction/scheme refusals
+alongside valid default construction: reverse collocation, reverse/BACKWARD
+difference, forward/FORWARD difference and collocation with BACKWARD or FORWARD.
+Other uninstantiated balance/reaction/thermal/pressure combinations remain
+required configuration investigations, not demonstrated science.
+
+### Shared exact science and operating inputs
+
+Gas species are CH4/CO2/H2O on molar basis; solid species are Fe2O3/Fe3O4/Al2O3
+on mass basis. The heterogeneous reaction is
+CH4+12Fe2O3→CO2+2H2O+8Fe3O4, with inert Al2O3. Its source reaction enthalpy is
+136584.3 J/mol_rxn. The selected grain conversion/rate model uses grain radius
+2.6e-7 m, reactive volume fraction0.28, activation energy49000 J/mol,
+preexponential0.0008 in the order-dependent units, order1.3 and grain molar
+density32811 mol/m3. These fixed parameters are not an independently inferred
+mechanism from stoichiometry alone. The source grain/conversion/smoothing laws,
+porosity and basis conversions remain part of the matched formulation.
+
+Shared solid-property defaults include particle diameter0.0015 m, bed voidage0.35
+and particle conductivity12.3 W/(m K). Minimum-fluidization quantities are also
+declared by the property owner, but their presence does not make a fixed bed a
+fluidized bed. The gas/solid source dictionaries contain exact molecular weights,
+formation/caloric/Shomate, density/porosity and gas viscosity/conductivity inputs;
+the unit demands the particular subset its equations consume. Reference and
+sensible/reaction-heat conventions must remain consistent across phase bases.
+
+| Exact finite fixture / source | Complete selected specification and numerical role |
+| --- | --- |
+| `test_FB1D.py::build_model` → `TestIronOC` and performance-class wrapper | Forward, reactive, Ergun and full energy;360 s with120 s backward time steps (3 elements),10 BACKWARD spatial elements. Diameter9 m/height5 m. Gas boundary20 mol/s,723.15 K,156500 Pa and fractions(CH4,CO2,H2O)=(0.975,0.02499,0.00001) at all times. Initial gas away from inlet has same fractions/20 mol/s but1273.15 K. Initial solids at every position:1273.15 K,particle porosity0.20,mass fractions(Fe2O3,Fe3O4,Al2O3)=(0.45,0,0.55). The performance wrapper repeats this scientific case; it is not new chemistry. |
+| `TestIronOC_reverse_flow::iron_oc` | Same360 s/3 time elements, geometry, boundary and initial chemistry; reverse direction with10 FORWARD spatial elements. Inlet is normalized x=1, so initial gas specifications exclude that endpoint rather than x=0. Reference locations/direction must map physically, not by a common vector ordinal. |
+| `TestIronOC_NoReaction::iron_oc` | Forward360 s/3 time elements/10 spatial elements, same geometry/composition and solid initial state; no reaction package and inlet T=1273.15 K, matching initial gas/solid T. Preserve this reaction-free inventory/heat/conservation control separately from the cold-feed reacting case. |
+| `TestIronOC_conservation_with_reaction::iron_oc` | Forward reactive/full energy, same geometry/compositions and initial solid/gas states; inlet T=1273.15 K,3600 s/30 backward time elements and20 spatial elements. This longer/higher-resolution conservation case is not a wrapper of the360 s cold-feed run. |
+| `test_FB0D.py::TestIronOC::iron_oc` | Reactive enthalpyTotal,3600 s/100 backward time elements. Diameter=height=1 m; initial solids1273.15 K,porosity0.20 and mass fractions(0.45,0,0.55). Reservoir gas at every time1273.15 K/101325 Pa with fractions(CO2,H2O,CH4)=(0.4,0.5,0.1). No gas feed-flow value is selected because the gas acts as an imposed reservoir. |
+| Same class `iron_oc_unscaled` | Same physical reservoir/solid inputs and enthalpyTotal, but360 s/10 time elements; a distinct horizon/mesh initialization/solve selection, not only a scaling label. |
+| `TestIronOC_EnergyBalanceType::{iron_oc,iron_oc_unscaled}` and `flowsheets/dyn_TGA_example.py::main` | Same0D reservoir and solid inputs, energy none/isothermal solid,3600 s/100 time elements. Scaled/unscaled paths and the worked TGA entry point share this scientific/numerical configuration; retain their initialization/presentation roles without multiplying chemistry. |
+
+No parameter decorators add hidden cases in the two unit test modules. Initial
+Fe3O4=0 is explicit selected zero-species behavior; porosity and densities determine
+actual mass/volume allocation rather than assigning an invented solid inventory.
+Initial gas pressure is constrained through the chosen pressure profile, not
+fixed independently at every cell. These details belong to exact native initial
+and boundary-condition mapping.
+
+### Initialization, input custody and native acceptance
+
+1D source tests select staged unit initialization, block triangularization and
+time-element initialization as separate numerical routes, check restored original
+fixed/active states and deliberately overfix an outlet for an initialization
+failure. Defaults for selected solves include legacy Ipopt,tol1e-5,
+bound_push1e-22,user-scaling; triangular constraint calculation uses eps1e-5.
+Retain actual per-route solver settings and full failure reports. 0D similarly
+has scaled/unscaled/staged routes and an overfixed-volume refusal. A successful
+initialization method does not replace a final original-problem solve.
+
+Conservation fixtures integrate gas boundary mass/enthalpy and gas/solid storage
+over the selected time/space meshes. Their Pyomo Integral calculations use the
+selected discretization; a finite integral check is not a grid-independent
+continuous conservation proof. Required native products include complete gas
+outlet/position/time states, stationary solid inventory/composition/porosity/T,
+cross-phase reaction/heat, pressure loss, gas/solid storage and original component,
+element and energy balances. Chemical element/oxygen transfer must use actual
+Fe/C/H/O/Al stoichiometry and molecular weights; gas molar versus solid mass basis
+cannot be compared without the authoritative conversion.
+
+All selected coefficients are inline in the three property/reaction modules;
+the unit/test/TGA closure additionally consumes core CV/state/initialization,
+Pyomo DAE/Integral and the chosen solver. No CSV, trained artifact, external
+property binary or saved initialization file is selected by these fixed-bed
+fixtures. Original scientific data/formulation references and partly empirical
+hydrodynamic/kinetic parameters require B/D02/D03/F03 ordinary-source admission;
+the upstream test arrays remain oracle evidence. A different kinetic, transport
+or pressure law must be identified as changed science, even if numerically easier.
+
+Native inventory, reaction/state/chemistry and `control-volume-1d.pse` are enabling
+owners. The latter's dynamic refusal remains until its actual E03 accumulation
+closure exists; these source fixtures do not remove it. The inspected native
+process model collection did not contain this Fe2O3/Fe3O4 grain-kinetic bed;
+that bounded search is not a whole-tree absence proof. E02/E03/F03 must deliver
+native identities, ordinary inputs and complete configured cases, then compare
+independent space/time refinements and appropriate interior/boundary operating
+states. Source inventories now distinguish seven concrete0D/1D physical/numerical
+configurations; missing ordinary records, nondefault categorical closure,
+continuous validity, matched execution and all moving/fluidized/adsorption
+families remain required and open.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

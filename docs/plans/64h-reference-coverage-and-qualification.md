@@ -185,6 +185,16 @@ compatibility are explicit reference prerequisites. Native physical/thermal data
 state/pool mapping and complete dynamic/control/reduction evidence remain open;
 no constructor, source loop count or diagnostic categorization qualifies E02/G05.
 
+**Update, 2026-11-05 — methane/iron fixed-bed source closure:** the crosswalk's
+[bed inventory census](64h-required-process-population.md#methaneiron-fixed-bed-inventory-closure--2026-11-05)
+resolves four1D and three0D physical/numerical configurations, dynamic/holdup and
+direction/upwind refusals, fixed/free initial inventories, full-energy/isothermal
+distinctions, shared property/kinetic closure and numerical initialization roles.
+Scaled/performance/TGA wrappers retain one science where their actual inputs match.
+Ordinary data, native distributed/solid physics, remaining configurations and
+independent execution remain open; moving/fluidized/NETL-32D cases are separate
+required families and the existing native spatial dynamic refusal remains intact.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
