@@ -81,6 +81,17 @@ pub enum HostError {
     /// Native I/O failed.
     #[error("host I/O: {0}")]
     Io(#[from] std::io::Error),
+    /// The destination is visible after an exclusive rename, but durability is unknown.
+    #[error(
+        "publication at {destination:?} completed its exclusive rename but parent synchronization failed; durability is unknown: {source}"
+    )]
+    PublicationDurabilityUnknown {
+        /// Actual published destination; retrying must not replace or duplicate it.
+        destination: std::path::PathBuf,
+        /// Original parent-directory synchronization failure.
+        #[source]
+        source: std::io::Error,
+    },
     /// A routed native invocation hint failed its checked identity constructor.
     #[error("native invocation identity: {0}")]
     InvocationIdentity(#[from] uuid::Error),
@@ -187,6 +198,7 @@ pse_diagnostics::impl_diagnostic! {
     code(this) { Some(match this {
         Self::Io(error) if envelope::PresentationError::from_io(error).is_some() => pse_diagnostics::DiagnosticCode::AuthoringParseUnknownKey,
         Self::Io(_) => pse_diagnostics::DiagnosticCode::HostIo,
+        Self::PublicationDurabilityUnknown {..} => pse_diagnostics::DiagnosticCode::HostIo,
         Self::InvocationIdentity(_) => pse_diagnostics::DiagnosticCode::HostOwnership,
         Self::Task(_) => pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
         Self::Workflow(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),

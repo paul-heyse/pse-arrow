@@ -329,7 +329,9 @@ fn read_original_inventory_bounded(
 pub(crate) fn open_private(path: &Path) -> Result<fs::File, HostError> {
     let file = OpenOptions::new()
         .read(true)
-        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+        // Non-regular replacements must reach fstat refusal without waiting for
+        // a FIFO peer. This has no effect on admitted regular-file reads.
+        .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
         .open(path)?;
     let metadata = file.metadata()?;
     if !metadata.is_file()
@@ -932,6 +934,77 @@ pub(crate) fn captured_full_report(
         crate::test_workflow::execute::evidence::capture(&original.parent, files, budget)?;
     original.scope = crate::test_workflow::execute::EvidenceScope::Full;
     Ok(original)
+}
+
+/// Native checked descriptors for an authenticated original dependency account.
+/// This owner is not serializable and grants no execution or directory-retention authority.
+pub struct OpenedReport {
+    pub(crate) original: CapturedReport,
+    pub(crate) files: Vec<crate::test_workflow::execute::evidence::OpenedFile>,
+}
+
+impl std::fmt::Debug for OpenedReport {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("OpenedReport")
+            .field("invocation", &self.original.id)
+            .field("opened_members", &self.files.len())
+            .finish_non_exhaustive()
+    }
+}
+
+impl OpenedReport {
+    /// Exact original invocation selected by the native retained reader.
+    pub fn invocation(&self) -> &CliInvocationId {
+        &self.original.id
+    }
+    /// Original immutable commitments and omissions; this is not a current file census.
+    pub fn dependencies(
+        &self,
+    ) -> Result<&[crate::test_workflow::execute::EvidenceFile], HostError> {
+        self.original
+            .observation
+            .evidence
+            .as_deref()
+            .ok_or_else(|| invalid("opened report lost its original dependency commitments"))
+    }
+    /// Exact original report bytes authenticated by the original terminal.
+    pub fn report_original(&self) -> &[u8] {
+        &self.original.report
+    }
+    /// Read an explicit bounded range through the retained descriptor. The whole
+    /// original digest and fresh file metadata are checked; snapshot isolation is not claimed.
+    pub fn read_member(
+        &mut self,
+        dependency: usize,
+        offset: u64,
+        length: std::num::NonZeroU64,
+    ) -> Result<crate::artifacts::DescriptorRead, HostError> {
+        let index = self
+            .files
+            .binary_search_by_key(&dependency, |member| member.dependency())
+            .map_err(|_| invalid("selected ordinal has no originally committed member"))?;
+        self.files[index].read_range(offset, length)
+    }
+}
+
+/// Acquire all originally promised file descriptors while the original namespace
+/// is available. Later rename/unlink cannot redirect these reads. Same-inode
+/// mutations still refuse; original omissions never acquire later bytes.
+pub fn opened_report(
+    store: &InvocationStore,
+    selector: &str,
+    session: Option<&str>,
+) -> Result<OpenedReport, HostError> {
+    let original = captured_report_at_limit(
+        store,
+        selector,
+        session,
+        Some(crate::developer_evidence::MAX_INPUT_BYTES),
+    )?;
+    let commitments = original.observation.evidence.as_deref().filter(|_| original.observation.version == 3).ok_or_else(|| invalid("opened full dependency acquisition requires original interpretation-three commitments"))?;
+    let files = crate::test_workflow::execute::evidence::acquire(&original.parent, commitments)?;
+    Ok(OpenedReport { original, files })
 }
 
 /// Read the selected protected original inventory without preparing or verifying executable

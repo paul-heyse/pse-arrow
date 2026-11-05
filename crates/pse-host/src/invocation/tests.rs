@@ -578,6 +578,77 @@ fn exact_byte_publication_is_bounded_atomic_and_exclusive() {
 }
 
 #[test]
+fn complete_directory_publication_is_exclusive_and_failed_prefixes_are_not_advertised() {
+    let scratch = tempfile::tempdir().unwrap();
+    let destination = scratch.path().join("bundle");
+    let failure = publish_directory(&destination, |stage| {
+        publish_bytes(
+            &stage.join("partial"),
+            b"not a completed account",
+            None,
+            0o400,
+        )?;
+        assert!(!destination.exists());
+        Err::<(), _>(
+            std::io::Error::new(std::io::ErrorKind::Interrupted, "original copy interrupted")
+                .into(),
+        )
+    })
+    .unwrap_err();
+    assert!(
+        matches!(failure, HostError::Io(ref error) if error.kind() == std::io::ErrorKind::Interrupted)
+    );
+    assert!(!destination.exists());
+    assert_eq!(fs::read_dir(scratch.path()).unwrap().count(), 0);
+    publish_directory(&destination, |stage| {
+        publish_bytes(&stage.join("manifest"), b"complete", None, 0o400)
+    })
+    .unwrap();
+    assert!(
+        publish_directory(&destination, |stage| publish_bytes(
+            &stage.join("manifest"),
+            b"replacement",
+            None,
+            0o400
+        ))
+        .is_err()
+    );
+    assert_eq!(fs::read(destination.join("manifest")).unwrap(), b"complete");
+    assert_eq!(fs::read_dir(scratch.path()).unwrap().count(), 1);
+}
+
+#[test]
+fn directory_publication_retains_cleanup_failure_and_post_rename_durability_unknown() {
+    let scratch = tempfile::tempdir().unwrap();
+    let destination = scratch.path().join("bundle");
+    let failure = publish_directory(&destination, |stage| {
+        fs::remove_dir(stage)?;
+        fs::write(stage, b"a corrupted private staging entry")?;
+        Err::<(), _>(HostError::Ownership("original writer refused".into()))
+    })
+    .unwrap_err();
+    assert!(
+        matches!(failure, HostError::Settlement { ref operation, ref cleanup } if matches!(operation.as_ref(), HostError::Ownership(_)) && matches!(cleanup.as_ref(), HostError::Io(_)))
+    );
+    assert!(!destination.exists());
+    let failure = publish_directory_with_sync(
+        &destination,
+        |stage| publish_bytes(&stage.join("manifest"), b"complete", None, 0o400),
+        |_| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "parent sync unavailable",
+            ))
+        },
+    )
+    .unwrap_err();
+    assert!(
+        matches!(failure, HostError::PublicationDurabilityUnknown { ref destination, ref source } if destination.ends_with("bundle") && source.kind() == std::io::ErrorKind::PermissionDenied)
+    );
+    assert_eq!(fs::read(destination.join("manifest")).unwrap(), b"complete");
+}
+
+#[test]
 fn serialization_failure_never_publishes_partial_owner_evidence() {
     struct BrokenPayload;
     impl Serialize for BrokenPayload {

@@ -77,7 +77,17 @@ pub fn read_descriptor(
     length: Option<NonZeroU64>,
     expected_sha256: Option<&str>,
 ) -> Result<DescriptorRead, ArtifactError> {
-    let before = identity(&file)?;
+    read_descriptor_borrowed(&mut file, offset, length, expected_sha256)
+}
+
+/// Read through an exclusively borrowed checked descriptor, retaining its native owner.
+pub(crate) fn read_descriptor_borrowed(
+    file: &mut File,
+    offset: u64,
+    length: Option<NonZeroU64>,
+    expected_sha256: Option<&str>,
+) -> Result<DescriptorRead, ArtifactError> {
+    let before = identity(file)?;
     if offset > before.bytes {
         return Err(ArtifactError::Range(
             "offset exceeds checked descriptor extent".into(),
@@ -97,8 +107,12 @@ pub fn read_descriptor(
         let mut hash = Sha256::new();
         let mut buffer = [0u8; 8192];
         let mut count = 0u64;
+        let maximum = before.bytes.checked_add(1).ok_or_else(|| {
+            ArtifactError::Range("checked descriptor extent cannot include growth detection".into())
+        })?;
+        let mut bounded = (&mut *file).take(maximum);
         loop {
-            let bytes = file.read(&mut buffer)?;
+            let bytes = bounded.read(&mut buffer)?;
             if bytes == 0 {
                 break;
             }
@@ -117,8 +131,8 @@ pub fn read_descriptor(
     };
     file.seek(SeekFrom::Start(offset))?;
     let mut bytes = Vec::new();
-    (&mut file).take(end - offset).read_to_end(&mut bytes)?;
-    if bytes.len() as u64 != end - offset || identity(&file)? != before {
+    (&mut *file).take(end - offset).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 != end - offset || identity(file)? != before {
         return Err(ArtifactError::Range(
             "descriptor changed or truncated during observation".into(),
         ));
@@ -172,5 +186,19 @@ mod tests {
         );
         let final_byte = read_descriptor(File::open(&path).unwrap(), 20, None, None).unwrap();
         assert!(final_byte.next_offset.is_none());
+    }
+    #[test]
+    fn borrowed_descriptor_owner_survives_multiple_bounded_reads() {
+        let mut file = tempfile::tempfile().unwrap();
+        std::io::Write::write_all(&mut file, b"original").unwrap();
+        let hash = hex(Sha256::digest(b"original"));
+        for offset in [0, 4] {
+            let read = read_descriptor_borrowed(&mut file, offset, NonZeroU64::new(4), Some(&hash))
+                .unwrap();
+            assert_eq!(read.byte_range, offset..offset + 4);
+            assert_eq!(read.verified_sha256.as_deref(), Some(hash.as_str()));
+            assert!(!read.atomic_snapshot);
+        }
+        assert_eq!(file.metadata().unwrap().len(), 8);
     }
 }

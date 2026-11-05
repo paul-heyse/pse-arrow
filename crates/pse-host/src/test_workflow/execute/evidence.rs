@@ -17,6 +17,8 @@ use std::{
     os::unix::fs::{MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _},
     path::{Component, Path, PathBuf},
 };
+mod opened;
+pub(crate) use opened::{OpenedFile, acquire};
 
 pse_contract::projection_enum! {
 /// Exact requested developer observation scope; none grants execution authority.
@@ -397,32 +399,24 @@ pub(crate) fn capture(
     budget: usize,
 ) -> Result<Vec<CapturedFile>, HostError> {
     validate(files)?;
-    let mut remaining = budget;
-    let mut captured = Vec::new();
-    for (dependency, file) in files.iter().enumerate() {
-        let Some(expected) = &file.content else {
-            continue;
-        };
-        if expected.byte_length > remaining as u64 {
+    let mut remaining = budget as u64;
+    for expected in files.iter().filter_map(|file| file.content.as_ref()) {
+        if expected.byte_length > remaining {
             return Err(invalid(
                 "full dependency closure exceeds the selected portable extent",
             ));
         }
-        let file_handle =
-            crate::test_inventory::open_private(&address(workflow, file.root, &file.path)?)?;
+        remaining -= expected.byte_length;
+    }
+    let mut captured = Vec::new();
+    for (dependency, commitment) in files.iter().enumerate() {
+        let Some(mut member) = opened::acquire_member(workflow, dependency, commitment)? else {
+            continue;
+        };
         let mut original = Vec::new();
-        file_handle
-            .take(remaining.saturating_add(1) as u64)
-            .read_to_end(&mut original)?;
-        if original.len() > remaining || &ContentIdentity::of(&original) != expected {
-            return Err(invalid(format!(
-                "dependency {} is missing, changed or beyond its original portable extent",
-                file.path
-            )));
-        }
-        remaining -= original.len();
+        member.copy_verified(&mut original)?;
         captured.push(CapturedFile {
-            dependency,
+            dependency: member.dependency(),
             original,
         });
     }
@@ -433,23 +427,41 @@ pub(crate) fn validate_captured(
     files: &[EvidenceFile],
     captured: &[CapturedFile],
 ) -> Result<(), HostError> {
+    validate_members(
+        files,
+        captured
+            .iter()
+            .map(|file| (file.dependency, ContentIdentity::of(&file.original))),
+    )
+}
+
+/// One original ordinal/content account for inline bytes and physically opened members.
+pub(crate) fn validate_members(
+    files: &[EvidenceFile],
+    observed: impl IntoIterator<Item = (usize, ContentIdentity)>,
+) -> Result<(), HostError> {
     validate(files)?;
-    let expected: Vec<_> = files
+    let expected = files
         .iter()
         .enumerate()
-        .filter_map(|(index, file)| file.content.as_ref().map(|content| (index, content)))
-        .collect();
-    if expected.len() != captured.len() {
-        return Err(invalid(
-            "included files do not cover the original dependency commitments",
-        ));
-    }
-    for ((index, content), file) in expected.into_iter().zip(captured) {
-        if file.dependency != index || &ContentIdentity::of(&file.original) != content {
+        .filter_map(|(index, file)| file.content.as_ref().map(|content| (index, content)));
+    let mut observed = observed.into_iter();
+    for (index, content) in expected {
+        let Some((ordinal, actual)) = observed.next() else {
+            return Err(invalid(
+                "included files do not cover the original dependency commitments",
+            ));
+        };
+        if ordinal != index || &actual != content {
             return Err(invalid(
                 "included file bytes or dependency association differ from the original report",
             ));
         }
+    }
+    if observed.next().is_some() {
+        return Err(invalid(
+            "included files exceed the original dependency commitments",
+        ));
     }
     Ok(())
 }
