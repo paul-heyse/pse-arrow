@@ -3262,6 +3262,96 @@ wholeplantclosure,nativescientificsource/case/productmapping andnumerical
 referenceexecution remainrequired F02/D02/D04/G06/H01 work. Noenvironment,
 propertyfunction,serializerrestore,plantor solverwasexecuted forthiscensus.
 
+## Boiler fireside dictionary and operating-input closure — 2026-11-05
+
+**Interface-checked, source only:** C `power_generation/unit_models/
+boiler_fireside.py`, `tests/test_boilerfireside.py` and its imported
+`tests/datadictionary.py` resolve one solved operating fixture and a second
+construction-only air-specification role. The test dictionary contains
+**constant output values**, not a trained heat-transfer surrogate. The
+subcritical plant's `generic_surrogate_dict.py` remains a separate required
+correlated-input definition; neither this constant fixture nor NGCC qualifies it.
+
+Both authored constructors select 12 waterwall zones, platen and roof,
+steady operation and default six-component FlueGasParameterBlock
+(H2O/CO2/N2/O2/SO2/NO). The first fixes primary/secondary component flows;
+the second sets `calculate_PA_SA_flows=True` but only checks construction and
+19 remaining DOF. It supplies no operating inputs, initialization or solved
+air-demand reference. Defaults instead select 16 zones, both superheaters
+and externally supplied air. For a fixed zone count the two superheater
+Booleans and two air-specification modes expose eight selections, of which
+only both-superheaters/explicit-air is numerically exercised by this source.
+Other zone counts need a matching dictionary and explicit authored cases;
+they are not an all-integer qualification population.
+
+The required dictionary keys are zone indices 1..N, optional `pl`/`roof`,
+and `flyash`/`NOx`. Missing dictionary refuses; entry count must equal
+N+platen+roof+2, then each selected key is accessed. Matching length alone
+does not establish valid key identity or expression domain. The test's 16
+string entries evaluate to constants: zone duties in MW are
+[20,10,10,10,15,10,12,30,25,20,18,10], platen50, roof65; flyash unburned
+organic mass fraction .0001; NOx140 ppm. These are **duties in W**, not heat
+fluxes per unit area despite source labels. Equations set duty times the
+correction equal to the dictionary value. With both corrections .95, duty
+is divided by .95; multiplying the prediction by .95 changes the science.
+Roof uses the waterwall correction. The source executes expressions through
+Python eval; native scientific declarations need the selected mathematical
+meaning and input domains, not adoption of an arbitrary string evaluator.
+
+The solved fixture supplies raw coal44 kg/s, moisture mass fraction .20,
+vaporized moisture fraction .60, temperature335.15 K and dry HHV25.81e6 J/kg.
+Dry ultimate-analysis mass fractions are C .6300,H .0412,O .1300,N .0127,
+S .0284,ash .1577 (sum1). Dry/ash-free and dry/as-received bases must remain
+distinct. Mill-vaporized moisture is **added** to primary-air H2O; the
+post-mill coal retains the remaining moisture. Primary moist air is reset
+to coal temperature in the furnace energy balance, which therefore does
+not independently account for a complete mill energy balance at the
+333.15 K inlet temperature.
+
+Nominal combined air is21290.6999 mol/s, allocated .34 primary/.66 secondary.
+Each component flow equals its allocation times H2O .0078267,CO2 .000337339,
+N2 .783994,O2 .20784,SO2 .00001,NO .00001. These factors sum1.000018039;
+they are supplied component flows rather than a normalized composition
+constraint. Preserve their actual totals. Both inlet pressures are101325 Pa;
+primary/secondary temperatures333.15/650.15 K. Waterwall temperatures are
+690 K,platen750 K,roof650 K; with constant dictionary outputs they do not
+create a temperature-dependent radiation/transfer experiment. Lower-furnace
+stoichiometric ratio1,waterwall/platen corrections .95 and pressure loss
+1000 Pa are fixed. Positive deltaP is subtracted from secondary-air pressure
+in this owner; native signed-pressure-change mapping must be explicit.
+
+The explicit-air initializer fixes component flows and frees PA/coal ratio,
+total stoichiometric ratio and dry O2 percentage. The calculated-air branch
+instead frees air component flows and requires its ratio specifications to
+leave zero DOF. Its default air table supplies all non-N2 species while N2
+closes the remaining flow. Initialization therefore changes fixed/free state;
+do not assume the generic fixed-state-restoration contract without checking
+these deliberate owner effects. Time/holdup flags inherit broad Boolean
+domains, but the body constructs time-indexed algebraic state/balance laws
+without accumulation derivatives. Dynamic-parent construction cannot qualify
+coal/gas/solid thermal inventory or waterwall dynamics.
+
+NOx input becomes a mole fraction of NO by dividing ppm by1e6; separate
+lb/MMBtu reporting converts NO mass to NO2 equivalent. The unburned flyash
+term includes dry ash-free organic elements, not carbon alone. Atomic masses,
+coal enthalpy/HHV conversions,ash sensible heat referenced to298.15 K,
+unburned-organic caloric terms and flue-gas thermodynamics are recursive
+ordinary-input obligations, separate from the constant oracle dictionary.
+The source target is flue outlet1236.780228 K (absolute1e-3), plus total mass
+residual absolute.01 kg/s and energy residual absolute.001 W, including
+all zone/platen/roof duties,ash and unburned fuel. Native acceptance must
+retain complete elemental/products/energy accounting and each solid outlet.
+
+There is no CSV, fitted JSON, trainer, saved initialization or external
+water-property call consumed by this selected model. Its upstream test
+nevertheless has an IAPWS availability skip decorator; that incidental skip
+must not become a scientific prerequisite or relax local fail-never-skip
+policy. Exact flue-gas/Ipopt reference compatibility, calculated-air and
+optional-section cases, actual correlated plant dictionaries, ordinary coal/
+coefficient provenance and native fireside implementation/qualification
+remain required. AST/dictionary reads confirmed the constant values and
+input sums only; no expression, initializer or solver was executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
