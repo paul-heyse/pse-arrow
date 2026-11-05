@@ -3145,6 +3145,123 @@ stage/train topology/fixed-free/products,remainingcategorical controls and
 independent numerical acceptance remainopen F02/D02/D04 obligations. Source
 andAST readsran noenthalpy evaluation,initializer,turbine orsolver.
 
+## NGCC plant, serialized specification and load-series closure — 2026-11-05
+
+**Interface-checked, source only:** X `docs/power_gen/ngcc/ngcc.ipynb` and
+`mod/power_gen/{ngcc,gas_turbine,hrsg,steam_turbine}.py` resolve the default
+baseline andreduced capture/load-series experiments. Allfour helpers are
+required local source,withC natural-gas PR/reaction/flue-gas properties,
+generic feed/product/translator/mixer/splitter/reactor/turbomachinery/HX,
+boilerHX andHelmholtz steam units. No trainer orexperimental CSV isloaded.
+Inlinegeometry,transport/performance coefficients andsaved modelstate are
+separate reference inputs;theirpresence doesnot supplyordinary provenance.
+
+The actual plantissteady. GT usesoneaircompressor,complete stoichiometric
+combustion offourfuelhydrocarbons,three fittedexpansion stages andthree
+cooling-air branches/mixtures,plusfuelpreheater. HRSG hasthreepressurelevels,
+16 BoilerHeatExchanger banks (LP economizer/superheater;IP2 economizers/
+3 superheaters;HP5 economizers/4 superheaters),3 generic evaporators,
+phase separator,pumps,mixers,steam/flue splits andHP evaporatorvalve.
+Steamtrain has**one** parallel inlet,HP7/IP10/LP11 plusinlet/outlet stages,
+HP7/IP10 disconnects,reheat andLP steamaddition,three-way LP turbine/reboiler/
+SOEC split,NTU maincondenser,hotwell,condensate isentropiccompressor andreturn
+mixer. This differsfrom thecore4-parallel/7-14-11 trainfixture above.
+Notebookimports neitherphysicalMEA absorber/stripper norcompleteCO2
+compressiontrain;captureisrepresented bylumped steam/power correlations.
+
+GT airspecies areCO2/Ar/H2O/O2/N2;combustionaddsCH4/C2H6/C3H8/C4H10;
+fluespecies returntofiveaircomponents. Allthree callnatural_gas_PR.get_prop
+withVap-only/defaultPR,FTPx,zero orderedkappa,reference298.15 K/101325 Pa,
+withNIST/RPP caloric andChapman–Enskog/Eucken/Wilke/WMS transport inputs.
+get_rxn selectsfourcomplete combustionstoichiometries withfuelconversion1,
+not equilibrium dissociation,NOx formation orfinitekinetics. Natural-gas
+helper'sadditionalIDEAL/Liq/scaled/component selections remain separate
+required admissibility work;theNGCC doesnot selectallof them.
+
+FreshGT inputssetair at288.15 K/101047 Pa,compositionO2 .2074,H2O .0099,
+CO2 .0003,N2 .7732,Ar .0092;flow34875.9 mol/s isa guess ratherthanfixed
+finalboundary. Fuel1348.8 mol/s at310.928 K/3.10264e6 Pa hasCH4 .931,
+C2H6 .032,C3H8 .007,C4H10 .004,CO2 .01,N2 .016 andO2/H2O/Ar1e-19 each.
+Itsmajor fractions sum1,thetraces remain explicit. Initialcompressor
+efficiency .81/ratio19.075,vane deltaP−100 Pa,coolingflows2315/509/354 mol/s
+andpreheater5000 m²/U100 W/(m² K) areconstruction/initialization inputs,
+notnecessarily thesavedbaseline'sfinalspecification. GTstageefficiency
+curves arethree distinctfifth-order polynomials of.896*inletvolumetricflow,
+eachmultiplied1.02;headcurves arenegativecubicpolynomials ofitsnaturallog.
+Their sixinlinecoefficient arrays andpositive-flow logdomain aremandatory
+empirical inputs atthesourceowner;no trainingdata/file orcurvefit isexecuted.
+
+HRSG steamusesIAPWS95;fluegas usesC FlueGasParameterBlock withN2/O2/CO2/H2O.
+The planttranslator preserveseachofthosefourcomponent molarflows,T andP,
+but**dropsAr**. It doesnot normalize remainingfractions orconserve omitted
+argonmass/enthalpy. Native acceptance needsanexplicit approximated/discarded
+boundary andenergy/element accounting ratherthana falselyclosed translator.
+The capturepower/duty formulas useCO2 fromGTstage2 output,not finalstack
+species;preserve thatselected measurementlocation andits approximation.
+InlineBoilerHX bankgeometry/corrections,fluegas caloric/transport,
+evaporatorLMTD/phase assumptions andHelmholtz waterartifacts formrecursive
+scientific inputs. They donot becomequalified fromanassembled powernumber.
+
+| Shipped input inX `docs/power_gen/ngcc/` | Actual serialization/consumer role |
+|---|---|
+| `ngcc_init.json.gz` | Format4,dated2024-07-25,rootfs. Completeplantstate/specification loaded bydefault;thisbypasses freshGT/HRSG/ST initialization andthefresh-branch fitted-parameter assignments. |
+| `gas_turbine_init.json.gz` | Format4,dated2024-06-07,rootgt. Usedbythefreshwhole-plant fallback'sGT initializer;directGT loadreturnssubflowsheet state. |
+| `hrsg_init.json.gz` | Format4,dated2024-06-07,roothrsg. CorrespondingHRSG fallback/directinitialization input. |
+| `steam_turbine_init.json.gz` | Format4,dated2024-06-07,rootst. Correspondingsteamfallback/directinitialization input. |
+| `gas_turbine_template.svg`,`hrsg_template.svg`,`steam_turbine_template.svg` | Required onlyfortheactualnotebook'sPFD display/write stage,openedrelative toworkingdirectory. Theyarepresentationtemplates,notphysicsparameters. Existing`data_pfds/*_baseline.svg` aregeneratedreference outputs. |
+
+The fourgzip fileswereparsed withstdlib withoutloadingmodels. C StoreSpec
+withsuffix=False stillloadsvalues,fixedflags,bounds,mutableparameters and
+activeconstraints/blocks;itsdefaultignore_missing=True canignoremissing
+components/attributes. This isa **serializedspecification**,not avalue-only
+initialguess orreconstructedmodel. Rootcomponent names/oldclassstrings,
+fullcomponent/indexcoverage,missing/newcomponents andintendedfixed/active
+sets mustbe reconciled againstIDAES2.13/Pyomo6.10.1 beforeclaimingcompatibility.
+Examples2.10 metadata andsuccessfulJSON decodeareinsufficient. Keepallfour
+files asreference inputs evenwhenthedefaultbaseline consumesonlythewhole
+snapshot;loadingone cannotestablish freshinitialization orsubflowsheet fits.
+
+The wholesnapshot explicitlyfixesnetpower646 MW,capturefraction .90,
+specificreboilerduty2.7e6 J/kg,specificCO2 compression274800 J/kg,
+additionalCO2/reboilerduty0,fuelLHV47.2e6/HHV52.3e6 J/kg andfuelprice4.42
+USD2018/MBtu. Inspectedsavedoverrides agreewiththefreshfit branch:compressor
+efficiency .840187,outletsteamflowcoefficient .1099345,evaporatorHP/IP/LP
+areas15000/11000/14000 m²,HP4 HTCcorrection .65939 andmaincondenserarea1000 m².
+Thefreshbranch additionallysetsIP3 HTC1.372068,HP1economizer7.863405,
+IP1economizer .6/LPeconomizer20,LPfluesplit .5,condensercoolinginleth1260
+J/mol andHPevaporatorvalve deltaP−7e6 Pa;thefrozencase mustuseactualsnapshot
+specification,not casuallymixfreshdefaults andloadedvalues. Steamoutlet
+pressure is10kPa infreshsteamsetup;theintegratedpath laterfreesit anduses
+condenserclosure. Mainsteam/reheat temperatures andturbineflowcoefficients
+participate inintegrated sizing;aninletseed isnot afinalfree/fixed contract.
+
+Baseline notebookselectsIpopt/ma57,user-scaling,automaticMA57 scaling,
+pivtol1e-5/pivtolmax .1. Itloads snapshot,solvesandcomparesNETL B31B-style
+aggregates:net646 MW,grosssigned−690 MW,GTsigned−477 MW,LHVefficiency52.8%
+(abs .1 percentagepoint),variable/fuel/otherrates37.2799/31.6462/5.63373
+USD2018/MWh(relative .01 fortherates). Gross/GT checksuse .001relative;
+netusespytestdefaultcomparison. Net includespumps,fan,combustion,capture,
+compression,transformer andmiscauxiliaries. OtherO&M isalumpedHHVenergy-rate
+coefficient7.457044934107763e-10 USD2018/J;fuelcostusesHHV whileefficiency
+usesLHV. Thoseassessment bases arenot interchangeable anddonot constitute
+completecapitalcost/LCA qualification. Sourcebaseline checksdonot establish
+wholeplant component/energybalance,bankprofiles orcaptureprocess science.
+
+`run_series=False` disables theseparate100-request series:650→160 MW by5
+(99 gridmembers),with646 insertedsecond. Ifselected,itsets97% captureand
+2.4e6 J/kgspecificduty,Ipopt tolerance1e-6/max_iter50. Eachpoint eitherloads
+`data/ngcc_<integerMW>.json.gz` withfullStoreSpec orfixespower/solves/saves;
+afailedsolvebreakstheloop,soasummaryCSV cancontainonlyaprefix. Cachedpoint
+loads donot independentlyverifytheloadedpower/specification. Trackall100
+requested outcomes,capture-change consistency,cachecoverage/fixed-active
+specifications andfailures;neverdeduplicate646 inthis97% experimentwiththe
+90% baseline. StreamCSV outputsatthe650 MW point,seriesCSV,plots andnew
+snapshots aregeneratedresults,not originalscientific inputs. Thoseper-load
+caches areabsent fromthetrackedinputtree. Thefourownerload/savebranches,
+wholeplantclosure,nativescientificsource/case/productmapping andnumerical
+referenceexecution remainrequired F02/D02/D04/G06/H01 work. Noenvironment,
+propertyfunction,serializerrestore,plantor solverwasexecuted forthiscensus.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
