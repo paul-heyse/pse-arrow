@@ -206,6 +206,17 @@ the constructed time set. This family remains required, held execution, separate
 from TSA0D and methane/iron beds. Ordinary data, native physics/state mapping,
 current reference compatibility and independent execution remain open.
 
+**Update, 2026-11-05 — condensing feedwater-heater population:** the
+[power-equipment census](64h-required-process-population.md#condensing-feedwater-heater-population--2026-11-05)
+resolves both owners' eight declared section topologies, actual steady/initial/
+drain-step fixtures, NTU pressure-solving case, algebraic-on-dynamic-parent case,
+and three initializer specifications. LMTD/outlet-pressure saturation and NTU/
+inlet-pressure saturation with level head remain different science. Integrated
+plant selections, water-property prerequisites and serializer roles are explicit;
+full plant closure, ordinary data, native wet-state/level/inventory physics and
+independent execution remain open. No dynamic capability is inferred from a test
+name or a dynamic parent alone.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

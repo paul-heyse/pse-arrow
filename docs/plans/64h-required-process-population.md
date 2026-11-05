@@ -1332,6 +1332,100 @@ qualification remain open. An ephemeral AST comparison established the wrapper
 difference and the inline table cardinalities without importing models or
 executing any solver; this supplies source census evidence only.
 
+## Condensing feedwater-heater population — 2026-11-05
+
+**Interface-checked, source only:** C's power
+`unit_models/{feedwater_heater_0D,feedwater_heater_0D_dynamic}.py`, their
+`tests/test_feedwater_heater*.py`, and `helm/{condenser_ntu.py,tests/test_condenser_ntu.py}`
+define the following finite first power-equipment population. Their shared
+property dependency is the already identified IAPWS95/general-Helmholtz water
+closure, including saturation, liquid heat capacity/density and two-phase
+enthalpy/energy derivatives, not just liquid-pump pressure work.
+
+Each feedwater-heater owner has three independent Boolean section switches,
+all defaulting true. In `(desuperheat,drain_cooling,drain_mixer)` order the
+declared topology selections are000,001,010,011,100,101,110,111. Condensation
+is present in every selection; optional branches connect steam→desuperheater→
+mixer→condenser→drain cooler as selected, and feedwater traverses selected
+sections in the opposite order. These are eight source topology demands per
+owner, not eight executed qualification results. Section areas and heat-transfer
+coefficients, drain feed, pressure/balance policies and valid properties still
+need well-posed fixed/free specifications for each selection.
+
+The steady owner uses generic0D countercurrent LMTD exchangers by default.
+Its condensing section constrains outlet enthalpy to saturated-liquid enthalpy
+at the **hot outlet** pressure plus fixed `enth_sub` (default zero). A positive
+value therefore raises outlet enthalpy in the actual equation; the variable's
+name is not sufficient authority for a subcooling convention. Steam extraction
+flow is normally free, solved from condensation and heat transfer. Drain mixer
+outlet pressure equals the steam inlet pressure; no inequality enforcing a
+higher drain pressure is added. Section property packages inherit the overall
+selection unless explicitly overridden. Dynamic/holdup flags inherit the base
+unit/exchanger contracts; the steady test below does not establish transient
+support for this owner or dynamic mixer storage.
+
+The dynamic owner's condensing section instead derives from
+`HelmNtuCondenser`: cold liquid inlet flow×liquid heat capacity supplies the
+capacity rate, NTU=UA/capacity rate, effectiveness=1−exp(−NTU), and the driving
+temperature is hot-inlet saturation temperature minus cold-inlet temperature.
+Its outlet enthalpy is fixed to saturated-liquid enthalpy at the **hot inlet**
+pressure. This differs from the steady owner when pressure changes. The shell
+liquid volume follows the horizontal circular-segment level geometry, scaled
+by shell-volume fraction and section length; hot-side pressure change is a
+positive gravity×level×outlet-liquid-density head. The arcsine requires level
+between zero and diameter, with positive diameter/length and physically valid
+shell fraction/volume. Source variables do not enforce these bounds. It also
+unconditionally accesses hot-side volume and deltaP, so a default declaration
+is not proof of a usable no-holdup/no-pressure-change configuration. Preserve
+these prerequisites/refusals explicitly. The mixer is forced algebraic
+(`dynamic=False`); the selected desuperheat/cooler below are algebraic too.
+Fluid inventories in the condenser are not wall thermal storage or spatial
+resolution.
+
+| Source selector | Scientific inputs, roles and required observations |
+|---|---|
+| `tests/test_feedwater_heater.py::test_fwh_model` | Steady111, water. Steam inlet P201325 Pa/h60000 J/mol; flow seed100 mol/s remains free. Drain1 mol/s at201325 Pa/h20000. Feedwater400 mol/s at101325 Pa/h3000. Each section area1000 m²; U condense100/desuperheat10/cooler10 W/(m²·K). Initialization max_iter50; source checks extracted steam flow98.335±.01 mol/s and zero DOF. Preserve all section duties/outlet states and whole-unit mass/energy controls beyond this scalar. The separate unit-consistency constructor has no fixed scientific experiment and does not double the solved population. |
+| `tests/test_feedwater_heater_dynamic.py::build_unit` initial role | Dynamic111, time0–60 s with2 backward time elements (0,30,60). Condenser both sides have pressure change and fluid holdup; cooler/desuperheater are algebraic, cooler no holdup. Same inlet P/h/drain/feedwater as steady case; steam flow100 seed is unfixed. Areas condense600/desuperheat85/cooler100 m²; respective U1010/145/675. Condenser cold deltaP0, initial/fixed level .275 m, diameter1.4 m, shell fraction .675, section length6.4 m, cold-side volume1.3 m³. Initial material/energy accumulations are fixed zero; other-time accumulations receive zero guesses. Initialization establishes the initial regime, with source drain flow67.20607±.01 mol/s. |
+| `test_feedwater_heater_dynamic.py::test_fwh_model` transient role | From that initialized regime, fix cooler hot-outlet drain flow to .95 times initial flow for t≥30 s, free condenser level except its fixed initial .275 m. Thus changes apply at both30/60 s; they are not an open-left interval. Solver tol1e-7,ma27,max_iter50. Source checks level .2759±.01 m at60 s and zero DOF. Freeze full shell/tube inventories, heat, pressure head and initial/trajectory conservation, not only this loose terminal level comparison. |
+| `helm/tests/test_condenser_ntu.py::test_condenser_steady` | Algebraic, no side pressure change; steam100 mol/s,h30000 J/mol, pressure9000 Pa is only a seed and remains free. Cooling water1200 mol/s,101325 Pa,h1800 J/mol; area1000 m²,U500 W/(m²·K). Initialization `unfix="pressure"` solves shell pressure; source target14036.3360 Pa with1% relative allowance. |
+| `test_condenser_dynamic` in the same file | Same fixed inputs and algebraic condenser (`dynamic=False`) on a dynamic parent time0–3 s with4 backward elements. It checks the same pressure at every time. This is repeated algebraic evaluation, not a condenser-storage transient. Stream-table test separately exercises default unsolved state reporting, not a third physical experiment. |
+
+`HelmNtuCondenser.initialize` exposes exactly three solve specifications:
+free hot flow (default), free cold flow, or free hot pressure; other strings
+are explicitly refused. The pressure fixture above supplies one role; the
+dynamic feedwater heater uses free hot flow. Free cold-flow and the remaining
+section configurations stay required without an invented fixture or unsupported
+claim. Initializer snapshots/restores fixed values, fixed/free flags and active
+equations using in-memory serializer dictionaries; no supplied JSON file,
+CSV, trainer or saved initialization is read by these isolated tests. Its
+inherited balance choices still require the selected property methods; arbitrary
+energy/material enums are not automatically usable with the NTU/saturation law.
+
+Actual integrated consumers preserve additional topology selections and cannot
+be collapsed into111: C `supercritical_steam_cycle/supercritical_steam_cycle.py`
+selects001 for fwh1,111 for fwh2/3/6/7 and110 for fwh4/8. C
+`subcritical_power_plant/steam_cycle_flowsheet.py` selects the dynamic owner
+with001/011/010/111/110 for fwh1/2/3/5/6 respectively. Those complete plant
+boundary, geometry, initialization, controller and boiler/turbine closures
+remain separate F02 work. X `mod/power_gen/steam_turbine.py` additionally
+selects an algebraic NTU main condenser with cooling-water200000 mol/s,
+500000 Pa,h1800 J/mol, area5000 m² and U15000; X `ngcc.py` later changes
+its cooling-water enthalpy to1260 and area to1000 during plant initialization.
+The NGCC saved-initialization closure and final assembled specification have
+not been replaced by this equipment census.
+
+No matched condensing feedwater-heater case was found in bounded native reference
+declarations. Existing sensible-heat exchanger and liquid-pump witnesses do not
+qualify wet-steam heat transfer, saturation-location differences, level geometry
+or dynamic inventories. D02/E01/E02/F02 need explicit native case/data/output
+correspondence and independent conservation checks. Ordinary water/caloric data
+and geometric/heat-transfer provenance remain separate from the source's fixed
+oracle inputs/expected scalar answers. Ephemeral AST inspection confirmed14/23/14
+fixed-input calls across the three test files and no hidden parameterization,
+and resolved the seven/five integrated heater selections without model imports
+or reference execution. Upstream skip guards do not waive required prerequisites
+in the local fail-on-missing reference route.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
