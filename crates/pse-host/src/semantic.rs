@@ -737,11 +737,48 @@ impl Failure {
         .redacted(policy)
     }
     fn redacted(mut self, policy: &crate::envelope::RedactionPolicy) -> Self {
+        fn backend_data(value: &mut serde_json::Value, policy: &crate::envelope::RedactionPolicy) {
+            match value {
+                serde_json::Value::String(text) => *text = policy.redact(text),
+                serde_json::Value::Array(values) => {
+                    for value in values {
+                        backend_data(value, policy);
+                    }
+                }
+                serde_json::Value::Object(object) => {
+                    let mut changed_keys = Vec::new();
+                    for (key, mut value) in std::mem::take(object) {
+                        backend_data(&mut value, policy);
+                        let redacted = policy.redact(&key);
+                        if redacted == key {
+                            object.insert(key, value);
+                        } else {
+                            changed_keys.push((redacted, value));
+                        }
+                    }
+                    // Reserve unchanged public keys and retain every colliding value. The
+                    // suffix identifies a disclosure-generated name, never an original key.
+                    for (redacted, value) in changed_keys {
+                        let mut key = redacted.clone();
+                        let mut collision = 1;
+                        while object.contains_key(&key) {
+                            key = format!("{redacted}<redacted-key-collision:{collision}>");
+                            collision += 1;
+                        }
+                        object.insert(key, value);
+                    }
+                }
+                _ => {}
+            }
+        }
         self.diagnostic_code = self.diagnostic_code.map(|code| policy.redact(&code));
         self.validation = self
             .validation
             .map(|value| Box::new(value.redacted(policy)));
         self.message = policy.redact(&self.message);
+        if let Some(value) = &mut self.backend_data {
+            backend_data(value, policy);
+        }
         if let Some(context) = &mut self.context {
             context.operation = policy.redact(&context.operation);
             context.operand = context.operand.take().map(|path| policy.redact_path(path));

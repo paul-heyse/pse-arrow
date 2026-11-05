@@ -25,6 +25,124 @@ fn received(error: ConnectError) -> Error {
     let encoded = serde_json::to_vec(&error).unwrap();
     rpc::transport_error(serde_json::from_slice(&encoded).unwrap())
 }
+
+#[test]
+fn semantic_rpc_failure_envelopes_redact_opaque_backend_data_without_changing_originals() {
+    use crate::envelope::{
+        CliInvocationId, CommandOutcome, Envelope, OutputFormat, OutputOptions, Presentation,
+    };
+    use buffa::Message as _;
+    use serde_json::json;
+
+    let secrets = ["alpha-private-token", "bravo-private-token"];
+    let policy =
+        RedactionPolicy::new(secrets.map(|secret| ("EXPLICIT_SECRET".into(), secret.into())));
+    let public_key = "<redacted:EXPLICIT_SECRET>";
+    let reserved_key = format!("{public_key}<redacted-key-collision:1>");
+    let data = json!({
+        secrets[0]: "first secret key's public evidence",
+        secrets[1]: "second secret key's public evidence",
+        public_key: "public key's evidence",
+        reserved_key.clone(): "public suffix-shaped key's evidence",
+        "array": [secrets[0], {"nested": secrets[1]}, 17, false, null],
+        "provider": "original provider",
+    });
+    let mut original = Failure {
+        diagnostic_code: Some("provider.refusal".into()),
+        context: None,
+        state: FailureState::Failed,
+        phase: FailurePhase::Provider,
+        message: "original public provider refusal".into(),
+        backend_code: Some(-32000),
+        backend_data: Some(data),
+        observed_cancellation: None,
+        validation: None,
+    };
+    original.observed_cancellation = Some(Box::new(CancellationObservation {
+        completion: Settlement::LspReturned,
+        original: OriginalOutcome::Failed(Box::new(original.clone())),
+    }));
+    let exact_native = serde_json::to_value(&original).unwrap();
+    let wire = wire::failure_to_pb(original.clone()).unwrap();
+    assert_eq!(
+        serde_json::to_value(wire::failure_from_pb(wire.clone()).unwrap()).unwrap(),
+        exact_native,
+        "raw failure codec retains original opaque evidence",
+    );
+    let transport = ConnectError::unavailable("independent original transport message")
+        .with_detail(native(&wire.encode_to_vec()))
+        .with_source(std::io::Error::new(
+            std::io::ErrorKind::ConnectionReset,
+            "original local cause",
+        ));
+    let exact_transport = serde_json::to_value(&transport).unwrap();
+    for error in [
+        Error::Refusal(Box::new(original)),
+        rpc::transport_error(transport),
+    ] {
+        let mut response = Envelope::response(
+            "inspect entity refusal",
+            "semantic request did not produce a current answer",
+            Failure::from_error_with_policy(&error, &policy),
+        );
+        response.outcome = CommandOutcome::Failure;
+        response
+            .failures
+            .push(ErrorRecord::from_typed(&error, &policy));
+        let output = OutputOptions {
+            format: OutputFormat::Json,
+            presentation: Presentation::default(),
+            invocation_id: CliInvocationId::new(),
+            artifact_directory: None,
+        };
+        let (code, frame) = output.encode_frame(response).unwrap();
+        assert_eq!(code, 1);
+        let text = String::from_utf8(frame).unwrap();
+        for secret in secrets {
+            assert!(!text.contains(secret), "{text}");
+        }
+        let disclosed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let expected = json!({
+            public_key: "public key's evidence",
+            reserved_key.clone(): "public suffix-shaped key's evidence",
+            format!("{public_key}<redacted-key-collision:2>"):
+                "first secret key's public evidence",
+            format!("{public_key}<redacted-key-collision:3>"):
+                "second secret key's public evidence",
+            "array": [public_key, {"nested": public_key}, 17, false, null],
+            "provider": "original provider",
+        });
+        assert_eq!(disclosed["payload"]["backend_data"], expected);
+        assert_eq!(
+            disclosed["payload"]["observed_cancellation"]["original"]["failure"]["backend_data"],
+            expected,
+        );
+        assert_eq!(disclosed["payload"]["diagnostic_code"], "provider.refusal");
+        assert_eq!(disclosed["payload"]["backend_code"], -32000);
+        assert_eq!(
+            serde_json::to_value(error.native_failure().unwrap()).unwrap(),
+            exact_native,
+            "disclosure must only mutate the copied failure",
+        );
+        if let Error::Rpc(failure) = &error {
+            assert_eq!(
+                serde_json::to_value(&failure.original).unwrap(),
+                exact_transport,
+            );
+            assert_eq!(
+                failure
+                    .original
+                    .source()
+                    .unwrap()
+                    .downcast_ref::<std::io::Error>()
+                    .unwrap()
+                    .kind(),
+                std::io::ErrorKind::ConnectionReset,
+            );
+        }
+    }
+}
+
 fn observed(error: &Error, expected: RpcDisposition, phase: FailurePhase) {
     let original = rpc(error);
     assert_eq!(original.observation().disposition, expected);
