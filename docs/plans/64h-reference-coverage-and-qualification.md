@@ -629,6 +629,14 @@ Physical cell/material inputs,phase/unit conventions,cost prerequisites and
 snapshot roles are explicit. Archive adoption,ordinary fit/cost provenance,
 complete energy/element/optimality controls and full qualification remain open.
 
+**Update, 2026-11-05 — archived standalone SOEC census:** the
+[thermodynamic/assessment closure](64h-required-process-population.md#archived-standalone-soec-thermodynamic-and-assessment-closure--2026-11-05)
+resolves the custom PR–SV derivative closure,distinct cell kinetics/materials,
+heat-pump/isothermal-compression account,5 kg/s design and17-rate operation
+branch. Default initialization versus explicit snapshot loading,actual free
+roles and cost conventions remain explicit. Ordinary provenance,full physical
+energy/element/optimality controls and complete qualification remain open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

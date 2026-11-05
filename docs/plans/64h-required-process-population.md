@@ -5301,6 +5301,89 @@ energy/element accounts and independently accepted cost inputs;complete
 component/SOC/optimization/derivative qualification remains required. Only
 AST,CSV and gzip/JSON inspection ran;no archive model or optimizer ran.
 
+## Archived standalone SOEC thermodynamic and assessment closure — 2026-11-05
+
+**Interface-checked, source only:** X `archive/power_gen/soec/
+{soec.ipynb,soec.py,soec_flowsheet_costing.py}` owns a standalone
+heat-integrated SOEC plant distinct from modern `mod/power_gen/soec.py`.
+The archive declares `SoecStandaloneFlowsheetData`;modern declares
+`SoecFlowsheetData`. They are not source-equivalent model declarations.
+The archive consumes core PR/IAPWS95,physical SOC,standard units,Helmholtz
+compression,QGESS/SSLW and inline custom thermodynamic/cost closures.
+No raw experiment/training data is read;SVG is reporting only. Default
+initialization computes/saves `soec_standalone_init.json.gz`,which is not
+bundled. An explicitly supplied existing load_from instead restores values
+without initialization. The notebook's load argument is commented out and
+does not select that branch.
+
+The selected steady cell has10 axial elements,one transverse element per
+electrode/electrolyte,countercurrent flow,no cell holdup,temperature-x
+thermodynamicsTrue,contact resistanceFalse,H2/H2O fuel and5-species
+air sweep. `air_sweep=True` is hard-coded in the builder: its alternative
+oxygen/steam branch is not a public configuration selection. Feed package
+composition H2=1e-19/H2O=1;air O2/H2O/CO2/N2/Ar
+.2074/.0099/.0003/.7732/.0092. Vapor packages use PR;condensing
+H2/H2O package installs custom PR–Stryjek–Vera alpha,first/second T
+derivatives,with H2 kappa1=0 and H2O−.0665 (source scientific lead
+Sandler2006,p312). This **changes the property model**,not a numerical
+solver option;its derivatives/phase equilibrium require separate native
+declaration and original provenance. Pure H2 PR and IAPWS steam remain
+separate package boundaries.
+
+Compared with the combined plant's material table above,the standalone
+cell fixes1087915 cells,channel thickness873e-6 m,oxygen-electrode
+density5300/conductivity2.0,electrolyte resistivity log prefactor−9/
+thermal exponent8988,fuel reaction H2/H2O exponents .5/.5,oxygen
+exponent .25,activation energies110800/112100 J/mol,oxygen alpha
+pair .502769/.497231. Other selected lengths,HTCs,fuel-electrode
+material and listed prefactors retain their declared table values. The
+flowsheet's separate `number_cells` variable initialized60e6 does not
+replace the module's fixed cell count. Do not merge these distinct material/
+kinetic coordinates into one nominal SOEC parameter set.
+
+| Stage | Actual specification and selected finite demands |
+|---|---|
+| Cold construction/initialization | Water3100 mol/s,288.15 K/101300 Pa;hot feed-HX provisional3100 mol/s/120000 Pa,h from489.18 K;sweep5653 mol/s,288.15 K/101000 Pa. Provisional cell-side fuel3100 mol/s/837.80 K/120000 Pa,sweep5653/887.23/sameP,plus unfixed recycle seeds fuel3100/962.17 with .8 H2/.2 H2O and air6893/983.84/O2 .35. Cell potential1.334 V,recycle-out fractions .5/.5,feed/sweep heater929.13/945.41 K. These internal guesses are propagated/unfixed by staged initialization,not independent final boundary feeds. |
+| Heat integration/base plant | Gas HX U100 W/(m2 K),areas feed4640,sweep-hot5522,sweep-medium8511 m2. Water preheater U200/area1746;evaporators1–5 U100/100/200/200/100,areas2018/1632/1513/5245/5267 m2;their selected shell-outletT349.84 K. Product flash5 outlet288.15 K;other present flash stages adiabatic/deltaP0. Water valve outlet40000 Pa;water compressor120000 Pa/efficiency .75. H2 compressor ratios3/2.5/2.5,efficiencies .85/.85/.85,final6479000 Pa/efficiency .8. Heat pump COP3.5,coupled to final condensation/compressor cooling and a water heat source288.15→278.15 K at101300 Pa. |
+|2 kg/s design setup then5 kg/s solve | Objective sums annual electricity,water,air,annualized capital and fixed O&M. Free raw-water feed,conversion,feed/sweep recycle,air flow,trim temperatures,potential,cells,selected areas and compressor ratios. Capacity equalities change to inequalities;water-withdrawal capacity fixed3000 gallon/min,trim-heater capacities lower bound8 MW. Nine exchanger areas have lower bound400 m2;evaporator1/4 remain fixed2018/5245 m2 to select a design. H2 target first2 then5 kg/s;final optimization at5 uses tol3e-8,max500. |
+| Fixed-design operation | Fix flash geometries,areas,heater capacities,cells,water capacity,heat-pump capacity,total capital and deactivate detailed capital constraints. Minimize annual electricity+water+air cost. Optional defaultFalse `run_samples` uses17 evenly spaced H2 rates5..1 kg/s(step .25);failed solve retries with objective scaling10 instead of .1 and requires optimal/OK after retry. It supplies no independent physical trajectory/data campaign. |
+
+Design bounds include cell voltage1.1..1.6 V,current−10400..5200 A/m2,
+cell temperatures823.15..1023.15 K,channel inlet873.15..1023.15 K,
+overall water conversion .4...8,recycle fractions .03...5,water split
+.03...98,air flow≥1000 mol/s,compressor ratios1..3,outlets273.15..
+523.15 K and fuel-electrode axial temperature gradient−750..750 K/m.
+Selected temperature-difference bounds are nonnegative;the notebook adds
+an evaporator2 vapor-out/dew inequality. The subsequently called performance
+helper additionally applies no-condensation inequalities to evaporators1/2,
+sets smoothing .001 for evaporators3/4/preheater and limits four cell endpoint
+temperature differences to±75 K,average current≥−8000 A/m2,sweep O2
+.25...35,feed H2≥.05 and net water demand≤10475 mol/s. Both
+endpoints0 K driving force still need evaluation/domain controls. Work/trim
+heat/heat-pump terms are nonnegative;performance constraints and gradients
+are authored separately.
+
+The last H2 compressor replaces its mechanical-work relation with molar
+Gibbs rise divided by efficiency and defines associated entropy/cooling
+heat. This specialized isothermal compression/heat-pump account cannot be
+qualified merely by matching the generic pressure-changer alias. Heat-pump
+COP is supplied,not a refrigerant-cycle solve;physical source/sink work/
+heat consistency remains an original independent check.
+
+Final source targets at5 kg/s are total capital439.4946977 million2018
+currency,annualized capital41.0940 million/year,electricity143.951 MJ/kg
+H2 and water utilization66.667%,all rel.005. No corresponding complete
+mass/element/energy/optimality certificate is supplied by those notebook
+value checks. Cost helper uses water .0009352 USD2018/kg,electricity
+71.70 USD2018/MWh,air price .35/100×.02364×671.1/584.6×2/3
+USD2018/mol,uptime31556952 s/year,owners factor .21,as-spent factor
+1.093 of overnight cost and annualization .0707 of as-spent cost;these
+differ from the combined plant's capacity-
+factor/revenue convention. Ordinary property/material/cost admission,
+full source-unit reconciliation and exact environment compatibility remain
+required alongside independent cell/property/design/operation/derivative
+qualification. Only source inspection ran;no SOEC model was executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
