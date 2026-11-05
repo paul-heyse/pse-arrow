@@ -690,6 +690,28 @@ with the final native corrections committed on main as `8c41b0e11` and `3041e2fb
 but E04, A04, B01/B02, H and the full series remain open. Resume with that targeted verification,
 then companion package tables and K's receiving/supplier prerequisites when requested.
 
+## Joint execution resumed after the stop checkpoint
+
+Execution of the entire remaining Plan64/65 scope is authorized. The current receiving
+baseline is main `85868b3b4`; the preceding stopped qualification remains historical evidence.
+Complete the final scientific-deadline/retirement verification first, alongside the ready
+contract-generation, reconstruction-prerequisite and finite reference-population work.
+The resumed expanded native workspace Clippy selection passed with zero errors/warnings;
+the recorded targeted native population is rebuilding against the final deadline correction.
+No new functional or whole-series acceptance follows from the static pass.
+
+Parallel assignments address generated host dispatch from actual supplier identities,
+preadmitted mathematical proof replay with consuming branch storage, and the required
+scientific configuration/input census. Each remains under its companion's existing packet
+owner. Integrate coherent changes on main and retain actual per-packet acceptance limits.
+Plan64e's storage/distributed-physics E02/E03 remain distinct from Plan65k's portability E02/E03.
+
+The next integration milestone is the scientific admission/execution/selected-read journey
+and developer failed-report/export/exact-rerun journey, followed by complete selected Proto
+consumer migration and Plan64 family expansion. Keep receiving reconstruction and native-body
+transfer inactive wherever their supplier or admission prerequisites remain unqualified.
+The finite reference census progresses concurrently; held required inputs stay in its denominator.
+
 ## Verification boundary
 
 **Proposed verification:** package-local compile/targeted tests during implementation, explicit
