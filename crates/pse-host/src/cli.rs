@@ -932,7 +932,7 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                     invocation,
                     configuration,
                 ))
-                .map_err(|error| HostError::Ownership(error.to_string()))?;
+                .map_err(|error| HostError::Semantic(Box::new(error)))?;
             Ok(0)
         }
         Command::Tests(args) => testing::start(
