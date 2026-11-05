@@ -685,6 +685,14 @@ Three calibrated curve fixtures and V's distinct water case remain explicit;
 ordinary Cv provenance,liquid coefficient dimensions,shutoff/direction and
 complete physical/control/derivative qualification remain required.
 
+**Update, 2026-11-05 — equipment-cost/utility census:** the
+[SSLW/heat-target closure](64h-required-process-population.md#sslw-equipment-cost-and-heat-utility-configured-population--2026-11-05)
+resolves541 finite cost combinations/27 warning controls,actual geometry/
+units/defaults,three power-cost artifact hashes and the four-stream utility
+case. Construction grids and dictionary counts do not establish cost-envelope
+or physical validity;ordinary inputs,remaining QGESS account consumers and
+full independent cost/thermal/optimization qualification remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

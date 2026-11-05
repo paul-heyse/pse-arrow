@@ -5759,6 +5759,95 @@ reconciliation,closed/zero/reverse-flow and inherited dynamic cases,plus
 complete independent valve/control/derivative qualification remain required.
 Only source/AST inspection ran;no valve or property solver executed.
 
+## SSLW equipment-cost and heat-utility configured population — 2026-11-05
+
+**Interface-checked, source only:** C `models/costing/SSLW.py`,
+`tests/test_SSLW.py`,`core/util/utility_minimization.py` and its test
+resolve additional G06 equipment/assessment cases. SSLW uses inline
+coefficient tables and declared currency conversions,not external experiment
+or trained-model files. Core currency units,index/year,correlation formula,
+equipment/material and quantity units are part of each scientific input;
+ordinary source provenance/admission remains independent of these reference
+coefficients. The library's flowsheet base currency is USD2018,while many
+equipment equations are in USD_CE500 and pump/motor base terms include
+USD_CE394. A raw numeric capital cost cannot be compared across those units.
+
+| Consumer family | Exact finite parameterized scientific selections |
+|---|---|
+| Heat exchanger160 | Four types floating/fixed head,U-tube,kettle vaporizer×four tube lengths8/12/16/20 ft×ten shell/tube material pairs:carbon/carbon,carbon/brass,carbon/stainless,carbon/Monel,carbon/titanium,carbon/CrMo,CrMo/CrMo,stainless/stainless,Monel/Monel,titanium/titanium. All area1000 m2,hot inlet2 atm. Default U-tube,stainless/stainless,12 ft. |
+| Vertical vessel80 | Ten materials carbon,low-alloy,304/316 stainless,Carpenter20CB3,Nickel200,Monel400,Inconel600,Incoloy825,titanium×weight-limit selector1/2×aspect-ratio selector1/2×platforms/laddersTrue/False. Diameter2 m,**length .00075 m**,default shell thickness1.25 in;this extreme test geometry is not a demonstrated valid design/envelope. |
+| Vertical trays15/horizontal vessel10 | Same geometry;vertical adds10 trays with sieve/valve/bubble-cap×carbon/303 stainless/316 stainless/Carpenter20CB3/Monel. Horizontal uses ten vessel materials,weight-limit1,no platforms. Trays and weight-limit2 are explicitly refused for horizontal vessels;missing diameter/length references and invalid enum/selector values have separate guards. |
+| Fired heater21 | Three materials carbon/CrMo/stainless×seven sources fuel,reformer,pyrolysis,hot water,salts,DowthermA,steam boiler. Duty1000 kJ/s,inlet2 atm. Default fuel/carbon. Source/duty/pressure correlation validity is not established by unit-consistent cost equations. |
+| Turbine1 | Expander flag,shaft work−1224638 W;expected raw capital213199 in the equation's USD_CE500(rel1e-5). Actual power sign is part of cost size,not an absolute-value assumption. |
+| Centrifugal pump162 | Nine materials cast iron,ductile iron,cast steel,bronze,stainless,HastelloyC,Monel,nickel,titanium×type factor[1.1,1.2,1.3,1.4,2.1,2.2]×open/enclosed/explosion-proof motor. All work10143.79 W,deltaP50000 Pa,inlet density986.64 kg/m3,volume flow .182592 m3/s. |
+| Gear pump27/reciprocating12 | Same work/deltaP/density/flow;gear uses nine centrifugal materials×three motors. Reciprocating uses ductile iron/stainless/NiAlBronze/carbon×three motors. NiAlBronze/carbon are explicitly excluded from nonreciprocating methods;other materials excluded from reciprocating. Pump costing requires compressorTrue,positive head/size and suitable hydraulic meaning;it does not solve pump efficiency. |
+| Compressor27 | Centrifugal/reciprocating/screw×electric motor/steam turbine/gas turbine drive×carbon/stainless/nickel alloy,work101410.4 W,compressionTrue/isentropic. Default centrifugal/electric/stainless. Another27 wrong-direction controls exercise a **warning**,not hard rejection;pump/isothermal/adiabatic misuse likewise warns. Matching a cost value does not validate the upstream work model. |
+| Fan16/blower10 | Fan four types centrifugal-backward/centrifugal-straight/vane-axial/tube-axial×carbon/fiberglass/stainless/nickel alloy,inlet .182592 m3/s,head factor default1.45. Blower centrifugal/rotary×carbon/aluminum/fiberglass/stainless/nickel alloy,work101410.4 W. These dedicated methods require compression direction;fan/blower are separate from the generic gateway's behavior. |
+
+The table defines541 selected cost combinations plus27 warning controls,
+not541 validated scientific designs. Most assert zero DOF,units and solver
+termination without independent expected full cost factors. Named numeric
+controls(rel1e-5) are:default HX base87704.6 USD_CE500,pressure factor
+.982982,material factor4.08752,total476063 USD2018;carbon vertical
+vessel/selector1/1/platformsTrue35958 USD2018;nickel centrifugal pump/
+factor1.4/enclosed motor62868.3 USD2018;default compressor300695
+USD2018;and turbine above. Tray/gear/reciprocating/heater/fan/blower
+grids do not each carry independent expected cost datasets.
+
+Common equipment unit count is fixed1 by default,integer/reals selectable
+with bounds1..100;unfixing it changes optimization/discrete semantics and
+per-unit sizing,not just a display multiplier. Vessel count is separately
+supplied. Explicit class mappings select vertical vessels for CSTR/Flash,
+horizontal for PFR/StoichiometricReactor,HX for HX0D/NTU and dedicated
+compressor/pump/turbine methods. Generic pressure gateway's `blower` branch
+actually calls pump costing;default mover=`compressor` is checked before
+the thermodynamic pump fallback. Native declarations must select the actual
+equipment method and inputs rather than infer correct costing from that
+gateway label. Correlation log/power domains,valid geometry/pressure/work
+envelopes and original source data remain required controls.
+
+Power costing additionally has frozen reference dictionaries at C
+`models_extra/power_generation/costing/`:BB_costing_data contains1063
+account entries across seven technology keys1..7,SHA256
+`1d6f97e397c3ac0b6c58c066128888ffc778fd08663cba909afdcafe21f2da3c`;
+generic_ccs_costing_data is a separate technology6 dictionary,SHA256
+`ff28650646e74b772ee2eca5abaf28fbf66eb1896c7cbcac67249871469a4a89`;
+sCO2_costing_parameters has13 equipment keys,SHA256
+`fa3385c544cc57563423571aa5474e57754bda39e468eef8452e5bee08b805ef`.
+These counts identify input artifacts,not1063 mandatory physical cases or
+qualification of their account-selection/scaling consumers. Per-consumer
+account/capture/year/range choices and ordinary provenance remain required.
+
+Heat-utility source selects the Duran–Grossmann heat-target formulation,
+candidate pinch temperatures from stream inlets,minimum approach supplied
+by consumer,default smoothing1e-6,working duty unitsMW. A separate
+hard-coded temperature regularization1 shifts heating outlet/cooling inlet
+in initialization and regularizes capacity-flow denominators in equations.
+These conventions differ from an exact unsmoothed heat cascade and need
+explicit units/domain correspondence. Nonnegative utility/heat-content
+variables have lower bound1e-8;an objective must actually minimize them.
+The source adds no exchanger network,area,material selection or utility price.
+
+Its textbook test(Biegler/Grossmann/Westerberg1997,p529,Example16.1)
+uses four independent IDEAL one-component heaters with **synthetic**
+constant Cp1e6 J/(mol K),zero formation terms,reference300 K/1e5 Pa.
+Cold streams:1.5 mol/s,160→400 K and1.3 mol/s,100→250 K;
+hot streams1 mol/s,400→120 K and2 mol/s,340→120 K;all100000 Pa,
+pure componentA. Duties are360/195/−280/−440 MW. Approach20 K,
+minimize hot+cold utility;targets hot60/cold225 MW(abs1 MW),QAh
+[540,719,0,60],QAc[476,554,30,120] MW(abs1). Hydrogen-like
+critical/molar-mass metadata do not make Cp1e6 a physical hydrogen model.
+Initialization/curve arrays are reporting/numerical controls,not independent
+process or utility-cost data.
+
+Native G06 requires ordinary cost/property/utility data with year/index,
+equipment selection,sizing/parallel roles,thermal boundaries and explicit
+fit/envelope permissions;original energy,unit-conversion,optimization and
+statistical/derivative products remain independent. Complete QGESS account
+consumers and all unselected geometry/utility cases remain open. Only
+source/AST/JSON inspection and finite-combination arithmetic ran;no cost,
+heat-target,property or solver execution occurred.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
