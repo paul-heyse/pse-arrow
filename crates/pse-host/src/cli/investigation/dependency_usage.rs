@@ -32,7 +32,7 @@ pub(in crate::cli::investigation) struct Args {
 
 pub(super) fn inspect(args: Args, root: &Path, output: &OutputOptions) -> Result<i32, HostError> {
     let environment = std::env::vars_os().collect();
-    let error = |error: semantic::Error| HostError::Ownership(error.to_string());
+    let error = |error: semantic::Error| HostError::Semantic(Box::new(error));
     let expected = semantic::Configuration {
         backend: args.backend,
         project: args.project.unwrap_or_else(|| root.to_path_buf()),
