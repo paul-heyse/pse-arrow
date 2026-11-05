@@ -5715,6 +5715,50 @@ nonidentity scaler behavior and full independent physical/custom/dynamic/
 derivative qualification remain required. Only source/AST inspection ran;
 no unit or initializer executed.
 
+## Generic and Helmholtz valve law/configuration closure — 2026-11-05
+
+**Interface-checked, source only:** C `models/unit_models/valve.py`,
+`tests/test_valve.py`,`power_generation/unit_models/helm/valve_steam.py`
+and V `apis/v2_0_0/examples/unit_models/test_valve.py` resolve separate
+valve formulations. Their inputs are inline curve/coefficient selections and
+IAPWS/Helmholtz property functions;no measured valve map or external data
+file is read. Integrated throttle/level-control consumers remain the distinct
+steam-train/subcritical/NGCC cases above.
+
+| Owner | Actual configuration and constitutive meaning |
+|---|---|
+| Generic Valve | PressureChanger with compressorFalse and adiabatic assumption **forced**,default componentTotal material balance;zero work and no heat. Inherited balance/dynamic/holdup options retain CV/property requirements. Default linear opening;quick-opening sqrt(opening),equal-percentage alpha**(opening−1),or callable customization. Invalid noncallable selection is refused. Opening initialized/fixed1 with bounds0..1;equal-percentage alpha initialized/fixed100. Default coefficient initialized/fixed .1 mol/(s sqrt(Pa)) in package units. Default squared-flow law uses **Pin−Pout**,regardless of fluid phase. Custom pressure-flow callback must supply its actual equation and referenced flow;scaling reports missing members rather than inferring the law. |
+| HelmValve | Steady/no holdup,pressure changeTrue,no heat/work forced. Asserts Helmholtz parameter block,PH coordinates and phase presentationMIX/L/G;LG or alternate coordinates are refused. Expected fluid selectorVap(default)/Liq chooses **Pin²−Pout²** versus **Pin−Pout** squared-flow law. Curve linear/quick/equal-percentage/custom;missing custom callback is refused. Supplying callback with a noncustom selection only warns and uses the selected builtin. Opening initialized1 has no source0..1 bounds and is not automatically fixed;Cv initialized .1 also startsfree. Equal-percentage alpha initialized/fixed**1**,so its default function is independent of opening,unlike generic alpha100. |
+| Helm initialization roles | `calculate_cv` or `calculate_opening` selects coefficient/opening inference from pressure/flow inputs;otherwise fixed pressure drop can release inletflow during initialization. Outlet-pressure specification is temporarily converted to deltaP;fixed/active/value roles are restored afterward. These are inverse/rating roles for the selected law,not an empirical calibration dataset. |
+
+The Helm declaration labels Cv mol/(s Pa) for both laws;that dimension is
+consistent with the squared-pressure vapor law but not the liquid difference
+law,which needs mol/(s sqrt(Pa)). Preserve source behavior for reference
+diagnosis and use an explicit dimensionally coherent native liquid
+declaration;do not silently treat the same numerical Cv as interchangeable.
+Squared-flow laws do not identify flow sign;opening0 with positive prescribed
+flow is infeasible,quick-opening has an endpoint derivative singularity and
+equal-percentage has nonzero flow factor at opening0 for finite positive
+alpha. These require selected physical direction/shutoff/domain controls.
+
+C's three curve cases use IAPWS mixed PH water,1000 mol/s,Pin200000 Pa,
+h from300 K/same pressure,opening .5. Cv is calculated separately for
+each function to **force** Pout100000 Pa;the outlet pressure is an initial
+guess,not fixed. Legacy/scaler-object versions repeat the same physical
+triplet. Source checks optimal solve/numerical controls and outlet1000 mol/s
+(rel.001),which alone primarily checks mass closure since inletflow is
+already fixed;it supplies no independent measured curve. V repeats the
+linear specification atPin202650/Pout101325 Pa,h from298 K;targets
+outflow1000/Pout101325(rel1e-6),h1880.557 J/mol(rel.001).
+
+Native D04/F02/G05 requires actual pressure law,phase/coordinate package,
+coefficient dimensions,curve/alpha and custom-declaration meaning,physical
+direction/opening constraints,complete enthalpy/flow/pressure outputs and
+inverse-initialization roles. Ordinary Cv/map provenance,liquid-dimension
+reconciliation,closed/zero/reverse-flow and inherited dynamic cases,plus
+complete independent valve/control/derivative qualification remain required.
+Only source/AST inspection ran;no valve or property solver executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

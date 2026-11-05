@@ -677,6 +677,14 @@ terms,extensive/intensive authority and a callback's ineffective intermediate
 solve condition remain explicit. Ordinary closure data and complete
 nonidentity/physical/custom/dynamic qualification remain required.
 
+**Update, 2026-11-05 — valve census:** the
+[valve-law closure](64h-required-process-population.md#generic-and-helmholtz-valve-lawconfiguration-closure--2026-11-05)
+resolves generic pressure-difference versus Helm vapor squared-pressure/
+liquid-difference laws,distinct equal-percentage defaults and PH/phase guards.
+Three calibrated curve fixtures and V's distinct water case remain explicit;
+ordinary Cv provenance,liquid coefficient dimensions,shutoff/direction and
+complete physical/control/derivative qualification remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
