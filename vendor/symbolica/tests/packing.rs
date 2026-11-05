@@ -150,9 +150,13 @@ fn actual_small_large_and_mixed_complex_rationals() {
         (Rational::from(i64::MIN), Rational::from(0), 0),
         (Rational::from((-i64::MAX, 1)), small.clone(), 0),
         (real.clone(), Rational::from(0), 1),
+        (-real.clone(), Rational::from(0), 1),
+        (Rational::from(0), -real.clone(), 1),
         (real.clone(), small.clone(), 1),
         (small.clone(), real.clone(), 1),
         (real.clone(), real.clone(), 2),
+        (-real.clone(), real.clone(), 2),
+        (real.clone(), -real.clone(), 2),
     ] {
         let is_complex = im != Rational::from(0);
         let atom = Atom::num(Coefficient::Complex(Complex { re, im }));
@@ -163,6 +167,171 @@ fn actual_small_large_and_mixed_complex_rationals() {
             assert!(summary.large_rational_bytes >= 24_576 * large_count);
         }
     }
+}
+
+#[test]
+fn actual_full_width_mpfr_significands_and_precision_refusal() {
+    let full_width = |precision: u32, negative: bool| {
+        let integer = (rug::Integer::from(1) << (precision - 1))
+            + (rug::Integer::from(1) << (precision / 2))
+            + 1;
+        let mut raw = rug::Float::with_val(precision, &integer);
+        raw <<= -(precision as i32);
+        if negative {
+            raw = -raw;
+        }
+        // This independently observes the actual producer value: an odd,
+        // precision-bit significand needs every bit, including bits beyond f64.
+        let (significand, _) = raw.to_integer_exp().unwrap();
+        assert_eq!(significand.significant_bits(), precision);
+        assert!(significand.is_odd());
+        assert!(precision > 53);
+        Float::from_raw(raw)
+    };
+    for precision in [55, 61, 64, 113, 257, 1025] {
+        let re = full_width(precision, false);
+        let im = full_width(precision + 2, true);
+        let re_text = re.serialize();
+        let im_text = im.serialize();
+        let atom = Atom::num(Coefficient::Float(Complex { re, im }));
+        let packed = bytes(&atom);
+        let result = inspect(packed).unwrap();
+        assert_eq!(result.float_components, 2);
+        assert_eq!(result.float_text_bytes, re_text.len() + im_text.len());
+        let re_length = u64::from_le_bytes(packed[2..10].try_into().unwrap()) as usize;
+        assert_eq!(&packed[14..10 + re_length], re_text);
+        let im_start = 10 + re_length + 8;
+        assert_eq!(&packed[im_start + 4..], im_text);
+        let mut corrupt = packed.to_vec();
+        corrupt[10..14].copy_from_slice(&(precision - 1).to_le_bytes());
+        // These precisions keep the same producer digit allowance at p-1;
+        // refusal therefore distinguishes exact span from mere text length.
+        issue(&corrupt, PackingIssue::InexactFloatText);
+    }
+}
+
+#[test]
+fn actual_mpfr_current_exponent_limits_without_range_mutation() {
+    let env = environment();
+    for exponent in [env.min_exponent, env.max_exponent] {
+        let exponent_i32 = i32::try_from(exponent).unwrap();
+        for negative in [false, true] {
+            let mut raw = rug::Float::with_val(
+                113,
+                rug::Float::u_exp(1, exponent_i32.checked_sub(1).unwrap()),
+            );
+            if negative {
+                raw = -raw;
+            }
+            assert!(raw.is_finite() && !raw.is_zero());
+            assert_eq!(raw.get_exp(), Some(exponent_i32));
+            let atom = Atom::num(Coefficient::Float(Complex {
+                re: Float::from_raw(raw),
+                im: Float::with_val(17, 0),
+            }));
+            assert_eq!(inspect(bytes(&atom)).unwrap().float_components, 2);
+            let narrowed = if exponent == env.min_exponent {
+                FloatEnvironment {
+                    min_exponent: exponent + 1,
+                    ..env
+                }
+            } else {
+                FloatEnvironment {
+                    max_exponent: exponent - 1,
+                    ..env
+                }
+            };
+            assert!(matches!(
+                inspect_packing(
+                    bytes(&atom),
+                    &mut [PackingFrame::default(); 8],
+                    narrowed,
+                    |_| Ok::<_, Infallible>(())
+                ),
+                Err(PackingError::Layout {
+                    issue: PackingIssue::FloatExponentRange,
+                    ..
+                })
+            ));
+        }
+    }
+}
+
+#[test]
+fn oversized_small_rational_integer_encodings_refuse() {
+    let one = Atom::num(1);
+    for (negative, magnitude) in [
+        (false, 1u64 << 63),
+        (false, u64::MAX),
+        (true, (1u64 << 63) + 1),
+        (true, u64::MAX),
+    ] {
+        let mut corrupt = bytes(&one).to_vec();
+        corrupt[1] = 4 | if negative { 0x80 } else { 0 };
+        corrupt.splice(2.., magnitude.to_le_bytes());
+        issue(&corrupt, PackingIssue::InvalidRational);
+    }
+    for denominator in [1u64 << 63, u64::MAX] {
+        let mut corrupt = bytes(&one).to_vec();
+        corrupt[1] = 0x41; // u8 numerator, u64 denominator
+        corrupt.extend_from_slice(&denominator.to_le_bytes());
+        issue(&corrupt, PackingIssue::InvalidDenominator);
+    }
+}
+
+#[test]
+fn nested_power_respects_bounded_composites_and_child_counts() {
+    let atom =
+        parse!("packing_outer(packing_base(packing_leaf)^packing_exponent, packing_sibling)");
+    let base = parse!("packing_base(packing_leaf)");
+    let exponent = parse!("packing_exponent");
+    let original = bytes(&atom);
+    assert!(inspect(original).is_ok());
+    assert_eq!(&original[..2], &[3, 1]);
+    let base_bytes = bytes(&base);
+    let exponent_bytes = bytes(&exponent);
+    let positions = original
+        .windows(base_bytes.len())
+        .enumerate()
+        .filter_map(|(i, bytes)| (bytes == base_bytes).then_some(i))
+        .collect::<Vec<_>>();
+    assert_eq!(positions.len(), 1);
+    let base_start = positions[0];
+    let base_end = base_start + base_bytes.len();
+    assert_eq!(original[base_start - 1], 6); // actual enclosing Pow
+    assert_eq!(
+        &original[base_end..base_end + exponent_bytes.len()],
+        exponent_bytes
+    );
+    assert_eq!(base_bytes[1], 1); // actual bounded Fun length is u8
+
+    let mut corrupt = original.to_vec();
+    corrupt[base_start + 2] -= 1; // nested Fun ends inside its own variable
+    issue(&corrupt, PackingIssue::Truncated);
+    corrupt.copy_from_slice(original);
+    corrupt[base_start + 2] += 1; // nested Fun claims a byte of the Pow exponent
+    issue(&corrupt, PackingIssue::TrailingBytes);
+
+    corrupt.copy_from_slice(original);
+    corrupt[2] = u8::try_from(base_end - 3).unwrap(); // parent ends before Pow exponent
+    issue(&corrupt, PackingIssue::Truncated); // bytes exist physically, beyond parent
+
+    for child_range in [
+        base_start..base_end,
+        base_end..base_end + exponent_bytes.len(),
+    ] {
+        let mut corrupt = original.to_vec();
+        corrupt[2] -= u8::try_from(child_range.len()).unwrap();
+        corrupt.drain(child_range);
+        // Pow can consume the sibling as a missing child, but cannot then
+        // satisfy the enclosing Fun's original second-child obligation.
+        issue(&corrupt, PackingIssue::Truncated);
+    }
+
+    let name_width = 1usize << ((original[3] & 15) - 1);
+    corrupt = original.to_vec();
+    corrupt[4 + name_width] = 1; // complete Pow followed by an undeclared sibling
+    issue(&corrupt, PackingIssue::TrailingBytes);
 }
 
 #[test]
