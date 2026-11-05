@@ -16,18 +16,22 @@ use std::{
 /// Maps are never used to establish reusable arithmetic identity.
 #[derive(Clone, Debug)]
 pub struct SourceBindings {
+    attribution: ExecutionAttribution,
+    source: Weak<PreparedBodyData>,
+}
+
+/// Immutable diagnostic context for an already checked numerical product.
+/// This contains no source witness, execution permission or mutable worker state.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExecutionAttribution {
     instance: SemanticId,
     checked_members: Arc<BTreeMap<SemanticId, SemanticId>>,
     checked_sources: Arc<BTreeMap<SemanticId, SemanticId>>,
     occurrences: Arc<BTreeMap<SemanticId, SourceLocation>>,
-    source: Weak<PreparedBodyData>,
 }
 impl PartialEq for SourceBindings {
     fn eq(&self, other: &Self) -> bool {
-        self.instance == other.instance
-            && self.checked_members == other.checked_members
-            && self.checked_sources == other.checked_sources
-            && self.occurrences == other.occurrences
+        self.attribution == other.attribution
     }
 }
 impl SourceBindings {
@@ -47,10 +51,12 @@ impl SourceBindings {
             &occurrences,
         )?;
         Ok(Self {
-            instance,
-            checked_members: Arc::new(checked_members),
-            checked_sources: Arc::new(checked_sources),
-            occurrences: Arc::new(occurrences),
+            attribution: ExecutionAttribution {
+                instance,
+                checked_members: Arc::new(checked_members),
+                checked_sources: Arc::new(checked_sources),
+                occurrences: Arc::new(occurrences),
+            },
             source: Arc::downgrade(&body.data),
         })
     }
@@ -90,19 +96,19 @@ impl SourceBindings {
     }
     /// Actual current instance, never an anonymous default.
     pub fn instance(&self) -> SemanticId {
-        self.instance
+        self.attribution.instance()
     }
     /// Actual current checked-member mapping, without transferring admission authority.
     pub fn checked_members(&self) -> &BTreeMap<SemanticId, SemanticId> {
-        &self.checked_members
+        self.attribution.checked_members()
     }
     /// Actual current closure-source mapping, separate from checked members.
     pub fn checked_sources(&self) -> &BTreeMap<SemanticId, SemanticId> {
-        &self.checked_sources
+        self.attribution.checked_sources()
     }
     /// Complete current occurrence DTOs for explicit transport and receiving validation.
     pub fn occurrences(&self) -> &BTreeMap<SemanticId, SourceLocation> {
-        &self.occurrences
+        self.attribution.occurrences()
     }
     /// Refuse bindings issued for an unrelated admitted body.
     pub fn check(&self, body: &PreparedBody) -> Result<(), MathError> {
@@ -145,6 +151,51 @@ impl SourceBindings {
         }
     }
     /// Own the current diagnostic projection without changing or globally rewriting its cause.
+    pub fn project(&self, cause: MathError) -> MathError {
+        self.attribution.project(cause)
+    }
+    /// Issue passive execution attribution only for this checked compiled source.
+    /// The caller must separately bind any delegated use to its admitted attempt.
+    pub fn execution_attribution(
+        &self,
+        body: &CompiledBody,
+    ) -> Result<ExecutionAttribution, MathError> {
+        self.check_compiled(body)?;
+        Ok(self.attribution.clone())
+    }
+    /// Conservative retained extent, including the original weak-source handle.
+    pub fn retained_bytes(&self) -> usize {
+        self.attribution
+            .retained_bytes()
+            .saturating_add(size_of::<Self>() - size_of::<ExecutionAttribution>())
+    }
+    /// Frame complete current attribution without conferring source authority.
+    pub fn frame(&self, hash: &mut FramedHasher) {
+        self.attribution.frame(hash);
+    }
+    pub(crate) fn evaluation_error(&self, error: MathError) -> MathError {
+        self.attribution.evaluation_error(error)
+    }
+}
+
+impl ExecutionAttribution {
+    /// Original instance whose diagnostic coordinates these maps describe.
+    pub fn instance(&self) -> SemanticId {
+        self.instance
+    }
+    /// Checked-member mapping, distinct from the closure-source mapping.
+    pub fn checked_members(&self) -> &BTreeMap<SemanticId, SemanticId> {
+        &self.checked_members
+    }
+    /// Original closure-source mapping.
+    pub fn checked_sources(&self) -> &BTreeMap<SemanticId, SemanticId> {
+        &self.checked_sources
+    }
+    /// Complete original occurrence locations.
+    pub fn occurrences(&self) -> &BTreeMap<SemanticId, SourceLocation> {
+        &self.occurrences
+    }
+    /// Preserve the original cause while projecting its diagnostic coordinates.
     pub fn project(&self, cause: MathError) -> MathError {
         MathError::Instance {
             instance: self.instance,
@@ -270,13 +321,13 @@ impl SourceBody {
     pub(crate) fn worker(&self) -> SourceWorker {
         SourceWorker {
             worker: self.compiled.worker(),
-            bindings: self.bindings.clone(),
+            attribution: self.bindings.attribution.clone(),
         }
     }
     pub(crate) fn worker_scoped(&self, scope: ExecutionScope) -> SourceWorker {
         SourceWorker {
             worker: self.compiled.worker_scoped(scope),
-            bindings: self.bindings.clone(),
+            attribution: self.bindings.attribution.clone(),
         }
     }
 }
@@ -291,7 +342,7 @@ impl Deref for SourceBody {
 #[derive(Debug)]
 pub(crate) struct SourceWorker {
     worker: Worker,
-    bindings: SourceBindings,
+    attribution: ExecutionAttribution,
 }
 impl Deref for SourceWorker {
     type Target = Worker;
@@ -311,7 +362,7 @@ impl SourceWorker {
     ) -> Result<(), MathError> {
         self.worker
             .prepare_providers(providers)
-            .map_err(|error| self.bindings.evaluation_error(error))
+            .map_err(|error| self.attribution.evaluation_error(error))
     }
     pub(crate) fn evaluate(
         &mut self,
@@ -322,7 +373,7 @@ impl SourceWorker {
     ) -> Result<Evaluation, MathError> {
         self.worker
             .evaluate(inputs, order, providers, cancel)
-            .map_err(|error| self.bindings.evaluation_error(error))
+            .map_err(|error| self.attribution.evaluation_error(error))
     }
     pub(crate) fn evaluate_trial_into(
         &mut self,
@@ -334,7 +385,7 @@ impl SourceWorker {
     ) -> Result<(), MathError> {
         self.worker
             .evaluate_trial_into(inputs, order, providers, cancel, result)
-            .map_err(|error| self.bindings.evaluation_error(error))
+            .map_err(|error| self.attribution.evaluation_error(error))
     }
     pub(crate) fn evaluate_product_trial_into(
         &mut self,
@@ -347,7 +398,7 @@ impl SourceWorker {
     ) -> Result<(), MathError> {
         self.worker
             .evaluate_product_trial_into(inputs, values, providers, cancel, output, trial)
-            .map_err(|error| self.bindings.evaluation_error(error))
+            .map_err(|error| self.attribution.evaluation_error(error))
     }
 }
 

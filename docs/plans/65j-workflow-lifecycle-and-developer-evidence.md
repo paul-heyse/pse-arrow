@@ -558,6 +558,51 @@ outside the retired checkouts. Checkout-local tools/build outputs are retired; o
 outcomes and incomplete/unavailable custody observations are unchanged. This administrative
 cleanup does not qualify J04 expiry, active-reader retention, release or interruption behavior.
 
+### Original-file directory delivery
+
+Integrated foundation `9f5a8aaa6` and directory consumer `32f1094bc` on main. Native
+`OpenedReport`/`OpenedFile` retain authenticated descriptors and original ordinal, role, extent,
+digest and omission meaning. Range reads use borrowed descriptors without a shared seek cursor;
+before/after identity and complete digest checks refuse in-place mutation/growth. Replacement
+and unlink do not substitute a different inode. These are protected reads, not atomic snapshots;
+`atomic_snapshot` remains false and no disposal lease is inferred.
+
+The [descriptor owner](../../crates/pse-host/src/artifacts/descriptor.rs) uses
+[`rustix::fs::openat`](https://docs.rs/rustix/1.1.5/rustix/fs/fn.openat.html) with `NOFOLLOW`
+and `NONBLOCK`, followed by `fstat`, so a raced FIFO cannot block acquisition. Native layout is
+fixed: `manifest.pb`, `descriptor.bin`, `members/<ordinal>`. Paths decoded from a manifest
+cannot choose output locations. A pinned root/member-directory pair and an exact member set
+preserve the original closure; omission never grants bytes that appear later.
+
+The shared [publisher](../../crates/pse-host/src/invocation.rs) stages private files
+beside the destination, synchronizes members/directories, writes the manifest last, publishes
+with `renameat_with(NOREPLACE)`, then synchronizes the parent. Collision leaves the existing
+destination untouched. A failed final parent sync is `PublicationDurabilityUnknown`, retaining
+the visible publication and original error; operation and cleanup failures remain distinct.
+
+The generated manifest nests the existing named report plus `OriginalFullV1` profile intent.
+It contains no second member metadata/paths/verdict hierarchy. Shared role/content validation
+serves compact, native retained and directory readback directly. Compact remains bounded at
+64 MiB with no automatic fallback; explicit directory export handles larger original files.
+Compact materializes and hashes once; retained acquisition verifies every selected descriptor.
+CLI export selects the profile explicitly and offline inspection reads bounded member ranges
+after native custody and the original export pathname are gone. Decoding remains passive.
+
+**Tested in the isolated implementation**, pinned toolchain, configured unbounded/cache-off
+mode and zero failure baseline: `scripts/pse check pse-host --all-targets` and
+`scripts/pse check xtask --all-targets --features host-contracts` completed with zero errors or
+warnings; selected host directory/role/report/CLI/publisher/descriptor/schema controls passed
+97/97 and generator/dispatch controls 4/4. Controls include a real 65 MiB file, moved offline
+readback, Input/inventory/population counterexamples, mutation/missing/extra/symlink/FIFO members,
+collision/interrupted prefix, durability and cleanup failures. `just codegen` completed fourteen
+targets with the retained Recipe accessor warning. Receiving-main
+`scripts/pse test pse-host --lib --profile local` with the directory/evidence/report/CLI,
+descriptor/publisher and schema selection also passed **97/97**, zero failures or incomplete
+records, with original capture and settlement complete in the same unbounded/cache-off mode.
+The fully merged, clean implementation worktree was then removed; original invocation evidence
+remains outside it. These checks do not close J03 readiness, J05 full workflow population or H
+qualification.
+
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.
 - [Report reconciliation](../../crates/pse-host/src/managed/workflow.rs) and

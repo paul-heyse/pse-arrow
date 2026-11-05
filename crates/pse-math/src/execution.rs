@@ -5,7 +5,7 @@
 #[path = "source_bindings.rs"]
 mod source_bindings;
 pub(crate) use source_bindings::SourceWorker;
-pub use source_bindings::{SourceBindings, SourceBody};
+pub use source_bindings::{ExecutionAttribution, SourceBindings, SourceBody};
 
 use crate::{
     MathError,
