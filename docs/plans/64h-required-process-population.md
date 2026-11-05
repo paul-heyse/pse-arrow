@@ -4748,6 +4748,64 @@ remaining valid/refused flags and phase/end choices, physical potential-
 energy disposition, independent component/dynamic and radial-refinement
 qualification remain required. Source/AST inspection ran no equipment model.
 
+## Waterwall and steam-heater material/thermal closure — 2026-11-05
+
+**Interface-checked, source only:** C `power_generation/unit_models/
+{waterwall_section,steamheater}.py` and `tests/{test_waterwall,
+test_steamheater}.py` resolve two imposed-furnace-duty consumers. They
+require IAPWS95 default mixed property/transport/latent products and its
+independent external functions, plus inline material/geometry/boiling
+correlations. No local experiment file, trainer or saved-state input is read.
+Fireside duty is a supplied boundary, not a solved fuel/combustion/radiation
+model. These inputs differ from the recirculation/full-boiler zone tables
+above and remain distinct selections.
+
+| Owner | Configurations and actual consumer specification |
+|---|---|
+| WaterwallSection | Inherited dynamics, explicit holdup defaultFalse; componentPhase/enthalpyTotal/pressureTotal; heat/pressure flags defaultFalse. It uses both Liq/Vap density/viscosity and latent heat even with no explicit phase-equilibrium calculation. rigorous_boiling=False omits the Martinelli enhancement contribution; True adds a positive-vapor conditional expression and auxiliary variable. It is **not** a heat-of-reaction switch despite its copied configuration description. Both branches and their physical domains remain required; the ten-zone test selectsFalse. |
+| Ten-zone fixture | Ten connected steady/no-holdup sections, heat/pressureTrue. Each has610 tubes,inner diameter .047 m,metal thickness .0035 m,fin thickness .00455 m,fin length .0115 m,slag .001 m and pressure correction1.2. Heights[6.15,3.15,1.5,1.45,1.35,1.25,1.15,1.35,3.25,3.45] m; projected areas[320,150.3,70.8,70,58.6,58.6,50.1,65.6,145.6,165.5] m2. Duties[23,15,6.9,12,12,12,11,9.9,22,19] MW, total142.8 MW; these are thermal powers, not flux densities. First inlet150055 mol/s,h31000 J/mol,P17.5 MPa; remaining inlets are connected/initialized sequentially. |
+| Waterwall source products | Optimal assembled solve/zero DOF, outlet flow150055 mol/s,h31951.65106 J/mol, vapor fraction .08353, each abs.001; original total heat versus enthalpy-flow rise and mass residual controls. It does not assert every zone pressure, temperature, slag/metal temperature or boiling-factor value, and its units test is commented out. Full local outputs and dimensions remain required despite matching the endpoint. |
+| SteamHeater | Inherited dynamics/holdup, componentPhase/enthalpyTotal/pressureTotal; heat/pressure flags defaultFalse. single_side_only defaultsTrue, False changes exposed perimeter/duty-to-flux geometry; no automatic roof/platen selection follows from a label. Uses vapor convection/friction, not the waterwall boiling law. Selected fixture is steady/holdupTrue, heat/pressureTrue, **single-sideTrue** despite being described as platen. The alternative double-sided configuration remains required. |
+| Steam-heater fixture |200 tubes,inner diameter .035 m,thickness .005 m,fin .0035 m×.00966 m,length40 m,slag .001 m,slag conductivity1.3 W/(m K),imposed duty55 MW. Feed24194.177 mol/s,P24790249.01 Pa,h from IAPWS at798.15 K/same pressure. The heat is fixed, not just an initializer guess. Targets deltaP−282158.4020 Pa(rel1e-5),h rise2273.2742 J/mol(abs.001),Tout835.7582 K(abs.001), original mass closure and optimal termination. |
+
+Waterwall metal/slag conductivity is43/1.3 W/(m K),Cp500/250 J/(kg K),
+density7800/2550 kg/m3,shape factors metal .7718/slag .6858/convection
+.8496. SteamHeater uses the same metal conductivity/Cp and material
+densities but metal/slag shape factors1/1; slag conductivity is a variable
+fixed by the consumer. Geometry/shape-factor inputs govern thermal
+resistance and per-length inventories, so their different values cannot be
+merged merely because material labels agree. Original coefficient/material
+provenance and declared units/envelopes remain ordinary-source work.
+
+Both models author separate metal and slag energy holdup per tube length
+and dynamic derivatives when dynamic=True, alongside fluid CV storage.
+Steady has_holdup settings do not execute those derivative equations.
+Initial-condition helpers fix initial accumulations0; a consistent initialized
+fluid/metal/slag state and step trajectory remain independent required
+evidence. A time-varying slag thickness is an imposed geometric input unless
+an actual deposition/removal equation is authored; no fouling kinetics is
+provided by the thickness variable itself.
+
+Waterwall pool boiling uses log10(reduced pressure) and fractional powers,
+latent heat, positive heat flux and liquid/vapor terms; its actual domain
+must exclude invalid critical/supercritical, zero-flow and dry-limit
+evaluation where required. rigorous_boiling adds conditional fractional
+vapor/liquid terms that need derivative and boundary controls. Tube/fin/slag
+geometry has inverse lengths and angle expressions requiring physical
+thickness/radius limits. Steam single-side/double-side flags change the
+actual projected-area/perimeter relation; preserve supplied total-duty versus
+flux semantics in native correspondence. Changing heat/pressure/balance
+flags still requires checking specialized unconditional equations and property
+availability, not declaring every enum/Boolean combination admissible.
+
+Native F02/E03 requires full fluid/metal/slag products and energy accounts,
+selected boiling/convection/hydraulic law, material/geometry provenance,
+original boundary/conservation checks and consistent dynamic inventories.
+Unselected rigorous-boiling/double-sided and inherited configurations,
+physical-domain/refusal controls, ordinary data and independent complete
+component/dynamic/derivative qualification remain required. Only source/AST
+inspection ran; no thermal unit or solver was executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

@@ -569,6 +569,14 @@ level domains, turbulent-only friction and hydraulic/energy boundary limits
 remain explicit. Ordinary material data, remaining flag/phase controls and
 complete independent fluid/wall/dynamic qualification remain required.
 
+**Update, 2026-11-05 — waterwall/steam-heater census:** the
+[thermal-material closure](64h-required-process-population.md#waterwall-and-steam-heater-materialthermal-closure--2026-11-05)
+resolves the actual ten-zone142.8 MW case and single-sided55 MW steam
+heater, material/slag/fin inputs, boiling selector and separate solid/fluid
+storage. Endpoint targets do not qualify all wall/boiling outputs; unselected
+rigorous/double-sided branches, ordinary data and full independent dynamic/
+derivative qualification remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
