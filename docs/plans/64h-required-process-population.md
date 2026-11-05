@@ -5384,6 +5384,88 @@ full source-unit reconciliation and exact environment compatibility remain
 required alongside independent cell/property/design/operation/derivative
 qualification. Only source inspection ran;no SOEC model was executed.
 
+## Archived rSOFC electrolysis-mode and local CPU closure — 2026-11-05
+
+**Interface-checked, source only:** X `archive/power_gen/rsofc/
+{rsofc_soec_src.ipynb,rsofc_soec_flowsheet.py,cpu.py,
+cpu_surrogate_methods.py,rsofc_costing.py}` is an **electrolysis-mode**
+plant selection despite the family name. The notebook does not construct
+both reversible operating modes. Uncalled SOFC costing functions do not
+establish a fuel-cell physical case. Required native SOC/power capability
+remains broad;archive entry-point adoption stays conditional with A01.
+
+The steady plant uses IDEAL9-species combustion gas with four hydrocarbon
+combustion reactions,IDEAL H2/H2O fuel,IDEAL5-species air,PR pure-H2
+compression,PR5-species VLE and IAPWS steam. The physical cell has10 axial
+elements,one transverse element per electrode/electrolyte,holdupTrue,
+temperature-x thermodynamicsTrue,contact resistanceFalse and3.22e6 cells.
+Hard-coded air_sweepTrue selects air5 rather than the unexposed oxygen/
+steam code branch. Cell geometry/material/kinetic values match the combined
+plant table above (.002 m channels,oxygen density3030/conductivity5.84,
+fuel exponents1/1,oxygen .5);this differs from standalone SOEC. Steady
+holdupTrue does not supply a dynamic electrolysis trajectory.
+
+Cold construction selects combustion1500 K and steam1023.15 K. Natural
+gas1000 mol/s,330 K,104000 Pa,CH4/C2H6/C3H8/C4H10/CO2/N2
+.931/.032/.007/.004/.01/.016,zero O2/H2O/Ar. ASU feed12000 mol/s,
+288.15 K,101325 Pa;cell air5600 mol/s,same T/P,air fractions
+O2/H2O/CO2/N2/Ar .2074/.0099/.0003/.7732/.0092.
+Steam pump feed5600 mol/s,h from288.75 K/101325 Pa;outlet110000 Pa,
+efficiency .8. Air compressors actual outlet111422/130686 Pa,efficiency
+.84,intercoolers310.93 K/deltaP−3447 Pa:their copied psi comments do
+not define these actual pressure values. Cell air blower110000 Pa/efficiency
+.8. HX U100 W/(m2 K),selected pinch differences oxygen/NG10 K,first
+air50 K;second air outlet1023.15 K,preheater flue split .7 to oxygen.
+Fuel/air outlet split .98/.9999;main steam split .9999 to fuel side.
+H2 compressor stages1–3 ratio2.828,efficiency .85,intercoolers
+298.15/303.15/303.15 K,stage4 outlet6479000 Pa/efficiency .85.
+Three HRSG outlets405 K,condenser310.9 K,adiabatic flash101325 Pa.
+
+The full plant's fixed/free state depends on the default existing snapshot
+`rsofc_soec_surrogate_init.json.gz`:format4,rootunknown,2022-11-10.
+If present,get_model constructs declarations and restores it without a
+fresh solve or set_inputs call. If absent,it initializes plant and balance
+of plant,including temporary5600 mol/s/1023.15 K/101325 Pa cell
+feeds,fuel .9 water/.1 H2 and air above,then saves. These seeded cell
+feeds/recycles are initialization roles;final feed/steam/oxygen/free
+decisions come from connected constraints and the selected optimization.
+Default solver Ipopt/MA27,tol1e-7,max200,bound_push1e-12;source
+relaxes mole-fraction lower bounds1e-20→0 and shifts zero initial values
+to1e-10,which is not permission to replace physical zero boundary inputs.
+
+| Selected callable | Finite scientific roles and source checks |
+|---|---|
+| Notebook/base_case_optimization | Fix H2 product2.5 kmol/s;source mass conversion uses .002 kg/mol,so reported5 kg/s is an assumed molar-mass convention. Minimize100×variable O&M per H2 mass rate. Free combustor outlet1100..2000 K,steam/second-air-heater outlet≤1023.15 K,four HX pinch differences≥10 K,excess O2=1.01..1.2,condenserT,feedwater/air100..8000 mol/s,fuel split-out .5...98,preheater O2 split .30...99,potential .50..2.40 V. CO2 capture≥.98,cell outlet O2≤.35,single-pass conversion≥.5,fuel-outlet water≥.2,average current≥−8000 A/m2,both cell outlets≤1030.15 K,four inlet/outlet temperature differences≤40 K. Ipopt/MA57,tol1e-4,max500;no retained numerical optimum,termination or conservation assertion follows the solve. |
+| base_case_simulation | Separate uncalled helper fixes2500 mol/s H2 and frees feedwater,then solves MA27/tol1e-7/max200 without the design optimization above. No independent output target;do not infer simulation acceptance from notebook optimization. |
+| optimize_model | Uncalled helper retains a different selection:feedwater/air1000..7000 mol/s,potential1.00..1.40 V,same main thermal/conversion limits;16 evenly spaced product rates2.5.. .625 kmol/s(step .125). Writes status and result rows to `opt_res_soec.csv` for each solve with MA57/tol1e-4/max150,including unsuccessful results. This generated table is not bundled input/training data and cannot be counted as16 qualified cases. |
+
+Local CPU is not the released CarbonProcessingUnit declaration. AST call
+census finds19 active inline surrogate functions of flow/composition,
+including a separate refrigeration-duty function;27 helper functions exist,
+so8 declarations are unused by this consumer. Total/component balances
+close other product flows. Its exposed inlet T/P are not regression input
+arguments. Local helpers distinguish Ar/CO2/H2O/O2/N2 composition
+coordinates and fixed-zero outputs;their fitted envelopes,coefficient
+provenance and full output/derivative checks remain required rather than
+assuming release-CPU numerical identity. No raw training campaign or
+external coefficient file is read by these local fits.
+
+Selected variable-cost helper uses2018 currency,electricity30 USD/MWh,
+gas HHV908839.23 J/mol,water molar mass18.015 g/mol/density .997 g/cm3,
+treatment .00297886 lb/gallon;gas/water/treatment prices inherit pinned
+QGESS defaults4.42 USD/MBtu,.0019 USD/gallon,550 USD/ton. The
+notebook builds no capital/fixed-O&M cost demand merely by importing their
+functions. QGESS account JSON and inline assessment assumptions remain
+reference inputs with separate ordinary provenance/admission obligations.
+
+Native F02/G06 requires actual electrolysis topology,property and local CPU
+formulations,coordinate units,gas/steam/oxygen/capture boundaries,consistent
+fixed/free roles and inventories,original material/energy/element accounts
+and cost conventions. Snapshot compatibility,unselected physical modes,
+source-fit envelopes,ordinary material/cost data and complete independent
+SOC/property/optimization/derivative qualification remain required. Only
+source/AST/gzip inspection ran;no archived plant or solver executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

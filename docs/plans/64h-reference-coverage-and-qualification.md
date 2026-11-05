@@ -637,6 +637,14 @@ branch. Default initialization versus explicit snapshot loading,actual free
 roles and cost conventions remain explicit. Ordinary provenance,full physical
 energy/element/optimality controls and complete qualification remain open.
 
+**Update, 2026-11-05 — archived rSOFC electrolysis census:** the
+[mode/local-CPU closure](64h-required-process-population.md#archived-rsofc-electrolysis-mode-and-local-cpu-closure--2026-11-05)
+resolves actual electrolysis-mode properties,3.22-million-cell holdup,
+snapshot-dependent fixed state,base5 kg/s optimization and distinct16-rate
+helper. Local CPU's19 active fits and cost assumptions differ from assuming
+released model identity. Other physical modes,ordinary fit/material/cost
+provenance and full independent physics/optimization qualification remain open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
