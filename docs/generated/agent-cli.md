@@ -12,6 +12,7 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  qualify-study      Run the fixed original Study coordinator in this application scope using prepared images
   search             Find source, text, Rust entities and relationships through one typed query
   inspect            Inspect a known source or an addressed search result without preparation
   propose            Construct a checked change preview from an exact guarded result
@@ -70,6 +71,79 @@ Options:
 
       --version
 
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse qualify-study`
+
+~~~~text
+Run the fixed original Study coordinator in this application scope using prepared images
+
+Usage: pse qualify-study [OPTIONS] --root <ROOT> --runtime-build <RUNTIME_BUILD> --canonical-build <CANONICAL_BUILD> --module-receipt <MODULE_RECEIPT> --worker-allocation <WORKER_ALLOCATION> --work-directory <WORK_DIRECTORY>
+
+Options:
+  -C <checkout>
+
+
+      --root <ROOT>
+          Original checkout whose native manager authenticates the selected work
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --runtime-build <RUNTIME_BUILD>
+          Completed native BuildCapture containing keeper, frontend and pse-worker
+
+      --canonical-build <CANONICAL_BUILD>
+          Completed native BuildCapture containing pse-canonical-service
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --module-receipt <MODULE_RECEIPT>
+          Existing explicitly prepared production module receipt
+
+      --worker-allocation <WORKER_ALLOCATION>
+          Original validated native scientific allocation; the keeper revalidates it
+
+      --work-directory <WORK_DIRECTORY>
+          Fresh absolute private diagnostic directory, created only by the coordinator
+
+      --startup-ms <STARTUP_MS>
+          Startup observation allowance in milliseconds
+
+          [default: 120000]
+
+      --phase-ms <PHASE_MS>
+          Observation allowance for each original client phase, including source build
+
+          [default: 600000]
+
+      --shutdown-ms <SHUTDOWN_MS>
+          Original independent shutdown/drain observation allowance
+
+          [default: 90000]
+
+      --cache <CACHE>
+          Select the same compiler-cache context as the explicitly prepared native generation
+
+          [default: auto]
+          [possible values: auto, on, off]
 
   -h, --help
           Print help (see a summary with '-h')

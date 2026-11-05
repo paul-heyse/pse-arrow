@@ -124,6 +124,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-host/src/envelope/validation.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-host/src/investigation/config.rs",
           "kind": "file"
         },
@@ -133,6 +137,10 @@
         },
         {
           "path": "crates/pse-host/src/semantic.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/semantic/rpc_failure.rs",
           "kind": "file"
         },
         {
@@ -948,6 +956,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-host/src/envelope/validation.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-host/src/investigation/config.rs",
           "kind": "file"
         },
@@ -957,6 +969,10 @@
         },
         {
           "path": "crates/pse-host/src/semantic.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/semantic/rpc_failure.rs",
           "kind": "file"
         },
         {
