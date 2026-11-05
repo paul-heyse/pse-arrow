@@ -16,12 +16,69 @@ use sha2::{Digest as _, Sha256};
 use std::{
     collections::BTreeSet,
     fmt,
-    io::{Read as _, Seek as _, Write as _},
+    io::{Seek as _, Write as _},
     path::PathBuf,
     process::{Command, Stdio},
     sync::Arc,
     time::{Duration, Instant},
 };
+
+const DEFAULT_INPUT_BYTES: usize = crate::developer_evidence::MAX_INPUT_BYTES;
+
+/// Request-owned byte and binary decode allowances, independent of presentation.
+#[derive(Clone, Copy, Debug, ClapArgs, Serialize, JsonSchema)]
+pub struct Admission {
+    /// Maximum complete original descriptor artifact bytes.
+    #[arg(long, default_value_t = super::DEFAULT_DESCRIPTOR_BYTES)]
+    pub max_descriptor_bytes: usize,
+    /// Maximum complete original payload bytes, in the selected input grammar.
+    #[arg(long, default_value_t = DEFAULT_INPUT_BYTES)]
+    pub max_input_bytes: usize,
+    /// Maximum binary output bytes collected from textproto conversion.
+    #[arg(long, default_value_t = DEFAULT_INPUT_BYTES)]
+    pub max_converted_bytes: usize,
+    /// Maximum materialized element bytes per descriptor or payload binary decode.
+    #[arg(long, default_value_t = buffa::DecodeOptions::new().element_memory_limit())]
+    pub max_binary_element_bytes: usize,
+    /// Maximum nested messages per descriptor or payload binary decode.
+    #[arg(long, default_value_t = buffa::DecodeOptions::new().recursion_limit())]
+    pub binary_recursion_limit: u32,
+}
+impl Default for Admission {
+    fn default() -> Self {
+        Self {
+            max_descriptor_bytes: super::DEFAULT_DESCRIPTOR_BYTES,
+            max_input_bytes: DEFAULT_INPUT_BYTES,
+            max_converted_bytes: DEFAULT_INPUT_BYTES,
+            max_binary_element_bytes: buffa::DecodeOptions::new().element_memory_limit(),
+            binary_recursion_limit: buffa::DecodeOptions::new().recursion_limit(),
+        }
+    }
+}
+impl Admission {
+    fn validate(self) -> Result<(), SchemaError> {
+        let maximum = buffa::DecodeOptions::new().max_message_size();
+        if [
+            self.max_descriptor_bytes,
+            self.max_input_bytes,
+            self.max_converted_bytes,
+        ]
+        .into_iter()
+        .any(|bytes| bytes > maximum)
+        {
+            return Err(SchemaError::Invalid(format!(
+                "input byte allowances must not exceed the pinned binary codec maximum of {maximum}"
+            )));
+        }
+        Ok(())
+    }
+    fn binary_options(self, maximum: usize) -> buffa::DecodeOptions {
+        buffa::DecodeOptions::new()
+            .with_max_message_size(maximum)
+            .with_element_memory_limit(self.max_binary_element_bytes)
+            .with_recursion_limit(self.binary_recursion_limit)
+    }
+}
 
 /// Interpretation grammar, never inferred from a filename.
 #[derive(Clone, Copy, Debug, ValueEnum, Serialize, JsonSchema)]
@@ -37,6 +94,9 @@ pub enum Encoding {
 /// Explicit passive payload inspection.
 #[derive(Debug, ClapArgs)]
 pub struct Args {
+    /// Explicit byte/decode admission, separate from preview expansion.
+    #[command(flatten)]
+    pub admission: Admission,
     /// Complete descriptor-set artifact.
     #[arg(long)]
     pub descriptor: PathBuf,
@@ -166,6 +226,10 @@ pub struct Unknown {
 /// Payload interpretation with mandatory original identities and coverage.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct Report {
+    /// Effective request allowances; captured evidence also retains its family byte cap.
+    pub admission: Admission,
+    /// Binary payload allowances apply to binary and converted textproto, not JSON parsing.
+    pub binary_payload_limits_applied: bool,
     /// Selected descriptor artifact path.
     pub descriptor: NativePath,
     /// Identity of the complete original descriptor bytes.
@@ -201,39 +265,59 @@ pub struct Report {
 
 /// Read selected artifacts once, decode passively and preserve their identities.
 pub fn inspect(args: &Args) -> Result<Report, SchemaError> {
+    args.admission.validate()?;
     if args.limit == 0 || args.depth > 64 {
         return Err(SchemaError::Invalid(
             "payload limit must be positive and display depth at most 64".into(),
         ));
     }
-    let bundle = Bundle::load(&args.descriptor)?;
+    let bundle = Bundle::load_bounded(
+        &args.descriptor,
+        args.admission.max_descriptor_bytes,
+        &args
+            .admission
+            .binary_options(args.admission.max_descriptor_bytes),
+    )?;
     inspect_bundle(args, &bundle)
 }
 
 fn inspect_bundle(args: &Args, bundle: &Bundle) -> Result<Report, SchemaError> {
+    args.admission.validate()?;
     let input_path = std::fs::canonicalize(&args.input)?;
     let captured_evidence = matches!(
         args.message.as_str(),
         "pse.developer.evidence.v1.CapturedWorkflowReport"
             | "pse.developer.evidence.v1.CapturedWorkflowEvidence"
     );
-    let input = if captured_evidence {
-        let mut bytes = Vec::new();
-        std::fs::File::open(&input_path)?
-            .take((crate::developer_evidence::MAX_INPUT_BYTES + 1) as u64)
-            .read_to_end(&mut bytes)?;
-        if bytes.len() > crate::developer_evidence::MAX_INPUT_BYTES {
-            return Err(SchemaError::DeveloperEvidence(Box::new(
+    let mut admission = args.admission;
+    if captured_evidence {
+        admission.max_input_bytes = admission
+            .max_input_bytes
+            .min(crate::developer_evidence::MAX_INPUT_BYTES);
+        admission.max_converted_bytes = admission
+            .max_converted_bytes
+            .min(crate::developer_evidence::MAX_INPUT_BYTES);
+    }
+    let input = super::read_bounded(
+        std::fs::File::open(&input_path)?,
+        admission.max_input_bytes,
+        "payload",
+    )
+    .map_err(|error| match error {
+        SchemaError::InputLimit {
+            maximum,
+            observed_at_least,
+            ..
+        } if captured_evidence && maximum == crate::developer_evidence::MAX_INPUT_BYTES => {
+            SchemaError::DeveloperEvidence(Box::new(
                 crate::developer_evidence::EvidenceError::InputLimit {
-                    observed_at_least: bytes.len(),
-                    maximum: crate::developer_evidence::MAX_INPUT_BYTES,
+                    maximum,
+                    observed_at_least,
                 },
-            )));
+            ))
         }
-        bytes
-    } else {
-        std::fs::read(&input_path)?
-    };
+        error => error,
+    })?;
     let index = bundle.pool.message_index(&args.message).ok_or_else(|| {
         SchemaError::Invalid(format!(
             "message absent from selected descriptor: {}",
@@ -249,9 +333,46 @@ fn inspect_bundle(args: &Args, bundle: &Bundle) -> Result<Report, SchemaError> {
         }
     }
     let (wire, parser_diagnostics) = if matches!(args.encoding, Encoding::Textproto) {
-        text_wire(&bundle, &args.message, &input)?
+        text_wire(
+            &bundle,
+            &args.message,
+            &input,
+            admission.max_converted_bytes,
+        )?
     } else {
         (input.clone(), String::new())
+    };
+    let options = admission.binary_options(if matches!(args.encoding, Encoding::Textproto) {
+        admission.max_converted_bytes
+    } else {
+        admission.max_input_bytes
+    });
+    let static_value = if let Some(world) = compiled_world {
+        compiled(
+            world,
+            &args.message,
+            &wire,
+            args.encoding,
+            args.depth,
+            args.limit,
+            &options,
+        )?
+    } else {
+        None
+    };
+    let (preview, mut validation, representation) = if let Some((preview, validation)) =
+        static_value
+    {
+        (preview, validation, "generated_static")
+    } else {
+        let value = if matches!(args.encoding, Encoding::Json) {
+            let json = std::str::from_utf8(&wire)
+                .map_err(|error| SchemaError::Decode(error.to_string()))?;
+            DynamicMessage::from_json(Arc::clone(&bundle.pool), index, json)?
+        } else {
+            DynamicMessage::decode_with_options(Arc::clone(&bundle.pool), index, &wire, &options)?
+        };
+        (message_preview(&value, args.depth, args.limit), Validation { state: "not_evaluated".into(), diagnostics: vec!["Arbitrary acquired schemas have no compiled validator; constraints are metadata, not an established valid payload.".into()], correction: None }, "acquired_dynamic")
     };
     let (developer_evidence, developer_evidence_refusal) =
         if captured_evidence && !matches!(args.encoding, Encoding::Json) {
@@ -272,43 +393,16 @@ fn inspect_bundle(args: &Args, bundle: &Bundle) -> Result<Report, SchemaError> {
         } else {
             (None, None)
         };
-    let static_value = if let Some(world) = compiled_world {
-        compiled(
-            world,
-            &args.message,
-            &wire,
-            args.encoding,
-            args.depth,
-            args.limit,
-        )?
-    } else {
-        None
-    };
-    let (preview, mut validation, representation) = if let Some((preview, validation)) =
-        static_value
-    {
-        (preview, validation, "generated_static")
-    } else {
-        let value = if matches!(args.encoding, Encoding::Json) {
-            let json =
-                std::str::from_utf8(&wire).map_err(|e| SchemaError::Decode(e.to_string()))?;
-            DynamicMessage::from_json(Arc::clone(&bundle.pool), index, json)
-                .map_err(|e| SchemaError::Decode(e.to_string()))?
-        } else {
-            DynamicMessage::decode(Arc::clone(&bundle.pool), index, &wire)
-                .map_err(|e| SchemaError::Decode(e.to_string()))?
-        };
-        (message_preview(&value, args.depth, args.limit), Validation { state: "not_evaluated".into(), diagnostics: vec!["Arbitrary acquired schemas have no compiled validator; constraints are metadata, not an established valid payload.".into()], correction: None }, "acquired_dynamic")
-    };
     if let Some(correction) = &mut validation.correction {
         correction.disclosure.descriptor_sha256 = Some(bundle.digest.clone());
     }
     Ok(Report {
+        admission, binary_payload_limits_applied: !matches!(args.encoding, Encoding::Json),
         descriptor: bundle.path.clone().into(), descriptor_sha256: bundle.digest.clone(),
         input: input_path.into(), payload_sha256: Sha256::digest(&input).iter().map(|byte| format!("{byte:02x}")).collect(), payload_bytes: input.len(),
         original_base64: args.original.then(|| STANDARD.encode(&input)), message: args.message.clone(), encoding: args.encoding,
         representation: representation.into(), validation, developer_evidence, developer_evidence_refusal, preview, parser_diagnostics,
-        limitations: vec!["Successful decoding does not establish semantic validity. Re-encoding does not preserve original byte identity or wire ordering.".into(), "Presence follows protobuf semantics; implicit scalar default and absence may be indistinguishable. Display limits do not limit decode coverage.".into(), "Any resolves only within the selected descriptor closure; nested payload bytes remain bytes. Original path/digest does not guarantee future availability; --original includes exact input.".into()],
+        limitations: vec!["Successful decoding does not establish semantic validity. Re-encoding does not preserve original byte identity or wire ordering.".into(), "Presence follows protobuf semantics; implicit scalar default and absence may be indistinguishable. Display limits do not limit decode coverage.".into(), "Any resolves only within the selected descriptor closure; nested payload bytes remain bytes. Original path/digest does not guarantee future availability; --original includes exact input.".into(), "Byte admission bounds complete original and converted inputs. Binary element/recursion limits apply per decode, including descriptors; they do not account complete JSON parsing, descriptor linking, cumulative operation heap or process memory.".into()],
     })
 }
 
@@ -319,33 +413,34 @@ fn compiled(
     encoding: Encoding,
     depth: usize,
     limit: usize,
+    options: &buffa::DecodeOptions,
 ) -> Result<Option<(Preview, Validation)>, SchemaError> {
     if world == CompiledWorld::DeveloperEvidence {
         use crate::developer_evidence_contracts::pb::pse::developer::evidence::v1 as pb;
         return match name {
             "pse.developer.evidence.v1.CapturedWorkflowReport" => {
                 Some(static_preview::<pb::CapturedWorkflowReport>(
-                    input, encoding, depth, limit,
+                    input, encoding, depth, limit, options,
                 ))
             }
             "pse.developer.evidence.v1.CapturedWorkflowEvidence" => {
                 Some(static_preview::<pb::CapturedWorkflowEvidence>(
-                    input, encoding, depth, limit,
+                    input, encoding, depth, limit, options,
                 ))
             }
             "pse.developer.evidence.v1.NativeWorkflowReport" => {
                 Some(static_preview::<pb::NativeWorkflowReport>(
-                    input, encoding, depth, limit,
+                    input, encoding, depth, limit, options,
                 ))
             }
             "pse.developer.evidence.v1.WorkflowReportObservation" => {
                 Some(static_preview::<pb::WorkflowReportObservation>(
-                    input, encoding, depth, limit,
+                    input, encoding, depth, limit, options,
                 ))
             }
             "pse.developer.evidence.v1.WorkflowTerminalRecord" => {
                 Some(static_preview::<pb::WorkflowTerminalRecord>(
-                    input, encoding, depth, limit,
+                    input, encoding, depth, limit, options,
                 ))
             }
             _ => None,
@@ -353,7 +448,7 @@ fn compiled(
         .transpose();
     }
     use crate::code_intelligence_contracts::pb::pse::code_intelligence::v1 as pb;
-    macro_rules! dispatch { ($($ty:ident),+ $(,)?) => { match name { $(concat!("pse.code_intelligence.v1.", stringify!($ty)) => Some(static_preview::<pb::$ty>(input, encoding, depth, limit)),)+ _ => None }.transpose() }; }
+    macro_rules! dispatch { ($($ty:ident),+ $(,)?) => { match name { $(concat!("pse.code_intelligence.v1.", stringify!($ty)) => Some(static_preview::<pb::$ty>(input, encoding, depth, limit, options)),)+ _ => None }.transpose() }; }
     dispatch!(
         ContextGuard,
         SourceSelector,
@@ -436,11 +531,12 @@ fn static_preview<T: buffa::Message + DeserializeOwned + ReflectMessage + Valida
     encoding: Encoding,
     depth: usize,
     limit: usize,
+    options: &buffa::DecodeOptions,
 ) -> Result<(Preview, Validation), SchemaError> {
     let value: T = if matches!(encoding, Encoding::Json) {
         serde_json::from_slice(input)?
     } else {
-        T::decode_from_slice(input).map_err(|e| SchemaError::Decode(e.to_string()))?
+        options.decode_from_slice::<T>(input)?
     };
     let validation = match value.validate() {
         Ok(()) => Validation {
@@ -691,51 +787,175 @@ fn text_wire(
     bundle: &Bundle,
     message: &str,
     input: &[u8],
+    maximum: usize,
 ) -> Result<(Vec<u8>, String), SchemaError> {
-    use pse_diagnostics::{DrainFailurePolicy, StderrCapture, SupervisedChild};
     // Private snapshots ensure descriptor and payload identities cannot race their
-    // original mutable paths. Regular-file stdio requires no independent pipe task.
+    // original mutable paths. The conversion owner settles its bounded output
+    // reader and supervised process group before these snapshots depart.
     let mut descriptor = tempfile::NamedTempFile::new()?;
     descriptor.write_all(&bundle.original)?;
     let mut original = tempfile::tempfile()?;
     original.write_all(input)?;
     original.rewind()?;
-    let mut binary = tempfile::tempfile()?;
     let mut command = Command::new("protoc");
     let mut descriptor_argument = std::ffi::OsString::from("--descriptor_set_in=");
     descriptor_argument.push(descriptor.path());
     command
         .arg(descriptor_argument)
         .arg(format!("--encode={message}"))
-        .stdin(Stdio::from(original))
-        .stdout(Stdio::from(binary.try_clone()?));
-    let mut child = SupervisedChild::spawn(
-        &mut command,
+        .stdin(Stdio::from(original));
+    let deadline = Instant::now()
+        .checked_add(Duration::from_secs(30))
+        .ok_or_else(|| SchemaError::Invalid("textproto conversion deadline extent".into()))?;
+    convert(&mut command, maximum, deadline)
+}
+
+struct Conversion {
+    child: pse_diagnostics::SupervisedChild,
+    output: Option<std::thread::JoinHandle<Result<Vec<u8>, SchemaError>>>,
+}
+impl Conversion {
+    fn cancel(&mut self) -> Result<(), SchemaError> {
+        let process = self
+            .child
+            .cancel()
+            .map(|_| ())
+            .map_err(|source| SchemaError::Supervision {
+                operation: "drain",
+                source,
+            });
+        let output = self
+            .output
+            .take()
+            .map_or(Ok(()), |output| join_output(output).map(|_| ()));
+        SchemaError::settle(process, output)
+    }
+    fn finish(&mut self, deadline: Instant) -> Result<(Vec<u8>, String), SchemaError> {
+        while self
+            .output
+            .as_ref()
+            .is_some_and(|output| !output.is_finished())
+            && Instant::now() < deadline
+        {
+            std::thread::sleep(
+                Duration::from_millis(2).min(deadline.saturating_duration_since(Instant::now())),
+            );
+        }
+        let mut output = if self
+            .output
+            .as_ref()
+            .is_some_and(std::thread::JoinHandle::is_finished)
+        {
+            self.output.take().map(join_output)
+        } else {
+            None
+        };
+        let wait = match &output {
+            Some(Err(_)) => Ok(()),
+            Some(Ok(_)) => self
+                .child
+                .wait_ready(None, Some(deadline))
+                .map_err(|source| SchemaError::Supervision {
+                    operation: "exit",
+                    source,
+                }),
+            None => Err(SchemaError::Supervision {
+                operation: "output deadline",
+                source: pse_diagnostics::SupervisionError::Deadline,
+            }),
+        };
+        // Kill/drain/reap independently of the original read/deadline outcome.
+        // Park custody retains this operation if group settlement is unknown.
+        let settled = self
+            .child
+            .cancel()
+            .map_err(|source| SchemaError::Supervision {
+                operation: "drain",
+                source,
+            });
+        if output.is_none() {
+            output = self.output.take().map(join_output);
+        }
+        let output = output
+            .unwrap_or_else(|| Err(SchemaError::Tool("textproto output owner absent".into())));
+        let (status, cleanup) = match settled {
+            Ok(status) => (Some(status), Ok(())),
+            Err(error) => (None, Err(error)),
+        };
+        let bytes = SchemaError::settle(SchemaError::settle(output, wait), cleanup)?;
+        let diagnostics =
+            String::from_utf8_lossy(&self.child.take_stderr_prefix().unwrap_or_default())
+                .into_owned();
+        if status.is_none_or(|status| !status.success()) {
+            return Err(SchemaError::Tool(format!(
+                "protoc {status:?}: {diagnostics}"
+            )));
+        }
+        Ok((bytes, diagnostics))
+    }
+}
+impl Drop for Conversion {
+    fn drop(&mut self) {
+        if let Err(error) = self.cancel() {
+            tracing::error!(error = %error, "textproto abandonment settlement failed");
+        }
+    }
+}
+fn join_output(
+    output: std::thread::JoinHandle<Result<Vec<u8>, SchemaError>>,
+) -> Result<Vec<u8>, SchemaError> {
+    output.join().unwrap_or_else(|payload| {
+        Err(SchemaError::OutputReaderPanic(
+            payload
+                .downcast_ref::<String>()
+                .cloned()
+                .or_else(|| {
+                    payload
+                        .downcast_ref::<&str>()
+                        .map(|text| (*text).to_owned())
+                })
+                .unwrap_or_else(|| "non-text output-reader panic payload".into()),
+        ))
+    })
+}
+fn convert(
+    command: &mut Command,
+    maximum: usize,
+    deadline: Instant,
+) -> Result<(Vec<u8>, String), SchemaError> {
+    use pse_diagnostics::{DrainFailurePolicy, StderrCapture, SupervisedChild};
+    command.stdout(Stdio::piped());
+    let child = SupervisedChild::spawn(
+        command,
         DrainFailurePolicy::Park,
         Some(StderrCapture {
             bytes: 65536,
             stack_bytes: 256 * 1024,
         }),
     )
-    .map_err(|e| SchemaError::Tool(e.to_string()))?;
-    let wait = child.wait_ready(None, Some(Instant::now() + Duration::from_secs(30)));
-    let settled = child.cancel();
-    let diagnostics =
-        String::from_utf8_lossy(&child.take_stderr_prefix().unwrap_or_default()).into_owned();
-    if let Err(error) = wait {
-        return Err(SchemaError::Tool(format!(
-            "protoc: {error}; settlement={settled:?}; {diagnostics}"
-        )));
+    .map_err(|source| SchemaError::Supervision {
+        operation: "spawn",
+        source,
+    })?;
+    let mut owner = Conversion {
+        child,
+        output: None,
+    };
+    let Some(stdout) = owner.child.take_stdout() else {
+        return SchemaError::settle(
+            Err(SchemaError::Tool("textproto stdout pipe absent".into())),
+            owner.cancel(),
+        );
+    };
+    let output = std::thread::Builder::new()
+        .name("pse-textproto-output".into())
+        .stack_size(256 * 1024)
+        .spawn(move || super::read_bounded(stdout, maximum, "converted textproto"));
+    match output {
+        Ok(output) => owner.output = Some(output),
+        Err(error) => return SchemaError::settle(Err(SchemaError::Io(error)), owner.cancel()),
     }
-    let status =
-        settled.map_err(|e| SchemaError::Tool(format!("protoc settlement: {e}; {diagnostics}")))?;
-    if !status.success() {
-        return Err(SchemaError::Tool(format!("protoc {status}: {diagnostics}")));
-    }
-    binary.rewind()?;
-    let mut bytes = Vec::new();
-    binary.read_to_end(&mut bytes)?;
-    Ok((bytes, diagnostics))
+    owner.finish(deadline)
 }
 
 #[cfg(test)]
@@ -755,6 +975,7 @@ mod tests {
         (
             directory,
             Args {
+                admission: Admission::default(),
                 descriptor,
                 message: NAME.into(),
                 input,
@@ -795,16 +1016,124 @@ mod tests {
     fn schema_payload_json_qualifies_any_and_rejects_nested_duplicate() {
         let (_directory, args) = args(br#"{"count":"9223372036854775807","path":"/wA=","mask":"someField","detail":{"@type":"type.googleapis.com/plan61.qualification.v1.Payload","label":"nested"}}"#, Encoding::Json);
         assert!(inspect(&args).is_ok());
-        for bytes in [br#"{"count":1,"count":2}"#.as_slice(), br#"{"detail":{"@type":"type.googleapis.com/plan61.qualification.v1.Payload","label":"a","label":"b"}}"#, br#"{"unknown":1}"#] {
+        for bytes in [br#"{"count":1,"count":2}"#.as_slice(), br#"{"detail":{"@type":"type.googleapis.com/plan61.qualification.v1.Payload","label":"a","label":"b"}}"#, br#"{"unknown":1}"#, b"{} {}"] {
             std::fs::write(&args.input, bytes).unwrap();
             assert!(inspect(&args).is_err());
         }
     }
     #[test]
     fn schema_payload_malformed_wire_refuses() {
-        for bytes in [&[0x12, 3, 1][..], &[8, 0x80], &[0]] {
+        for (bytes, expected) in [
+            (&[0x12, 3, 1][..], buffa::DecodeError::UnexpectedEof),
+            (&[8, 0x80][..], buffa::DecodeError::UnexpectedEof),
+            (&[0][..], buffa::DecodeError::InvalidFieldNumber),
+        ] {
             let (_directory, args) = args(bytes, Encoding::Binary);
-            assert!(inspect(&args).is_err());
+            let SchemaError::BinaryDecode(error) = inspect(&args).unwrap_err() else {
+                panic!()
+            };
+            assert_eq!(error, expected);
+            assert!(!pse_contract_proto::support::decode_resource_refusal(
+                &error
+            ));
+        }
+    }
+    #[test]
+    fn schema_payload_original_byte_admission_precedes_decode_at_depth_zero() {
+        let (_directory, mut args) = args(&[0; 9], Encoding::Binary);
+        args.depth = 0;
+        args.admission.max_input_bytes = 8;
+        for encoding in [Encoding::Binary, Encoding::Json, Encoding::Textproto] {
+            args.encoding = encoding;
+            assert!(matches!(
+                inspect(&args),
+                Err(SchemaError::InputLimit {
+                    input: "payload",
+                    maximum: 8,
+                    observed_at_least: 9,
+                })
+            ));
+        }
+        args.admission.max_descriptor_bytes = 16;
+        assert!(matches!(
+            inspect(&args),
+            Err(SchemaError::InputLimit {
+                input: "descriptor",
+                maximum: 16,
+                observed_at_least: 17,
+            })
+        ));
+        args.admission.max_descriptor_bytes = usize::MAX;
+        assert!(matches!(inspect(&args), Err(SchemaError::Invalid(_))));
+    }
+    #[test]
+    fn schema_payload_generated_and_dynamic_binary_share_explicit_refusals() {
+        use crate::code_intelligence_contracts::pb::pse::code_intelligence::v1 as pb;
+        use buffa::Message as _;
+        let bundle = Bundle::from_bytes(
+            "compiled".into(),
+            crate::code_intelligence_contracts::DESCRIPTORS.to_vec(),
+        )
+        .unwrap();
+        let (_directory, mut args) = args(&[], Encoding::Binary);
+        args.depth = 0;
+        let repeated = pb::BooleanGroup {
+            clauses: vec![pb::Predicate::default()],
+            ..Default::default()
+        }
+        .encode_to_vec();
+        for (name, wire, element_bytes, recursion, expected) in [
+            (
+                "BooleanGroup",
+                repeated,
+                1,
+                100,
+                buffa::DecodeError::ElementMemoryLimitExceeded,
+            ),
+            (
+                "NativeControl",
+                vec![0x12, 0],
+                1024,
+                0,
+                buffa::DecodeError::RecursionLimitExceeded,
+            ),
+            (
+                "NativeControl",
+                vec![0x12, 3, 1],
+                1024,
+                100,
+                buffa::DecodeError::UnexpectedEof,
+            ),
+        ] {
+            args.message = format!("pse.code_intelligence.v1.{name}");
+            args.admission.max_binary_element_bytes = element_bytes;
+            args.admission.binary_recursion_limit = recursion;
+            std::fs::write(&args.input, &wire).unwrap();
+            let failure = inspect_bundle(&args, &bundle).unwrap_err();
+            let resource = pse_contract_proto::support::decode_resource_refusal(&expected);
+            assert_eq!(
+                pse_diagnostics::TypedDiagnostic::diagnostic_code(&failure),
+                Some(if resource {
+                    pse_diagnostics::DiagnosticCode::RuntimeResourceLimit
+                } else {
+                    pse_diagnostics::DiagnosticCode::HostOwnership
+                })
+            );
+            let SchemaError::BinaryDecode(error) = failure else {
+                panic!()
+            };
+            assert_eq!(error, expected, "generated {name}");
+            let options = args
+                .admission
+                .binary_options(args.admission.max_input_bytes);
+            let dynamic = DynamicMessage::decode_with_options(
+                Arc::clone(&bundle.pool),
+                bundle.pool.message_index(&args.message).unwrap(),
+                &wire,
+                &options,
+            )
+            .unwrap_err();
+            assert_eq!(dynamic, expected, "dynamic {name}");
         }
     }
     #[test]
@@ -825,6 +1154,7 @@ mod tests {
     fn schema_payload_source_world_uses_same_validator_without_presentation() {
         let (_directory, mut args) = args(&[], Encoding::Binary);
         args.message = "pse.code_intelligence.v1.NativeControl".into();
+        args.depth = 0;
         let mut digests = Vec::new();
         for bytes in [
             include_bytes!("../generated/code-intelligence/descriptor-runtime.bin").as_slice(),
@@ -834,6 +1164,12 @@ mod tests {
             let report = inspect_bundle(&args, &bundle).unwrap();
             assert_eq!(report.representation, "generated_static");
             assert_eq!(report.validation.state, "violations");
+            assert!(matches!(report.preview, Preview::Deferred));
+            assert!(report.binary_payload_limits_applied);
+            assert_eq!(
+                report.admission.max_binary_element_bytes,
+                args.admission.max_binary_element_bytes
+            );
             assert!(bundle.declarations.get().is_none());
             digests.push(report.descriptor_sha256);
         }
@@ -851,6 +1187,7 @@ mod tests {
         assert!(inspect(&args).is_err());
         std::fs::write(&args.input, br#"{"cancel":{}}"#).unwrap();
         let report = inspect(&args).unwrap();
+        assert!(!report.binary_payload_limits_applied);
         assert_eq!(report.representation, "generated_static");
         assert_eq!(report.validation.state, "passed");
         std::fs::write(&args.input, br#"{"start":{},"cancel":{}}"#).unwrap();
@@ -912,5 +1249,68 @@ mod tests {
             !report.parser_diagnostics.is_empty(),
             "native partial-message warning must remain visible"
         );
+    }
+    #[test]
+    fn schema_payload_conversion_keeps_exact_bounded_output_and_warnings() {
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", "printf abc; printf warning >&2"]);
+        let (bytes, warnings) =
+            convert(&mut command, 3, Instant::now() + Duration::from_secs(5)).unwrap();
+        assert_eq!(bytes, b"abc");
+        assert_eq!(warnings, "warning");
+    }
+    #[test]
+    fn schema_payload_conversion_limit_and_deadline_physically_settle_processes() {
+        let directory = tempfile::tempdir().unwrap();
+        for (script, maximum, timeout, limit) in [
+            (
+                "printf '%s' $$ > \"$1\"; while :; do printf 1234567890; printf diagnostic >&2; done",
+                5,
+                Duration::from_secs(5),
+                true,
+            ),
+            (
+                "printf '%s' $$ > \"$1\"; sleep 30",
+                5,
+                Duration::from_millis(250),
+                false,
+            ),
+        ] {
+            let marker = directory
+                .path()
+                .join(if limit { "limit.pid" } else { "deadline.pid" });
+            let mut command = Command::new("/bin/sh");
+            command.args(["-c", script, "conversion-test"]).arg(&marker);
+            let error = convert(&mut command, maximum, Instant::now() + timeout).unwrap_err();
+            if limit {
+                assert!(
+                    matches!(
+                        error,
+                        SchemaError::InputLimit {
+                            input: "converted textproto",
+                            maximum: 5,
+                            observed_at_least: 6
+                        }
+                    ),
+                    "{error:?}"
+                );
+            } else {
+                assert!(
+                    matches!(
+                        error,
+                        SchemaError::Supervision {
+                            source: pse_diagnostics::SupervisionError::Deadline,
+                            ..
+                        }
+                    ),
+                    "{error:?}"
+                );
+            }
+            let pid: u32 = std::fs::read_to_string(marker).unwrap().parse().unwrap();
+            assert!(
+                !std::path::Path::new("/proc").join(pid.to_string()).exists(),
+                "conversion returned before actual leader reap"
+            );
+        }
     }
 }

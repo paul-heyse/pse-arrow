@@ -862,6 +862,7 @@ mod tests {
         std::fs::write(&descriptor, descriptors.encode_to_vec()).unwrap();
         std::fs::write(&input, bytes).unwrap();
         crate::schema::payload::inspect(&crate::schema::payload::Args {
+            admission: Default::default(),
             descriptor,
             input,
             message: "pse.developer.evidence.v1.CapturedWorkflowReport".into(),
@@ -965,6 +966,7 @@ mod tests {
             .set_len((MAX_INPUT_BYTES * 4) as u64)
             .unwrap();
         let result = crate::schema::payload::inspect(&crate::schema::payload::Args {
+            admission: Default::default(),
             descriptor,
             input,
             message: "pse.developer.evidence.v1.CapturedWorkflowReport".into(),

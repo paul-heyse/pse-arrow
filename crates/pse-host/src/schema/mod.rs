@@ -16,6 +16,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
+    io::Read as _,
     path::{Path, PathBuf},
     sync::{Arc, OnceLock},
 };
@@ -32,6 +33,40 @@ pub enum SchemaError {
     /// Native descriptor decoder or linker failure.
     #[error("schema decoding: {0}")]
     Decode(String),
+    /// Original binary decoder failure, retaining resource and malformed categories.
+    #[error("schema binary decoding: {0}")]
+    BinaryDecode(#[from] buffa::DecodeError),
+    /// A complete original or converted input exceeds this request's byte allowance.
+    #[error("schema {input} exceeds {maximum} bytes (observed at least {observed_at_least})")]
+    InputLimit {
+        /// Original descriptor, original payload, or converted textproto bytes.
+        input: &'static str,
+        /// Caller-selected maximum retained input extent.
+        maximum: usize,
+        /// Bounded lookahead establishes at least this many original bytes.
+        observed_at_least: usize,
+    },
+    /// Original subprocess-owner failure; returning requires actual owned drain.
+    #[error("schema textproto {operation}: {source}")]
+    Supervision {
+        /// The actual failed subprocess-owner operation.
+        operation: &'static str,
+        /// Original supervised process failure.
+        #[source]
+        source: pse_diagnostics::SupervisionError,
+    },
+    /// Original conversion failure plus independent physical settlement failure.
+    #[error("{operation}; schema conversion settlement also failed: {cleanup}")]
+    Settlement {
+        /// Original failed conversion or read.
+        #[source]
+        operation: Box<Self>,
+        /// Independently attempted process or I/O-owner settlement.
+        cleanup: Box<Self>,
+    },
+    /// The owned output reader panicked; its OS thread has joined.
+    #[error("schema textproto output reader panicked: {0}")]
+    OutputReaderPanic(String),
     /// Original structured input failure.
     #[error("schema JSON: {0}")]
     Json(#[from] serde_json::Error),
@@ -43,8 +78,66 @@ pub enum SchemaError {
     Tool(String),
 }
 pse_diagnostics::impl_diagnostic! {SchemaError,
-    code(_this){Some(pse_diagnostics::DiagnosticCode::HostOwnership)},
-    forward(_this){None},help(_this){None},related(_this){None},source(_this){None}
+    code(this){Some(match this {
+        Self::InputLimit { .. } => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
+        Self::BinaryDecode(error) if pse_contract_proto::support::decode_resource_refusal(error) => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
+        Self::Settlement { .. } | Self::Supervision { .. } => pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
+        Self::OutputReaderPanic(_) => pse_diagnostics::DiagnosticCode::WorkflowPanic,
+        _ => pse_diagnostics::DiagnosticCode::HostOwnership,
+    })},
+    forward(_this){None},help(_this){None},related(this){match this {
+        Self::Settlement { operation, cleanup } => {
+            let operation: &dyn pse_diagnostics::TypedDiagnostic = operation.as_ref();
+            let cleanup: &dyn pse_diagnostics::TypedDiagnostic = cleanup.as_ref();
+            Some(Box::new([operation, cleanup].into_iter()))
+        }, _ => None,
+    }},source(this){match this { Self::Supervision { source, .. } => Some(source), _ => None }},
+    facts(this){
+        let mut facts = pse_diagnostics::DiagnosticFacts::default();
+        if let Self::InputLimit { input, maximum, observed_at_least } = this {
+            facts.observe("input", pse_diagnostics::DiagnosticObservation::Text((*input).into()));
+            facts.observe("maximum_bytes", pse_diagnostics::DiagnosticObservation::Text(maximum.to_string()));
+            facts.observe("observed_at_least_bytes", pse_diagnostics::DiagnosticObservation::Text(observed_at_least.to_string()));
+        }
+        facts
+    }
+}
+impl SchemaError {
+    fn settle<T>(operation: Result<T, Self>, cleanup: Result<(), Self>) -> Result<T, Self> {
+        match (operation, cleanup) {
+            (result, Ok(())) => result,
+            (Ok(_), Err(error)) => Err(error),
+            (Err(operation), Err(cleanup)) => Err(Self::Settlement {
+                operation: Box::new(operation),
+                cleanup: Box::new(cleanup),
+            }),
+        }
+    }
+}
+
+const DEFAULT_DESCRIPTOR_BYTES: usize = 64 << 20;
+
+fn read_bounded(
+    reader: impl std::io::Read,
+    maximum: usize,
+    input: &'static str,
+) -> Result<Vec<u8>, SchemaError> {
+    let extent = u64::try_from(maximum)
+        .ok()
+        .and_then(|value| value.checked_add(1))
+        .ok_or_else(|| {
+            SchemaError::Invalid("input byte allowance cannot represent bounded lookahead".into())
+        })?;
+    let mut bytes = Vec::new();
+    reader.take(extent).read_to_end(&mut bytes)?;
+    if bytes.len() > maximum {
+        return Err(SchemaError::InputLimit {
+            input,
+            maximum,
+            observed_at_least: bytes.len(),
+        });
+    }
+    Ok(bytes)
 }
 
 /// One acquired complete descriptor artifact, with no mutable process-wide registry.
@@ -170,16 +263,34 @@ impl Report {
 impl Bundle {
     /// Read and validate a complete supplied descriptor artifact.
     pub fn load(path: &Path) -> Result<Self, SchemaError> {
-        Self::from_bytes(std::path::absolute(path)?, std::fs::read(path)?)
+        Self::load_bounded(
+            path,
+            DEFAULT_DESCRIPTOR_BYTES,
+            &buffa::DecodeOptions::new().with_max_message_size(DEFAULT_DESCRIPTOR_BYTES),
+        )
+    }
+    fn load_bounded(
+        path: &Path,
+        maximum: usize,
+        options: &buffa::DecodeOptions,
+    ) -> Result<Self, SchemaError> {
+        let bytes = read_bounded(std::fs::File::open(path)?, maximum, "descriptor")?;
+        Self::from_bytes_with_options(std::path::absolute(path)?, bytes, options)
     }
     /// Bind original bytes before decoding; useful for source-built fixtures.
     pub fn from_bytes(path: PathBuf, original: Vec<u8>) -> Result<Self, SchemaError> {
+        Self::from_bytes_with_options(path, original, &buffa::DecodeOptions::new())
+    }
+    fn from_bytes_with_options(
+        path: PathBuf,
+        original: Vec<u8>,
+        options: &buffa::DecodeOptions,
+    ) -> Result<Self, SchemaError> {
         let digest = Sha256::digest(&original)
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect();
-        let set = FileDescriptorSet::decode_from_slice(&original)
-            .map_err(|error| SchemaError::Decode(error.to_string()))?;
+        let set: FileDescriptorSet = options.decode_from_slice(&original)?;
         let mut files = BTreeMap::new();
         for file in &set.file {
             let name = file
@@ -245,8 +356,7 @@ impl Bundle {
                 crate::developer_evidence_contracts::DESCRIPTORS,
             ),
         ] {
-            let compiled = FileDescriptorSet::decode_from_slice(bytes)
-                .map_err(|error| SchemaError::Decode(error.to_string()))?;
+            let compiled = FileDescriptorSet::decode_from_slice(bytes)?;
             if same_runtime_world(&self.set, &compiled) {
                 return Ok(Some(world));
             }
