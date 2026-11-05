@@ -516,6 +516,15 @@ not supply broad fluid validity or assembled consumer qualification.
 Independent numerical/derivative evidence and ordinary provenance remain
 required.
 
+**Update, 2026-11-05 — mixer census:** the
+[mixer closure](64h-required-process-population.md#mixer-admissible-configurations-and-scientific-fixtures--2026-11-05)
+resolves steady-only policy axes, public-build versus helper-only material
+refusals, equilibrium/inherent-reaction guards, pressure switching and four
+physical fixture populations. Initializer/scaler repetitions and zero-extent
+acid mixing do not establish additional physical responses. Ordinary data,
+remaining admissible/refusal combinations and independent native/reference
+qualification remain required; H02 retains its own ordinary-case mapping.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

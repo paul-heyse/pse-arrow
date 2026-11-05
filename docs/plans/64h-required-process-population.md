@@ -4375,6 +4375,62 @@ full selected consumer configurations, independent expression/derivative
 and process qualification remain required. This declaration executed only
 source/AST reads, not the property expressions.
 
+## Mixer admissible configurations and scientific fixtures — 2026-11-05
+
+**Interface-checked, source only:** C `models/unit_models/mixer.py` and
+`tests/test_mixer.py` resolve this generic algebraic unit's finite policy
+axes and four physical fixture populations. It is a separate denominator
+from H02's selected ordinary recycle mixer and the configured plant
+consumers above. No dynamic or holdup mixer is admitted: both configuration
+domains explicitly contain False only.
+
+| Axis | Admissible behavior, default and actual refusal |
+|---|---|
+| Inlets | Defaults to two named inlet_1/inlet_2; accepts a name list or inlet count. Supplying both with inconsistent lengths raises. Number/names select actual topology, not a new universal scientific family. Inlet state blocks are defined states with phase-equilibrium False regardless of the mixed-state setting. |
+| Material | useDefault delegates to mixed-state property default. Constructed componentPhase, componentTotal and total have different equations. elementTotal is explicitly unsupported. Although the lower-level equation helper accepts none, the public build path rejects it; a helper-only test is not an admissible material-free Mixer configuration. Unknown values fail. |
+| Equilibrium/inherent reaction | has_phase_equilibrium defaultsFalse and applies to mixed state. componentPhase with phase equilibrium requires the package's equilibrium-index/list mapping, otherwise refuses; componentTotal sums permitted phase members without explicit interphase generation. Both component modes include inherent-reaction extents/generation when the mixed property requires them. total with inherent reactions refuses as underconstrained. Ragged phase membership is explicitly handled. |
+| Energy | extensive (default) balances total inlet/outlet enthalpy over phases; none omits the energy relation and requires a declared independent temperature/enthalpy role or unavailable output. It does not prescribe isothermal mixing or zero heat as a substitute equation. |
+| Momentum | minimize (default) uses sequential smooth minimum; equality constrains each inlet and outlet pressure equal; minimize_and_equality builds both but starts with equality inactive and provides explicit switching methods; none omits pressure closure. Missing pressure support refuses the first three and admits none. Equality means some inlet pressures must be free, not independently fixed inconsistent values. |
+| State/ports | Can reuse an existing mixed state only with matching property-package identity. construct_ports=False removes port objects without removing science. Wrong state/package or conflicting topology refuses. Port presence is separate from mathematical closure. |
+
+Minimum-pressure smoothing epsilon is1e-3 in package pressure units, not
+an invariant1e-3 Pa. Repeated pairwise smoothing depends on inlet order near
+equal pressures and differs from the exact nonsmooth minimum. Both switching
+methods warn/return when not configured for the dual mode; no mode switch
+is then performed. Native correspondence must retain selected pressure
+equations, epsilon units and active set rather than treating the four enum
+values as one pressure policy. Parser Cartesian products are not a valid
+scientific census when package equations/specifications make them singular.
+
+The actual scientific fixture populations are:
+
+| Fixture | Inputs and source output/physical controls |
+|---|---|
+| Liquid benzene/toluene | C BTX activity package, Liq, default Ideal. Inlets5 mol/s at365 K/200 kPa and1 mol/s at300 K/101325 Pa, both benzene/toluene .5/.5. Default minimum-pressure/enthalpy mixing targets6 mol/s (abs.001),354.7 K (abs.1),101325 Pa (abs1000); original total-flow residual≤1e-6 and enthalpy-flow residual≤1e-6 in model units. |
+| Pure-water PH | C IAPWS95 default package, componentTotal/equal pressure. Two100 mol/s feeds, h5500/5000 J/mol; first pressure fixed101325 Pa, second only guessed1e5 Pa and solved. Targets200 mol/s (abs1e-5),5250 J/mol (abs1),101325 Pa (abs100), with original flow/enthalpy residuals≤1e-6. Required Helmholtz artifact/EOS closure is the earlier pure-fluid owner, not a Python polynomial fallback. |
+| Saponification liquid mixture | C `saponification_thermo.py`, two1e-3 m3/s streams at320/300 K and101325 Pa. Both have water55388, NaOH100, ethyl acetate100, sodium acetate/ethanol1e-8 mol/m3. No reaction package or reaction rate is supplied to the mixer. Targets2e-3 m3/s,310 K, same concentrations and pressure; trace product targets use zero at abs.001, not exact disappearance. Legacy/new scaler classes repeat the same science. Their original flow residual≤1e-6 and sensible enthalpy residual≤1e-3 are separate from optimizer tolerance. |
+| Inherent acid dissociation | Test helper `tests/leach_solution.py`, one phase named liquid, H2O/H/HSO4/SO4, HSO4⇌H+SO4 with Ka2=10^−1.99 mol/L. Molar masses .018/.001/.097/.096 kg/mol; assumed water density1 kg/L and receiving water concentration1e6 mg/L. componentPhase and componentTotal are two consumer formulations of the same pair of identical10 L/h feeds: water/H/HSO4/SO4 concentrations1e6/57.54848/4117.798/724.6539 mg/L. Energy/momentum none because those properties are absent. Both target20 L/h, unchanged concentrations (rel1e-6) and inherent extent0 (abs1e-6). Identical equilibrium feeds do not witness nonzero speciation response; no charge-balance/electrolyte-activity certificate follows from this teaching helper. |
+
+MixerInitializer and block-triangularization tests add value-versus-fixedness
+and pressure-equality initialization controls. The saponification initializer
+fixture sets product concentrations exactly0 instead of1e-8; its direct
+state guesses are not fixed feeds until initialization. The water initializer
+fixes only the first pressure. These operational fixtures must retain their
+actual holds/releases and restoration assertions, rather than multiplying
+the physical cases by the number of initializer/scaler implementations.
+Synthetic dummy-state tests cover balance construction, phase-equilibrium
+absence, state identity, missing pressure and intentional initialization
+failure; their arbitrary coefficients do not become ordinary data.
+
+Native D04/D03 requires all valid selected balance/pressure/energy and
+equilibrium policies, topology/state/port semantics, original component and
+enthalpy checks, and explicit unsupported/missing-property outcomes.
+Reference chemical/property inputs above remain oracle roles pending
+ordinary provenance and admission. Exact solver/external-artifact execution,
+unselected configuration combinations, nonzero inherent reaction controls
+and independent physical qualification remain required. No mixer or
+initializer was executed for this source declaration.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
