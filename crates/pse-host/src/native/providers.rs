@@ -228,6 +228,23 @@ fn apply_provider(root: &Path, env: &Environment, kind: &str) -> Result<Environm
             }
         }
     }
+    if kind == "compiler" {
+        let mut effective = inputs.clone();
+        cache_bridge(root, &mut effective);
+        if receipt
+            .identity
+            .tools
+            .get("effective-cmake-toolchain")
+            .map(|tool| tool.path.as_os_str())
+            != effective
+                .get(OsStr::new("CMAKE_TOOLCHAIN_FILE"))
+                .map(OsString::as_os_str)
+        {
+            return Err(invalid(
+                "effective CMake toolchain changed; run explicit preparation",
+            ));
+        }
+    }
     let mut result = apply_inputs(&inputs, &receipt.identity)?;
     // Explicit preparation can admit an external provider by snapshotting it. Its original
     // selection is accepted as an input, but execution carries the immutable snapshot.
@@ -486,10 +503,10 @@ pub fn prepare_capabilities(
         let prefix = match *kind {
             "klu" => prepare(root, &effective)?,
             "compiler" => {
-                if let Ok((prefix, receipt)) = selected(&effective, "compiler")
-                    && apply_inputs(&effective, &receipt.identity).is_ok()
+                if let Ok((prefix, _)) = selected(&effective, "compiler")
+                    && let Ok(selected) = apply_provider(root, &effective, "compiler")
                 {
-                    effective = apply_provider(root, &effective, "compiler")?;
+                    effective = selected;
                     result.insert("compiler".into(), prefix);
                     continue;
                 }
@@ -1461,6 +1478,75 @@ mod tests {
         // The first recipe remains valid; later preparation never mutates its payload.
         assert!(validate_provider(&prepared["compiler"], None).is_ok());
         executable(&directory.path().join("bin/cc"), "#!/bin/sh\nexit 1\n");
+        assert!(select_capabilities(directory.path(), &env, "compiler").is_err());
+    }
+    #[test]
+    fn providers_compiler_cache_change_refuses_stale_toolchain_and_prepares_new_identity() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut cached = tools(directory.path());
+        let toolchain = directory.path().join(".config/native-cache.cmake");
+        fs::create_dir(toolchain.parent().unwrap()).unwrap();
+        fs::write(&toolchain, b"fixture cache toolchain").unwrap();
+        cached.insert("RUSTC_WRAPPER".into(), "/fixture/sccache".into());
+        let original = prepare_capabilities(directory.path(), &cached, "compiler").unwrap();
+        let cached_selected = select_capabilities(directory.path(), &cached, "compiler").unwrap();
+        assert_eq!(
+            cached_selected[OsStr::new("CMAKE_TOOLCHAIN_FILE")],
+            toolchain.as_os_str()
+        );
+        assert_eq!(
+            select_capabilities(directory.path(), &cached_selected, "compiler").unwrap(),
+            cached_selected
+        );
+        assert_eq!(
+            prepare_capabilities(directory.path(), &cached_selected, "compiler").unwrap(),
+            original
+        );
+
+        let mut uncached = cached;
+        uncached.insert("RUSTC_WRAPPER".into(), "".into());
+        assert!(select_capabilities(directory.path(), &uncached, "compiler").is_err());
+        assert_eq!(
+            selected(&uncached, "compiler").unwrap().0,
+            original["compiler"]
+        );
+        let prepared = prepare_capabilities(directory.path(), &uncached, "compiler").unwrap();
+        assert_ne!(prepared["compiler"], original["compiler"]);
+        let uncached_selected =
+            select_capabilities(directory.path(), &uncached, "compiler").unwrap();
+        assert!(!uncached_selected.contains_key(OsStr::new("CMAKE_TOOLCHAIN_FILE")));
+        assert_eq!(
+            prepare_capabilities(directory.path(), &uncached_selected, "compiler").unwrap(),
+            prepared
+        );
+        assert!(validate_provider(&original["compiler"], None).is_ok());
+    }
+    #[test]
+    fn providers_compiler_explicit_toolchain_is_preserved_and_changed_bytes_refuse() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut env = tools(directory.path());
+        let toolchain = directory.path().join("explicit.cmake");
+        fs::write(&toolchain, b"explicit compiler toolchain").unwrap();
+        env.insert(
+            "CMAKE_TOOLCHAIN_FILE".into(),
+            toolchain.clone().into_os_string(),
+        );
+        env.insert("RUSTC_WRAPPER".into(), "".into());
+        let prepared = prepare_capabilities(directory.path(), &env, "compiler").unwrap();
+        let selected = select_capabilities(directory.path(), &env, "compiler").unwrap();
+        assert_eq!(
+            selected[OsStr::new("CMAKE_TOOLCHAIN_FILE")],
+            toolchain.as_os_str()
+        );
+        assert_eq!(
+            select_capabilities(directory.path(), &selected, "compiler").unwrap(),
+            selected
+        );
+        assert_eq!(
+            prepare_capabilities(directory.path(), &selected, "compiler").unwrap(),
+            prepared
+        );
+        fs::write(&toolchain, b"changed toolchain bytes").unwrap();
         assert!(select_capabilities(directory.path(), &env, "compiler").is_err());
     }
     #[test]
