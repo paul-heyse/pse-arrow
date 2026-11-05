@@ -105,6 +105,20 @@ executable reference environment and native cycle/scientific/assessment implemen
 remain open. This source-only increment prepares E04/F05/G06 selection; it supplies no
 reference solve or native qualification and leaves held NETL-32D behavior required.
 
+**Update, 2026-11-05 — core gas-network source closure:** the crosswalk's
+[configured gas-network census](64h-required-process-population.md#gas-network-configured-census-and-input-closure--2026-11-05)
+resolves inherited/default/refused choices, the 48-point compressor and 27-point
+pipeline sweeps, nominal pipeline, two transient simulations and tracking optimization,
+plus construction-only spatial/temporal and node-topology controls. It traces the
+actual in-memory steady initialization and left-open/right-closed input-profile
+semantics through the consumed helpers. The empirical pseudo-gas, spatial pressure
+and storage/momentum law, isothermal compressor and algebraic node mixing remain
+distinct scientific consumers. No dataset, trainer or saved-state file is selected
+by this core population. Exact native cases, ordinary parameter provenance/validity,
+the executable reference environment and all scientific runs remain open; this
+source closure does not qualify arbitrary topology, flow reversal or a thermal
+network and does not settle uninspected X/V/archive network selections.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

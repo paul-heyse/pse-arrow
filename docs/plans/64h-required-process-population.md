@@ -278,6 +278,126 @@ native physical/assessment acceptance remain open. This slice resolves six shipp
 physical/numerical configurations and two assessment roles; it does not close the
 family's full configuration qualification or H01.
 
+## Gas-network configured census and input closure — 2026-11-05
+
+**Interface-checked, source only:** C `models_extra/gas_distribution` contains one
+pseudo-component property owner and compressor, pipeline and node owners. This
+slice inspected all their source/test files, the inherited unit/CV1D settings and
+the actually consumed `apps/nmpc` cost/input helpers. It expands E03/F06/G05's
+finite cases without claiming a native gas network, a solved reference or a full
+configuration denominator. Paths in the following tables are relative to that
+core directory, at the fixed C revision. No pytest parameter decorators add hidden
+cases here; loops and helper defaults produce the enumerated selections.
+
+### Scientific configuration and inherited boundaries
+
+| Owner / axis | Effective configuration and guard/refusal obligations |
+| --- | --- |
+| Shared unit inheritance | `dynamic` inherits the parent; `has_holdup` defaults to the resolved dynamic flag. Base guards reject dynamic-in-steady-parent and dynamic without holdup. Pipeline passes its complete config to CV1D, including an explicit property package; compressor/node create time-indexed state blocks directly and add no storage law even when their parent is dynamic. Their inherited holdup flag is not evidence of compressor or junction inventory. |
+| Property/phase compatibility | All three require one phase named `Vap`; pipeline/node additionally check pressure metadata. These guards do not certify all subsequently demanded density, sound-speed, heat-capacity or enthalpy-flow terms. The shipped `NaturalGasParameterBlock` has one empirical pseudo-component, not chemically exact methane or a resolved natural-gas composition. The compressor test's methane name does not change its actual property selection. |
+| Pipeline equations | Always component-phase material balance, pressure/momentum equation and spatially isothermal temperature; no selectable energy/reaction/heat-transfer law. Dynamic parent adds material storage and mass-flow time derivative. The dynamic momentum decision reads parent dynamic, so a unit-level override is not independent proof of consistent transient behavior. Geometry is diameter/area and physical length; fixed roughness default is 0.025 mm and friction depends on diameter. Preserve the signed flow-times-absolute-flow resistance without inferring reversible port composition or thermal semantics. |
+| Spatial approximation | Defaults: finite difference, FORWARD, 1 element, collocation_points=None. Source's dynamic endpoint policy admits FORWARD, BACKWARD and LAGRANGE-RADAU, deactivating the appropriate initial-time boundary momentum equation; CENTRAL and LAGRANGE-LEGENDRE are explicitly refused for dynamic pipelines. Actual method/scheme compatibility also goes through CV1D/Pyomo. Radau construction fixture supplies 2 elements/2 points. A steady Legendre/CENTRAL construction is not an inspected solved scientific case. |
+| Compressor science | Always isothermal with component-phase inlet/outlet equality, pressure boost, heat-capacity-ratio exponent and compression-power relation. Boost and power are bounded nonnegative. There is no efficiency option, turbine/expansion configuration or compressor material/energy storage in this owner. This is different science from the isentropic TSA pressure changer. |
+| Node topology | Defaults: 1 inlet, 1 outlet, 0 supply, 0 demand; explicit counts create indexed ports. Algebraic pressure/temperature/composition coupling, total/component flow and enthalpy mixing apply at each time. Connection to an out-of-range port or a second pipeline at an occupied port is refused. Integer configuration domains do not establish every integer as a valid/physically meaningful network. Counts and topology below are actual finite cases, not an arbitrary-topology guarantee. |
+
+### Executable scientific selections and actual finite sweeps
+
+All selected scientific cases use pseudo-component mole fraction=1. Pipeline
+geometry is diameter=0.92 m, length=300 km and temperature=293.15 K unless the
+construction-only table states otherwise. Time is in hours. Spatial FORWARD
+finite difference is the default; dynamic solved cases use 4 spatial elements
+and backward time difference on [0,20] with 20 time elements (21 output times).
+`fix()` without a numeric argument below consumes values from the independently
+solved steady initialization; it does not supply zero or a new arbitrary default.
+
+| Exact shipped selector | Finite operating/input population and specification freedoms | Required result correspondence |
+| --- | --- | --- |
+| `unit_models/tests/test_compressor.py::TestCompressorValues::test_calculate_power` | 48 explicit combinations: inlet pressures {30,40,50,60} bar × boosts {2,5,10} bar × standard-volume flows {300000,400000,500000,600000} m3/h; T=293.15 K. Standard-volume→mass uses 0.72 kg/m3, then divide by 18 kg/kmol for the molar input. | Power at every combination, pressure rise, component flow and temperature equality. The inline expected-power table is oracle evidence, not an ordinary property source. |
+| `unit_models/tests/test_pipeline.py::TestSolvePipelineSquare::test_pipeline_steady_forward_nominal` | 1 spatial element; inlet pressure=57 bar and flow=300000 kg/h fixed | Nominal feasibility/termination, outlet pressure/flow and full spatial original balance. This flow is distinct from the sweep below. |
+| Same class `test_pipeline_steady_forward_sweep` | 27 explicit combinations: spatial elements {1,2,5} × inlet pressures {40,57,70} bar × inlet mass flows {180000,270000,450000} kg/h. The last axis comes from {6,9,15} million standard m3/day using 24 h/day and 0.72 kg/m3. | All outlet pressure/flow pairs, infeasibility/termination and mesh-specific correspondence; the inline target dictionaries must remain oracle-only. These finite pressure/flow limits are selected samples, not proof of their whole enclosing rectangle. |
+| Same file `TestSolveDynamicPipeline::test_sim_inlet_pressure_outlet_flow_nominal` | Steady seed at inlet 57 bar/300000 kg/h; `has_holdup=True` in seed. Dynamic boundary fixes inlet pressure/composition/T and outlet flow; initial pressure fixed except inlet and initial flow except outlet. Load outlet=360000 kg/h on (4,20] h; earlier times including 4 h retain seed values. | Inlet-flow and outlet-pressure series at all 21 times, plus linepack and original space/time material/momentum checks. The left-open/right-closed boundary follows the helper's actual loading semantics, not interpolation from the two supplied points. |
+| Same class `test_opt` | Same 300000 kg/h seed; separately solved target at inlet 57 bar/500000 kg/h. Fix initial pressure and flow at every space point; inlet composition/T fixed. Optimize inlet pressure with 2 h piecewise-constant intervals and unrestricted outlet-flow decisions on the 1 h grid. | Both endpoint pressure and flow trajectories; sum of weighted squared errors at grid times, weights 1e-2 for pressure and 1e-10 for mass flow. It is a discrete tracking sum, not an integrated continuous-time objective or a general constrained NMPC demonstration. |
+| `unit_models/tests/test_pipeline_compressor.py::TestSolveDynamicPipelineCompressor::test_sim` | Upstream compressor→pipeline, same geometry/grid/boundary policy. Seed fixes compressor inlet=50 bar, boost=7 bar and pipeline inlet flow=300000 kg/h. Inlet T/composition fixed; boost remains 7 bar; outlet-flow change is 360000 kg/h on (4,20] h. | Same two pipeline trajectories plus compressor power at all 21 times, arc consistency, and the selected initial boundary momentum deactivation. The upstream pressure/power products make this a distinct configured consumer. |
+
+The helper `make_steady_model` defaults (2 spatial elements, FORWARD and explicit
+holdup=True) are overridden to 4 elements by all three dynamic scientific cases;
+the optimization additionally overrides target mass flow. The initial state and
+target are computed by the independent reference, flattened to in-memory values
+and loaded at every dynamic time; no shipped initialization file is consumed.
+Time inputs use `dynamic_data/interval_data.py`: right-endpoint interval value,
+exclude interval's left boundary and include its right boundary. A missing grid
+endpoint makes that helper skip loading; native acceptance must verify actual
+boundary coverage instead of accepting an unchanged-input trajectory.
+
+### Structural configurations and required topology controls
+
+These source cases intentionally establish construction, units, degrees of freedom
+or matching, rather than additional accepted scientific trajectories. Their exact
+fixtures remain available to the native contract/refusal owners. Unspecified
+`fix()` values in these construction tests are source initializers, not newly
+admitted scientific operating records.
+
+| Source/test selectors | Complete distinct construction selection |
+| --- | --- |
+| `test_compressor.py::TestSimpleCompressor::test_compressor_methane` | Actual pseudo-gas package, steady; inlet 300 K/20 bar/1000 kmol/h, boost 10 bar, mole fraction=1. No solve is invoked. |
+| `test_pipeline.py::TestConstructPipeline::{test_geometry,test_momentum_balance_steady,test_steady_forward}` | Default steady geometry link (area fixed at 5 m2), steady momentum incidence, then 2-element FORWARD steady pipeline with diameter 0.92 m, length **300 m**, T=300 K, inlet=57 bar/300000 kg/h. Preserve the short physical length rather than silently changing it to the scientific cases' 300 km. |
+| Same class `{test_dynamic_forward,test_dynamic_inlet_pressure_outlet_flow}` | 4 spatial elements, [0,20] h with 5 backward time elements; respectively inlet pressure+flow boundaries versus inlet-pressure/outlet-flow boundaries, with corresponding independent initial states. Both are structural checks; the former is not the shipped stable solved transient. |
+| Same class `{test_dynamic_dof_forward_space,test_dynamic_dof_backward_space,test_dynamic_dof_radau_space,test_dynamic_dof_legendre_space}` | [0,20] h/2 backward time elements, 2 spatial elements; FORWARD, BACKWARD, or Radau with 2 collocation points and inlet-pressure/outlet-flow boundary roles; Legendre 2-point request is the explicit dynamic refusal control. |
+| `test_pipeline_compressor.py::TestConstructPipelineCompressorFlowsheet::{test_steady,test_dynamic}` | One compressor→one pipe; 2 spatial elements steady versus 4 spatial elements/[0,20] h/5 backward time elements dynamic. Fix geometry and boundary/initial freedoms; neither is an extra solved compressor transient. |
+| `test_node.py::TestConstructNode::{test_construct_node_with_pipelines,test_pipeline_with_two_nodes,test_multiple_inlets_outlets}` | Steady selections: pipe→default 1-in/1-out node→pipe; single pipe between supply-only node (0 in/1 out/1 supply/0 demand) and demand-only node (1/0/0/1); and a node with (3 in,4 out,1 supply,2 demands) attached to seven pipes. Pipes have 2 spatial elements. |
+| Same class `{test_dynamic_two_nodes,test_dynamic_multiple_inlet_outlet}` | The latter two topologies above, [0,20] h/4 backward time elements and 2 spatial elements; boundary/initial pressure and flow roles are fixed per topology. Algebraic node mixing is not node inventory. |
+| `test_flowsheet.py::TestConstructFlowsheets::{test_four_nodes_linear,test_two_supply_one_demand,test_one_supply_two_demand}` | Each has four nodes/three pipes, 2 spatial elements, [0,20] h/2 backward time elements. Linear chain has supplies at nodes0/2, demands1/3 and compressors upstream of pipes0/2. Converging topology has supplies0/1→junction2→demand3, compressor upstream pipe2. Diverging topology has supply0→junction1→demands2/3, compressors upstream pipes1/2. They test topology/structural matching, not solved market/network operation. |
+| `properties/tests/test_natural_gas.py::TestNaturalGasPropertyPackage` | Build/property surface, nominal density, compressibility and reference-temperature controls plus printable state; these do not add independent multicomponent physical cases. |
+
+### Recursive inputs, native correspondence and remaining work
+
+The selected reference closure is C's three unit modules and `properties/natural_gas.py`,
+core unit/CV1D geometry/material/state infrastructure, Pyomo transformations/network
+arcs/incidence/parameter sweeper, and, for dynamic cases, `apps/nmpc/cost_expressions.py`
+and `dynamic_data/interval_data.py`. All scientific coefficients, expected tables,
+boundary arrays and topology are inline. The inspected owners perform no external
+dataset, trained-model, JSON starting-state or trainer load; no PETSc, Helmholtz,
+cubic-root or external property function is selected. Scientific solves use Ipopt;
+the exact executable/interpreter/locked environment remains to be frozen and run.
+Core2.13.0/Pyomo6.10.1 pins remain unchanged. No claim about all X/V gas-related
+sources or archived applications follows from this core-directory closure.
+
+Ordinary property inputs must preserve empirical identity: molecular weight
+18 kg/kmol, standard density 0.72 kg/m3, compressibility 0.80, constant mass heat
+capacities 2.34/1.85 kJ/(kg K), reference temperature 298.15 K, sound-speed
+convention and pipe roughness/friction law. The source identifies Zavala's 2014
+natural-gas-network control study as its scientific lead. These numeric facts
+freeze matched reference selection; independent provenance and ordinary admission
+remain B/D02/F06 obligations. Node enthalpy-flow mixing uses the package's sensible
+reference convention even though the property metadata does not offer a general
+enthalpy property. Do not replace the pseudo-gas with methane, PR or another EOS
+and call it matched physics.
+
+E03/F06 must extend the existing distributed/temporal/conservation owners with
+this isothermal pressure/storage/momentum closure and genuine coupled node and
+compressor consumers; G05 owns the configured tracking objective/hold policy.
+Inspection of `packages/reference/process/models`, process specialization and
+`workflow/horizon.rs` found no native gas-network/pipeline declaration or configured
+case corresponding to these sources; that bounded search does not prove whole-tree
+absence. Existing `control-volume-1d.pse` is an enabling spatial owner with its
+dynamic refusal, not evidence that linepack already executes. Exact native
+source/case/output identities and independent ordinary records therefore still
+block native/reference comparison.
+
+Required outputs include mapped endpoint and spatial pressure, signed mass/molar
+and component flow, density/linepack at requested physical locations/times, T and
+composition, compressor pressure rise/power, junction supply/demand mixing and
+tracking products. Original network-wide mass inventory/flux closure, momentum
+residuals, pressure/temperature domains and temporal/spatial refinement accompany
+differential comparisons; endpoint agreement alone is insufficient. Preserve
+invalid phase/property and mesh requests, occupied/out-of-range node ports,
+zero/negative-flow domain questions and complete input-profile coverage as explicit
+refusal/validation obligations. There is no arbitrary flow-reversal or thermal
+network support claim. The 48/27 sweeps and three dynamic scientific roles are
+finite source selections; native implementation, property validity envelopes,
+additional admissible configuration combinations, reference execution and H01
+completion remain open.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
