@@ -543,6 +543,15 @@ Gibbs equations retain their evidence limits; nonnormalized combustion feed
 and complete physical/stability mapping remain explicit. Ordinary data and
 independent numerical/dynamic qualification remain required.
 
+**Update, 2026-11-05 — pressure-changing census:** the
+[pressure-unit closure](64h-required-process-population.md#generic-pressure-changing-configuration-and-case-closure--2026-11-05)
+resolves four actual thermal branches, forced-direction aliases, performance
+callbacks, water turbine triplet and BT/aqueous/ideal-gas cases. Isothermal
+zero-work and adiabatic zero-work boundaries remain literal source behavior;
+labels alone cannot substitute physical pump/compressor equations. Ordinary
+data, sign/domain controls, dynamics and complete independent products
+remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

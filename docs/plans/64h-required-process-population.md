@@ -4560,6 +4560,52 @@ normalization disposition, reversible-equilibrium data, remaining inherited
 admissible/refusal cases and complete independent numerical/derivative/
 dynamic qualification remain required. Only source/AST inspection ran.
 
+## Generic pressure-changing configuration and case closure — 2026-11-05
+
+**Interface-checked, source only:** C `models/unit_models/pressure_changer.py`
+and `tests/test_pressure_changer.py` resolve four thermodynamic branches,
+direction aliases, performance callbacks and the finite physical selections
+below. These generic units differ from the specialized Helmholtz stage/
+multistage train population already declared. No measured compressor map,
+fitted file, trainer or saved-state artifact is read by these fixtures.
+
+| Axis | Actual equations/defaults and admissibility boundary |
+|---|---|
+| Direction and aliases | PressureChanger defaults compressor=True/isothermal. Compressor forces directionTrue and defaults isentropic; Turbine forcesFalse and defaults isentropic; Pump forcesTrue and defaults pump. Alias thermodynamic defaults can still be overridden within the shared enum. Direction selects efficiency algebra; the variable equations do not themselves impose the sign of deltaP/work. Model checks log incompatible signs, rather than providing a hard domain/refusal. |
+| Isothermal | Equates inlet/outlet temperature. Energy has work but **no heat-transfer term**. Thus pressure-independent ideal caloric enthalpy can imply zero work even for pressure increase; this is not an independent reversible isothermal RT ln(Pout/Pin) work law with cooling. Native references must preserve the actual energy boundary or explicitly adopt different ordinary science. |
+| Isentropic | Builds a separate receiving property state at actual outlet pressure, links its material composition to actual outlet, equates its molar entropy to inlet, and calculates ideal work from enthalpy-flow difference. Compressor idealwork=actualwork×efficiency; expander actualwork=idealwork×efficiency. Requires the selected property entropy/enthalpy/material interfaces; no constant-gamma shortcut is supplied here. |
+| Pump | Fluidwork=(Pout−Pin)×**outlet** volume flow, then the same direction-dependent efficiency convention. No density or incompressibility law is added beyond the selected package; a compressible package is not automatically a valid incompressible pump. With energy none, the unit specially constructs work for this branch, but that does not solve an outlet thermal state. |
+| Adiabatic | Sets work=0. Combined with steady enthalpy balance/no heat this is an isenthalpic pressure-change model, not a finite-efficiency adiabatic compressor. It must not inherit another branch's work semantics just because the name sounds similar. |
+| Inherited balances/dynamics | Package-default material/energy and pressureTotal; phase equilibriumFalse. CV pressure change and work are always requested. Alternative balances require their actual CV and isentropic-state material support; total/elementTotal/none are refused by isentropic material-link construction. Missing work/deltaP when balances are omitted is not universally repaired: only pump energy-none has the explicit work construction. Inherited dynamic/holdup adds volume/inventories, but the test's dynamic dummy build is not an executed physical transient. |
+| Performance extension | support_isentropic_performance_curves defaultsFalse; only isentropic branch constructs the callback block. Head/idealhead default to work per inlet mass flow, using flow_mass or flow_mol×mw. Callback or post-build constraints must actually specify head/efficiency/flow response. No map is inferred from merely enabling the block, and zero inlet flow creates a division singularity. |
+
+RatioP and efficiencies have no physical bounds in this unit. Selected
+native domains must enforce positive pressures/flow as required and sensible
+efficiency/direction, with deliberate wrong-sign/zero-efficiency controls.
+No broad admissibility claim follows from a float variable, dummy build or
+model-check log. Dynamics require positive volume and proper material/energy
+storage in the selected package, separately from steady aliases.
+
+| Physical selection | Actual input and source product obligations |
+|---|---|
+| Liquid BT isothermal | Legacy BTX Liq,5 mol/s,365 K,101325 Pa,.5/.5 benzene/toluene, deltaP+50 kPa. Targets same flow/T,151325 Pa and **zero work** (abs1e-6), because this package has pressure-independent caloric enthalpy. This fixture does not qualify a physical liquid-pump pressure-work law. |
+| PH-water isentropic compression | IAPWS default,100 mol/s,h4000 J/mol,101325 Pa, deltaP+50 kPa,efficiency .9. Source targets work101.437969 W/idealwork91.294172 W (abs.1),Tout≈326.170 K and unchanged composition/flow. Rounded outlet h4002 has abs1 J/mol; the actual enthalpy-rise/work and same-entropy auxiliary-state assertions are separate tighter controls. |
+| PH-water turbine triplet | All1000 mol/s,efficiency .9, input T/P(500 K,1 MPa),(800 K,10 MPa),(400 K,.2 MPa), pressure ratio .7. Targets shaft work−1.22464/−1.91155/−1.01064 MW, actualTout463.435/742.992/382.442 K, vapor fraction1/1/.9886, idealTout460.149/738.224/382.442 K. State/idealT controls use rel.001, work/actualT/P/quality rel.01. Inlet h comes from the pinned IAPWS external property function; no independently supplied enthalpy table is read. |
+| Incompressible expander | PressureChanger pump branch with compressor=False, saponification property,1e-3 m3/s,320 K/101325 Pa, water55388/reactants100/products1e-8 mol/m3, deltaP−20 kPa,efficiency .9. Targets fluidwork−20 W/actual−18 W,81325 Pa, near320 K and preserved composition. It is deliberately an expander direction, not the Pump alias. |
+| Performance-curve turbine | IAPWS1000 mol/s at500 K/1 MPa; callback or equivalent post-build equations set eta=.9×volume_flow/3.975 and idealhead=−75530.8×volume_flow/3.975 J/kg with volume in m3/s. Pressure is **solved**, despite an unused local Pout=700000 variable. Targetseta .9/deltaP−300 kPa(rel.001). Two construction APIs repeat this one map selection; no empirical map samples/domain were supplied. Initializer variant begins with value guesses/holds. |
+| Positive pump scaling case | Pump alias, saponification1e-3 m3/s at303.15 K/101325 Pa, same feed except exact-zero products,deltaP+100 kPa,eta .8. Expected successful initialized solve and Jacobian condition139.3(rel.001), not a separate measured pump curve. |
+| Ideal-gas compressor pair | Natural-gas helper H2O/CO2/N2 single vapor,8000 mol/s at300 K/101325 Pa, fractions .02/.15/.83, outlet200 kPa. Separate isothermal and isentropic(eta .85) selections, declared T bounds298.15..453.15 K andP99..300 kPa. Source scaled-condition targets193.26/1186(rel.001), plus optimal termination. The isothermal selection retains the zero-work caloric-boundary issue above. |
+| Ideal-gas turbine scaling | Same8000 mol/s/fractions,500 K/200 kPa to101325 Pa,eta .85; T bounds298.15..573.15 K,P99..250 kPa. Source optimality and Jacobian condition1234.32(rel.001) are numerical products; complete outlet/work/material/energy targets remain independent required products. |
+
+Native D04/G05 requires direction, pressure/efficiency and actual thermal
+boundary, auxiliary isentropic states, complete work/state products,
+performance-map provenance and original energy/material controls. Bounds,
+conditioning products and initialization restoration are not replacements
+for ordinary coefficient or physical validity evidence. Exact solver/
+external-property closure, unselected adiabatic/dynamic/invalid cases and
+independent full-output numerical qualification remain required; this
+declaration executed source/AST reads only.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
