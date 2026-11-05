@@ -552,6 +552,15 @@ labels alone cannot substitute physical pump/compressor equations. Ordinary
 data, sign/domain controls, dynamics and complete independent products
 remain required.
 
+**Update, 2026-11-05 — generic heat-equipment census:** the
+[heat closure](64h-required-process-population.md#generic-heating-and-exchanger-formulation-closure--2026-11-05)
+resolves heater, lumped/callback, fixed-effectiveness NTU, distributed and
+shell/tube populations, including mesh choices and mixed Rankine/kPa cases.
+The mislabeled lmtd3 test, absent base epsilon–NTU law and shell-assignment/
+film-perimeter distinctions remain explicit. Ordinary transfer/property
+inputs and full physical/grid/dynamic qualification remain required; H02
+retains its separately selected ordinary exchanger mapping.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

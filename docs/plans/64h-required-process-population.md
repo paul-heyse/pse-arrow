@@ -4606,6 +4606,79 @@ external-property closure, unselected adiabatic/dynamic/invalid cases and
 independent full-output numerical qualification remain required; this
 declaration executed source/AST reads only.
 
+## Generic heating and exchanger formulation closure — 2026-11-05
+
+**Interface-checked, source only:** C `models/unit_models/{heater,
+heat_exchanger,heat_exchanger_ntu,heat_exchanger_1D,shell_and_tube_1d}.py`
+and `tests/{test_heater,test_heat_exchanger,test_hx_ntu,
+test_heat_exchanger_1D,test_shell_and_tube_1D}.py` resolve the following
+formulations and physical inputs. Specialized plate, condensing feedwater,
+power-boiler and transport-correlated consumers above remain distinct.
+No selected fixture here reads experimental data, a trainer or saved state;
+property coefficients and equipment inputs are inline, with required
+Helmholtz/cubic artifacts inherited from their property owners.
+
+| Formulation | Actual configured physics and guards |
+|---|---|
+| Heater | CV package-default material/energy, pressureTotal, phase-equilibrium/pressure-change defaultFalse; heat transfer always requested. Inherited dynamics/holdup require actual material/energy storage and initial conditions. Specifying outlet temperature instead of heat is a different fixed/free problem, not an extra heat-transfer law. |
+| Lumped HeatExchanger | Two heater-like CVs with per-side property/balance/pressure/equilibrium settings, equal/opposite heat and Q=UA×selected mean temperature difference; countercurrent default, cocurrent and crossflow alternatives. Crossflow introduces a specified factor. Area/U are independent specification roles; rating/design needs an actual fixed/free choice. Custom side names cannot collide with each other or reserved/existing attributes; aliases do not change science. |
+| Mean-temperature callback | Default LMTD and algebraically equivalent lmtd2/lmtd3 forms retain equal-endpoint/log-domain singularities. Smoothed LMTD has epsilon1e-10, requires nonzero first difference/positive ratio and supplies an equal-endpoint continuation. Arithmetic mean and Underwood real-cube-root approximation are different formulations with their own derivative/domain limits, not universal replacements for LMTD. `test_lmtd3_cb` actually calls **lmtd2**, leaving lmtd3 unwitnessed by that name. |
+| NTU base | Uses inlet molar-flow×Cp capacity rates, smooth min/max epsilon1e-3 in hot-side power/temperature units, area/U/NTU and Q=effectiveness×Cmin×inlet temperature difference. **No effectiveness-versus-NTU law is added by the base unit.** Effectiveness must be fixed or defined by a subclass/user. When fixed, changing area/U changes reported NTU but not that duty law. Effectiveness is PositiveReals without an upper bound1; capacity positivity/zero-flow and genuine domain controls remain necessary. Mass-only packages are not supported by the molar capacity implementation. |
+| Distributed HX1D | Two 1D CVs with local Q/length and distributed U×area/length×local temperature difference; same transformation method required on both sides. Collocation requires explicitly specified matching schemes. Finite-difference schemes may differ with a caution about energy conservation; both default BACKWARD, including the cold countercurrent side. Only cocurrent/countercurrent supported; crossflow refuses. Defaults20 finite elements/5 collocation points; lengths/areas and per-side dynamics/holdup must have actual compatible geometry/inventory. |
+| ShellAndTube1D | Adds shell/tube cross-sectional geometry, tube count/inner/outer diameters, local wall temperature and two film coefficients. Wall is an algebraic coupling with no metal storage/conduction model. shell_is_hot defaultTrue changes which CV receives shell/tube flow area. Source hot-side film perimeter always uses **outer** tube diameter and cold-side always **inner**, including the shell_is_hot=False fixture; do not silently reverse those equations during matched comparison. Geometry requires positive available shell area, diameters and count; parser variables do not enforce all those physical inequalities. |
+
+Heater physical selections are legacy liquid BT5 mol/s at365 K/101325 Pa,
+.5/.5 composition, duty−5000 W/deltaP0 →358.9 K; modular BT_PR at the
+same inputs →358.6 K with inlet/outlet complementarity eps_t/eps_z1e-4;
+IAPWS5 mol/s,h50000 J/mol,duty+10000 W/deltaP0 →h52000 J/mol;
+and saponification1e-3 m3/s at320 K/101325 Pa, standard water55388/
+reactants100/products1e-8 mol/m3,duty+1000 W →320.2 K. All retain flow/
+pressure/composition and original enthalpy checks. The aqueous `test_solution`
+checks some inlet concentrations, so those assertions alone do not check
+every outlet species. PR/Ideal and initializer substitutions retain their
+exact formulations/holds rather than being counted by class name.
+
+| Lumped fixture | Exact inputs, callback choice and source targets |
+|---|---|
+| Legacy BT cocurrent | Both Liq,.5/.5,101325 Pa; hot5 mol/s/365 K,cold1 mol/s/300 K,A1 m2,U100 W/(m2 K). Source bounds deltaTin40..80 K/deltaTout .1..35 K; targets359.5/329.9 K(abs.1). Renamed-side test repeats the same physics. |
+| Water countercurrent |100 mol/s each,101325 Pa,hot/cold h6000/5000 J/mol,A1000 m2,U100. Default LMTD targets outlet h5070.219/5929.781 J/mol(abs1); a separate Underwood selection initializes/solves the same feeds without establishing universal callback equivalence. |
+| Aqueous crossflow | Saponification feeds320/300 K,101325 Pa,hot/cold1e-3/2e-3 m3/s,standard species with products1e-12 mol/m3,A1000,U100,crossflow factor .6. Targets300.01/310.00 K(abs.1); no reaction package selected. Unequal flow deliberately avoids equal endpoint differences in the default log expression. |
+| Mixed-unit PR cocurrent | Hot BT_PR5 mol/s/365 K/101325 Pa; cold inline PR1 mol/s/**540°R=300 K**,pressure**101.325 kPa**,both .5/.5,A1,U100. Cold package mass unittonne and temperatureRankine give kPa energy/pressure scaling; it also uses its explicit SmoothVLE/LogBubbleDew declarations. Hot complementarity eps_t/eps_z1e-4. Targets hot359.4 K,cold596.9°R, same dimensional pressure. This is not cold540 K or101.325 Pa. |
+| Callback comparison controls | Water100 mol/s each at101325 Pa,h4000/3500 J/mol. CountercurrentA1000/U100 with smoothed LMTD,lmtd2,AMTD,Underwood targets endpoint differences .464879/.465069 K and heat46497.44 W. The named lmtd3 test repeats lmtd2. Additional lmtd2 cocurrent usesA100 (differences6.63771/.46658 K,heat23242.69 W); crossflowA1000/factor1 repeats countercurrent-like targets. Near-equal endpoints here do not prove AMTD/Underwood exact for disparate differences. |
+| MEA fixed-effectiveness NTU | Two MEA_solvent liquid packages; hot60.54879 mol/s,392.23 K,202650 Pa,CO2/H2O/MEA .0158/.8747/.1095; cold63.01910 mol/s,326.36 K,sameP,.0414/.8509/.1077. A100 m2,U200,effectiveness .7,both deltaP−2000 Pa. Targets343.995/374.333 K,200650 Pa,unchanged overall species,capacity/NTU/duty identities(rel1e-5). This case fixes effectiveness, not an equipment-geometry prediction. Solvent speciation and Cp are inherited from the MEA property closure. |
+
+Distributed HX1D fixtures share length4.85 m,transfer area .5 m2,U500
+W/(m2 K),zero pressure drop unless their selected CV says otherwise.
+Their complete finite selections are:
+
+| HX1D case | Feeds and source hot/cold outlet targets |
+|---|---|
+| Legacy liquid BT cocurrent/countercurrent |5/1 mol/s,365/300 K,101325 Pa,.5/.5 both. Default finite differences give356.414/346.06 K(co) and355.505/350.67 K(counter). Countercurrent Radau and Legendre each select2 finite elements/5 points and target355.637/350.002 K. The differing grid results are not a grid-independence witness. |
+| IAPWS cocurrent/countercurrent |5 mol/s each,101325 Pa,hot/cold h50000/7000 J/mol. Targets h48673.2/8326.77(co) and48599.9/8400.11(counter) J/mol. The cocurrent fixture's helper owns the same geometry/specifications, not a hidden experimental data file. |
+| Aqueous cocurrent/countercurrent |1e-3 m3/s each,320/300 K,101325 Pa,standard saponification composition/products1e-8. Targets318.873/301.126 K(co),318.869/301.131 K(counter). Energy/material checks accompany numerical targets; no chemistry selected. |
+| Mixed-unit PR cocurrent | Same Rankine/kPa cold package and hot/cold5/1 mol/s,365 K/540°R,.5/.5 as lumped case; hot local smoothing1e-4. Targets356.39 K/625.015°R. Full spatial outputs, both-side unit conversion and energy residual remain required independently of endpoint agreement. |
+
+Shell/tube fixtures share length4.85 m,shell diameter1.04 m,10 tubes,
+OD/ID .01167/.01067 m and constant hot/cold film coefficients2000/51000
+W/(m2 K). Legacy BT hot5 mol/s365 K/cold**10 mol/s**300 K,.5/.5,
+101325 Pa targets322.669/322.463 K(co,shell hot) and304.292/331.436 K
+(counter,**shell cold**). Water5 mol/s each,h50000/7000 J/mol at101325 Pa
+targets h48200.5/8799.463(co) and47654.1/9345.86(counter) J/mol.
+Mixed-unit PR instead has cold1 mol/s540°R and targets354.878 K/638.78°R.
+These five source selections do not isolate a flow-direction effect at fixed
+shell assignment, because the BT countercurrent fixture also swaps shell.
+The transport-correlated air cases above replace constant film coefficients
+with their own selected correlations and geometry; do not merge them here.
+
+Native D04/E03 requires each heat law and fixed/free role, both physical
+streams, geometry, endpoint/spatial products, independent dimensional
+energy/material controls, trace/smoothing choices and domain refusals.
+Inherited dynamics, wall inventory, epsilon–NTU selection and validity of
+constant transfer coefficients require actual authored science and qualified
+cases. Ordinary property/transfer provenance, unselected configuration
+controls and independent numerical/grid/dynamic qualification remain
+required; source/AST inspection executed no heat unit or solver.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
