@@ -5,7 +5,7 @@
 use crate::MathError;
 use pse_ids::ContentHash;
 use serde::{Deserialize, Serialize};
-use std::{alloc::Layout, cell::RefCell};
+use std::cell::RefCell;
 pse_contract::projection_struct! {
 /// Passive complete mathematical receipt. Its fields convey no replay permission.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -88,14 +88,15 @@ pub fn capture<T>(f: impl FnOnce() -> Result<T, MathError>) -> Result<(T, ProofS
         },
     ))
 }
-/// Consume all exact successful proof outcomes without entering the original prover.
+/// Consume the original proof backing without a receipt copy or original prover call.
+/// Membership scratch and downstream reconstruction retain their own admission.
 pub fn replay<T>(
-    stream: &ProofStream,
+    stream: ProofStream,
     authority: &pse_ids::scientific_replay::RecordAuthority,
     f: impl FnOnce() -> Result<T, MathError>,
 ) -> Result<T, MathError> {
     if !authority
-        .admits(stream)
+        .admits(&stream)
         .map_err(pse_quantity::QuantityError::RecordMembership)?
     {
         return Err(MathError::Contract(
@@ -108,7 +109,7 @@ pub fn replay<T>(
         ));
     }
     let reset = begin(State::Replay {
-        entries: replay_entries(stream)?,
+        entries: stream.entries,
         position: 0,
     })?;
     let v = f()?;
@@ -122,43 +123,6 @@ pub fn replay<T>(
     Ok(v)
 }
 
-/// Charge the complete requested backing before copying any replay state. The
-/// original stream and this copy overlap; the charge follows the enclosing
-/// construction owner's existing lifetime, without a replay-local release.
-/// Allocator-private overhead/rounding and membership scratch are separate.
-fn replay_entries(stream: &ProofStream) -> Result<Vec<Proof>, MathError> {
-    let overflow = || MathError::Limit("mathematical proof receipt allocation overflow");
-    let mut bytes = Layout::array::<Proof>(stream.entries.len())
-        .map_err(|_| overflow())?
-        .size();
-    for receipt in &stream.entries {
-        bytes = bytes
-            .checked_add(
-                Layout::array::<u8>(receipt.branches.len())
-                    .map_err(|_| overflow())?
-                    .size(),
-            )
-            .ok_or_else(overflow)?;
-    }
-    crate::construction::additional(bytes)?;
-    let allocation = || MathError::Limit("mathematical proof receipt allocation");
-    let mut entries = Vec::new();
-    entries
-        .try_reserve_exact(stream.entries.len())
-        .map_err(|_| allocation())?;
-    for receipt in &stream.entries {
-        let mut branches = Vec::new();
-        branches
-            .try_reserve_exact(receipt.branches.len())
-            .map_err(|_| allocation())?;
-        branches.extend_from_slice(&receipt.branches);
-        entries.push(Proof {
-            request: receipt.request,
-            branches,
-        });
-    }
-    Ok(entries)
-}
 /// Dispatch one source/contract-bound proof. Only its outcome and branch capabilities
 /// persist; the caller's selected recipe authenticates all authored expressions.
 pub fn proof(
@@ -183,7 +147,7 @@ pub fn proof(
                         }
                         *position += 1;
                         // This receipt is consumed exactly once. Transfer its
-                        // already admitted backing rather than allocating a
+                        // original backing rather than allocating a
                         // second branch copy while replay state is retained.
                         Ok(std::mem::take(&mut v.branches))
                     }),
@@ -279,32 +243,11 @@ mod replay_tests {
     };
 
     #[derive(Debug)]
-    struct Admission {
-        allowance: usize,
-        attempts: AtomicUsize,
-        charged: AtomicUsize,
-    }
-    impl Admission {
-        fn new(allowance: usize) -> Arc<Self> {
-            Arc::new(Self {
-                allowance,
-                attempts: AtomicUsize::new(0),
-                charged: AtomicUsize::new(0),
-            })
-        }
-    }
-    impl ConstructionAdmission for Admission {
-        fn try_grow(&self, bytes: usize) -> Result<(), MathError> {
-            self.attempts.fetch_add(1, Ordering::SeqCst);
-            if bytes > self.allowance {
-                return Err(MathError::ByteLimit {
-                    resource: "test proof receipt backing",
-                    required: bytes,
-                    available: self.allowance,
-                });
-            }
-            self.charged.fetch_add(bytes, Ordering::SeqCst);
-            Ok(())
+    struct DenyGrowth(AtomicUsize);
+    impl ConstructionAdmission for DenyGrowth {
+        fn try_grow(&self, _: usize) -> Result<(), MathError> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Err(MathError::Limit("unexpected proof receipt backing growth"))
         }
     }
 
@@ -330,12 +273,13 @@ mod replay_tests {
     )]
     fn authority(stream: &ProofStream) -> RecordAuthority {
         let payload = serde_json::to_vec(stream).unwrap();
+        let digest = admitted_recipe_payload_hash(&payload);
         // SAFETY: this private fixture owns the exact original receipt population;
         // the permit is used only to test replay, never as scientific admission.
         unsafe {
             QualifiedScientificRecipe::from_canonical_product(
-                payload.clone(),
-                admitted_recipe_payload_hash(&payload),
+                payload,
+                digest,
                 ContentHash::from_bytes([29; 32]),
                 ContentHash::from_bytes([31; 32]),
             )
@@ -351,110 +295,103 @@ mod replay_tests {
         })
     }
 
+    fn qualified_stream() -> (ProofStream, RecordAuthority, [ContentHash; 2]) {
+        let stream = stream();
+        let authority = authority(&stream);
+        let requests = [stream.entries[0].request, stream.entries[1].request];
+        (stream, authority, requests)
+    }
+
     #[test]
-    fn mathematical_receipt_replay_admits_source_sized_backing_and_moves_consumed_branches() {
+    fn mathematical_receipt_replay_moves_original_backing_under_deny_growth() {
         let mut stream = stream();
-        // Retained source spare capacity is not copied into the replay population.
+        // Retain even spare capacity by ownership, without reserving a new copy.
         stream.entries.reserve(17);
         stream.entries[0].branches.reserve(101);
-        let original = serde_json::to_vec(&stream).unwrap();
+        stream.entries[1].branches.reserve(103);
         let authority = authority(&stream);
-        let expected = 2 * size_of::<Proof>() + 5;
-        let admission = Admission::new(expected);
+        let requests = [stream.entries[0].request, stream.entries[1].request];
+        let entries_backing = (stream.entries.as_ptr(), stream.entries.capacity());
+        let branch_backing = stream
+            .entries
+            .iter()
+            .map(|receipt| (receipt.branches.as_ptr(), receipt.branches.capacity()))
+            .collect::<Vec<_>>();
+        let admission = Arc::new(DenyGrowth(AtomicUsize::new(0)));
         let results = scoped(admission.clone(), || {
-            replay(&stream, &authority, || {
-                assert_eq!(admission.charged.load(Ordering::SeqCst), expected);
-                let backing = SESSION.with(|session| match &*session.borrow() {
-                    Some(State::Replay { entries, .. }) => entries[0].branches.as_ptr(),
+            replay(stream, &authority, || {
+                SESSION.with(|session| match &*session.borrow() {
+                    Some(State::Replay { entries, .. }) => {
+                        assert_eq!((entries.as_ptr(), entries.capacity()), entries_backing);
+                        for (receipt, expected) in entries.iter().zip(&branch_backing) {
+                            assert_eq!(
+                                (receipt.branches.as_ptr(), receipt.branches.capacity()),
+                                *expected
+                            );
+                        }
+                    }
                     _ => panic!("expected replay state"),
                 });
-                let first = recorded(stream.entries[0].request)?;
-                assert_eq!(first.as_ptr(), backing);
-                let second = recorded(stream.entries[1].request)?;
+                let first = recorded(requests[0])?;
+                let second = recorded(requests[1])?;
                 Ok((first, second))
             })
         })
         .unwrap();
         assert_eq!(results, (vec![7, 2], vec![1, 4, 9]));
-        assert_eq!(admission.attempts.load(Ordering::SeqCst), 1);
-        // Consuming the receipts does not return the enclosing owner's charge.
-        assert_eq!(admission.charged.load(Ordering::SeqCst), expected);
-        assert_eq!(serde_json::to_vec(&stream).unwrap(), original);
-    }
-
-    #[test]
-    fn mathematical_receipt_replay_refuses_backing_before_starting_reconstruction() {
-        let stream = stream();
-        let authority = authority(&stream);
-        let expected = 2 * size_of::<Proof>() + 5;
-        let admission = Admission::new(expected - 1);
-        let result: Result<(), _> = scoped(admission.clone(), || {
-            replay(&stream, &authority, || {
-                panic!("refused replay must not start reconstruction")
-            })
-        });
-        assert!(matches!(
-            result,
-            Err(MathError::ByteLimit {
-                resource: "test proof receipt backing",
-                required,
-                available,
-            }) if required == expected && available == expected - 1
-        ));
-        assert_eq!(admission.attempts.load(Ordering::SeqCst), 1);
-        assert_eq!(admission.charged.load(Ordering::SeqCst), 0);
+        for (result, expected) in [&results.0, &results.1].iter().zip(&branch_backing) {
+            assert_eq!((result.as_ptr(), result.capacity()), *expected);
+        }
+        // This scope exercises receipt entry/consumption only; membership scratch
+        // and real downstream constructors retain separate admission obligations.
+        assert_eq!(admission.0.load(Ordering::SeqCst), 0);
         assert!(SESSION.with(|session| session.borrow().is_none()));
-        assert_eq!(
-            proof(stream.entries[0].request, || Ok(vec![8])).unwrap(),
-            vec![8]
-        );
     }
 
     #[test]
     fn mathematical_receipt_replay_keeps_membership_version_order_and_complete_drain() {
-        let stream = stream();
-        let authority = authority(&stream);
-        let admission = Admission::new(usize::MAX);
-        let mut changed = stream.clone();
+        let (mut changed, authority, _) = qualified_stream();
         changed.entries[0].branches[0] = 3;
-        let membership = scoped(admission.clone(), || {
-            replay(&changed, &authority, || Ok(()))
-        });
+        let membership = replay(changed, &authority, || Ok(()));
         assert!(matches!(membership, Err(MathError::Contract(message))
             if message == "mathematical proof receipts are absent from qualified recipe"));
-        assert_eq!(admission.attempts.load(Ordering::SeqCst), 0);
-
-        let mut old = stream.clone();
+        let mut old = stream();
         old.version = 2;
-        let version = replay(&old, &self::authority(&old), || Ok(()));
+        let old_authority = self::authority(&old);
+        let version = replay(old, &old_authority, || Ok(()));
         assert!(matches!(version, Err(MathError::Contract(message))
             if message == "unsupported mathematical proof receipts"));
 
-        let reordered = replay(&stream, &authority, || recorded(stream.entries[1].request));
+        let (stream, authority, requests) = qualified_stream();
+        let reordered = replay(stream, &authority, || recorded(requests[1]));
         assert!(matches!(reordered, Err(MathError::Contract(message))
             if message == "mathematical proof request differs from qualified receipt"));
 
-        let extra = replay(&stream, &authority, || recorded(stream.entries[0].request));
+        let (stream, authority, requests) = qualified_stream();
+        let extra = replay(stream, &authority, || recorded(requests[0]));
         assert!(matches!(extra, Err(MathError::Contract(message))
             if message == "unconsumed mathematical proof receipts"));
 
-        let missing = replay(&stream, &authority, || {
-            recorded(stream.entries[0].request)?;
-            recorded(stream.entries[1].request)?;
+        let (stream, authority, requests) = qualified_stream();
+        let missing = replay(stream, &authority, || {
+            recorded(requests[0])?;
+            recorded(requests[1])?;
             recorded(ContentHash::from_bytes([33; 32]))
         });
         assert!(matches!(missing, Err(MathError::Contract(message))
             if message == "missing mathematical proof receipt"));
 
-        let failed: Result<(), _> = replay(&stream, &authority, || {
-            recorded(stream.entries[0].request)?;
+        let (stream, authority, requests) = qualified_stream();
+        let failed: Result<(), _> = replay(stream, &authority, || {
+            recorded(requests[0])?;
             Err(MathError::Cancelled)
         });
         assert!(matches!(failed, Err(MathError::Cancelled)));
         assert!(SESSION.with(|session| session.borrow().is_none()));
-        replay(&stream, &authority, || {
-            assert_eq!(recorded(stream.entries[0].request)?, [7, 2]);
-            assert_eq!(recorded(stream.entries[1].request)?, [1, 4, 9]);
+        let (stream, authority, requests) = qualified_stream();
+        replay(stream, &authority, || {
+            assert_eq!(recorded(requests[0])?, [7, 2]);
+            assert_eq!(recorded(requests[1])?, [1, 4, 9]);
             Ok(())
         })
         .unwrap();

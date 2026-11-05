@@ -120,42 +120,9 @@ mod proof_reconstruction_tests {
     use super::*;
     use pse_contract::boundary_projection::ProjectionRecord;
     use pse_kernels::DerivativeOrder;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    #[derive(Debug)]
-    struct Admission {
-        refuse: bool,
-        first: AtomicUsize,
-        calls: AtomicUsize,
-    }
-    impl Admission {
-        fn new(refuse: bool) -> Arc<Self> {
-            Arc::new(Self {
-                refuse,
-                first: AtomicUsize::new(0),
-                calls: AtomicUsize::new(0),
-            })
-        }
-    }
-    impl pse_math::construction::ConstructionAdmission for Admission {
-        fn try_grow(&self, bytes: usize) -> Result<(), MathError> {
-            if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
-                self.first.store(bytes, Ordering::SeqCst);
-            }
-            if self.refuse {
-                Err(MathError::ByteLimit {
-                    resource: "test mathematical receipt reconstruction",
-                    required: bytes,
-                    available: 0,
-                })
-            } else {
-                Ok(())
-            }
-        }
-    }
 
     #[test]
-    fn scientific_recipe_native_authored_proofs_preadmit_replay_and_preserve_execution() {
+    fn scientific_recipe_native_authored_proofs_owned_replay_preserves_execution() {
         let owner = direct_tests::fixture(
             crate::authored_transfer_tests::context(),
             "package direct { fn left(x:Scalar)->Scalar piecewise 2 = if x<0 then 0 else x*x*x; fn right(x:Scalar)->Scalar piecewise 2 = if x<1 then 0 else (x-1)*(x-1)*(x-1); def Root { var x:Scalar; let out:Scalar=left(x)+right(x); } }",
@@ -171,15 +138,10 @@ mod proof_reconstruction_tests {
             2,
             "both authored piecewise proofs must survive"
         );
-        let branch_bytes = entries
-            .iter()
-            .map(|entry| {
-                let (_, branches) = entry.clone().into_projection_fields();
-                assert!(!branches.is_empty());
-                branches.len()
-            })
-            .sum::<usize>();
-        let requested = 2 * size_of::<pse_math::typed::receipts::Proof>() + branch_bytes;
+        for entry in &entries {
+            let (_, branches) = entry.clone().into_projection_fields();
+            assert!(!branches.is_empty());
+        }
         let restore = |payload: &[u8]| {
             reconstruct_fixture(
                 payload,
@@ -189,23 +151,7 @@ mod proof_reconstruction_tests {
                 &cancel,
             )
         };
-        let refused = Admission::new(true);
-        let error = pse_math::construction::scoped(refused.clone(), || restore(&payload))
-            .err()
-            .unwrap();
-        assert!(
-            matches!(error, MathError::ByteLimit {
-            resource: "test mathematical receipt reconstruction", required, available: 0,
-        } if required == requested),
-            "{error}"
-        );
-        assert_eq!(refused.calls.load(Ordering::SeqCst), 1);
-        assert_eq!(refused.first.load(Ordering::SeqCst), requested);
-
-        let admitted = Admission::new(false);
-        let restored =
-            pse_math::construction::scoped(admitted.clone(), || restore(&payload)).unwrap();
-        assert_eq!(admitted.first.load(Ordering::SeqCst), requested);
+        let restored = restore(&payload).unwrap();
         assert_eq!(restored.portable_payload().unwrap(), payload);
         assert_eq!(
             restored.math().checked_members(),
@@ -513,7 +459,7 @@ fn reconstruct_recipe(
             structure: recipe.structure,
             limits,
         };
-        pse_math::typed::receipts::replay(&recipe.proofs, records, || {
+        pse_math::typed::receipts::replay(recipe.proofs, records, || {
             request.admit_inner(registry, &pse_quantity::infer::NoInvariantFacts, cancelled)
         })
     })?;
