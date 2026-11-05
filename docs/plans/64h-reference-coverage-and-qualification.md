@@ -488,6 +488,15 @@ wrapper/property equivalence or ordinary coefficient/cost adoption follows;
 native physical correspondence and independent numerical qualification
 remain required.
 
+**Update, 2026-11-05 — diagnostics census:** the
+[diagnostic population](64h-required-process-population.md#structural-and-numerical-diagnostic-input-population--2026-11-05)
+resolves synthetic units/bounds/scaling, duplicate-equality degeneracy and
+the four-stage legacy moving-bed structural/numerical progression. The
+local helper/property chain, steady target/initialization solves, default
+control schedule and exact rank/failure guards remain distinct from current
+core bed qualification. SCIP and derivative/rank execution, ordinary data
+and complete independent physical/diagnostic evidence remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

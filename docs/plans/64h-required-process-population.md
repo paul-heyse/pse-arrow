@@ -4180,6 +4180,82 @@ data acceptance. Exact selected package/solver compatibility, wider
 configuration controls, physical/cost provenance and independent numerical
 qualification remain required. Source/AST reads executed no HDA model.
 
+## Structural and numerical diagnostic input population — 2026-11-05
+
+**Interface-checked, source only:** X `docs/diagnostics` contains three
+diagnostic experiments. Structural-singularity base/`_test`/`_doc`/`_usr`
+ASTs are equal. Degeneracy base/`_test` match, as do `_doc`/`_usr`.
+Toolbox base/`_test` match despite different cell splitting; its `_doc`/
+`_usr`/`_solution` group matches, while `_exercise` differs. These wrappers
+do not create independent science inputs. No diagnostic model here reads an
+external dataset, saved initialization or fitted artifact.
+
+| Population | Inputs, intentional failures and selected products |
+|---|---|
+| Algebraic toolbox tutorial | Eight variables, four constraints: one dimensional equation missing its meter unit, an over/underconstrained allocation and one equation scaled by1e-8. v4/v5/v6 initially fixed2/2/0. Corrections add the meter unit, release v4 and fix v2=5; the resulting v3=−2 violates its initial0..5 bound, so its lower bound changes to−5. v7=1e-8×v1 remains near a bound. Final variable/constraint scaling1e8 for v7/c4 is applied through a transformed model; source asserts optimal termination of a final scaled solve. Unused v8 remains diagnostically meaningful. This is a synthetic units/structure/bounds/scaling case, not process physics. |
+| Degeneracy tutorial | Three variables0..5, all initialized1. Constraints x1+x2≥1, x1+x2+x3=1, x2−2x3≤1, x1+x3≥1, plus an optional duplicate sum equality; objective minimizes their sum. Ipopt first runs with max_iter0 to inspect the initial point, then50. SVD examines equality rank and a degeneracy MILP reports irreducible sets. Removing the duplicate creates a second model; source expects x=(1,0,0), rel/abs1e-6. Unique feasible values here follow the combined constraints, not evidence for a general optimizer. SCIP availability is explicitly required; a source helper can expose a testing solver route, but no exact installed SCIP/version/adapter was established. |
+| Moving-bed structural/numerical progression | `mod/diagnostics/gas_solid_contactors/{model,example}.py`, its local `unit_models/moving_bed.py`, three local methane/iron property/reaction files and `mod/diagnostics/util.py` close this distinct diagnostic model. It does **not** import C's current moving-bed/property implementation. The local older helpers retain incomplete physical-unit declarations, and the tutorial suppresses their logging; this is not a unit-consistent ordinary bed declaration. |
+
+The moving-bed selection is a bidirectional countercurrent methane/iron
+reduction bed, diameter6.5 m/height5 m,10 spatial finite elements,
+gas backward and solid forward finite differences with their respective
+opposing flow directions. Both phase inventories are present. Default
+dynamic horizon0..300 s has five60-second samples, two backward time
+elements/sample (11 time points). Gas feed128.20513 mol/s at298.15 K/2 bar
+has CH4/CO2/H2O=.975/.02499/.00001. Solid feed591.4 kg/s at1183.15 K
+has Fe2O3/Fe3O4/Al2O3=.45/1e-9/.55, summing1.000000001. Local particle
+diameter is1.5 mm and its fixed porosity is **.0015**, not the modern bed's
+ordinary porosity. Local reaction consumes CH4+12Fe2O3 and produces
+CO2+2H2O+8Fe3O4, with Al2O3 inert and declared reaction heat136.5843 kJ/mol.
+The selected local source files hold all remaining inline coefficients;
+no equivalence to the current core coefficient population is assumed.
+
+Dynamic initialization constructs/solves a separate steady square bed,
+loads its time/scalar state into the dynamic model, fixes initial gas/solid
+material/energy holdups except inflow boundaries and initializes derivative
+variables to zero. A second steady solve supplies target state values at
+gas/solid feed125 mol/s/600 kg/s. Tracking sums unweighted squared errors
+of eleven state families at non-inlet spatial positions and every noninitial
+time, including unlike dimensions; it is not a normalized physical or
+statistical loss. The two inlet flows become controls after time0, with
+piecewise-constant constraints at default0,60,…300 s. The code does not
+forward changed sampling arguments into that helper; custom time/horizon
+selections, especially nonzero t0, therefore need explicit alignment checks.
+`steady=True,square=False` is refused. `initialize=False` removes recursive
+initialization but an optimization request still builds its target solve.
+`fix_porosity=True` requests an inlet state attribute absent from the selected
+unpatched property port; it is not an established alternative successful case.
+
+The four source-tested diagnostic stages are finite and distinct:
+
+1. Original optimization:10 DOF; Ipopt max_iter10 must fail to terminate
+   optimally. Its initialized low residual alone does not repair singularity.
+2. Fixed-control square form:0 DOF, with10 unmatched variables and10
+   unmatched equations under structural matching.
+3. Add time/space porosity variables, substitute them into particle-density
+   and reaction-rate equations, and add velocity×area×density=solid flow
+   everywhere: structural matching is complete but the source still expects
+   failed optimization and11 parallel Jacobian-row groups at tolerance1e-8.
+4. Deactivate the added relation at solid inlet x=1 (where it duplicates an
+   existing relation) and fix inlet porosity: structural matching is complete;
+   releasing controls restores10 DOF and source expects optimal termination
+   within10 iterations. No complete physical trajectory is asserted.
+
+The notebook attempts use20 iterations and diagnostic print options, while
+the test helper has the10-iteration outcome guards above. Preserve that
+execution distinction. The time-subsystem extractor uses active equality
+constraints only, requires at least two time members and returns referenced
+input variables for temporary fixing. It is not a general steady/single-time
+or inequality-complete subsystem decomposition witness.
+
+Native G06/E03/F03 requires synthetic diagnostic controls and exact staged
+rank/failure products alongside, separately, the bed's physical model,
+inventories and conservation. Local legacy parameters, suppressed units,
+unweighted tracking and matched optimizer failure do not admit ordinary
+science or qualify transient performance. Exact SCIP/Ipopt/SVD/derivative
+prerequisites, invalid configuration controls and independent numerical/
+diagnostic execution remain required; only source/AST inspection ran here.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
