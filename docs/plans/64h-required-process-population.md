@@ -713,6 +713,88 @@ envelopes, near-critical/refusal products and independent output comparisons sta
 required under D02/H04. This resolves source/artifact selection and finite cases,
 not broad pure-fluid implementation or qualification.
 
+## Solid/liquid separation and thickener census — 2026-11-05
+
+**Interface-checked, source only:** C `unit_models/solid_liquid/{sl_separator,
+thickener}.py`, both test modules and their actual generic-Separator/property
+dependencies resolve the following D04 selections. These units replace inherited
+unit configuration with their own ConfigBlock: dynamic=False and has_holdup=False
+are the only allowed values. Neither a parent dynamic flowsheet nor a time-indexed
+port grants storage or transient settling. No parameter decorators/operating-point
+sweep occurs in the two test modules.
+
+| Actual categorical configuration | Effective meaning / guard |
+| --- | --- |
+| Independent solid/liquid property packages and argument dictionaries | Each defaults to useDefault, but these builders call the selected package directly and do not themselves resolve a parent default. Both shipped fixtures supply explicit packages. Inlet state blocks force defined_state=True and has_phase_equilibrium=False. A package label is insufficient: flow, density, viscosity, temperature/pressure or enthalpy products must exist where consumed. |
+| Material balance default useDefault | Each internal Separator resolves the actual property's default. Exposed alternatives componentPhase/componentTotal/total/none are implemented by that owner; elementTotal is explicitly refused. A none balance constructs less physics and is not a closed separation claim. |
+| Momentum default pressureTotal | Internal splitters equate outlet and inlet pressure; none omits that equation. pressurePhase/momentumTotal/momentumPhase are accepted enum values but explicitly unimplemented/refused downstream. |
+| Energy default equal_temperature | Internal splitters also expose none, equal_molar_enthalpy and enthalpy_split through the actual EnergySplittingType enum. Molar-enthalpy equality demands enth_mol even for a mass-basis package; not every fixture supports it. enthalpy_split works with the units' fixed totalFlow splitting and requires actual enthalpy-flow terms. An energy policy changes equations and cannot be inferred from a default test pass. |
+| Fixed splitter structure | Both use nonideal, total-flow splitters with named outlets, no phase equilibrium and explicit inlet mixed-state blocks. Phase/component/ideal split axes of the general Separator are not exposed choices on these units. Property inherent reactions, where actually present, retain the Separator's reaction-generation coupling; the shipped fixtures do not select them. |
+
+### Exact shipped scientific/structural selections
+
+| Source fixture | Input specification, actual science and fixed/free roles |
+| --- | --- |
+| `tests/test_sl_separator.py::TestSLSeparatorBasic` | Same `SaponificationParameterBlock` is supplied to both sides; the nominal solid side is actually liquid-only. Solid-side feed: volumetric flow=10 m3/s, concentrations H2O=55388, NaOH=100, ethyl acetate=100, sodium acetate=ethanol=1e-6 mol/m3; T=303.15 K/P=101325 Pa. Liquid feed: 20 m3/s, H2O=55388, NaOH=ethyl acetate=1e-6, sodium acetate=ethanol=50 mol/m3; T=320 K/P=200000 Pa. Liquid recovery fixed at0.7. Default material resolves componentTotal, energy equal-temperature, pressureTotal. Solids share one inlet/outlet state, while liquid splits recovered/retained with the same composition, T and P. No solid constitutive law or physical solid-property validation follows from this fixture. |
+| `tests/test_thickener.py::TestThickener0DBasic` | Locally authored mass-basis synthetic solid a/b and liquid c/d packages. Solid mass flow=0.01225 kg/s, fractions (0.2,0.8), T=303.15 K/P=101325 Pa, density=2500 kg/m3. Liquid mass flow=0.0021 kg/s, fractions (0.3,0.7), T=310 K/P=150000 Pa, density=1000 kg/m3 and viscosity=0.001 Pa s. Total feed volume=7e-6 m3/s with solid volume fraction0.7. Fix underflow volume=5e-6 m3/s, area=1 m2, v0=1.18e-4 m/s, v1=1e-5 m/s, exponent C=5 and maximum solid volume fraction0.9. Particle size and both phase splits are solved, not additional fixed inputs. Default material resolves componentTotal on each mass-basis package; pressure/energy stay separate for the solid/liquid streams. |
+
+The thickener has two total-flow splitters, each with underflow/overflow. Its
+scalar area, overflow/underflow volume fractions and flux-density equations close
+solids continuity/conservation. The selected hindered-settling law is piecewise:
+inside zero-to-maximum solids fraction it combines Stokes and Darcy-type terms,
+outside it returns zero; outlet fractions are also bounded above by the maximum.
+Stokes closure connects v0 and particle diameter to feed density difference,
+viscosity and gravity. There is no selectable settling-law enum, axial/time grid,
+moving interface or retained inventory. The governing leads are Bürger et al.
+(2006, DOI 10.1016/j.mcm.2005.11.008) and Barton–Li–Spencer (1992), with inline
+fixture coefficients. They do not identify a validated real suspension.
+
+Both tests exercise build, DOF, units, structural/numerical diagnostics,
+BlockTriangularizationInitializer, solve, detailed solution/stream outputs and
+conservation; SLSeparator adds scaling controls. These are roles of two fixed
+fixtures rather than new configurations per test method. SLSeparator's legacy
+initialize API explicitly refuses; initializer objects are selected. Numerical
+tests select ipopt_v2. Preserve initialization solver/options and the real
+Ipopt/locked environment at execution; no solver was invoked for this census.
+
+### Input closure, native correspondence and remaining configurations
+
+SLSeparator's recursive inputs are its unit plus generic `separator.py`,
+`statejunction`-style aliasing via the shared solid state, the saponification
+example property owner and core state/initialization/scaling/reporting methods.
+Thickener additionally consumes its test-local two property classes, fixed
+densities/viscosity, sensible-enthalpy test functions and inline settling
+coefficients. No CSV, trainer, serialized starting state or external property
+function is loaded by these fixtures. The property inputs are test/reference
+material; copying their dummy chemistry or settling constants does not admit an
+ordinary solid/liquid scientific package. D02/D04 must source actual phase
+density/viscosity/caloric data, particle/settling parameters and empirical validity
+for an ordinary consumer. A fixed Stokes velocity and a measured particle-size
+input are different specification roles; do not overfix both without a compatible
+closure/design problem.
+
+Native `process/models/separator.pse` provides total/component/phase split owners,
+and the existing property/state/source owners provide typed domains and input
+eligibility. A bounded search of native reference packages, process specialization
+and runtime modeling owners found no SLSeparator/Thickener/Kynch/Stokes consumer
+matching these units; generic splitter presence is not complete physical support.
+D04 must compose the actual two-property streams and settling closure at those
+owners. Required reports map all five separator streams or six thickener phase
+streams, full component/mass/volume flows, T/P, liquid recovery, area, feed and
+outlet solid fractions, v0/v1/C/maximum fraction, particle size and fluxes. Original
+solid/liquid component and total conservation, energy conventions and dimensional
+Stokes/flux residuals accompany numerical comparison.
+
+The exact two fixtures and exposed categorical/refused choices are resolved;
+nondefault compatible property/energy/balance configurations, zero/maximum-volume
+fraction and zero-density-difference domains, settling-law boundary smoothness,
+rating versus area/particle sizing, ordinary data and native/reference execution
+remain required decisions/evidence. Do not declare every exposed balance×energy
+combination physically supported from these defaults. The source search of X's
+`mod` tree and V's source tree found no named SLSeparator/Thickener consumers;
+that does not establish absence from notebook code cells or unseen archive
+content. No held or required case is excluded by this bounded finding.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
