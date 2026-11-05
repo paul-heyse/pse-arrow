@@ -164,7 +164,7 @@ fn direct_representation_record_requires_exact_qualified_session_and_preserves_f
     let decoded: Vec<RepresentationConversionRecord> =
         serde_json::from_slice(&serde_json::to_vec(&records).unwrap()).unwrap();
     assert_eq!(decoded, records);
-    receipts::replay(&stream, recipe.records(), || -> Result<(), Error> {
+    receipts::replay(stream, recipe.records(), || -> Result<(), Error> {
         for (record, original) in decoded.iter().zip(&plans) {
             let restored = record.restore()?;
             assert_eq!(&restored, original);
@@ -207,7 +207,7 @@ fn direct_representation_record_refuses_altered_full_context_and_coefficients() 
     let record = RepresentationConversionRecord::capture(&plan);
     let stream = empty_receipt_stream();
     let recipe = qualified_record_fixture(&(&stream, &record));
-    receipts::replay(&stream, recipe.records(), || -> Result<(), Error> {
+    receipts::replay(stream, recipe.records(), || -> Result<(), Error> {
         assert!(record.restore().is_ok());
         for key in ["quantity", "source", "target"] {
             let mut value = serde_json::to_value(&record).unwrap();
@@ -290,7 +290,7 @@ fn qualified_quantity_record_roundtrip_preserves_boundary_frames_and_conversion_
         serde_json::from_slice(&serde_json::to_vec(&output_record).unwrap()).unwrap();
     let conversions_decoded: Vec<CanonicalConversionRecord> =
         serde_json::from_slice(&serde_json::to_vec(&conversions).unwrap()).unwrap();
-    receipts::replay(&stream, recipe.records(), || -> Result<(), Error> {
+    receipts::replay(stream, recipe.records(), || -> Result<(), Error> {
         let restored = ordinary_decoded.restore()?;
         assert_eq!(&restored, &ordinary);
         assert_eq!(restored.source(), ordinary.source());
@@ -360,7 +360,7 @@ fn qualified_quantity_records_refuse_altered_records_under_original_authority() 
     );
     let stream = empty_receipt_stream();
     let recipe = qualified_record_fixture(&(&stream, &ordinary, &output, &conversion));
-    receipts::replay(&stream, recipe.records(), || -> Result<(), Error> {
+    receipts::replay(stream, recipe.records(), || -> Result<(), Error> {
         assert!(ordinary.restore().is_ok());
         assert!(output.restore().is_ok());
         assert!(conversion.restore().is_ok());
