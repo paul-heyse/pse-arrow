@@ -407,6 +407,15 @@ test dictionaries do not qualify correlated plant surrogates. Native coal/
 element/energy accounting,ordinary data,remaining section/air configurations
 andindependent numerical qualification remain required.
 
+**Update, 2026-11-05 — subcritical boiler census:** the
+[recirculation/correlated closure](64h-required-process-population.md#subcritical-recirculation-and-correlated-boiler-input-closure--2026-11-05)
+separates10-zone imposed-duty circulation from12-zone correlated steady/
+dynamic boiler science,resolves20 heat multipliers andthe60-second coalstep,
+andinspects thearchive'sextra slag cases/snapshot. Literal2.1 W zone9 versus
+21 MW sensitivity input remains explicit. Ordinary correlated-data/geometry,
+native inventories/profiles,fullplant/control closure andindependent
+numerical qualification remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

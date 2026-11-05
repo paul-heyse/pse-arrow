@@ -3352,6 +3352,129 @@ coefficient provenance and native fireside implementation/qualification
 remain required. AST/dictionary reads confirmed the constant values and
 input sums only; no expression, initializer or solver was executed.
 
+## Subcritical recirculation and correlated-boiler input closure — 2026-11-05
+
+**Interface-checked, source only:** C `power_generation/flowsheets/
+subcritical_power_plant/{subcritical_boiler,subcritical_boiler_flowsheet,
+generic_surrogate_dict}.py`, `flowsheets/test/test_subcritical_boiler.py` and
+`subcritical_power_plant/tests/test_subcritical_flowsheets.py` resolve two
+distinct boiler constructions and their selected steady/dynamic experiments.
+Full `subcritical_power_plant.py` steam-cycle/controller coupling remains a
+separate required closure; a circulation loop is not the whole boiler or plant.
+
+The **ten-zone recirculation** model is steady, with no holdup in Drum,
+Downcomer or WaterwallSection; drum/downcomer/ten waterwalls form one closed
+water/steam circulation path with feedwater and steam boundaries. IAPWS95
+water is consumed; the constructed FlueGasParameterBlock supplies no gas-side
+combustion experiment in this loop. Drum diameter1.2 m,length15.3256 m,level
+.6 m,6 downcomer connections ofdiameter .38 m and zero heat loss are fixed.
+The separate downcomer hasdiameter .3 m,height40.1 m,6 parallel pipes and
+zero heat duty. Preserve the different connection/pipe diameters.
+
+Allten waterwalls have610 tubes,diameter .047 m,wall .0035 m,fin .00455 m,
+fin length .0115 m,slag .001 m andpressure-drop correction1.2. Ordered heights
+are[6.15,3.15,1.5,1.45,1.35,1.25,1.15,1.35,3.25,3.45] m;projected areas
+[320,150.3,70.8,70,58.6,58.6,50.1,65.6,145.6,165.5] m². Fresh initialization
+fixes zone duties[23e6,15e6,6.8e6,12e6,12e6,12e6,10e6,9.9e6,**2.1**,20e6] W.
+Zone9 is literally2.1 W,not21 MW. Drum initialization seeds recirculating
+water/steam199470.7831 mol/s,10903981.9107 Pa,26585.3483 J/mol andfeedwater
+4630.6098 mol/s,samepressure,22723.907 J/mol. Final rating fixes feedwater
+flow/enthalpy and frees feedwater pressure;internal port seeds are released.
+The first solve creates `subcritical_boiler_init.json.gz`;an existing file
+instead restores the complete model specification using default StoreSpec.
+Core tests run in a temporary path,so their intended default route is fresh
+initialization,not automatic reuse ofthe archived file.
+
+Core `run_sensitivity()` adds20 heat multipliers1.1..3.0 by.1. It uses the
+same ten duty pattern except **zone9=21e6*multiplier W**,frees feedwaterflow
+and fixes its pressure/enthalpy. This is a change ofspecification andheat
+pattern,not simply a10–200% perturbation ofthe2.1 W baseline. It records
+vapor fraction/feedwater flow even if a solve fails;printed failure text
+does not prevent stale values entering plots. Retain every requested input,
+solve disposition andrealized pressure fixed fromthe preceding solution.
+Core rating tests separately check optimality,positive downcomer deltaP,
+recirculation component-flow agreement andfeedwater=steam flow toabsolute
+.001 mol/s. Those are selected loop controls,not complete boiler energy/
+wall-profile qualification.
+
+X archived `power_gen/subcritical/subcritical_boiler_src.ipynb` calls these
+same core create/set/initialize functions. Its shipped gzip isformat4,
+dated2022-09-16,root`unknown`;parsed zone9 duty isalso2.1 W. The archive
+addsthree uniform slag thicknesses .001/.002/.003 m,thenreloads its complete
+snapshot andadds the20-point heat sweep withzone9=21 MW. Slag effects and
+theheat-specification change are real additional consumer roles,not wrapper
+duplicates. It appends steam/vapor/slag results after failed solves too.
+The PNG is a presentation schematic. This content comparison resolves the
+candidate's meaning;conditional archival entry-point adoption remains with
+A01 ratherthan silently adding/dropping it. Original source experiments
+already required by the core loop retain their status. Old snapshot/class/
+component compatibility andordinary geometry/slag provenance remain open.
+
+The **twelve-zone correlated boiler** selects a different coal,geometry and
+topology:steady fireside withcalculated air;Drum1D with4 radial elements;
+12 waterwalls;downcomer,roof/platen,waterpipe,attemperator,primary-air mixer,
+3-stream air preheater and4 crossflow2D/header banks RH1/RH2/PSH/ECON with
+4/2/6/5 elements. Radiation ison inRH1/RH2/PSH andoff inECON. Water/metal
+holdup isconstructed where selected. Dynamic parent time is0..60 s withtwo
+backward elements (0,30,60);drum/waterwalls/selected crossflow metal inherit
+dynamic behavior,whilefireside,downcomer,roof,platen,pipe,mixers andair
+preheater explicitlyremain steady. A common time index doesnot give each
+unit the same accumulation law. Its initial-condition methods andcopied
+steady state require state-by-state native inventory correspondence.
+
+The correlated dictionary hasexactly16 outputs:12 zone duties,platen,roof,
+flyash andNOx. Each expression uses aselected subset ofthe12 wall
+temperatures,platen/roof temperatures,rawcoal flow,moisture,SR,lower-furnace
+SR,secondary-air temperature andPA/coal ratio. Inline polynomial,cross,
+logarithmic andexponential terms make its domain different fromtheconstant
+dictionary;logged flow/moisture/ratios/temperatures requirestrict positivity.
+AST inspection found no file access ordivision denominators inthese
+expressions;no trainer,dataset,fit options,validation split ortraining
+envelope is supplied. Preserve every authored coefficient atitsimmutable
+reference owner for oracle reproduction;ordinary adoption requires the
+original correlated-model provenance,domain andphysical-output meaning.
+
+Its drycoal compositionC/H/O/N/S/ash is
+.717259/.0506301/.0789829/.0140639/.0282403/.110824,HHV30.5052e6 J/kg,
+rawmoisture .1112,rawcoal29 kg/s,mill temperature338.7 K andmoisture
+vaporization .6. AirO2/N2/CO2/H2O/SO2/NO factors are
+.206201/.777811/.0003346/.0156532/1e-7/1e-7. Drum geometry is16 m long,
+1.8 m innerdiameter,.13 m wall,level .9 m,8 downcomers of .375 m,
+ambient300 K/insulation .15 m;separate downcomer .375 m×45 m×8.
+Waterwalls use660 tubes,.055 m diameter,.0055 m wall,.005 m fin,
+.013 m finlength,.001 m slag andpressure correction1.2. Their12 heights are
+[7,4.8,2.6,2.6,2.65,2.7,2.7,2.7,2.75,3.5,5.5,5.5] m andareas
+[359.738,249.6,135.2,135.2,137.8,140.4,140.4,140.4,143,183.81,179.3,179.3] m².
+Roof/platen/bank wall,fin,slag,fouling/elastic/transport andheader geometry
+remain explicit inline inputs in`set_inputs`,not values recoverable from
+theten-zone loop. No scientific input file isloaded by this fullboiler route.
+
+Initialization seeds wall temperatures
+[641,664,722,735,744,747,746,729,716,698,681,665] K,platen790 K/roof643 K,
+SR1.19/SR_lf .97/PAcoal2;these wall values andduties arethenfreed andcoupled
+toactual slag-boundary temperatures/heattransfer. Final economizer water
+inletfixes14e6 Pa/18335.7 J/mol withflowfree;reheat inletfixes3.1e6 Pa/
+55879 J/mol withflow=.9*mainsteamflow. Blowdown=.02*economizerinletflow.
+Airpreheater coefficients,heated-primary fraction,PA/coal anddryO2 are
+loadpolynomials;their comments swap PA/SA labels,so useactualside2/side3
+port identities. Atcoalq kg/s,side2 UA=−150q²+9400q+65000,side3UA=30000q+100000;
+heated-primary fraction=.0003q²−.0175q+.5,PAcoal=.0018q²−.11q+3.45,
+dryO2%=−.00075q³+.067q²−2q+22.95. These empirical laws need admitted
+domains andcannot beextrapolated asuniversal controls.
+
+Steady source targets furnaceexit1399.96 K,waterwall329144395 W andtotal
+418839867 W,relative1e-5,plus selectedsteam massbalance absolute.01 mol/s.
+Dynamic experiment firstcopies steady values intoalltimes,solves aconstant
+steady trajectory,thenstepscoal+2.5% at**t≥30 s**,withtime0 unchanged.
+At60 s ittargets1408.9636 K,waterwall334508402 W,total426313190 W.
+This isone two-interval step experiment,not a converged time/mesh study or
+closed-loop plant ramp. Exact Ipopt/ma57,Helmholtz andheat-transfer/metal
+methods,ordinary surrogate/coal/geometry provenance,native differential
+states andfull profile/element/energy acceptance remain required. Full
+steamcycle/powerplant/controller andarchive scope dispositions remainopen.
+Allreads here were source/AST/gzip inspection;no surrogate,initializer,
+inventory model,propertyfunction orsolver wasexecuted.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
