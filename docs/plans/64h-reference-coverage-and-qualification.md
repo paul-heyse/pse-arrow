@@ -459,6 +459,15 @@ correspondence or ordinary-science disposition. The legacy custom-unit
 property files remain a separate required consumer closure. No independent
 solve or ordinary coefficient acceptance is claimed.
 
+**Update, 2026-11-05 — custom compressor/heater census:** the
+[custom-unit closure](64h-required-process-population.md#custom-compressorheater-and-legacy-methanol-property-closure--2026-11-05)
+resolves the recursive legacy property pair, hectokelvin/MJ/kmol basis,
+constant-Cp compressor and heater cases, guarded steady configuration and
+analytic controls. Broader legacy flash/initializer/storage branches remain
+separate, including placeholder liquid data and the vapor inventory-hook
+unit defect. Ordinary data and independent numerical qualification remain
+required; these teaching cases do not qualify modular methanol synthesis.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

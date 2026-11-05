@@ -3936,6 +3936,71 @@ dispositions, exact IDAES2.13/Pyomo compatibility and independent numerical
 qualification remain required. AST comparison read source only; no
 flowsheet, optimizer or costing function was executed.
 
+## Custom compressor/heater and legacy methanol property closure — 2026-11-05
+
+**Interface-checked, source only:** X `docs/unit_models/custom_unit_models/
+custom_{compressor,heater}*.ipynb` defines two local unit classes and consumes
+`mod/methanol/{methanol_param_VLE,methanol_state_block_VLE}.py`. For each
+unit, base/`_test` executable ASTs match, as do `_doc`/`_usr`; the latter omit
+selected checks. These are two experiments, not eight scientific cases. The
+notebooks construct and solve directly, without calling the shared legacy
+property initializer. No file-based science input, trainer, saved state or
+external artifact is needed beyond the Python property pair.
+
+The property basis is **kmol/s, MPa and hectokelvin (100 K)** with MJ energy,
+using Gg/kmol/s/hK base units. Thus source temperature 2.9315 means 293.15 K,
+not 2.9315 K. All four species CH4/CO/H2/CH3OH share constant molar Cp;
+enthalpy flow is phase flow × Cp × temperature converted to K, with zero
+at absolute zero and no formation or latent offset. Gamma is Cp/(Cp−R).
+The selected Cp is .038056 MJ/(kmol K), equivalent to 38.056 J/(mol K),
+instead of the package default .035. This is a teaching caloric model,
+not the modular synthesis flow's component-specific RPP4/Perrys science.
+
+| Consumer | Finite configuration boundary and selected experiment |
+|---|---|
+| Custom compressor | Explicitly rejects dynamics and holdup. Phase equilibrium and pressure-change flags admit only False; energy admits enthalpyTotal, momentum none. Material-balance selector accepts the enum, with componentPhase default; each alternative still requires its actual property interface/closure, not an automatic physical support claim. Efficiency is a float configuration default .75, with no (0,1] domain guard. Pressure ratio has lower bound1. A separate ratio equation supplies outlet pressure despite the momentum selector being none. Temperature follows the ideal-gas isentropic-ratio law adjusted by efficiency. |
+| Compressor fixture | Vapor-only package, 1 kmol/s, each component .25, inlet .14 MPa/293.15 K, outlet .56 MPa (ratio4), efficiency .75. Ipopt uses ma27. Source requires optimal termination, consistent units and work 5.2616 at absolute .01 in the model power basis **MJ/s (MW)**; its printed label says MJ. Work is obtained from enthalpy rise, not a separate shaft-loss model. No unit initializer or off-design map is selected. |
+| Custom heater | Rejects dynamics and holdup; equilibrium/pressure-change flags only False; enthalpyTotal and pressureTotal are the only energy/momentum values. It builds a total-pressure equality and a heat term without work. Material-balance default componentPhase has the same enum/package limitation. |
+| Heater fixture | Vapor-only, 1 kmol/s, four fractions .25, inlet .1 MPa/300 K and heat 5 MJ/s. Ipopt with default options must terminate optimally and pass units. Outlet target 4.3138 hK = 431.38 K, absolute .001 hK = .1 K. The analytic control is temperature rise Q/(flow×Cp), with unchanged pressure/composition. |
+
+An efficiency of zero or Cp=R creates division by zero, and Cp<R gives a
+nonphysical ideal-gas gamma (the stored gamma parameter is nonnegative).
+No notebook witnesses these invalid-input/refusal cases or alternative
+material-balance choices. Native admissibility must declare them rather
+than accepting arbitrary floats because the configuration parser does.
+
+The legacy parameter owner also declares Liq, Vap or either ordering of the
+two-phase tuple. Both tuple orders construct the same physical phases.
+A single-phase state with `has_phase_equilibrium=True` is explicitly
+refused; a two-phase package constructs its flash equations even when that
+state flag is False. Those unselected property branches remain required
+selections/controls, not evidence from the vapor-only heater/compressor.
+Its flash allows every species in both phases with four inline Antoine
+parameter triples, rather than restricting the noncondensables to vapor.
+Vapor density is ideal-gas; liquid density is the fixed placeholder
+11.1 kmol/m3. Vapor-pressure lower bound .01 MPa, logarithm convention,
+coefficient temperature offsets and phase normalization need a matched
+property case before acceptance. No physical parameter-domain source or
+validation dataset is supplied for that broader teaching flash.
+
+The unselected legacy initializer fixes/restores state variables, temporarily
+deactivates balances and fraction equations, and solves in two stages. Its
+solver argument is ignored in favor of Ipopt; failures are logged rather
+than raised on termination, and original constraint activity is not restored
+as a snapshot. Inventory/dynamic property hooks are also not qualified by
+the steady unit examples; in particular the vapor enthalpy-density hook
+contains Cp−R×T rather than (Cp−R)×T, so its dimensions require disposition
+before any storage consumer. None of these additional hooks may establish
+ordinary dynamic caloric science merely because the two notebooks solve.
+
+Native D05/G06 requires user-authored unit construction, declared units,
+state/port/material-energy correspondence, complete outlet/heat/work
+products, original analytic controls and honest invalid-input handling.
+Reference teaching coefficients and placeholder liquid behavior are not
+ordinary mixture data. Wider legacy phase/initializer/storage branches,
+ordinary provenance and independent numerical qualification remain open;
+the source/AST census executed no unit or property solver.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
