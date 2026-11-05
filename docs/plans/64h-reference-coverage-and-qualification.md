@@ -747,6 +747,14 @@ upstream regression tolerance is not scientific acceptance. Ordinary valid
 envelopes,exact execution compatibility and complete native/reference
 physical outcomes remain required.
 
+**Update, 2026-11-05 — SOC submodel source closure:** the
+[six-submodel census](64h-required-process-population.md#six-soc-submodel-fixtures-and-coupled-boundary-conservation--2026-11-05)
+resolves actual steady/storage fixtures,1080 coupled boundary conservation
+requests and781 caloric gas/T points. The helper's ignored dynamic argument,
+0K structural fixtures,missing caloric entries and erroneous C2H4 carbon
+projection remain explicit. Ordinary electrochemical/material inputs,
+nonzero/dynamic acceptance and native numerical correspondence remain open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

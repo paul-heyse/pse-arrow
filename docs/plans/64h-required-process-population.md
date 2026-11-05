@@ -6193,6 +6193,83 @@ domain checks,and compare native/reference outcomes without weakening the
 zero-failure target or silently dropping historical failures. H01 scientific
 and executable readiness remains open.
 
+## Six SOC submodel fixtures and coupled boundary conservation — 2026-11-05
+
+**Interface-checked, source only:** C `soc_submodels/tests/
+test_{channel,porous_conductive_slab,conductive_slab,triple_phase_boundary,
+contact_resistor,common}.py`,their six implementation owners and `testing.py`
+resolve the remaining low-level F05/E03 source population. All listed
+fixtures construct **steady** flowsheets,including those with time lists
+or holdup. `testing._cell_flowsheet_model(dynamic,...)` ignores its dynamic
+argument and always constructs dynamicFalse. No transient acceptance follows
+from its signature. No model,property expression,initializer or solver ran.
+
+| Source / finite fixture | Actual geometry,material/boundary specifications and meaning |
+|---|---|
+| Channel:no holdup | Oxygen-side O2/H2O,opposite_flowTrue,below_electrodeFalse;3 axial volumes,time0/1s butsteady. Thickness.002m,plane.08×.08m,Tz1000K,film100W/(m2K). Both heat fluxes0;electrode-facing material flux0. Inlet flow/T/P/composition fixed at initialized values,not independently measured inlet data. Construction/unit checks only. |
+| Channel:steady holdup | Fuel H2/H2O/N2,forward flow,below_electrodeTrue,5 axial volumes,time0/1s;shared .08m plane and1000K,thickness.002m/film100. Same zero-flux/fixed-inlet boundary pattern. Stored gas terms are constructed,but there is no physical-time integration. |
+| Porous slab:no holdup | O2/N2,3 axial×4 thickness volumes,time0/1s,thickness.001m,plane.08m,T1000K,current0. Porosity.48,tortuosity5.4,solidCp450J/(kgK),density3210kg/m3,k1.86W/(mK),resistivity prefactor2.98e-5ohm m,thermal exponent−1392K. One boundary's temperature/concentration deviation,reference concentration,material/heat flux fixed at source-initialized values. These dimensions/transport parameters differ from the Herring replication cell. |
+| Porous slab:steady solid+gas holdup | H2/H2O/N2,7 axial×11 thickness volumes,time0 only;has_holdupTrue/has_gas_holdupTrue. Same material coefficients;shared boundary references start reference concentration1mol/m3,deviations/fluxes0,reference concentration derivative0. Gas storage without other holdup is refused. Dynamic gas accumulation exists in the implementation but has no dynamic trajectory fixture in this six-file population. |
+| Conductive slab:no holdup / steady holdup |3×4 versus7×11 volumes,time0/1s versus0 only;electrolyte thickness140micrometers,plane.08m,T1000K,current0,Cp470J/(kgK),density5160kg/m3,k2.16W/(mK),resistivity prefactor1.07e-4ohm m,thermal exponent7237K. x0 temperature deviation/heat flux0;holdup version shares both boundary references. Standalone initializer explicitly raises NotImplementedError:the submodel expects enclosing-cell boundary selection. |
+| Fuel reaction boundary | H2/N2/H2O,5 axial volumes,time0;below_electrolyteTrue,per-electron stoichiometryH2−.5/H2O+.5/electron+1,N2 inert. Reference concentration1mol/m3,deviation0,heat atx0=0,T1000K,current0. Exchange-current prefactor1.375e10,activation120kJ/mol,alpha1/2=.5/.5,H2/H2O powers1/1. Selected initializer fixesx0 and uses user scaling. Separate modifier fixture adds log_exchange_current_modifier fixed0;no nonzero degradation response is tested. |
+| Oxygen reaction boundary | O2/N2,7 axial volumes,time0/1/2s butsteady;O2−.25/electron−1,N2 inert,same kinetics with O2power.25. Tz andcurrent fixed**0**,reference concentrations1,deviations/heat0. This is an equation/unit-construction fixture,not a physically admissible0K solve. Unknown inert species,nonzero inert stoichiometry and missing electron coefficient are explicit source refusals. |
+| Contact resistance:shared / self-contained |3 axial volumes/time0 with shared plane/T/current references,versus7/time0/1s with self-created variables,Tz/current fixed0 in the latter. Area-resistance prefactor4.6e-5ohm m2,thermal exponent0,contact fraction1,deviation/heat0. The shared1000K fixture initializes withx0 heat fixed,then switches to fixedx1 heat. No fitted contact dataset or transient contact storage is selected. |
+
+All submodels require normalized strictly increasing face grids beginning0
+and ending1;shared versus locally created boundary variables is a finite
+coupling role,not duplicate physics. Conductive/porous/channel storage
+choices inherit the base dynamic/holdup constraints. Reaction-boundary and
+contact-resistance units force dynamicFalse/has_holdupFalse;their custom
+voltage-drop ports defaultFalse. Across-thickness thermodynamic-temperature
+selection is exposed at submodel level;the enclosing cell's stricter
+configuration refusal remains as recorded above. List membership alone
+does not establish all needed caloric/diffusion coefficients.
+
+The two coupled fuel/oxygen reaction-boundary conservation tests use one
+axial volume,shared .08m plane,T1000K,current1000A/m2 and120000Pa seed.
+Fuel seed fractions H2/H2O/N2=.05/.5/.45;oxygen.21/.79. Their two
+stoichiometric representations include gas/electrons only,or additionally
+oxide ion/vacancy terms. Fuel coefficients areH2−1/H2O+1/electrons+2;
+oxygenO2−1/electrons−4,with corresponding−1/+1 and+2/−2 oxide/vacancy
+coefficients when selected. Do not compare raw reaction extent without
+normalizing electron/charge convention.
+
+Each then requests3 pressures(1/3/5bar)×4 temperatures(900–1100K
+uniform)×3 H2 fractions(.1/.3/.5)×3 O2 fractions(.1/.2/.3)×5 current
+densities(−1000,−500,0,500,1000A/m2):**540 points per representation**,
+1080 total,plus initial solves. FuelN2=.4,H2O=.6−H2;oxygenN2=1−O2.
+Both gas concentrations use the loop'sP/(RT),despite the pressure variable's
+fuel-oriented name. Tests inspect net energy flux plus electrical work
+and H/O/N elemental flux cancellation;there are no dynamic inventories.
+They do not assert optimal termination for every loop solve or compare
+independent measured voltage/current. `pytest.approx(0,rel=1e-4)` retains
+its near-zero absolute behavior;it is not a justified1e-4 relative physical
+budget. Full finite outcomes and dimensional allowances remain required.
+
+The common caloric test selects the **11** gas entries actually present in
+`h_params`:Ar,CH4,CO,CO2,C2H4,H2,H2O,H2S,N2,O2,SO2. It evaluates71
+temperatures500–1200K at10K steps,1000mol/s/101325Pa,one species fraction1
+and others1e-19;compares ideal internal energy,enthalpy and entropy to the
+selected gas-property helper at relative1e-6. This is781 gas/T points,
+not15×71 or independent measurement validation. The broader15-name gas
+admission list also includes C2H6/C3H8/NO/N2O without corresponding entries
+in this h table. `common._element_dict` additionally assignsC2H4 four
+carbon atoms;the H/O/N boundary tests cannot detect that erroneous carbon
+projection. Preserve it as a reference inconsistency;ordinary native
+chemical identity must come from its own correct admitted composition.
+
+Recursive inputs are inline gas caloric/collision/elemental tables,the
+listed geometry/kinetic/solid/resistance coefficients,and selected Ideal
+gas helper equations;these six tests load no CSV/cache/trainer or saved
+initial state. Ipopt/initializer/scaling and complete core2.13 numerical
+behavior remain unqualified. F05/E03 must supply ordinary electrochemical/
+transport/solid provenance,actual nonzero state/boundary selections and
+native layer/port/charge/work correspondence. Dynamic gas/solid storage,
+nonzero custom voltage/modifier response and physical refinement/error
+cases remain required authored acceptance,with no shipped transient
+fixture inferred from this source population. This closes the six-file
+source census,not SOC scientific or native execution acceptance.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
