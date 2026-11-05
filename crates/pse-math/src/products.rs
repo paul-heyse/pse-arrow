@@ -453,9 +453,10 @@ impl PreparedSupport {
             Some(&direct_scalars),
             RegionStrategy::Forward,
         )?;
+        let template = Arc::make_mut(&mut compiled.template);
         // Derivative-order obligations retain their original execution position and are
         // checked even though this semantic route carries only values through the stages.
-        for stage in Arc::make_mut(&mut compiled.programs)
+        for stage in Arc::make_mut(&mut template.programs)
             .values_mut()
             .flatten()
             .flatten()
@@ -466,7 +467,7 @@ impl PreparedSupport {
                 *minimum = DerivativeOrder::Value;
             }
         }
-        compiled.census[order] = Some(CompiledOrderCensus {
+        template.census[order] = Some(CompiledOrderCensus {
             order,
             directional: kind == ProductKind::WeightedHessianAction,
             product: kind,
@@ -487,7 +488,7 @@ impl PreparedSupport {
             result_entries: product_len,
             worker_bytes: scratch_bytes,
         });
-        compiled.evaluation_cache_bytes = compiled
+        template.evaluation_cache_bytes = template
             .evaluation_cache_bytes
             .checked_add(
                 (product_len
@@ -501,17 +502,17 @@ impl PreparedSupport {
                 .ok_or(MathError::Limit("weighted point cache"))?,
             )
             .ok_or(MathError::Limit("weighted point cache"))?;
-        compiled.product = kind;
-        compiled.direct_product = Some(Arc::new(direct));
-        compiled.worker_bytes = compiled
+        template.product = kind;
+        template.direct_product = Some(Arc::new(direct));
+        template.worker_bytes = template
             .worker_bytes
             .checked_add(scratch_bytes)
             .ok_or(MathError::Limit("weighted product worker storage"))?;
-        compiled.scratch_bytes = compiled
+        template.scratch_bytes = template
             .scratch_bytes
             .checked_add(numeric * size_of::<f64>())
             .ok_or(MathError::Limit("weighted product numeric storage"))?;
-        if compiled.scratch_bytes > limits.scratch_bytes {
+        if template.scratch_bytes > limits.scratch_bytes {
             return Err(MathError::Limit("weighted product numeric storage"));
         }
         compiled.retained_bytes = compiled
@@ -543,10 +544,24 @@ impl PreparedSupport {
 impl CompiledBody {
     /// Immutable mathematical product, independent of runtime coefficient values.
     pub fn product_kind(&self) -> ProductKind {
-        self.product
+        self.template.product_kind()
     }
     /// Number of entries consumed by this product's actual caller.
     pub fn product_len(&self) -> usize {
+        self.template.product_len()
+    }
+    /// Ordered selected-axis symmetric pairs of a weighted matrix product.
+    pub fn product_pairs(&self) -> &[(usize, usize)] {
+        self.template.product_pairs()
+    }
+}
+impl ExecutionTemplate {
+    /// Immutable mathematical product, independent of runtime coefficient values.
+    pub(crate) fn product_kind(&self) -> ProductKind {
+        self.product
+    }
+    /// Number of entries consumed by this product's actual caller.
+    pub(crate) fn product_len(&self) -> usize {
         match self.product {
             ProductKind::SelectedPartials => 0,
             ProductKind::JacobianAction => self.outputs.len(),
@@ -557,7 +572,7 @@ impl CompiledBody {
         }
     }
     /// Ordered selected-axis symmetric pairs of a weighted matrix product.
-    pub fn product_pairs(&self) -> &[(usize, usize)] {
+    pub(crate) fn product_pairs(&self) -> &[(usize, usize)] {
         self.direct_product
             .as_ref()
             .map(|d| d.pairs.as_slice())
@@ -568,9 +583,9 @@ impl CompiledBody {
             })
     }
 }
-impl Worker {
+impl NumericFrame {
     /// Evaluate into private storage, then publish a complete finite requested product.
-    pub fn evaluate_product_into(
+    pub(crate) fn evaluate_product_into(
         &mut self,
         inputs: &[f64],
         bindings: ProductValues<'_>,
@@ -605,13 +620,14 @@ impl Worker {
                 (Some(weights), Some(direction))
             }
         };
-        if bindings.kind() != self.body.product
-            || output.len() != self.body.product_len()
+        if bindings.kind() != self.template.product
+            || output.len() != self.template.product_len()
             || weights.is_some_and(|w| {
-                w.len() != self.body.outputs.len() || w.iter().any(|v| !v.is_finite())
+                w.len() != self.template.outputs.len() || w.iter().any(|v| !v.is_finite())
             })
             || direction.is_some_and(|d| {
-                d.len() != self.body.coordinate_offsets.len() || d.iter().any(|v| !v.is_finite())
+                d.len() != self.template.coordinate_offsets.len()
+                    || d.iter().any(|v| !v.is_finite())
             })
         {
             return Err(MathError::Contract(
@@ -622,7 +638,7 @@ impl Worker {
         scratch.resize(output.len(), f64::NAN);
         scratch.fill(f64::NAN);
         let evaluated = (|| {
-            if self.body.reverse_product.is_some() {
+            if self.template.reverse_product.is_some() {
                 self.evaluate_reverse_product(
                     inputs,
                     weights.ok_or_else(|| MathError::Contract("weights missing".into()))?,
@@ -632,7 +648,7 @@ impl Worker {
                     &mut scratch,
                     trial,
                 )?;
-            } else if let Some(template) = self.body.direct_product.clone() {
+            } else if let Some(template) = self.template.direct_product.clone() {
                 self.evaluate_seeded(
                     inputs,
                     DerivativeOrder::Value,
@@ -671,7 +687,9 @@ impl Worker {
                     }
                     let direction =
                         direction.ok_or_else(|| MathError::Contract("direction missing".into()))?;
-                    for (&coordinate, &seed) in self.body.coordinate_offsets.iter().zip(direction) {
+                    for (&coordinate, &seed) in
+                        self.template.coordinate_offsets.iter().zip(direction)
+                    {
                         worker.arguments[2 * coordinate + 1] = seed;
                     }
                 } else {
@@ -701,7 +719,7 @@ impl Worker {
                     scratch.copy_from_slice(&worker.values[..count]);
                 }
             } else {
-                if self.body.product == ProductKind::JacobianAction {
+                if self.template.product == ProductKind::JacobianAction {
                     self.evaluate_directional_trial_into(
                         inputs,
                         direction.ok_or_else(|| MathError::Contract("direction missing".into()))?,
@@ -725,13 +743,14 @@ impl Worker {
                     let weights =
                         weights.ok_or_else(|| MathError::Contract("weights missing".into()))?;
                     for (row, &weight) in weights.iter().enumerate() {
-                        if self.body.product == ProductKind::WeightedHessianAction {
-                            let axis = self.body.coordinate_offsets.len();
+                        if self.template.product == ProductKind::WeightedHessianAction {
+                            let axis = self.template.coordinate_offsets.len();
                             for (i, out) in scratch.iter_mut().enumerate() {
                                 *out += weight * trial.second(row, i, axis);
                             }
                         } else {
-                            for (out, &(i, j)) in scratch.iter_mut().zip(self.body.product_pairs())
+                            for (out, &(i, j)) in
+                                scratch.iter_mut().zip(self.template.product_pairs())
                             {
                                 *out += weight * trial.second(row, i, j);
                             }
@@ -799,19 +818,19 @@ mod tests {
         assert_eq!(matrix.product_pairs(), &[(0, 0), (0, 1), (1, 1)]);
         assert_eq!(matrix.product_len(), 3);
         assert_eq!(
-            matrix.census[DerivativeOrder::Second]
+            matrix.template.census[DerivativeOrder::Second]
                 .unwrap()
                 .result_entries,
             3
         );
         assert_eq!(
-            matrix.census[DerivativeOrder::Second]
+            matrix.template.census[DerivativeOrder::Second]
                 .unwrap()
                 .derivative_components,
             1
         );
         assert!(
-            matrix.programs[DerivativeOrder::Second].is_none(),
+            matrix.template.programs[DerivativeOrder::Second].is_none(),
             "no per-output second-jet program"
         );
         let mut worker = matrix.worker();
@@ -876,7 +895,7 @@ mod tests {
             .unwrap();
         assert_eq!(action.product_len(), 2);
         assert_eq!(
-            action.census[DerivativeOrder::Second]
+            action.template.census[DerivativeOrder::Second]
                 .unwrap()
                 .result_entries,
             2
@@ -997,7 +1016,7 @@ mod tests {
                 &scope,
             )
             .unwrap();
-        assert!(compiled.reverse_product.is_some());
+        assert!(compiled.template.reverse_product.is_some());
         let mut worker = compiled.worker_scoped(scope);
         for (guard, expected) in [(1., [48., 72.]), (-1., [12., 24.]), (1., [48., 72.])] {
             worker
@@ -1092,10 +1111,17 @@ mod tests {
                 )
                 .unwrap();
             let action_prepare = start.elapsed();
-            assert!(action.direct_product.as_ref().unwrap().directional_gradient);
+            assert!(
+                action
+                    .template
+                    .direct_product
+                    .as_ref()
+                    .unwrap()
+                    .directional_gradient
+            );
             assert!(action.product_pairs().is_empty());
             assert_eq!(
-                action.census[DerivativeOrder::Second]
+                action.template.census[DerivativeOrder::Second]
                     .unwrap()
                     .derivative_components,
                 2
@@ -1184,7 +1210,7 @@ mod tests {
             eprintln!(
                 "I02 {name}: pairs={} matrix_prepare={matrix_prepare:?} directional_prepare={action_prepare:?} scalar_gradient_prepare={alternative_prepare:?} directional_16_calls={execute:?} action_ops={} alternative_ops={} action_scratch={}",
                 matrix.product_len(),
-                action.census[DerivativeOrder::Second]
+                action.template.census[DerivativeOrder::Second]
                     .unwrap()
                     .library_operations,
                 operation_count(alternative.facts.operations),
@@ -1240,10 +1266,10 @@ mod tests {
             assert!(census.direct_weighted);
             assert_eq!(census.native_arithmetic_blocks, 1);
             assert!(matches!(
-                compiled.direct_product.as_ref().unwrap().evaluator,
+                compiled.template.direct_product.as_ref().unwrap().evaluator,
                 BlockEvaluator::Native(_)
             ));
-            assert!(compiled.programs[DerivativeOrder::Second].is_none());
+            assert!(compiled.template.programs[DerivativeOrder::Second].is_none());
             let mut first = compiled.worker();
             let weights = [2., 3.];
             let direction = [5., 7.];
@@ -1501,7 +1527,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(compiled.compiled_order(), DerivativeOrder::First);
-        assert!(compiled.programs[DerivativeOrder::Second].is_none());
+        assert!(compiled.template.programs[DerivativeOrder::Second].is_none());
         assert_eq!(
             compiled
                 .census()

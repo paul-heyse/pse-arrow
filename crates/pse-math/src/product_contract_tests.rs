@@ -323,7 +323,7 @@ fn regional_products_provider_barrier_preserves_actual_provider_calls_and_refusa
         .compile(Optimization::default(), EvaluationLimits::default(), &scope)
         .unwrap();
     assert_eq!(
-        selected.census[DerivativeOrder::Second]
+        selected.template.census[DerivativeOrder::Second]
             .unwrap()
             .arithmetic_blocks,
         1
@@ -354,7 +354,7 @@ fn regional_products_provider_barrier_preserves_actual_provider_calls_and_refusa
             .unwrap();
         if kind == ProductKind::JacobianAction {
             assert_eq!(
-                compiled.census[DerivativeOrder::First]
+                compiled.template.census[DerivativeOrder::First]
                     .unwrap()
                     .arithmetic_blocks,
                 1

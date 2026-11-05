@@ -555,6 +555,7 @@ impl PreparedSupport {
             retained,
             RegionStrategy::ReverseSweep,
         )?;
+        let template = Arc::make_mut(&mut compiled.template);
         let mut scalars = library::ScalarCache::from_products(&compiled.scalar_products);
         let mut cost = Cost::default();
         let next_formal = self
@@ -570,7 +571,7 @@ impl PreparedSupport {
         let mut native_modules = crate::native_compiled::Batch::default();
         let stages = compile_pullbacks(
             &self.program,
-            compiled.programs[DerivativeOrder::First]
+            template.programs[DerivativeOrder::First]
                 .as_ref()
                 .ok_or_else(|| MathError::Contract("missing pullback forward program".into()))?,
             &plans,
@@ -605,18 +606,18 @@ impl PreparedSupport {
         }
         if second {
             require_order(
-                Arc::make_mut(&mut compiled.programs)[DerivativeOrder::First]
+                Arc::make_mut(&mut template.programs)[DerivativeOrder::First]
                     .as_mut()
                     .ok_or_else(|| {
                         MathError::Contract("missing mutable pullback forward program".into())
                     })?,
             );
         }
-        let buffers = (2 * compiled.slots + coordinates.len())
+        let buffers = (2 * template.slots + coordinates.len())
             .checked_mul(size_of::<f64>())
             .ok_or(MathError::Limit("pullback frame storage"))?;
         cost.add_bytes(buffers, limits)?;
-        let forward = compiled.census[DerivativeOrder::First]
+        let forward = template.census[DerivativeOrder::First]
             .ok_or_else(|| MathError::Contract("missing pullback forward census".into()))?;
         if forward
             .library_operations
@@ -629,14 +630,14 @@ impl PreparedSupport {
         {
             return Err(MathError::Limit("composed action work"));
         }
-        compiled.scratch_bytes = compiled
+        template.scratch_bytes = template
             .scratch_bytes
             .checked_add(cost.bytes)
             .ok_or(MathError::Limit("composed action scratch"))?;
-        if compiled.scratch_bytes > limits.scratch_bytes {
+        if template.scratch_bytes > limits.scratch_bytes {
             return Err(MathError::Limit("composed action scratch"));
         }
-        compiled.worker_bytes = compiled
+        template.worker_bytes = template
             .worker_bytes
             .checked_add(cost.bytes)
             .ok_or(MathError::Limit("composed action worker"))?;
@@ -677,10 +678,10 @@ impl PreparedSupport {
         census.library_instructions += cost.instructions;
         census.instruction_storage_bytes += cost.instruction_bytes;
         census.worker_bytes += cost.bytes;
-        compiled.census[DerivativeOrder::First] = None;
-        compiled.census[order] = Some(census);
-        compiled.product = kind;
-        compiled.reverse_product = Some(Arc::new(ReverseProduct {
+        template.census[DerivativeOrder::First] = None;
+        template.census[order] = Some(census);
+        template.product = kind;
+        template.reverse_product = Some(Arc::new(ReverseProduct {
             stages,
             order,
             bytes: cost.bytes,
@@ -923,7 +924,7 @@ fn evaluate_pullbacks(
     }
     Ok(())
 }
-impl Worker {
+impl NumericFrame {
     #[allow(
         clippy::too_many_arguments,
         reason = "product evaluation keeps caller inputs, weights, direction, providers, scope and atomic trial output explicit"
@@ -939,7 +940,7 @@ impl Worker {
         trial: &mut TrialEvaluation,
     ) -> Result<(), MathError> {
         let template = self
-            .body
+            .template
             .reverse_product
             .clone()
             .ok_or_else(|| MathError::Contract("missing composed action product".into()))?;
@@ -954,9 +955,9 @@ impl Worker {
             instantiate(&mut stages)?;
             self.reverse_worker = Some(ReverseWorker {
                 stages,
-                adjoints: vec![0.; self.body.slots],
-                tangents: vec![0.; self.body.slots],
-                zero_direction: vec![0.; self.body.coordinate_offsets.len()],
+                adjoints: vec![0.; self.template.slots],
+                tangents: vec![0.; self.template.slots],
+                zero_direction: vec![0.; self.template.coordinate_offsets.len()],
             });
             self.used_bytes = used;
         }
@@ -976,10 +977,10 @@ impl Worker {
             )?;
             worker.adjoints.fill(0.);
             worker.tangents.fill(0.);
-            for (&slot, &weight) in self.body.outputs.iter().zip(weights) {
+            for (&slot, &weight) in self.template.outputs.iter().zip(weights) {
                 worker.adjoints[slot] += weight;
             }
-            let layout = self.body.layouts[DerivativeOrder::First]
+            let layout = self.template.layouts[DerivativeOrder::First]
                 .as_ref()
                 .ok_or_else(|| MathError::Contract("missing action forward layout".into()))?;
             let forward = self.programs[DerivativeOrder::First]
@@ -987,7 +988,7 @@ impl Worker {
                 .ok_or_else(|| MathError::Contract("missing action forward program".into()))?;
             let context = EvaluationContext {
                 cancelled: cancel,
-                max_result_bytes: self.body.limits.scratch_bytes,
+                max_result_bytes: self.template.limits.scratch_bytes,
             };
             evaluate_pullbacks(
                 &mut worker.stages,
@@ -1000,7 +1001,10 @@ impl Worker {
                 &context,
                 template.order == DerivativeOrder::Second,
             )?;
-            for (value, &slot) in output.iter_mut().zip(self.body.coordinate_offsets.iter()) {
+            for (value, &slot) in output
+                .iter_mut()
+                .zip(self.template.coordinate_offsets.iter())
+            {
                 *value = if template.order == DerivativeOrder::Second {
                     worker.tangents[slot]
                 } else {
