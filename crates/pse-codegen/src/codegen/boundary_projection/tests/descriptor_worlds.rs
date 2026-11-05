@@ -5,6 +5,154 @@ use super::*;
 use buffa_codegen::{EnumTypeOverride, FeatureOverride};
 
 #[test]
+fn admitted_generation_shares_full_effective_source_and_retains_original_override_warning() {
+    let mut imported = imports();
+    imported[0].source_code_info = descriptor::SourceCodeInfo {
+        location: vec![descriptor::source_code_info::Location {
+            path: vec![2],
+            span: vec![0, 0, 1],
+            leading_comments: Some("original imported source".into()),
+            ..Default::default()
+        }],
+        ..Default::default()
+    }
+    .into();
+    let graph = ProjectionGraph::of::<Request>().unwrap();
+    let mut config = default_config("crate::wire::__buffa_fds");
+    config.feature_overrides.push((
+        ".no.such.enum".into(),
+        FeatureOverride::EnumType(EnumTypeOverride::Open),
+    ));
+    let output = generate_with_config(
+        &graph,
+        "pse.boundary.v1",
+        "owners.proto",
+        &imported,
+        &config,
+    )
+    .unwrap();
+    assert_eq!(
+        output.generation.descriptors(),
+        &FileDescriptorSet::decode_from_slice(&output.source_descriptor_bytes).unwrap()
+    );
+    assert!(
+        output
+            .generation
+            .descriptors()
+            .file
+            .iter()
+            .any(|file| file.source_code_info.is_set())
+    );
+    assert!(output.generation.warnings.iter().any(|warning| matches!(warning, CodeGenWarning::FeatureOverrideMatchedNothing { rule, .. } if rule == ".no.such.enum")));
+    assert!(output.generation.files.iter().any(
+        |file| file.kind == GeneratedFileKind::PackageMod && file.package == "pse.boundary.v1"
+    ));
+    let mut mismatch = output.generation.config().clone();
+    mismatch.pointer_fields.push((
+        ".pse.boundary.v1.Request.value".into(),
+        buffa_codegen::PointerRepr::Box,
+    ));
+    let original =
+        descriptors_with_imports(&graph, "pse.boundary.v1", "owners.proto", &imported).unwrap();
+    let error =
+        ProjectionGeneration::new(&original, &["owners.proto".into()], &mismatch).unwrap_err();
+    assert!(matches!(
+        error,
+        ProjectionCodegenError::Buffa(buffa_codegen::CodeGenError::SharedCorpusContextMismatch {
+            what: "pointer_fields"
+        })
+    ));
+}
+
+#[test]
+fn admitted_generation_refuses_missing_duplicate_targets_and_duplicate_source_files() {
+    let source = descriptors_with_imports(
+        &ProjectionGraph::of::<Request>().unwrap(),
+        "pse.boundary.v1",
+        "owners.proto",
+        &imports(),
+    )
+    .unwrap();
+    let config = default_config("crate::wire::__buffa_fds");
+    for (targets, reason) in [
+        (vec![], "explicit generation targets"),
+        (vec!["missing.proto".into()], "target missing"),
+        (
+            vec!["owners.proto".into(), "owners.proto".into()],
+            "duplicate generation target",
+        ),
+    ] {
+        assert!(
+            ProjectionGeneration::new(&source, &targets, &config)
+                .unwrap_err()
+                .to_string()
+                .contains(reason)
+        );
+    }
+    let mut duplicate = source;
+    duplicate.file.push(duplicate.file[0].clone());
+    assert!(
+        ProjectionGeneration::new(&duplicate, &["owners.proto".into()], &config)
+            .unwrap_err()
+            .to_string()
+            .contains("duplicate descriptor filename")
+    );
+}
+
+#[test]
+fn admitted_generation_context_matches_actual_effective_features_and_original_comments() {
+    let source = enum_source();
+    let mut config = CodeGenConfig::default();
+    config.feature_overrides.push((
+        ".world.Color".into(),
+        FeatureOverride::EnumType(EnumTypeOverride::Open),
+    ));
+    let generated = ProjectionGeneration::new(&source, &["world.proto".into()], &config).unwrap();
+    assert_eq!(
+        generated.descriptors().file[0].source_code_info,
+        source.file[0].source_code_info
+    );
+    let pool = buffa_descriptor::DescriptorPool::new(generated.descriptors().clone()).unwrap();
+    assert_eq!(
+        pool.enum_by_name("world.Color").unwrap().enum_type(),
+        buffa::editions::EnumType::Open
+    );
+    assert!(
+        generated
+            .files
+            .iter()
+            .any(|file| file.content.replace(' ', "").contains("EnumValue<Color>"))
+    );
+    assert!(
+        generated
+            .files
+            .iter()
+            .any(|file| file.content.contains("original Paint documentation"))
+    );
+}
+
+#[test]
+fn typed_message_output_collision_admission_keeps_files_and_package_mounts_distinct() {
+    let file = |name: &str, package: &str| GeneratedFile {
+        name: name.into(),
+        package: package.into(),
+        kind: GeneratedFileKind::PackageMod,
+        content: String::new(),
+    };
+    for files in [
+        vec![file("same.rs", "first.v1"), file("same.rs", "second.v1")],
+        vec![file("first.rs", "same.v1"), file("second.rs", "same.v1")],
+        vec![file("shared-root.rs", "reserved.v1")],
+        vec![
+            file("first.rs", "a.self.left"),
+            file("second.rs", "a.self_.right"),
+        ],
+    ] {
+        assert!(check_generated_files(&files).is_err());
+    }
+}
+
+#[test]
 fn descriptor_world_source_information_and_typed_options_have_distinct_artifacts() {
     let graph = ProjectionGraph::of::<Request>().unwrap();
     let mut imports = imports();
@@ -78,7 +226,12 @@ fn descriptor_world_source_information_and_typed_options_have_distinct_artifacts
     assert_eq!(output.descriptor_set, runtime);
     let pool = buffa_descriptor::DescriptorPool::new(runtime).unwrap();
     assert!(pool.message_by_name("pse.boundary.v1.Request").is_some());
-    assert!(output.sources["shared-root.rs"].contains("include_bytes!(\"descriptor.bin\")"));
+    assert!(
+        output
+            .source("shared-root.rs")
+            .unwrap()
+            .contains("include_bytes!(\"descriptor.bin\")")
+    );
 }
 
 fn expected_request_options(world: &FileDescriptorSet) -> bool {
@@ -242,7 +395,7 @@ fn descriptor_world_effective_enum_features_match_generation_and_keep_old_world(
             .unwrap();
     assert!(warnings.iter().any(|warning| matches!(
         warning,
-        buffa_codegen::CodeGenWarning::FeatureOverrideMatchedNothing { .. }
+        CodeGenWarning::FeatureOverrideMatchedNothing { .. }
     )));
 }
 

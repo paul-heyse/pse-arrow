@@ -5,6 +5,10 @@
 /// A generator refusal retaining its registry or metadata source and diagnostic.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum ProjectionCodegenError {
+    /// Original Buffa generation or shared-corpus admission refusal.
+    #[error("Buffa generation: {0}")]
+    #[diagnostic(code("schema.invalid_declaration"))]
+    Buffa(#[from] buffa_codegen::CodeGenError),
     /// Actual source registry refusal.
     #[error(transparent)]
     #[diagnostic(transparent)]

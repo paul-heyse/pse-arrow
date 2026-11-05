@@ -7,13 +7,11 @@ use pse_codegen::codegen::{GeneratedTree, boundary_projection, provenance};
 use std::path::Path;
 
 pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
-    super::code_intelligence::prepared_plugins(root, &root.join(".local/plan61-tools/bin"))?;
     let imports = super::contract_metadata::imports(root)?;
     let graph = pse_host::test_inventory::developer_evidence_projection()?;
     let package = "pse.developer.evidence.v1";
     let destination = Path::new("crates/pse-host/src/generated/developer-evidence");
     let mut tree = super::proto_projection::projection(
-        root,
         &graph,
         super::proto_projection::ProjectionTarget {
             package,
