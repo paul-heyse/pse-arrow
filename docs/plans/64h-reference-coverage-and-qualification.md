@@ -645,6 +645,14 @@ helper. Local CPU's19 active fits and cost assumptions differ from assuming
 released model identity. Other physical modes,ordinary fit/material/cost
 provenance and full independent physics/optimization qualification remain open.
 
+**Update, 2026-11-05 — reconciliation census:** the
+[boiler/economizer statistical closure](64h-required-process-population.md#archived-boilereconomizer-reconciliation-and-fitted-data-roles--2026-11-05)
+resolves raw versus reconciled/fitting/snapshot roles,250 complete/250
+empty raw rows,diagonal bin weighting,three parameters per26 bins and
+the actual12-case boiler loop. The historical DMF model_data helper is
+absent from pinned2.13;its filtering/statistical/API behavior remains held
+reference work without moving the pin or excluding required G02 science.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

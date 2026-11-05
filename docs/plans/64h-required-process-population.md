@@ -5466,6 +5466,101 @@ source-fit envelopes,ordinary material/cost data and complete independent
 SOC/property/optimization/derivative qualification remain required. Only
 source/AST/gzip inspection ran;no archived plant or solver executed.
 
+## Archived boiler/economizer reconciliation and fitted-data roles — 2026-11-05
+
+**Interface-checked, source only:** X `archive/data_reconciliation/
+{boiler_flowsheet_recon_src,econ_recon_src,econ_parmest_src}.ipynb`,
+`boiler_data_rec.py` and their local CSV/JSON inputs select three related
+statistical consumers. Scientific reconciliation/fitting remains mandatory
+G02/G01 behavior;conditional adoption of these archive entry points does
+not reinstate obsolete DMF infrastructure. **Pinned2.13 has only the
+`idaes/core/dmf/__init__.py` deprecation stub and no `model_data` module**,
+while all three notebooks import `idaes.core.dmf.model_data`. The exact
+historical read/bin/stdev/model-reference helper is absent from both frozen
+core/examples trees. Its row filtering,bin anchoring,stdev convention and
+metadata conversion therefore remain unresolved reference prerequisites,
+not an assumed executable2.13 dependency or a reason to exclude the science.
+
+| Artifact | Decoded content and permitted evidence role |
+|---|---|
+| `plant_data.csv` |500 serialized rows,50 columns including row index:250 complete measured rows and250 rows whose49 measured fields are all empty. Gross power among complete rows474983066.8345373..595020060.8395537 W. SHA256 `3f888a4100841adfcfda7200babede381abe32d83550f80e9b4ecc6941a4a6e0`. Raw measurement input,with source/generation/noise provenance still unresolved;neither500 independent physical records nor already reconciled data. Missing-row treatment must be explicit. |
+| `plant_data_meta.csv` |49 records×4 fields,**no header**;first record describes main-steam pressure,not column names. Tags,reference placeholders,descriptions and units K/Pa/W/kg/s/mol/s. Source notebooks assign model references after reading. Metadata mechanics are distinct from measurement uncertainty. |
+| `econ_recon.csv` |250 rows×39 columns,including row index:four stream states/selected component flows,ECON_Q,termination,bin number/power. All stored termination fields sayoptimal;26 bins0..25 with sizes[6,9,9,13,7,14,6,10,12,9,9,10,14,7,9,11,11,9,9,11,9,9,13,13,7,4]. SHA256 `d78109b575e5e74c9fe369e338865831dc774061e43984f63f56f0bbe3ad2639`. Reconciliation output **then fitting input**;it is not independent raw observation/training truth. |
+| `boiler_plant_recon.csv`,`boiler_plant_recon_short.csv` |Both250 rows×167 columns,with different numerical values;the short name does not establish a12-row subset or byte/scientific identity. Result tables are not read by the three selected notebooks. Their stored results do not prove the currently selected shortened boiler loop ran all rows. |
+| `econ_init.json.gz`,`optimal_run.json.gz` |Format4,rootunknown,dated2022-08-30/2022-11-24. First is economizer initialized/fixed-state input;second is boiler retry state and can be overwritten after the loop's first case. They are not observation files or independent expected physics. PFD/PDF/SVG assets are reporting outputs/inputs,not model coefficients. |
+
+Reconciliation notebooks request5 MW gross-power bins and per-bin standard
+deviations from raw measurements. Each mapped residual is measurement
+minus physical prediction divided by the bin's stdev;the objective sums
+squares,with no full covariance/correlation matrix. This is a specific
+diagonal weighting assumption,not generalized correlated-error inference.
+Exact absent-helper semantics,zero-stdev/missing measurements,selection
+bias and weighting/units need original independent controls before native
+admission. No fitted standard deviation is an ordinary process coefficient.
+
+Economizer is a steady/no-holdup countercurrent,in-line,Liq-water,
+nonradiating BoilerHeatExchanger,both pressure-changeTrue,IAPWS95/FlueGas.
+Construction water24678.26 mol/s,h from563.706 K/25.449 MPa,
+gas28387.6 mol/s,682.335 K/100145 Pa;H2O/CO2/O2/NO/SO2
+.0869/.1449/.0247/.0006/.002,N2 is the **remaining fraction**,
+unlike the nonnormalized boiler fixtures above. Geometry ID(2−2×.188)
+×.0254 m,thickness .188×.0254,pitches3.5/5.03 inches,length53.41 ft,
+90 rows,130 columns,2 inlet rows,elevation50 m;HTC correction1.5,
+both pressure corrections1. Construction heat-duty assertion93865000 W
+(rel.0001) belongs to econ_recon;parmest's default first-data solve instead
+asserts134100000 W(rel.01). Different fitted/data roles explain separate
+states;do not merge the two values as one numerical allowance.
+
+Economizer reconciliation maps12 measured coordinates:BFW and outlet
+flow/T/P;flue inlet/outlet mass-flow/T/P. Both stream ports are unfixed,
+gas inlet component flows remain linked to one free total with fixed gas
+fractions,and both driving differences≥1 K. It loops through the helper's
+returned dataframe and asserts every stored terminationoptimal,then writes
+`econ_recon.csv`. Because the raw file includes250 empty records and
+the helper is missing,the current executable case count is not established
+merely from that loop or the bundled250-row output.
+
+Economizer parmest reads the250 reconciled records,groups by26 bin IDs,
+and estimates **three shared correction parameters per bin**:HTC,tube
+pressure,shell pressure. Each experiment fixes its inlet F/h/P and six gas
+component flows/T/P from reconciled data. Its weighted objective uses only
+water-out P/T and gas-out P/T;other generated state tags are not additional
+fitting responses. Source asserts1.32<HTC correction<1.67 for each bin,
+but no expected pressure corrections,identifiability,sensitivity,covariance,
+bootstrap or held-out validation product. Changing weights to those of
+reconciled predictions or fitting independently reconciled inlet values
+does not remove their shared-data dependence. Exact old parmest/dataframe
+API compatibility remains a separate prerequisite from scientific meaning.
+
+Boiler helper first builds/initializes/connects core SCPC boiler,then adds
+inline coal/SR correlations for gas composition/flow/furnace-exit temperature
+and platen/waterwall heat. Coal50.15 kg/s,SR1.15(initial bounds1..1.25),
+platen duty88880834.87 W(rel.001),12 initial DOF. Claimed regression
+source domain coal30..70 kg/s,SR1..2.5 differs from the tighter selected
+SR bounds;original coefficient/training provenance remains required. The
+helper mentions an absent `FOCAPD_paper.pdf`;that lead is not an admitted
+scientific source. Logarithms,negative/fractional powers and ratios require
+positive coal/SR domains.
+
+Notebook then disables detailed HX U/film/radiation/friction/pressure
+relations where present,with U bounds .25..2.5×initial and deltaP bounds
+10×initial..0. It supplies38 distinct measurement mappings:BFW,ECON_OUT,
+RHT_COLD,RHT_HOT,MS each F/T/P;FSH_In/PlatenSH_IN pressures;and
+seven gas states FG_2_FSH/FG_2_RH/FG_2_PrSH/FG_2_ECON/
+FG_2_AIRPH/FG_PrSH_2_Mix/FG_RH_2_Mix each mass-flow/T/P. A listed
+23-tag `tags_obj` subset is **not used** by the actual objective,which
+sums all mapped data tags. It frees coal,SR,gas splitter,finishing-superheater
+gas inletT,economizer and reheat cold inlets,fixes finishing-superheater
+gas inletP and solves Ipopt
+tol1e-6/max250. Thus the reconciled model differs physically from the
+correlation-complete boiler;no full-performance parity follows. The loop
+processes indices0..11 before breaking,retries nonoptimal cases from
+`optimal_run.json.gz`,records failures and still writes current predictions;
+only row1 has an explicitoptimal assertion. Complete finite record mapping,
+source/cost/parameter provenance and independent statistical/conservation/
+feasibility/derivative products remain required G02/H01 work. Only source,
+CSV and gzip/JSON inspection ran;no reconciliation or fitting executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
@@ -5514,7 +5609,7 @@ each consumer's originating point/step/coverage and required-versus-optional pro
 | Modern power helpers and saved initialization | Required with NGCC/SOC cases. Nested helper imports identified above and shipped compressed initialization are reference prerequisites. Generated stream CSVs, plots and solver transcripts are outputs, not original physical input data. Serializer compatibility and all recursively loaded files remain execution-readiness work. |
 | Modern surrogate helper/data/artifacts | Required selected training/evaluation/embedding/optimization stages. `AR_training_methods.py` itself imports TensorFlow and multiple trainer families; a helper import can require more than the notebook's chosen fitted family. Reformer/sCO2 datasets, JSON/`.keras` metadata/scaling and local property code are separate input artifacts; obsolete pickle compatibility is not assumed. |
 | Held NETL-32D fixed-bed notebook | Required, held execution: `held/flowsheets/CO2_adsorption_desorption/CO2_Adsorption_Desorption_1DFixedBed.ipynb` → `mod/co2_adsorption_desorption/{NETL_32D_gas_phase_thermo,NETL_32D_solid_phase_thermo,NETL_32D_adsorption_reactions,simulation_utilities}.py` plus core fixed bed/PETSc. This is not zeolite TSA0D and cannot be deduplicated into that row. Resolve adsorption/desorption input profiles, inventory transfer, parameters and PETSc compatibility. |
-| Archived reconciliation: boiler, economizer parmest/reconciliation | Conditional supplemental source selection remains open; scientific reconciliation is already mandatory G02 behavior. Read/archive-specific inputs, covariance/noise and boiler/economizer models before deciding whether these add cases to the existing required workflow. Tree presence alone neither selects nor excludes them. |
+| Archived reconciliation: boiler, economizer parmest/reconciliation | Conditional supplemental source selection remains open; scientific reconciliation is already mandatory G02 behavior. Detailed statistical/input roles above are resolved,including250 complete/250 empty raw rows,reconciled fitting inputs,26 parameter groups and12-case boiler loop. Missing historical DMF helper and exact2.13 compatibility remain explicit prerequisites;no science is excluded. |
 | Archived NGFC, rSOFC/SOEC, SOEC, SOFC, combined SOFC/SOEC, subcritical boiler | Conditional archived entry-point selection; released core power/SOC behavior remains required above. Models/ROMs/helper data may differ from modern cases; content equivalence and all nested prerequisites have not been established. No blanket duplicate/exclusion declaration. |
 | Archived supercritical plant/steam-cycle entry points | Scientific comparison above resolves identical core calls/inputs and the same .25 throttle change; differences are resource/table imports. Same-case wrapper candidates await coordinator disposition. Core/modern plant cases remain required even if archived wrappers retire. |
 | Six archived MatOpt design families and C `apps/matopt` | Conditional supplemental whole-distribution track, outside the process-only equivalence claim. Retain materials-design scope for any later whole-release claim; no deletion or rejection of the library. |
