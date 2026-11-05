@@ -541,6 +541,28 @@ and prepared facts, not provider workers. See the actual
 [proof replay owner](../../crates/pse-math/src/typed_receipts.rs) and
 [provider restoration](../../crates/pse-compiler/src/typed_math/provider_records.rs).
 
+The resumed joint execution integrates mathematical proof backing admission on main
+(`582585b1d`, receiving merge `3ccd70350`). Replay prices the requested proof slots and
+all recorded branch lengths before copying, then uses fallible exact-capacity reservations.
+Consuming a proof moves its branch allocation instead of cloning it. Original qualified
+receipt authority, version/order checks and complete consumption remain unchanged.
+This prices requested backing, not allocator overhead or RSS; it does not establish the
+whole Recipe construction bound. The native child currently supplies no construction
+admission owner, so this correction alone cannot establish its receiving allowance.
+The standard library's [`Vec::try_reserve_exact`](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.try_reserve_exact)
+provides fallible capacity growth; the existing
+[`construction::additional`](../../crates/pse-math/src/construction.rs) owner supplies the
+prior reservation when a receiving construction scope is present.
+
+**Tested, targeted:** `scripts/pse test pse-math pse-compiler --lib -E
+'test(mathematical_receipt_) | test(scientific_recipe_native_authored_proofs_)'`
+passed 5/5 against zero failures with no build warnings in the isolated implementation
+checkout. The authored two-branch cubic controls check independently specified values,
+first/second derivatives, insufficient/sufficient backing admission and missing, extra or
+reordered receipts. The touched packages' all-target compile check also passed. Receiving
+main verification remains separate from these original focused receipts; binary Recipe
+activation, physical receipt preadmission and supplier transfer remain open.
+
 Native mathematical reconstruction remains a consequential unresolved condition.
 `reconstruct_recipe` invokes `Request::admit_inner` and lowers source mathematics again.
 Body occurrence/slot limits bound selected construction work, but do not by themselves
