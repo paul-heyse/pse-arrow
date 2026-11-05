@@ -2176,7 +2176,7 @@ mod modeling_failure_tests {
     #[tokio::test]
     async fn failed_modeling_sequence_publishes_completed_products_and_failed_attempt_trace() {
         let runtime = fixture::runtime_on(
-            512 << 20,
+            1024 << 20,
             crate::math::MathPolicy {
                 worker_bytes: 128 << 20,
                 workspace_bytes: 128 << 20,
@@ -2266,6 +2266,28 @@ mod modeling_failure_tests {
         assert!(result.diagnostic_origin(Some(3)).is_err());
         let trace = result.modeling_error(1).unwrap().strategy_trace().unwrap();
         assert!(!trace.events.is_empty());
+        let summary = result.attempt_summary().unwrap();
+        assert_eq!(summary.requested_steps, 3);
+        assert_eq!(summary.steps.len(), 3);
+        assert_eq!(summary.steps[0].accepted, Some(true));
+        assert_eq!(
+            summary.steps[0].observation,
+            Some(crate::math::strategy::observe(
+                &result.modeling_result(0).unwrap().outcome
+            ))
+        );
+        assert_eq!(
+            summary.steps[1].observation,
+            Some(crate::math::strategy::workflow_failure(
+                result.report().unwrap_err()
+            ))
+        );
+        assert!(summary.steps[2].observation.is_none());
+        assert!(summary.steps[2].accepted.is_none());
+        assert!(summary.steps[2].backend.is_none());
+        assert!(summary.steps[2].work.is_none());
+        assert!(summary.steps[2].decisions.is_empty());
+        assert!(summary.failure.is_some());
         let tables = result.tables().unwrap();
         let events =
             solve_strategy_events::Row::rows(&tables[&solve_strategy_events::RELATION_ID]).unwrap();
@@ -2297,6 +2319,49 @@ mod modeling_failure_tests {
             pse_model::generated::enums::NativeRunState::Unattempted
         );
         assert!(runs[2].error.is_none());
+
+        let RunRequest::Modeling(request) = result.request() else {
+            unreachable!();
+        };
+        let mut task_failure = RunResult::joined(
+            result.run_id,
+            result.services.clone(),
+            RunOutcome::Modeling {
+                request: request.clone(),
+                result: Err(Arc::new(contract("task settlement failed"))),
+            },
+            None,
+        );
+        task_failure.modeling_failure = Some(ModelingFailure {
+            completed: vec![result.modeling_result(0).unwrap().clone()],
+            step: None,
+        });
+        let task_failure = task_failure.completed();
+        let summary = task_failure.attempt_summary().unwrap();
+        assert_eq!(summary.requested_steps, 3);
+        assert_eq!(summary.steps[0].accepted, Some(true));
+        assert!(summary.steps[0].observation.is_some());
+        assert!(
+            summary.steps[1..]
+                .iter()
+                .all(|step| step.observation.is_none())
+        );
+        assert!(summary.failure.is_some());
+
+        let unstarted = RunResult::joined(
+            result.run_id,
+            result.services.clone(),
+            RunOutcome::Modeling {
+                request: request[..1].to_vec(),
+                result: Err(Arc::new(contract("session admission failed"))),
+            },
+            None,
+        )
+        .completed();
+        let summary = unstarted.attempt_summary().unwrap();
+        assert_eq!(summary.requested_steps, 1);
+        assert!(summary.steps[0].observation.is_none());
+        assert!(summary.failure.is_some());
     }
 }
 

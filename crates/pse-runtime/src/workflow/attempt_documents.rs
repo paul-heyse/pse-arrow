@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Bounded projections of retained producer evidence. No evaluation or native call occurs here.
-use super::{RunResult, WorkflowError, contract};
+use super::{RunRequest, RunResult, WorkflowError, contract};
 use crate::math::strategy::{Event, OriginalConclusion, Trace};
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::diagnostic::Observation as NumberObservation;
@@ -443,6 +443,18 @@ impl RunResult {
                 size_of::<AttemptSummary>() + size_of::<AttemptSummaryDocument>() + 512,
             );
         let requested_steps = self.request().facts().requested_steps;
+        let failed_step = match self.request() {
+            RunRequest::Modeling(_) => self
+                .modeling_failure
+                .as_ref()
+                .and_then(|failure| failure.step),
+            RunRequest::Initialization(_)
+            | RunRequest::Horizon(_)
+            | RunRequest::Simulation(_)
+            | RunRequest::Fit(_) => Some(0),
+            #[cfg(feature = "solver-diffsol")]
+            RunRequest::Shooting { .. } => Some(0),
+        };
         let facts = self.completed_facts();
         // Admit copies of actual variable-size option/start payloads before cloning them.
         for step in 0..requested_steps.min(limits.steps) {
@@ -508,7 +520,9 @@ impl RunResult {
                 {
                     projected.native(native, &mut findings);
                 }
-                if let Err(error) = self.report() {
+                if let Err(error) = self.report()
+                    && failed_step == Some(step)
+                {
                     projected.observation = Some(crate::math::strategy::workflow_failure(error));
                 }
                 if let Some((_, trace)) = facts.traces.iter().find(|(ordinal, _)| *ordinal == step)
