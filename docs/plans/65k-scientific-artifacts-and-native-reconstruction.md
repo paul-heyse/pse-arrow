@@ -531,15 +531,26 @@ distinct functions. Explicit value/type/quantity records restore their declared 
 members; indexed types do not instantiate an implicit Cartesian product. Price the actual
 boxes, strings and collection populations, including staging/final-collection overlap.
 
-Physical receipt replay clones complete entries/boundaries and keeps them throughout
-reconstruction; mathematical proof replay also clones entries and consumed branch bytes.
-Their recursive populations and overlapping lifetimes must enter the same receiving
-reservation. Authenticated proof replay consumes recorded results rather than rerunning
+That inspected baseline cloned complete physical receipt entries/boundaries and
+mathematical proof entries/consumed branch bytes. The resumed physical cutover now
+consumes the original owned `ReceiptStream`: entries, boundaries and their nested backing
+move into replay rather than being copied. Its sole production caller and all test callers
+are migrated; two deliberate repeated-fixture copies remain only in independent refusal
+controls. Original membership, interpretation, ordering and complete drain remain enforced.
+Native contract/inference conversion outputs and their overlapping lifetimes still require
+receiving admission. Authenticated proof replay consumes recorded results rather than rerunning
 the enclosed admission-only proof closures. Provider restoration constructs descriptors
 and prepared facts, not provider workers. See the actual
 [physical replay owner](../../crates/pse-quantity/src/resolved_receipts.rs),
 [proof replay owner](../../crates/pse-math/src/typed_receipts.rs) and
 [provider restoration](../../crates/pse-compiler/src/typed_math/provider_records.rs).
+
+The physical cutover is integrated on main from `bd1b131b6`. Its original isolated
+`pse-quantity`/`pse-math`/`pse-compiler` selection passed 17/17 against zero failures,
+including original entries/boundaries/nested operand pointer and capacity preservation,
+restored outcome frames, membership/version refusal, ordered use and cleanup. The same
+packages' all-target compile check passed with no warnings. Receiving tests remain separate;
+removing this copy does not establish the complete native restoration bound.
 
 The resumed joint execution integrates mathematical proof backing admission on main
 (`582585b1d`, receiving merge `3ccd70350`). Replay prices the requested proof slots and

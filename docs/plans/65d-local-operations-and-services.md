@@ -221,7 +221,7 @@ This table owns D-package progress, including the delivered D05 slice; 65h owns 
 | --- | --- | --- | --- |
 | D01 | planned | Current usable native baseline; 65a effects/contract identity and 65b ingress semantics | Reconcile actual operation/transport populations and original identity/effect contracts. Select the shared native handler and authentication interfaces; remove no scientific guard as mechanical dispatch. Tests compare direct/client typed outcomes and refuse untrusted peer/context before native work. |
 | D02 | planned | D01 usable custody/lifecycle contract | Decide hosting with an exact released composition spike: custom Hyper versus available library host/Tonic adapter. Exercise original-image/reconnect refusal, preface/header timeout, shutdown with active native work and inner connection failure. Select library hosting only if it expresses every consumed obligation and removes worthwhile glue; otherwise use the selected released Hyper adapter. Record the chosen version/features and delete the losing production route. |
-| D03 | planned | D01; narrow 65a generated registrations; D02 selected host | Integrate typed effects, route policy, early protocol-aware rejection, binary ingress, whole-limit profiles and optional authorized health/reflection. Tests attack duplicate/replaced routes, unauthorized symbol disclosure, unsupported codec and no implicit preparation. Delete hand-maintained route/effect/health protocol mirrors. |
+| D03 | in-progress | D01; narrow 65a generated registrations; D02 selected host | Engineering binary-gRPC ingress now rejects other protocols/codecs, methods and HTTP versions before body polling or collective allocation; three targeted controls pass, preserving library error framing and response custody. Complete typed effects, the remaining route population, whole-limit profiles and selected authorized health/reflection. Attack duplicate/replaced routes, unauthorized symbol disclosure and implicit preparation; delete replaced hand-maintained route/effect/health protocol mirrors. |
 | D04 | planned | D03; narrow 65f result and 65c identity contracts; 65i/65j authority design | Migrate submission/status/cancel/progress/readback to original identity and explicit terminal/partial outcomes. Decode observations without reconstructing native permission or settlement. Lost ACK never auto-replays effects; distinguish definite non-submission, submitted execution, method receiver departure and uncertain network reply. E04 owns performing-handle retirement, while actual parent loss retains whole-process containment. Test foreign/historical verdicts, cancelled observer with continuing work, reconnect, duplicate changed-request conflict and protected read after disconnect. Remove superseded polling/status/error translations. |
 | D05 | in-progress | D02/D03; 65e actual multi-session requirement | Inner/outer task failure and independent shutdown aggregation corrected and targeted-tested; remaining custody/session population stays open. Carry native/allocation custody through bodies and actual drain. Use result-bearing [Tokio 1.53.3 JoinSet](https://docs.rs/tokio/1.53.3/tokio/task/struct.JoinSet.html), join after abort and collect independent cleanup failures; TaskTracker cannot replace admission or outcomes. Integrate E04's reserve-before-commit handoff and explicit placement finish, retaining charges through unknown reap/I/O settlement. Test stalled readers, abandoned uploads/Prepare receivers, deadlines, long silence, child failure and surviving independent sessions; keep connection-loss containment. Delete replaced choreography and ignored explicit-finish results only with complete caller migration. |
 | D06 | planned | D04/D05 producer ownership; selected large response consumer | Apply views/segmented encoding only where producer selection and representation already avoid work. Compare complete producer→encode→transport→decode→release. Compression/interceptor flattening and backing-buffer retention are countercontrols. Keep contiguous output when simpler; delete duplicate materialization only with equivalent extent protection. |
@@ -279,6 +279,30 @@ selection, expired-clock ready priority and large-child layout. The subsequent
 owns that acceptance scope. No compiler recursion limit, warning suppression or
 manual `Send` implementation was added. General operation scopes keep their existing
 inline child and local-future contract. This is a D05 prerequisite, not D completion.
+
+### Engineering binary ingress
+
+The engineering adapter uses ConnectRPC 0.9.1
+[`Protocol::detect`](https://docs.rs/connectrpc/0.9.1/connectrpc/enum.Protocol.html#method.detect)
+and its `RequestProtocol::codec_format` to admit only binary gRPC POST over HTTP/2.
+Classification precedes memory registration and body polling. JSON, Connect, gRPC-Web,
+Connect GET and unsupported method/version requests refuse through the library's
+[`ConnectError::into_http_response`](https://docs.rs/connectrpc/0.9.1/connectrpc/struct.ConnectError.html#method.into_http_response),
+preserving protocol-specific error framing without granting an ingress allocation.
+This replaces the engineering adapter's implicit acceptance of all library protocols;
+human/offline inspection remains its separately owned operation.
+
+**Tested, targeted:** `scripts/pse test pse-runtime --lib --profile local` with
+`engineering-service,property-coolprop,native-solvers`, configured unbounded placement,
+cache off, native profiles and explicit Arrow validation passed the three
+`test(engineering_ingress_)` controls against zero failures. Actual registered binary
+dispatch accepts the library's bare/proto/parameterized content-type forms. Unsupported
+profiles leave the body unread, dispatch untouched and grants absent; protocol refusal
+also precedes an exhausted pool. Two admitted response bodies retain collective custody,
+a third refuses before body reads, and dropping one permits another actual dispatch.
+These controls were part of the eight-control run whose separate scientific EOF failure
+is tracked by [65h](65h-integration-and-qualification.md#resumed-joint-receiving-verification).
+This does not close D01–D03's full route/effect/hosting population.
 
 ## Physical realization and alternatives not selected
 
