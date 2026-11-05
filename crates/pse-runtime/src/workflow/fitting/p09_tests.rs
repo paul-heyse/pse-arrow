@@ -65,8 +65,19 @@ async fn with_admitted_fit_oracle_outcome(
                 let mut execution = Execution::within(flag, &controls, scope)?;
                 execution.memory = Some(math.policy().foreign_allowance(&controls));
                 let mut oracle = FitOracle::new(problem, math.clone(), execution)?;
-                check(&mut oracle);
-                Ok(())
+                let checked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    check(&mut oracle);
+                }))
+                .map_err(|payload| {
+                    crate::math::MathRuntimeError::Panic(pse_diagnostics::panic::settle_payload(
+                        payload,
+                        "fit fixture callback panic with opaque payload",
+                    ))
+                });
+                crate::math::MathRuntimeError::settle(
+                    checked,
+                    Box::new(oracle).finish().map_err(Into::into),
+                )
             },
         )
         .await
@@ -768,7 +779,7 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
             }],
             &assessments,
         );
-        drop(oracle);
+        Box::new(oracle).finish().unwrap();
         let prepared = package
             .prepare_fit(
                 services.preparation(),
@@ -3673,7 +3684,9 @@ async fn fitting_uneven_experiment_affinity_compares_stride_without_replay() {
         let mut measured = Vec::new();
         for stride in [true, false] {
             oracle.point = None;
-            oracle.team.take(); // Actual prior owners drain before constructing the comparison.
+            if let Some(team) = oracle.team.take() {
+                team.finish().unwrap();
+            }
             let resident_before = oracle.math.pool().reserved();
             let started = std::time::Instant::now();
             oracle.team = if stride {
@@ -3761,7 +3774,7 @@ async fn transient_fit_neutral_case_scratch_rebinds_current_frames_and_original_
                 }
                 previous = Some(prediction);
                 assert_eq!(prediction, baseline.point.as_ref().unwrap().predictions[0]);
-                drop(current);
+                Box::new(current).finish().unwrap();
             }
             let mut pending = vec![operation.reader()];
             let mut reuses = 0;
@@ -3981,7 +3994,7 @@ async fn fitting_native_foreign_population_covers_every_actual_owner_and_discard
                     assert!((point.predictions[0]-(71.+value)).abs() <= 0.001);
                 }
                 let current = oracle.prepared.clone();
-                drop(oracle);
+                Box::new(oracle).finish()?;
                 problem = Arc::try_unwrap(current).unwrap();
                 assert!(task.prepaid_storage(&Arc::new(()),foreign)?.is_some(),
                     "the native resident claim retires immediately, before reclaiming any service cache");
