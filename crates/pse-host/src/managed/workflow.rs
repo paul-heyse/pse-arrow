@@ -828,6 +828,10 @@ mod tests {
         use crate::{
             invocation::{InvocationSpec, InvocationStore},
             paths::CheckoutState,
+            selection::{Features, Filters, IgnoredPolicy, Operation, Request, Scope},
+            test_workflow::execute::{
+                Bounds, ContentIdentity, EvidenceFile, EvidenceRole, EvidenceRoot,
+            },
         };
         let scratch = tempfile::tempdir().unwrap();
         let env = crate::environment::Environment::from([(
@@ -841,6 +845,33 @@ mod tests {
         )
         .unwrap();
         let id = CliInvocationId::new();
+        let input = Input {
+            version: 1,
+            invocation: id.clone(),
+            action: Action::Test,
+            request: Request {
+                operation: Operation::Test,
+                scope: Scope::DefaultMembers {
+                    features: Features::default(),
+                },
+                platform: None,
+                filters: Filters::default(),
+                ignored: IgnoredPolicy::Default,
+            },
+            profile: "local".into(),
+            timings: false,
+            policy: super::super::payload::PayloadPolicy {
+                startup: std::time::Duration::from_secs(30),
+                write: std::time::Duration::from_secs(30),
+                drain: std::time::Duration::from_secs(30),
+            },
+            bounds: Bounds {
+                record_bytes: 4096,
+                grouping_capacity: 16,
+                failure_records: 10,
+            },
+        };
+        let (binding, encoded) = encode_input(&input).unwrap();
         let store = InvocationStore::new(state);
         let directory = Arc::new(
             store
@@ -849,7 +880,7 @@ mod tests {
                     command: "test".into(),
                     session: None,
                     parent: None,
-                    operation: (),
+                    operation: serde_json::json!({"workflow": binding.clone()}),
                     control: PreparedGeneration {
                         generation: "generation.fixture".into(),
                         protocol: 1,
@@ -860,10 +891,53 @@ mod tests {
                 })
                 .unwrap(),
         );
+        directory
+            .publish_evidence(InvocationEvidence::WorkflowInput, &encoded)
+            .unwrap();
+        let (_, original_input) = bound_input(&directory, &binding, &id, "test").unwrap();
         let parent = directory.path().join("workflow");
         fs::DirBuilder::new().mode(0o700).create(&parent).unwrap();
         let path = parent.join("report.json");
-        let original = serde_json::to_vec(&serde_json::json!({"version":2,"invocation":id,"action":"test","outcome":"tests_succeeded","required_capture_complete":true,"failures":[]})).unwrap();
+        // Author passive report fixtures for byte-custody checks, not native test
+        // verdicts. The package-workflow controls acquire actual selected passes.
+        let report_bytes = |outcome, failures, inventory: Option<ContentIdentity>| {
+            let mut evidence = vec![EvidenceFile {
+                root: EvidenceRoot::Invocation,
+                path: "workflow-input.json".into(),
+                role: EvidenceRole::Input,
+                group: None,
+                content: Some(ContentIdentity::of(&original_input)),
+                omission: None,
+                failure: None,
+            }];
+            if let Some(content) = &inventory {
+                evidence.push(EvidenceFile {
+                    root: EvidenceRoot::Workflow,
+                    path: "inventory/inventory.json".into(),
+                    role: EvidenceRole::Inventory,
+                    group: None,
+                    content: Some(content.clone()),
+                    omission: None,
+                    failure: None,
+                });
+            }
+            serde_json::to_vec(&ReportObservation {
+                version: 3,
+                invocation: id.clone(),
+                action: Action::Test,
+                outcome,
+                inventory: inventory
+                    .as_ref()
+                    .map(|_| "inventory/inventory.json".into()),
+                selected_tests: None,
+                required_capture_complete: true,
+                failures,
+                inventory_content: inventory,
+                evidence: Some(evidence),
+            })
+            .unwrap()
+        };
+        let original = report_bytes(Outcome::TestsSucceeded, vec![], None);
         fs::write(&path, &original).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
         let record = terminal(&id, &original);
@@ -877,11 +951,28 @@ mod tests {
                 .await
                 .is_err()
         );
+        let mut legacy: serde_json::Value = serde_json::from_slice(&original).unwrap();
+        legacy["version"] = 2.into();
+        legacy.as_object_mut().unwrap().remove("evidence");
+        let legacy = serde_json::to_vec(&legacy).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&path, &legacy).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(
+            validate_report(
+                directory.clone(),
+                observed(&id, &terminal(&id, &legacy)),
+                Some(0)
+            )
+            .await
+            .is_err(),
+            "retained interpretation two cannot be newly published by a current helper"
+        );
         let failure = crate::envelope::ErrorRecord::from_typed(
             &HostError::Ownership("original fixture prerequisite unavailable".into()),
             &crate::envelope::RedactionPolicy::from_environment(),
         );
-        let failed = serde_json::to_vec(&serde_json::json!({"version":2,"invocation":id,"action":"test","outcome":"failed","required_capture_complete":true,"failures":[failure]})).unwrap();
+        let failed = report_bytes(Outcome::Failed, vec![failure], None);
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
         fs::write(&path, &failed).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
@@ -912,11 +1003,11 @@ mod tests {
         assert_eq!(original_inventory.len(), replacement_inventory.len());
         fs::write(&inventory, original_inventory).unwrap();
         fs::set_permissions(&inventory, fs::Permissions::from_mode(0o400)).unwrap();
-        let inventory_sha = Sha256::digest(original_inventory)
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>();
-        let bound = serde_json::to_vec(&serde_json::json!({"version":2,"invocation":id,"action":"test","outcome":"tests_succeeded","required_capture_complete":true,"failures":[],"inventory":"inventory/inventory.json","inventory_content":{"sha256":inventory_sha,"bytes":original_inventory.len()}})).unwrap();
+        let bound = report_bytes(
+            Outcome::TestsSucceeded,
+            vec![],
+            Some(ContentIdentity::of(original_inventory)),
+        );
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
         fs::write(&path, &bound).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
