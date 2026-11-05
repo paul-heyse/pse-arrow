@@ -1014,6 +1014,120 @@ the empirical law is a useful independent check, not proof of real-membrane
 validity. Both roles, helper scientific controls, original-data admission and
 matched execution remain required; none ran in this census slice.
 
+## Enzyme CSTR inventory and NMPC source closure — 2026-11-05
+
+**Interface-checked, source only:** E02/G05's concrete core family is
+`apps/caprese/examples/{cstr_model,cstr_nmpc,cstr_reduced}.py`, with
+`core/util/tests/test_initialization.py` owning the actual property/reaction
+classes. Their origin in a test helper neither excludes the selected process nor
+admits its data as ordinary physical thermochemistry. The reduced-controller
+example is a distinct approximation/control source variant; successful full-model
+control cannot qualify its altered equations. No model or controller ran here.
+
+### Physical/normalized model, categorical settings and initial inputs
+
+`cstr_model.make_model` exposes steady/dynamic × bounds off/on; no guard removes
+bounded steady construction, but the shipped top-level selections are dynamic
+unbounded plant, dynamic bounded controller and unbounded steady initializer.
+Defaults are horizon6 min,60 finite elements,2 Radau points, inlet_E=11.91 and
+inlet_S=12.92 in the helper's kmol/m3 convention. Time/mesh arguments are ignored
+by the steady construction; they are not extra steady scientific configurations.
+The two inlet concentration arguments change scientific forcing and require a
+declared envelope rather than every possible real input.
+
+The CSTR explicitly selects holdup=True, component-total/enthalpy-total balances,
+no momentum balance and reaction heat. The two-input mixer has component-total
+material balance and no pressure-mixing equation. All species are in one aqueous
+phase: substrate S, enzyme E, complex C, product P and solvent. Reactions are
+S+E→C, C→S+E, C→P+E; first reaction is second order in S/E and the others first
+order in C. Actual Arrhenius inputs are preexponentials
+(3.36e6,1.80e6,5.79e7), activation energies(8000,9000,10000) kcal/kmol and
+gas constant1.987 kcal/(kmol K), with reference temperature300 K retained in the
+parameter block. Heat coefficients are(1000,1000,5000)/(900×0.231) in the
+helper's normalized thermal convention, not independently admitted SI reaction
+enthalpies. Source leads are Christofides–Daoutidis1996 and Heineken et al.1967;
+original formulation/parameter correspondence remains ordinary-source work.
+
+Property transport uses concentration×volumetric flow. Receiving solvent
+concentration is fixed at1. Thermal density is temperature and thermal flow is
+volumetric flow×temperature: the nominal energy storage literal300 is normalized
+storage, **not300 J**. State/reaction scalar variables mostly carry no Pyomo units
+despite documented kmol/min/m3 conventions and metadata. Native physical typing
+must declare the normalization/caloric scale explicitly before comparing energy
+or reaction-heat products. This simplified model cannot establish general fluid
+enthalpy, pressure or caloric-data validity.
+
+| Selected baseline input | Actual specification |
+| --- | --- |
+| Feed composition | Enzyme feed E=11.91 kmol/m3; substrate feed S=12.92 kmol/m3. Other reactive concentrations on each feed are0; solvent concentration=1 on both. |
+| Feed flow and temperature | Enzyme0.1 m3/min at290 K; substrate2.1 m3/min at310 K. No feed-pressure coordinate or pressure balance is invented. |
+| Dynamic storage | Volume fixed at t=0 to1 m3; initial material holdup for S/E/C/P each0.001 kmol, solvent excluded from this fixation. Initial normalized thermal storage=300. Dynamic inlet/outlet volume flows are constrained equal; solvent storage/concentration participates in constant-volume behavior. Empty initial material inventory is not the selected case. |
+| Bounded construction | Enzyme feed flow[0.01,1], substrate flow[0.5,5] m3/min; material holdups nonnegative, S≤20/E≤1/C≤5/P≤5 in helper amount units. These limits constrain the controller problem; they do not establish the validity of the kinetic/thermal law throughout those bounds. |
+
+### Explicit scientific/numerical workflow variants
+
+| Exact core selector | Finite configuration, specifications and required products |
+| --- | --- |
+| `cstr_model.py` top-level constructors | Three canonical construction roles above: dynamic(6 min,60×2), bounded dynamic(same mesh), and steady. The steady model retains holdup variables but no time accumulation; it is not a transient run. |
+| `apps/caprese/tests/test_util.py::test_initialize_by_element_in_range` | Unbounded dynamic2 min,20 elements/default2 points. Solve intervals[0,1] then[1,2], retaining state continuity and the same original equations. Expected S/C/E/P concentrations at1/2 min and original equality residual checks remain exact oracle inputs at this owner. `_test_add_noise_at_time` in the same file is not collected by pytest and cannot supply a passing noise control. |
+| `apps/caprese/tests/test_categorize_cstr.py::test_categorize_1` | Dynamic1 min,5×2, original differential/measurement partition; structural categorization, not an accepted trajectory. |
+| Same file `test_categorize_2` | Same model/mesh, replace initial energy holdup by T=300, initial P holdup by P concentration=0, and initial C holdup by C accumulation=0. These are different initial-condition freedoms, not test aliases. |
+| Same file `test_categorize_3` | Same mesh, hold normalized thermal storage=300 throughout and deactivate its accumulation discretization: isothermal/reduced-thermal variant. |
+| Same file `test_categorize_4`, `test_categorize_error` | Fix thermal and E accumulations at0, release their initial holdups and deactivate corresponding discretization for the pseudo-steady approximation; separate error selector checks invalid categorization. Structural matching does not establish approximation error or physical-time accuracy. |
+| `cstr_nmpc.main` | Controller3 min,30×2 bounded; plant0.5 min,5×2 unbounded; sample period0.5 min. Inputs are substrate/enzyme feed volume flows. Measurements are C/E/S/P concentrations, outlet T and volume. Setpoint targets P=0.4,S=0, normalized thermal storage=300,E flow=0.1,S flow=2.0,volume=1, all setpoint weights1. Release conflicting initial holdup/volume constraints for the steady-target solve, then form tracking weights1 on differential states and inputs, piecewise-constant inputs, and fix only initial control inputs. Preserve steady-target and rolling-control roles separately. |
+| `cstr_reduced.main` | Same controller/plant meshes and hold period but different equations. Fix solvent holdup and deactivate total-volume-flow closure, categorize states, form derivative/algebraic Jacobians through PyomoNLP/SciPy sparse factorization and eigenanalysis, select modes above half the largest eigenvalue magnitude and state participation above0.5, then set selected fast derivatives0, release their initial conditions and deactivate their discretization. Rebuild controller categories; use four concentration measurements. Targets differ from full controller: S=0.1 instead of0; other target fields/weights stay as declared. Approximation error against the unreduced physical plant is required. |
+
+The full script declares simulation_horizon=60 and derives a sample list, but the
+actual requested work is one initial half-minute plant propagation plus a loop
+`range(1,11)` of ten more windows. Do not report a60-minute closed-loop campaign
+from that unused declaration. Both examples need consistent initial-condition
+solves, steady-target optimization, first controller solve, plant propagation,
+measurement/input loading and horizon advancement with retained failure outcomes.
+
+Full-model random seed=246; measurement noise parameters for(S,E,C,P,T,volume)
+are(0.2,0.05,0.1,0.05,5,0.05), input parameters for(S flow,E flow)=(0.02,0.001).
+Reduced seed=100; assigned parameters are(0.01,0.005,0.01,0.005,1,0.05), but only
+the four selected concentration measurements consume that observation noise.
+Although source variables are named variance, `set_variance` stores them unchanged
+and `apply_noise_with_bounds` passes them directly to `random.gauss`; their
+implemented role is sigma, without a square root. Preserve that selected law or
+explicitly identify changed statistics. Bounds default to rejecting and resampling
+out-of-bound draws, at most six attempts (`max_number_discards=5`); exhaustion
+raises. A clipped or silently accepted failed draw would change the problem.
+
+### Recursive closure, native mapping and remaining evidence
+
+Selected source closure comprises the three example files; the two helper classes
+and their state/reaction blocks; CSTR/Mixer/core control-volume and Pyomo DAE/
+consistent-initial-condition/arc owners; Caprese NMPCSim, DynamicBlock,
+ControllerBlock, categorization/variable/vector/rolling and bounded-noise helpers.
+Full plots consume pandas/matplotlib; reduction adds NumPy/SciPy sparse linear
+algebra and PyomoNLP/PyNumero's compiled ASL interface. No CSV, trainer, trained
+weights or saved-state file is selected; initial states are constructed in memory.
+Both control examples explicitly ask Ipopt for ma57, tol1e-6,bound_push1e-8 and
+halt_on_ampl_error=yes. The constructor's separate solver uses legacy Ipopt with
+tol1e-6,mu_init1e-8,bound_push1e-8. Missing ma57/PyNumero prerequisites hold the
+selected execution; a different solver configuration is an attributed selection,
+not silently equivalent preparation. Exact executable, Python/NumPy/SciPy/ASL
+versions and the reduced example's current API compatibility remain to be frozen
+and exercised against core2.13.0.
+
+Native `reactors.pse::CSTR`, aqueous/reaction/inventory/temporal owners and
+`workflow/horizon.rs` are actual starting contracts. They do not yet supply this
+enzyme family's ordinary coefficients, normalized thermal meaning, complete
+initial-state allocation or reduced controller. E02/D03/G05 must map exact
+source/case/output identities, physical-time/hold semantics and required/optional
+trajectory products there. Required products include all species/complex and
+enzyme/substrate-pool inventories/fluxes, reaction rates, normalized-to-physical
+thermal accounting, inlet/outlet flow/T, complete trajectories, setpoint solve,
+controls/measurements/noise outcomes, reduced-state identity and approximation
+error. Exact elemental composition is not inferred for generic enzyme/substrate
+labels; conserved pools need their own declared projection. Ordinary kinetic/
+caloric records, positivity and operating envelopes, independent conservation,
+trajectory/refinement/error checks and closed-loop/reduced native/reference
+execution remain open. This finite source closure supplies E01/G01 input decisions
+and does not establish E02/G05/H04 acceptance or native MHE.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

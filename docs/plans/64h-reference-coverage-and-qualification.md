@@ -174,6 +174,17 @@ pure-method parameter inputs and the mixture witness retain their own validity
 questions, including requests beyond the helper's numeric state bounds. Ordinary
 data, native authoring consumers and actual core2.13.0 reference execution remain open.
 
+**Update, 2026-11-05 — enzyme CSTR/control source closure:** the crosswalk's
+[inventory/NMPC census](64h-required-process-population.md#enzyme-cstr-inventory-and-nmpc-source-closure--2026-11-05)
+freezes steady/dynamic/bounded inputs, staged2-minute initialization, four
+categorization/initial-state roles, full/reduced controller meshes, objectives,
+actual sample extent and bounded-noise semantics. The test helper's thermal
+storage is normalized temperature, not SI energy, and parameters named variance
+are actually passed as Gaussian sigma. ma57/PyNumero and current reduced-example
+compatibility are explicit reference prerequisites. Native physical/thermal data,
+state/pool mapping and complete dynamic/control/reduction evidence remain open;
+no constructor, source loop count or diagnostic categorization qualifies E02/G05.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
