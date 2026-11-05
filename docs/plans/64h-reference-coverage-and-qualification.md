@@ -693,6 +693,14 @@ case. Construction grids and dictionary counts do not establish cost-envelope
 or physical validity;ordinary inputs,remaining QGESS account consumers and
 full independent cost/thermal/optimization qualification remain required.
 
+**Update, 2026-11-05 — Helmholtz boundary census:** the
+[mix/split/compression closure](64h-required-process-population.md#helmholtz-mixing-splitting-and-compression-boundary-closure--2026-11-05)
+resolves minimum/equal-pressure inputs,three-outlet/phase splits,PH pump/
+compressor comparisons and actual work signs. Fixed-outlet splitter inversion
+and the condenser test's steady unit on a time grid remain explicit gaps;
+ordinary data and full independent physical/inverse/dynamic qualification
+remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

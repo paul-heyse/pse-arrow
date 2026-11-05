@@ -5848,6 +5848,54 @@ consumers and all unselected geometry/utility cases remain open. Only
 source/AST/JSON inspection and finite-combination arithmetic ran;no cost,
 heat-target,property or solver execution occurred.
 
+## Helmholtz mixing, splitting and compression boundary closure — 2026-11-05
+
+**Interface-checked, source only:** C power `helm/{mixer,splitter,
+phase_separator,pump,compressor}.py` and corresponding `test_mixer`,
+`test_splitter`,`test_phase_separator`,`test_compare_to_generic` sources
+resolve specialized pure-fluid boundaries. Their shared independent
+property/external-function input is the declared Helmholtz fluid package;
+all selected cases use IAPWS95. No measurement file,trained coefficient or
+saved-state file is read. In-memory save/restore during initialization is
+not an independently supplied initial-state artifact.
+
+| Owner | Actual configuration,finite specification and products |
+|---|---|
+| HelmMixer | Steady/no holdup only,inlet list/count(default2),inconsistent supplied list/count refused. Direct total-molar-flow/enthalpy-flow balances;pressure modes none,minimum(default),equality,switchable minimum/equality. Minimum uses sequential smooth minimum with eps .001 in package pressure units;switchable builds both and starts with minimum active. Missing pressure closure in none is consumer responsibility. No chemistry/species conversion or storage is added. |
+| Mixer minimum case | Three feeds(F mol/s,h J/mol,P Pa)=(11000,4000,120000),(10000,5000,200000),(13000,6000,300000). All fixed. Targets F34000,h5058.823529…,P120000(rel1e-7) after initialization. A local Pout150000 variable is unused in this branch. |
+| Mixer equality case | Same F/h,pressure inlet values are **guesses**,outletP fixed150000 Pa. All inlet pressures solve to150000 Pa,not to their different guesses;same total/weighted h targets(rel1e-7). This differs from pressure-reducing mixing and is a different boundary-role selection. |
+| HelmSplitter | Steady/no holdup only,outlet list/count(default2),same list/count consistency guard. Total split only;outlet molar enthalpy and pressure equal inlet,no material-component or phase-selective split law. Split fractions have no source0..1 bounds,although their sum=1. Selected three outlets:inlet10000 mol/s,h4000 J/mol,P101325 Pa,second/third fractions .3/.2 supplied as values;initializer fixes enough fractions from the end and solves first .5. Targets5000/3000/2000 mol/s and identical h/P(rel1e-7). |
+| Splitter inverse initialization | With fixed outletflow,the source computes a provisional fraction as **inletflow/outletflow**,opposite to its balance's outletflow/inletflow meaning. That branch is not exercised by the three-outlet fixture. It is an explicit source discrepancy requiring an independent fixed-outlet-flow control;do not infer valid inverse behavior from the standard split test. Initializer otherwise fixes n−1 fractions and restores original fixed/active roles. |
+| HelmPhaseSeparator | Steady/no holdup only;separate mixed,liquid and vapor states with equal pressures,phase enthalpies copied from mixed-state products and flows from vapor fraction. Intended pure-fluid mixed-PH interface,not a general chemical flash. Selected150000 mol/s,12 MPa,h28365.2608 J/mol;initializer initially leaves three boundary DOF,then test fixes inputs. Source checks total flow closure,vapor-flow=feed×quality,vapor enthalpy agreement(abs.001);no independently tabulated quality/temperature/liquid enthalpy target or solver-optimal assertion follows that solve. |
+| HelmPump | Steady/no holdup,pressure/workTrue,no heat forced;asserts Helmholtz PH/MIX-L-G package. Work uses **outlet** volume×deltaP/efficiency;efficiency alias isentropic references pump efficiency. No density-independent incompressible law is added. Efficiency initialized .9 but not automatically fixed;pressure ratio initialized .7 is a guess,not a declared pump compression direction. |
+| HelmIsentropicCompressor | Same steady/PH package guards and work/pressure/no-heat boundary;efficiency .9 initialized/fixed,ratio1.5 initiallyfree. Ideal outlet h from inlet entropy/outletP;actual h rise divides ideal rise by efficiency. Its named ideal-work expression uses inlet h−ideal h (negative for compression),while actual energy balance gives positive shaft input. Output/sign conventions must be mapped explicitly. |
+
+The pump/generic comparison uses10000 mol/s,h4000 J/mol,101325→
+202650 Pa,efficiency .7;outletT and work must agree(rel1e-7). The
+compressor comparison uses1000 mol/s,h from500 K/2222782.4 Pa,
+pressure ratio2.7,efficiency .324,same T/work agreement(rel1e-7).
+Pump versus isentropic-compressor at the **liquid pump input** above allows
+rel.001 difference,not exact physical formulation identity. Turbine comparison
+uses1000 mol/s at500 K/1 MPa,ratio .7,eta .9,the already selected
+generic/Helm turbine case. These compare two implementations sharing one
+property source;they are not independent ordinary property/shaft-work data.
+
+The NTU condenser case is already owned by the feedwater-heater section:
+steady100 mol/s,h30000 hot stream/cold1200 mol/s,h1800,P101325,
+area1000 m2,U500;hot pressure is solved,9000 Pa only a guess,target
+14036.3360 Pa(rel.01). Its so-called dynamic test instead places the
+**steady unit** on0..3 s/four BACKWARD time elements with identical inputs;
+it does not exercise fluid/wall storage or a disturbance. Preserve that
+qualification boundary for every consumer of this condenser fixture.
+
+Native D04/F02 requires explicit pure-fluid mixing/splitting/phase
+availability,pressure and energy boundaries,flow/quality/material closure,
+inverse initialization/fixed-free roles and actual pump/compressor work
+signs. Source split-fraction/efficiency/flow domains,ordinary property/curve
+data and complete independent component/derivative/plant/dynamic evidence
+remain required. Only source inspection and weighted-flow arithmetic ran;
+no Helmholtz external function or unit executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
