@@ -701,6 +701,15 @@ and the condenser test's steady unit on a time grid remain explicit gaps;
 ordinary data and full independent physical/inverse/dynamic qualification
 remain required.
 
+**Update, 2026-11-05 — QGESS lifecycle census:** the
+[technology/location/lifecycle closure](64h-required-process-population.md#qgess-technology-location-and-lifecycle-input-closure--2026-11-05)
+separates the newer assessment owner from archived power costing,ten
+technology presets,capital-only/full-input fixtures,192 location rows and29
+mixed-basis resource prices. Synthetic future currency units,phaseout key/
+percentage behavior and calculation bypasses remain explicit. Ordinary
+account/price/finance provenance,native mappings and complete independent
+lifecycle qualification remain required;H01/G06 are open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

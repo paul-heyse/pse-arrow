@@ -603,6 +603,15 @@ The fully merged, clean implementation worktree was then removed; original invoc
 remains outside it. These checks do not close J03 readiness, J05 full workflow population or H
 qualification.
 
+The actual receiving 97-test report was exported with
+`inspect developer-evidence --layout directory`, then its published directory was moved.
+`inspect developer-evidence-bundle --member 0 --length 256` independently verified all eighteen
+original files (6,798,683 bytes), zero omissions and the complete selected population, then
+returned only the requested range with its verified whole-member digest. Original report and
+inventory commitments matched export. This real bounded journey preserves passive recorded
+settlement and `atomic_snapshot=false`; it does not establish current execution/rerun authority,
+native-fixture custody or the remaining J05 failure population.
+
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.
 - [Report reconciliation](../../crates/pse-host/src/managed/workflow.rs) and

@@ -5896,6 +5896,81 @@ data and complete independent component/derivative/plant/dynamic evidence
 remain required. Only source inspection and weighted-flow arithmetic ran;
 no Helmholtz external function or unit executed.
 
+## QGESS technology, location and lifecycle input closure — 2026-11-05
+
+**Interface-checked, source only:** C `models/costing/QGESS.py`,
+`tests/test_QGESS.py`, `models_extra/power_generation/costing/
+power_plant_costing_dictionaries.py` and `core/base/costing_base.py`
+resolve the newer G06 assessment implementation. This is a separate owner
+from `power_plant_capcost.py` consumed by the archived plants above. Shared
+coefficient files do not establish API or numerical equivalence between them.
+No costing model, currency registry or solver was executed for this census.
+
+| Configuration / finite source population | Exact interpretation and guards |
+|---|---|
+| Ten technology presets | 1 supercritical coal;2 subcritical coal;3 two-stage slurry gasification;4 single-stage slurry gasification;5 dry-feed gasification;6 natural gas;7 advanced ultrasupercritical coal;8 polymer-layer accounts;9 sensor/control accounts;10 UKy rare-earth case. The construction/default/full-argument tests each parameterize1–10. These are assessment presets,not ten independently validated process flowsheets. Missing technology is refused. Technology10 requires selected external/user equipment accounts;the built-in BB/CCS dictionaries are loaded for1–9. |
+| Optional calculation flags | Fixed O&M,variable O&M,tax/credit,production-credit phaseout,NPV,capital-expenditure period and economy of numbers all defaultFalse. Lang factor defaultsNone;currency year2018. Taxes require fixed O&M. Capital-period input is used under NPV and must be a list summing exactly100;the tests use10/60/30 percent over three preceding years. No full Boolean Cartesian product is asserted admissible. |
+| Global assumptions | Default location Washington DC/Northeast average1;capacity factor.85 except technology10 .92. Lang factor1 for1–9 when unset;technology10 sums eleven installation percentages to1.97. Technology1–7 overnight percentage.202,TASC/TOC1.093,fixed-charge factor.0707;8 uses.202/1.047/.0664;9 .202/1.070/.0690;10 TASC/TOC1.144 and fixed-charge.1002 with its separate installation/overhead accounting. These mutable source assumptions are required inputs,not local economic recommendations. |
+| Labor / maintenance | Seven hourly rates27.90,23.26,30.29,24.06,23.43,46.82,38.50 in selected-year USD for skilled,unskilled,supervisor,maintenance,technician,engineer,operator. Technology10 uses2/5/2/3/1/2/0 people per shift and25% burden;others0/0/0/0/0/0/6 and30%. Maintenance triples(labor split,labor TPC fraction,material TPC fraction):1/2/7(.4,.016,.016),3/4/5(.35,.03,.03),6/9(.4,.019,.019),8(.4,.019,.016). Technology10 has separate fixed-O&M equations. |
+| NPV / learning | Discount10%,life20years,capital escalation3.6%,loan interest6%,repayment10years,debt50% of capex,operating/revenue inflation3%;cumulative units5,learning rate.04. Direct purchase-cost,fixed-O&M,revenue and debt expressions may replace calculated values;these fixed/free and calculation-bypass roles are separate scientific cases. |
+| Tax / phaseout | Source percentages income26,mineral depletion14,production incentive10,royalty6.5. A supplied phaseout dictionary must have ascending keys and descending values;tests use2031–33→75/50/25. Eleven explicit year probes2021/23/27–35 use string-keyed2028–33→90/75/60/45/30/15 and expect factors1/1/1/.9/.75/.6/.45/.3/.15/0/0. Future USD2027–35 are synthetic equal-index units registered by the test. They are neither forecast price data nor validation of tax law. |
+| Currency / location refusals | Unsupported currency lookup fails;phaseout year must be four leading/trailing digits. Six currency-name controls2021,2023,2019_Sep,UKy_2019,2008_Nov,2018_Dec exercise parsing. Location must be a string list of length2/3 with known country/city and min/max/average selector(defaultaverage). Null,wrong types/lengths,unknown country/city/selector are explicit refusal controls. |
+| Equipment account invocation | Named preloaded account groups for technologies1–7,or explicit account lists;CCS selectorA/B,parallel count default1,scale-downFalse,currency2018,multiplicative project contingencyTrue. Additional accounts must be a **list of dictionaries**. Conflicting selected built-in accounts require explicit override permission. Parallel-train scaling and additive versus multiplicative contingency change the economics and require separate correspondence. |
+
+The ordinary capital-only fixture has no selected physical equipment and
+checks aggregation/solver construction for each technology. The full fixture
+sets Lang2,all flagsTrue,USD2023 and the three-year expenditure schedule;
+purchase100 MUSD2018,annual fixed cost10 MUSD2018/year,revenue15
+MUSD2018/year,debt50 MUSD2018 are explicitly supplied. Physical rate inputs
+are coal1tonne/hour,natural gas1MBtu/s,water1gallon/s,chemical/waste
+1kg/s,pure product1kg/s,mixed product.1kg/s. Two named copies of several
+resource streams deliberately exercise dictionary/group aggregation. Product
+prices are1 and.25 USD2018/kg;transport coefficients10 USD2018/kg for
+feed/product/CO2,with no CO2 capture-rate supplied in this fixture. Additional
+chemical/waste expenses1 USD2018/day and land.30 USD2018/s exercise
+annualization. The three-location comparison uses technology10 and DC1,
+West Coast1.1363,Midwest1.0455;it tests affected capital/fixed components
+separately from unchanged non-overhead resource costs. It is not three
+independently sourced regional plant designs.
+
+The recursive numeric inputs are the previously identified BB/generic-CCS
+account dictionaries,the inline installation/labor/maintenance/finance
+tables,core currency definitions and `core/base/location_factors.json`.
+The location file has192 unique country/city rows in139 countries,SHA256
+`250b8ff8f4d6ed175333bead6b43db2ad0858e4b55f1221957d8b7cf18ddf0f0`;
+each row has min/max/average. Default DC bypasses reading this file,but a
+selected other location requires it. The resource-price helper contains29
+priced resources with **different currency years and denominator units**:
+11 USD2018 fuel/water/chemical/waste items,6 USD2018_Dec capture-related
+items,5 USD2016 cooling/heating utilities,1 USD2013 sulfolane item and6
+USD2018_Dec hydrogen-catalyst/waste items. Natural gas4.42USD2018/MBtu,
+coal51.96USD2018/ton,water.00190USD2018/gallon,electricity71.7
+USD2018_Dec/MWh are examples of distinct bases. Resource and price inputs
+must be dictionaries;explicit prices override defaults and every resource
+requires a price. No external commodity-price feed is read.
+
+Source anomalies remain part of the execution contract:phaseout text
+mentions unit fractions,but the calculation divides supplied percentages
+by100 and no per-value0–100 bound is enforced here. The in-range branch
+indexes a **string** year;the all-config test's integer keys are only used
+before the first phaseout year. In-range integer-key and missing-interior-year
+cases therefore remain required compatibility/refusal probes. Capital
+percentage validation checks exact sum100,not individual positivity. These
+source facts cannot silently become native policy or a claim of accepted
+economics. Unit controls additionally distinguish one-time versus annual
+land/chemical/waste costs,dimensionless inputs and invalid transport/rate
+units,including time in the wrong place.
+
+G06 must map original ordinary purchase/accounts/resource/location/finance
+inputs to native assessment declarations and fix which calculated versus
+supplied costs are demanded. These reference tables and synthetic tests
+remain oracle material until independently sourced/admitted. Price-year
+conversion,account overlap,parallel scaling,learning,net-tax smoothing,
+cashflow signs and complete lifecycle outputs require independent numerical
+checks;no native lifecycle equivalence or current-policy validity is
+established. The pinned reference environment and all ten presets remain
+required;this source census does not close G06 or H01.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

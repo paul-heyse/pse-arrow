@@ -807,6 +807,17 @@ checks unchanged, including the original owner's independent death; an execution
 must not extend that source lifetime or issue a source witness. Shared provider state remains
 one bank for existing in-process consumers even though the delegated profile refuses providers.
 
+The attribution prerequisite is integrated: `SourceBindings` composes immutable
+`ExecutionAttribution` with the original weak source witness. `execution_attribution(compiled)`
+calls the unchanged `check_compiled` before sharing the three original `Arc` maps. Existing
+sourceful workers retain this projection and their compiled body; they use one unchanged
+control-refusal/error projection policy. No passive constructor or source witness is exposed
+by the projection. **Tested:** `scripts/pse test pse-math --lib --profile local -E
+'test(source_bindings::)'` passed 11/11 against zero failures in configured unbounded/cache-off
+mode with complete capture and settlement. Original-source death, crossed compiled sources,
+shared map allocations, attribution framing, direct refusals and original error allocation
+retention are covered. This establishes that prerequisite only, not transferred activation.
+
 Sources: [parent preparation and child path](../../crates/pse-runtime/src/math/native_child.rs),
 [compiled stages/order selection/worker](../../crates/pse-math/src/execution.rs),
 [root construction/evaluation/verification](../../crates/pse-math/src/implicit.rs),
