@@ -58,14 +58,22 @@ pub(in crate::workflow) async fn actual_reference_recycle_fixture(
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
     let package = runtime.modeling_package(rows, physical).await?;
+    let mut compiler = compiler_profile();
+    // Complete imported applicability observations exceed the tiny scalar profile.
+    compiler.evaluation.scratch_bytes = 64 << 20;
     let analysis = package
         .declared_execution(
             &runtime.preparation_services(),
             root,
-            compiler_profile(),
+            compiler,
             super::super::tests::profile(SolveIntent::Root),
             Default::default(),
-            Default::default(),
+            pse_modeling::Limits {
+                // The complete imported thermo closure exceeds the small default
+                // occurrence budget during domain-safe schedule validation.
+                body_occurrences: Some(65_536),
+                ..Default::default()
+            },
             cancel,
         )
         .await?

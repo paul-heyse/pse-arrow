@@ -450,6 +450,7 @@ ownership = "preparation-only"
 inputs = ["scientific-inputs"]
 scope.modules = ["workflow::modeling::steam_tests"]
 scope.tests = [
+  "workflow::strategies::conditional::reference_fixture::conditional_unit_reference_request_declares_original_inventories_and_root_refusal",
   "workflow::modeling::forms_tests::authored_gdp_fixture_selects_the_enumerated_alternative",
   "workflow::modeling::conformance::tests::authored_milp_routes_to_highs",
 ]
