@@ -303,6 +303,12 @@ pub struct ImplicitProgramRequest {
     source: SemanticId,
 }
 impl ImplicitProgramRequest {
+    /// Keep the admitted descriptor batch charged while its current compact support
+    /// is retained by a receiving compiled wrapper or factory.
+    pub fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
+        self.artifact = self.artifact.with_owner(owner);
+        self
+    }
     /// Use the existing admitted artifact/scalar service and its retention policy.
     pub fn artifact(&self) -> &ArtifactRequest {
         &self.artifact
@@ -333,6 +339,15 @@ impl ImplicitProgramRequest {
     /// Request descriptors retained across asynchronous compilation.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
+            // A cache hit may need a fresh compiled wrapper over this receiving
+            // support; its numerical and scalar payloads remain separately owned.
+            + size_of::<CompiledBody>()
+            + size_of::<pse_math::guarded::PreparedSupport>()
+            + 6 * size_of::<usize>()
+            + size_of::<(
+                Arc<dyn pse_math::AllocationOwner>,
+                Arc<dyn pse_math::AllocationOwner>,
+            )>()
             + self.key.2.capacity() * size_of::<usize>()
             + self.artifact.descriptor_bytes()
             + self.artifact.support.retained_bytes()
@@ -385,6 +400,17 @@ impl ImplicitPrograms {
                 "implicit artifact binding contract".into(),
             ));
         }
+        let body = if body.prepared_support().allocation_identity()
+            == request.artifact.support.allocation_identity()
+        {
+            body
+        } else {
+            Arc::new(
+                body.as_ref()
+                    .clone()
+                    .with_receiving_support(request.artifact.support.as_ref().clone())?,
+            )
+        };
         self.bodies.insert(request.key, body);
         Ok(())
     }

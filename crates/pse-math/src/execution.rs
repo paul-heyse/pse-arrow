@@ -3399,6 +3399,23 @@ impl CompiledBody {
     pub fn prepared_support(&self) -> &PreparedSupport {
         &self.support
     }
+    /// Bind shared arithmetic to the current compiler-issued support after proving
+    /// complete demand and mathematical support equality. Numerical payloads and
+    /// their allocation owners remain shared; current source attribution stays local.
+    pub fn with_receiving_support(mut self, support: PreparedSupport) -> Result<Self, MathError> {
+        if self.support != support {
+            return Err(MathError::Contract(
+                "receiving support differs from compiled mathematical demand".into(),
+            ));
+        }
+        self.retained_bytes = self
+            .retained_bytes
+            .checked_sub(self.support.retained_bytes())
+            .and_then(|bytes| bytes.checked_add(support.retained_bytes()))
+            .ok_or(MathError::Limit("receiving compiled support extent"))?;
+        self.support = support;
+        Ok(self)
+    }
     pub(crate) fn projection_second_pairs(&self) -> Arc<Vec<(usize, usize)>> {
         self.layouts[DerivativeOrder::Second]
             .as_ref()

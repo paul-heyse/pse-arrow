@@ -226,6 +226,85 @@ fn source_body_checks_original_source_and_never_retains_its_owner() {
     assert_eq!(Arc::strong_count(&owner), 1);
 }
 #[test]
+fn current_issued_support_rebinds_cached_code_after_original_source_dies() {
+    let numeric_owner = Arc::new(AtomicBool::new(false));
+    let original = fixture_body(true);
+    let original_source = Arc::downgrade(&original.data);
+    let original_bindings = bindings(&original, 10);
+    let cached = Arc::new(
+        compile(&original)
+            .as_ref()
+            .clone()
+            .with_owner(numeric_owner.clone()),
+    );
+    drop(original);
+    assert!(original_source.upgrade().is_none());
+
+    let current = fixture_body(true);
+    let current_bindings = bindings(&current, 30);
+    assert!(original_bindings.check(&current).is_err());
+    assert!(SourceBody::new(cached.clone(), current_bindings.clone()).is_err());
+    let current_owner = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::default();
+    let issued = current
+        .prepare_support(&[0], &[], DerivativeOrder::Value, &control.flag())
+        .unwrap()
+        .with_owner(current_owner.clone());
+    let rebound = cached
+        .as_ref()
+        .clone()
+        .with_receiving_support(issued)
+        .unwrap();
+    assert!(Arc::ptr_eq(&cached.programs, &rebound.programs));
+    assert!(Arc::ptr_eq(&cached.layouts, &rebound.layouts));
+    assert!(Arc::ptr_eq(&cached.input_formals, &rebound.input_formals));
+    let paired = SourceBody::new(Arc::new(rebound), current_bindings).unwrap();
+    drop(cached);
+    assert!(Arc::strong_count(&numeric_owner) > 1);
+    assert!(Arc::strong_count(&current_owner) > 1);
+    let error = paired
+        .worker()
+        .evaluate(
+            &[-1.],
+            DerivativeOrder::Value,
+            &mut ProviderBindings::new(),
+            &control.flag(),
+        )
+        .unwrap_err();
+    assert!(matches!(error, MathError::Instance { instance, .. } if instance == id(30)));
+    drop(paired);
+    assert_eq!(Arc::strong_count(&numeric_owner), 1);
+    assert_eq!(Arc::strong_count(&current_owner), 1);
+}
+
+#[test]
+fn receiving_support_rejects_changed_body_demand_and_support() {
+    let current = fixture_body(true);
+    let cached = compile(&current);
+    let control = pse_diagnostics::Cancellation::default();
+    let different_body = fixture_body(false)
+        .prepare_support(&[0], &[], DerivativeOrder::Value, &control.flag())
+        .unwrap();
+    let different_demand = current
+        .prepare_support(&[0], &[0], DerivativeOrder::Value, &control.flag())
+        .unwrap();
+    let mut different_support = current
+        .prepare_support(&[0], &[], DerivativeOrder::Value, &control.flag())
+        .unwrap();
+    Arc::make_mut(&mut different_support.data)
+        .support
+        .controls
+        .insert(usize::MAX);
+    for support in [different_body, different_demand, different_support] {
+        assert!(matches!(
+            cached.as_ref().clone().with_receiving_support(support),
+            Err(MathError::Contract(detail))
+                if detail == "receiving support differs from compiled mathematical demand"
+        ));
+    }
+}
+
+#[test]
 fn source_workers_keep_independent_body_contexts_and_member_source_collisions() {
     let body = fixture_body(true);
     let compiled = compile(&body);

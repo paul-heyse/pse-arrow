@@ -561,7 +561,13 @@ impl MathService {
                 )
                 .await?;
                 for (request, artifact) in selected.into_iter().zip(artifacts) {
-                    bound.bind(request, artifact.program.clone())?;
+                    // Receiving compact support may replace a cache entry's expired
+                    // source link. Its descriptor lease follows the actual wrapper;
+                    // the finite batch remains charged until its last factory retires.
+                    bound.bind(
+                        request.with_owner(_request_owner.clone()),
+                        artifact.program.clone(),
+                    )?;
                 }
                 programs.push(bound);
             }

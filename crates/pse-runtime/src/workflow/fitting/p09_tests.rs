@@ -1031,7 +1031,7 @@ async fn contextual_closure_fit_factory_controls_preserve_explicit_experiment_pr
         "experiments": [{"experiment_id": id(74), "case_id": root, "route": "integrated", "bindings": [{"parameter_id": id(3), "path": "rate"}]}],
         "observations": [{"value_attribute": "value", "standard_deviation_attribute": "sigma", "observation_id": id(71), "experiment_id": id(74), "output_path": "x[160{s}]", "time": 161.0, "time_basis": "model_clock", "included": true, "importance": 1.0}]
     })).unwrap());
-    let package = crate::workflow::tests::runtime_with_workspace(32 << 20)
+    let package = runtime
         .modeling_package(rows, crate::workflow::tests::physical())
         .await
         .unwrap()
@@ -2521,7 +2521,13 @@ async fn transient_fit_demand_cache_and_coherent_upgrade() {
             }
             assert!(oracle.gradient(&[1.5], &mut first).is_err());
             assert!(oracle.point.is_none());
-            let memory = oracle.execution.memory.take();
+            assert!(
+                oracle.team.is_none(),
+                "this control owns the serial experiment"
+            );
+            // Foreign admission belongs to the actual experiment execution. Its
+            // snapshot survives changes to the parent optimizer execution.
+            let memory = oracle.transient_execution[0].memory.take();
             let complete_lower = oracle.objective(&[1.3]).unwrap();
             let trajectory = oracle
                 .point
@@ -2532,7 +2538,13 @@ async fn transient_fit_demand_cache_and_coherent_upgrade() {
                 .next()
                 .unwrap()
                 .clone();
-            assert!(oracle.gradient(&[1.3], &mut first).is_err());
+            assert!(matches!(
+                oracle.gradient(&[1.3], &mut first),
+                Err(ProblemError::Limit {
+                    kind: native::LimitKind::Memory,
+                    ..
+                })
+            ));
             // Missing admission for a richer product is not contradictory scientific
             // evidence. The exact complete primal product remains reusable.
             assert!(oracle.point.as_ref().is_some_and(|p| p.adjoint.is_none()));
@@ -2553,7 +2565,7 @@ async fn transient_fit_demand_cache_and_coherent_upgrade() {
                     .next()
                     .unwrap()
             ));
-            oracle.execution.memory = memory;
+            oracle.transient_execution[0].memory = memory;
             oracle.gradient(&[1.3], &mut first).unwrap();
             // Signed zero has a distinct candidate key even with equal numerical values.
             oracle.objective(&[0.]).unwrap();
