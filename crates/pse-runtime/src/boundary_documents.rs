@@ -30,8 +30,8 @@ macro_rules! for_each_boundary_document {
             (DecodeLocation, pse_model::document::DecodeLocation, "decode-location", Both, FlatV1),
             (PhysicalInspectionRequest, pse_runtime::workflow::PhysicalInspectionRequest, "physical-inspection-request", Both, FlatV1),
             (PhysicalInspectionDocument, pse_runtime::workflow::PhysicalInspectionDocument, "physical-inspection-document", Output, FlatV1),
-            (ResultInspectionRequest, pse_runtime::workflow::ResultInspectionRequest, "result-inspection-request", Both, FlatV2),
-            (ResultInspectionDocument, pse_runtime::workflow::ResultInspectionDocument, "result-inspection-document", Output, FlatV2),
+            (ResultInspectionRequest, pse_runtime::workflow::ResultInspectionRequest, "result-inspection-request", Both, FlatV3),
+            (ResultInspectionDocument, pse_runtime::workflow::ResultInspectionDocument, "result-inspection-document", Output, FlatV3),
             (ProjectExportRequest, pse_runtime::workflow::ProjectExportRequest, "project-export-request", Both, Native),
             (ProjectManifest, pse_runtime::workflow::ProjectManifest, "project-manifest", Both, Native),
             (ProjectClosureExplanation, pse_runtime::workflow::ProjectClosureExplanation, "project-closure-explanation", Both, FlatV1),
@@ -370,6 +370,7 @@ fn schema<T: schemars::JsonSchema + BoundaryDocument>(
         Wire::Native => generator.into_root_schema_for::<T>(),
         Wire::FlatV1 => generator.into_root_schema_for::<Versioned<T, 1>>(),
         Wire::FlatV2 => generator.into_root_schema_for::<Versioned<T, 2>>(),
+        Wire::FlatV3 => generator.into_root_schema_for::<Versioned<T, 3>>(),
         Wire::ValueV1 => generator.into_root_schema_for::<VersionedValue<T, 1>>(),
     };
     schemars::transform::Transform::transform(&mut ExportNames(&export_names()), &mut schema);
@@ -377,7 +378,7 @@ fn schema<T: schemars::JsonSchema + BoundaryDocument>(
     schema.sort_all_objects();
     let field = match T::WIRE {
         Wire::Native => "version",
-        Wire::FlatV1 | Wire::FlatV2 | Wire::ValueV1 => "document_version",
+        Wire::FlatV1 | Wire::FlatV2 | Wire::FlatV3 | Wire::ValueV1 => "document_version",
     };
     let version = schema["properties"][field]["const"]
         .as_u64()
@@ -408,6 +409,10 @@ fn export_names() -> std::collections::BTreeMap<String, String> {
                     Wire::FlatV2 => {
                         names.insert(body, format!("{export}Body"));
                         names.insert(<Versioned<$owner, 2> as schemars::JsonSchema>::schema_name().into_owned(), export.into());
+                    }
+                    Wire::FlatV3 => {
+                        names.insert(body, format!("{export}Body"));
+                        names.insert(<Versioned<$owner, 3> as schemars::JsonSchema>::schema_name().into_owned(), export.into());
                     }
                     Wire::ValueV1 => {
                         names.insert(body, format!("{export}Body"));
@@ -506,9 +511,24 @@ mod tests {
         );
         let example = serde_json::to_vec(&result.schema["examples"][0]).unwrap();
         assert!(
-            Wire::FlatV2
+            Wire::FlatV3
                 .decode_slice::<crate::workflow::ResultInspectionRequest>(&example)
                 .is_ok()
+        );
+        let mut historical = result.schema["examples"][0].clone();
+        historical["document_version"] = serde_json::json!(2);
+        historical["view"] = serde_json::json!("incompatible old body");
+        let error = Wire::FlatV3
+            .decode_slice::<crate::workflow::ResultInspectionRequest>(
+                &serde_json::to_vec(&historical).unwrap(),
+            )
+            .unwrap_err();
+        assert!(
+            error
+                .inner()
+                .to_string()
+                .contains("unsupported document_version 2"),
+            "{error:?}"
         );
     }
     #[test]

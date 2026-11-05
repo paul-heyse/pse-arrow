@@ -161,12 +161,27 @@ impl ProtectedResultDecode {
         cancel: &CancellationToken,
     ) -> Result<(), WorkflowError> {
         self.decode
-            .access_block(self.authority(), block, descriptor, cancel, false)
+            .access_block(self.authority(), block, descriptor, cancel, false, None)
             .await
             .map(|_| ())
     }
 }
 impl ResultBlockDecode {
+    pub(super) fn inspection_projection(
+        &self,
+        requested: &[usize],
+    ) -> Result<Arc<pse_relations::validate::PreparedInspectionProjection>, WorkflowError> {
+        let spec = self
+            .services
+            .registry()
+            .relation_by_id(self.relation)
+            .ok_or_else(|| contract("snapshot relation unavailable"))?;
+        self.admission
+            .inspection_projection(self.services.registry(), spec, requested)
+            .map(Arc::new)
+            .map_err(pse_engine::EngineError::from)
+            .map_err(Into::into)
+    }
     pub(super) fn new(
         services: &RetainedDataServices,
         relation: pse_ids::SemanticId,
@@ -194,6 +209,51 @@ struct CachedFile {
     reader: pse_columnar::ipc_file::AdmittedFile<result_files::ResultFileSource>,
     _source: Arc<pse_columnar::AllocationLease>,
     _owner: MemoryReservation,
+}
+
+/// An observation of complete original roots; never full native admission.
+#[derive(Debug)]
+pub(super) struct InspectionBatch {
+    batch: pse_columnar::owned_buffer::OwnedRecordBatch,
+    roots: Arc<pse_relations::validate::PreparedInspectionProjection>,
+    // Buffers also retain this owner for escaped arrays; retain it explicitly
+    // for batch/schema control even if the selected arrays are bufferless.
+    _working_owner: Arc<pse_columnar::ipc_file::FileDecodeOwner>,
+}
+impl InspectionBatch {
+    pub(super) fn batch(&self) -> &datafusion::arrow::record_batch::RecordBatch {
+        self.batch.batch()
+    }
+    pub(super) fn num_rows(&self) -> usize {
+        self.batch.batch().num_rows()
+    }
+    pub(super) fn column(
+        &self,
+        original: usize,
+    ) -> Result<&datafusion::arrow::array::ArrayRef, WorkflowError> {
+        let index = self
+            .roots
+            .roots()
+            .binary_search(&original)
+            .map_err(|_| contract("inspection root outside checked closure"))?;
+        Ok(self.batch.batch().column(index))
+    }
+    pub(super) fn slice(&self, offset: usize, length: usize) -> Result<Self, WorkflowError> {
+        Ok(Self {
+            batch: self
+                .batch
+                .slice(offset, length)
+                .map_err(pse_engine::EngineError::from)?,
+            roots: self.roots.clone(),
+            _working_owner: self._working_owner.clone(),
+        })
+    }
+}
+
+#[derive(Debug)]
+pub(super) enum DecodedResultBatch {
+    Full(pse_relations::columnar::FieldCheckedBatch),
+    Inspection(InspectionBatch),
 }
 
 async fn decoder_turn<'a>(
@@ -384,6 +444,43 @@ impl ResultSnapshot {
     pub(super) fn decoder(&self) -> Arc<ProtectedResultDecode> {
         self.0.decode.clone()
     }
+    pub(super) async fn read_inspection_block(
+        &self,
+        block: &Block,
+        projection: &Arc<pse_relations::validate::PreparedInspectionProjection>,
+        cancel: &CancellationToken,
+    ) -> Result<InspectionBatch, WorkflowError> {
+        if self
+            .0
+            .positions
+            .get(&block.key)
+            .and_then(|index| self.0.blocks.get(*index))
+            != Some(block)
+        {
+            return Err(contract("result block differs from frozen snapshot"));
+        }
+        let descriptor = self
+            .0
+            .batches
+            .get(&block.batch)
+            .ok_or_else(|| contract("block outside frozen snapshot"))?;
+        match self
+            .0
+            .decode
+            .access_block(
+                self.0.decode.authority(),
+                block,
+                descriptor,
+                cancel,
+                true,
+                Some(projection),
+            )
+            .await?
+        {
+            Some(DecodedResultBatch::Inspection(batch)) => Ok(batch),
+            _ => Err(contract("protected inspection batch decode absent")),
+        }
+    }
 }
 
 impl ResultBlockDecode {
@@ -394,9 +491,13 @@ impl ResultBlockDecode {
         descriptor: &FileBatch,
         cancel: &CancellationToken,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        self.access_block(authority, block, descriptor, cancel, true)
+        match self
+            .access_block(authority, block, descriptor, cancel, true, None)
             .await?
-            .ok_or_else(|| contract("protected native batch decode absent"))
+        {
+            Some(DecodedResultBatch::Full(batch)) => Ok(batch),
+            _ => Err(contract("protected native batch decode absent")),
+        }
     }
     async fn access_block(
         &self,
@@ -405,7 +506,8 @@ impl ResultBlockDecode {
         descriptor: &FileBatch,
         cancel: &CancellationToken,
         decode: bool,
-    ) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
+        projection: Option<&Arc<pse_relations::validate::PreparedInspectionProjection>>,
+    ) -> Result<Option<DecodedResultBatch>, WorkflowError> {
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
         if descriptor.key != block.batch
             || descriptor.ordinal != block.ordinal
@@ -557,21 +659,32 @@ impl ResultBlockDecode {
             }
             return Ok(None);
         }
-        let decoded = cached
-            .reader
-            .read_batch(index, cancel)
-            .map_err(pse_engine::EngineError::from)?;
+        let decoded = match projection {
+            Some(projection) => {
+                cached
+                    .reader
+                    .read_projected_batch(index, projection.roots(), cancel)
+            }
+            None => cached.reader.read_batch(index, cancel),
+        }
+        .map_err(pse_engine::EngineError::from)?;
         let batch = decoded.batch;
         drop(cache);
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("canonical.result.native_decodes", "count", 1);
+            context.count(
+                "canonical.result.hydrated_roots",
+                "count",
+                batch.num_columns() as u64,
+            );
             context.count(
                 "canonical.result.decoded_array_bytes",
                 "bytes",
                 batch.get_array_memory_size() as u64,
             );
         }
-        if batch.num_rows() as u64 != block.rows || batch.schema() != self.schema.clone() {
+        let expected_schema = projection.map_or(&self.schema, |projection| projection.schema());
+        if batch.num_rows() as u64 != block.rows || batch.schema() != *expected_schema {
             return Err(contract("frozen file batch rows/schema differ"));
         }
         let spec = self
@@ -579,6 +692,24 @@ impl ResultBlockDecode {
             .registry()
             .relation_by_id(self.relation)
             .ok_or_else(|| contract("snapshot relation unavailable"))?;
+        if let Some(projection) = projection {
+            projection
+                .evaluate(batch.batch(), cancel)
+                .map_err(pse_engine::EngineError::from)?;
+            pse_relations::result_batch::validate_projected_scalar_keys(
+                self.services.registry(),
+                spec,
+                batch.batch(),
+                &self.services.pool(),
+                cancel,
+            )
+            .map_err(pse_engine::EngineError::from)?;
+            return Ok(Some(DecodedResultBatch::Inspection(InspectionBatch {
+                batch,
+                roots: projection.clone(),
+                _working_owner: decoded.working_owner,
+            })));
+        }
         let checked = pse_relations::columnar::FieldCheckedBatch::admit_owned(
             self.services.registry(),
             spec,
@@ -595,7 +726,7 @@ impl ResultBlockDecode {
             cancel,
         )
         .map_err(pse_engine::EngineError::from)?;
-        Ok(Some(checked))
+        Ok(Some(DecodedResultBatch::Full(checked)))
     }
 }
 

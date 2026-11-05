@@ -1362,6 +1362,52 @@
         }
       ]
     },
+    "ResultInspectionChecks": {
+      "additionalProperties": false,
+      "description": "Checks actually performed on each complete original batch before row slicing.\nThis is observational coverage, never full admission or scientific permission.",
+      "properties": {
+        "all_relation_predicates": {
+          "description": "Every original relation predicate was evaluated in each counted batch.",
+          "type": "boolean"
+        },
+        "checked_batches": {
+          "description": "Complete original batches checked for this returned page (zero if empty).\nPermission observations may independently read the same original batches.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "checked_roots": {
+          "description": "Complete original roots checked locally in every counted source batch.\nZero checked batches means no stored local values were checked.",
+          "items": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "unchecked_roots": {
+          "description": "Original roots excluded from local checks for this returned value page.",
+          "items": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "whole_batch_scalar_keys": {
+          "description": "All declared scalar keys were checked across each complete original batch.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "checked_roots",
+        "unchecked_roots",
+        "checked_batches",
+        "all_relation_predicates",
+        "whole_batch_scalar_keys"
+      ],
+      "type": "object"
+    },
     "ResultInspectionCursor": {
       "additionalProperties": false,
       "description": "Store/selection-bound continuation; each call reacquires original protection.",
@@ -1959,8 +2005,8 @@
       "description": "A page of the admitted registry field inventory, without validating stored Arrow rows.",
       "properties": {
         "document_version": {
-          "const": 2,
-          "default": 2,
+          "const": 3,
+          "default": 3,
           "type": "integer"
         },
         "field_count": {
@@ -2052,6 +2098,10 @@
       "additionalProperties": false,
       "description": "Readable bounded original scalar observations; exact IPC remains the bulk interface.",
       "properties": {
+        "checks": {
+          "$ref": "#/$defs/ResultInspectionChecks",
+          "description": "Explicit narrower check coverage, independent of readable completeness."
+        },
         "context_fields": {
           "description": "Every non-value-role original field not already selected; no name heuristics.",
           "items": {
@@ -2060,8 +2110,8 @@
           "type": "array"
         },
         "document_version": {
-          "const": 2,
-          "default": 2,
+          "const": 3,
+          "default": 3,
           "type": "integer"
         },
         "kind": {
@@ -2145,6 +2195,7 @@
         "next_row",
         "next_cursor",
         "readable_complete",
+        "checks",
         "document_version"
       ],
       "type": "object"
@@ -2154,8 +2205,8 @@
       "description": "Exact metadata page from one admitted original field.",
       "properties": {
         "document_version": {
-          "const": 2,
-          "default": 2,
+          "const": 3,
+          "default": 3,
           "type": "integer"
         },
         "entries": {
@@ -2228,8 +2279,8 @@
       "description": "A bounded physical-owner page tied to this exact protected result.",
       "properties": {
         "document_version": {
-          "const": 2,
-          "default": 2,
+          "const": 3,
+          "default": 3,
           "type": "integer"
         },
         "kind": {
@@ -2287,8 +2338,8 @@
       "description": "The finite readable request cannot produce a truthful complete answer of this shape.",
       "properties": {
         "document_version": {
-          "const": 2,
-          "default": 2,
+          "const": 3,
+          "default": 3,
           "type": "integer"
         },
         "guidance": {
@@ -2315,8 +2366,8 @@
   ],
   "properties": {
     "document_version": {
-      "const": 2,
-      "default": 2,
+      "const": 3,
+      "default": 3,
       "type": "integer"
     }
   },

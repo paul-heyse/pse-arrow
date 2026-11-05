@@ -534,15 +534,15 @@ pub struct FileDecodeOwner {
     _working: std::sync::Arc<crate::AllocationLease>,
 }
 
-/// One verified footer/block inventory and one native decoder for a protected
-/// seekable source. The caller retains source custody and pays source backing;
+/// One verified footer/block inventory for a protected seekable source, with
+/// native decoding configured per read. The caller retains source custody and pays source backing;
 /// this owner pays all newly constructed metadata, input backing and arrays.
 pub struct AdmittedFile<R> {
     source: R,
     schema: arrow::datatypes::SchemaRef,
     blocks: Vec<arrow::ipc::Block>,
     fields: usize,
-    decoder: Option<arrow::ipc::reader::FileDecoder>,
+    schema_extent: usize,
     inventory: std::sync::Arc<crate::AllocationLease>,
     pool: std::sync::Arc<dyn crate::MemoryPool>,
     limit: usize,
@@ -664,15 +664,12 @@ impl<R: std::io::Read + std::io::Seek> AdmittedFile<R> {
         }
         drop(storage);
         control.shrink(rounded(length)?);
-        let decoder =
-            arrow::ipc::reader::FileDecoder::new(schema.clone(), arrow::ipc::MetadataVersion::V5)
-                .with_require_alignment(true);
         Ok(Self {
             source,
             schema,
             blocks,
             fields,
-            decoder: Some(decoder),
+            schema_extent,
             inventory: crate::AllocationLease::new(control),
             pool,
             limit,
@@ -708,6 +705,31 @@ impl<R: std::io::Read + std::io::Seek> AdmittedFile<R> {
         index: usize,
         cancel: &crate::CancellationToken,
     ) -> Result<DecodedFileBatch, crate::CanonError> {
+        self.read_batch_roots(index, None, cancel)
+    }
+    /// Hydrate only complete original roots after the same whole-message preflight.
+    /// The complete block is still read and charged; omitted arrays are not validated.
+    /// # Errors
+    /// Invalid root positions, malformed records, cancellation or resource refusal.
+    pub fn read_projected_batch(
+        &mut self,
+        index: usize,
+        roots: &[usize],
+        cancel: &crate::CancellationToken,
+    ) -> Result<DecodedFileBatch, crate::CanonError> {
+        if roots.iter().any(|root| *root >= self.schema.fields().len())
+            || roots.windows(2).any(|pair| pair[0] >= pair[1])
+        {
+            return Err(invalid("file projection requires ordered unique original roots").into());
+        }
+        self.read_batch_roots(index, Some(roots), cancel)
+    }
+    fn read_batch_roots(
+        &mut self,
+        index: usize,
+        roots: Option<&[usize]>,
+        cancel: &crate::CancellationToken,
+    ) -> Result<DecodedFileBatch, crate::CanonError> {
         use crate::ipc_stream::{add, mul, options, reserve, rounded};
         cancel.checkpoint()?;
         let block = *self
@@ -725,11 +747,21 @@ impl<R: std::io::Read + std::io::Seek> AdmittedFile<R> {
         // this same per-node header envelope. Compression is rejected below.
         let working = add(
             add(
-                crate::allocation_extent::ipc_array_working_extent(self.fields)?,
-                mul(self.fields, 3 * 64)?,
+                add(
+                    crate::allocation_extent::ipc_array_working_extent(self.fields)?,
+                    mul(self.fields, 3 * 64)?,
+                )?,
+                rounded(body)?,
             )?,
-            rounded(body)?,
+            if roots.is_some() {
+                self.schema_extent
+            } else {
+                0
+            },
         )?;
+        // Arrow's projected batch owns Schema::project's metadata clone. Its
+        // full admitted schema envelope is paid before body reads/allocation;
+        // ordinary full decoding continues sharing the original schema Arc.
         let grant = reserve(&self.pool, add(rounded(input)?, working)?)?;
         cancel.checkpoint()?;
         let mut bytes = arrow::buffer::MutableBuffer::from_len_zeroed(input);
@@ -772,15 +804,18 @@ impl<R: std::io::Read + std::io::Seek> AdmittedFile<R> {
         // cached weak-owner inventory retaining dead entries after grants retire.
         let scope = crate::owned_buffer::AllocationScope::default();
         let buffer = scope.attach_buffer(bytes.into(), grant.split(rounded(input)?))?;
-        let decoder = self
-            .decoder
-            .take()
-            .ok_or_else(|| invalid("file decoder absent"))?;
-        self.decoder = Some(decoder.with_require_alignment(copies == 0));
-        let decoded = self
-            .decoder
-            .as_ref()
-            .ok_or_else(|| invalid("file decoder absent"))?
+        // Dictionaries are refused at admission. Each read starts from the full
+        // retained schema, so a projection cannot affect a subsequent full read.
+        let decoder = arrow::ipc::reader::FileDecoder::new(
+            self.schema.clone(),
+            arrow::ipc::MetadataVersion::V5,
+        )
+        .with_require_alignment(copies == 0);
+        let decoder = match roots {
+            Some(roots) => decoder.with_projection(roots.to_vec()),
+            None => decoder,
+        };
+        let decoded = decoder
             .read_record_batch(&block, &buffer)?
             .ok_or_else(|| invalid("file batch absent"))?;
         let batch = scope.attach_borrowed_reserved(decoded, &grant)?;
@@ -844,6 +879,148 @@ mod admission_tests {
         RecordBatch::try_new(schema, vec![Arc::new(Float64Array::from(vec![-0.; rows]))]).unwrap()
     }
     #[test]
+    fn projected_roots_preserve_full_projected_full_reuse_and_escaped_ownership() {
+        use arrow::array::StringArray;
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("value", DataType::Float64, false),
+            Field::new("text", DataType::Utf8, false),
+        ]));
+        let original = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Float64Array::from(vec![-0.0, 42.])),
+                Arc::new(StringArray::from(vec!["retained", "other"])),
+            ],
+        )
+        .unwrap();
+        let bytes = encode(std::slice::from_ref(&original), 65536).unwrap();
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(1 << 20));
+        let cancel = CancellationToken::new();
+        let mut reader =
+            AdmittedFile::open(Cursor::new(bytes), schema, 65536, pool.clone(), &cancel).unwrap();
+        assert_eq!(
+            reader.read_batch(0, &cancel).unwrap().batch.batch(),
+            &original
+        );
+        let selected = reader.read_projected_batch(0, &[1], &cancel).unwrap();
+        assert_eq!(selected.num_columns(), 1);
+        assert_eq!(selected.schema().field(0).name(), "text");
+        assert_eq!(selected.column(0), original.column(1));
+        let escaped = selected.column(0).slice(0, 1);
+        assert_eq!(
+            reader
+                .read_projected_batch(0, &[], &cancel)
+                .unwrap()
+                .num_rows(),
+            2
+        );
+        assert_eq!(
+            reader.read_batch(0, &cancel).unwrap().batch.batch(),
+            &original
+        );
+        assert!(reader.read_projected_batch(0, &[1, 0], &cancel).is_err());
+        assert!(reader.read_projected_batch(0, &[2], &cancel).is_err());
+        drop(selected);
+        drop(reader);
+        assert!(pool.reserved() > 0);
+        drop(escaped);
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn projection_omits_local_value_validation_but_preserves_selected_validation_and_full_schema() {
+        use arrow::array::StringArray;
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("value", DataType::Float64, false),
+            Field::new("text", DataType::Utf8, false),
+        ]));
+        let original = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Float64Array::from(vec![1.])),
+                Arc::new(StringArray::from(vec!["unique-payload-marker"])),
+            ],
+        )
+        .unwrap();
+        let mut bytes = encode(&[original], 65536).unwrap();
+        let positions = bytes
+            .windows(b"unique-payload-marker".len())
+            .enumerate()
+            .filter_map(|(index, part)| (part == b"unique-payload-marker").then_some(index))
+            .collect::<Vec<_>>();
+        assert_eq!(positions.len(), 1);
+        bytes[positions[0]] = 0xff;
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(1 << 20));
+        let cancel = CancellationToken::new();
+        let mut reader = AdmittedFile::open(
+            Cursor::new(bytes.clone()),
+            schema,
+            65536,
+            pool.clone(),
+            &cancel,
+        )
+        .unwrap();
+        assert_eq!(
+            reader
+                .read_projected_batch(0, &[0], &cancel)
+                .unwrap()
+                .num_rows(),
+            1
+        );
+        assert!(reader.read_projected_batch(0, &[1], &cancel).is_err());
+        assert!(reader.read_batch(0, &cancel).is_err());
+        let wrong_schema = Arc::new(Schema::new(vec![Field::new(
+            "value",
+            DataType::Float64,
+            false,
+        )]));
+        assert!(
+            AdmittedFile::open(Cursor::new(bytes), wrong_schema, 65536, pool, &cancel).is_err()
+        );
+    }
+    #[test]
+    fn projection_still_checks_omitted_root_message_layout() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("selected", DataType::Float64, false),
+            Field::new("omitted", DataType::Float64, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Float64Array::from(vec![1.])),
+                Arc::new(Float64Array::from(vec![2.])),
+            ],
+        )
+        .unwrap();
+        let mut bytes = encode(&[batch], 65536).unwrap();
+        let footer =
+            i32::from_le_bytes(bytes[bytes.len() - 10..bytes.len() - 6].try_into().unwrap())
+                as usize;
+        let footer =
+            arrow::ipc::root_as_footer(&bytes[bytes.len() - 10 - footer..bytes.len() - 10])
+                .unwrap();
+        let block = footer.recordBatches().unwrap().get(0);
+        let start = block.offset() as usize + 8;
+        let end = block.offset() as usize + block.metaDataLength() as usize;
+        let message = arrow::ipc::root_as_message(&bytes[start..end]).unwrap();
+        let node = message
+            .header_as_record_batch()
+            .unwrap()
+            .nodes()
+            .unwrap()
+            .get(1);
+        let position = node.0.as_ptr() as usize - bytes.as_ptr() as usize;
+        bytes[position..position + 8].copy_from_slice(&2i64.to_le_bytes());
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(1 << 20));
+        let cancel = CancellationToken::new();
+        let mut reader =
+            AdmittedFile::open(Cursor::new(bytes), schema, 65536, pool, &cancel).unwrap();
+        assert!(
+            reader.read_projected_batch(0, &[0], &cancel).is_err(),
+            "omitted root layout remains part of complete-message preflight"
+        );
+    }
+    #[test]
     fn selected_small_block_in_maximum_size_file_uses_one_footer_and_prepays_before_reads() {
         const LIMIT: usize = 32 << 20;
         let schema = schema();
@@ -891,7 +1068,7 @@ mod admission_tests {
         );
         let before_refusal = reads.lock().unwrap().len();
         assert!(matches!(
-            reader.read_batch(0, &cancel),
+            reader.read_projected_batch(0, &[0], &cancel),
             Err(crate::CanonError::NativeResource(_))
         ));
         assert_eq!(
@@ -958,6 +1135,41 @@ mod admission_tests {
         assert_eq!(leased.metadata()["large"].len(), 1 << 20);
         assert_eq!(pool.reserved(), charged);
         drop(leased);
+        assert_eq!(pool.reserved(), 0);
+    }
+    #[test]
+    fn projection_prepays_cloned_schema_metadata_before_body_read() {
+        let schema = Arc::new(Schema::new_with_metadata(
+            schema().fields().clone(),
+            [("large".into(), "x".repeat(1 << 20))].into(),
+        ));
+        let bytes = encode(&[batch(schema.clone(), 1)], 4 << 20).unwrap();
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(4 << 20));
+        let reads = Arc::new(Mutex::new(Vec::new()));
+        let observed = Observed {
+            source: Cursor::new(bytes),
+            pool: pool.clone(),
+            reads: reads.clone(),
+        };
+        let cancel = CancellationToken::new();
+        let mut reader =
+            AdmittedFile::open(observed, schema, 4 << 20, pool.clone(), &cancel).unwrap();
+        let before = reads.lock().unwrap().len();
+        assert!(matches!(
+            reader.read_projected_batch(0, &[0], &cancel),
+            Err(crate::CanonError::NativeResource(_))
+        ));
+        assert_eq!(
+            reads.lock().unwrap().len(),
+            before,
+            "schema-copy refusal precedes body materialization"
+        );
+        assert_eq!(
+            reader.read_batch(0, &cancel).unwrap().num_rows(),
+            1,
+            "full reads share their admitted schema"
+        );
+        drop(reader);
         assert_eq!(pool.reserved(), 0);
     }
 }

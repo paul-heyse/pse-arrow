@@ -4572,10 +4572,10 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: ResultInspectionDocument",
       "schema_path": "docs/generated/schema/result-inspection-document.output.schema.json",
-      "schema_sha256": "9046a39b38bc040a21209f6565b17119cb7f6e456eb3257f63be47fd0c9db361",
+      "schema_sha256": "969026f2d86c577ff4677dbbc6777a3f3d87d1497b019533b2c250d5c62d3a87",
       "slug": "result-inspection-document",
-      "version": 2,
-      "wire": "FlatV2"
+      "version": 3,
+      "wire": "FlatV3"
     },
     {
       "direction": "input",
@@ -4584,10 +4584,10 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: ResultInspectionRequest",
       "schema_path": "docs/generated/schema/result-inspection-request.input.schema.json",
-      "schema_sha256": "ef24c7bef8acd92946614a08a7497108ebb46a4a6f00e359214e2c81a05d3c88",
+      "schema_sha256": "a0e6d16a7a25a93ef6f9e2141158e2017d8518f7cab195e051f502106754f313",
       "slug": "result-inspection-request",
-      "version": 2,
-      "wire": "FlatV2"
+      "version": 3,
+      "wire": "FlatV3"
     },
     {
       "direction": "output",
@@ -4596,10 +4596,10 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: ResultInspectionRequest",
       "schema_path": "docs/generated/schema/result-inspection-request.output.schema.json",
-      "schema_sha256": "691af377be6f7591d1668eca2c451f3b627f27bc378235d05b7a77905bd812b7",
+      "schema_sha256": "ad1b79455b245a2015f01166b8c013bd4c587f989520bdd0118a6686b25c190a",
       "slug": "result-inspection-request",
-      "version": 2,
-      "wire": "FlatV2"
+      "version": 3,
+      "wire": "FlatV3"
     },
     {
       "direction": "input",
@@ -5946,6 +5946,6 @@
       "wire": "FlatV1"
     }
   ],
-  "schema_set_fingerprint": "blake3:45e7259cb3a3eea746cbb882fbb010a36ff27623a3d629d08f8aeef6a3df76e6",
+  "schema_set_fingerprint": "blake3:4a7245029dad4e5b1adf819e2965006d1684ecf53752ba69a4004f0465f2a56c",
   "version": 1
 }

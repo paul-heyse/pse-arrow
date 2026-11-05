@@ -244,6 +244,57 @@ impl ValidationContext {
             .insert(field.clone(), prepared.clone());
         Ok(prepared)
     }
+    /// Prepare a narrower observational projection without granting admission.
+    /// All original relation predicates and scalar keys remain in its root closure.
+    /// # Errors
+    /// Foreign declarations, unsupported binding or missing dependency roots.
+    pub fn inspection_projection(
+        &self,
+        registry: &Registry,
+        spec: &RelationSpec,
+        requested: &[usize],
+    ) -> Result<PreparedInspectionProjection, RelationError> {
+        self.require_registry(registry)?;
+        let declaration = registry.contract(spec)?;
+        let schema = declaration.schema();
+        let mut roots = requested
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        for name in &spec.primary_key {
+            roots.insert(schema.index_of(name)?);
+        }
+        for expression in super::row_checks::bind(schema, &self.shared.state)
+            .map_err(engine)?
+            .values()
+        {
+            for column in expression.column_refs() {
+                if column.relation.is_some() {
+                    return Err(super::mismatch(
+                        "inspection projection",
+                        "qualified predicate dependency",
+                    ));
+                }
+                roots.insert(schema.index_of(&column.name)?);
+            }
+        }
+        let roots = roots.into_iter().collect::<Vec<_>>();
+        let schema = Arc::new(schema.project(&roots)?);
+        let columns = schema
+            .fields()
+            .iter()
+            .map(|field| self.column(registry, field))
+            .collect::<Result<Vec<_>, _>>()?;
+        // Schema::project preserves the original metadata, hence every original
+        // CHECK. Binding against the closure refuses missing/unsupported inputs.
+        let relation_checks = self.prepare(registry, schema.clone())?;
+        Ok(PreparedInspectionProjection {
+            roots,
+            schema,
+            columns,
+            relation_checks,
+        })
+    }
     /// Bind SQL once under the actual owner; scope-sensitive lowering is invocation-relative.
     /// # Errors
     /// Foreign registry, invalid declaration, native failure or preparation cycle.
@@ -381,6 +432,54 @@ impl ValidationContext {
             .shared
             .successful
             .load(std::sync::atomic::Ordering::Relaxed))
+    }
+}
+
+/// Prepared checks for complete retained roots of an original relation.
+/// Successful evaluation is an inspection observation, never a checked batch.
+#[derive(Debug)]
+pub struct PreparedInspectionProjection {
+    roots: Vec<usize>,
+    schema: SchemaRef,
+    columns: Vec<Arc<PreparedLocalContract>>,
+    relation_checks: Arc<PreparedLocalContract>,
+}
+impl PreparedInspectionProjection {
+    /// Ordered positions in the original complete schema.
+    pub fn roots(&self) -> &[usize] {
+        &self.roots
+    }
+    /// Exact projected schema, including original relation predicates.
+    pub fn schema(&self) -> &SchemaRef {
+        &self.schema
+    }
+    /// Validate every retained complete root and every original relation predicate.
+    /// # Errors
+    /// Invalid storage/values/checks, schema mismatch or cancellation.
+    pub fn evaluate(
+        &self,
+        batch: &RecordBatch,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> Result<(), RelationError> {
+        if batch.schema() != self.schema {
+            return Err(super::mismatch("inspection projection", "schema differs"));
+        }
+        for (column, contract) in batch.columns().iter().zip(&self.columns) {
+            let local = RecordBatch::try_new(contract.schema().clone(), vec![column.clone()])?;
+            contract.evaluate(&local, 1, cancel)?.require_valid()?;
+        }
+        let names = self
+            .relation_checks
+            .predicates
+            .iter()
+            .map(|predicate| predicate.rule.clone())
+            .collect();
+        // Every immutable column above has just passed its complete structural
+        // and local checks; evaluate the original relation predicates without
+        // repeating those structural scans or granting full admission.
+        self.relation_checks
+            .evaluate_selected(batch, 1, cancel, Some(&names), None, true)?
+            .require_valid()
     }
 }
 fn scope_sensitive(expression: &Expr) -> datafusion_common::Result<bool> {

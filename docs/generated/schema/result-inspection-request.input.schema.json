@@ -628,7 +628,7 @@
     {
       "attempt": "illustrative-terminal-attempt",
       "cursor": null,
-      "document_version": 2,
+      "document_version": 3,
       "end": 1,
       "expected_manifest": null,
       "relation": "runtime.study_outcomes",
@@ -669,8 +669,8 @@
       "description": "Original-window/path-bound continuation; never a payload permission."
     },
     "document_version": {
-      "const": 2,
-      "default": 2,
+      "const": 3,
+      "default": 3,
       "type": "integer"
     },
     "end": {

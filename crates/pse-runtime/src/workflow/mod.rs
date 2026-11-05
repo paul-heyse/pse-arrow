@@ -83,10 +83,10 @@ mod result_inspection;
 mod result_physical;
 pub use result_inspection::{
     ArrowFieldPath, ArrowFieldStep, ResultCellUnavailable, ResultFloatClass, ResultInspectionBasis,
-    ResultInspectionCell, ResultInspectionCursor, ResultInspectionDocument, ResultInspectionField,
-    ResultInspectionOriginal, ResultInspectionRefusal, ResultInspectionRequest,
-    ResultInspectionRow, ResultInspectionStorage, ResultInspectionView, ResultMetadataOmission,
-    ResultPhysicalContext,
+    ResultInspectionCell, ResultInspectionChecks, ResultInspectionCursor, ResultInspectionDocument,
+    ResultInspectionField, ResultInspectionOriginal, ResultInspectionRefusal,
+    ResultInspectionRequest, ResultInspectionRow, ResultInspectionStorage, ResultInspectionView,
+    ResultMetadataOmission, ResultPhysicalContext,
 };
 mod result_snapshot;
 pub use result_snapshot::{ResultSnapshot, SelectedResultSnapshot};

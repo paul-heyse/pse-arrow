@@ -11,7 +11,6 @@ use datafusion::arrow::{
         UInt32Array, UInt64Array,
     },
     datatypes::{DataType, Field, Schema},
-    record_batch::RecordBatch,
 };
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
 use serde::{Deserialize, Serialize};
@@ -419,6 +418,25 @@ pub struct ResultInspectionRow {
     pub context_complete: bool,
 }
 
+/// Checks actually performed on each complete original batch before row slicing.
+/// This is observational coverage, never full admission or scientific permission.
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ResultInspectionChecks {
+    /// Complete original roots checked locally in every counted source batch.
+    /// Zero checked batches means no stored local values were checked.
+    pub checked_roots: Vec<usize>,
+    /// Original roots excluded from local checks for this returned value page.
+    pub unchecked_roots: Vec<usize>,
+    /// Complete original batches checked for this returned page (zero if empty).
+    /// Permission observations may independently read the same original batches.
+    pub checked_batches: usize,
+    /// Every original relation predicate was evaluated in each counted batch.
+    pub all_relation_predicates: bool,
+    /// All declared scalar keys were checked across each complete original batch.
+    pub whole_batch_scalar_keys: bool,
+}
+
 /// Explicit finite-view refusal, independent of native source errors or scientific outcomes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -492,6 +510,8 @@ pub enum ResultInspectionDocument {
         next_cursor: Option<ResultInspectionCursor>,
         /// Every returned selected and context cell was representable, independent of population/scientific usability.
         readable_complete: bool,
+        /// Explicit narrower check coverage, independent of readable completeness.
+        checks: ResultInspectionChecks,
         /// Native allocation ownership follows the response until FFI serialization completes.
         #[serde(skip)]
         #[schemars(skip)]
@@ -857,17 +877,6 @@ fn cell(array: &ArrayRef, row: usize) -> Result<ResultInspectionCell, WorkflowEr
     Ok(value)
 }
 
-fn row_values(
-    batch: &RecordBatch,
-    row: usize,
-    indices: &[usize],
-) -> Result<Vec<ResultInspectionCell>, WorkflowError> {
-    indices
-        .iter()
-        .map(|index| cell(batch.column(*index), row))
-        .collect()
-}
-
 fn preflight(
     request: &ResultInspectionRequest,
     schema: &Schema,
@@ -931,6 +940,28 @@ fn preflight(
             }
         }
     }
+}
+
+fn context_roots(
+    spec: &pse_schema::model::RelationSpec,
+    schema: &Schema,
+    fields: &[ArrowFieldPath],
+) -> Vec<usize> {
+    let complete_selected = fields
+        .iter()
+        .filter(|path| path.steps.is_empty())
+        .filter_map(|path| schema.index_of(&path.field).ok())
+        .collect::<BTreeSet<_>>();
+    spec.columns
+        .iter()
+        .enumerate()
+        .filter(|(index, field)| {
+            !complete_selected.contains(index)
+                && field.result_selection_role()
+                    != Some(pse_schema::model::ResultSelectionRole::Value)
+        })
+        .map(|(index, _)| index)
+        .collect()
 }
 
 impl Runtime {
@@ -1019,11 +1050,19 @@ impl RetainedDataServices {
                 {
                     return Ok(refused(ResultInspectionRefusal::ManifestChanged));
                 }
-                let selection = reader.pack_selection().await?;
+                let inspection_projection = if let ResultInspectionView::Values { fields, .. } = &request.view {
+                    let mut requested = context_roots(spec, &schema, fields);
+                    for path in fields { requested.push(schema.index_of(&path.field).map_err(|_| contract("selected root disappeared"))?); }
+                    Some(reader.inspection_projection(&requested)?)
+                } else { None };
+                let selection = match &inspection_projection {
+                    Some(projection) => reader.inspection_pack_selection(projection).await?,
+                    None => reader.pack_selection().await?,
+                };
                 if let Some(cursor) = &request.cursor
                     && (cursor.manifest != manifest
                         || cursor.selection.usability != selection.usability
-                        || reader.validate_pack_selection(&cursor.selection).await.is_err())
+                        || !super::connected_results::same_pack_selection(&cursor.selection, &selection))
                 {
                     return Ok(refused(ResultInspectionRefusal::CursorChanged));
                 }
@@ -1201,22 +1240,7 @@ impl RetainedDataServices {
                             Ok(value) => value,
                             Err(reason) => return Ok(refused(reason)),
                         };
-                        let roots = fields
-                            .iter()
-                            .filter(|path| path.steps.is_empty())
-                            .filter_map(|path| schema.index_of(&path.field).ok())
-                            .collect::<BTreeSet<_>>();
-                        let context = spec
-                            .columns
-                            .iter()
-                            .enumerate()
-                            .filter(|(index, field)| {
-                                !roots.contains(index)
-                                    && field.result_selection_role()
-                                        != Some(pse_schema::model::ResultSelectionRole::Value)
-                            })
-                            .map(|(index, _)| index)
-                            .collect::<Vec<_>>();
+                        let context = context_roots(spec, &schema, fields);
                         if context.len() > CONTEXT_FIELDS {
                             return Ok(refused(ResultInspectionRefusal::ContextExtent));
                         }
@@ -1233,6 +1257,14 @@ impl RetainedDataServices {
                                 field.metadata_omitted.is_empty()
                                     && field.ancestor_metadata_omitted.iter().all(Vec::is_empty)
                             });
+                        let projection = inspection_projection.as_ref().ok_or_else(|| contract("inspection projection absent"))?;
+                        let mut checks = ResultInspectionChecks {
+                            checked_roots: projection.roots().to_vec(),
+                            unchecked_roots: (0..schema.fields().len()).filter(|index| projection.roots().binary_search(index).is_err()).collect(),
+                            checked_batches: 0,
+                            all_relation_predicates: true,
+                            whole_batch_scalar_keys: true,
+                        };
                         reader.skip_recorded_prefix(resume)?;
                         let mut rows = Vec::new();
                         let mut next_row = None;
@@ -1247,9 +1279,10 @@ impl RetainedDataServices {
                                 break;
                             }
                             cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-                            let batch = reader.next_batch().await?.ok_or_else(|| {
+                            let batch = reader.next_inspection_batch(projection).await?.ok_or_else(|| {
                                 contract("result inspection frozen block is absent")
                             })?;
+                            checks.checked_batches += 1;
                             if batch.num_rows() as u64 != end - start {
                                 return Err(contract(
                                     "result inspection source coordinates differ",
@@ -1268,10 +1301,10 @@ impl RetainedDataServices {
                                         let index = schema
                                             .index_of(&path.field)
                                             .map_err(|_| contract("selected root disappeared"))?;
-                                        selected_cell(batch.column(index), row, &path.steps, 0)
+                                        selected_cell(batch.column(index)?, row, &path.steps, 0)
                                     })
                                     .collect::<Result<Vec<_>, WorkflowError>>()?;
-                                let context = row_values(&batch, row, &context)?;
+                                let context = context.iter().map(|index| cell(batch.column(*index)?, row)).collect::<Result<Vec<_>, WorkflowError>>()?;
                                 let context_complete = descriptor_context_complete
                                     && !context.iter().any(|value| {
                                         matches!(value, ResultInspectionCell::Unavailable { .. })
@@ -1314,6 +1347,7 @@ impl RetainedDataServices {
                             next_row,
                             next_cursor: next_row.map(next_cursor),
                             readable_complete,
+                            checks,
                             owner: Some(owner),
                         }))
                     }

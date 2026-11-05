@@ -252,6 +252,8 @@ pub enum Wire {
     FlatV1,
     /// A record or enum body exported through its version-two flattened wire owner.
     FlatV2,
+    /// An inspection root with explicit observational check coverage.
+    FlatV3,
     /// A scalar body exported through its version-one value wire owner.
     ValueV1,
 }
@@ -269,6 +271,7 @@ impl Wire {
             Self::Native => serde_json::to_vec(value),
             Self::FlatV1 => serde_json::to_vec(&Versioned::<_, 1>::new(value)),
             Self::FlatV2 => serde_json::to_vec(&Versioned::<_, 2>::new(value)),
+            Self::FlatV3 => serde_json::to_vec(&Versioned::<_, 3>::new(value)),
             Self::ValueV1 => serde_json::to_vec(&VersionedValue::<_, 1>::new(value)),
         }
     }
@@ -292,6 +295,11 @@ impl Wire {
             Self::FlatV2 => {
                 check_header::<2>(bytes)?;
                 pse_model::document::decode_json::<Versioned<T, 2>>(bytes)
+                    .map(|document| document.body)
+            }
+            Self::FlatV3 => {
+                check_header::<3>(bytes)?;
+                pse_model::document::decode_json::<Versioned<T, 3>>(bytes)
                     .map(|document| document.body)
             }
             Self::ValueV1 => {

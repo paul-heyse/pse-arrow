@@ -47,6 +47,108 @@ fn preparation_reuses_exact_owner_and_schema_and_rejects_foreign_registry() {
     ));
     assert_eq!(context.prepared_count().unwrap(), 2);
 }
+
+#[test]
+fn inspection_closure_preserves_original_predicates_and_whole_batch_keys() {
+    use crate::generated::{enums::NativeMetricKind, runtime::solve_metrics};
+    let registry = pse_schema::registry().unwrap();
+    let context = ValidationContext::new(registry, SessionContext::new().state());
+    let mut builder = solve_metrics::Builder::new(&context).unwrap();
+    let run_id =
+        pse_model::generated::identities::RunId::from(pse_ids::SemanticId::from_bytes([7; 16]));
+    for step in 0..3 {
+        builder
+            .push(solve_metrics::Row {
+                run_id,
+                step,
+                namespace: "inspection".into(),
+                name: "metric".into(),
+                kind: NativeMetricKind::Real,
+                real: Some(1.),
+                integer: None,
+                boolean: None,
+                text: None,
+                unavailable: None,
+            })
+            .unwrap();
+    }
+    let checked = builder.finish().unwrap();
+    let batch = checked.batch();
+    let spec = registry.relation_by_id(solve_metrics::RELATION_ID).unwrap();
+    let real = batch.schema().index_of("real").unwrap();
+    let projection = context
+        .inspection_projection(registry, spec, &[real])
+        .unwrap();
+    for dependency in ["kind", "real", "integer", "boolean", "text", "unavailable"] {
+        assert!(
+            projection
+                .roots()
+                .contains(&batch.schema().index_of(dependency).unwrap())
+        );
+    }
+    let projected = batch.project(projection.roots()).unwrap();
+    let cancel = pse_columnar::CancellationToken::new();
+    projection.evaluate(&projected, &cancel).unwrap();
+    let pool: Arc<dyn pse_columnar::MemoryPool> =
+        Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
+    crate::result_batch::validate_projected_scalar_keys(registry, spec, &projected, &pool, &cancel)
+        .unwrap();
+    let mut columns = projected.columns().to_vec();
+    let integer = projected.schema().index_of("integer").unwrap();
+    columns[integer] = Arc::new(Int64Array::from(vec![None, None, Some(2)]));
+    let bad_predicate = RecordBatch::try_new(projected.schema(), columns).unwrap();
+    assert!(
+        projection.evaluate(&bad_predicate, &cancel).is_err(),
+        "a predicate input outside the returned first-row window still refuses"
+    );
+    // Metrics have no declared scalar ordering. Use the actual scalar parameter
+    // relation for uniqueness, retaining the existing class-specific boundary.
+    use crate::generated::runtime::fit_parameters;
+    let mut parameters = fit_parameters::Builder::new(&context).unwrap();
+    for key in [1, 2, 2] {
+        parameters
+            .push(fit_parameters::Row {
+                run_id,
+                parameter_id: pse_ids::SemanticId::from_bytes([key; 16]),
+                fixed: false,
+                value: Some(1.),
+                unit_id: pse_ids::SemanticId::NIL,
+                scale: 1.,
+                at_bound: None,
+            })
+            .unwrap();
+    }
+    let parameters = parameters.finish().unwrap();
+    let parameter_spec = registry
+        .relation_by_id(fit_parameters::RELATION_ID)
+        .unwrap();
+    let keys = context
+        .inspection_projection(registry, parameter_spec, &[])
+        .unwrap();
+    let duplicate = parameters.batch().project(keys.roots()).unwrap();
+    keys.evaluate(&duplicate, &cancel).unwrap();
+    assert!(
+        crate::result_batch::validate_projected_scalar_keys(
+            registry,
+            parameter_spec,
+            &duplicate,
+            &pool,
+            &cancel
+        )
+        .is_err()
+    );
+    assert!(
+        context
+            .inspection_projection(registry, spec, &[batch.num_columns()])
+            .is_err()
+    );
+    let unbound = ValidationContext::local(registry).unwrap();
+    assert!(
+        unbound
+            .inspection_projection(registry, spec, &[real])
+            .is_err()
+    );
+}
 #[test]
 fn nested_findings_retain_original_rows_exact_paths_and_total_when_sampled() {
     let registry = RegistryBuilder::new().build().unwrap();

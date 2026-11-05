@@ -11,7 +11,8 @@ pub mod predicates;
 mod prepared;
 pub mod row_checks;
 pub use prepared::{
-    AdmissionScope, PreparedLocalContract, ValidationContext, ValidationReport, prepare_expression,
+    AdmissionScope, PreparedInspectionProjection, PreparedLocalContract, ValidationContext,
+    ValidationReport, prepare_expression,
 };
 mod field;
 

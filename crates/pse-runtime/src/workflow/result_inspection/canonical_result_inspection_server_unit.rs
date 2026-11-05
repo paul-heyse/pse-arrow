@@ -2,10 +2,11 @@
 // Copyright (c) 2026 Paul Heyse
 #![allow(
     unsafe_code,
-    reason = "isolated bounded result fixture publishes partial availability, never admitted scientific usability"
+    reason = "isolated partial-result transport and malformed nullability fixtures never grant scientific authority"
 )]
 use super::*;
 use crate::workflow::PackScientificState;
+use datafusion::arrow::record_batch::RecordBatch;
 use pse_operations::canonical_execution::{
     AttemptFence, RunRequest, SeedEligibility, TerminalClass,
 };
@@ -28,15 +29,31 @@ async fn wide_fixture_receipt(
 ) -> (Runtime, AttemptFence, RecordBatch) {
     wide_fixture_with_completion(nested, retained_physical, receipt_fault, None).await
 }
-#[allow(
-    clippy::unwrap_used,
-    reason = "isolated registered result setup fails the test on unexpected admission or publication errors"
-)]
 async fn wide_fixture_with_completion(
     nested: bool,
     retained_physical: bool,
     receipt_fault: Option<&str>,
     original_completion: Option<super::super::Completion>,
+) -> (Runtime, AttemptFence, RecordBatch) {
+    wide_fixture_with_payload_fault(
+        nested,
+        retained_physical,
+        receipt_fault,
+        original_completion,
+        None,
+    )
+    .await
+}
+#[allow(
+    clippy::unwrap_used,
+    reason = "isolated registered result setup fails the test on unexpected admission or publication errors"
+)]
+async fn wide_fixture_with_payload_fault(
+    nested: bool,
+    retained_physical: bool,
+    receipt_fault: Option<&str>,
+    original_completion: Option<super::super::Completion>,
+    payload_fault: Option<&str>,
 ) -> (Runtime, AttemptFence, RecordBatch) {
     // This fixture exercises canonical storage and protected reads, not a native
     // scientific execution receiver. Keep its isolated store and attestation real.
@@ -52,7 +69,49 @@ async fn wide_fixture_with_completion(
         ))
         .unwrap();
     let validation = runtime.validation_context();
-    let checked = if nested {
+    let checked = if payload_fault == Some("omitted_null") {
+        use pse_relations::generated::runtime::fit_parameters;
+        let mut builder =
+            fit_parameters::Builder::with_registry(runtime.registry(), 3, &validation).unwrap();
+        for key in 0..3 {
+            builder
+                .push(fit_parameters::Row {
+                    run_id: pse_model::generated::identities::RunId::from_bytes([0x77; 16]),
+                    parameter_id: pse_ids::SemanticId::from_bytes([key; 16]),
+                    fixed: false,
+                    value: Some(1.),
+                    unit_id: pse_ids::SemanticId::NIL,
+                    scale: 1.,
+                    at_bound: None,
+                })
+                .unwrap();
+        }
+        builder.finish().unwrap()
+    } else if payload_fault == Some("predicate") {
+        use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
+        let mut builder =
+            solve_metrics::Builder::with_registry(runtime.registry(), 3, &validation).unwrap();
+        let run_id = pse_model::generated::identities::RunId::from(
+            pse_ids::SemanticId::from_bytes([0x77; 16]),
+        );
+        for step in 0..3 {
+            builder
+                .push(solve_metrics::Row {
+                    run_id,
+                    step,
+                    namespace: "inspection".into(),
+                    name: "metric".into(),
+                    kind: NativeMetricKind::Real,
+                    real: Some(1.),
+                    integer: None,
+                    boolean: None,
+                    text: None,
+                    unavailable: None,
+                })
+                .unwrap();
+        }
+        builder.finish().unwrap()
+    } else if nested {
         use pse_relations::generated::{
             enums::{StudyEffectState, StudyPointState, StudyStartKind},
             runtime::study_outcomes,
@@ -220,20 +279,118 @@ async fn wide_fixture_with_completion(
         )
         .await
         .unwrap();
-    super::super::result_projection::store_result_table(
-        store,
-        &fence,
-        if nested {
-            pse_relations::generated::runtime::study_outcomes::RELATION_ID
+    if let Some(fault) = payload_fault {
+        use pse_operations::canonical_execution::{
+            ResultPayload, result_batch_key, result_payload_digest, result_set_key,
+        };
+        let qualified = match fault {
+            "predicate" => "runtime.solve_metrics",
+            "omitted_null" => "runtime.fit_parameters",
+            _ => "runtime.solve_variables",
+        };
+        let name = runtime
+            .registry()
+            .relation(qualified)
+            .unwrap()
+            .id
+            .to_string();
+        let mut columns = batch.columns().to_vec();
+        if matches!(fault, "duplicate" | "late") {
+            columns[batch.schema().index_of("step").unwrap()] =
+                Arc::new(Int64Array::from(vec![0, 1, 1]));
+        } else if fault == "omitted_null" {
+            columns[batch.schema().index_of("scale").unwrap()] =
+                Arc::new(Float64Array::from(vec![None, Some(1.), Some(1.)]));
         } else {
-            solve_variables::RELATION_ID
-        },
-        super::super::ResultCursor::from_checked(checked),
-        &runtime.shared.pool(),
-        &super::super::durable::PublicationAcks::new(&runtime.shared.pool()),
-    )
-    .await
-    .unwrap();
+            assert_eq!(fault, "predicate");
+            columns[batch.schema().index_of("integer").unwrap()] =
+                Arc::new(Int64Array::from(vec![None, None, Some(42)]));
+        }
+        let malformed = if fault == "omitted_null" {
+            assert!(RecordBatch::try_new(batch.schema(), columns.clone()).is_err());
+            // SAFETY: root count, datatypes and lengths exactly match. Only
+            // declared nullability is hostile. This fixture is encoded directly,
+            // never converted to a StructArray or given semantic authority.
+            unsafe { RecordBatch::new_unchecked(batch.schema(), columns, batch.num_rows()) }
+        } else {
+            RecordBatch::try_new(batch.schema(), columns).unwrap()
+        };
+        let batches = if fault == "late" {
+            vec![malformed.slice(0, 1), malformed.slice(1, 2)]
+        } else {
+            vec![malformed]
+        };
+        let bytes = pse_columnar::ipc_file::encode(&batches, 1 << 20).unwrap();
+        let set = result_set_key(fence.attempt(), &name);
+        let digest = result_payload_digest(&bytes);
+        let intent = store
+            .reserve_result_file(&fence, "fault-file", &digest)
+            .await
+            .unwrap();
+        let file = store
+            .seal_file(
+                &intent,
+                &bytes,
+                pse_operations::canonical_files::ARROW_IPC_FILE,
+                batches.len() as u64,
+                &name,
+            )
+            .await
+            .unwrap();
+        let mut start = 0;
+        for (ordinal, batch) in batches.iter().enumerate() {
+            let ordinal = ordinal as u64;
+            let end = start + batch.num_rows() as u64;
+            let key = result_batch_key(fence.attempt(), &set, ordinal);
+            let block = pse_model::generated::runtime::canonical_result_blocks::Row {
+                key: key.clone(),
+                result_set: set.clone(),
+                batch: key,
+                output: name.clone(),
+                partition: "0".into(),
+                ordinal,
+                start,
+                end,
+                rows: end - start,
+                columns: batch.num_columns() as u64,
+                coordinate_min: None,
+                coordinate_max: None,
+                payload_bytes: bytes.len() as u64,
+                payload_digest: digest.clone(),
+                statistics: None,
+                interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
+            };
+            // Integrity-only transport is deliberately insufficient semantic authority.
+            store
+                .append_result_block(
+                    &fence,
+                    &format!("fault-write-{ordinal}"),
+                    &name,
+                    ordinal,
+                    ResultPayload::from_sealed(file.clone(), ordinal).unwrap(),
+                    end - start,
+                    &block,
+                )
+                .await
+                .unwrap();
+            start = end;
+        }
+    } else {
+        super::super::result_projection::store_result_table(
+            store,
+            &fence,
+            if nested {
+                pse_relations::generated::runtime::study_outcomes::RELATION_ID
+            } else {
+                solve_variables::RELATION_ID
+            },
+            super::super::ResultCursor::from_checked(checked),
+            &runtime.shared.pool(),
+            &super::super::durable::PublicationAcks::new(&runtime.shared.pool()),
+        )
+        .await
+        .unwrap();
+    }
     let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
     let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
     let completion =
@@ -281,6 +438,191 @@ fn request(fence: &AttemptFence, view: ResultInspectionView) -> ResultInspection
         cursor: None,
         view,
     }
+}
+
+#[tokio::test]
+async fn selected_hydration_refuses_keys_and_predicates_outside_returned_window() {
+    for fault in ["duplicate", "predicate"] {
+        let (runtime, fence, _) =
+            wide_fixture_with_payload_fault(false, false, None, None, Some(fault)).await;
+        let mut selected = request(
+            &fence,
+            ResultInspectionView::Values {
+                fields: vec![
+                    if fault == "predicate" {
+                        "real"
+                    } else {
+                        "value"
+                    }
+                    .into(),
+                ],
+                maximum_rows: 1,
+            },
+        );
+        selected.end = 1;
+        if fault == "predicate" {
+            selected.relation = "runtime.solve_metrics".into();
+        }
+        assert!(
+            runtime
+                .inspect_result(selected.clone(), CancellationToken::new())
+                .await
+                .is_err(),
+            "whole original batch {fault} must refuse before returning row zero"
+        );
+        let mut full = runtime
+            .results(
+                &selected.run,
+                &selected.attempt,
+                &selected.relation,
+                0,
+                1,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert!(
+            full.next_batch().await.is_err(),
+            "full scientific admission still refuses {fault}"
+        );
+        assert!(
+            full.cancellation_token().is_cancelled(),
+            "failure closes the reader"
+        );
+        drop(full);
+        let store = runtime.canonical_store().unwrap();
+        pse_operations::testing::drain_result_releases(store)
+            .await
+            .unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn selected_hydration_reports_omitted_local_values_unchecked_and_full_read_refuses() {
+    let (runtime, fence, original) =
+        wide_fixture_with_payload_fault(false, false, None, None, Some("omitted_null")).await;
+    {
+        let mut selected = request(
+            &fence,
+            ResultInspectionView::Values {
+                fields: vec!["value".into()],
+                maximum_rows: 1,
+            },
+        );
+        selected.relation = "runtime.fit_parameters".into();
+        let observed = runtime
+            .inspect_result(selected.clone(), CancellationToken::new())
+            .await
+            .unwrap();
+        let ResultInspectionDocument::Values {
+            checks,
+            rows,
+            readable_complete,
+            selection,
+            ..
+        } = observed
+        else {
+            panic!("omitted root observation")
+        };
+        assert!(readable_complete);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(selection.usability, PackScientificState::Unknown);
+        assert!(
+            checks
+                .unchecked_roots
+                .contains(&original.schema().index_of("scale").unwrap())
+        );
+        let mut full = runtime
+            .results(
+                &selected.run,
+                &selected.attempt,
+                &selected.relation,
+                0,
+                3,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert!(
+            full.next_batch().await.is_err(),
+            "original byte integrity is not full semantic admission"
+        );
+        selected.view = ResultInspectionView::Values {
+            fields: vec!["scale".into()],
+            maximum_rows: 1,
+        };
+        assert!(
+            runtime
+                .inspect_result(selected, CancellationToken::new())
+                .await
+                .is_err(),
+            "retaining the malformed root restores its native refusal"
+        );
+        drop(full);
+    }
+    let store = runtime.canonical_store().unwrap();
+    pse_operations::testing::drain_result_releases(store)
+        .await
+        .unwrap();
+    store.remove_isolated_fixture().await.unwrap();
+}
+
+#[tokio::test]
+async fn selected_hydration_keeps_prefix_then_terminal_failure_and_cancellation() {
+    let (runtime, fence, original) =
+        wide_fixture_with_payload_fault(false, false, None, None, Some("late")).await;
+    let mut reader = runtime
+        .results(
+            "readable-fixture",
+            fence.attempt(),
+            "runtime.solve_variables",
+            0,
+            3,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    let projection = reader
+        .inspection_projection(&[original.schema().index_of("value").unwrap()])
+        .unwrap();
+    let prefix = reader
+        .next_inspection_batch(&projection)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(prefix.num_rows(), 1);
+    assert!(reader.next_inspection_batch(&projection).await.is_err());
+    assert!(reader.cancellation_token().is_cancelled());
+    assert_eq!(
+        prefix.num_rows(),
+        1,
+        "previous returned observation survives terminal failure"
+    );
+    drop((prefix, reader));
+    let cancel = CancellationToken::new();
+    let mut reader = runtime
+        .results(
+            "readable-fixture",
+            fence.attempt(),
+            "runtime.solve_variables",
+            0,
+            3,
+            cancel.clone(),
+        )
+        .await
+        .unwrap();
+    let projection = reader
+        .inspection_projection(&[original.schema().index_of("value").unwrap()])
+        .unwrap();
+    cancel.cancel();
+    assert!(reader.next_inspection_batch(&projection).await.is_err());
+    drop(reader);
+    let store = runtime.canonical_store().unwrap();
+    pse_operations::testing::drain_result_releases(store)
+        .await
+        .unwrap();
+    store.remove_isolated_fixture().await.unwrap();
 }
 
 #[tokio::test]
@@ -525,211 +867,213 @@ async fn canonical_result_physical_context_requires_the_original_receipt_payload
 )]
 async fn canonical_nested_result_paths_retain_context_and_continuation() {
     let (runtime, fence, original) = wide_fixture(true).await;
-    let mut selected = request(
-        &fence,
-        ResultInspectionView::Values {
-            fields: vec![
-                ArrowFieldPath {
-                    field: "start".into(),
-                    steps: vec![ArrowFieldStep::StructField {
-                        name: "kind".into(),
-                    }],
-                },
-                ArrowFieldPath {
-                    field: "attempts".into(),
-                    steps: vec![
-                        ArrowFieldStep::ListElement { index: 0 },
-                        ArrowFieldStep::StructField {
-                            name: "usable".into(),
-                        },
-                    ],
-                },
-            ],
+    {
+        let mut selected = request(
+            &fence,
+            ResultInspectionView::Values {
+                fields: vec![
+                    ArrowFieldPath {
+                        field: "start".into(),
+                        steps: vec![ArrowFieldStep::StructField {
+                            name: "kind".into(),
+                        }],
+                    },
+                    ArrowFieldPath {
+                        field: "attempts".into(),
+                        steps: vec![
+                            ArrowFieldStep::ListElement { index: 0 },
+                            ArrowFieldStep::StructField {
+                                name: "usable".into(),
+                            },
+                        ],
+                    },
+                ],
+                maximum_rows: 1,
+            },
+        );
+        selected.relation = "runtime.study_outcomes".into();
+        let first = runtime
+            .inspect_result(selected.clone(), CancellationToken::new())
+            .await
+            .unwrap();
+        let ResultInspectionDocument::Values {
+            rows,
+            selected_fields,
+            next_cursor,
+            readable_complete,
+            ..
+        } = first
+        else {
+            panic!("expected readable nested values: {first:?}")
+        };
+        assert_eq!(
+            rows[0].values[0],
+            ResultInspectionCell::Text {
+                value: "fresh".into()
+            }
+        );
+        assert_eq!(
+            rows[0].values[1],
+            ResultInspectionCell::Boolean { value: false }
+        );
+        assert_eq!(selected_fields[0].path.field, "start");
+        assert_eq!(selected_fields[0].ancestor_metadata.len(), 1);
+        assert_eq!(
+            selected_fields[0].ancestor_metadata_omitted[0][0].key,
+            pse_schema::arrow::KEY_LOGICAL_TYPE
+        );
+        assert!(!rows[0].context_complete);
+        assert!(
+            !readable_complete,
+            "readable selected cells do not assert complete context or scientific usability"
+        );
+        selected.cursor = next_cursor;
+        let mut wrong = selected.clone();
+        wrong.end = 2;
+        assert!(matches!(
+            runtime
+                .inspect_result(wrong, CancellationToken::new())
+                .await
+                .unwrap(),
+            ResultInspectionDocument::Refused {
+                reason: ResultInspectionRefusal::CursorChanged,
+                ..
+            }
+        ));
+        let mut wrong = selected.clone();
+        wrong.view = ResultInspectionView::Values {
+            fields: vec!["usable".into()],
             maximum_rows: 1,
-        },
-    );
-    selected.relation = "runtime.study_outcomes".into();
-    let first = runtime
-        .inspect_result(selected.clone(), CancellationToken::new())
-        .await
-        .unwrap();
-    let ResultInspectionDocument::Values {
-        rows,
-        selected_fields,
-        next_cursor,
-        readable_complete,
-        ..
-    } = first
-    else {
-        panic!("expected readable nested values: {first:?}")
-    };
-    assert_eq!(
-        rows[0].values[0],
-        ResultInspectionCell::Text {
-            value: "fresh".into()
-        }
-    );
-    assert_eq!(
-        rows[0].values[1],
-        ResultInspectionCell::Boolean { value: false }
-    );
-    assert_eq!(selected_fields[0].path.field, "start");
-    assert_eq!(selected_fields[0].ancestor_metadata.len(), 1);
-    assert_eq!(
-        selected_fields[0].ancestor_metadata_omitted[0][0].key,
-        pse_schema::arrow::KEY_LOGICAL_TYPE
-    );
-    assert!(!rows[0].context_complete);
-    assert!(
-        !readable_complete,
-        "readable selected cells do not assert complete context or scientific usability"
-    );
-    selected.cursor = next_cursor;
-    let mut wrong = selected.clone();
-    wrong.end = 2;
-    assert!(matches!(
-        runtime
-            .inspect_result(wrong, CancellationToken::new())
+        };
+        assert!(matches!(
+            runtime
+                .inspect_result(wrong, CancellationToken::new())
+                .await
+                .unwrap(),
+            ResultInspectionDocument::Refused {
+                reason: ResultInspectionRefusal::CursorChanged,
+                ..
+            }
+        ));
+        let second = runtime
+            .inspect_result(selected.clone(), CancellationToken::new())
             .await
-            .unwrap(),
-        ResultInspectionDocument::Refused {
-            reason: ResultInspectionRefusal::CursorChanged,
+            .unwrap();
+        let ResultInspectionDocument::Values {
+            rows,
+            next_cursor,
+            selection,
             ..
-        }
-    ));
-    let mut wrong = selected.clone();
-    wrong.view = ResultInspectionView::Values {
-        fields: vec!["usable".into()],
-        maximum_rows: 1,
-    };
-    assert!(matches!(
-        runtime
-            .inspect_result(wrong, CancellationToken::new())
+        } = second
+        else {
+            panic!("expected second nested page")
+        };
+        assert_eq!(selection.row_start, 0);
+        assert_eq!(selection.row_end, 3);
+        assert_eq!(rows[0].source_row, 1);
+        assert_eq!(
+            rows[0].values[1],
+            ResultInspectionCell::MissingElement {
+                depth: 0,
+                length: 0
+            }
+        );
+        selected.cursor = next_cursor;
+        let third = runtime
+            .inspect_result(selected.clone(), CancellationToken::new())
             .await
-            .unwrap(),
-        ResultInspectionDocument::Refused {
-            reason: ResultInspectionRefusal::CursorChanged,
-            ..
-        }
-    ));
-    let second = runtime
-        .inspect_result(selected.clone(), CancellationToken::new())
-        .await
-        .unwrap();
-    let ResultInspectionDocument::Values {
-        rows,
-        next_cursor,
-        selection,
-        ..
-    } = second
-    else {
-        panic!("expected second nested page")
-    };
-    assert_eq!(selection.row_start, 0);
-    assert_eq!(selection.row_end, 3);
-    assert_eq!(rows[0].source_row, 1);
-    assert_eq!(
-        rows[0].values[1],
-        ResultInspectionCell::MissingElement {
-            depth: 0,
-            length: 0
-        }
-    );
-    selected.cursor = next_cursor;
-    let third = runtime
-        .inspect_result(selected.clone(), CancellationToken::new())
-        .await
-        .unwrap();
-    let ResultInspectionDocument::Values {
-        rows, next_cursor, ..
-    } = third
-    else {
-        panic!("expected null-parent page")
-    };
-    assert_eq!(
-        rows[0].values[0],
-        ResultInspectionCell::ParentNull { depth: 0 }
-    );
-    assert!(next_cursor.is_none());
-    selected.cursor = None;
-    selected.view = ResultInspectionView::Children {
-        path: "start".into(),
-        offset: 0,
-        limit: 2,
-    };
-    let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
-    let observed = hub.start("nested child metadata pages");
-    let children = pse_diagnostics::observation::scope(
-        Some(observed.context()),
-        runtime.inspect_result(selected.clone(), CancellationToken::new()),
-    )
-    .await
-    .unwrap();
-    let ResultInspectionDocument::Schema {
-        fields,
-        field_count,
-        next_cursor,
-        ..
-    } = children
-    else {
-        panic!("expected shallow child page")
-    };
-    assert_eq!(field_count, 5);
-    assert_eq!(fields.len(), 2);
-    assert!(next_cursor.is_some());
-    assert_eq!(fields[0].name, "kind");
-    selected.cursor = next_cursor;
-    let children = pse_diagnostics::observation::scope(
-        Some(observed.context()),
-        runtime.inspect_result(selected, CancellationToken::new()),
-    )
-    .await
-    .unwrap();
-    let ResultInspectionDocument::Schema { fields, offset, .. } = children else {
-        panic!("continued child page")
-    };
-    assert_eq!(offset, 2);
-    assert_eq!(fields[0].name, "role");
-    assert_eq!(
-        decode_count(&hub),
-        0,
-        "child descriptor continuation must not read Arrow payloads"
-    );
-    let original_schema = original.schema();
-    let start = original_schema.field_with_name("start").unwrap();
-    let mut keys = start.metadata().keys().collect::<Vec<_>>();
-    keys.sort();
-    let offset = keys
-        .iter()
-        .position(|key| key.as_str() == pse_schema::arrow::KEY_LOGICAL_TYPE)
-        .unwrap();
-    let mut metadata_request = request(
-        &fence,
-        ResultInspectionView::Metadata {
+            .unwrap();
+        let ResultInspectionDocument::Values {
+            rows, next_cursor, ..
+        } = third
+        else {
+            panic!("expected null-parent page")
+        };
+        assert_eq!(
+            rows[0].values[0],
+            ResultInspectionCell::ParentNull { depth: 0 }
+        );
+        assert!(next_cursor.is_none());
+        selected.cursor = None;
+        selected.view = ResultInspectionView::Children {
             path: "start".into(),
-            offset,
-            limit: 1,
-        },
-    );
-    metadata_request.relation = "runtime.study_outcomes".into();
-    let detail = pse_diagnostics::observation::scope(
-        Some(observed.context()),
-        runtime.inspect_result(metadata_request, CancellationToken::new()),
-    )
-    .await
-    .unwrap();
-    let ResultInspectionDocument::Metadata { entries, .. } = detail else {
-        panic!("exact deferred composite metadata")
-    };
-    assert_eq!(
-        entries[pse_schema::arrow::KEY_LOGICAL_TYPE],
-        start.metadata()[pse_schema::arrow::KEY_LOGICAL_TYPE]
-    );
-    assert_eq!(
-        decode_count(&hub),
-        0,
-        "exact metadata detail must not decode Arrow payloads"
-    );
+            offset: 0,
+            limit: 2,
+        };
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let observed = hub.start("nested child metadata pages");
+        let children = pse_diagnostics::observation::scope(
+            Some(observed.context()),
+            runtime.inspect_result(selected.clone(), CancellationToken::new()),
+        )
+        .await
+        .unwrap();
+        let ResultInspectionDocument::Schema {
+            fields,
+            field_count,
+            next_cursor,
+            ..
+        } = children
+        else {
+            panic!("expected shallow child page")
+        };
+        assert_eq!(field_count, 5);
+        assert_eq!(fields.len(), 2);
+        assert!(next_cursor.is_some());
+        assert_eq!(fields[0].name, "kind");
+        selected.cursor = next_cursor;
+        let children = pse_diagnostics::observation::scope(
+            Some(observed.context()),
+            runtime.inspect_result(selected, CancellationToken::new()),
+        )
+        .await
+        .unwrap();
+        let ResultInspectionDocument::Schema { fields, offset, .. } = children else {
+            panic!("continued child page")
+        };
+        assert_eq!(offset, 2);
+        assert_eq!(fields[0].name, "role");
+        assert_eq!(
+            decode_count(&hub),
+            0,
+            "child descriptor continuation must not read Arrow payloads"
+        );
+        let original_schema = original.schema();
+        let start = original_schema.field_with_name("start").unwrap();
+        let mut keys = start.metadata().keys().collect::<Vec<_>>();
+        keys.sort();
+        let offset = keys
+            .iter()
+            .position(|key| key.as_str() == pse_schema::arrow::KEY_LOGICAL_TYPE)
+            .unwrap();
+        let mut metadata_request = request(
+            &fence,
+            ResultInspectionView::Metadata {
+                path: "start".into(),
+                offset,
+                limit: 1,
+            },
+        );
+        metadata_request.relation = "runtime.study_outcomes".into();
+        let detail = pse_diagnostics::observation::scope(
+            Some(observed.context()),
+            runtime.inspect_result(metadata_request, CancellationToken::new()),
+        )
+        .await
+        .unwrap();
+        let ResultInspectionDocument::Metadata { entries, .. } = detail else {
+            panic!("exact deferred composite metadata")
+        };
+        assert_eq!(
+            entries[pse_schema::arrow::KEY_LOGICAL_TYPE],
+            start.metadata()[pse_schema::arrow::KEY_LOGICAL_TYPE]
+        );
+        assert_eq!(
+            decode_count(&hub),
+            0,
+            "exact metadata detail must not decode Arrow payloads"
+        );
+    }
     let store = runtime.canonical_store().unwrap();
     pse_operations::testing::drain_result_releases(store)
         .await
@@ -739,12 +1083,15 @@ async fn canonical_nested_result_paths_retain_context_and_continuation() {
 }
 
 fn decode_count(hub: &pse_diagnostics::observation::ObservationHub) -> u64 {
+    metric_count(hub, "canonical.result.native_decodes")
+}
+fn metric_count(hub: &pse_diagnostics::observation::ObservationHub, name: &str) -> u64 {
     hub.list(0, 128)
         .operations
         .iter()
         .filter_map(|operation| hub.reader(operation.id))
         .flat_map(|reader| reader.snapshot(Duration::from_secs(60)).metrics)
-        .filter(|metric| metric.name == "canonical.result.native_decodes")
+        .filter(|metric| metric.name == name)
         .map(|metric| match metric.cumulative {
             pse_diagnostics::observation::Value::Count(value) => value,
             _ => 0,
@@ -756,361 +1103,454 @@ fn decode_count(hub: &pse_diagnostics::observation::ObservationHub) -> u64 {
 async fn canonical_readable_wide_result_retains_physical_context_protection_and_exact_ipc() {
     let (runtime, fence, original) = wide_fixture(false).await;
     let store = runtime.canonical_store().unwrap().clone();
-    let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
-    let observed = hub.start("readable result acceptance");
-    let discovered = pse_diagnostics::observation::scope(
-        Some(observed.context()),
-        runtime.inspect_result(
-            request(
-                &fence,
+    {
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let observed = hub.start("readable result acceptance");
+        let discovered = pse_diagnostics::observation::scope(
+            Some(observed.context()),
+            runtime.inspect_result(
+                request(
+                    &fence,
+                    ResultInspectionView::Schema {
+                        offset: 0,
+                        limit: 2,
+                    },
+                ),
+                CancellationToken::new(),
+            ),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            decode_count(&hub),
+            0,
+            "schema inquiry must not decode original Arrow data"
+        );
+        let mut empty = request(
+            &fence,
+            ResultInspectionView::Values {
+                fields: vec!["value".into()],
+                maximum_rows: 1,
+            },
+        );
+        empty.end = 0;
+        let empty = pse_diagnostics::observation::scope(
+            Some(observed.context()),
+            runtime.inspect_result(empty, CancellationToken::new()),
+        )
+        .await
+        .unwrap();
+        let ResultInspectionDocument::Values {
+            rows,
+            checks,
+            recorded_rows,
+            next_row,
+            ..
+        } = empty
+        else {
+            panic!("empty readable population")
+        };
+        assert!(rows.is_empty());
+        assert_eq!(checks.checked_batches, 0);
+        assert_eq!(recorded_rows, 0);
+        assert!(next_row.is_none());
+        assert_eq!(
+            decode_count(&hub),
+            0,
+            "empty windows acquire no stored array bodies"
+        );
+        let ResultInspectionDocument::Schema {
+            manifest,
+            field_count,
+            fields,
+            next,
+            recorded_rows,
+            selection,
+            ..
+        } = &discovered
+        else {
+            panic!("schema page: {discovered:?}")
+        };
+        assert_eq!(*field_count, 19);
+        assert!(
+            *field_count > 16,
+            "registered relation exceeds the schema page cap"
+        );
+        assert_eq!(fields.len(), 2);
+        assert_eq!(*next, Some(2));
+        assert_eq!(*recorded_rows, 3);
+        assert_eq!(selection.usability, PackScientificState::Unknown);
+        let mut schema_request = request(
+            &fence,
+            ResultInspectionView::Schema {
+                offset: 0,
+                limit: 2,
+            },
+        );
+        schema_request.cursor = match &discovered {
+            ResultInspectionDocument::Schema { next_cursor, .. } => next_cursor.clone(),
+            _ => panic!("expected the original discovered schema page"),
+        };
+        let continued = pse_diagnostics::observation::scope(
+            Some(observed.context()),
+            runtime.inspect_result(schema_request.clone(), CancellationToken::new()),
+        )
+        .await
+        .unwrap();
+        let ResultInspectionDocument::Schema { offset, fields, .. } = &continued else {
+            panic!("schema continuation")
+        };
+        assert_eq!(*offset, 2);
+        assert_eq!(fields[0].name, *original.schema().field(2).name());
+        for changed_schema in [false, true] {
+            let mut wrong = schema_request.clone();
+            let cursor = wrong.cursor.as_mut().unwrap();
+            if changed_schema {
+                cursor.schema_fingerprint.push_str("-different");
+            } else {
+                cursor.issuing_store.push_str("-different");
+            }
+            assert!(matches!(
+                runtime
+                    .inspect_result(wrong, CancellationToken::new())
+                    .await
+                    .unwrap(),
+                ResultInspectionDocument::Refused {
+                    reason: ResultInspectionRefusal::CursorChanged,
+                    ..
+                }
+            ));
+        }
+        let original_schema = original.schema();
+        let metadata_field = original_schema
+            .fields()
+            .iter()
+            .max_by_key(|field| field.metadata().len())
+            .unwrap();
+        let expected_metadata = metadata_field
+            .metadata()
+            .iter()
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect::<BTreeMap<_, _>>();
+        assert!(
+            expected_metadata.len() > 1,
+            "fixture must exercise original metadata continuation"
+        );
+        let mut metadata_request = request(
+            &fence,
+            ResultInspectionView::Metadata {
+                path: metadata_field.name().as_str().into(),
+                offset: 0,
+                limit: 1,
+            },
+        );
+        let mut collected = BTreeMap::new();
+        for position in 0..expected_metadata.len() {
+            let page = pse_diagnostics::observation::scope(
+                Some(observed.context()),
+                runtime.inspect_result(metadata_request.clone(), CancellationToken::new()),
+            )
+            .await
+            .unwrap();
+            let ResultInspectionDocument::Metadata {
+                offset,
+                entries,
+                next_cursor,
+                entry_count,
+                ..
+            } = page
+            else {
+                panic!("exact metadata page")
+            };
+            assert_eq!(offset, position);
+            assert_eq!(entry_count, expected_metadata.len());
+            assert_eq!(entries.len(), 1);
+            collected.extend(entries);
+            metadata_request.cursor = next_cursor;
+        }
+        assert!(metadata_request.cursor.is_none());
+        assert_eq!(collected, expected_metadata);
+        assert_eq!(
+            decode_count(&hub),
+            0,
+            "schema and context-detail continuation must not decode Arrow payloads"
+        );
+        let cancelled = CancellationToken::new();
+        cancelled.cancel();
+        assert!(
+            runtime
+                .inspect_result(schema_request, cancelled)
+                .await
+                .is_err()
+        );
+        let mut selected = request(
+            &fence,
+            ResultInspectionView::Values {
+                fields: vec!["value".into()],
+                maximum_rows: 2,
+            },
+        );
+        selected.expected_manifest = Some(manifest.clone());
+        let values = pse_diagnostics::observation::scope(
+            Some(observed.context()),
+            runtime.inspect_result(selected.clone(), CancellationToken::new()),
+        )
+        .await
+        .unwrap();
+        assert!(decode_count(&hub) > 0);
+        let ResultInspectionDocument::Values {
+            selected_fields,
+            context_fields,
+            rows,
+            recorded_rows,
+            next_row,
+            readable_complete,
+            schema_metadata,
+            checks,
+            ..
+        } = &values
+        else {
+            panic!("readable values: {values:?}")
+        };
+        assert_eq!(selected_fields[0].name, "value");
+        assert_eq!(
+            context_fields
+                .iter()
+                .map(|field| field.name.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "run_id",
+                "step",
+                "symbol_id",
+                "quantity_id",
+                "unit_id",
+                "fixed",
+                "parameter",
+                "domain",
+                "dual_qualification",
+            ]
+        );
+        assert_eq!(*recorded_rows, 3);
+        assert_eq!(*next_row, Some(2));
+        assert!(*readable_complete);
+        assert_eq!(checks.checked_batches, 1);
+        assert!(checks.all_relation_predicates);
+        assert!(checks.whole_batch_scalar_keys);
+        assert_eq!(
+            checks.checked_roots.len() + checks.unchecked_roots.len(),
+            original.num_columns()
+        );
+        assert!(
+            !checks.unchecked_roots.is_empty(),
+            "value-only selection omits unrequested local value checks"
+        );
+        assert!(
+            checks
+                .checked_roots
+                .contains(&original.schema().index_of("value").unwrap())
+        );
+        assert!(
+            checks
+                .unchecked_roots
+                .contains(&original.schema().index_of("lower").unwrap())
+        );
+        let full_roots = runtime
+            .inspect_result(
+                request(
+                    &fence,
+                    ResultInspectionView::Values {
+                        fields: [
+                            "value",
+                            "lower",
+                            "upper",
+                            "lower_violation",
+                            "upper_violation",
+                            "tolerance",
+                            "lower_dual",
+                            "upper_dual",
+                        ]
+                        .into_iter()
+                        .map(Into::into)
+                        .collect(),
+                        maximum_rows: 1,
+                    },
+                ),
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        let ResultInspectionDocument::Values {
+            checks: full_checks,
+            rows: full_rows,
+            ..
+        } = full_roots
+        else {
+            panic!("complete root closure")
+        };
+        assert!(full_checks.unchecked_roots.is_empty());
+        assert_eq!(full_checks.checked_roots.len(), original.num_columns());
+        assert_eq!(full_rows[0].values[0], rows[0].values[0]);
+        assert_eq!(rows[0].source_row, 0);
+        assert_eq!(
+            rows[0].values,
+            [ResultInspectionCell::Float64 {
+                bits: (-0.0f64).to_bits(),
+                finite_value: Some(-0.0),
+                class: ResultFloatClass::Finite
+            }]
+        );
+        assert_eq!(rows[1].values, [ResultInspectionCell::Null]);
+        assert_eq!(
+            rows[0].context[3],
+            ResultInspectionCell::Binary {
+                hex: "44".repeat(16)
+            }
+        );
+        assert_eq!(
+            rows[0].context[4],
+            ResultInspectionCell::Binary {
+                hex: "55".repeat(16)
+            }
+        );
+        assert_eq!(
+            rows[1].context[5],
+            ResultInspectionCell::Boolean { value: true }
+        );
+        assert_eq!(rows[0].context[7], ResultInspectionCell::Null);
+        assert_eq!(
+            rows[0].context[8],
+            ResultInspectionCell::Text {
+                value: "unavailable".into()
+            },
+            "original declared unavailable dual qualification, not scientific usability"
+        );
+        // Every descriptor retains the registered original interpretation. Opaque unit
+        // identities do not establish resolved definitions or a physical basis.
+        for field in selected_fields.iter().chain(context_fields) {
+            let original_schema = original.schema();
+            let source = original_schema.field(field.index);
+            assert_eq!(field.name, *source.name());
+            assert_eq!(field.nullable, source.is_nullable());
+            assert_eq!(
+                match &field.storage {
+                    ResultInspectionStorage::Scalar { datatype_json } =>
+                        serde_json::from_str::<DataType>(datatype_json).unwrap(),
+                    _ => panic!("wide fixture is scalar"),
+                },
+                *source.data_type()
+            );
+            assert_eq!(
+                field.metadata,
+                source
+                    .metadata()
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.clone()))
+                    .collect::<BTreeMap<_, _>>()
+            );
+        }
+        assert_eq!(
+            schema_metadata.get(pse_schema::arrow::KEY_CONTRACT_FINGERPRINT),
+            original
+                .schema()
+                .metadata()
+                .get(pse_schema::arrow::KEY_CONTRACT_FINGERPRINT)
+        );
+        assert!(serde_json::to_vec(&values).unwrap().len() < DOCUMENT_BYTES);
+        selected.cursor = match &values {
+            ResultInspectionDocument::Values { next_cursor, .. } => next_cursor.clone(),
+            _ => panic!("values cursor"),
+        };
+        let last = runtime
+            .inspect_result(selected, CancellationToken::new())
+            .await
+            .unwrap();
+        let ResultInspectionDocument::Values { rows, next_row, .. } = &last else {
+            panic!("continuation")
+        };
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].source_row, 2);
+        assert_eq!(*next_row, None);
+        assert_eq!(
+            rows[0].values[0],
+            ResultInspectionCell::Float64 {
+                bits: 273.15f64.to_bits(),
+                finite_value: Some(273.15),
+                class: ResultFloatClass::Finite
+            }
+        );
+        let ipc = pse_columnar::ipc_file::encode(
+            std::slice::from_ref(&original),
+            super::super::result_files::MAX_FILE_BYTES,
+        )
+        .unwrap();
+        let independent =
+            datafusion::arrow::ipc::reader::FileReader::try_new(std::io::Cursor::new(ipc), None)
+                .unwrap()
+                .next()
+                .unwrap()
+                .unwrap();
+        let mut reader = runtime
+            .results(
+                "readable-fixture",
+                fence.attempt(),
+                "runtime.solve_variables",
+                0,
+                3,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(reader.next_batch().await.unwrap().unwrap(), independent);
+        assert!(reader.next_batch().await.unwrap().is_none());
+        reader.close();
+        drop(reader);
+        for (view, reason) in [
+            (
+                ResultInspectionView::Values {
+                    fields: vec!["absent".into()],
+                    maximum_rows: 1,
+                },
+                ResultInspectionRefusal::UnknownField,
+            ),
+            (
+                ResultInspectionView::Values {
+                    fields: vec!["value".into()],
+                    maximum_rows: 17,
+                },
+                ResultInspectionRefusal::Selection,
+            ),
+            (
                 ResultInspectionView::Schema {
                     offset: 0,
-                    limit: 2,
+                    limit: 17,
                 },
+                ResultInspectionRefusal::Selection,
             ),
-            CancellationToken::new(),
-        ),
-    )
-    .await
-    .unwrap();
-    assert_eq!(
-        decode_count(&hub),
-        0,
-        "schema inquiry must not decode original Arrow data"
-    );
-    let ResultInspectionDocument::Schema {
-        manifest,
-        field_count,
-        fields,
-        next,
-        recorded_rows,
-        selection,
-        ..
-    } = &discovered
-    else {
-        panic!("schema page: {discovered:?}")
-    };
-    assert_eq!(*field_count, 19);
-    assert!(
-        *field_count > 16,
-        "registered relation exceeds the schema page cap"
-    );
-    assert_eq!(fields.len(), 2);
-    assert_eq!(*next, Some(2));
-    assert_eq!(*recorded_rows, 3);
-    assert_eq!(selection.usability, PackScientificState::Unknown);
-    let mut schema_request = request(
-        &fence,
-        ResultInspectionView::Schema {
-            offset: 0,
-            limit: 2,
-        },
-    );
-    schema_request.cursor = match &discovered {
-        ResultInspectionDocument::Schema { next_cursor, .. } => next_cursor.clone(),
-        _ => panic!("expected the original discovered schema page"),
-    };
-    let continued = pse_diagnostics::observation::scope(
-        Some(observed.context()),
-        runtime.inspect_result(schema_request.clone(), CancellationToken::new()),
-    )
-    .await
-    .unwrap();
-    let ResultInspectionDocument::Schema { offset, fields, .. } = &continued else {
-        panic!("schema continuation")
-    };
-    assert_eq!(*offset, 2);
-    assert_eq!(fields[0].name, *original.schema().field(2).name());
-    for changed_schema in [false, true] {
-        let mut wrong = schema_request.clone();
-        let cursor = wrong.cursor.as_mut().unwrap();
-        if changed_schema {
-            cursor.schema_fingerprint.push_str("-different");
-        } else {
-            cursor.issuing_store.push_str("-different");
+        ] {
+            assert!(
+                matches!(runtime.inspect_result(request(&fence, view), CancellationToken::new()).await.unwrap(), ResultInspectionDocument::Refused { reason: actual, .. } if actual == reason)
+            );
         }
+        let mut stale = request(
+            &fence,
+            ResultInspectionView::Schema {
+                offset: 0,
+                limit: 1,
+            },
+        );
+        stale.expected_manifest = Some("different-original-manifest".into());
         assert!(matches!(
             runtime
-                .inspect_result(wrong, CancellationToken::new())
+                .inspect_result(stale, CancellationToken::new())
                 .await
                 .unwrap(),
             ResultInspectionDocument::Refused {
-                reason: ResultInspectionRefusal::CursorChanged,
+                reason: ResultInspectionRefusal::ManifestChanged,
                 ..
             }
         ));
+        drop((discovered, continued, values, last));
     }
-    let original_schema = original.schema();
-    let metadata_field = original_schema
-        .fields()
-        .iter()
-        .max_by_key(|field| field.metadata().len())
-        .unwrap();
-    let expected_metadata = metadata_field
-        .metadata()
-        .iter()
-        .map(|(key, value)| (key.clone(), value.clone()))
-        .collect::<BTreeMap<_, _>>();
-    assert!(
-        expected_metadata.len() > 1,
-        "fixture must exercise original metadata continuation"
-    );
-    let mut metadata_request = request(
-        &fence,
-        ResultInspectionView::Metadata {
-            path: metadata_field.name().as_str().into(),
-            offset: 0,
-            limit: 1,
-        },
-    );
-    let mut collected = BTreeMap::new();
-    for position in 0..expected_metadata.len() {
-        let page = pse_diagnostics::observation::scope(
-            Some(observed.context()),
-            runtime.inspect_result(metadata_request.clone(), CancellationToken::new()),
-        )
-        .await
-        .unwrap();
-        let ResultInspectionDocument::Metadata {
-            offset,
-            entries,
-            next_cursor,
-            entry_count,
-            ..
-        } = page
-        else {
-            panic!("exact metadata page")
-        };
-        assert_eq!(offset, position);
-        assert_eq!(entry_count, expected_metadata.len());
-        assert_eq!(entries.len(), 1);
-        collected.extend(entries);
-        metadata_request.cursor = next_cursor;
-    }
-    assert!(metadata_request.cursor.is_none());
-    assert_eq!(collected, expected_metadata);
-    assert_eq!(
-        decode_count(&hub),
-        0,
-        "schema and context-detail continuation must not decode Arrow payloads"
-    );
-    let cancelled = CancellationToken::new();
-    cancelled.cancel();
-    assert!(
-        runtime
-            .inspect_result(schema_request, cancelled)
-            .await
-            .is_err()
-    );
-    let mut selected = request(
-        &fence,
-        ResultInspectionView::Values {
-            fields: vec!["value".into()],
-            maximum_rows: 2,
-        },
-    );
-    selected.expected_manifest = Some(manifest.clone());
-    let values = pse_diagnostics::observation::scope(
-        Some(observed.context()),
-        runtime.inspect_result(selected.clone(), CancellationToken::new()),
-    )
-    .await
-    .unwrap();
-    assert!(decode_count(&hub) > 0);
-    let ResultInspectionDocument::Values {
-        selected_fields,
-        context_fields,
-        rows,
-        recorded_rows,
-        next_row,
-        readable_complete,
-        schema_metadata,
-        ..
-    } = &values
-    else {
-        panic!("readable values: {values:?}")
-    };
-    assert_eq!(selected_fields[0].name, "value");
-    assert_eq!(
-        context_fields
-            .iter()
-            .map(|field| field.name.as_str())
-            .collect::<Vec<_>>(),
-        [
-            "run_id",
-            "step",
-            "symbol_id",
-            "quantity_id",
-            "unit_id",
-            "fixed",
-            "parameter",
-            "domain",
-            "dual_qualification",
-        ]
-    );
-    assert_eq!(*recorded_rows, 3);
-    assert_eq!(*next_row, Some(2));
-    assert!(*readable_complete);
-    assert_eq!(rows[0].source_row, 0);
-    assert_eq!(
-        rows[0].values,
-        [ResultInspectionCell::Float64 {
-            bits: (-0.0f64).to_bits(),
-            finite_value: Some(-0.0),
-            class: ResultFloatClass::Finite
-        }]
-    );
-    assert_eq!(rows[1].values, [ResultInspectionCell::Null]);
-    assert_eq!(
-        rows[0].context[3],
-        ResultInspectionCell::Binary {
-            hex: "44".repeat(16)
-        }
-    );
-    assert_eq!(
-        rows[0].context[4],
-        ResultInspectionCell::Binary {
-            hex: "55".repeat(16)
-        }
-    );
-    assert_eq!(
-        rows[1].context[5],
-        ResultInspectionCell::Boolean { value: true }
-    );
-    assert_eq!(rows[0].context[7], ResultInspectionCell::Null);
-    assert_eq!(
-        rows[0].context[8],
-        ResultInspectionCell::Text {
-            value: "unavailable".into()
-        },
-        "original declared unavailable dual qualification, not scientific usability"
-    );
-    // Every descriptor retains the registered original interpretation. Opaque unit
-    // identities do not establish resolved definitions or a physical basis.
-    for field in selected_fields.iter().chain(context_fields) {
-        let original_schema = original.schema();
-        let source = original_schema.field(field.index);
-        assert_eq!(field.name, *source.name());
-        assert_eq!(field.nullable, source.is_nullable());
-        assert_eq!(
-            match &field.storage {
-                ResultInspectionStorage::Scalar { datatype_json } =>
-                    serde_json::from_str::<DataType>(datatype_json).unwrap(),
-                _ => panic!("wide fixture is scalar"),
-            },
-            *source.data_type()
-        );
-        assert_eq!(
-            field.metadata,
-            source
-                .metadata()
-                .iter()
-                .map(|(key, value)| (key.clone(), value.clone()))
-                .collect::<BTreeMap<_, _>>()
-        );
-    }
-    assert_eq!(
-        schema_metadata.get(pse_schema::arrow::KEY_CONTRACT_FINGERPRINT),
-        original
-            .schema()
-            .metadata()
-            .get(pse_schema::arrow::KEY_CONTRACT_FINGERPRINT)
-    );
-    assert!(serde_json::to_vec(&values).unwrap().len() < DOCUMENT_BYTES);
-    selected.cursor = match &values {
-        ResultInspectionDocument::Values { next_cursor, .. } => next_cursor.clone(),
-        _ => panic!("values cursor"),
-    };
-    let last = runtime
-        .inspect_result(selected, CancellationToken::new())
-        .await
-        .unwrap();
-    let ResultInspectionDocument::Values { rows, next_row, .. } = &last else {
-        panic!("continuation")
-    };
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].source_row, 2);
-    assert_eq!(*next_row, None);
-    assert_eq!(
-        rows[0].values[0],
-        ResultInspectionCell::Float64 {
-            bits: 273.15f64.to_bits(),
-            finite_value: Some(273.15),
-            class: ResultFloatClass::Finite
-        }
-    );
-    let ipc = pse_columnar::ipc_file::encode(
-        std::slice::from_ref(&original),
-        super::super::result_files::MAX_FILE_BYTES,
-    )
-    .unwrap();
-    let independent =
-        datafusion::arrow::ipc::reader::FileReader::try_new(std::io::Cursor::new(ipc), None)
-            .unwrap()
-            .next()
-            .unwrap()
-            .unwrap();
-    let mut reader = runtime
-        .results(
-            "readable-fixture",
-            fence.attempt(),
-            "runtime.solve_variables",
-            0,
-            3,
-            CancellationToken::new(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(reader.next_batch().await.unwrap().unwrap(), independent);
-    assert!(reader.next_batch().await.unwrap().is_none());
-    reader.close();
-    drop(reader);
-    for (view, reason) in [
-        (
-            ResultInspectionView::Values {
-                fields: vec!["absent".into()],
-                maximum_rows: 1,
-            },
-            ResultInspectionRefusal::UnknownField,
-        ),
-        (
-            ResultInspectionView::Values {
-                fields: vec!["value".into()],
-                maximum_rows: 17,
-            },
-            ResultInspectionRefusal::Selection,
-        ),
-        (
-            ResultInspectionView::Schema {
-                offset: 0,
-                limit: 17,
-            },
-            ResultInspectionRefusal::Selection,
-        ),
-    ] {
-        assert!(
-            matches!(runtime.inspect_result(request(&fence, view), CancellationToken::new()).await.unwrap(), ResultInspectionDocument::Refused { reason: actual, .. } if actual == reason)
-        );
-    }
-    let mut stale = request(
-        &fence,
-        ResultInspectionView::Schema {
-            offset: 0,
-            limit: 1,
-        },
-    );
-    stale.expected_manifest = Some("different-original-manifest".into());
-    assert!(matches!(
-        runtime
-            .inspect_result(stale, CancellationToken::new())
-            .await
-            .unwrap(),
-        ResultInspectionDocument::Refused {
-            reason: ResultInspectionRefusal::ManifestChanged,
-            ..
-        }
-    ));
-    drop((discovered, continued, values, last));
     pse_operations::testing::drain_result_releases(&store)
         .await
         .unwrap();
@@ -1159,7 +1599,7 @@ async fn canonical_protected_permission_retains_original_refusal_despite_valid_d
         }],
         ..Default::default()
     };
-    let (runtime, fence, _) =
+    let (runtime, fence, original) =
         wide_fixture_with_completion(false, false, None, Some(completion)).await;
     let mut reader = runtime
         .results(
@@ -1184,6 +1624,55 @@ async fn canonical_protected_permission_retains_original_refusal_despite_valid_d
     );
     let selection = reader.pack_selection().await.unwrap();
     assert_eq!(selection.usability, PackScientificState::Unusable);
+    let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+    let observed = hub.start("assessed selected root hydration");
+    let inspected = pse_diagnostics::observation::scope(
+        Some(observed.context()),
+        runtime.inspect_result(
+            request(
+                &fence,
+                ResultInspectionView::Values {
+                    fields: vec!["value".into()],
+                    maximum_rows: 1,
+                },
+            ),
+            CancellationToken::new(),
+        ),
+    )
+    .await
+    .unwrap();
+    let ResultInspectionDocument::Values {
+        selection: projected_selection,
+        checks,
+        ..
+    } = inspected
+    else {
+        panic!("assessed values")
+    };
+    assert_eq!(projected_selection.usability, selection.usability);
+    assert!(
+        checks
+            .unchecked_roots
+            .contains(&original.schema().index_of("lower").unwrap())
+    );
+    assert!(
+        checks
+            .checked_roots
+            .contains(&original.schema().index_of("lower_dual").unwrap())
+    );
+    assert_eq!(
+        decode_count(&hub),
+        2,
+        "permission and returned values each read their original selected batch"
+    );
+    assert_eq!(
+        metric_count(&hub, "canonical.result.hydrated_roots"),
+        2 * checks.checked_roots.len() as u64
+    );
+    assert!(
+        checks.checked_roots.len() < original.num_columns(),
+        "assessed permission must not trigger hidden full hydration"
+    );
     let mut forged = selection.clone();
     forged.usability = PackScientificState::Usable;
     assert!(reader.validate_pack_selection(&forged).await.is_err());

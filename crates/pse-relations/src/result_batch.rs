@@ -225,7 +225,7 @@ impl AdmittedResultFile {
             {
                 return Err(mismatch("one exact admitted file schema"));
             }
-            validate_keys(batch, spec, pool, cancel)?;
+            validate_keys(batch.batch(), spec, pool, cancel)?;
             let nulls = logical_null_counts(batch.batch(), pool, cancel)?;
             let selection = crate::generated::result_selection::for_relation(batch.relation_id());
             let schema = batch.batch().schema();
@@ -341,6 +341,30 @@ pub fn validate_scalar_keys(
         .relation_by_id(batch.relation_id())
         .ok_or_else(|| mismatch("registered result relation"))?;
     batch.check_declaration(registry, spec)?;
+    validate_keys(batch.batch(), spec, pool, cancel)
+}
+
+/// Check all declaration-bound scalar keys in an observational projection.
+/// This grants no relation admission; every original key field must be present
+/// with its exact registered declaration, across the complete original batch.
+/// # Errors
+/// Missing/foreign key fields, duplicate keys, cancellation or resource refusal.
+pub fn validate_projected_scalar_keys(
+    registry: &Registry,
+    spec: &pse_schema::model::RelationSpec,
+    batch: &arrow_array::RecordBatch,
+    pool: &Arc<dyn MemoryPool>,
+    cancel: &CancellationToken,
+) -> Result<(), RelationError> {
+    cancel.checkpoint()?;
+    let declared = registry.contract(spec)?;
+    for name in &spec.primary_key {
+        let expected = declared.schema().field_with_name(name)?;
+        let actual = batch.schema();
+        if actual.field_with_name(name)? != expected {
+            return Err(mismatch("declared result primary key field"));
+        }
+    }
     validate_keys(batch, spec, pool, cancel)
 }
 
@@ -383,12 +407,12 @@ fn extrema(
 }
 
 fn validate_keys(
-    batch: &FieldCheckedBatch,
+    batch: &arrow_array::RecordBatch,
     spec: &pse_schema::model::RelationSpec,
     pool: &Arc<dyn MemoryPool>,
     cancel: &CancellationToken,
 ) -> Result<(), RelationError> {
-    if !crate::generated::result_selection::for_relation(batch.relation_id())
+    if !crate::generated::result_selection::for_relation(spec.id)
         .is_some_and(|selection| !selection.sort.is_empty())
     {
         return Ok(());
@@ -397,7 +421,6 @@ fn validate_keys(
     owner
         .try_grow(
             batch
-                .batch()
                 .num_rows()
                 .checked_mul(256)
                 .ok_or_else(|| mismatch("result key scratch extent"))?,
@@ -408,7 +431,6 @@ fn validate_keys(
         .iter()
         .map(|name| {
             batch
-                .batch()
                 .column_by_name(name)
                 .cloned()
                 .ok_or_else(|| mismatch("declared result primary key"))
@@ -421,7 +443,7 @@ fn validate_keys(
             .collect(),
     )?;
     let rows = converter.convert_columns(&columns)?;
-    let mut keys = HashSet::with_capacity(batch.batch().num_rows());
+    let mut keys = HashSet::with_capacity(batch.num_rows());
     for (index, row) in rows.iter().enumerate() {
         if index % 1024 == 0 {
             cancel.checkpoint()?;
