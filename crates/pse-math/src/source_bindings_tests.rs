@@ -326,9 +326,18 @@ fn current_issued_support_rebinds_cached_code_after_original_source_dies() {
         .clone()
         .with_receiving_support(issued)
         .unwrap();
-    assert!(Arc::ptr_eq(&cached.programs, &rebound.programs));
-    assert!(Arc::ptr_eq(&cached.layouts, &rebound.layouts));
-    assert!(Arc::ptr_eq(&cached.input_formals, &rebound.input_formals));
+    assert!(Arc::ptr_eq(
+        &cached.template.programs,
+        &rebound.template.programs
+    ));
+    assert!(Arc::ptr_eq(
+        &cached.template.layouts,
+        &rebound.template.layouts
+    ));
+    assert!(Arc::ptr_eq(
+        &cached.template.input_formals,
+        &rebound.template.input_formals
+    ));
     let paired = SourceBody::new(Arc::new(rebound), current_bindings).unwrap();
     drop(cached);
     assert!(Arc::strong_count(&numeric_owner) > 1);
