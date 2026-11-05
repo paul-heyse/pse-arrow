@@ -275,6 +275,17 @@ foundation, metadata, completion observations, explicit worker Shutdown and batc
 of recreating older mechanisms. Companions retain their native status/evidence ownership;
 the Plan65 coordinator owns the shared delivery and remaining activation boundaries.
 
+### Joint execution resumption
+
+The entire remaining Plan64/65 scope is authorized after the stopped checkpoint. The
+[Plan65 coordinator](65-proto-integrated-target.md#joint-execution-resumed-after-the-stop-checkpoint)
+owns the shared Proto-first execution: receiving deadline/retirement verification, contract
+dispatch, reconstruction prerequisites and finite reference/input closure proceed together.
+H01 remains the denominator owner; its newly resolved family configurations establish source
+scope and prerequisites, not native or reference execution. Scientific repairs needed for
+Proto acceptance can proceed immediately; broader D–G delivery follows the working Proto
+milestone. Existing B/C native delivery is not reopened merely by this resumption.
+
 ### Completed B/C evidence checkpoint — 2026-11-03
 
 A02/A03/A04 design and disposition work is complete;
