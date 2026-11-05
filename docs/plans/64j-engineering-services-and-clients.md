@@ -186,7 +186,7 @@ slice does not complete a package whose full consumer migration or acceptance is
 | J03 | in-progress | J02 plus working native edit/preparation/study handlers. | Inspect/edit/prepare/submit/status/cancel/read products work end to end. Typed owner/client tests include add/replace/delete/retain, stale parent, missing/default distinctions, intended science failure, duplicate original request and changed-request conflict. Remove replaced B/C adapters/callers/fixtures together. |
 | J04 | in-progress | J03's original operation ownership and retained reads. | Observational progress, reconnect, bounded observer release and shutdown work. Drop observation while work continues, reconnect to the original run, lose a submit ACK, request cancellation and prove actual settlement separately. No automatic submit replay; remove duplicated polling/status translations where replaced. |
 | J05 | in-progress | 64i's producer-selection slice plus J03/J04 real responses. | Runtime/client I06 producer/encode/consume paths use selected responses. Selected/full/empty and malformed nested read tests cover continuation, retained buffer release, extent refusal, cancellation and partial output. Delete duplicated projection/extent passes only with equivalent protection. No latency/memory benefit claim without whole-lifetime measurement. |
-| J06 | in-progress | All functional J scope, working selected 64d–64g cases and consumed G08 capture/publication slices. | Narrow declared-case client journey tested; the full three-phase Study client/coordinator is linked, with actual assembled execution pending. Simulation/fit/horizon client tests remain drafted and unlinked. Complete their integration, original physical checks, failed siblings, protected products, disconnect/reconnect, duplicate/cancel/lost ACK and shutdown; delete replaced routes and reconcile 64h H05/H07. |
+| J06 | in-progress | All functional J scope, working selected 64d–64g cases and consumed G08 capture/publication slices. | Narrow declared-case and actual three-phase Study client journeys tested within the captured-image scope below. Simulation/fit/horizon client tests remain drafted and unlinked. Complete their integration, original physical checks, failed siblings, protected products, disconnect/reconnect, duplicate/cancel/lost ACK and shutdown; delete replaced routes and reconcile 64h H05/H07. |
 
 J01 and 64i's first contract slice proceed together; neither waits for a universal catalogue.
 J02 can develop against that implemented slice while later schema families proceed. J03's
@@ -252,8 +252,8 @@ present in the working tree, with acceptance boundaries that differ from that pa
   --features engineering-service,native-study-tests,product-reader,product-operators,property-coolprop,solver-kinsol,solver-ipopt
   -E 'test(qualification::tests::) | test(tests::scientific_keeper_)'`, configured unbounded,
   cache off, explicitly prepared compiler/KLU/solver. The assembled three-phase
-  journey remains unrun. Fresh main captures and actual original-worker completion are
-  required; this Study worker is distinct from 64k's water-property worker.
+  journey was then pending; the later live composition below supplies its first pass.
+  This Study worker is distinct from 64k's water-property worker.
 
 Study and inspection RPC modules are linked in the current native service; their presence
 does not qualify the independent clients. The remaining unlinked population is the
@@ -261,6 +261,98 @@ simulation/fit/horizon client module containing
 `prepared_engineering_study_client_simulation_fit_and_horizon_keep_original_physics`.
 The three-phase Study client is linked and coordinated; its actual composed journey
 must retain the same keeper rather than use fresh per-invocation database fixtures.
+
+Main `b8018039a` supplies `pse qualify-study` as a fixed application entry. Shared
+`BuildCapture::read` checks protected, bounded original manifest files;
+`require_binary` checks the captured package/root/source/features and immutable image bytes.
+These checks do not attest freshness against arbitrary current working-source contents.
+Host `environment::activate_with_options` and `native::select_capabilities` select completed
+native libraries under the explicit cache choice, then Unix `CommandExt::exec` replaces the
+entry with the exact captured coordinator. PID, application cgroup, stdio, signals and final
+status remain with that owner. No native workload, environment export or second cleanup
+supervisor is introduced; original native-workload/detachment refusals remain in force.
+Typed paths/deadlines are one shared declaration; the launcher-only cache flag is not forwarded
+to older captured coordinator arguments. See the
+[fixed entry](../../crates/pse-host/src/study_qualification.rs),
+[shared capture owner](../../crates/pse-host/src/discovery/capture.rs), and existing
+[foreground exec semantics](../../crates/pse-host/src/foreground.rs).
+
+Three targeted host controls and `scripts/pse check pse-host --all-targets` passed without
+failures/build warnings with the final launcher-only cache option, with original capture
+and settlement complete. Independent source review found no P1/P2 in that scoped entry/
+extraction. Actual source-built runtime/canonical captures and the declared reference
+allocation are prepared. A mistaken native-shell-export launch and the first application's
+cache-context mismatch both refused before fixture creation; original failure outputs are
+retained. The matching `--cache off` application then started the real keeper, canonical
+service, gated scientific worker and first frontend. Its first Submit client build failed
+with `Too many open files`: the caller's soft/hard limits were 1,048,576, but the detached
+service inherited the user manager's 1,024 soft default. The coordinator attempted independent
+cancel/wait/drain and retained the failed fixture. No Submit phase completed and the worker
+start gate stayed closed; this is failure evidence, not a Study journey pass.
+
+Main `125325757` preserves actual caller soft/hard limits through the shared owned transient
+service path, using Rustix 1.1.5 `getrlimit(Resource::Nofile)` and systemd 255's uint64
+`LimitNOFILE`/`LimitNOFILESoft` properties (infinity is `u64::MAX`). See
+[Rustix's exact API](https://docs.rs/rustix/1.1.5/rustix/process/fn.getrlimit.html) and
+[systemd's execution-property setter](https://github.com/systemd/systemd/blob/v255/src/core/dbus-execute.c).
+No global host limit, CPU policy or scientific allocation changes. The same attempt exposed
+a separate cleanup mismatch: the original frontend was typed Cancelled with exit 137,
+while its current native wait positively proved complete drain. Main `635bad03a` accepts
+that typed cancelled original for cleanup after complete current observation/drain and
+retains every native failure and historical outcome. Missing exits, ordinary failed actions
+and incomplete observation/drain still refuse. Phase success independently requires the
+original `TestsSucceeded` report. The real-manager caller-limit control passed on main using
+`scripts/pse test pse-host --lib -E 'test(real_user_manager_service_preserves_caller_file_limits)'`,
+configured unbounded/cache-off with compiler/KLU activation: one test, zero failures/build
+warnings, complete original capture and native settlement. The test reads the actual original
+child's kernel limits and independently attempts its stop/drain before assertions; the host's
+caller/manager soft limits still differ as above. Nineteen final keeper/coordinator controls
+also pass on main with compiler/KLU/solver activation, cache off and the full scientific
+runtime feature selection, zero failures/build warnings and complete original capture/settlement.
+They include the typed cancelled-original current-drain regression. Fresh live composition
+remains required. None of these preparations closes J06.
+
+The next four-image runtime capture completed with protected originals and no build warnings.
+Its fresh live attempt did not reach keeper readiness: the native boundary refreshed the cold
+host under its selected compiler context, exceeding the 120-second startup allowance. Keeper
+drain and final settlement observations also expired; the failed directory and original logs
+remain preserved, with no successful phase, keeper-drained acknowledgement or disposition
+success inferred from later process disappearance. Further composition must use a fresh
+directory after the source/preparation work settles and select a startup observation allowance
+that includes the actual boundary refresh. Numerical deadlines and tolerances remain separate.
+
+Readiness investigation also found that a standalone compiler profile could supply its old
+derived CMake cache bridge to cache-off preparation. Main `dfc98ee02` compares effective caller
+toolchain context before copying compiler selections and uses that full check for preparation
+reuse. Nineteen provider controls pass; actual explicit preparation then produced compatible
+compiler/isolation receipts with no bridge, preserving the original KLU and solver selections.
+This repairs provider-context composition without weakening exact preparation checks or
+editing receipts. It is not assembled native-service or scientific qualification.
+
+**Tested, bounded assembled Study journey on main, 2026-11-04:** `scripts/pse qualify-study
+--cache off` consumed the protected runtime/canonical build captures, prepared pure module,
+declared reference allocation and a fresh work directory, with explicit 30-minute startup/
+phase observation allowances. Submit, Recover and Complete each selected exactly
+`study::prepared_engineering_study_client_three_phase_original_owner_journey`: three original
+populations, three passing tests, zero failures/pending, complete original capture and observed
+native settlement. One keeper retained its canonical database and worker across frontend
+replacement, authenticated recovery, start acknowledgement and original completion. Current
+cleanup positively observed cancelled frontends' drain while retaining their original exit 137;
+keeper drain acknowledged and successful final disposition removed the owned fixture.
+The successful original commands and selection exports remain in the private
+`/tmp/pse-plan65-study-capture-uDBaE9AU/journey-live` directory and original invocation store.
+The Submit/Recover/Complete originals are respectively `01a1a95a-18ae-7382-93e1-b794501be81c`,
+`01a1a962-6503-77f8-ad84-1672a11f9d11` and `01a1a963-0ebf-73cc-9f37-41e79d63c813`.
+The managed Submit build's actual soft/hard file limits were both 1,048,576.
+
+This pass uses immutable `runtime-final` images captured after the launcher, cancelled-drain
+and caller-limit fixes. Those images precede the later scientific-attribution, native-provider
+reuse and opaque-failure disclosure fixes; the client build ran from the later main tree.
+The capture owner verifies original bytes, not arbitrary current-source freshness. Preserve
+that exact composition boundary: fresh final-source assembled qualification, the unlinked
+simulation/fit/horizon client and remaining J populations are still required. Longer observation
+allowances change no numerical deadline, tolerance or shutdown obligation. Earlier failed
+attempts and their preserved fixture/logs remain failure evidence.
 
 Remaining J work is complete generated-consumer adoption, latest native/session/provider
 controls, keeper preparation/lifecycle controls, both J06 client journeys and G08-backed

@@ -680,7 +680,9 @@ compiler/KLU/solver and `scripts/pse test pse-compiler --lib -E
 'test(scientific_recipe_native_) | test(scientific_recipe_probe_) |
 test(scientific_recipe_owned_and_borrowed_) | test(scientific_recipe_source_graph_)'`.
 The initial main xtask selector omitted `product-schemas` and matched zero tests; it is not
-bundle acceptance. The corrected feature-selected bundle control remains required.
+bundle acceptance. The corrected `scripts/pse test xtask --bin xtask --features product-schemas
+-E 'test(scientific_recipe_bundle_)'` passed its one control on main, zero failures/build
+warnings/pending and complete original capture/settlement, in the same prepared native mode.
 The isolated checkout has been retired
 after content reconciliation. Receiving-phase admission and activation continue on main.
 The selected source-derived traversal can use Buffa 0.9.2

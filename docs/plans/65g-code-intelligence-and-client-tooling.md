@@ -135,6 +135,21 @@ environments. Keep Arrow for useful tabular outputs and Proto envelopes for iden
 configuration, outcome and provenance. Unknown-field forwarding does not adopt unsupported
 science; stale policy/mapping/physical interpretations refuse or migrate explicitly.
 
+### Integrated semantic failure consumers — 2026-11-04
+
+Main `0e36b4863` migrates the semantic service, CLI and composed investigation failure
+consumers together. Native failure state/phase, diagnostic identity and canonical correction
+are projected from typed RPC interpretation; transport status is not a native classification.
+The existing recovery/phase/refusal consumers use these selected facts instead of the removed
+JSON detail shadow. Main `0c8f48b4c` additionally preserves typed semantic errors at the
+dependency-usage boundary, allowing its terminal `ErrorRecord` to carry the same observation.
+The main receiving selection includes that consumer's existing delivery control. F02 owns the
+implementation and privacy/interpretation boundaries in
+[65f](65f-diagnostics-and-result-delivery.md#semantic-rpc-failure-delivery--2026-11-04).
+The complete generated developer-evidence closure includes the passive observation. This
+bounded migration supplies G01/G02 consumers without closing their other family populations
+or the independent G03/G04 client/reference journeys.
+
 ## Packages and acceptance
 
 | ID | State | Prerequisite | Delivery and targeted acceptance |

@@ -62,6 +62,16 @@ owns the exact command and limits. Task/step/point facts, coverage, qualifiers a
 are projected without an inverse permission constructor. Whole completion, selected-attempt
 and complete scientific consumer integration remain required; this does not close I03.
 
+Main `178ddaa2a` additionally binds a modeling failure observation to its actual recorded
+step. Completed earlier results stay intact; a later unattempted step has no invented
+observation, and aggregate failure/cleanup remains available separately. Missing step
+attribution does not fall back to step zero. The native three-step regression passes with
+the original mathematics/assertions; six selected summary controls also pass. Its initial
+failure preceded execution because the non-capacity fixture lacked preparation headroom;
+only that fixture pool was adjusted. Runtime default and KINSOL/root-isolation all-targets
+receiving checks pass without errors/warnings. This corrects attribution, not scientific
+permission or full I03 coverage.
+
 **Tested, targeted:** the native `scripts/pse test pse-runtime --lib --features solver-diffsol`
 selection covering `ambiguous_original_step_never_grants_product_permission`,
 `local_validity_cannot_grant_permission_without_original_scope`,

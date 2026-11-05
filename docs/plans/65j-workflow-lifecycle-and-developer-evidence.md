@@ -158,6 +158,20 @@ execution; ordinary `uv sync` and the failing skills-sync rerun then passed with
 or shared-skill source changes. The three owned files matched main before quiescent removal;
 original invocation evidence remains outside the checkout.
 
+Main `3c8a1bd6c` migrates the current-helper custody fixture from stale interpretation two
+to interpretation three, using a real encoded input/native metadata binding and the exact
+accepted full-file input and inventory commitments. The fixture explicitly challenges new
+legacy publication as well as wrong waited status, typed original failures, same-length
+inventory replacement, missing files and path substitution. Historical-reader support is
+unchanged; a current helper cannot publish an old interpretation.
+
+Four selected main host controls now pass with zero failures/build warnings and complete
+original capture/settlement: that custody control and actual selected-test, package-population,
+and List/Rustdoc workflows, using the existing local profile, cache off and unbounded placement.
+The original receiving attempts retain three default-profile six-minute timeouts during
+nested Cargo preparation and one later local-profile stale-fixture failure. The correction
+changes test evidence to the current contract; no production custody check is weakened.
+
 These controls do not establish actual process interruption or passive active-reader/release
 behavior. The manager-pending fixture is explicitly a passive record. The inspected invocation
 owner has no disposal/prune operation to supply a passive-reader lease lifecycle; identify
@@ -226,7 +240,8 @@ terminal association, digest, report facts and exact selected native test identi
 No generic inverse constructs a report, captured-evidence owner, native test verdict or
 physical-settlement capability.
 
-Current native reports use interpretation 2; terminal protocol interpretation remains 1.
+At this source checkpoint native reports used interpretation 2; the current-helper migration
+above uses interpretation 3. Terminal protocol interpretation remains 1.
 The report keeps the original inventory path once and commits `inventory_content`
 (SHA-256 and byte extent). Discovery records the actual original private bytes; publication
 reconciles those bytes before serializing the authoritative report. Live validation,

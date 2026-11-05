@@ -403,7 +403,8 @@ series qualification.
 The retained-evidence/action-population package is integrated as `86c566810`; its three source
 files matched main before quiescent checkout removal, with original evidence preserved.
 Semantic RPC failure fidelity/redaction is integrated as `0e36b4863`; all nineteen files
-matched main before its clean, quiescent checkout removal. Only the main checkout remains.
+matched main before its clean, quiescent checkout removal. A subsequently prepared isolated
+`plan65-inspection-projection` checkout now implements F04; main remains the integration owner.
 F02 owns the selected native-detail dispositions, original causes, canonical corrections
 and recursive privacy. Its twenty-one focused controls and host all-targets check passed
 before integration. Full main generation now passes all fourteen targets, and the later
@@ -428,6 +429,12 @@ an old derived CMake cache bridge could be copied into an explicitly cache-off p
 Main `dfc98ee02` checks effective caller context before copying selections and uses the same
 full compatibility result for reuse. Nineteen provider controls pass, and explicit preparation
 now produced matching compiler/isolation receipts without changing KLU/solver selections.
+The fresh live Study composition subsequently passed Submit, Recover and Complete against one
+original keeper, with authenticated frontend replacement and actual gated-worker completion.
+All three original single-test populations succeeded with complete capture, no pending/failing
+tests, and independently observed native settlement. Keeper drain and final disposal completed.
+64j owns the exact captured-image scope and remaining simulation/fit/horizon journey; this
+bounded assembled Study pass does not establish final-source series qualification.
 Main `178ddaa2a` now attributes scientific step failures only to the performing owner's recorded
 target, retaining completed results, unattempted absence and aggregate task/cleanup failure.
 The native three-step regression passes after its non-capacity fixture pool was sized for its
@@ -443,7 +450,10 @@ protection, all scalar keys and relation predicates while explicitly narrowing l
 checking to retained roots. Full IPC/scientific admission is unchanged. Version-three inspection
 roots expose that observational coverage; no synthetic relation or arbitrary-subset
 `FieldCheckedBatch` is minted. 65f owns precise Arrow/DataFusion/native mechanisms and targeted
-acceptance. This is a proposed design before implementation, not a projected-reader test claim.
+acceptance. Isolated implementation and targeted IPC/relation checks are in progress; runtime
+integration, independent review and main receiving checks remain required. Existing scientific
+permission evaluation also reads retained results: Values must include that algorithm's required
+roots in the same closure, preserving its decisions. Metadata views keep their existing behavior.
 
 Continue with actual canonical/private receiving integration and original workspace
 admission/restoration before activating the protobuf Recipe. A05/E02/E03,

@@ -213,10 +213,21 @@ a genuinely admitted retained predecessor receipt directly. The fixture input ac
 that explicit receipt or the original recorded-state route; receipt presence takes
 precedence and an empty explicit selection refuses. No synthetic deployment state is
 created. This is a newly owned frozen-schema fixture, not recovery of a historical
-deployment. The other two predecessor journeys were interrupted by filesystem
-exhaustion before accepted test results; they remain pending. The fixture preflight
-control passed but exposed two unnecessary qualifications, now removed; its final
-warning check remains pending storage recovery.
+deployment. After the storage-interrupted attempts, the other two predecessor controls
+now pass 2/2 on main: original v2 receipt/restart followed by separately issued current
+activation using the unchanged compatible pure module, and explicit prepared-module upgrade.
+The first resumed selection passed upgrade but exposed an obsolete same-module rejection
+expectation. Current capability probes, rather than artifact age, govern that activation.
+The corrected control preserves exact historical receipt equality, its inability to grant
+current readiness, unchanged issuer/payload/module identity and a distinct current epoch.
+A test-only compile failure was corrected by native receipt equality and the public deadline
+drain API, without making a receipt serializable or changing method visibility. Final
+`scripts/pse test pse-operations:native_service --features native-service,canonical-maintenance`
+selected both named v2 controls, zero failures/build warnings/pending, original capture and
+settlement complete, configured unbounded/cache-off and prepared compiler/KLU/solver. The
+fixture preflight's unnecessary qualifications were also corrected; its final main control
+passed 1/1 without build warnings. These remain newly owned frozen-schema fixtures, not
+recovery of an existing historical deployment.
 G08 and DA-063 are not closed.
 
 **Tested, targeted on main, 2026-11-04:** `scripts/pse test pse-operations --lib

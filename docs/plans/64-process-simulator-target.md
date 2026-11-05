@@ -346,7 +346,8 @@ Current joint execution has repaired the ordinary capture stack failures; the la
 records the selected authored-transaction alternative and passing actual 10,000-member
 capture, with migration and full acceptance still open. The integrated
 [K05 physical-context and authored-operation correction](64k-prepared-scientific-workers.md#current-implementation-checkpoint--2026-11-04)
-now replaces the former source gaps; final-source equipment/placement acceptance remains pending.
+now replaces the former source gaps; its 44-control main selection includes passing direct/
+worker equipment cases. Wider family and matched complete-operation acceptance remain open.
 These current owners supersede the historical failure descriptions above.
 
 **Not run / deferred by explicit instruction:** Clippy (including keep-going workspace,
