@@ -2372,6 +2372,105 @@ no model/reference/native solver run was performed. Native gas-solid physics,
 ordinary data,full alternative configuration population andindependent
 numerical/mesh evidence remain open F03/E03 work.
 
+## Equilibrium column, tray and auxiliary configurations — 2026-11-05
+
+**Interface-checked, source only:** C `models_extra/column_models/{tray,
+tray_column,condenser,reboiler,util}.py` andthe eight matching test modules
+(`test_conventional_tray`,`test_feed_tray`,`test_tray_side_liq_draw`,
+`test_tray_side_vap_draw`,`test_total_condenser`,`test_partial_condenser`,
+`test_reboiler`,`test_tray_column`) supply17 explicit operating fixtures.
+Fourteen are seven scientific inlet/specification roles with two state
+interfaces;three are assembled columns. This is not17 distinct fluids or
+a closed count of all categorical column settings.
+
+All isolated auxiliaries/trays select legacy
+`properties/activity_coeff_models/BTX_activity_coeff_VLE.py::BTXParameterBlock`
+with benzene/toluene,Liq+Vap andIdeal activity. FTPz uses total molar flow/
+overall fractions;FcTP uses per-component molar flows. Their inline critical/
+vapor-pressure/caloric/formation-reference tables andbase activity-property
+equilibrium methods are recursive inputs,not a separately downloaded dataset.
+There is no selected xylene stream merely because the package is named BTX.
+The third column instead selects `modular_properties/examples/BT_ideal.py`
+with FTPx,Ideal phase EOS,SmoothVLE,bubble/dew,fugacity equality,andPerrys
+liquid/RPP4 ideal-gas/saturation methods. It is a distinct property definition,
+not a label-only coordinate conversion of the legacy package.
+
+| Isolated physical case,each with FTPz/FcTP interfaces | Exact fixed inputs andspecifications |
+|---|---|
+| Conventional tray |Liquid1 mol/s at369 K,vapor1 mol/s at372 K,both101325 Pa,benzene/toluene .5/.5 each. Heat andpressure-change terms enabled butfixed duty0/deltaP0. FcTP supplies .5 mol/s ofeach component per inlet. |
+| Feed tray |Same two tray inlets plus1 mol/s,.5/.5 feed at369 K/101325 Pa;duty0/deltaP0. Third feed flash/mixing is an additional equation/input role,not a conventional tray alias. |
+| Liquid side draw |Conventional inputs,liquid draw split .5. Draw andremainder retain the selected liquid-phase composition/enthalpy. |
+| Vapor side draw |Conventional inputs,vapor draw split .5;distinct vapor-phase port mapping/enthalpy consumer. |
+| Total condenser,bubble point |Inlet1 mol/s,.5/.5,375 K/101325 Pa;condenser pressure101325 Pa,reflux ratio1. Condenser temperature follows the liquid bubble point,heat duty solved. Reflux/distillate are liquid products;no vapor product port. |
+| Partial condenser,custom temperature |Same inlet,P andreflux ratio;distillate temperature fixed369 K. Liquid reflux/distillate plus vapor outlet require separate component/energy products. Reflux ratio is not a direct vapor split. |
+| Reboiler,boilup-ratio role |Inlet1 mol/s,.5/.5,363 K/101325 Pa;boilup ratio1 (vapor/liquid),heat duty solved. Vapor boilup andliquid bottoms are distinct phase products. |
+
+Three assembled column fixtures each have10 equilibrium trays,feed at5,
+total bubble-point condenser,reflux ratio1.4,condenser pressure101325 Pa,
+boilup ratio1.3,no tray heat/pressure-change terms,andno side draws:
+
+- `TestBTXIdealFcTP`:20 mol/s benzene+20 mol/s toluene,368 K/101325 Pa.
+- `TestBTXIdealFTPz`:40 mol/s,.5/.5,368 K/101325 Pa,same legacy science
+  with a different port/state representation.
+- `TestBTXIdealGeneric`:100 mol/s,.5/.5,368 K/101325 Pa,modular Ideal
+  definition above. Different feed scale andproperty law both matter:
+  expected distillate fraction/temperature differ,not only extensive flow.
+
+`build_model_btx_ftpz` is reused by the performance initializer test andFTPz
+fixture;it does not add another physical column. Each column source checks
+optimal solve anddistillate/bottoms flows,compositions,temperatures andpressure.
+The legacy total-flow source targets about18.978/21.021 mol/s distillate/
+bottoms,whereas generic targets49.28/50.711;do not rescale one oracle into
+the other. Native acceptance also requires complete tray profiles,duties,
+phase/component closure andwhole-column energy at the matched property datum.
+
+Tray/column flags explicitly require dynamic=False/has_holdup=False. A tray
+independently selects feed,liquid/vapor side draws,heat andpressure terms;
+source permits simultaneous options butthe four tray fixtures above exercise
+only their stated selections. Side-draw initializer requires each selected
+split fixed. Column side-draw flags apply to **all trays**,not a user-supplied
+tray subset. Number/feed location are integer configuration fields;the source
+requires a non-None tray count butdoes not thereby establish physical range/
+edge-tray admissibility. Selected10/5 topology is the concrete fixture;other
+counts/feed placements andheat/pressure/side-draw configurations remain
+required enumeration/admissibility work,not an inferred supported Cartesian
+product. No efficiency/non-equilibrium mass-transfer/hydraulic law is selected
+by these equilibrium-stage fixtures.
+
+Condenser configurations expose total/bubble,total/custom andpartial/custom;
+missing temperature selection andpartial/bubble are explicit build refusals.
+Total/custom occurs only in construction tests here. Its initializer
+unconditionally accesses `eq_total_cond_spec` for a total condenser while
+that constraint is created only for bubble-point selection:retain the
+readiness issue before claiming the custom branch executable. Custom-temperature
+initialization otherwise requires zero DOF,including the fixed outlet
+temperature. Bubble-point construction takes the first equilibrium pair;
+arbitrary multiphase/multiple-pair packages need a separate mapping/refusal.
+Reflux fraction is ratio/(1+ratio). Reboiler boilup is vapor/liquid phase
+flow andrequires recognized molar-phase orphase-component flow methods;
+default `has_boilup_ratio=False` is only a config constructor in these tests.
+A heat-duty-specified reboiler remains a distinct required role. The base
+condenser/reboiler control-volume flags do not inherit the tray's explicit
+no-dynamics guarantee;their actually selected fixtures remain steady and
+provide no dynamic inventory evidence.
+
+`make_phase_split` adapts total/phase/component,molar/mass flows andenthalpy
+port expressions;its synthetic utility tests include unsupported/missing
+flow/fraction/enthalpy method errors. Native phase membership,coordinate
+conversion andsplit basis must retain those refusal controls;matching one
+legacy spelling is not the local scientific vocabulary authority. The source
+conservation tests sum every phase product,including side draws andpartial
+condenser vapor;an omitted product cannot be hidden by an outlet-only match.
+Initializers use local fixed/free/active staging andIpopt;noCSV,trainer,
+external-function EOS orsaved initialization file is loaded by this ideal
+BT selection. Exact package/solver compatibility,ordinary coefficients/
+envelopes andnative equilibrium-stage/column correspondence remain open
+D02/D04/F04 obligations. The existing native separator is a starting surface,
+not an assembled column qualification. HDA distillation andMEA/rate-based
+columns retain their independent populations. Ephemeral AST inspection
+confirmed17 explicit fixtures andno hidden parameter decorators;no property,
+column,initializer orsolver was executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

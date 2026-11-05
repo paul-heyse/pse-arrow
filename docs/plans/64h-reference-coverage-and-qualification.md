@@ -312,6 +312,15 @@ dispositions;construction indices do not qualify inventories. Native transport/
 hydrodynamics,ordinary data andcomplete independent numerical evidence remain
 open.
 
+**Update, 2026-11-05 — equilibrium column/auxiliary census:** the
+[stage-equipment closure](64h-required-process-population.md#equilibrium-column-tray-and-auxiliary-configurations--2026-11-05)
+resolves17 actual coordinate/property fixtures across trays,phase draws,
+condenser/reboiler andthree assembled10-tray columns. Legacy state interfaces
+share inputs;the generic column changes feed scale andproperty science.
+Remaining categorical branches,custom-total-condenser initialization,phase
+mapping,ordinary property data andnative/independent assembled acceptance
+remain open. No source constructor orseparator witness closes a column.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
