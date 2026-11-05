@@ -154,6 +154,16 @@ stream/conservation products are explicit D04 inputs. Ordinary scientific record
 nondefault configurations/domains, native unit consumers and matched execution
 remain open; no settling or transient capability is granted by the generic splitter.
 
+**Update, 2026-11-05 — membrane/plate F04 source closure:** the crosswalk's
+[membrane and plate census](64h-required-process-population.md#membrane-and-plate-exchanger-configured-census--2026-11-05)
+freezes direction/balance/geometry inputs, the gas and full MEA-property dependency
+closures, and the distinct construction/numerical roles. It preserves the membrane
+sweep's0.999 fraction total, actual cell thermal/transfer equations, plate odd-pass
+source issue and historical xfail as unresolved readiness/evidence questions.
+Ordinary scientific admission, remaining configurations and matched native/reference
+execution remain open. Custom glycol pervaporation remains a separate required
+extension consumer; no source issue or unavailable dependency removes it.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

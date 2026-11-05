@@ -795,6 +795,143 @@ combination physically supported from these defaults. The source search of X's
 that does not establish absence from notebook code cells or unseen archive
 content. No held or required case is excluded by this bounded finding.
 
+## Membrane and plate-exchanger configured census — 2026-11-05
+
+**Interface-checked, source only:** F04's exact core sources are
+`co2_capture_and_utilization/unit_models/membrane_1d.py` and
+`column_models/plate_heat_exchanger.py`, their test modules, and their consumed
+MSContactor/NTU/property owners. Neither test module has a parameter decorator or
+an operating sweep. The two physics families remain distinct; the X skeleton
+pervaporation notebook is a third custom-unit scientific problem, not a wrapper
+for this gas membrane.
+
+### Gas membrane: choices, full fixture and input issues
+
+Membrane defaults are countercurrent, sweep=True and 5 finite elements. Feed
+always goes forward; cocurrent sweep goes forward and countercurrent sweep goes
+backward. Sweep=False removes the sweep inlet/feed and retains a permeate outlet.
+Each side has an explicit property package/arguments plus energy/pressure-balance
+booleans, both default True. It does not expose arbitrary reaction, pressure-drop,
+heterogeneous chemistry or side-stream options from the underlying MSContactor.
+Shared components form the transfer population. MSContactor requires interacting
+components (or separately selected heterogeneous chemistry) and matching stream
+flow bases; membrane transfer accepts only mass or molar basis.
+
+Outer dynamic/holdup flags are inherited. Construction passes streams and element
+count to MSContactor, whose dynamic default inherits the containing unit; it does
+not explicitly pass the outer holdup selection. Child storage/volume allocation
+and transient initial/boundary conditions therefore need an actual E03 case rather
+than inference from an inherited flag. Shipped membrane tests use steady/no holdup.
+Separate no-sweep, cocurrent solved, mass-basis, nondefault balance and transient
+configurations remain required selections/readiness questions, not established
+by the one nominal solve.
+
+| Exact selector under the membrane test directory | Finite input specification / evidence role |
+| --- | --- |
+| `tests/test_membrane_1d.py::{test_config_countercurrent,test_config_cocurrent}` | Three cells, sweep=True, explicit steady setting and the same Ideal vapor CO2/H2O/N2 property package. Two direction-construction checks; neither supplies a solved operating specification. |
+| Same file `TestMembrane::membrane` | Countercurrent/three cells/sweep=True; area=100 cm2, length=10 cm; permeance CO2=1500 GPU, H2O=N2=60 GPU in every cell. Feed=100 mol/s,365 K,120000 Pa with (N2,CO2,H2O)=(0.76,0.13,0.11). Sweep=0.01 mol/s,300 K,51325 Pa with (H2O,CO2,N2)=(0.9986,0.0003,0.0001). Both sides retain energy/pressure defaults. Block-triangular initialization uses constraint tolerance2e-5, followed by the selected default solver. Source tests demand both product-stream states and original material/enthalpy balances. |
+
+The sweep input fractions sum to **0.999**, not one. Preserve the exact source
+problem and its source issue; do not silently normalize or label the fixture
+native-valid. A corrected input is a separately identified ordinary/reference
+selection with a reason and corresponding expected products. This mismatch must
+be reconciled before accepting normalized native state correspondence.
+
+The actual cell thermal equation equates feed and sweep temperatures at each
+cell. It does not state that each side's temperature is constant along the whole
+unit; inlet temperatures are different in the fixture. Actual material transfer
+uses local feed density, area per cell, the explicit GPU conversion factor
+10e-8/13333.2239 m/(s Pa), permeance and cross-membrane partial-pressure difference,
+with signed transfer and opposite-stream accounting. Density/partial-pressure
+and flow-basis conversion are part of the matched formulation; a different
+standard-volume permeance interpretation is not an implementation-only change.
+
+The property closure is `power_generation/properties/natural_gas_PR.py::get_prop`
+with components CO2/H2O/N2, phases=[Vap], EOS=IDEAL and scaled=False. It produces
+FTPx, NIST-based component caloric/entropy data and its explicit pure/mixture
+methods, reference T/P=298.15 K/101325 Pa. The helper's default PR/all-component
+choice is overridden; an imported cubic module does not select PR for this case.
+The unit, MSContactor, generic property/Ideal/pure-method declarations and inline
+coefficient/permeance inputs are the recursive scientific closure. No dataset,
+trainer or saved initialization is selected. Ordinary component and membrane
+parameter provenance/validity remain B/D02/F04 work.
+
+### Plate exchanger: inherited NTU/MEA closure and finite fixture
+
+PlateHeatExchanger inherits two NTU 0D control volumes, each with property and
+material/energy/momentum balance choices; defaults resolve from the actual
+property (component-total/enthalpy-total here) with pressure-total. It forces
+has_pressure_change=True on both sides; False is a configuration refusal, not a
+constant-pressure alternative. Inherited dynamic/holdup flags are not a
+qualification of transient plate/fluid/wall storage. There is no independent
+co/countercurrent selector: effectiveness is selected by pass parity. Passes and
+channels are positive integers, divider plates nonnegative; defaults are4/12/0.
+Positive channel gap/active plate count, compatible property products and valid
+correlation domains remain physical constraints beyond those integer domains.
+
+The only fully specified fixture is
+`column_models/tests/test_plate_heat_exchanger.py::TestPHE::phe` (also used by
+the configuration test): four passes, twelve channels/pass and two dividers,
+steady parent, separate identical aqueous-MEA packages. Hot inlet is
+60.54879 mol/s,392.23 K,202650 Pa with (CO2,H2O,MEA)=(0.0158,0.8747,0.1095);
+cold inlet is63.01910 mol/s,326.36 K,202650 Pa with
+(0.0414,0.8509,0.1077). `fix()` selects the actual initialized geometry:
+plate length1.6925 m, width0.6135 m, thickness0.0006 m, compressed pack length
+0.381 m, port diameter0.2045 m, plate conductivity16.2 W/(m K), total area114.3 m2.
+Outlet states, heat duty, overall coefficient/effectiveness, channel/port flow and
+pressure losses are solved; area is rating input, not an unknown design variable
+in this fixture.
+
+The four-pass branch supplies countercurrent-style effectiveness. The odd-pass
+branch references `pass_num`, while the inspected derived/base owners declare
+`number_of_passes` and no `pass_num`; no odd-pass test is shipped here. Preserve
+odd-pass science as a source/execution-readiness question rather than treating
+the declared positive-integer domain as demonstrated cocurrent support. Plate
+geometry determines active plate count, gap/enlargement and hydraulic diameter;
+Reynolds/Prandtl heat-transfer and pressure-loss correlations consume inlet liquid
+density, viscosity, conductivity and heat capacity. Their scientific lead is
+Akula et al. 2019's solvent-capture plate-exchanger parameter-estimation study.
+
+The actual property input is `column_models/properties/MEA_solvent.py::configuration`:
+one aqueous Ideal phase on apparent basis, FTPx state with H2O/MEA/CO2 and true
+MEA+/carbamate/bicarbonate species. Carbamate and bicarbonate inherent equilibria,
+Henry/N2O analogy, apparent-to-true mapping and solution caloric/density/viscosity/
+conductivity correlations are required even though the equipment has no separate
+reaction-package argument. The property uses its declared sensible/absorption
+enthalpy convention; a generic formation-enthalpy replacement would be different
+science. Those classes and coefficients are inline in the MEA owner, consuming
+generic-property/Ideal/reaction and unit helpers; no external dataset, trainer or
+saved solution is selected. The available but undemanded diffusivity/surface-tension
+methods are not qualified by the exchanger fixture.
+
+The plate test's initializer/solve/solution methods carry a non-strict historical
+xfail associated with older Pyomo/platform behavior. The selected core/Pyomo pins
+remain unchanged, and an xfail or unavailable solver cannot satisfy native H04.
+Default solver executable/options and actual MEA/property derivatives must be
+frozen and exercised for the chosen reference. No test ran in this census slice.
+
+### Native handoff and exact remaining obligations
+
+Existing native heat-exchanger, state, chemistry and distributed/transfer owners
+are enabling surfaces. Inspection of native process/thermodynamic model packages
+did not find the membrane permeance or MEA plate-correlation consumer above; this
+bounded source observation is not an absence proof for every runtime module.
+D02/D03 supply gas/MEA scientific records and demanded products, E03 supplies any
+admitted storage/distributed contract and F04 supplies the configured unit
+closures. Reuse those owners; generic contactor/exchanger presence alone cannot
+supply physical membrane or plate behavior.
+
+Membrane correspondence requires all inlet/outlet component flows/T/P, cell
+composition/density/pressure/temperature, permeances and transfer/enthalpy products
+on declared physical positions, original cross-stream material/energy cancellation
+and spatial refinement. Plate correspondence requires both complete outlets,
+heat/material balances, pressure losses and correlation/geometry products with
+rating/design freedoms explicit. Ordinary membrane/MEA/plate inputs, valid
+correlation envelopes, the sweep-normalization and odd-pass issues, uninstantiated
+categorical variants and actual native/reference cases remain open. The custom
+pervaporation notebook's separate empirical flux, glycol-water recycle and design
+role remain required under D05/G06; this gas-membrane slice cannot discharge them.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
