@@ -4976,6 +4976,67 @@ source alternatives; original material/property provenance, reference
 compatibility and full independent physical/dynamic qualification remain
 required. No thermal or solver execution ran for this census.
 
+## Feed, product, state-junction and translation boundary closure — 2026-11-05
+
+**Interface-checked, source only:** C `models/unit_models/
+{feed,product,statejunction,translator,feed_flash}.py`, their tests and V
+`apis/v2_0_0/examples/unit_models/test_{feed,product,translator,feed_flash}.py`
+resolve distinct stream-boundary mechanisms. All five restrict dynamic and
+holdup toFalse. Feed/Product/StateJunction build one defined property state
+with phase equilibriumFalse; Feed exposes its outlet,Product its inlet,
+StateJunction both ports referencing that **same state**. A junction has no
+second state, transfer, residence inventory or independent balance law.
+Property-package state relations still apply; a property calculation is not
+evidence of a new unit-operation law.
+
+| Selection | Actual source inputs and required correspondence |
+|---|---|
+| Saponification Feed/Product/StateJunction | Each uses .001 m3/s,303.15 K,101325 Pa,concentrations H2O55388,NaOH100,ethyl acetate100,sodium acetate/ethanol1e-8 mol/m3. Preserve tiny traces rather than replacing them with exact zero merely because output tolerances accept zero. No reaction package or conversion is present. Native ports retain volume/concentration basis and identical intensive state. |
+| Legacy BT Product/StateJunction | Liquid-only BTX,5 mol/s,365 K,101325 Pa,benzene/toluene .5/.5. Product asserts liquid flow/composition; junction asserts unchanged outlet flow/T/P. Phase-selected property equations remain their own prerequisites, not VLE computed by the boundary. |
+| IAPWS Feed/Product/StateJunction | All100 mol/s/101325 Pa; enthalpy24000/5000/4000 J/mol respectively. Feed asserts373.12 K(abs.01 K),liquid fraction .5953(abs.0001),alongside fixed-state reproduction; its pre-initialization stream-table assertion has a different initial liquid/vapor fraction and is not an alternative solved physical state. Product/junction initializers repeat their respective h5000/h4000 cases with values unfixed and restore that role. |
+| Core Translator scaffold | Saponification inlet to BTX outlet; inlet .001 m3/s,concentrations55388/100/100/0/0,temperature/pressure not specified. No linking equations are authored. The source deliberately remains5 DOF after state initialization and has no unit solve; it is **not** an executable physical conversion between those chemicals. Keep as an underdetermination/control demand, not a valid material translation reference. |
+| V common BT Feed/Product/FeedFlash | Modular BT_ideal,100 mol/s,298 K,101325 Pa,benzene/toluene .6/.4,steady. Their boundary/state mechanisms differ even with identical supplied coordinates. V asserts fixed overall flows/composition and optimal/zero DOF; it supplies no independent phase-fraction target for the298 K feed flash. |
+| V FTPx→FcTP Translator | Inlet modular BT_ideal; outlet an inline two-phase ideal BT configuration with Perrys liquid density/enthalpy,RPP4 vapor enthalpy,NIST saturation,SmoothVLE/IdealBubbleDew,reference300 K/1e5 Pa,FcTP bounds flow_comp0..1000 mol/s,T273.15..450 K,P5e4..1e6 Pa. Feed100 mol/s,298 K,101325 Pa,.6/.4. Four **consumer-authored** links preserve benzene/toluene component flows and T/P; target outlet60/40 mol/s(rel1e-6),zero DOF/optimal status. No enthalpy link is supplied, so matching coordinates/component flow does not establish energy-reference equivalence between packages. |
+
+Translator builds independent inlet/outlet states and no automatic mapping.
+Inlet is always defined/no phase equilibrium. Outlet_state_defined defaults
+True and has_phase_equilibriumFalse; selecting bothTrue is explicitly
+refused. Other declared pairs(False,False) and(False,True) require the
+consumer to supply the correct complete translation closure. Initializing
+both property states with remaining DOF produces an incomplete-initialization
+warning rather than a physical relation. Native D02/D04 correspondence must
+retain explicit component/basis/unit/datum mappings and discarded-component
+or phase permissions, with original element/energy checks where applicable;
+generic name matching cannot infer these decisions.
+
+FeedFlash instead builds inlet/outlet states with phase equilibrium and
+selected material balance(default property policy),pressure equality and
+either temperature equality(default isothermal) or total enthalpy-flow
+equality(isenthalpic). It has one mixed outlet and no separated product
+ports. Neither heat-duty calculation nor a generic thermal balance is added
+to the isothermal branch, so it does not establish adiabatic flashing.
+Changing material-balance enum requires closure checking rather than
+assuming every enum preserves both components and total flow.
+
+Its core physical cases are legacy ideal BT and modular BT_ideal,each
+1 mol/s,368 K,101325 Pa,.5/.5,isothermal; and explicit **LG-presented**
+IAPWS,100 mol/s,h24000 J/mol,101325 Pa,isenthalpic. Both BT cases
+target vapor flow .396 mol/s(abs.001); modular additionally asserts liquid
+.603 and liquid benzene/toluene .412/.588,vapor .634/.366(abs.001).
+The rounded liquid/vapor targets sum .999,not a permission to lose mass.
+Legacy equilibrium/bubble/dew bounds300..550 K and saturation pressure
+1e4..5e6 Pa; modular equilibrium-temperature bounds300..550 K are
+consumer numerical controls, not independently established property validity.
+IAPWS targets373.12 K(abs.01),liquid fraction .5953(abs.0001),fixed
+flow/h/P reproduction; V repeats this physical isenthalpic input case.
+
+No external dataset,trainer or serialized artifact is read by these entry
+points. Inline property coefficients are reference-side inputs until admitted
+with original ordinary scientific provenance. Native boundary,translation
+and feed-flash completeness,phase/zero-trace and underdetermination controls,
+original mass/element/energy checks and full independent property/unit
+qualification remain required. Only source/AST inspection ran.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
