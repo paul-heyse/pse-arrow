@@ -5221,6 +5221,86 @@ trainer reconstruction,all unexamined plant inputs and full independent
 physical/derivative/optimization qualification remain required. Only AST,
 JSON/gzip decoding and coefficient counting ran; no ROM or plant executed.
 
+## Archived SOFC and combined SOFC/SOEC design/dispatch closure — 2026-11-05
+
+**Interface-checked, source only:** X `archive/power_gen/sofc/
+{sofc.ipynb,sofc.py,sofc_costing.py}` and `sofc_soec/
+{sofc_with_soec.ipynb,sofc_with_soec.py,sofc_soec_costing.py}` select
+different plant mechanisms and optimization populations. Conditional archive
+entry-point adoption remains with A01/the coordinator; required native power,
+SOC,surrogate and assessment behaviors are not excluded. Their local
+costing/model helpers,core natural-gas PR/combustion,IAPWS95,CPU,SOC,
+generic units,SSLW and QGESS are recursive prerequisites. QGESS loads core
+`costing/BB_costing_data.json` and `generic_ccs_costing_data.json` plus
+inline custom account inputs; sCO2's dictionary is a separate loader,not
+automatically a selected SOFC input. These are reference cost data until
+original scientific/cost provenance and ordinary permissions are admitted.
+
+| Entry point/stage | Scientific selection,free roles and exact finite population |
+|---|---|
+| SOFC base plant | The preceding9→46 neural ROM couples detailed anode/prereformer/cathode/recycle/oxycombustion/ASU/CPU/heat-recovery units. Scaled PR packages use kmol/s,kPa,kJ conventions; natural gas has9 species,syngas8,air5,flue gas5 in liquid/vapor,combustion3 reactions. Fresh gas/air and ROM fixed coordinates are declared above. Base construction loads `sofc_init.json.gz` if present or initializes then saves; it always solves afterward. MA57/user scaling,automatic scaling,pivtol1e-5,pivtolmax .1,bound_push1e-20 are notebook solver selections. |
+| SOFC650 MW design | Minimize annualized capital+fixed O&M+variable O&M; free anode/cathode HX areas,air flow,cathode recycle,O/C and fresh gas flow. O/C bounds2.099..2.2; max cell750 Celsius,cell change≤100 K; net power fixed650 MW. `sofc_design_opt.json.gz` if present replaces the optimization solve; that file is not bundled in the frozen archive. Targets areas2683.16/15135.97 **m2**,recycle .2828,air11.007 kmol/s(rel.01); notebook printed area labels say ft2 but model quantities are m2. Source does not assert optimization termination beside these value checks. |
+| SOFC fixed-design dispatch | Default `run_series=False`; selected branch rebuilds base,keeps optimized areas fixed,minimizes variable O&M,free air/recycle/fresh gas,retains max-cell/change constraints. Net loads650,630,…,210 MW:23 cases. Current density fixed4000×load/650; lower bound widened to1000 A/m2,so low-load cases leave the neural model's original2000 lower bound. Each case may load `data/sofc_<load>.json.gz` or solve/save. The bundled tabulation instead has91 rows with net650,645,…,200 MW; it is not the output of this23-case loop and is never read as input by it. |
+| Combined SOFC/SOEC base | SOFC island is **inline polynomial fits of one200..680 MW coordinate**,not the neural or kriging artifact. Seven anode-exhaust products are flow,T and CH4/CO/CO2/H2/N2 fractions; water closes composition,remaining added species are traces. An auxiliary-load fit and natural-gas-use relations are additional outputs. The coordinate is described as AC but reporting multiplies it by .97 inverter efficiency: retain that actual convention for independent reconciliation. SOEC is a10-axial-element solid cell,one transverse element in each electrode/electrolyte,temperature-x thermodynamicsTrue,contact resistanceFalse,cell holdupFalse; coupled PR H2/H2O and air5 vapor packages,scaled VLE condenser packages,IAPWS steam,physical H2 compressors/sweep loop/ASU/oxycombustor/CPU/heat recovery. Base SOFC coordinate680 MW,H2 product5 kg/s,single-pass conversion .7,cells1e6. |
+| Combined design | Minimize annualized capital+fixed/variable O&M minus electricity revenue at60 per MWh with the source's365-day annualization. Free recycle-out fraction .25...95,sweep flow100..8000 mol/s,potential1.26..1.38 V,feed-heaterT900..1020 K,cells1e6..2e6,four exchanger areas100..10000 m2,oxycombustor gas0..50000 mol/s; free single-pass conversion and related heat/outletT variables. All four selected cell endpoint-temperature differences≤40 K,current≥−8000 A/m2,nonnegative steam-cycle heat,outlet temperatures≤1030 K,oxygen fraction≤.35,conversion≤.9,recycle water≥.2,condenser/FG-flash inletT≥350 K. Optimized snapshot path is not bundled. |
+| Combined fixed-design dispatch | Default `run_series=False`; rebuild/load optimized design,fix cells/four areas,minimize variable O&M minus same electricity revenue,other variable costs fixed0. SOFC coordinates680,660,…,200 MW(25),each H2[5,4.5,4,3.5,3,2.5,2,1.5,1] kg/s(9):225 nominal cases. A nonoptimal solve breaks the current inner H2 loop,so225 attempted combinations does not establish225 successful cases. Saved per-case JSON or loaded design must match actual fixed/free roles. Bundled225-row tabulation spans these coordinate ranges but is a reference result artifact,not a fresh solve or a model/training input. |
+
+Combined base boundaries include sweep5635 mol/s,288.15 K,101353 Pa,
+air .0104/.0003/.7722/.2077/.0094 H2O/CO2/N2/O2/Ar;
+sweep compressor to600000 Pa and turbine to101353 Pa,both efficiency .85.
+Feed heater1000 K,recycle-out .95,sweep-heater outlet1023.15 K,
+feed-HX hot outlet523 K;four exchanger U100 W/(m2 K),sweep-HX
+area4000 m2. Steam feed is liquid water from288.15 K/101325 Pa,
+pumped600000 Pa at .85;boiler outlet saturated vapor600000 Pa.
+H2 condenser300 K;compressor stages1–3 ratio1.81/efficiency .85,
+intercoolers300 K,final64.78 bar/efficiency .85. FG-flash310.9 K,
+pressure101.325 is **kPa in its scaled VLE package**. ASU two stages
+234422/544686 Pa,efficiency .84,intercooling310.93 K,deltaP−3447 Pa;
+O2 product299.82 K/158579 Pa. Combustor fresh gas starts10 mol/s
+with the preceding natural-gas fractions,heat−71144050 W and deltaP
+−6895 Pa,then design frees fuel and heat. These are base seeds/fixed
+specifications,not all final optimization outputs.
+
+The combined cell has .2345×.2345 m active lengths,channel thicknesses
+.002 m,HTC100 W/(m2 K). Fuel/oxygen electrodes thickness .001/
+.000040 m,porosity .326/.30717,tortuosity3/3,Cp595/142.3,
+density7740/3030,conductivity6.23/5.84,constant resistivity
+2.5e-5/7.8125e-5 in the source material convention. Electrolyte
+10.5e-6 m,Cp400,density6000,conductivity2.17,resistivity log
+prefactor−9.001/thermal exponent8988.134. Fuel/oxygen exchange
+log-prefactors22.5/25.5,activation energies110802/112066 J/mol,
+alpha pairs .647816/.352184 and .503/.497;reaction exponents H2=1,
+H2O=1,O2=.5. These are explicit material/kinetic parameter inputs,not
+parameters identified by the design optimization.
+
+Combined design targets(rel.01) recycle-out .8302,sweep5635.58 mol/s,
+potential1.3026 V,feed990 K,cells1101995,areas sweep100,sweep
+heater1137.15,boiler4865.23,feed9999.99 m2. No independent mass,
+element,energy or stationarity/active-set assertion accompanies these
+notebook optimum-value checks. Snapshot `sofc_soec_init.json.gz` is
+format4,rootunknown,2022-12-05;old initialized/optimized values and
+tabulations remain distinct from source equations and ordinary data.
+
+Both cost helpers use2018 currency,capacity factor .85,nameplate650 MW,
+labor38.5 with30% burden,6 SOFC versus8 combined operators/shift.
+Prices: gas4.42 USD2018/MBtu,water .0019/gallon,treatment550/ton,
+adsorbent6.0297/lb,catalyst601.765/m3. Sulfur assumption5 ppm,
+adsorbent sulfur capacity .03,treatment .00297886 lb/gallon and
+HHV908839.23 J/mol are supplied assessment inputs. SOFC replacement
+25.14 USD/(kW year),combined SOEC4.2765 USD/(cell year);the standalone
+SOFC helper's USD-versus-million-USD declaration and1e-6 scaling require
+explicit unit reconciliation before ordinary adoption. Cost year,factor,
+plant boundary and revenue convention must remain attached to results.
+
+Full inline fit/cost coefficient provenance and their property/domain
+controls remain open even after tracing these source owners. A successful
+loaded snapshot/value regression is not a training-validity,physics or
+optimality certificate. Native F02/G04/G06 requires selected operating/
+design constraints,exact fixed/free roles and grids,consistent physical
+energy/element accounts and independently accepted cost inputs;complete
+component/SOC/optimization/derivative qualification remains required. Only
+AST,CSV and gzip/JSON inspection ran;no archive model or optimizer ran.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

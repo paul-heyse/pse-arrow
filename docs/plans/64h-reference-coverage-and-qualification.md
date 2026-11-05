@@ -621,6 +621,14 @@ and snapshot-role declarations; their cases differ. Complete archived plant
 design/dispatch/cost consumers,ordinary training provenance and independent
 runtime/physical qualification remain required.
 
+**Update, 2026-11-05 — archived SOFC design/dispatch census:** the
+[plant consumer closure](64h-required-process-population.md#archived-sofc-and-combined-sofcsoec-designdispatch-closure--2026-11-05)
+resolves SOFC650 MW design/23-case dispatch versus its91-row tabulation,
+and combined polynomial-SOFC/physical-SOEC design with225 nominal cases.
+Physical cell/material inputs,phase/unit conventions,cost prerequisites and
+snapshot roles are explicit. Archive adoption,ordinary fit/cost provenance,
+complete energy/element/optimality controls and full qualification remain open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
