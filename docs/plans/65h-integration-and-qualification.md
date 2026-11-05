@@ -371,8 +371,27 @@ generic run retains complete raw output and settlement; this is direct Nextest s
 not a newly issued fixed-workflow report verdict. Native/unbounded/cache-off/validation
 conditions remain as above. Neither the original deadline nor failure-count assertions changed.
 
-Next rerun the broader selected population, including both consuming receipt cutovers, and
-the earlier scientific/runtime population with explicit current fixtures. Mathematical proof replay
+**Tested, before the numerical-frame extraction:** the broader receiving selection now passes
+**262/262**, zero failures, retries or incomplete records, with original capture and settlement
+complete. Command: `scripts/pse test pse-runtime pse-backend-native pse-math pse-kernels
+pse-compiler pse-tests-conformance pse-quantity --lib --profile local`, with engineering-service,
+property-coolprop, native-solvers and native-acceptance, selecting the preceding retirement,
+deadline, fitting, projection and scientific-recipe controls plus consuming receipt,
+engineering-ingress and actual `source_bindings::` populations. Conditions remain configured
+unbounded/cache-off placement, all six explicitly prepared native profiles and Arrow validation.
+This replaces the earlier failed 217-control checkpoint for that source boundary, not the
+original failed attempts or subsequent extraction acceptance.
+
+The numerical template/frame extraction is now merged on main. Its independent source review
+finds no material correctness issues within the extraction; the isolated amended-source
+selection passes 102 controls including actual interpreted/native/direct/reverse execution,
+source death and retained execution admission. Receiving-main
+`scripts/pse test pse-math --lib --profile local --features pse-math/compiled-evaluator` with
+compact/products/reverse/source-bindings/product-contract selections also passes **102/102**,
+zero failures, retries or incomplete records, with complete capture/settlement in unbounded,
+cache-off mode and the explicit compiler profile. Root-core/backend extraction, checked transfer
+and the earlier scientific/runtime population with explicit current fixtures remain separate.
+Mathematical proof replay
 has separately integrated through [65k](65k-scientific-artifacts-and-native-reconstruction.md#reconstruction-population-and-native-mathematics-limit);
 its original five focused tests do not qualify the whole Recipe receiver. H01–H04 and both
 series remain open.

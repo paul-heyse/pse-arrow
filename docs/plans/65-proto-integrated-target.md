@@ -702,13 +702,13 @@ three actual-child controls exposed a remaining H2 peer-close race. The receivin
 custody correction and targeted verification are tracked in
 [65h](65h-integration-and-qualification.md#resumed-joint-receiving-verification).
 The symmetric peer-EOF correction now passes all thirteen selected receiving controls,
-including unchanged scientific deadline and independent-failure assertions; stress and
-broader receiving selections continue. The twenty-iteration stress selection subsequently
-passed all 160 executions with unchanged assertions. No whole-series acceptance follows.
+including unchanged scientific deadline and independent-failure assertions. The twenty-iteration
+stress selection passed all 160 executions with unchanged assertions, followed by the broader
+262-control native/receipt/ingress receiving selection. No whole-series acceptance follows.
 
 Generated host dispatch and both physical/mathematical consuming receipt-replay cutovers
 are now merged on main. Original complete-population and ownership controls pass in their
-implementation checkouts; receiving checks remain separate. Replay deletes the initial
+implementation checkouts and the receiving selection above. Replay deletes the initial
 deep copies and their copy-only pricing rather than allocating another admitted copy.
 The required scientific configuration/input census continues under its existing packet
 owner. See [65a](65a-contract-foundations-and-generation.md#a04-complete-supplier-decision--november-5-revision)
@@ -729,9 +729,10 @@ For E03, the refined proposed ADR-0246/65k target transfers the parent's already
 Value/First execution closure rather than reconstructing and compiling source in the child.
 The passive supplier packing inspector is integrated and its seventeen receiving controls
 pass. Execution-attribution extraction passes eleven receiving controls while preserving the
-original weak-source checks. Numerical frame extraction and supplier-owned checked f64 loading
-now proceed in isolated worktrees; root-core/backend integration and actual child acceptance
-follow their concrete interfaces. No loader or private-child activation is yet claimed.
+original weak-source checks. Numerical frame extraction is merged and its receiving selection
+passes 102/102. Root-core/backend integration and supplier-owned checked f64 loading now proceed
+in isolated worktrees; complete restoration and actual child acceptance follow their concrete
+interfaces. No loader or private-child activation is yet claimed.
 
 The next integration milestone is the scientific admission/execution/selected-read journey
 and developer failed-report/export/exact-rerun journey, followed by complete selected Proto

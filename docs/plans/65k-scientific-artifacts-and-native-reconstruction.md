@@ -818,6 +818,26 @@ mode with complete capture and settlement. Original-source death, crossed compil
 shared map allocations, attribution framing, direct refusals and original error allocation
 retention are covered. This establishes that prerequisite only, not transferred activation.
 
+The numerical prerequisite `4a570b6e8` is integrated on main. Mandatory source/support/scalar
+preparation stays in `CompiledBody`; immutable `ExecutionTemplate` and mutable `NumericFrame`
+serve all existing ordinary/directional/direct/reverse modes through one numerical engine.
+Sourceful `Worker` delegates to that frame. Cold clones share immutable programs and retain no
+warmed results; lazy-order retry, resets and provider preparation retain their original behavior.
+The frame holds the existing execution allocation owner until after numerical/template drain,
+without retaining the original prepared-source witness. Actual template/Arc backing participates
+in retained allocation accounting.
+
+Independent read-only review of all five changed files and adjacent attribution/allocation
+consumers found no material correctness issues within that extraction. **Tested:** default and
+`compiled-evaluator` all-target checks of `pse-math` report zero errors/warnings in the isolated
+implementation; both isolated and receiving-main compact/product/reverse/source-binding/product-
+contract selections pass **102/102** with `compiled-evaluator`, explicit native compiler,
+unbounded/cache-off placement and complete capture/settlement. Actual native blocks execute in
+that population. The source-free frame control covers nested stages and refusal plus independent
+source death and admission retention. This preserves in-process modes; native/JIT blocks remain
+outside the first private f64 transfer profile. Root-core/backend extraction is the next distinct
+package, followed by complete restoration and child activation.
+
 Sources: [parent preparation and child path](../../crates/pse-runtime/src/math/native_child.rs),
 [compiled stages/order selection/worker](../../crates/pse-math/src/execution.rs),
 [root construction/evaluation/verification](../../crates/pse-math/src/implicit.rs),
