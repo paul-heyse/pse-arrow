@@ -468,6 +468,16 @@ separate, including placeholder liquid data and the vapor inventory-hook
 unit defect. Ordinary data and independent numerical qualification remain
 required; these teaching cases do not qualify modular methanol synthesis.
 
+**Update, 2026-11-05 — liquid-extraction census:** the
+[extraction closure](64h-required-process-population.md#liquid-extraction-and-diagnostic-teaching-case-closure--2026-11-05)
+resolves four AST-equivalent wrappers, their actual imported helper chain,
+infeasible/repaired transfer stages and distinct embedded fixture inputs.
+This model supplies mass transfer only; unused temperature/pressure values
+do not establish energy or momentum solutions. The embedded solved-test
+units/flow targets and unexecuted pytest definitions remain explicit.
+Ordinary data, native physical/refusal correspondence and independent
+qualification remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

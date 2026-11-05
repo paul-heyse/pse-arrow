@@ -4001,6 +4001,77 @@ ordinary mixture data. Wider legacy phase/initializer/storage branches,
 ordinary provenance and independent numerical qualification remain open;
 the source/AST census executed no unit or property solver.
 
+## Liquid extraction and diagnostic teaching-case closure — 2026-11-05
+
+**Interface-checked, source only:** X `docs/unit_models/custom_unit_models/
+creating_unit_model{,_test,_doc,_usr}.ipynb` has the same executable AST
+in all four wrappers. Its actual running consumer imports
+`liquid_extraction/{organic_property,aqueous_property,liquid_liquid_extractor}.py`;
+the nearby `liq_liq_extractor_flowsheet.py` is another specification of that
+same helper chain. Notebook class-definition cells do not supersede the
+subsequently imported helper classes. No CSV, experimental equilibrium data,
+trainer, initialization artifact or external executable beyond the Python
+reference/solver stack is read.
+
+The helper guards require one aqueous phase named Aq and one organic phase
+named Org, at least one common component, equal material-flow bases and
+specifically **mass** basis. Molar packages are refused. Selected packages
+share NaCl/KNO3/CaSO4; water is aqueous-only and the unnamed organic solvent
+is organic-only. Neither ions nor salt dissociation/speciation are modeled.
+Material-balance enum and phase-equilibrium/pressure-change Booleans are
+exposed, but this owner builds **only material balances**, transfer relations
+and geometry. No pressure equation, energy balance, thermal equality or
+distribution-equilibrium relation is constructed. The pressure-change flag
+has no effect here. Inherited dynamic/holdup choices have no complete
+selected inventory-property closure; the narrative steady assumption is not
+an explicit dynamic=False configuration domain guard.
+
+For each common salt the aqueous transfer is minus an empirical fraction
+times its **aqueous inlet mass flow**; organic transfer is its opposite.
+Solvents have zero transfer. This is a one-way inlet-removal model, not
+diffusion driven by concentration difference, interfacial area or equilibrium
+partition coefficients. Solvent flow is volume flow × constant density;
+solute flow is volume flow × concentration. Because solvent density is
+unchanged and solvents do not transfer, both volumetric flows are preserved.
+No factor limit ≤1 is enforced, so the raw factors 2.15/3/1.5 demand negative
+aqueous outlet salt and are incompatible with nonnegative concentrations.
+
+| Declared consumer | Actual inputs and diagnostic stage |
+|---|---|
+| Notebook initial case | Organic/aqueous 80/100 L/h, both 300 K/1 atm. Organic salt concentrations each 1e-5 g/L; aqueous NaCl/KNO3/CaSO4 .15/.2/.1 g/L. Raw factors 2.15/3/1.5 deliberately retain infeasible salt removal; BlockTriangularizationInitializer errors are caught and printed, then structural/numerical diagnostics and Ipopt are attempted. It is an intended failed physical case, not a success fixture. |
+| Notebook repaired transfer stage | Divides all factors by100 to .0215/.03/.015 and lowers organic inlet/outlet pressure bounds to .5 atm. Solves again without adding energy or pressure equations. Material predictions follow the equations; thermal/pressure outputs remain unused free state variables with initial values, not thermodynamic solutions. |
+| Standalone helper flowsheet | Same 80/100 L/h, temperature/pressure and aqueous inputs, but organic salt traces are 1e-6 g/L. It applies the factor/bound changes before initialization. Its solve function retains no termination assertion and returns no result. This trace difference is a distinct specification, not byte-duplicate evidence. |
+| Embedded build fixture | Organic/aqueous 80/10 L/h, zero organic salt and .15/.2/.1 g/L aqueous salt; raw factors remain >1. Source checks ports, counts and configuration, not a feasible solved material state. |
+| Embedded solved-test fixture | Uses corrected factors but writes organic/aqueous flow as 80/10 **mL/min**, and writes concentrations with **g/kg** against g/L state variables. Its assertions still expect outlet flow values80/10 in the declared L/h variables. Converting flow gives4.8/.6 L/h; concentration requires a density conversion, not direct unit equivalence. Retain this inconsistency as setup/specification work, not an independent successful case. Merely defining pytest classes inside a notebook does not execute them. |
+
+Aqueous density/Cp are997 kg/m3 and4182 J/(kg K); organic density/Cp are
+2170 kg/m3 and717.01 J/(kg K), with reference298.15 K. The source names
+ethylene dibromide as organic solvent, without a species identity/parameter
+provenance declaration sufficient for ordinary publication. State variables
+use L/h,g/L,atm,K; helpers bound temperature273..373 K and pressure0..5 atm
+(organic lower bound1 atm before the explicit change). Enthalpy-flow
+expressions use solvent density/Cp and temperature offset but are **unused
+by this unit**, so their existence does not establish an energy balance.
+Geometry variables likewise provide no selected contact-time/area law.
+
+For corrected factors, original analytic material controls are unchanged
+volume flows, aqueous outlet concentrations
+.146775/.194/.0985 g/L for NaCl/KNO3/CaSO4 and equal/opposite salt transfer
+.3225/.6/.15 g/h at100 L/h aqueous feed. Organic outlet concentrations
+must include the selected incoming trace plus transfer divided by80 L/h.
+The embedded test instead uses a10-to80 flow ratio, giving its own lower
+organic target values; do not compare those targets to the100 L/h case.
+These arithmetic identities are not numerical solver evidence.
+
+Native D05/G06 requires custom two-package authoring, component intersection
+and mass-basis guards, selected transfer-factor provenance, complete
+material products, intended infeasibility and honest unavailable thermal/
+pressure outputs. A physical liquid-liquid equilibrium or heat/pressure
+model is separate ordinary science. Factor/units fixes, genuine execution
+of embedded tests, inherited configuration refusals, original data admission
+and independent numerical qualification remain required; no reference model
+or diagnostic solver was executed here.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
