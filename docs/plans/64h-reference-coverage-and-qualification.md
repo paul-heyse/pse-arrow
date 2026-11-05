@@ -239,6 +239,17 @@ Unused operating rows/files and unsupported helper routes remain explicit.
 Only default scenario terminal assertions exist; native physical/control/data
 mapping and complete reference/trajectory qualification remain open.
 
+**Update, 2026-11-05 — grid market/multiperiod closure:** the
+[grid census](64h-required-process-population.md#grid-market-and-multiperiod-input-population--2026-11-05)
+distinguishes bounded-power fixtures,thermal commitment,wind/PEM bid arithmetic
+and the two Prescient runs; resolves all11 five-bus input CSVs,four annual
+time series,market horizons and eight categorical period layouts plus manual
+construction. File-existence integration assertions do not establish market
+or process feasibility; dummy period linking does not integrate physics.
+Unseeded forecast sampling,provider versions/raw parser semantics,remaining
+price-taker/forecast cases,ordinary data and native/reference execution remain
+open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

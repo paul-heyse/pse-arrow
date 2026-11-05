@@ -1669,6 +1669,115 @@ inspection established wrapper assertion differences, actual files/metadata,
 time-zero snapshot structure and scheduled-column roles without model import
 or a solver run.
 
+## Grid market and multiperiod input population — 2026-11-05
+
+**Interface-checked, source only:** C `apps/grid_integration` owns bidder,
+self-scheduler, tracker, coordinator, forecasters, generator data and period
+builders. The following source cases distinguish market optimization from
+generator physics and actual clock advance. No market/provider simulation was
+executed, and none of the examples selects a thermodynamic power-plant model.
+
+| Actual selector/model role | Configured experiment and required distinctions |
+|---|---|
+| `tests/util.py::ExampleModel` thermal fixture | Generator10_STEAM,bus5,power30–76 MW,constant marginal cost30, with cost expression30×power. Model data carries min-down4 h/min-up8 h,120 MW/h ramps,startup/shutdown30 MW,initial status9/initial output42 MW and four cost bid points30/45.3/60.7/76; startup costs are7355.42/10488.35/11383.41 after4/10/12 h. The actual fixture only constructs bounded power and linear cost: no commitment/ramp constraints. Updating its `pre_P_T` value cannot qualify absent dynamics. |
+| `tests/test_tracker.py::tracker_object` | Four-period horizon,implement1 hour, CBC. Dispatch[30,40,50,70] MW at2021-07-26,17:00. Source checks all four tracked powers and last delivered power30 MW. Objective sums cost plus under/over-delivery penalties:10000 for implemented time0,10000/3 for remaining periods. Soft deviation variables mean an infeasible dispatch need not make the optimization infeasible; acceptance needs actual deviation/feasibility policy. |
+| `tests/test_bidder.py::bidder_object` | DA and RT horizons4,three equal scenario copies, synthetic DA forecasts constant29 then31 against marginal cost30,RT forecasts identically zero. DA low/high-price bid curves are distinct roles. RT has realized DA prices29 and dispatch0 in every period,DA forecast29. Both `include_default_p_cost=True` andFalse are tested: omission leaves only the minimum-load cost point and changes final capacity/bid curve. The fixture mutates shared model data for that role, requiring deliberate state isolation in a local reference. |
+| `tests/test_coordinator.py::coordinator_object` | Explicit fixture parameterization thermal/renewable (two roles),DA48/RT4/tracking4,three scenarios,one implemented hour. Renewable fixture has0–200 MW/zero marginal cost. Tests assemble static parameters, signals and callback handoffs; they do not run an independent market/plant. |
+| `tests/test_PEM_Parameterized_bidder.py` | Algebraic wind/PEM bidder,DA/RT6 h,renewable200 MW,PEM100 MW,marginal value30. Synthetic2020-01-01 capacity factors DA[.1,.1,.1,.8,.8,.8],RT[1,.2,.2,.75,.75,.75],DA/RT prices10/20. Realized DA dispatch[20,20,20,120,120,180] covers surplus above PEM capacity,within capacity,and wind below commitment. Source asserts every piecewise marginal→total cost curve. It uses a dummy `OptSolver`, not a solved electrolyzer; PEM300 MW against renewable200 is an explicit refusal. |
+| `examples/thermal_generator.py::ThermalGenerator` | Separate mixed-integer thermal dispatch/commitment model with four production segments,minimum up/down history,startup/shutdown events,ramping and prior power. It derives heat-rate/fuel/startup cost and60-minute ramps from bundled generator/bus data; no heat/mass balance or temperature model is present. Before updates, internal `pre_on_off` defaults1 and prior power=Pmin while exported model data has initial status−1/output0. Freeze actual initial/history handoff explicitly; source metadata alone does not resolve that difference. |
+
+The bidder objective sums DA revenue,RT deviation revenue,weighted model cost
+and underbid penalty(default10000) over periods and scenarios. There are no
+supplied nonuniform scenario probabilities in these fixtures; summing identical
+scenario contributions is not a statistically validated forecast. `SelfScheduler`
+has its own nonanticipativity/schedule path and `fixed_to_schedule` policy;
+the integration selection below sets it true. `PEMParametrizedBidder` is a
+different algebraic bid construction and does not use scenario optimization.
+Integer-positive scenario/implemented-hour checks,required model methods/
+attributes and compatible solver checks are actual constructor refusal roles;
+do not invent a process capability from successful adapter construction.
+
+`tests/test_integration.py::TestDoubleLoopIntegration` supplies two separate
+Prescient runs, bidder and self-scheduler. Both use `ExampleModel`, DA48 h,
+RT/tracker4 h,ten synthetic scenarios,one implemented hour, and generator
+10_STEAM. They simulate two days starting07-10-2020,SCED frequency60 min/
+horizon4,RUC horizon48,CBC for dispatch/commitment,RUC MIP gap .01,zero reserve
+factor,LMP day-ahead pricing,settlements enabled,out-of-sample/persistent
+forecast errors enabled. CBC RUC options are `feas=off,DivingF=on`; price/
+contingency/reserve thresholds1000/100/5. The selected test checks existence
+of15 output CSVs for each run, **not** their power balance,prices,profit,
+commitment/network constraints or actual state-transfer correctness. Those
+remain native/reference acceptance products.
+
+The recursively referenced `idaes/tests/prescient/5bus` input closure is all11
+CSV files: `bus.csv`(5 buses),`branch.csv`(7 branches),`gen.csv`(8 generators),
+`initial_status.csv`,`reserves.csv`,`simulation_objects.csv`,
+`timeseries_pointers.csv`,and four load/renewables files. The16 time-series
+pointers resolve only to the four shipped data files. Each DA file has8784
+hourly2020 rows; each RT file105408 five-minute2020 rows. Load columns are
+areas1/2; renewable columns include1_HYDRO,4_WIND,2_RTPV,10_PV. Reserve table
+has a header but no requirements. Preserve raw metadata/parser readiness:
+`simulation_objects.csv` declares DAY_AHEAD dates at2020-01-01 and REAL_TIME
+dates at2020-12-31 despite the full-year data and selected July simulation;
+one initial-status row has an extra empty trailing field. Actual Prescient
+interpretation must be established, not silently repaired or inferred from
+the source file count. These operating/network/cost inputs need ordinary
+data provenance independently of their oracle/provider role.
+
+The actual thermal-generator Prescient example uses the same five-bus files
+and48/4/4 h horizons/ten scenarios/one implemented hour, but replaces
+`ExampleModel` with the commitment model above. Its `PlaceHolderForecaster`
+reads four inline24-value arrays of DA/RT mean/standard-deviation prices from
+`examples/utils.py`, tiles by hour modulo24, samples NumPy independent normal
+draws and clips negatives to zero. No seed is set in the selected plugin;
+freeze random-stream/sample custody before matched execution. The synthetic
+test forecaster instead returns constant DA predictions and zero RT prices;
+it is not this stochastic daily-price model. Forecast arrays are reference
+assumptions,not fitted/validated market forecasts.
+
+Prescient,Egret transmission utilities and CBC are explicit executable
+prerequisites; the pinned core's `gridx-prescient>=2.2.3` optional dependency
+is only an upstream lower bound,not a frozen compatible local environment.
+Exact reference/provider versions and import/API closure must be selected
+without moving core2.13.0. Upstream skip/importorskip guards do not waive
+the local fail-on-missing contract. No trainer,serialized generator model or
+saved model initialization is read by these selected grid fixtures; generated
+market/bid/tracker CSVs are outputs.
+
+`multiperiod/tests/test_multiperiod.py` independently selects eight categorical
+layouts:5 time points × optional4 days × optional3 years × optional3 scenarios.
+For no-days/no-years,days only,years only,and both, the respective block counts
+are5/20/15/60 without scenarios and15/60/45/180 with three scenarios. A ninth
+manual builder uses five periods. The process is only nonnegative x,y with
+x+y=1; initialization fixes y=.5/guesses x=.5,then releases y and links
+adjacent periods' y values. Day/year labels are repetition indices,not elapsed
+durations or inter-day/inter-year inventory laws; no cross-scenario
+nonanticipativity or probability model is supplied by these fixtures. Period
+links occur within each day/year/scenario; the stated DOFs1/4/3/12 (tripled
+for scenarios) retain those independent groups.
+
+Additional explicit controls build two periods without initialization,
+unfixing,or linking and expect warnings; stochastic periodic callbacks are
+warned about and **not applied**,not enforced cyclic closure. A three-period
+per-time-options dictionary bypasses initialization; a two-period declaration
+with that same three-entry dictionary produces a warning. Contradictory
+initialization x+y=1 andx+y=2 must raise `InitializationError`. Rolling
+`advance_time` in the nonstochastic builder deactivates an old block,appends a
+new one and rebuilds links/optional endpoint periodic constraint; it does not
+integrate a differential inventory law. Preserve these missing-link/failed-
+initialization outcomes and independently qualify actual physical period
+coupling where a native application consumes it.
+
+Native horizon/study owners are G05 starting points,not matched bidder,
+market-network or thermal-commitment acceptance. Original market feasibility,
+time/settlement conventions,history state custody,scenario reproducibility,
+failure treatment and ordinary data remain open. Price-taker clustering,
+design/commitment,backcaster/perfect-forecaster detailed populations remain
+separate required closure. Ephemeral AST/CSV inspection resolved actual
+two-role coordinator fixture,period layouts,input-pointer closure and raw
+annual data cardinalities; no CBC,Prescient,Pyomo model or native scientific
+execution occurred.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
