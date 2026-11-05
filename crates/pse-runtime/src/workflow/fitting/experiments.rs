@@ -57,15 +57,7 @@ struct Lane {
     elapsed_nanos: Arc<std::sync::atomic::AtomicU64>,
 }
 fn lane_panic(payload: Box<dyn std::any::Any + Send>) -> ProblemError {
-    let detail = payload
-        .downcast_ref::<String>()
-        .cloned()
-        .or_else(|| {
-            payload
-                .downcast_ref::<&str>()
-                .map(|text| (*text).to_owned())
-        })
-        .unwrap_or_else(|| "fit lane non-text panic".into());
+    let detail = pse_diagnostics::panic::settle_payload(payload, "fit lane non-text panic");
     crate::math::MathRuntimeError::Panic(detail).into_problem()
 }
 fn finish_steady(worker: pse_math::assembly::CaseWorker) -> Result<(), ProblemError> {

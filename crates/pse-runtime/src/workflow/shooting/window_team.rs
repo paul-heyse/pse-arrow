@@ -112,15 +112,7 @@ struct Lane {
     joined: Option<JoinHandle<Result<(), ProblemError>>>,
 }
 fn lane_panic(payload: Box<dyn std::any::Any + Send>) -> ProblemError {
-    let detail = payload
-        .downcast_ref::<String>()
-        .cloned()
-        .or_else(|| {
-            payload
-                .downcast_ref::<&str>()
-                .map(|text| (*text).to_owned())
-        })
-        .unwrap_or_else(|| "shooting lane non-text panic".into());
+    let detail = pse_diagnostics::panic::settle_payload(payload, "shooting lane non-text panic");
     crate::math::MathRuntimeError::Panic(detail).into_problem()
 }
 fn finish_worker(worker: super::super::dynamics::DynamicWorker) -> Result<(), ProblemError> {

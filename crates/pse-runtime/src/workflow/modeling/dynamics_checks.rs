@@ -59,15 +59,7 @@ type SampleWorkerBanks = Vec<(
     CaseValues,
 )>;
 pub(super) fn check_panic(payload: Box<dyn std::any::Any + Send>) -> crate::math::MathRuntimeError {
-    let detail = payload
-        .downcast_ref::<String>()
-        .cloned()
-        .or_else(|| {
-            payload
-                .downcast_ref::<&str>()
-                .map(|text| (*text).to_owned())
-        })
-        .unwrap_or_else(|| "sample check non-text panic".into());
+    let detail = pse_diagnostics::panic::settle_payload(payload, "sample check non-text panic");
     crate::math::MathRuntimeError::Panic(detail)
 }
 fn finish_banks(workers: &mut SampleWorkerBanks) -> Result<(), WorkflowError> {
@@ -606,7 +598,7 @@ mod retirement_tests {
         }
     }
 
-    async fn simulation() -> (crate::workflow::Runtime, ModelingSimulation) {
+    async fn simulation() -> (Runtime, ModelingSimulation) {
         let runtime = crate::workflow::tests::runtime();
         let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == 2; eq initial: x[0{s}] == 1{s}; annotation check x(x[i] <= 6{s}); } }";
         let rows = pse_authoring::language::parse(
@@ -723,6 +715,12 @@ mod retirement_tests {
 
     #[tokio::test]
     async fn sample_finish_attempts_terminal_bank_after_regular_finisher_panics() {
+        struct PanicOnDrop;
+        impl Drop for PanicOnDrop {
+            fn drop(&mut self) {
+                panic!("sample panic payload destructor");
+            }
+        }
         let (_runtime, simulation) = simulation().await;
         let scope =
             pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
@@ -737,7 +735,7 @@ mod retirement_tests {
         let signal = finished.clone();
         regular.recycle_on_finish(move |_| {
             signal.fetch_add(1, Ordering::SeqCst);
-            panic!("sample regular finish panic");
+            std::panic::panic_any(PanicOnDrop);
         });
         let signal = finished.clone();
         terminal.recycle_on_finish(move |_| {
@@ -753,5 +751,10 @@ mod retirement_tests {
             panic!("typed panic retirement required");
         };
         assert_eq!(failures.len(), 1);
+        assert!(
+            failures[0]
+                .to_string()
+                .contains("sample panic payload destructor")
+        );
     }
 }
