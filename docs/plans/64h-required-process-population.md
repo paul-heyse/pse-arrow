@@ -2471,6 +2471,94 @@ columns retain their independent populations. Ephemeral AST inspection
 confirmed17 explicit fixtures andno hidden parameter decorators;no property,
 column,initializer orsolver was executed.
 
+## MEA rate-based column and solvent auxiliary closure — 2026-11-05
+
+**Interface-checked, source only:** C `models_extra/column_models/{solvent_column,
+MEAsolvent_column,solvent_condenser,solvent_reboiler}.py`, their four matching
+test modules, `properties/{MEA_solvent,MEA_vapor}.py` and
+`enhancement_factor_model_pseudo_second_order_explicit.py` resolve three
+packed-column operating cases and four auxiliary specification roles. The
+reboiler's old/new initialization APIs double its two scientific roles into
+four fixtures; they do not supply four different experiments. These rate-based
+columns are independent of the equilibrium BT tray/column population above.
+
+| Case | Geometry, feed and selected transfer/specification inputs |
+|---|---|
+| Generic absorber,10 spatial elements | Diameter .65 m,length15 m. Vapor22 mol/s,318 K,107650 Pa,CO2/H2O/N2/O2 .12/.09/.74/.06;these fractions sum **1.01**,an unresolved source-input inconsistency,not permission to normalize. Liquid37 mol/s,320 K,same pressure,CO2/H2O/MEA .01/.87/.12. Liquid holdup .01;fixed gas-side CO2/H2O coefficients3e-7/4e-7 mol/(Pa m² s),interfacial area200 m²/m³,heat-transfer coefficient7100 W/(m² K). |
+| Generic stripper,10 spatial elements | Diameter .64135 m,length12.1 m. Wet CO2 vapor17.496 mol/s,396.6 K,183430 Pa,CO2/H2O .0145/.9855. Liquid84.48 mol/s,382.15 K,same pressure,CO2/H2O/MEA .0331/.8547/.1122. Holdup .01,gas-side coefficients3e-5/4e-5,same area/heat coefficient as absorber. Liquid CO2 absorption enthalpy is explicitly changed from−84000 to−97000 J/mol;that changes the property science. |
+| Correlation-based MEA absorber,40 spatial elements | Diameter18 m,length21.6 m. Vapor19000 mol/s,313.15 K,100000 Pa,CO2/H2O/N2/O2 .041/.074/.763/.122. Liquid24000 mol/s,same temperature/pressure,CO2/H2O/MEA .022/.868/.11. Transfer,interfacial area,holdup andenhancement are calculated from the selected correlations,not the generic absorber's fixed coefficients. Property flow bounds are widened to[0,1e6] mol/s with initial value1. |
+| Solvent condenser,reflux-flow role | Wet-CO2 inlet1.1117 mol/s,339.33 K,184360 Pa,CO2/H2O .8817/.1183;reflux liquid flow fixed .1083 mol/s,heat duty solved. The source class is named `TestStripperVaporFlow`,butthe actual specification is reflux flow. |
+| Solvent condenser,heat-duty role | Same inlet;heat duty fixed−6264 W,reflux/vapor split solved. The initializer's failure control additionally fixes reflux flow100 mol/s while retaining the heat specification;preserve its over-specified disposition. |
+| Solvent reboiler,vapor-flow role | Liquid83.89 mol/s,392.5 K,183700 Pa,CO2/H2O/MEA .0326/.8589/.1085;vapor flow fixed9.56 mol/s,duty solved. Vapor package is four-component flue gas,not the condenser's two-component wet CO2. Source targets duty420983 W andbottoms74.33 mol/s at393.773 K. |
+| Solvent reboiler,heat-duty role | Same inlet;duty430610 W,vapor flow solved. Source targets9.7852 mol/s vapor and74.1048 mol/s bottoms at393.810 K. Each specification is parameterized over legacy andnew initializer APIs with the same physical initial guesses. |
+
+Packed-column configuration forces steady operation;holdup may still be
+constructed with `has_holdup=True`,which does not grant a dynamic experiment.
+The implemented flow topology is countercurrent,vapor0→1 with backward
+differences andliquid1→0 with forward differences. The default mesh is20,
+not either selected10/40 test mesh. The exposed length-domain list/element
+count andpressure-change Boolean do not define a tested Cartesian product;
+alternative meshes,nonzero pressure drop andholdup constructors retain
+required admissibility/qualification work. The vapor uses total-pressure
+momentum balance;the liquid has no momentum balance. Packages must have exactly
+Vap andLiq phases respectively,atleast one common component andmatching material
+flow bases. Geometry/packing defaults are void fraction .97,specific area250
+m²/m³ andchannel size .1 m;hydraulic diameter follows the first two inputs.
+Neither the channel-size default norinterfacial area is the physical column
+diameter. Conservation must include phase/component transfer andinterphase
+enthalpy,not only outlet CO2 removal.
+
+The aqueous property input is apparent H2O/MEA/CO2 with true ionic species
+MEA_+,MEACOO_- andHCO3_-,Ideal liquid EOS on the apparent property basis,
+FTPx state,andcarbamate/bicarbonate inherent equilibria on true molarity.
+CO2 uses the N2O-analogy Kpc Henry relation on the **true** basis;the absorber's
+default absorption enthalpy is−84000 J/mol. Vapor is Ideal FTPx,apparent
+components,with four-component flue gas or two-component wet CO2 as selected.
+Inline molecular weights,caloric/formation references,vapor pressure,Henry,
+liquid volume/density,viscosity,surface tension,diffusivity andvapor
+conductivity/Cp methods andcoefficients form recursive scientific inputs.
+Their tracked presence permits oracle reproduction only;ordinary native
+admission still needs original provenance,units,reference datum andenvelope.
+An Ideal EOS label does not remove reactive speciation or transport laws.
+
+`MEAColumn` adds Billet–Schultes transfer/area/holdup andheat-transfer
+correlations,log property relations andflooding calculations. Its construction
+fixes area parameters1.43914/.12,holdup11.4474/.6471 andtransfer constants
+Cv=.357/Cl=.5. The selected enhancement callback is
+`PseudoSecondOrderExplicit` with default Putta kinetics;Luo is a separate
+exposed alternative,not exercised by this absorber fixture. The MEA/H2O
+activation-temperature/pre-exponential pairs are4936.6 K/3173.2 and3900 K/108.82
+for Putta versus4742 K/20030 and3110 K/4.147 for Luo,with pre-exponentials
+in m⁶/(mol² s). True-species concentrations/diffusion,liquid CO2 transfer and
+Hatta/enhancement relations must follow that choice. An unrecognized kinetics
+branch returns a ValueError object rather than explicitly raising it;retain
+the build/refusal readiness question instead of claiming a checked rejection.
+
+The initializer consumes seven inline31-point profile lists:two gas transfer,
+one liquid transfer,heat coefficient,interfacial area andtwo mode-specific
+enhancement lists. These are reference **initial guesses**,not experimental
+targets or ordinary material data. Absorber/stripper select different
+enhancement profiles;unknown mode raises. Mesh changes interpolate the lists;
+the requested grid is `i/(nfe+1)` for i=0..nfe,so its last point is not1.
+Preserve that actual initialization behavior separately from the physical
+mesh. No CSV,serialized initialization,trainer or external EOS file is loaded
+by these selected owners. Source-only AST inspection confirmed the list sizes
+andabsence of direct file-loading calls;it did not initialize a property or
+run a solver.
+
+Auxiliaries explicitly refuse dynamics/holdup andrequire single matching
+Vap/Liq phase packages andatleast one common component. Condenser supports
+only molar flow basis;reboiler has molar/mass branches,butits noncondensable
+zero-flow parameter is declared in molar units even in the mass branch.
+Selected molar cases set nonshared components to1e-8 mol/s,not mathematically
+zero:the condenser's liquid-only MEA andreboiler's vapor-only N2/O2 have this
+role. Preserve epsilon-component accounting andbasis refusals. Native
+rate-based transport/reactive liquid data,auxiliary phase mapping,complete
+profiles/duties/species/energy closure andboth specification roles remain
+D02/D04/F04 obligations. Source Ipopt/default-solver skip decorators do not
+carry into the fail-never-skip parity policy;exact pinned-environment and
+independent numerical execution remain open.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

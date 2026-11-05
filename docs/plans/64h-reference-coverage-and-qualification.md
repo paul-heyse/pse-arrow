@@ -321,6 +321,15 @@ Remaining categorical branches,custom-total-condenser initialization,phase
 mapping,ordinary property data andnative/independent assembled acceptance
 remain open. No source constructor orseparator witness closes a column.
 
+**Update, 2026-11-05 — MEA rate-based/auxiliary census:** the
+[reactive-solvent closure](64h-required-process-population.md#mea-rate-based-column-and-solvent-auxiliary-closure--2026-11-05)
+resolves three packed-column operating cases,four condenser/reboiler
+specification roles,true/apparent reactive property inputs,enhancement choices
+andinline initialization profiles. The generic absorber fractions sum1.01;
+that source issue remains explicit. Native transport/speciation,data admission,
+remaining configuration branches andindependent numerical qualification are
+open;an equilibrium column orgeneric separator does not close this family.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
