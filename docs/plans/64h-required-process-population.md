@@ -4431,6 +4431,59 @@ unselected configuration combinations, nonzero inherent reaction controls
 and independent physical qualification remain required. No mixer or
 initializer was executed for this source declaration.
 
+## Separator and flash admissible configuration closure — 2026-11-05
+
+**Interface-checked, source only:** C `models/unit_models/{separator,flash}.py`
+and their full test owners resolve the policy axes and physical fixtures
+below. Both public units explicitly restrict dynamics and holdup toFalse;
+a multi-time algebraic instance supplies no accumulation model. Property
+dependencies are the legacy/modular BT, IAPWS and teaching packages already
+identified, plus the inline LiCo helper described here. No new scientific
+file, trainer or saved state is read by these selected fixtures.
+
+| Policy | Actual admitted/configured behavior and refusal boundary |
+|---|---|
+| General Separator topology | Defaults two outlets; accepts names/count with consistency guard. Reused mixed state must have matching property-package identity. Nonideal separation constructs outlet state blocks and fractions; totalFlow, phaseFlow, componentFlow and phaseComponentFlow index fractions respectively by total, phase, component or actual phase-component membership, with per-index sum across outlets1. |
+| Material and inherent chemistry | useDefault resolves package default; componentPhase/componentTotal/total/none construct their respective selected equations (none omits material closure); elementTotal refuses. componentPhase plus phase equilibrium requires the property equilibrium-index/list mapping. Inherent reactions create per-outlet extents and generation; their presence cannot be discarded merely because split fractions happen to match for every species. Omitting balances needs independent specification/unavailable products, not an automatic physical split. |
+| Nonideal energy/momentum | equal_temperature default, equal_molar_enthalpy, enthalpy_split or none. Enthalpy split is allowed with totalFlow/phaseFlow and explicitly refuses componentFlow/phaseComponentFlow. Equal-temperature or equal-enthalpy constraints are not interchangeable for selective species splitting. pressureTotal equates outlet/inlet pressures; none omits pressure equations; all other momentum enum values raise NotImplementedError. The parameterized construction tests cross every momentum enum with every split basis to exercise success/refusal; they are dummy equation tests, not physical cases. |
+| Ideal Separator | Routes port expressions directly; no independent solved outlet state. Requires ports, a non-total basis, a complete split map and one outlet per phase/component/phase-component index; missing/mismatched map or outlet cardinality refuses. Explicit has_phase_equilibrium=True is incompatible with ideal routing. Phase-component validation builds the full phase×component index list, so a general ragged ideal map is not established by nonideal ragged membership support. Port scalar/component/phase fallbacks have explicit unsupported cases in TestIdealConstruction. |
+| Ideal traces | eps_flow=1e-8 in package molar/mass flow units and eps_frac=1e-8 support zero/absent routed entries. They are not universally1e-8 mol/s or exact zero. Native sparse/zero products require a declared correspondence and conservation allowance. Energy split choice is unused for ideal port routing. |
+| Flash | Builds an equilibrium 0D control volume with selected material/energy/momentum balances; has_heat_transfer and has_pressure_change both defaultTrue. Its Separator reuses the receiving state, phaseFlow basis and two Vap/Liq outlets. Ideal routing defaultsTrue; nonideal routing fixes each corresponding phase fraction1 and uses its selected energy policy. Vapor-phase objects map to Vap, every other phase to Liq; ideal Separator cardinality and the nonideal hard-coded phase labels restrict actual usable phase sets. Arbitrary multiphase or non-Vap/Liq naming is not proved by that loop. |
+
+The selected physical fixture population is finite:
+
+| Fixture | Inputs/specification and source output roles |
+|---|---|
+| Saponification splitter | componentPhase/totalFlow/nonideal, outlets a/B/c, inlet1 m3/s at303.15 K/101325 Pa, H2O55388/NaOH100/ethyl acetate100 and sodium acetate/ethanol1e-8 mol/m3. Fractions a=.3/B=.5 imply c=.2. Targets preserve composition/T/P; this is nonreactive splitting, not a kinetic saponification reactor. |
+| Legacy BT partial phase splitter |1 mol/s,368 K,101325 Pa, benzene/toluene .5/.5, componentPhase/phaseFlow/nonideal with phase-equilibrium True. Outlet1 receives .8 of vapor, outlet2 .8 of liquid. Target outlet flows .438/.562 mol/s and benzene fractions .573/.443, preserving368 K/pressure. Receiving states do not independently enforce equilibrium; the selected material generation and state equations matter. |
+| Water component splitter | IAPWS PH,100 mol/s,h5000 J/mol,101325 Pa, three nonideal componentFlow outlets .4/.5/.1, componentPhase balances. Targets40/50/10 mol/s with each h5000 and unchanged pressure. Phase inventory is not physically separated by this component split. |
+| Legacy BT ideal phase router | Same1 mol/s/368 K/101325 Pa/.5/.5 state, ideal mapVap→outlet1/Liq→outlet2. Targets vapor/liquid flows .396/.604 and benzene fractions .634/.412. These differ from the partial phase splitter by the actual routing specification. |
+| Material-only Li/Co | Inline LiCoParameters, one phase1, solvent/Li/Co, mass basis, solvent density1000 kg/m3; inlet10 m3/h, Li2/Co3 kg/m3, fraction .4. Energy/momentum none; targets4/6 m3/h and unchanged solute concentrations. Temperature/pressure methods are absent and must stay unavailable. This is a synthetic nonselective split, not membrane selectivity or electrolyte chemistry. |
+| Inherent dissociation splits | Same leach helper/Ka2 and10 L/h equilibrium input as the mixer acid fixture. Four separate componentPhase formulations select totalFlow/componentFlow/phaseFlow/phaseComponentFlow, all .4 for outlet1 and .6 for outlet2, no energy/momentum. Targets4/6 L/h, identical species concentrations and zero per-outlet reaction extents. PhaseFlow additionally checks unscaled/scaled Jacobian conditions6.11018e11/5.0297e4 (rel.001); that coordinate-dependent conditioning target is not a physical species result. Nonzero reaction after selective splitting remains unexercised here. |
+| Adiabatic BT flashes | Separate legacy Ideal and modular BT_ideal property consumers, both1 mol/s/368 K/101325 Pa/.5/.5, heat0/deltaP0, ideal phase routing. Target liquid/vapor flow .603/.396 and benzene .412/.634 at368 K; source rounded flows need their abs.001 allowances. Same targets do not prove interchangeable data/datum/equilibrium formulation. |
+| Water PH flash | IAPWS LG phase presentation,100 mol/s,h24000 J/mol,101325 Pa, heat0/deltaP0, **nonideal** phase routing with enthalpy_split. TargetsT373.12 K, vapor40.467 mol/s/h48200 J/mol and liquid59.532 mol/s/h7549.4 J/mol with the source observable-specific allowances. Requires the independent Helmholtz artifacts; equal-temperature split alone would not select the phase enthalpies. |
+| PR initializer case | BT_PR configuration explicitly replaces its equilibrium state by SmoothVLE, at1 mol/s/368 K/101325 Pa/.5/.5, heat0/deltaP0. Inlet values are guesses held by initializer, not permanently fixed fixture feeds. This is another EOS/formulation and initialization witness, not the ideal flash merely under a new scaler. |
+
+Legacy BT fixtures add300..550 K bounds to auxiliary bubble/dew/equilibrium
+temperatures and1e4..5e6 Pa bounds to saturation variables; modular Ideal
+flash bounds `_teq`300..550 K. These auxiliary bounds are part of reference
+readiness, not proof of physical correlation validity across that interval.
+Original separator component/total-flow and enthalpy conservation assertions
+must remain separate from rounded target values and optimal termination.
+Flash Ideal tests have a total-flow control; the water case also checks
+enthalpy. Do not imply a complete common conservation test from one class's
+assertions. Initializer/scaler variants add holds/restoration/operational
+products and do not erase physical case differences.
+
+Native D04/D03 requires selected fractional versus ideal routing, phase/
+component membership, trace semantics, pressure/energy specification,
+inherent reaction projection and complete product maps. Valid policy
+combinations and intentional refusals must be exercised with their property
+closures; construction enumeration alone is not qualification. Ordinary
+parameter provenance, nonzero reaction/phase-selectivity cases, wider valid
+configurations and independent native/reference execution remain required.
+Source/AST inspection ran no separator, flash or initializer.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

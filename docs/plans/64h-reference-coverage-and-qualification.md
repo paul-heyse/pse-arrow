@@ -525,6 +525,15 @@ acid mixing do not establish additional physical responses. Ordinary data,
 remaining admissible/refusal combinations and independent native/reference
 qualification remain required; H02 retains its own ordinary-case mapping.
 
+**Update, 2026-11-05 — separator/flash census:** the
+[split/flash closure](64h-required-process-population.md#separator-and-flash-admissible-configuration-closure--2026-11-05)
+resolves fractional/ideal routing, energy/momentum and map/refusal guards,
+trace units, four inherent-reaction split formulations and exact BT/water/
+material-only scientific fixtures. Ideal port routing and independent
+receiving states have different products; parser combinations and repeated
+zero-extent tests do not qualify general selective/reactive separation.
+Ordinary data and independent full-output execution remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
