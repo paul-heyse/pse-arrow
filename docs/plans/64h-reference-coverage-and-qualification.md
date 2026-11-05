@@ -661,6 +661,14 @@ checks,initialized logK and differing effective smoothing remain explicit;
 original chemistry/data,charge/energy/derivative and independent full
 method/reactor qualification remain required.
 
+**Update, 2026-11-05 — phase-equilibrium selector census:** the
+[bubble/dew/complementarity closure](64h-required-process-population.md#phase-equilibrium-form-bubbledew-and-complementarity-selectors--2026-11-05)
+resolves fugacity/log forms,four ideal/log incipient-state products,SmoothVLE
+membership branches and exact cubic-type/options guards. Actual32 clamp
+and200-state/400-root derivative controls remain distinct from physical
+flashes. Original property data,phase availability/stability and independent
+full physical/derivative qualification remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

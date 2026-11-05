@@ -5624,6 +5624,69 @@ qualification remain required. These dummy/ideal controls do not close the
 broader reaction family or electrolyte population. Only source/AST inspection
 and finite-loop arithmetic ran;no method/property/reaction solve executed.
 
+## Phase-equilibrium form, bubble/dew and complementarity selectors — 2026-11-05
+
+**Interface-checked, source only:** C `modular_properties/phase_equil/
+{forms,bubble_dew,smooth_VLE,smooth_VLE_2}.py` and matching tests
+resolve mathematical selectors supplementing the physical ideal/PR/Henry/
+electrolyte cases above. No dataset,trainer or serialized artifact is read.
+Equation construction,helper initialization and residual checks below do
+not establish all-domain phase stability or solved flash accuracy.
+
+| Selector | Actual configuration,guards and prerequisite behavior |
+|---|---|
+| fugacity/log_fugacity | Per-component phase-pair selection delegates actual fugacity/log-fugacity products to each phase EOS at that pair's equilibrium state. Equality/log equality require their respective property products and domains. Dummy EOS tests verify dispatch/scaling only;log selection is not a tolerance option for missing/zero fugacity. |
+| IdealBubbleDew | Four separate products Tbub,Tdew,Pbub,Pdew;ideal saturation/Henry relations and incipient-phase composition. Explicitly refuses packages with more than two phases,even if the requested pair itself is liquid/vapor. A non-VLE pair has no associated equation. Vapor-only components suppress bubble equations;liquid-only components suppress dew equations. Absent phase-component products are set0 where the selected incipient-phase construction requires it;an unavailable bubble/dew point is not a computed zero. Henry-bearing shared components use their Henry method rather than an invented saturation curve. |
+| LogBubbleDew | Same four products,using phase EOS log-fugacity methods and composition normalization rather than the ideal saturation sum. It supports selecting VLE pairs within a larger phase set without the ideal method's global two-phase restriction. Non-VLE and missing bubble/dew conditions still omit their corresponding equations. This is no claim of arbitrary multiphase stability or availability of every EOS's log-fugacity/incipient-state methods. |
+| SmoothVLE | Selects an equilibrium temperature using smoothed bubble lower/dew upper restrictions. Default smoothing .01/.0005 in package temperature units. Shared liquid/vapor components use both restrictions;vapor-only components omit the bubble restriction,liquid-only omit dew;when both exclusive groups are present,Teq equals actualT. Requires valid VLE phase identification and the actually needed bubble/dew properties. No supercritical extension is supplied merely by this clamp. |
+| CubicComplementarityVLE | Requires a liquid/vapor pair,both cubic EOS with **identical cubic type and complete EOS options**;noncubic and PR/SRK mismatch are explicit refusals. Uses nonnegative temperature slacks and positive/negative cubic-second-derivative slacks,smoothed temperature/flow and root/flow complementarity. Default eps_t=eps_z=1 in package molar-flow units,initial slacks1e-4;these are distinct from SmoothVLE's temperature smoothing. Cubic root external functions and derivative products are independent prerequisites. |
+
+The ideal bubble/dew dummy fixture has constant Psat water100000/ethanol
+50000 Pa,composition x_water0,.1,…,1(11),T initialized300 K.
+All four products use these eleven compositions in algebraic residual
+controls(abs1e-8);constant Psat carries no physical temperature dependence,
+so temperature-labeled equations do not validate a computed Tbub/Tdew.
+Separate water/N2 vapor-only and water/NaCl liquid-only fixtures exercise
+equation omission and permitted incipient compositions;nonvolatile bubble
+temperature uses11 compositions,noncondensable dew temperature10
+nonzero-water compositions. A third inert solid phase is explicitly refused
+by all four ideal builders. Composition endpoint coverage and skipped
+equations are separate native availability/zero-domain demands.
+
+SmoothVLE's dummy water fixture uses T/Tbubble/Tdew initialized300 K,
+criticalT647.3 K,reference300 K/100000 Pa,FTPx. The intermediate
+max and final min equations each inspect4×4 combinations of
+[200,300,400,500] K with the nonsmoothed max/min value inserted,
+residual tolerance .005 K. These32 residual probes do not constitute32
+physical equilibrium solves. Phase-pair refusal is a separate control.
+
+Cubic-complementarity pure-water PR fixture uses criticalT647 K,
+criticalP22.06 MPa,omega .344,zero self-interaction and fugacity equality.
+Cubic second derivative is checked at10 pressures[1,…,10] bar and
+20 temperatures[300,310,…,490] K,both roots:200 state coordinates/
+400 root-product comparisons(rel1e-8),not400 independent flashes.
+Temperature-slack initialization covers actualT300 K with Teq400/200/
+300 K. Root-slack controls select300 K/1 bar,700 K/250 bar and
+300 K/250 bar to distinguish sign/root limits;these source tests do not
+add a general scientific phase-stability proof.
+
+Additional PR water/H2(vapor-only) and water/TEG(liquid-only) fixtures,
+all binary interactions0,call Teq initialization at300 K/100000 Pa and
+assert bubble/dew products were not constructed. They do not solve or
+assert a phase fraction/composition. Their critical data (water647 K,
+H2 33.2 K,TEG797 K) are test inputs until original ordinary provenance
+is admitted. Cases with exclusive phase membership cannot be promoted to
+full two-phase physical qualification from these helper checks.
+
+Native D02/D03 requires selected fugacity/incipient-state products,
+phase/component membership and availability,actual reference/temperature
+coordinates,cubic root choice,physical equilibrium/stability versus smoothed
+continuation meaning,dimensions and domain/derivative checks. Ordinary
+property/correlation provenance,unselected EOS/form combinations and full
+independent physical phase/flash/component qualification remain required.
+Only source/AST inspection and finite-grid arithmetic ran;no EOS,external
+root,phase-equilibrium or solver execution was performed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
