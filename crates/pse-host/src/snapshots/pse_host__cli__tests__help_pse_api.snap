@@ -14,18 +14,20 @@ Arguments:
 Options:
   -C <checkout>
 
-      --search <SEARCH>
-          Case-insensitive name/documentation search
+      --export-jsonl <EXPORT_JSONL>
+          Export deterministic JSONL facts from an already acquired artifact into a new directory
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
-      --target <TARGET>
-          Explicit target triple; default is the pinned rustc's observed host
+      --search <SEARCH>
+          Case-insensitive name/documentation search
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
-      --kind <KIND>
-          [possible values: function, struct, enum, union, trait, type-alias, constant, static, module, macro, other]
+      --target <TARGET>
+          Explicit target triple; default is the pinned rustc's observed host
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+      --kind <KIND>
+          [possible values: function, struct, enum, union, trait, type-alias, constant, static, module, macro, other]
       --input <INPUT>
 
       --where <WHERE_SHAPES>
@@ -80,8 +82,8 @@ Options:
   -C <checkout>
 
 
-      --search <SEARCH>
-          Case-insensitive name/documentation search
+      --export-jsonl <EXPORT_JSONL>
+          Export deterministic JSONL facts from an already acquired artifact into a new directory
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -95,11 +97,17 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
-      --target <TARGET>
-          Explicit target triple; default is the pinned rustc's observed host
+      --search <SEARCH>
+          Case-insensitive name/documentation search
 
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --target <TARGET>
+          Explicit target triple; default is the pinned rustc's observed host
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --kind <KIND>
           Possible values:
@@ -114,9 +122,6 @@ Options:
           - module:     A module declaration
           - macro:      A declarative or procedural macro
           - other:      Another rustdoc declaration, retained without guessing its kind
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --input <INPUT>
 

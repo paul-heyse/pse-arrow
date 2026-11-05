@@ -9,9 +9,11 @@ Usage: pse inspect [OPTIONS] <--result <RESULT>|--source <SOURCE>>
        pse inspect <COMMAND>
 
 Commands:
+  dependency-usage    Observe written references to exact Cargo package IDs in a prepared native world
   comparison          Compare explicitly addressed source, API, retained context or native world evidence
   schema              Navigate an explicitly supplied complete descriptor set, or compare schema worlds
   payload             Explain selected binary, JSON or textproto payloads without invoking an RPC
+  developer-evidence  Export source-generated observations from original private workflow evidence
   outline             Read written declarations or document headings without semantic preparation
   declaration         Read a known declaration, literal item, position or exact original range
   origin              Inspect the declared authored owner of an exact generated-source hit
@@ -90,9 +92,11 @@ Usage: pse inspect [OPTIONS] <--result <RESULT>|--source <SOURCE>>
        pse inspect <COMMAND>
 
 Commands:
+  dependency-usage    Observe written references to exact Cargo package IDs in a prepared native world
   comparison          Compare explicitly addressed source, API, retained context or native world evidence
   schema              Navigate an explicitly supplied complete descriptor set, or compare schema worlds
   payload             Explain selected binary, JSON or textproto payloads without invoking an RPC
+  developer-evidence  Export source-generated observations from original private workflow evidence
   outline             Read written declarations or document headings without semantic preparation
   declaration         Read a known declaration, literal item, position or exact original range
   origin              Inspect the declared authored owner of an exact generated-source hit
