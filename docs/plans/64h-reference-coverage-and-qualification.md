@@ -534,6 +534,15 @@ receiving states have different products; parser combinations and repeated
 zero-extent tests do not qualify general selective/reactive separation.
 Ordinary data and independent full-output execution remain required.
 
+**Update, 2026-11-05 — generic reactor census:** the
+[reactor closure](64h-required-process-population.md#generic-reactor-mechanism-and-scientific-fixture-closure--2026-11-05)
+resolves extent-only, CSTR, PFR, rate-zero/equilibrium and Gibbs mechanisms,
+actual saponification geometry/flow/scaling selections and two Gibbs
+specifications. Irreversible rate-zero, PR inert construction and stationary
+Gibbs equations retain their evidence limits; nonnormalized combustion feed
+and complete physical/stability mapping remain explicit. Ordinary data and
+independent numerical/dynamic qualification remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

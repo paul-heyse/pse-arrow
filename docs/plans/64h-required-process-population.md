@@ -4484,6 +4484,82 @@ parameter provenance, nonzero reaction/phase-selectivity cases, wider valid
 configurations and independent native/reference execution remain required.
 Source/AST inspection ran no separator, flash or initializer.
 
+## Generic reactor mechanism and scientific-fixture closure — 2026-11-05
+
+**Interface-checked, source only:** C `models/unit_models/{stoichiometric_reactor,
+cstr,plug_flow_reactor,equilibrium_reactor,gibbs_reactor}.py` and
+`tests/{test_cstr,test_pfr,test_equilibrium_reactor,test_gibbs,
+test_gibbs_scaling}.py` resolve five different reaction mechanisms. They
+must retain their own admissible configuration and actual physical problem;
+conversion, residence/geometry, rate-zero and chemical-potential stationarity
+are not interchangeable reactor policies.
+
+| Mechanism | Configuration defaults and actual physical closure |
+|---|---|
+| Stoichiometric | Inherited CV dynamic/holdup, package-default material/energy, pressureTotal, no heat/pressure/reaction-heat terms by default. Always adds rate-reaction stoichiometry, then exposes extent without a rate×volume law. A user conversion/extent specification is necessary. HDA/methanol/SOEC consumers above provide the actual finite scientific cases and different heat conventions; this file does not make them one kinetic reactor family. |
+| CSTR | Inherited dynamic/holdup CV, always rate reactions; equilibrium/phase equilibrium, heat transfer, pressure change and reaction heat defaultFalse. Extent equals volume×receiving-state reaction rate for every declared rate reaction. Dynamic=True requires holdup and consistent property density/energy inventories and initial conditions; the steady fixture below does not qualify that branch. |
+| PFR | Inherited dynamic/holdup 1D CV, always rate reactions; equilibrium/phase-equilibrium and heat/pressure/reaction-heat flags defaultFalse. Distributed extent per length equals local rate×area; volume=area×length. Default mesh[0,1],20 finite elements, backward finite differences; configured collocation method/scheme/points needs its actual compatible derivative transformation, not a blind Cartesian product of strings. The selected test is steady with those default20 elements. |
+| EquilibriumReactor | Explicit steady/no-holdup domains. Rate and equilibrium reaction flags both defaultTrue; property/reaction package must actually support whichever are selected. The rate branch enforces **rate=0**, while equilibrium branch delegates its equilibrium relations. No volume or finite residence time is determined. Phase equilibrium, heat/pressure/reaction-heat flags defaultFalse. Setting a forward-only kinetic rate to zero does not construct a reversible thermodynamic equilibrium constant. |
+| GibbsReactor | Explicit steady/no-holdup, total **element** balances (no selectable component material balance), package-default energy and pressureTotal, heat/pressure change defaultFalse. Requires elemental composition and species Gibbs functions with a consistent formation datum; no reaction package/kinetic law is supplied. It constructs chemical-potential/Lagrange stationarity for every noninert phase-component. Inert list defaults empty; invalid species refuses, multiphase inerts get phase-wise balances while a redundant single-phase inert balance can be omitted when an element balance already determines it. A stationary solution is not by itself a stable/global equilibrium certificate. |
+
+Balance selectors are passed into the CV owners, so unsupported total/phase/
+element or energy/momentum equations still require the CV/property guards.
+Heat references exist only when both requested and the selected energy
+balance is not none; pressure references likewise depend on momentum.
+Reaction-heat inclusion and species formation enthalpies must be mapped per
+package. Omitting an energy or momentum balance does not invent a prescribed
+temperature/pressure, and inherited dynamics do not qualify unavailable
+state-density hooks. Gas/solid and enzyme dynamic consumers retain their
+separate already-declared inventories and science.
+
+The finite saponification comparison uses C
+`properties/examples/{saponification_thermo,saponification_reactions}.py`:
+one liquid, water/NaOH/ethyl acetate/sodium acetate/ethanol; constant
+water density55388 mol/m3, Cp75.327 J/(mol K), reference298.15 K/101325 Pa.
+The sole reaction consumes one NaOH and ethyl acetate, produces one sodium
+acetate and ethanol, water inert. Second-order concentration rate uses
+prefactor3.132e6 m3/(mol s), activation43000 J/mol and heat−49000 J/mol.
+All coefficients are inline teaching inputs; no measured rate dataset or
+training artifact ships with these consumer tests.
+
+| Selected saponification experiment | Actual specification and source targets |
+|---|---|
+| CSTR | Flow1e-3 m3/s, volume1.5e-3 m3; feed303.15 K/101325 Pa, water55388, reactants100 each and products1e-8 mol/m3. Heat/reaction heat/pressure-change enabled with duty0/deltaP0, no equilibrium reactions. TargetT304.09 K, ester20.32 mol/m3, pressure101325 Pa, each abs.01 in its units. |
+| PFR | Same feed composition/T/P, but **flow1 m3/s**, length .5 m, area .1 m2 (volume .05 m3), heat0/deltaP0. TargetsT303.6 K and ester62.29 mol/m3, abs.01. This differs by flow/residence and geometry as well as mixing; it is not a matched CSTR-versus-PFR experiment at equal residence time. |
+| Rate-zero vessel | Same1e-3 m3/s feed as CSTR, no volume, explicitly has_equilibrium_reactions=False with rate branch active, heat0/deltaP0 and reaction heat enabled. TargetT304.32 K and ester .01 mol/m3 at abs.01. Its irreversible rate-zero limit nearly exhausts a reactant; this fixture is not independent reversible chemical-equilibrium data. |
+| Scaling perturbations | CSTR and both old/new rate-zero scaler tests first initialize the case, then change flow to1 m3/s, NaOH200, ester100, sodium acetate50, ethanol1e-8 mol/m3 and feed320 K. CSTR retains .0015 m3 volume. Source asserts successful solve and scaled Jacobian conditions499.72(CSTR),10300(old equilibrium scaler),218.88(new), rel.001. These are additional inputs with numerical-conditioning products, not new validated kinetics or independent physical outputs. Initializer fixtures also use exact-zero products and value guesses rather than permanently fixed feeds. |
+
+Gibbs combustion consumes C `activity_coeff_models/methane_combustion_ideal.py`,
+its inline ideal-gas caloric/formation/element data for H2/N2/O2/CO2/CH4/CO/
+H2O/NH3. The main fixture fixes230 mol/s,1500 K,101325 Pa with fractions
+.0435/.6522/.1739/1e-5/.1304/1e-5/1e-5/1e-5: **sum1.00004**.
+No inert species are selected, so nitrogen can participate in NH3 equilibrium.
+Outlet pressure lower bound1000 Pa and phase fractions lower bound1e-12
+protect logs in the primary fixture; these are part of readiness. One
+specification fixes outlet2844.38 K and solves heat; a later stage releases
+temperature and fixes heat−7454077 W. Source target flow250.06 mol/s,
+CO/CO2/H2/H2O/N2/O2 fractions about
+.097367/.022591/.10301/.17691/.59989/.00024128, CH4≈0(abs1e-4),
+NH3≈0(abs1e-5). Fixed-T and fixed-duty guards use different rounded
+flow/species allowances; original energy checks are relative1e-6 and
+absolute1e-4 W respectively. Preserve all species and original elemental
+checks independently of those rounded targets and solver termination.
+
+The separate natural-gas PR construction selects eleven components
+H2/CO/H2O/CO2/CH4/C2H6/C3H8/C4H10/N2/O2/Ar, with N2/Ar inert,
+and checks the remaining H/C/O multiplier set only. It supplies no feed or
+solved combustion target and is not an eleven-species scientific solve.
+Dummy inert/dependency cases are structural controls. Scaling/initializer
+owners repeat the eight-species state with distinct guesses/holds and
+solver options; they do not qualify broader inert lists or gas equilibrium.
+
+Native D03/D04/E02 requires each mechanism's rate/extent/element and
+energy meaning, selected geometry/inventory, full state/species products,
+original atom/energy and domain/stability controls. Ordinary coefficients,
+normalization disposition, reversible-equilibrium data, remaining inherited
+admissible/refusal cases and complete independent numerical/derivative/
+dynamic qualification remain required. Only source/AST inspection ran.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
