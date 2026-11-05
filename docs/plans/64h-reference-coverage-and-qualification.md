@@ -506,6 +506,16 @@ micropoise conversion, initialization-only constants and ordinary provenance
 remain separate from method and consumer qualification. No transport model
 or exchanger was executed for this declaration.
 
+**Update, 2026-11-05 — pure-method census:** the
+[caloric/density/saturation closure](64h-required-process-population.md#caloric-density-and-saturation-pure-method-closure--2026-11-05)
+resolves seven fixture families, phase/datum and unit conventions,
+formation-inclusion choices, Perrys density dispatch/refusal and saturation
+derivative conditions. Synthetic equation2 density and permittivity controls
+remain distinct from ordinary physical data; two-point method fixtures do
+not supply broad fluid validity or assembled consumer qualification.
+Independent numerical/derivative evidence and ordinary provenance remain
+required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

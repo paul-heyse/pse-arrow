@@ -4323,6 +4323,58 @@ unselected callback/invalid-domain controls and independent numerical
 qualification remain required. The census ran AST/source reads only, not
 transport expressions or the assembled exchanger.
 
+## Caloric, density and saturation pure-method closure — 2026-11-05
+
+**Interface-checked, source only:** C `modular_properties/pure/{ConstantProperties,
+NIST,Perrys,RPP3,RPP4,RPP5,electrolyte}.py` and their corresponding tests
+define seven distinct source-fixture families below. Each test's `frame`
+owns its inline coefficient set and reference state. These are dummy
+expression fixtures, not fluid state/EOS solves or a universal water
+parameter catalog. No external table/file, trainer, saved initialization or
+solver is required to evaluate these selected expressions. Their ordinary
+physical parameter provenance and admissible envelope remain separate.
+
+| Family | Selected input/observable population and distinctions |
+|---|---|
+| Constant properties | Synthetic liquid/ideal-gas/solid caloric roles at reference300 K, evaluated at300/400 K, plus301 K enthalpy controls. Cp values75.7042953333/29.11485/100 J/(mol K), liquid/solid density55204.6332735/100000 mol/m3; h reference−285830/0/−300000 J/mol and s reference69.95/0/50 J/(mol K). Each phase enthalpy has formation-included/excluded branches; entropy remains its own reference-plus-Cp integral. Liquid viscosity .00089 Pa s and conductivity .598 W/(m K) at300/400 K. These phase coefficients are one synthetic test object, not a physically certified three-phase substance. |
+| NIST | Water Shomate coefficient fixture, Cp/h/s at500/600 K, formation inclusion True/False for h; h formation datum−241826.4 J/mol. Shomate's F/G/H constants set caloric offsets; this method does not integrate from the dummy temperature_ref298.15 K. Antoine A/B/C=3.55959/643.748/−198.043, base10 pressure in bar, evaluates saturation500/379 K and dPsat/dT500/373.15 K. Caloric and saturation coefficient envelopes must be separately admitted; merely sharing the component name does not establish one broad range. |
+| Perrys | Liquid-water Cp/h/s fixture at273.16/533.15 K, reference273.16 K, h/s formation−285830 J/mol and69.95 J/(mol K), h formation True/False. Liquid density at273.16/333.15 K with equation1 parameters5.459/.30542/647.13/.081, using kmol/m3 for its first parameter. Direct equation1 and selector1 are duplicate mathematical selections with distinct dispatch controls. Direct equation2 uses the **same numeric coefficients with polynomial density units**, producing4.99375e10/7.48194e10 mol/m3. That is a synthetic equation-dispatch control, not plausible water density. Selector3 is explicitly refused. |
+| RPP3 | Water-like vapor polynomial at298.15/400 K, reference273.15 K. Coefficients are in the method's cal/(mol K) convention; formation h/s are−57797 cal/mol and45.13 cal/(mol K). Enthalpy includes/excludes formation; saturation at298.15/373.15 K uses natural exponential with mmHg output and denominator T[K]+C. A/B/C=18.3036/3816.44/−46.13. Critical metadata647.3 K/21.76 MPa is present but is not an input to this Antoine law. |
+| RPP4 | Separate vapor polynomial in J/(mol K), same temperature/reference selections, formation−241830 J/mol and188.84 J/(mol K). Saturation uses critical T647.3 K/P22.12 MPa and four reduced-temperature coefficients−7.76451/1.45838/−2.77580/−1.23303. This fractional-power form needs its subcritical temperature domain; it is not interchangeable with an Antoine correlation above critical temperature. |
+| RPP5 | Separate five-term Cp/R polynomial at298.15/400 K, reference273.15 K, h/s formation−241810 J/mol and188.84 J/(mol K). Saturation Antoine A/B/C=5.11564/1687.537/230.14 uses base10/bar with **T[K]−273.15+C**, unlike NIST's Kelvin denominator. Critical metadata647.15 K/22.064 MPa does not alter that selected Antoine formula. |
+| Constant liquid permittivity | Synthetic relative permittivity101 at500/600 K, dimensionless and temperature independent. This tests configured constant retrieval, not water/alcohol dielectric science or a temperature response. Actual electrolyte solvent data belong to the eNRTL cases above. |
+
+NIST and all three RPP saturation derivative tests compare the analytic
+derivative with a forward difference using deltaT1e-4 K at two specified
+temperatures. Their `pytest.approx(dPdT,1e-4)` second positional argument is
+a **relative** allowance. It is not an independent experimental derivative
+dataset, an automatic-differentiation Hessian qualification or an absolute
+1e-4 Pa/K control. Preserve both the analytic original relation and the
+selected finite-difference conditions when mapping native derivative
+products. Caloric source assertions have method/observable-specific
+tolerances; named test functions retain those exact values rather than a
+single blanket water-property tolerance.
+
+The coefficient conventions are materially different: RPP3 calories versus
+RPP4 dimensional coefficients versus RPP5 dimensionless Cp/R, NIST scaled
+temperature in1000 K, and Perrys' legacy bare Cp coefficients interpreted
+on its J/(kmol K) basis. Supplied quantity units are converted by their
+builders; blindly renaming coefficient keys or reusing numbers across
+families changes science. Turning off enthalpy formation does not remove
+entropy references. Log/reciprocal/Antoine poles, fractional critical powers,
+positive T/density and phase-specific method availability require actual
+admission/failure behavior, not inferred validity from unconstrained dummy
+variables or zero residuals at a pair of test points.
+
+Native D02/D03 requires each selected method/phase/coefficient unit and
+caloric datum, observable and derivative request, numerical envelope,
+unavailable-property/refusal behavior and original analytic consistency.
+These source fixtures cannot be ordinary coefficients merely because a
+reference function consumes them. Component-specific literature records,
+full selected consumer configurations, independent expression/derivative
+and process qualification remain required. This declaration executed only
+source/AST reads, not the property expressions.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
