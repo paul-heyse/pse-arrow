@@ -412,116 +412,19 @@ fn compiled(
     limit: usize,
     options: &buffa::DecodeOptions,
 ) -> Result<Option<(Preview, Validation)>, SchemaError> {
-    if world == CompiledWorld::DeveloperEvidence {
-        use crate::developer_evidence_contracts::pb::pse::developer::evidence::v1 as pb;
-        return match name {
-            "pse.developer.evidence.v1.CapturedWorkflowReport" => {
-                Some(static_preview::<pb::CapturedWorkflowReport>(
-                    input, encoding, depth, limit, options,
-                ))
-            }
-            "pse.developer.evidence.v1.CapturedWorkflowEvidence" => {
-                Some(static_preview::<pb::CapturedWorkflowEvidence>(
-                    input, encoding, depth, limit, options,
-                ))
-            }
-            "pse.developer.evidence.v1.NativeWorkflowReport" => {
-                Some(static_preview::<pb::NativeWorkflowReport>(
-                    input, encoding, depth, limit, options,
-                ))
-            }
-            "pse.developer.evidence.v1.WorkflowReportObservation" => {
-                Some(static_preview::<pb::WorkflowReportObservation>(
-                    input, encoding, depth, limit, options,
-                ))
-            }
-            "pse.developer.evidence.v1.WorkflowTerminalRecord" => {
-                Some(static_preview::<pb::WorkflowTerminalRecord>(
-                    input, encoding, depth, limit, options,
-                ))
-            }
-            _ => None,
-        }
-        .transpose();
+    match world {
+        CompiledWorld::DeveloperEvidence => crate::developer_evidence_contracts::dispatch!(
+            name,
+            static_preview,
+            (input, encoding, depth, limit, options)
+        ),
+        CompiledWorld::CodeIntelligence => crate::code_intelligence_contracts::dispatch!(
+            name,
+            static_preview,
+            (input, encoding, depth, limit, options)
+        ),
     }
-    use crate::code_intelligence_contracts::pb::pse::code_intelligence::v1 as pb;
-    macro_rules! dispatch { ($($ty:ident),+ $(,)?) => { match name { $(concat!("pse.code_intelligence.v1.", stringify!($ty)) => Some(static_preview::<pb::$ty>(input, encoding, depth, limit, options)),)+ _ => None }.transpose() }; }
-    dispatch!(
-        ContextGuard,
-        SourceSelector,
-        Predicate,
-        BooleanGroup,
-        Negation,
-        TextQuery,
-        SyntaxQuery,
-        SymbolQuery,
-        ApiQuery,
-        StructuredQuery,
-        HistoryQuery,
-        GuardedReference,
-        Related,
-        Refinement,
-        Refine,
-        AnswerDemand,
-        Request,
-        Count,
-        Location,
-        OriginalEvidence,
-        SourceFact,
-        ApiFact,
-        ApiDefinition,
-        PredicateFact,
-        Failure,
-        NativeCancellationObservation,
-        Observation,
-        Terminal,
-        Control,
-        Event,
-        NativeQuery,
-        NativeImportTarget,
-        NativeWorkspaceQuery,
-        NativeRequest,
-        NativeConfiguration,
-        NativeAnalysisContext,
-        NativeSessionStatus,
-        NativeLibraryProfile,
-        NativeSourceHash,
-        NativePackageContext,
-        NativePackageRequest,
-        NativePackageContextAnswer,
-        NativePackageReply,
-        NativePosition,
-        NativeRange,
-        NativeByteLocation,
-        NativeProtocolLocation,
-        NativeLocation,
-        NativeSymbolFact,
-        NativeRelationshipFact,
-        NativePredicateFact,
-        NativeImportabilityFact,
-        NativeLazyCandidate,
-        NativeTestCandidate,
-        NativeObservedFacts,
-        NativeOmittedRelationship,
-        NativeSection,
-        NativeCandidateHandle,
-        NativeSourceIdentity,
-        NativeTypeFact,
-        NativeTargetFact,
-        NativeBoundFact,
-        NativeTypedFacts,
-        NativeProducerContext,
-        NativeEditCandidate,
-        NativeFileOperation,
-        NativeConflict,
-        NativePlaceholder,
-        NativePreview,
-        NativeSourceText,
-        NativeAnswer,
-        NativeWorkspaceAnswer,
-        NativeControl,
-        NativeEvent
-    )
+    .transpose()
 }
 fn static_preview<T: buffa::Message + DeserializeOwned + ReflectMessage + Validate>(
     input: &[u8],
@@ -1138,6 +1041,122 @@ mod tests {
         assert_eq!(report.representation, "generated_static");
         assert_eq!(report.validation.state, "violations");
         assert!(matches!(report.preview, Preview::Message { .. }));
+    }
+    #[test]
+    fn schema_payload_generated_dispatch_covers_complete_selected_families() {
+        let options = buffa::DecodeOptions::default();
+        for (world, bytes, prefix) in [
+            (
+                CompiledWorld::CodeIntelligence,
+                crate::code_intelligence_contracts::DESCRIPTORS,
+                "pse.code_intelligence.v1.",
+            ),
+            (
+                CompiledWorld::DeveloperEvidence,
+                crate::developer_evidence_contracts::DESCRIPTORS,
+                "pse.developer.evidence.v1.",
+            ),
+        ] {
+            let bundle = Bundle::from_bytes("compiled".into(), bytes.to_vec()).unwrap();
+            let mut count = 0;
+            // This inventory comes from the independent published descriptors, not
+            // the emitted Rust traits used by the facade generator.
+            for message in bundle.pool.messages().iter().filter(|message| {
+                message.full_name().starts_with(prefix)
+                    && !message
+                        .options()
+                        .is_some_and(|options| options.map_entry.unwrap_or(false))
+            }) {
+                assert!(
+                    compiled(
+                        world,
+                        message.full_name(),
+                        &[],
+                        Encoding::Binary,
+                        0,
+                        0,
+                        &options
+                    )
+                    .unwrap()
+                    .is_some(),
+                    "{}",
+                    message.full_name()
+                );
+                count += 1;
+            }
+            assert!(count > 5);
+            assert!(
+                compiled(
+                    world,
+                    "google.protobuf.Empty",
+                    &[],
+                    Encoding::Binary,
+                    0,
+                    0,
+                    &options
+                )
+                .unwrap()
+                .is_none()
+            );
+        }
+        assert!(
+            compiled(
+                CompiledWorld::CodeIntelligence,
+                "pse.developer.evidence.v1.CapturedWorkflowReport",
+                &[],
+                Encoding::Binary,
+                0,
+                0,
+                &options
+            )
+            .unwrap()
+            .is_none()
+        );
+    }
+    #[test]
+    fn schema_payload_generated_dispatch_extends_required_rules_and_unknown_fidelity() {
+        let options = buffa::DecodeOptions::default();
+        let (_, validation) = compiled(
+            CompiledWorld::CodeIntelligence,
+            "pse.code_intelligence.v1.NativeGraphAnswer",
+            &[],
+            Encoding::Binary,
+            2,
+            16,
+            &options,
+        )
+        .unwrap()
+        .unwrap();
+        // The authored graph result independently requires session and traversal.
+        assert_eq!(validation.state, "violations");
+        assert!(validation.correction.is_some());
+        for wire in [&[8, 123, 0xa0, 0x06, 9][..], &[0xa0, 0x06, 9, 8, 123][..]] {
+            let (preview, validation) = compiled(
+                CompiledWorld::CodeIntelligence,
+                "pse.code_intelligence.v1.NativeGraphRole",
+                wire,
+                Encoding::Binary,
+                2,
+                16,
+                &options,
+            )
+            .unwrap()
+            .unwrap();
+            assert_eq!(validation.state, "passed");
+            let Preview::Message {
+                fields, unknown, ..
+            } = preview
+            else {
+                panic!();
+            };
+            assert!(matches!(
+                &fields.iter().find(|field| field.number == 1).unwrap().value,
+                Preview::Enum(123)
+            ));
+            assert_eq!(unknown.len(), 1);
+            assert_eq!(unknown[0].number, 100);
+            assert_eq!(unknown[0].wire_kind, "varint");
+        }
     }
     #[test]
     fn schema_payload_source_world_uses_same_validator_without_presentation() {

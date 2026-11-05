@@ -106,6 +106,20 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
     let destination = PathBuf::from(destination);
     let mut tree = GeneratedTree::empty(vec![destination.clone()]);
     collect(output.path(), output.path(), &destination, &mut tree)?;
+    if destination.ends_with("code-intelligence") {
+        let dispatch = super::proto_dispatch::generate(
+            &tree,
+            &destination,
+            "crate::code_intelligence_contracts::pb",
+        )?;
+        let path = destination.join("dispatch.rs");
+        anyhow::ensure!(
+            !tree.files.contains_key(&path),
+            "supplier collides with compiled dispatch: {}",
+            path.display()
+        );
+        tree.files.insert(path, dispatch);
+    }
     for file in files {
         let origin = pse_codegen::codegen::provenance::SourceRelationship {
             declaration_key: file.clone(),

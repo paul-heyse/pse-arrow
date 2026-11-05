@@ -10,6 +10,10 @@ pub mod pb;
 #[rustfmt::skip]
 #[allow(unused_qualifications, elided_lifetimes_in_paths, trivial_numeric_casts, unreachable_pub, missing_docs, reason = "Pinned validator generator spelling and private packaging modules")]
 mod validation;
+#[path = "generated/code-intelligence/dispatch.rs"]
+#[rustfmt::skip]
+mod dispatch;
+pub(crate) use dispatch::dispatch;
 /// Generated service contracts and reusable typed client bindings; no listener is started.
 #[rustfmt::skip]
 #[allow(unused_qualifications, elided_lifetimes_in_paths, trivial_numeric_casts, missing_debug_implementations, missing_docs, reason = "Pinned service generator public surface and generated helpers")]
