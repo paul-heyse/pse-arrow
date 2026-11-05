@@ -356,6 +356,14 @@ ordinary data admission,native correspondence andindependent numerical
 qualification remain required;the shared kernel andconstructor bounds do
 not establish phase stability or an operating validity envelope.
 
+**Update, 2026-11-05 — PR fit/phase-diagram consumer census:** the
+[fitting/curve closure](64h-required-process-population.md#ionic-liquid-pr-fitting-and-txy-consumer-closure--2026-11-05)
+resolves the actual18-row/three-temperature IL dataset,state-block fixed/free
+fit roles andordered interactions,andthe distinct25-point Ideal BT diagram.
+Source count/prose mismatches,caloric units andthehelper'somitted failures
+remain explicit. Native fit/curve products,ordinary data provenance andexact
+independent numerical/solver acceptance remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

@@ -2829,6 +2829,85 @@ All source tables remain oracle inputs until ordinary provenance/envelopes
 areadmitted,andnative ragged phases/methods/output mapping andindependent
 scientific execution remain open. AST/source reads executed no EOS orsolver.
 
+## Ionic-liquid PR fitting and T–x–y consumer closure — 2026-11-05
+
+**Interface-checked, source only:** X `docs/properties/
+parameter_estimation_pr{,_doc,_test,_usr}.ipynb`, `CO2_IL_298.csv` and
+`dictionary_txy_diagrams{,_doc,_test,_usr}.ipynb` resolve two distinct
+scientific consumers. The first fits ordered PR interactions forCO2–bmimPF6;
+the second generates an Ideal BT phase diagram. They share modular property
+infrastructure,not fluid physics or scientific data. C `core/util/
+phase_equilibria.py` is the diagram's recursive computation/plotting helper.
+
+The PR CSV has **18** records,six each at283.15,298.15 and323.15 K,not the
+nineteen claimed in notebook prose or a single298 K dataset implied by its
+filename. Columns aretemperature,pressure,x_carbon_dioxide,x_bmimPF6.
+Pressure spans202299.43..1214713.75 Pa,liquid CO2 .020368132..246765331;
+each liquid pair sums exactly1 inparsed values. These are temperature,
+liquid-composition andpressure observations,not an inlet/outlet stream table.
+Original measurement/noise/source provenance isnot established by the CSV;
+retain it asreference fitting input until ordinary admission isresolved.
+
+Despite flash wording/imports,the complete `PR_model` builds a **state block**
+with core `CO2_bmimPF6_PR.configuration`,FTPx,1 mol/s,Liq-only IL andCO2
+inboth phases. It initially fixes datasetT/P andoverall CO2=x_liquid_CO2+.5,
+IL=1−that value. Diagonal kappa are0,ordered IL→CO2/CO2→IL initialize−.047/.002
+(different from the core fixed-fit−.4071/.0206). It initializes,then fixes
+the dataset'stwo liquid compositions andoverall IL toits observed liquid
+fraction,unfixes pressure andoverall CO2,andbounds the two ordered unknowns
+at[−5,5]. Preserve this actual fixed/free construction;do not substitute a
+feed-at-measured-composition flash orsymmetrize kappa. Unknown order is
+kappa[IL,CO2] thenkappa[CO2,IL].
+
+One Experiment per row labels **pressure alone** asoutput,with
+measurement_error=None;liquid fractions andtemperature aretreated asexact
+inputs. The shared two interactions areconstant across allthree temperatures.
+Estimator selectsSSE and`theta_est()`;there isno covariance,bootstrap,
+holdout or fitted-parameter numerical assertion inthese four wrappers.
+The printed objective multiplies rawSSE by1e-7 only atdisplay time;that isnot
+an objective weight used by the estimator. A separate test dict at298 K,
+812323 Pa,CO2/IL .14/.86 builds/solves a0-DOF model,butthe pressure isfreed
+by the same helper. Its observed pressure is an initial value,not a hard
+constraint on the resulting bubble-pressure calculation. Source asserts
+zero DOF only;it doesnot assert optimal termination orpressure residual.
+Reference Ipopt,cubic-root library andPyomo Experiment-interface compatibility,
+parameter identifiability/residual units,native constrained-equilibrium fit
+mapping andindependent numerical qualification remain open.
+
+The T–x–y notebook authors its own two-component BT dictionary:FTPx,Ideal
+liquid/vapor,SmoothVLE,IdealBubbleDew andfugacity equality;Perrys liquid
+density/enthalpy andRPP4 ideal-gas enthalpy/saturation. Reference is300 K/
+100000 Pa,unlike core BT's298.15 K/101325 Pa. Temperature bounds150..450 K,
+initial300 K;pressure bounds50000..1e6 Pa. Its liquid Cp coefficients are
+declared J/(kmol Kⁿ),e.g.benzene129 andtoluene140 for theconstant term,
+rather than J/(mol Kⁿ). Preserve theactual factor1000 caloric distinction
+before admitting ordinary data orclaiming whole-property equivalence;the
+diagram's bubble/dew result doesnot qualify its caloric values.
+
+The actual diagram call requests25 binary compositions at101325 Pa,flow1
+mol/s,initial/state temperature150.15 K,solver tolerance1e-6,nofigure-name,
+legend on andpressure legend off. C `Txy_data` builds adefined state,
+initializes atbenzene .99/toluene .01,thenuses25 linearly spaced benzene
+fractions **descending .99→.01**,with toluene1−benzene. Temperature remains
+fixed150.15 K whilebubble/dew auxiliary temperatures arecalculated;it isnot
+a vapor/liquid coexistence stream at150.15 K. The requested grid excludes
+pure endpoints. Generic extra components,whenpresent,arefixed1e-5 each and
+subtract from the second component;that is a separate trace-mixture behavior,
+not a true binary diagram or a selected fixture here.
+
+`Txy_diagram` passes its default solver=None to`Txy_data`,overriding the
+latter's direct-call default ipopt_v2;freeze theactual selected solver/version
+for reproduction. The helper tests optimality perpoint,but**omits failed
+points** from returned arrays andplots. Local qualification must retain all25
+requested inputs,their outcomes andfailed/missing-point dispositions;an
+attractive shortened curve isnot completed denominator evidence. The four
+notebook wrappers have no numerical diagram assertions. Bubble/dew branch
+availability,property/phase validity,complete curve correspondence andnative
+point/plot product mapping remain required. The CSV,inline property table,
+initial guesses andgenerated plot/fit outputs retain separate roles;noother
+datafile,trainer orsaved initialization isloaded by these consumers. Reads
+andstdlib CSV/JSON inspection executed no estimator,EOS,diagram orsolver.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
@@ -2856,7 +2935,7 @@ each consumer's originating point/step/coverage and required-versus-optional pro
 
 | Required demand / owner | Exact upstream case/configuration and dependency closure | Native/data/reference decision needed |
 | --- | --- | --- |
-| NRTL and PR inference — G02/D02 | X register rows 11/12 NRTL state-block/flash using `docs/param_est/BT_NRTL_dataset.csv`; row 37 CO2–bmimPF6 PR flash fitting using `docs/properties/CO2_IL_298.csv`; C `apps/uncertainty_propagation/examples/NRTL_model_scripts.py` | Shared parameters across experiments, experimental state/basis/noise mapping, bounds and covariance/identifiability demands must be explicit. The datasets have different scientific roles from feed data. Native fitting starting surfaces do not establish either complete parameter recovery or appropriate uncertainty. |
+| NRTL and PR inference — G02/D02 | X register rows 11/12 NRTL state-block/flash using `docs/param_est/BT_NRTL_dataset.csv`; row 37 CO2–bmimPF6 PR state-block fitting (despite flash prose) using `docs/properties/CO2_IL_298.csv`; C `apps/uncertainty_propagation/examples/NRTL_model_scripts.py` | Shared parameters across experiments, experimental state/basis/noise mapping, bounds and covariance/identifiability demands must be explicit. The datasets have different scientific roles from feed data. Native fitting starting surfaces do not establish either complete parameter recovery or appropriate uncertainty. |
 | Local uncertainty/sensitivity — G03/G01 | [C uncertainty examples][uncertainty]: Rooney–Biegler and NRTL fits, optimized output andthe NRTL control named infeasible (source says feasible); `sens.py`/`uncertainties.py` | Exact covariance/derivative convention and optimized reference point are prerequisites. Preserve infeasible/ill-conditioned outcomes;the named feasible control does not establish them. This source does not establish general Bayesian, robust or Monte Carlo equivalence; selected broader native methods have extension evidence. |
 | Robustness population — G03/H04 | [V robustness][robustness] CSTR, flash, Gibbs/equilibrium reactors, HX0D, isothermal pressure changer, each with JSON baseline/source configuration; e.g. flash declares 200 Latin-hypercube samples | Imported JSON baseline statistics are historical observations, not a zero-failure waiver. Need actual realized input population, bounds/sampler/version, initialization and failed-case policy; a sampling count is not a configuration count. Do not silently drop failed samples. |
 | PySMO training/evaluation/embedding — G04 | C polynomial/RBF/kriging and sampling tests; X `pysmo_basics`, reformer flowsheet, best-practices utility `mod/surrogates/AR_training_methods.py`; X `docs/surrogates/reformer-data.csv` and PySMO `data_files/` | Preserve fitted family, terms/kernel/options, scaling, train/validation split, domains, persisted JSON, evaluation outputs, equation embedding and optimization separately. Inspect remaining benchmark/helper variants before closing the population. |
