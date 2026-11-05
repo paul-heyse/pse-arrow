@@ -330,6 +330,14 @@ that source issue remains explicit. Native transport/speciation,data admission,
 remaining configuration branches andindependent numerical qualification are
 open;an equilibrium column orgeneric separator does not close this family.
 
+**Update, 2026-11-05 — legacy activity-property census:** the
+[BT activity closure](64h-required-process-population.md#legacy-activity-property-configuration-closure--2026-11-05)
+resolves24 syntactic parameter selections and24 actually authored state roles
+across twelve selections. NRTL/Wilson construction/DOF tests use synthetic
+interaction defaults;fitted VLE is separate required science. Placeholder
+liquid density,lazy property readiness,remaining selections,ordinary input
+admission andnative/independent numerical acceptance remain open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

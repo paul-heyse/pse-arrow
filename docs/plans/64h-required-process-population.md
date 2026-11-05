@@ -2559,6 +2559,81 @@ D02/D04/F04 obligations. Source Ipopt/default-solver skip decorators do not
 carry into the fail-never-skip parity policy;exact pinned-environment and
 independent numerical execution remain open.
 
+## Legacy activity-property configuration closure — 2026-11-05
+
+**Interface-checked, source only:** C
+`models/properties/activity_coeff_models/{activity_coeff_prop_pack,
+BTX_activity_coeff_VLE}.py` andthe four `tests/test_ideal_{ideal_FTPz,
+ideal_FcTP,NRTL,Wilson}.py` resolve the legacy BT activity-property selection.
+The parameter domain is exactly three liquid models Ideal/NRTL/Wilson,two
+state interfaces FTPz/FcTP andfour phase presentations Liq,Vap,(Vap,Liq),
+(Liq,Vap):24 syntactic parameter selections. The two phase tuple orders have
+the same selected physics;they do not add separate fluids. Defaults are
+Ideal,FTPz,(Vap,Liq). Parameter constructor acceptance alone does not establish
+that every lazy property,initializer andconsumer works for every selection.
+
+The actual source population has twelve parameter selections:Ideal with both
+state interfaces andthree physical phase choices,plus NRTL/Wilson with FTPz
+andthe same three phase choices. Each has defined-state andreceiving-state
+fixtures,24 roles in total. NRTL/Wilson FcTP,reverse phase ordering andother
+operating points remain required explicit dispositions. Ideal FTPz repeats
+these roles in both class fixtures andnew-initializer functions;Ideal FcTP
+has a separate six-role initializer class. Those API paths are evidence
+routes,not extra scientific experiments.
+
+All selected state points are368 K/101325 Pa,benzene/toluene .5/.5 and1 mol/s.
+FcTP fixes .5 mol/s ofeach component. Defined FTPz states fix both fractions;
+receiving FTPz states fix benzene .5 andsolve toluene from normalization.
+Single-phase selections explicitly disable phase equilibrium;requesting it
+with only Liq orVap raises a configuration error. A two-phase package still
+constructs flash equations when its state flag says no phase equilibrium;
+that flag alone is not a no-flash scientific selection. Single-phase
+NRTL/Wilson tests verify absence ofactivity-coefficient equations anddo not
+exercise nonideal liquid fugacity or equilibrium calculations there.
+
+Ideal cases actually initialize/solve andcompare phase fractions orcomponent
+phase flows. The two-phase source targets liquid/vapor benzene fractions
+.4121/.6339 (absolute tolerance1e-3);FcTP targets benzene phase flows
+.2488/.2512 mol/s. These are different coordinate products ofthe selected
+point,not separately fitted data. The flash uses smooth bubble/dew clamping
+with eps1=.01 K/eps2=.0005 K,fugacity equality andan equilibrium temperature;
+physical state temperature andequilibrium temperature must not be conflated.
+No global stability/supercritical certificate follows from the smooth solve.
+
+The NRTL/Wilson modules contain construction,input/DOF andunit-consistency
+checks,not numerical initializer/solve orfitted-property assertions. NRTL
+two-phase fixtures fix alpha at its initial .3 andtau at1;Wilson fixes molar
+volumes at1 m³/mol andtau at1. These are synthetic defaults,not accepted BT
+interaction/density data. Receiving two-phase states retain six NRTL orfour
+Wilson DOF because those interaction parameters remain free. NRTL tau here is
+a dimensionless direct interaction variable,with no selected temperature-law
+coefficient fit. Fitting/uncertainty notebooks with measured VLE andshared
+parameters are a separate G02/G03 population;their dataset andestimation
+conditions cannot be inferred from these constructors.
+
+Only benzene andtoluene are actual component objects/equilibrium members.
+The additional o-xylene master-table entries do not select a ternary fluid.
+Inline critical data,molecular weights,saturation coefficients,phase caloric
+polynomials andformation enthalpy/entropy use the package's298.15 K/101325 Pa
+reference. Vapor density is ideal-gas;liquid molar density is explicitly a
+placeholder11100 mol/m³ with a source warning. Native inventory/pressure-drop
+orheat-exchanger density science cannot be accepted from that placeholder;
+ordinary density admission andmatched alternative science remain explicit
+owner decisions. The lazy vapor internal-energy method also references
+`temperature_ref` while this BT parameter owner declares
+`temperature_reference`;retain this property-readiness gap separately from
+tested phase-split behavior. Property metadata lists pressure bubble/dew
+methods butthis owner defines only temperature bubble/dew builders;metadata
+is not executable coverage.
+
+There is no selected data file,trainer or external-function EOS input in
+these four core tests. Ordinary coefficients andvalidity envelopes still
+need original provenance. Reference Ipopt/ipopt_v2 compatibility,full caloric/
+derivative/density products,single-phase nonideal properties,remaining
+parameter selections andnative NRTL/Wilson correspondences remain open.
+AST/source reads established selections andtest roles only;no property model
+or solver was executed andno upstream skip policy is adopted.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
