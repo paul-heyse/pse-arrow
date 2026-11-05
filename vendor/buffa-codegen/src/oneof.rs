@@ -606,6 +606,10 @@ pub fn generate_oneof_enum(
         quote! {}
     };
 
+    let schema_names = schema_variant_names(
+        &rust_enum_ident,
+        variants_info.iter().map(|variant| &variant.variant_ident),
+    );
     let oneof_fqn = format!("{}.{}", proto_fqn, oneof_name);
     let oneof_doc =
         crate::comments::doc_attrs_resolved(ctx.comment(&oneof_fqn), proto_fqn, &ctx.type_map);
@@ -674,6 +678,7 @@ pub fn generate_oneof_enum(
         #debug_derive
         #arbitrary_derive
         #large_variant_allow
+        #schema_names
         #custom_type_attrs
         #custom_oneof_attrs
         pub enum #rust_enum_ident {
@@ -931,6 +936,25 @@ pub(crate) fn oneof_variant_deser_arm(
 /// rejects at parse time.
 fn oneof_enum_ident(oneof_name: &str) -> proc_macro2::Ident {
     format_ident!("{}", to_pascal_case(oneof_name))
+}
+
+/// Preserve schema vocabulary when an alternative repeats its oneof's name.
+/// The exception belongs only to those enums, for both owned and borrowed output.
+pub(crate) fn schema_variant_names<'a>(
+    owner: &proc_macro2::Ident,
+    variants: impl IntoIterator<Item = &'a proc_macro2::Ident>,
+) -> TokenStream {
+    let owner = owner.to_string();
+    if variants.into_iter().any(|variant| {
+        let variant = variant.to_string();
+        variant.starts_with(&owner) || variant.ends_with(&owner)
+    }) {
+        quote! {
+            #[allow(clippy::enum_variant_names, reason = "Protocol Buffers alternatives retain their schema-defined names")]
+        }
+    } else {
+        TokenStream::new()
+    }
 }
 
 /// Compute oneof enum identifiers for all non-synthetic oneofs in a message.

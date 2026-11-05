@@ -796551,6 +796551,10 @@ pub mod __buffa {
                 #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
                 use super::*;
                 #[derive(Clone, Debug)]
+                #[allow(
+                    clippy::enum_variant_names,
+                    reason = "Protocol Buffers alternatives retain their schema-defined names"
+                )]
                 pub enum Kind<'a> {
                     Accumulator(
                         ::buffa::alloc::boxed::Box<
@@ -798936,6 +798940,10 @@ pub mod __buffa {
             #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
             use super::*;
             #[derive(Clone, PartialEq, Debug)]
+            #[allow(
+                clippy::enum_variant_names,
+                reason = "Protocol Buffers alternatives retain their schema-defined names"
+            )]
             pub enum Kind {
                 Accumulator(
                     ::buffa::alloc::boxed::Box<

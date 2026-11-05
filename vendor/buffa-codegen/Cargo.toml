@@ -59,6 +59,10 @@ path = "tests/feature_gating_compile.rs"
 name = "shared_pool_compile"
 path = "tests/shared_pool_compile.rs"
 
+[[test]]
+name = "schema_names"
+path = "tests/schema_names.rs"
+
 [dependencies.buffa]
 version = "0.9.2"
 features = [

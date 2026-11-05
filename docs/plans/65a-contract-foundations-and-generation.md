@@ -581,13 +581,13 @@ Prost/Tonic protocol route without converting every external message to Buffa in
 
 ## Packages and readiness
 
-All statuses are **planned**. Dependencies describe available products, not whole-document barriers.
+The table records current delivery state. Dependencies describe available products, not whole-document barriers.
 
 | Package | Status | Consumes → delivers | Migration, deletion and targeted acceptance |
 | --- | --- | --- | --- |
 | A01 | complete | Actual native baseline, 65i I01/65j J01 design inputs, proposed ADR-0241 and scoped independent assessment | Pure source-owned graph/macros/adoption extracted; owner implementations and all callers/generators moved; old foundation and temporary aliases deleted. Tests: contract 8/8, model 27/27, codegen 25/25, diagnostics 2/2; workspace all-target check zero errors/warnings. Integrated snapshot is 7e35abae2; H qualification remains separate. |
 | A02 | in-progress | Working A01 field/method semantics → versioned typed metadata option schema and owner emission | All three selected worlds publish typed owner/field/action/method options and all 20 native facet keys. Shared lossless acquisition/checking and native crossing helpers moved to independent pse-contract-proto; replaced implementation/comments/sidecar removed. Source-selected coverage, unknown policy/schema and original-pool controls pass. Native field-shape meaning, domain semantic normalization and independent host policy/readback remain in progress with A05/G02/J02. |
-| A03 | in-progress | A02 metadata plus declared effective feature settings → complete and runtime contract-world artifacts | Five source-derived worlds now reference their byte-identical published binary descriptors instead of escaped Rust literals. Complete effective feature application and separate full/runtime artifact publication. Test nondefault features against generated/reflected semantics, runtime compaction preserving typed options, full-source retention and immutable old-world readers. |
+| A03 | in-progress | A02 metadata plus declared effective feature settings → complete and runtime contract-world artifacts | Six source-derived worlds publish effective runtime and source-aware binary descriptors; independent nondefault-feature/typed-option controls and selected host acquisition checks pass. Complete remaining acquisition consumers and immutable old-world-reader obligations. Preserve full-source retention, effective semantics and unknown options through every selected route. |
 | A04 | planned | A03 closed worlds → shared generation composition for all four initial boundary populations | Integrate Buffa, packaging, validation, Connect and selected external Prost generation. Remove repeated module/descriptor assembly and hand-kept plugin naming maps. Test warning/refusal propagation, orphan companions, duplicate filenames, excluded packages and exact import identity. |
 | A05 | in-progress | A01–A04 narrow working slice plus B01/B02 adoption policy → complete native/protocol correspondence for selected populations | Selected host/engineering/worker/reference adapters and completion observations are delivered; the complete passive native Recipe source graph is integrated, with its targeted controls and remaining codec work owned by 65e. Complete native request/fact families, domain-owned document boundaries, and c/f/g consumer projections. Inventory actual remaining maps; classify semantic checks explicitly and remove all replaced mechanical maps. Test native→wire→native against independently constructed expected meaning, raw paths and missing/unknown alternatives. |
 | A06 | planned | Current registry/function owners plus A02/A03 → source-declared selected storage/Arrow projection metadata consumed by C packages | Reuse source facts without decoding ProtoJSON or inferring database behavior from field spelling. Delete duplicate selected field/schema declarations with producer/consumer migration. Preserve transactional/domain-specific logic; test precise numeric, relationship and mapping-version changes. |
@@ -618,6 +618,21 @@ projection. A05 is complete only for its actual declared migration population, n
 message. A01/A02 changes cannot create a second generic graph or authorize arbitrary peer schemas.
 
 ## Verification and completion
+
+The 2026-11-05 consolidation removes three remaining engineering wire mirrors by consuming
+the existing generated `encode_engineering_source_outcome` and `encode_engineering_contract`
+adapters, including method effects. Producer validation and the original response allocation
+owner remain at publication. A05 still owns the remaining actual maps and producer population.
+
+The pinned Buffa generator derives a oneof enum and its alternatives directly from schema
+names; its `type_name_prefix` excludes oneofs, and `oneof_attributes` currently reaches owned
+enums only. Preserve the domain term `EntityKind`: the maintained generator emits a reasoned
+style exception only when an owned/view oneof alternative repeats its enum name. This is no
+global generated-module allowance and changes no descriptors, tags or data conversion. Exact
+mechanisms and affected/unaffected generator controls are characterized in
+[the maintained profile](../../vendor/buffa-codegen/pse-patch.md#schema-defined-oneof-names),
+[owned emission](../../vendor/buffa-codegen/src/oneof.rs) and
+[view emission](../../vendor/buffa-codegen/src/view.rs).
 
 **Proposed verification:** contract-owner and generator tests cover declaration correspondence,
 effective feature semantics, typed options, recursion, imports and precise failure attribution.

@@ -996,6 +996,18 @@ fn generate_oneof_view_enum(
         return Ok(TokenStream::new());
     }
 
+    let schema_variants = fields
+        .iter()
+        .map(|field| {
+            field
+                .name
+                .as_deref()
+                .map(crate::oneof::oneof_variant_ident)
+                .ok_or(CodeGenError::MissingField("field.name"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let schema_names = crate::oneof::schema_variant_names(base_ident, &schema_variants);
+
     // View-oneof enums share the owned oneof's identifier (no `View` suffix)
     // — the `__buffa::view::oneof::` tree position disambiguates. They live
     // at depth `msg_nesting + 4` (sentinel + view + oneof + msg_path).
@@ -1088,6 +1100,7 @@ fn generate_oneof_view_enum(
 
     Ok(quote! {
         #debug_derive
+        #schema_names
         pub enum #base_ident #generics {
             #(#variants,)*
         }

@@ -744,7 +744,7 @@ feos-core = "FeOS reference oracle closure (see feos)"
 quantity = "FeOS reference oracle closure (see feos)"
 salsa = "pse-compiler consumes unstable memory_usage, and the exact vendored source supplies opt-in descendant cancellation groups for native analysis. Revisit with both compiler accounting and isolated/native descendant cancellation controls; ordinary clone behavior must remain unchanged."
 buffa = "Maintained 0.9.2 opt-in pre-growth logical view decoder allocation accounting; update with buffa-codegen and exact generated decoder controls before changing this qualified source profile. See vendor/buffa/pse-patch.md."
-buffa-codegen = "Companion of the maintained buffa 0.9.2 allocation-accounted view profile; default generation remains unchanged. See vendor/buffa-codegen/pse-patch.md."
+buffa-codegen = "Companion of the maintained buffa 0.9.2 allocation-accounted view profile; decoder accounting stays opt-in, with narrow schema-name style attributes on owned/view oneofs. See vendor/buffa-codegen/pse-patch.md."
 ra_ap_ide_db = "The compatible native analyzer family consumes the vendored request_snapshot cancellation-group bridge. Revisit with coherent family, original IDE navigation/reference and authenticated cancellation qualification."
 
 # Resolved normal-dependency closures, checked by family-check (blueprint §3.1).

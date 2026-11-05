@@ -41,3 +41,16 @@ scripts/pse-env -- scripts/pse test pse-codegen:buffa_allocation
 
 Use approved checkout activation and an actual user-systemd scope; no shared
 target directory, upstream acceptance or universal memory bound is claimed.
+
+## Schema-defined oneof names
+
+Owned and borrowed oneof enums preserve the schema's alternative names. When an
+alternative repeats its enum's name as a prefix or suffix, the generator emits a
+reasoned `clippy::enum_variant_names` exception on that enum alone. This preserves
+terms such as `Kind::EntityKind` without changing descriptors, tags, wire names,
+types, encoders or decoders. Other generated enums receive no such exception.
+The shared policy is in `src/oneof.rs`, with borrowed emission in `src/view.rs`;
+`tests/schema_names.rs` checks both affected forms and unaffected controls through
+the same workspace-owned supplier-control target. The
+allocation fixture's stock-output comparison above is scoped to its descriptors;
+schema-name collision cases deliberately add only this Rust style attribute.
