@@ -2093,6 +2093,112 @@ required closure. Ephemeral AST/CSV/JSON/ZIP checks established2800×15 data,
 wrapper correspondence,actual file gaps/truncation andlayer metadata; no fit,
 artifact evaluation,optimization or native scientific case was executed.
 
+## Core neural and ONNX formulation population — 2026-11-05
+
+**Interface-checked, source only:** C
+`core/surrogate/tests/{test_keras_surrogate,test_onnx_surrogate}.py` selects
+four Keras artifacts andone supplied ONNX artifact,plus five synthetic ONNX
+activation cases. Their owners are `keras_surrogate.py`,`onnx_surrogate.py`,
+`omlt_base_surrogate_class.py`,`surrogate_block.py` andscaling utilities.
+These configurations preserve exact evaluation/representation/solver roles,
+not a claim that every architecture/activation/formulation combination works.
+
+Keras artifact basenames are `T_data_1_10_10_2_{sigmoid,relu}` and
+`PT_data_2_10_10_2_{sigmoid,relu}` under `tests/data/keras_models`.
+Every model has two10-node hidden layers with the named activation andtwo
+linear outputs EnthMol/VapFrac. ZIP metadata identifies Keras3.2.1,saved
+2024-04-18; it does not establish current compatibility. The actual loader
+`load_keras_json_hd5` reads `.keras` **andthen `.weights.h5`**,overlaying
+weights. Same-basename architecture JSONs are shipped but not read by this
+loader. Freeze both executable artifacts per case rather than assuming the
+`.keras` weights alone determine the reference. Input/output labels,scalers
+andbounds come from the test's inline declarations,not a missing sidecar.
+
+| Exact Keras case | Inputs,formulation and actual witness |
+|---|---|
+| `test_keras_evaluate`,four models |T-only points365/370/375 K; PT points(360 K,1.05 atm),(370 K,1.10 atm),(380 K,1.15 atm),where1 atm=101325 Pa. Two predicted outputs at every point are compared to fixed upstream network outputs with rtol/atol1e-4. These are four artifact-evaluation configurations,not independent thermodynamic measurements. |
+| Auto-created variables,sigmoid |Each of T/PT uses full-space smooth and reduced-space smooth OMLT,Ipopt;fixed365 K andPT pressure111457.5 Pa. Four formulation cases. |
+| Auto-created variables,ReLU |Each of T/PT uses ReLU complementarity with Ipopt andReLU big-M with GLPK. Four more cases; NLP/complementarity andMILP are separate backend demands. No claim of globally solved nonlinear design follows from fixed-input feasibility. |
+| Supplied-variable mapping |PT sigmoid/full-space/Ipopt at365 K,111457.5 Pa repeated through five mappings: scalar inputs,indexed input group,scalar outputs,indexed output group,andboth supplied inputs/indexed outputs. These are distinct positional/ownership controls for the same science. |
+| Round-trip |PT sigmoid save/load with generated `idaes_info.json`,then identical three-point evaluation andthe fixed365 K/111457.5 Pa full-space solve. Files are temporary outputs of this test,not independent training inputs. |
+| No scaler |PT sigmoid uses raw network inputs(.5,.5),labels still Temperature_K/Pressure_Pa,bounds[−3,3] each,with no physical scaling. Full-space Ipopt matches raw network evaluation. This is a representation control,not .5 K/.5 Pa thermodynamics. |
+
+There are15 explicit Keras solver sites in these selected functions (eight
+automatic formulations,five supplied-variable mappings,round-trip,no-scaler).
+They compare embedded outputs to direct Keras predictions andassert optimal
+termination. A constant objective is used; none optimizes a physical process.
+Constructor refusals cover mismatched input/output scaler labels,bounds keys
+andunknown formulation string. Model format/layer/activation restrictions
+must also be established against exact installed TensorFlow/Keras/OMLT.
+
+Physical-domain mapping uses T360–380 K andPT pressure101325–121590 Pa.
+T-only input offset/factor369.873737/5.776343; output offsets
+(59519.621464,.556033),factors(14805.365235,.432934). PT input offsets
+(369.983611,111421.319811),factors(5.836047,5917.954504); output offsets
+(54599.629980,.403307),factors(14654.226615,.430181). Exact order and
+per-column scaling are mandatory. OMLT scales declared input bounds before
+formulation; big-M bounds are not optional cosmetic metadata. Expected
+sigmoid predictions include VapFrac−.001982489 and1.002572366 for PT and
+1.000048027 for T-only. Preserve network correspondence while separately
+dispositioning physical fraction validity; clipping/renormalizing is a model
+change andcannot silently become oracle behavior.
+
+`tests/data/create_keras_models.py` supplies the separate training source
+closure: `T_data.csv`100 rows at101325 Pa,T360–380 K,and`PT_data.csv`10000
+rows across101325–121590 Pa/T360–380 K. Six CSV columns include liquid/vapor
+enthalpies,but only mixture EnthMol/VapFrac are trained. Script sets Keras
+random seed42,first80/20 data split,mean/std scalers from the80% training/
+validation partition,then Keras validation_split .2 andbatch16. Thus T uses
+64 train/16 internal validation/20 test; PT6400/1600/2000. T sigmoid/ReLU
+epochs1000/500;PT200/50,Adam/MSE. Best-validation checkpoints are not reloaded
+before saving final models/weight overlays. Data-generating science,original
+units/provenance,current trainer reproducibility andthe relation of a new
+fit to frozen inline scaler constants remain separate obligations; no
+retraining occurs during the artifact/embedding tests themselves.
+
+The supplied ONNX case is `tests/data/onnx_models/net_Calcite_ST.onnx` plus
+`net_Calcite_ST_idaes_info.json`. Twelve ordered inputs are feed_pH,
+pressure_bar_feed,Na,Cl,Ca,Mg,HCO3,SO4,K,Sr,Ba,HCl;only pressure's unit is
+explicit in its label,so chemical-concentration/output units andthe original
+calibration domain still need source admission. Metadata bounds are pH4–12,
+pressure1–406.32,Na0–135.99,Cl0–180,Ca/Mg/HCO3/Sr0–10,SO4 0–100,
+K0–40,Ba0–.1,HCl0–2000. Input offsets are pH4/pressure1/others0;
+factors are those respective span widths. Output Calcite_ST offset0/factor98.19.
+
+Both manual construction andsave/load round-trip embed **reduced-space**
+OMLT andsolve with Ipopt at pH9.5,pressure1.01325,Na .230858556000748,
+Cl .106701648328453,Ca .0245274696499109,Mg .0311348703689873,
+HCO3 .430482141673564,SO4 .182204065,K .000500561,Sr .000761853,
+Ba .000025,HCl10. They assert Calcite_ST40.4270772546529 with .1%
+relative allowance. This is one physical-input probe with two construction/
+artifact-custody routes,not a trained geochemical equilibrium acceptance.
+`ONNXSurrogate.evaluate_surrogate` explicitly raises `NotImplementedError`;
+import/embedding must not be reported as standalone ONNX evaluation support.
+Exact graph/opset/layer compatibility andnative chemical-domain interpretation
+remain readiness/implementation work.
+
+Five parameterized construction cases synthesize a1→2→1 ONNX graph at
+opset13 with fixed weights/biases andinput[−1,1]: ReLU/big-M,Sigmoid/reduced,
+Tanh/reduced,Softplus/reduced,andLogSoftmax/reduced expected to refuse.
+They **patch OMLT's private activation allow-list in an autouse test fixture**;
+these cases therefore do not establish the unmodified production parser's
+support set. They construct formulations without numerical solves,anddo not
+exercise the supplied calcite graph's other declared formulations. Full-space,
+big-M andcomplementarity remain exposed ONNX roles whose actual compatible
+cases/backends must be selected rather than inferred from enum membership.
+
+Input closure comprises fourpaired Keras model/overlay artifacts,inline
+scalers/reference predictions,two optional training CSVs,the ONNX binary+
+metadata,andcore/OMLT/TensorFlow/Keras/ONNX/Ipopt/GLPK runtime dependencies.
+No ONNX Runtime is selected by the implementation's evaluation path; adding
+one would be a separate stage decision. Ordinary data,valid fraction/chemical
+domain,native representation/solver-class support andindependent numerical
+acceptance remain open G04 work. Upstream missing-dependency skip guards do
+not remove required cases. Ephemeral AST/CSV/JSON/ZIP checks confirmed4 layer
+artifacts,100/10000 training rows,15 Keras/two ONNX solve sites andfive
+activation parameter rows; no network import/evaluation,training orsolver run
+was performed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

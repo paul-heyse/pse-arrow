@@ -281,6 +281,16 @@ limitations neither authorize silent repairs nor remove required family/stage
 scope. Ordinary provenance/domain/held-out checks,native mapping andexact
 reference environment/execution remain open.
 
+**Update, 2026-11-05 — core neural/ONNX configured population:** the
+[representation census](64h-required-process-population.md#core-neural-and-onnx-formulation-population--2026-11-05)
+resolves fourKeras model/weight-overlay closures,15 actual formulation/mapping
+solve sites,training source roles,the supplied12-input calcite ONNX probe
+andfive activation construction rows. Direct/embedded network agreement is
+separate from valid vapor fractions orgeochemical acceptance; patched parser
+tests do not prove production activation coverage. ONNX standalone evaluation
+is explicitly unimplemented. Native formulation/backend/domain correspondence,
+exact reference dependencies andindependent execution remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
