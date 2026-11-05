@@ -4649,6 +4649,8 @@ exact formulations/holds rather than being counted by class name.
 
 Distributed HX1D fixtures share length4.85 m,transfer area .5 m2,U500
 W/(m2 K),zero pressure drop unless their selected CV says otherwise.
+The distributed and shell/tube IAPWS fixtures explicitly select LG phase
+presentation, distinct from the lumped/default PH-water presentations above.
 Their complete finite selections are:
 
 | HX1D case | Feeds and source hot/cold outlet targets |
