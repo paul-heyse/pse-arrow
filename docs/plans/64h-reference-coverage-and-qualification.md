@@ -710,6 +710,25 @@ percentage behavior and calculation bypasses remain explicit. Ordinary
 account/price/finance provenance,native mappings and complete independent
 lifecycle qualification remain required;H01/G06 are open.
 
+**Update, 2026-11-05 — PETSc/control census:** the
+[chemistry/steam/controller closure](64h-required-process-population.md#petsc-chemistry-steam-pressure-control-and-controller-selectors--2026-11-05)
+resolves five-differential/one-algebraic chemistry initial data,three steam
+forcing cases and actual PID selectors/refusals. PETSc/ASL/trajectory-reader
+and water external-function closure is explicit;source skips confer no
+qualification. Ordinary normalized-chemistry and steam/control records,native
+initial-state/forcing correspondence and full trajectory/conservation checks
+remain required.
+
+**Update, 2026-11-05 — denominator handoff:** the
+[remaining population and readiness handoff](64h-required-process-population.md#next-closure-work-and-consumers)
+replaces the earlier broad uninspected-family list with seven bounded source/
+disposition products and exact unavailable versus unprepared prerequisites.
+Held NETL and selected archived process content stay retained;missing reformer
+metadata/historical reconciliation helper are distinguished from available
+source expansion. H01 is not complete. Existing H02/H03 ordinary comparisons
+and D02 native water consumers are the next executable boundary,followed by
+E01/E02's selected physical storage closure after ordinary science admission.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

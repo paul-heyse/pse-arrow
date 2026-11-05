@@ -144,7 +144,7 @@ E02/E03/E04 supply only the storage/distribution/cycle capability each row consu
 
 | Required scientific demand / owner | Exact source configurations and shipped consumers | Data / route / independent-reference prerequisite |
 | --- | --- | --- |
-| Steam/power equipment and integrated plant — F02 | [C power source][power]: `unit_models/{boiler_fireside,boiler_heat_exchanger,boiler_heat_exchanger_2D,heater_1D,cross_flow_heat_exchanger_1D,heat_exchanger_3streams,drum,drum1D,downcomer,waterwall_section,waterpipe,watertank,steamheater,feedwater_heater_0D,feedwater_heater_0D_dynamic,cpu,balance}.py`; `unit_models/helm` turbine inlet/stage/outlet/multistage, pump/compressor/mixer/splitter/steam valve/phase separator/condenser | Source-tree coverage is recorded, but per-unit categorical/test-instance expansion remains open. Preserve subcritical boiler/plant, supercritical steam cycle and SCPC full plant as distinct integrated cases, not a steam property evaluator witness. Requires correlation/surrogate data, geometry, steam phase presentation, pressure and work/heat sign, operating envelope and costing inputs. |
+| Steam/power equipment and integrated plant — F02 | [C power source][power]: `unit_models/{boiler_fireside,boiler_heat_exchanger,boiler_heat_exchanger_2D,heater_1D,cross_flow_heat_exchanger_1D,heat_exchanger_3streams,drum,drum1D,downcomer,waterwall_section,waterpipe,watertank,steamheater,feedwater_heater_0D,feedwater_heater_0D_dynamic,cpu,balance}.py`; `unit_models/helm` turbine inlet/stage/outlet/multistage, pump/compressor/mixer/splitter/steam valve/phase separator/condenser | Detailed equipment/plant sections below resolve the selected configurations and inline/artifact inputs; remaining inherited-balance and direct costing populations are identified in the final handoff. Preserve subcritical boiler/plant, supercritical steam cycle and SCPC full plant as distinct integrated cases. Ordinary correlation/geometry/property provenance,envelopes and independent native/reference acceptance remain required. |
 | NGCC — F02 | X `docs/power_gen/ngcc/ngcc.ipynb` → `mod/power_gen/ngcc.py` → `gas_turbine.py`, `hrsg.py`, `steam_turbine.py`; C natural-gas PR/flue-gas and Helmholtz steam units | Shipped `ngcc_init.json.gz`, `gas_turbine_init.json.gz`, `hrsg_init.json.gz`, `steam_turbine_init.json.gz` are reference initialization dependencies, not ordinary scientific truth. Notebook load sweep and generated tabulations are separate from initial design. Need exact serializer/core compatibility, load specifications and full subflowsheet/plant outputs. |
 | Fixed bed 0D — F03/E02 | C `gas_solid_contactors/unit_models/fixed_bed_0D.py`, `tests/test_FB0D.py::{TestIronOC,TestIronOC_EnergyBalanceType}` and `flowsheets/dyn_TGA_example.py` | Upstream requires dynamic=True and holdup=True. Gas/solid packages, reaction basis, initial solid inventory and enthalpy-total versus omitted-energy behavior need separate evidence; this is not a generic steady vessel. |
 | Fixed bed 1D — F03/E03 | [C fixed bed][fixed-bed]; forward/reverse flow, simple/Ergun pressure-drop law, heat/phase/reaction/energy options; `test_FB1D.py` selectors in E table | Reverse flow with collocation is rejected upstream. Finite-difference flow direction requires compatible upwind scheme; wrong direction/scheme is a refusal. Required native dynamic accumulation, reaction/no-reaction cases and original integrated conservation are not established by this investigation. |
@@ -1535,9 +1535,11 @@ fixtures: counterflow/contact/holdup; cocurrent/no-contact/no-holdup; each with
 interconnect; and no-contact interconnect heat-loss or exchange-current ports.
 Their axial/electrode/electrolyte/interconnect meshes and species differ from
 the replication benchmark; these build/unit checks are not solved voltage
-curves. Remaining submodel thermal/material-boundary, gas-holdup/dynamic,
-SOEC-design and X controller/operating-table/saved-initialization populations
-remain required and unresolved here.
+curves. Remaining submodel thermal/material-boundary and gas-holdup/dynamic
+test populations are identified in the final handoff. The later SOEC-design
+and modern controller sections resolve their source configurations,
+operating tables and saved-initialization roles;their execution/native
+acceptance remains required.
 
 No native matched SOC declaration/case was found in bounded process/reference
 inspection. E03/F05/G05 still require ordinary electrochemical/transport data,
@@ -3682,8 +3684,9 @@ noCSV,coaltrainer,saved-stateinput orphysicaltime trajectory isloaded by
 default. Original empirical/geometry/fluegas provenance,envelopes andsigned
 work/duty/boundary accounting remainordinary-source obligations. Native
 F02/D02/D04 needeachstandalone/coupled specification role,partialadmission,
-profile/conservation andproperdomain products. Archivedsupercritical wrapper
-comparison andremainingunitcategorical cases stillremainrequiredcensuswork.
+profile/conservation andproperdomain products. The later archived-wrapper
+section resolves the same core calls/science;wrapper disposition and the
+remaining inherited configuration work stay with the final handoff.
 Source/AST readsran noenthalpyfunction,network,serializer,initializer orsolver.
 
 ## Carbon purification surrogate configuration/input closure — 2026-11-05
@@ -5971,6 +5974,86 @@ checks;no native lifecycle equivalence or current-policy validity is
 established. The pinned reference environment and all ten presets remain
 required;this source census does not close G06 or H01.
 
+## PETSc chemistry, steam-pressure control and controller selectors — 2026-11-05
+
+**Interface-checked, source only:** X `docs/dae/{petsc_chem,petsc_pid}.ipynb`,
+`mod/dae/petsc/pid_steam_tank.py`,C `core/solvers/{features,petsc}.py`,
+`tests/{test_petsc,test_petsc_pid}.py` and
+`models/control/{controller.py,tests/test_controller.py}` resolve E02/G05
+source inputs. These are distinct from the enzyme NMPC and SOC controller
+families above. No DAE,controller,external property function or solver ran.
+
+The chemistry benchmark uses five differential concentrations and one
+algebraic concentration over0–180 min;the notebook requests10 backward
+finite-difference elements,but integrates the whole interval with PETSc
+Crank–Nicolson,adaptive basic stepping,initial step.01 and saved trajectory.
+Source reaction constants are18.7,.58,.09,.42,equilibrium34.4,mass-transfer
+3.3,algebraic multiplier115.83,gas-input scalar.9 andHenry scalar737.
+The five differential initial values are(.444,.00123,0,.007,0);
+algebraic consistency gives y6=.35999964. Rates involve y1⁴√y2,
+y3y4,y1y5,y1y4² andy6²√y2,so positivity/domain and consistent initialization
+matter. The source's `pCO2` name alone does not establish the gas/species
+identity or physical units of every coefficient. This is an explicitly
+normalized benchmark until its cited Chemical Akzo Nobel test-set source is
+independently admitted;do not invent elemental conservation for y labels.
+
+Its six endpoint targets are(.1150794920661702,.001203831471567715,
+.1611562887407974,.0003656156421249283,.01708010885264404,
+.004873531310307455),with relative1e-3 notebook assertions. These stored
+targets are oracle data,not fresh reference execution or native allowances.
+The notebook also requests all six trajectories and181 one-minute
+interpolated samples. Endpoint agreement cannot qualify the fast initial
+y2 transient or interpolation accuracy. C's separate algebraically equivalent
+test helper embeds y6 in the indexed state array,fixes its unused derivative
+and replaces constantH by an unindexed variable/equality. It adds consistent
+skip-initial-solve and split/rejoined-trajectory controls;the latter compares
+y2/y5 at101 points with absolute1e-4. That altered representation is a
+structural/trajectory control,not a second chemical mechanism.
+
+| Steam PI case | Exact physical-time and forcing selections |
+|---|---|
+| Shared plant / controller | IAPWS95 PH,liquid/vapor presentation;two steady no-holdup valves around a dynamic2m3 adiabatic heater/tank. Component-total material balance and inherited enthalpy/pressure closure;explicit vapor volume-fraction relation. Feedh50000J/mol,upstream500000Pa,downstream101325Pa,both Cv=.001mol/(sPa),outlet valve opening1. Each valve uses squared-pressure-difference flow law,not generic linear-pressure law. Flow100mol/s is an initialization guess. |
+| Shared PI specifications | Tank pressure target300000Pa;inlet opening is manipulated,initial opening1 fixed and later openings free. Proportional1e-6/Pa,integral1e-5/(Pa s),bias0,smooth output limits0–1 with default smoothing1e-4. Initial physical derivatives fixed0;initial integral is calculated to match the supplied initial manipulated value. Neither zero integral nor zero inventory is the initial condition. |
+| Constant boundary | Notebook0–12s,one backward element;PETSc backward Euler,initial step.1,saved trajectory. Request opening and tank-pressure histories. |
+| Smooth ramp | Fresh0–24s model,one element;explicit time variable initially fixed0. Upstream pressure smoothly clamped from500000 to600000Pa over10–12s with slope50000Pa/s. Same PETSc settings. The smooth min/max transitions have their own residual meaning. |
+| Segmented ramp | Fresh0/10/12/24s grid,three elements. Only the12s representative pressure constraint is active and that pressure free;other segment representatives fixed500000/600000Pa. Explicit time drives a linear ramp in the middle interval. This has different breakpoint handling from the smooth-clamp model. |
+| Core integration control | C requests0–24s,five backward elements and integration boundaries first/third-grid-point/last. It interpolates25 one-second outputs,checks inlet pressure at5/20s,tank target at9/22s,and reconstructs final vapor material/energy derivatives. Those few assertions do not establish complete inventory/energy conservation or every transient output. |
+
+The plant helper contains no CSV,trained model orinitial-state cache. Its
+recursive closure is IAPWS95/Helmholtz executable+water data,Heater/Valve/
+control-volume/arc/state-propagation,PID controller,Pyomo DAE and legacy
+Ipopt initialization,then the IDAES ASL `petsc` executable and PETSc
+SNES/TS adapters. Saved trajectories additionally require matching
+`PetscBinaryIOTrajectory`, `PetscBinaryIO` and `petsc_conf` helpers,whether
+importable or found alongside the executable. They are not supplied merely
+by a Python `petsc4py` installation. Exact binary/data/helper/PETSc versions
+and core2.13/examples compatibility remain to freeze at execution. Generated
+trajectory JSON/binary/variable maps are outputs,not original physical data.
+Upstream skips for missing PETSc and notebook skip metadata cannot become
+passes or exclusions in the required parity population.
+
+The released controller admits P/PI/PD/PID;unbounded,smooth-clamped or
+logistic output;no antiwindup,conditional integration orback-calculation;
+calculated versus supplied initial integral;and derivative on negative PV
+(default) versus error. It requires dynamic operation and explicit referenced
+PV(Var/Expression)/MV(Var). Antiwindup is refused without integral action or
+with unbounded output. The finite unit fixtures select defaultPI,P,PD,PID,
+PID derivative-on-error,logisticPID,smoothPD,conditional-integration smoothPI
+and back-calculation logisticPID,with separate dimensional consistency checks.
+Their synthetic PV meters/MV kelvin and component counts establish equations
+and units,not a tuned physical control response. Default bounded-output
+limits.05/1,logistic steepness4,conditional steepness200 and gain_b.1/time
+must not overwrite the steam case's actual0/1 limits and chosen gains.
+
+E02/G05 ordinary owners must supply independent water/datum,Cv/vessel and
+controller provenance;map original inventories,fluxes,initial integral,
+forcing breakpoints,physical time and demanded raw/interpolated products at
+the native temporal/control owners. Complete state/rate/algebraic residual,
+positivity,inventory/energy closure,step/refinement,controller saturation/
+antiwindup and native/reference trajectory checks remain required. These
+smooth and prescribed segment examples do not qualify arbitrary event/reset
+sensitivity,MHE or all admissible controller combinations. H01 remains open.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
@@ -6018,9 +6101,9 @@ each consumer's originating point/step/coverage and required-versus-optional pro
 | Modern HDA/custom/methanol helpers | Required with the consuming cases. Local `mod/hda`, `mod/methanol`, `mod/properties`, reactor `egprod_ideal.py`, `egprod_reaction.py`, `msr_reaction.py` and custom liquid-extraction modules must accompany the reference source. Modular and legacy HDA formulations cannot be declared duplicates without a scientific correspondence. |
 | Modern power helpers and saved initialization | Required with NGCC/SOC cases. Nested helper imports identified above and shipped compressed initialization are reference prerequisites. Generated stream CSVs, plots and solver transcripts are outputs, not original physical input data. Serializer compatibility and all recursively loaded files remain execution-readiness work. |
 | Modern surrogate helper/data/artifacts | Required selected training/evaluation/embedding/optimization stages. `AR_training_methods.py` itself imports TensorFlow and multiple trainer families; a helper import can require more than the notebook's chosen fitted family. Reformer/sCO2 datasets, JSON/`.keras` metadata/scaling and local property code are separate input artifacts; obsolete pickle compatibility is not assumed. |
-| Held NETL-32D fixed-bed notebook | Required, held execution: `held/flowsheets/CO2_adsorption_desorption/CO2_Adsorption_Desorption_1DFixedBed.ipynb` → `mod/co2_adsorption_desorption/{NETL_32D_gas_phase_thermo,NETL_32D_solid_phase_thermo,NETL_32D_adsorption_reactions,simulation_utilities}.py` plus core fixed bed/PETSc. This is not zeolite TSA0D and cannot be deduplicated into that row. Resolve adsorption/desorption input profiles, inventory transfer, parameters and PETSc compatibility. |
+| Held NETL-32D fixed-bed notebook | Required, held execution: exact local gas/solid/reaction/simulation helpers,adsorption/desorption profiles,parameters and inventory handoff are resolved in its section above. Core fixed-bed/PETSc compatibility,ordinary scientific records and native/reference trajectory/inventory acceptance remain open. This is not zeolite TSA0D and cannot be deduplicated into that row. |
 | Archived reconciliation: boiler, economizer parmest/reconciliation | Conditional supplemental source selection remains open; scientific reconciliation is already mandatory G02 behavior. Detailed statistical/input roles above are resolved,including250 complete/250 empty raw rows,reconciled fitting inputs,26 parameter groups and12-case boiler loop. Missing historical DMF helper and exact2.13 compatibility remain explicit prerequisites;no science is excluded. |
-| Archived NGFC, rSOFC/SOEC, SOEC, SOFC, combined SOFC/SOEC, subcritical boiler | Conditional archived entry-point selection; released core power/SOC behavior remains required above. Models/ROMs/helper data may differ from modern cases; content equivalence and all nested prerequisites have not been established. No blanket duplicate/exclusion declaration. |
+| Archived NGFC, rSOFC/SOEC, SOEC, SOFC, combined SOFC/SOEC, subcritical boiler | Source contents and actual physical/ROM/costing/dispatch input closures are inspected in the detailed archived sections;distinct ROM weights,SOEC material/geometry/reaction laws and electrolysis-only rSOFC use are preserved. Archived entry-point adoption remains conditional and coordinator-owned;required released process behavior stays required. Exact environment/serializer compatibility and independent science/native mappings are unqualified. No blanket duplicate/exclusion declaration. |
 | Archived supercritical plant/steam-cycle entry points | Scientific comparison above resolves identical core calls/inputs and the same .25 throttle change; differences are resource/table imports. Same-case wrapper candidates await coordinator disposition. Core/modern plant cases remain required even if archived wrappers retire. |
 | Six archived MatOpt design families and C `apps/matopt` | Conditional supplemental whole-distribution track, outside the process-only equivalence claim. Retain materials-design scope for any later whole-release claim; no deletion or rejection of the library. |
 | Archived PECOS data quality | Conditional supplemental workflow; do not claim its application-specific data-quality behavior from native process inspection. |
@@ -6030,26 +6113,55 @@ each consumer's originating point/step/coverage and required-versus-optional pro
 
 ## Next closure work and consumers
 
-H01 remains open for the following concrete work; these are missing denominator
-and readiness products, not missing test passes to be replaced by a source-count claim:
+**Interface-checked handoff, 2026-11-05:** selected family sections now resolve
+the principal D–G models,actual shipped scientific specifications and recursively
+read numeric/data/helper roles. Solid-liquid/thickener,power units,grid,TSA,
+SOC benchmark/controller and modern/archived process examples are no longer
+uninspected families. This does **not** establish a complete released
+configuration denominator,executable reference readiness or scientific acceptance.
+The finite remaining source work is the following;API/scaling/test-count expansion
+is not itself additional science.
 
-1. Expand the inherited per-model admissible balance/dynamic/holdup configurations,
-   callable policies and actual parameterized scientific fixtures, including full
-   remaining fluid/configuration selections, solid-liquid/thickener, power units, SOC, grid and
-   surrogate benchmarks. Record physically invalid/unsupported combinations as
-   refusals. The tables preserve their mandatory owners while enumeration proceeds.
-2. Inspect all remaining archive contents and compare candidate wrappers scientifically.
-   Keep held required behavior separate from optional archived entry points. Reconcile
-   any actual scope change with A01/the coordinator before dropping a demand.
-3. Resolve complete helper/data/external-artifact closures for each first executable
-   case; freeze actual Python/solver/external-function/trainer versions. Source
-   accessibility does not qualify the examples/core environment. Original scientific
-   parameter provenance and ordinary-versus-oracle permission are B's source-owner work.
-4. Map the selected native declaration/case, fixed/free roles, envelope, physical
-   outputs, derivative/statistical products, comparison allowances and original
-   conservation/feasibility checks at the existing typed case/conformance/reference
-   owners. H02's ordinary recycle/HX correspondence remains its independent first-case
-   owner; this inventory does not replace it.
+| Remaining population product / owner | Exact bounded source work | Availability / dependency |
+|---|---|---|
+| Effective inherited balance matrix — D01/E01/H01 | Reconcile `core/base/control_volume_{0d,1d}.py` and their exact test modules with the per-unit selections above:implemented versus refused material/energy/momentum modes,steady/dynamic/storage,material basis,reaction/transfer,phase membership and property-default behavior. Existing unit guards and physical fixtures are retained;do not multiply all enum/Boolean values or invent solved dynamic cases. | Pinned source available. Remaining source/consumer analysis,not unavailable data. Cases requiring new ordinary physical specifications remain D/E work. |
+| Residual property/EOS consumers — D02/D03 | `modular_properties/eos/tests/{test_ceos_PR,test_ideal,test_enrtl}.py`,`base/tests/{test_generic_property_integration,test_nonvap,test_nonvap_PR,test_noncondense,test_noncondense_PR}.py` and actual generic/CoolProp-backed parameter consumers. Separate derivative/property algebra controls from actual new fluids/phase cases;settle remaining coordinate/EOS/method combinations against these finite owners. PR/SRK mismatch in `phase_equil/tests/test_smooth_VLE_2.py` is a **refusal**,not an SRK fluid witness. An authored supported SRK case still needs independent ordinary inputs if no shipped solved case supplies its selected role. | Sources available. Ordinary coefficient/envelope/datum admission and native ragged/electrolyte correspondence remain required;package names do not supply them. |
+| SOC submodel storage/boundary cases — F05/E03 | Under `soc_submodels/tests`,expand `test_channel`, `test_porous_conductive_slab`, `test_conductive_slab`, `test_triple_phase_boundary`, `test_contact_resistor` and `test_common` beyond the already recorded cell/replication population. Preserve transient/holdup,thermal/material boundary and nonzero extension cases as distinct where their equations/specifications differ. | All six sources available. No missing source is established;ordinary electrochemical/transport records,native physics and actual reference execution remain absent from this census. |
+| Core surrogate/sampling population — G04 | `core/surrogate/pysmo/tests/test_{polynomial_regression,radial_basis_function,kriging,sampling,sampling_modified,utils}.py`,`tests/{test_pysmo_surrogate,test_alamopy}.py` and selected sampling/data-utils/scaling consumers. Enumerate actual basis/kernel/regularization/fit-route/sampling/split/validation/serialization/embedding cases and failures;collapse pure API-shape duplicates without deleting altered statistical models. The already inspected neural/reformer/sCO2/analytic helper stages stay distinct. | Sources available. External ALAMO and fitted-artifact/trainer prerequisites below are separate;decorator or file counts do not settle the population. |
+| Six robustness populations — G03/H04 | V `robustness/unit_models/test_{cstr,flash,hx0d,pressure_changer,requil,rgibbs}.py` with matching JSONs. Each file already contains200 realized sample rows:1200 total across six different models,with9/3/4/4/7/9 input dimensions respectively. Fully match construction,bounds/normalization,sampling,initialization and result/failure retention to these stored rows before any new sampled run. | JSONs and all six sources available. Historical results are oracle observations,not accepted failure allowances. Ordinary scientifically valid envelopes and fresh accepted sample outcomes remain required. |
+| Direct equipment/account costing cases — G06 | `models_extra/power_generation/costing/tests/test_{power_plant_costing,power_plant_capcost,NGCC_capcost,CCS_capcost}.py`:exact selected account/CCS/scale/train/override/year/range cases,sCO2/ASU and cost aggregation. The newer `models/costing/QGESS.py` lifecycle/default/location closure above does not close these two API generations' direct account consumers. | Sources/account JSONs available. Original cost-year/coefficient provenance and custom selected accounts are ordinary-data work;no unseen account catalog is inferred from dictionary cardinality. |
+| Wrapper/disposition reconciliation — A01/H01 | Apply the scoped scientific correspondences above to the existing55-family notebook register and selected archived wrappers;finish any remaining normalized code-cell comparison before declaring wrapper equivalence. Archived MatOpt/PECOS remain conditional supplemental source tracks;DMF infrastructure remains excluded while selected scientific artifacts stay retained. | No mandatory process source is dropped. Coordinator decides archived entry-point adoption and duplicate wrapper dispositions;no new user scientific input is needed merely to retain the current required scope. |
+
+Missing or unqualified prerequisites are not all source-enumeration problems:
+
+| Exact selected dependency | Current state / action needed before its run |
+|---|---|
+| Reformer shipped Keras weights | Both selected folders lack required `idaes_info.json`. Labels/bounds/scalers for those exact weights are unavailable in the fixed archive. Recover authoritative metadata or select and attribute a fresh complete training result;neither invent scalers nor count a new fit as the old fit. The truncated `pysmo_poly_surr.json` is also unusable,and helper kriging filename mismatch selects training rather than the differently named cache. |
+| Six older PySMO helpers | Obsolete import paths and absent module-relative `data_files/`;the named data files are available under the notebook tree. Exact reference-driver/path adaptation remains to settle without editing external sources;legacy Matyas XLS additionally needs a compatible reader and actual sheet/column inspection. These are compatibility/placement prerequisites,not lost datasets. |
+| Archived boiler/economizer reconciliation | Historical `idaes.core.dmf.model_data` implementation is absent from core2.13;filter/bin/deviation semantics cannot be recovered from its deprecation stub. The referenced `FOCAPD_paper` material is not bundled. Existing raw/reconciled/result files and their distinct statistical roles are retained. Recover exact helper/source behavior or attribute a separately specified reference;do not silently invent the statistical operation. |
+| Executables / compiled artifacts | Exact legacy Ipopt/ipopt_v2 options,Helmholtz data/expressions/shared library,cubic-roots library,PETSc ASL+trajectory readers,k_aug/dot_sens,ma57/PyNumero/ASL,ALAMO and selected TensorFlow/Keras/ONNX/OMLT stacks must be frozen/tested only for their consuming case closure. This census did not prepare or establish host availability of these dependencies. Missing execution dependencies hold required cases;no substitution/version bump is implied. |
+| Saved-state and trainer compatibility | Named modern/archived snapshot readers,component/index/fixed-active completeness,old PySMO pickle handling and trainer metadata require actual pinned-environment construction/loading. File decoding and known serializer ignore-missing behavior are insufficient. Generated missing load caches can be produced by the selected initialization branch,with fresh execution attribution. |
+| Ordinary scientific inputs and allowed comparison | B/D/F/G must independently source/admit coefficients,phase/datum/basis,physical/envelope/normalization,geometry/economic/statistical inputs and required outputs. Reference data have not acquired ordinary permission. These are outstanding scientific authoring decisions,not absent user answers or evidence that another source scan can complete acceptance. |
+
+The next executable boundary is the existing H02/H03 five-case ordinary
+recycle/exchanger contract and D02's already selected native water
+property/pump/turbine consumer. Complete original-source custody,fixed/free
+roles,all required outputs,mismatch controls and canonical readback there;
+the current source census cannot substitute for those actual comparisons.
+Then E01/E02 can consume the enzyme vessel's resolved initial/forcing and
+normalized thermal contract for the selected lumped-storage increment,after
+ordinary kinetic/caloric meaning is settled. The already implemented stock
+projections are starting support,not that complete trajectory. E03's reactive
+fixed-bed and E04's TSA physical cycle are subsequent separate closures;
+neither requires first finishing every power/grid/surrogate case.
+
+Carry the remaining cases through existing native source/case/conformance,
+temporal and reference-exchange owners. Freeze outputs,derivative/statistical
+products,dimensional comparison allowances and independent original
+conservation/feasibility checks before reading candidate values. No generic
+catalog,second result store or broad reference-environment preparation is
+needed for this handoff. H01,H02/H03 and H04–H07 remain open at their own
+actual implementation/qualification boundaries.
 
 D01 can use the scientific/consumer groups immediately. E01 can settle the three
 first physics increments without awaiting all power/grid cases. F01 has separate
