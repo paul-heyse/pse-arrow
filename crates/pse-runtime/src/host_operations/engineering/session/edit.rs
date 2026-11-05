@@ -58,7 +58,10 @@ impl EngineeringService {
                     source_revision: source.revision.as_id(),
                     physical_context: source.physical_context,
                 };
-                Ok(Outcome::Source { package, selection })
+                Ok(Outcome::Source {
+                    package: Arc::new(package),
+                    selection,
+                })
             })?;
         }
         source_outcome(operation.snapshot()?)

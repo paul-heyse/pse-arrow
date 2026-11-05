@@ -122,16 +122,16 @@ pse_diagnostics::impl_diagnostic! {
 enum Outcome {
     Pending,
     Source {
-        package: ModelingPackage,
+        package: Arc<ModelingPackage>,
         selection: EngineeringSourceSelection,
     },
     Prepared {
-        prepared: PreparedOperation,
+        prepared: Arc<PreparedOperation>,
         selection: EngineeringPreparedSelection,
     },
     Run(RunHandle),
     PreparedStudy(Arc<study::PreparedStudy>),
-    Study(crate::workflow::StudyHandle),
+    Study(Arc<crate::workflow::StudyHandle>),
     StudyCohort(Arc<crate::workflow::FrozenStudyCohort>),
     Released,
     Retained,
@@ -274,7 +274,8 @@ impl EngineeringService {
     pub(super) fn inspection_source(
         &self,
         operation: String,
-    ) -> Result<(ModelingPackage, crate::workflow::SourceServices), EngineeringServiceError> {
+    ) -> Result<(Arc<ModelingPackage>, crate::workflow::SourceServices), EngineeringServiceError>
+    {
         EngineeringOperationKey {
             operation: operation.clone(),
         }
@@ -336,8 +337,14 @@ impl EngineeringService {
             "engineering:retained-operation",
         )
         .register(&self.shared.pool());
+        // Snapshots share original native owners. Retain admission for their
+        // indirect payloads; the existing opaque allowance also covers owner
+        // bookkeeping rather than claiming an exact allocator or Arc layout.
+        let native_owner_bytes = size_of::<ModelingPackage>()
+            .max(size_of::<PreparedOperation>())
+            .max(size_of::<crate::workflow::StudyHandle>());
         reservation
-            .try_grow(size_of::<Operation>() + key.len() + 4096)
+            .try_grow(size_of::<Operation>() + native_owner_bytes + key.len() + 4096)
             .map_err(owner)?;
         let operation = Arc::new(Operation {
             fingerprint,
@@ -479,7 +486,10 @@ impl EngineeringService {
                     source_revision: source.revision.as_id(),
                     physical_context: source.physical_context,
                 };
-                Ok(Outcome::Source { package, selection })
+                Ok(Outcome::Source {
+                    package: Arc::new(package),
+                    selection,
+                })
             })?;
         }
         source_outcome(operation.snapshot()?)
@@ -584,7 +594,7 @@ impl EngineeringService {
                     preparation: prepared.identity().map_err(owner)?,
                 };
                 Ok(Outcome::Prepared {
-                    prepared,
+                    prepared: Arc::new(prepared),
                     selection,
                 })
             })?;
@@ -1013,20 +1023,31 @@ impl EngineeringService {
             )
         } else {
             let (_header, original, attempt) = self.original_record(&key).await?;
-            SelectedCursor::Stored(
-                self.runtime
-                    .retained_data_services()
-                    .results(
-                        &original.key,
-                        &attempt,
-                        &input.relation,
-                        input.start,
-                        input.end,
-                        cancel.token(),
-                    )
-                    .await
-                    .map_err(owner)?,
-            )
+            let cursor_owner = self
+                .shared
+                .math()
+                .reserve(
+                    "engineering:stored-result-cursor",
+                    size_of::<crate::workflow::CanonicalResultReader>(),
+                )
+                .map_err(owner)?;
+            let cursor = self
+                .runtime
+                .retained_data_services()
+                .results(
+                    &original.key,
+                    &attempt,
+                    &input.relation,
+                    input.start,
+                    input.end,
+                    cancel.token(),
+                )
+                .await
+                .map_err(owner)?;
+            SelectedCursor::Stored {
+                cursor: Box::new(cursor),
+                _owner: cursor_owner,
+            }
         };
         let reservation = Arc::new(
             datafusion::execution::memory_pool::MemoryConsumer::new(
@@ -1163,13 +1184,16 @@ fn source_outcome(outcome: Outcome) -> Result<EngineeringSourceOutcome, Engineer
 }
 enum SelectedCursor<'a> {
     Local(crate::workflow::ResultCursor<'a>),
-    Stored(crate::workflow::CanonicalResultReader),
+    Stored {
+        cursor: Box<crate::workflow::CanonicalResultReader>,
+        _owner: Arc<pse_columnar::AllocationLease>,
+    },
 }
 impl SelectedCursor<'_> {
     fn schema(&self) -> datafusion::arrow::datatypes::SchemaRef {
         match self {
             Self::Local(cursor) => cursor.schema(),
-            Self::Stored(cursor) => cursor.schema(),
+            Self::Stored { cursor, .. } => cursor.schema(),
         }
     }
     async fn next_batch(
@@ -1181,13 +1205,13 @@ impl SelectedCursor<'_> {
                 .await
                 .map(|batch| batch.map(|batch| batch.into_batch()))
                 .map_err(owner),
-            Self::Stored(cursor) => cursor.next_batch().await.map_err(owner),
+            Self::Stored { cursor, .. } => cursor.next_batch().await.map_err(owner),
         }
     }
     fn complete(&self) -> bool {
         match self {
             Self::Local(cursor) => cursor.complete(),
-            Self::Stored(_) => true,
+            Self::Stored { .. } => true,
         }
     }
 }

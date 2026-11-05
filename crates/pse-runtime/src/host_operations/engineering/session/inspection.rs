@@ -33,7 +33,7 @@ impl EngineeringService {
             .reserve("engineering:model-inspection-encoding", 4 * (64 << 10))
             .map_err(owner)?;
         let document = package
-            .inspect_case_request(&services.preparation(), &input.request, cancel)
+            .inspect_case_request(services.preparation(), &input.request, cancel)
             .await
             .map_err(owner)?;
         cancel.checkpoint().map_err(owner)?;
@@ -60,7 +60,7 @@ impl EngineeringService {
             .reserve("engineering:provider-inspection-encoding", 4 * (64 << 10))
             .map_err(owner)?;
         let original = package
-            .inspect_providers(&services.preparation(), &input.request, cancel)
+            .inspect_providers(services.preparation(), &input.request, cancel)
             .map_err(owner)?;
         Ok(crate::workflow::ProviderInspectionOutput {
             page: original.page,

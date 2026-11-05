@@ -142,28 +142,6 @@ pub(super) fn failure_to_pb(value: native::EngineeringFailure) -> pb::Engineerin
 pub(super) fn failure(error: &EngineeringServiceError) -> native::EngineeringFailure {
     super::super::session::failure(error)
 }
-pub(super) fn source_outcome_to_pb(
-    value: native::EngineeringSourceOutcome,
-) -> pb::EngineeringSourceOutcome {
-    use pb::engineering_source_outcome::{Alternative1, Alternative2, Alternative3, Kind};
-    let kind = match value {
-        native::EngineeringSourceOutcome::Pending => {
-            Kind::Pending(Box::new(Alternative1::default()))
-        }
-        native::EngineeringSourceOutcome::Ready(value) => Kind::Ready(Box::new(Alternative2 {
-            value: source_to_pb(value).into(),
-            ..Default::default()
-        })),
-        native::EngineeringSourceOutcome::Failed(value) => Kind::Failed(Box::new(Alternative3 {
-            value: failure_to_pb(value).into(),
-            ..Default::default()
-        })),
-    };
-    pb::EngineeringSourceOutcome {
-        kind: Some(kind),
-        ..Default::default()
-    }
-}
 pub(super) fn declaration_page_to_pb(
     value: native::EngineeringDeclarationPage,
 ) -> pb::EngineeringDeclarationPage {
@@ -274,57 +252,6 @@ pub(super) fn page_to_pb(value: native::EngineeringResultPage) -> pb::Engineerin
         end: value.end,
         rows: value.rows,
         ipc: value.ipc,
-        ..Default::default()
-    }
-}
-
-pub(super) fn contract_to_pb(value: native::EngineeringContract) -> pb::EngineeringContract {
-    pb::EngineeringContract {
-        descriptor: value.descriptor,
-        descriptor_sha256: value.descriptor_sha256,
-        semantics: value.semantics,
-        methods: value
-            .methods
-            .into_iter()
-            .map(|method| pb::EngineeringMethodContract {
-                name: method.name,
-                input: method.input,
-                output: method.output,
-                input_direction: method.input_direction,
-                output_direction: method.output_direction,
-                server_streaming: method.server_streaming,
-                effects: effects_to_pb(method.effects).into(),
-                ..Default::default()
-            })
-            .collect(),
-        ..Default::default()
-    }
-}
-
-fn effects_to_pb(value: pse_contract::operation_effects::EffectFacts) -> pb::EffectFacts {
-    use pb::effect_scope::{
-        Alternative1, Alternative2, Alternative3, Alternative4, Alternative5, Alternative6,
-        Alternative7, Kind,
-    };
-    use pse_contract::operation_effects::EffectScope;
-    let kind = match value.scope {
-        EffectScope::Observation => Kind::Observation(Box::new(Alternative1::default())),
-        EffectScope::SourceAdmission => Kind::SourceAdmission(Box::new(Alternative2::default())),
-        EffectScope::CanonicalCommand => Kind::CanonicalCommand(Box::new(Alternative3::default())),
-        EffectScope::RetentionRelease => Kind::RetentionRelease(Box::new(Alternative4::default())),
-        EffectScope::FileExport => Kind::FileExport(Box::new(Alternative5::default())),
-        EffectScope::Capture => Kind::Capture(Box::new(Alternative6::default())),
-        EffectScope::NativeExecution => Kind::NativeExecution(Box::new(Alternative7::default())),
-    };
-    pb::EffectFacts {
-        scope: pb::EffectScope {
-            kind: Some(kind),
-            ..Default::default()
-        }
-        .into(),
-        read_only: value.read_only,
-        idempotent: value.idempotent,
-        destructive: value.destructive,
         ..Default::default()
     }
 }

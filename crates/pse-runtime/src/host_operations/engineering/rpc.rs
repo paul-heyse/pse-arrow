@@ -290,7 +290,8 @@ impl bindings::EngineeringService for Implementation {
             .await
             .map_err(transport)?;
         Ok(connectrpc::Response::new(outgoing::Validated(
-            wire::source_outcome_to_pb(outcome),
+            crate::engineering_projection::encode_engineering_source_outcome(outcome)
+                .map_err(study::projection_error)?,
         )))
     }
     async fn describe_contract<'a>(
@@ -304,7 +305,8 @@ impl bindings::EngineeringService for Implementation {
         adoption::validate(&request.to_owned_message())?;
         let output = self.engine.describe_contract().map_err(transport)?;
         Ok(connectrpc::Response::new(AccountedResponse {
-            message: wire::contract_to_pb(output.document),
+            message: crate::engineering_projection::encode_engineering_contract(output.document)
+                .map_err(study::projection_error)?,
             reservation: output.owner,
             maximum_bytes: 16 << 20,
         }))
@@ -325,7 +327,8 @@ impl bindings::EngineeringService for Implementation {
             .await
             .map_err(transport)?;
         Ok(connectrpc::Response::new(outgoing::Validated(
-            wire::source_outcome_to_pb(outcome),
+            crate::engineering_projection::encode_engineering_source_outcome(outcome)
+                .map_err(study::projection_error)?,
         )))
     }
     async fn source_status<'a>(
@@ -339,11 +342,12 @@ impl bindings::EngineeringService for Implementation {
         let request = request.to_owned_message();
         adoption::validate(&request)?;
         Ok(connectrpc::Response::new(outgoing::Validated(
-            wire::source_outcome_to_pb(
+            crate::engineering_projection::encode_engineering_source_outcome(
                 self.engine
                     .source_status(&wire::key_from_pb(request))
                     .map_err(transport)?,
-            ),
+            )
+            .map_err(study::projection_error)?,
         )))
     }
     async fn inspect_source<'a>(
@@ -640,6 +644,69 @@ fn shutdown_result(failures: Vec<EngineeringServiceError>) -> Result<(), Enginee
     }
 }
 
+fn infrastructure(error: impl std::fmt::Display) -> EngineeringServiceError {
+    EngineeringServiceError::Infrastructure(error.to_string())
+}
+fn transport(error: EngineeringServiceError) -> ConnectError {
+    let failure = wire::failure_to_pb(wire::failure(&error));
+    let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(&error);
+    let mapped = match code {
+        Some(
+            pse_diagnostics::DiagnosticCode::WorkflowInput
+            | pse_diagnostics::DiagnosticCode::ValidationInvariant,
+        ) => ConnectError::invalid_argument(error.to_string()),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit) => {
+            ConnectError::resource_exhausted(error.to_string())
+        }
+        Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled) => {
+            ConnectError::canceled(error.to_string())
+        }
+        Some(
+            pse_diagnostics::DiagnosticCode::WorkflowInternal
+            | pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
+        ) => ConnectError::internal(error.to_string()),
+        _ => ConnectError::failed_precondition(error.to_string()),
+    };
+    mapped
+        .with_detail(connectrpc::ErrorDetail::from_message(
+            "pse.engineering.v1.EngineeringFailure",
+            &failure,
+        ))
+        .with_source(error)
+}
+
+struct AccountedResponse<M> {
+    message: M,
+    reservation: Arc<dyn pse_columnar::PayloadOwner>,
+    maximum_bytes: usize,
+}
+struct AccountedBytes {
+    bytes: bytes::Bytes,
+    _reservation: Arc<dyn pse_columnar::PayloadOwner>,
+}
+impl AsRef<[u8]> for AccountedBytes {
+    fn as_ref(&self) -> &[u8] {
+        &self.bytes
+    }
+}
+impl<M: protovalidate_buffa::Validate + connectrpc::Encodable<M>> connectrpc::Encodable<M>
+    for AccountedResponse<M>
+{
+    fn encode(&self, codec: connectrpc::CodecFormat) -> Result<bytes::Bytes, ConnectError> {
+        outgoing::validate(&self.message)?;
+        let bytes = self.message.encode(codec)?;
+        if bytes.len() > self.maximum_bytes {
+            return Err(ConnectError::resource_exhausted(
+                "selected complete response exceeds its original byte allowance",
+            ));
+        }
+        Ok(bytes::Bytes::from_owner(AccountedBytes {
+            bytes,
+            _reservation: self.reservation.clone(),
+        }))
+    }
+}
+
 #[cfg(test)]
 mod connection_settlement_tests {
     use super::*;
@@ -712,68 +779,5 @@ mod connection_settlement_tests {
             assert_eq!(failure.is_none(), expected_abort);
             assert!(connections.is_empty());
         }
-    }
-}
-
-fn infrastructure(error: impl std::fmt::Display) -> EngineeringServiceError {
-    EngineeringServiceError::Infrastructure(error.to_string())
-}
-fn transport(error: EngineeringServiceError) -> ConnectError {
-    let failure = wire::failure_to_pb(wire::failure(&error));
-    let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(&error);
-    let mapped = match code {
-        Some(
-            pse_diagnostics::DiagnosticCode::WorkflowInput
-            | pse_diagnostics::DiagnosticCode::ValidationInvariant,
-        ) => ConnectError::invalid_argument(error.to_string()),
-        Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit) => {
-            ConnectError::resource_exhausted(error.to_string())
-        }
-        Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled) => {
-            ConnectError::canceled(error.to_string())
-        }
-        Some(
-            pse_diagnostics::DiagnosticCode::WorkflowInternal
-            | pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
-        ) => ConnectError::internal(error.to_string()),
-        _ => ConnectError::failed_precondition(error.to_string()),
-    };
-    mapped
-        .with_detail(connectrpc::ErrorDetail::from_message(
-            "pse.engineering.v1.EngineeringFailure",
-            &failure,
-        ))
-        .with_source(error)
-}
-
-struct AccountedResponse<M> {
-    message: M,
-    reservation: Arc<dyn pse_columnar::PayloadOwner>,
-    maximum_bytes: usize,
-}
-struct AccountedBytes {
-    bytes: bytes::Bytes,
-    _reservation: Arc<dyn pse_columnar::PayloadOwner>,
-}
-impl AsRef<[u8]> for AccountedBytes {
-    fn as_ref(&self) -> &[u8] {
-        &self.bytes
-    }
-}
-impl<M: protovalidate_buffa::Validate + connectrpc::Encodable<M>> connectrpc::Encodable<M>
-    for AccountedResponse<M>
-{
-    fn encode(&self, codec: connectrpc::CodecFormat) -> Result<bytes::Bytes, ConnectError> {
-        outgoing::validate(&self.message)?;
-        let bytes = self.message.encode(codec)?;
-        if bytes.len() > self.maximum_bytes {
-            return Err(ConnectError::resource_exhausted(
-                "selected complete response exceeds its original byte allowance",
-            ));
-        }
-        Ok(bytes::Bytes::from_owner(AccountedBytes {
-            bytes,
-            _reservation: self.reservation.clone(),
-        }))
     }
 }

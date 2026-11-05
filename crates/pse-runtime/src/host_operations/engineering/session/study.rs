@@ -413,7 +413,7 @@ impl EngineeringService {
                     .start_issued_study(prepared.definition.clone(), issued, &original.cancel)
                     .await
                     .map_err(owner)?;
-                Ok(Outcome::Study(handle))
+                Ok(Outcome::Study(Arc::new(handle)))
             })?;
         }
         operation.completed().await?;
