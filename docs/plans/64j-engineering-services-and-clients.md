@@ -186,7 +186,7 @@ slice does not complete a package whose full consumer migration or acceptance is
 | J03 | in-progress | J02 plus working native edit/preparation/study handlers. | Inspect/edit/prepare/submit/status/cancel/read products work end to end. Typed owner/client tests include add/replace/delete/retain, stale parent, missing/default distinctions, intended science failure, duplicate original request and changed-request conflict. Remove replaced B/C adapters/callers/fixtures together. |
 | J04 | in-progress | J03's original operation ownership and retained reads. | Observational progress, reconnect, bounded observer release and shutdown work. Drop observation while work continues, reconnect to the original run, lose a submit ACK, request cancellation and prove actual settlement separately. No automatic submit replay; remove duplicated polling/status translations where replaced. |
 | J05 | in-progress | 64i's producer-selection slice plus J03/J04 real responses. | Runtime/client I06 producer/encode/consume paths use selected responses. Selected/full/empty and malformed nested read tests cover continuation, retained buffer release, extent refusal, cancellation and partial output. Delete duplicated projection/extent passes only with equivalent protection. No latency/memory benefit claim without whole-lifetime measurement. |
-| J06 | in-progress | All functional J scope, working selected 64d–64g cases and consumed G08 capture/publication slices. | Narrow declared-case and actual three-phase Study client journeys tested within the captured-image scope below. Simulation/fit/horizon client tests remain drafted and unlinked. Complete their integration, original physical checks, failed siblings, protected products, disconnect/reconnect, duplicate/cancel/lost ACK and shutdown; delete replaced routes and reconcile 64h H05/H07. |
+| J06 | in-progress | All functional J scope, working selected 64d–64g cases and consumed G08 capture/publication slices. | Narrow declared-case and actual three-phase Study client journeys tested within the captured-image scope below. Simulation/fit/horizon client is linked and interface-checked; its fixed fourth phase still needs fresh images and live acceptance. Complete original physical checks, failed siblings, protected products, disconnect/reconnect, duplicate/cancel/lost ACK and shutdown; delete replaced routes and reconcile 64h H05/H07. |
 
 J01 and 64i's first contract slice proceed together; neither waits for a universal catalogue.
 J02 can develop against that implemented slice while later schema families proceed. J03's
@@ -256,7 +256,7 @@ present in the working tree, with acceptance boundaries that differ from that pa
   This Study worker is distinct from 64k's water-property worker.
 
 Study and inspection RPC modules are linked in the current native service; their presence
-does not qualify the independent clients. The remaining unlinked population is the
+does not qualify the independent clients. The former unlinked population was the
 simulation/fit/horizon client module containing
 `prepared_engineering_study_client_simulation_fit_and_horizon_keep_original_physics`.
 The three-phase Study client is linked and coordinated; its actual composed journey
@@ -353,6 +353,29 @@ that exact composition boundary: fresh final-source assembled qualification, the
 simulation/fit/horizon client and remaining J populations are still required. Longer observation
 allowances change no numerical deadline, tolerance or shutdown obligation. Earlier failed
 attempts and their preserved fixture/logs remain failure evidence.
+
+Main `a8dd39d30` links that remaining simulation/fit/horizon client and runs it as a fixed
+Routes phase after Complete under the same keeper, frontend, worker, original evidence runner
+and cleanup. Per-phase selected test identity/features remain exact. The new phase uses the
+existing test-scoped scientific-input capsule; no unrelated test inherits that preparation.
+Frontend/worker captures must contain both Ipopt and Diffsol. Complete alone no longer permits
+disposal: Routes and all independent drain obligations must also succeed. Existing scientific
+deadlines, physical/error budgets and shutdown controls remain unchanged; the runner explicitly
+selects its existing local observation profile. The combined-feature runtime all-targets check
+passes with zero errors/warnings, and twenty keeper/coordinator controls pass with zero
+failures/build warnings. They include fourth-phase ordering, stop before Routes admission,
+and Routes failure preserving successful lifecycle history plus independent cleanup failure.
+These establish source integration and targeted lifecycle behavior. Fresh final-source captures,
+the scientific capsule and the actual four-phase composition remain required.
+
+**Stopping point, 2026-11-05:** the operator stopped further verification during preparation
+of the native-lane executable for the selected runtime controls. That build was cancelled
+and its compiler processes exited; no runtime test or fresh four-phase pass is claimed.
+The existing twenty keeper/coordinator controls and earlier three-phase journey retain their
+original source boundaries. [65h's consolidation checkpoint](65h-integration-and-qualification.md#consolidation-qualification--2026-11-04)
+owns the prepared scientific inputs, missing completed lane capture and remaining receiving
+tests and final-source service/worker capture/composition work. Current source changes are
+committed on main and merged worktrees have been removed.
 
 Remaining J work is complete generated-consumer adoption, latest native/session/provider
 controls, keeper preparation/lifecycle controls, both J06 client journeys and G08-backed

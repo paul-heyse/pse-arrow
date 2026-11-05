@@ -1,6 +1,6 @@
 ---
 title: "Plan65h: Integrated acceptance and handoff"
-status: proposed
+status: in-progress
 date: 2026-11-03
 adrs: []
 review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
@@ -87,6 +87,90 @@ where Arrow is consumed. Run `just codegen` as part of declaration changes. Root
 `just turn-end`; no per-package broad integration/hygiene campaign. At H02–H04 select exact
 current commands and modes based on the actual changed closure, then report command, scope,
 zero failure baseline, actual results and exclusions. No product tests are due for authoring.
+
+## Consolidation qualification — 2026-11-04
+
+The operator requested completion of current tasks, integration and removal of merged
+worktrees, all Clippy findings repaired, targeted functional checks, and reconciled status.
+All required worktree content is now integrated on main; only main remains. Original
+invocation evidence outside removed checkouts is retained. This is a bounded qualification
+checkpoint during ongoing functional execution, not completion of H01–H04 or either series.
+
+Earlier failed Clippy attempts exposed authored-code issues, repeated generated recursive
+flags/redundant fallible wrappers, and then 677 repeated borrow/dereference diagnostics in
+borrowed Recipe views plus downstream authored findings per workspace mode. Repairs moved
+to declaration/generator/native owners and their consumers; regenerated outputs preserve
+validation, field correspondence and original failure categories. The original failed attempts
+remain evidence. Fixture expectations, scientific tolerances, native deadlines and the zero
+failure baseline remain unchanged.
+
+**Tested, updated 2026-11-05:** receiving regeneration passed all fourteen targets. Receiving
+`just clippy` passed both workspace/all-target modes (default and no-default), with
+`-D warnings`, zero failures/warnings against the zero baseline, and complete native
+settlement. Original bundle: `01a1aa4c-d24c-756b-8f22-363188021880`.
+The receiving workspace/all-target changed-feature Clippy also passed with `-D warnings`:
+`xtask/full-codegen` and runtime `engineering-service,native-study-tests,product-operators,
+property-coolprop,solver-kinsol,solver-ipopt,solver-diffsol,solver-root-isolation,solver-highs`.
+The linked native workspace/conformance/benchmark `just lint-solver-contracts` passed in its
+declared native profile before the last downstream fixture repairs. Both workspace modes and
+the changed-feature run precede the final test-only parsed-field assertion adjustment
+(`02676ee6b`). These are actual passing scopes, not a final-source static qualification;
+the operator stopped further verification before another static run. No optional-provider
+powerset claim follows from these selections.
+
+**Implemented:** the final source removes three mechanical engineering response maps in
+favor of existing generated adapters, shares original native operation owners, deletes the
+water-preparation wrapper and duplicate scientific fixture inclusion, and uses existing
+domain selections rather than argument/tuple mirrors. Reader and scientific fixture helpers
+propagate typed errors and preserve independent release/drain failures. Buffa oneof names
+retain their schema vocabulary under a conditional, enum-local style exception; a new
+owned/view naming regression control covers that policy. The standalone scientific child's
+existing hard-exit policy is now confined to its process owner with an explicit reason;
+it cannot be replaced by unwinding while an indivisible foreign call remains active. These
+are narrow naming/containment exceptions, not blanket lint suppression.
+
+**Tested, 2026-11-05:** these native correctness runs used `--profile local`, cache off,
+`CARGO_INCREMENTAL=0`, the pinned toolchain, and explicit Arrow validation selected by the
+native correctness route. Each passed against the zero baseline with zero test failures,
+retries, build warnings or pending tests, complete original capture and settled native owners:
+
+| Command and selected scope | Result | Original invocation |
+| --- | --- | --- |
+| `scripts/pse test pse-codegen pse-contract pse-contract-proto pse-ids pse-model pse-schema pse-host pse-kernels pse-backend-native pse-compiler --lib --profile local -E <selected families>`: contract/ID, generator projection, descriptor-world, RPC/report, provider, portable and numerical-policy controls; the original inventory retains the exact filter and identities | 244/244 passed | `01a1aa56-9056-700c-8aef-41caa1ce2986` |
+| `scripts/pse test pse-codegen:buffa_allocation --profile local`: actual generated allocation-accounted decoders and owned/view schema naming | 2/2 passed | `01a1aa57-07ef-7668-9475-95011695a8de` |
+
+The first component run completed 244 tests with one failed token-spelling assertion. The
+generator correctly emitted a raw Rust identifier; the corrected test parses the emitted
+borrowed `self` field accesses and still requires both original fields, local rules, recursive
+guarding and failure propagation. The full 244-test selection then passed. Production
+validation was not weakened.
+
+**Interface-checked / not executed:** the affected runtime library built and discovered 87
+selected tests using the runtime feature selection above. Execution refused first for absent
+`PSE_SCIENTIFIC_INPUTS`, then for absent `PSE_NATIVE_LANE_EXECUTABLE`; neither attempt ran
+tests. Scientific inputs were subsequently prepared with the existing `xtask scientific-inputs`
+owner and `tests/fixtures/scientific-inputs.toml`. The required native lane belongs to `xtask`,
+with `solver-kinsol`; its normal build/capture was in progress when the operator requested
+cancellation on 2026-11-05. The native boundary received cancellation, returned exit 130 and
+its compiler processes exited. No successful lane capture or runtime functional pass follows
+from that interrupted build. Original logs and partial capture remain under
+`/tmp/pse-plan65-final-qualification-mpayuhBq`; use a fresh completed lane capture on resumption.
+
+**Next work when resumed:** prepare the original native-lane executable, supply it and the
+prepared scientific-input capsule, and run the same 87-test runtime selection. It covers
+engineering session/RPC ownership, result metadata and selected delivery, original error
+causes, scientific worker process controls, steam and exchanger fitting. Then run the affected
+reader/worker integration targets, predecessor upgrades, keeper/coordinator controls and F04
+receiving controls; capture final-source service/worker images and run the actual four-phase
+Study composition. Repeat static checks for changed source and refresh native readiness.
+No new qualification is started at this operator-requested stopping point. New scientific
+fixture failure/unwind settlement paths remain source-reviewed rather than fault-exercised.
+
+Earlier receiving evidence retains its original scope: F04's 26 columnar/relation/runtime
+controls and A03's 17 generator/host controls passed on main; 64j owns the three-phase actual
+Study pass and fourth-phase source controls. Fresh final-source four-phase composition,
+quantitative benefits, broader scientific/reference/performance campaigns, WASI, the optional
+provider powerset, H01–H04 completion and both series' completion remain unestablished.
 
 ## Completion and enduring meaning
 

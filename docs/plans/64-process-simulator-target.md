@@ -350,12 +350,15 @@ now replaces the former source gaps; its 44-control main selection includes pass
 worker equipment cases. Wider family and matched complete-operation acceptance remain open.
 These current owners supersede the historical failure descriptions above.
 
-**Not run / deferred by explicit instruction:** Clippy (including keep-going workspace,
+**Historical closeout, then not run / deferred by explicit instruction:** Clippy (including keep-going workspace,
 native-feature and WASI coverage), hygiene, codegen comparison, additional regressions,
 integrated/reference/performance campaigns and turn-end follow-ups. Full `just codegen`
 passed ten targets before the later source-only corrections; that is not a final
 generated-output comparison or a clean-tree qualification. No comprehensive static
-or functional pass is claimed for this checkout.
+or functional pass was claimed at that closeout. The later operator-requested main consolidation
+and Clippy/targeted-test campaign is recorded in
+[65h's current qualification checkpoint](65h-integration-and-qualification.md#consolidation-qualification--2026-11-04);
+its scoped results supersede this historical deferral only for the modes actually exercised.
 
 At that closeout, all task-owned build/test/debug sessions were terminal. Worktrees were
 reconciled and removed; the unused unintegrated Plan59 parser-provenance draft is preserved on its

@@ -2,7 +2,7 @@
 title: "Plan65: Integrated Proto target alongside Plan64"
 status: in-progress
 date: 2026-11-03
-adrs: [ADR-0224, ADR-0241, ADR-0242, ADR-0243, ADR-0244, ADR-0245]
+adrs: [ADR-0224, ADR-0241, ADR-0242, ADR-0243, ADR-0244, ADR-0245, ADR-0246]
 review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
@@ -355,7 +355,7 @@ work. Clean foundation and developer-evidence worktrees were reconciled against 
 main implementations, including transformed historical commits. Superseded bootstrap outputs
 were not copied over the newer generated worlds. No unresolved merge conflicts remain.
 
-Final regeneration after this source integration (`just codegen`) passed all thirteen targets
+At that initial consolidation, regeneration (`just codegen`) passed all thirteen targets
 with zero errors or warnings, configured unbounded placement, cache off and prepared native
 providers. Original capture and native settlement completed; published outputs were unchanged.
 The compiler's two targeted controls passed on main with the conditions retained in 65e.
@@ -403,8 +403,10 @@ series qualification.
 The retained-evidence/action-population package is integrated as `86c566810`; its three source
 files matched main before quiescent checkout removal, with original evidence preserved.
 Semantic RPC failure fidelity/redaction is integrated as `0e36b4863`; all nineteen files
-matched main before its clean, quiescent checkout removal. A subsequently prepared isolated
-`plan65-inspection-projection` checkout now implements F04; main remains the integration owner.
+matched main before its clean, quiescent checkout removal. The later F04
+`plan65-inspection-projection` checkout is also integrated as `648b0b7db`. All seventeen
+owned files matched main before its clean, quiescent removal; original invocation stores
+remain outside the checkout. Only main remains, with no unresolved merge conflicts.
 F02 owns the selected native-detail dispositions, original causes, canonical corrections
 and recursive privacy. Its twenty-one focused controls and host all-targets check passed
 before integration. Full main generation now passes all fourteen targets, and the later
@@ -421,7 +423,7 @@ Submit's client build then failed because the detached service inherited the use
 smaller open-file default. Shared transient-service caller-limit inheritance and the typed
 cancelled-original drain repair address the two observed mismatches. The failed fixture and
 original reports remain preserved. 64j owns that attempt and the fresh-image/live-journey
-obligations; no three-phase pass is claimed. A subsequent fresh protected four-image capture
+obligations. A subsequent fresh protected four-image capture
 completed, and all nineteen final keeper/coordinator controls pass. The next live attempt
 expired before keeper readiness while its native boundary refreshed the cold host; it did
 not submit a Study. Separate readiness investigation exposed a compiler-provider reuse bug:
@@ -444,21 +446,59 @@ or errors. The original regression build's unused-helper warning is retained in 
 `27eb44d1e` fixes that helper's exact Ipopt/POUNCE availability, followed by the clean receiving
 check. F/I/J populations and full scientific qualification remain separate.
 
-F04's next selected slice is protected readable-value hydration before array construction.
-The proposed ADR-0224 amendment and blueprint revision 352 preserve complete source/schema/block
-protection, all scalar keys and relation predicates while explicitly narrowing local-value
-checking to retained roots. Full IPC/scientific admission is unchanged. Version-three inspection
-roots expose that observational coverage; no synthetic relation or arbitrary-subset
-`FieldCheckedBatch` is minted. 65f owns precise Arrow/DataFusion/native mechanisms and targeted
-acceptance. Isolated implementation and targeted IPC/relation checks are in progress; runtime
-integration, independent review and main receiving checks remain required. Existing scientific
-permission evaluation also reads retained results: Values must include that algorithm's required
-roots in the same closure, preserving its decisions. Metadata views keep their existing behavior.
+F04 now hydrates selected protected readable values before array construction. Proposed
+ADR-0224 and blueprint revision 353 preserve complete source/schema/block protection, all
+scalar keys and original relation predicates while narrowing local-value checking to retained
+roots. Full IPC/scientific admission is unchanged. Version-three inspection roots expose that
+observational coverage; no arbitrary-subset `FieldCheckedBatch` is minted. Existing scientific
+permission inputs are included in the same pre-read closure. Metadata views keep their existing
+behavior. Independent review found no remaining P1/P2 issues at the receiving baseline, and
+all 26 selected columnar/relation/runtime controls passed on main with zero failures or build
+warnings. [65f](65f-diagnostics-and-result-delivery.md) owns exact coverage and limits: whole IPC
+blocks are still read, selected arrays may retain the original backing allocation, and no memory
+or throughput improvement has been measured.
+
+A03's effective/runtime and source-aware descriptor worlds are integrated as `e1f524ccd`.
+All six source-owned worlds now publish compact runtime and source-aware artifacts with the
+same effective feature semantics and preserved typed/unknown options. Seventeen selected
+generator/independent-host controls passed, followed by fourteen-target generation. A03/A04
+remain open for their remaining consumers and composition obligations. A04's supplier assessment
+retains separate plugin layouts; no speculative companion migration was implemented. Proposed
+ADR-0246 concludes the native-body delegation investigation; its implementation remains future
+E02 work and the current JSON-v3 route remains active.
+
+At the operator's requested consolidation boundary, current worker source tasks are finished
+on main. `430387b1f`, `7603342cb` and `770923209` remove the flagged patterns in generators
+and native owners: direct fallible conversion results, type-aware borrowed views, one typed
+decode-resource classification, domain-owned declaration/document/execution selections,
+and concrete original action/drain failure ownership. Replaced tuple/argument/getter surfaces
+and every caller were migrated without compatibility shims. Both workspace all-target Clippy
+modes pass with warnings denied. The receiving cleanup also deletes three mechanical
+engineering response maps in favor of the existing generated adapters, shares original native
+operation owners, removes the duplicate scientific fixture inclusion and water-preparation
+wrapper, and propagates typed reader/fixture errors through independent settlement. Supplier
+schema names retain their meaning under a conditional owned/view style exception rather than
+renaming scientific vocabulary for a lint. The
+[bounded qualification checkpoint](65h-integration-and-qualification.md#consolidation-qualification--2026-11-04)
+owns final commands, results and exclusions. This requested checkpoint does not advance H02–H04
+or close either plan series.
 
 Continue with actual canonical/private receiving integration and original workspace
 admission/restoration before activating the protobuf Recipe. A05/E02/E03,
 the remaining C/D/F/G/I/J populations and H assembled qualification retain their native owners;
 this handoff does not mark the Plan65 series complete.
+
+**Operator-requested stopping point — 2026-11-05:** current source tasks and all required
+worktree integrations are committed on main; only the main worktree remains. Receiving
+workspace Clippy passed in both modes, changed-feature Clippy passed, and selected component
+and supplier controls passed 244/244 and 2/2 respectively, with zero failures/build warnings.
+The final test-only parsed-field assertion adjustment postdates the static passes. The
+87-test runtime selection compiled but did not execute because explicit scientific-input
+and native-lane prerequisites were absent. Scientific inputs are now prepared; the native-lane
+build was cancelled at the operator's request with exit 130 and its compiler processes exited.
+Further qualification stopped. H's bounded checkpoint owns the exact source limits, remaining
+runtime/reader/service/scientific checks, fresh four-phase Study composition and readiness work;
+resume from those prerequisites rather than treating discovery or interruption as a pass.
 
 ## Verification boundary
 

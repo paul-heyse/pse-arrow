@@ -1,6 +1,6 @@
 ---
 title: "Plan65f: Diagnostics and result delivery"
-status: proposed
+status: in-progress
 date: 2026-11-03
 adrs: [ADR-0224]
 review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
@@ -178,6 +178,22 @@ full/scientific admission. Source contracts are in
 [row-check binding](../../crates/pse-relations/src/validate/row_checks.rs) and
 [scalar-key validation](../../crates/pse-relations/src/result_batch.rs).
 
+Main `648b0b7db` integrates this slice from reviewed `2abec778c`. Native receiving tests pass
+26/26 across IPC/relation admission, canonical inspection, header refusal, full-reader range/
+cancellation, empty demand, escaped buffers/reclamation and Stable invocation scope, with
+zero failures/retries/build warnings and complete native capture/fixture settlement. The route
+is `scripts/pse test pse-columnar pse-relations pse-runtime --lib --features
+pse-runtime/native-study-tests --profile local` with the named control families above, configured
+unbounded/cache-off and prepared compiler/KLU/solver. The isolated source had independently
+passed 8 component, 17 runtime and one scope control plus all 14 generation targets.
+Complete per-read projected schema storage is admitted before body reads; private batches retain
+working leases even when no array buffers exist. Omitted local values remain explicitly unchecked.
+
+All seventeen integrated files matched the worker commit before clean, quiescent worktree
+removal; original invocation evidence remains outside it. Union regeneration and the requested
+Clippy/functional consolidation are tracked in the coordinator. This delivers the selected
+hydration slice, not every F04 producer/client population or measured benefit.
+
 Use Buffa eager views/`OwnedView`/`ViewEncode` and segmented output only where end-to-end
 ownership removes materialization. Lazy views lack some owned/reflection/text capabilities
 and may repeat decoding; they are not the default page representation. A compact copy can
@@ -251,6 +267,36 @@ user-application-scope route supplied the passing evidence. Main
 complete original capture/settlement in cache-off, unbounded mode. These results cover this semantic family, not every F02 producer,
 scientific result or F06 assembled journey.
 
+Main `770923209` also removes a native private-channel classification gap. The compiler
+probe and runtime now share
+[`decode_resource_refusal`](../../crates/pse-contract-proto/src/support.rs): Buffa's
+message/depth/unknown/element limits and the maintained backing-allocation limit, layout
+overflow and reservation refusals retain their original typed errors and report resource
+failure. Malformed wire and an unaccounted view remain distinct. The exact extension variants
+are characterized by the maintained
+[Buffa error source](../../vendor/buffa/src/error.rs); upstream's
+[decode-options guide](https://github.com/anthropics/buffa/blob/main/docs/guide.md)
+characterizes the standard decode limits. This classification grants no native or scientific
+admission. The shared project handler now owns large drain errors behind their concrete boxed
+type, retaining original action/source and related-drain relationships rather than flattening
+either into text. Receiving resource/cause and aggregate-error controls are part of
+[65h's consolidation qualification](65h-integration-and-qualification.md#consolidation-qualification--2026-11-04);
+the full remaining F02 population stays open.
+
+The consolidation also removes the engineering service's three hand-written source,
+contract and effect response maps. RPC callbacks now call the existing source-derived
+`engineering_projection::encode_*` adapters, then retain the same `AccountedResponse`
+and outgoing-envelope validation owners. The generator's native-to-Buffa projection
+mechanism is characterized in
+[`boundary_projection`](../../crates/pse-codegen/src/codegen/boundary_projection.rs);
+the actual consumers are
+[`engineering/rpc.rs`](../../crates/pse-runtime/src/host_operations/engineering/rpc.rs).
+Operation snapshots share the original native package/preparation/study through `Arc`;
+stored result cursors retain an allocation lease acquired before boxing. This removes
+repeated interpretation and native payload cloning without claiming exact allocator/RSS
+accounting or a measured memory benefit. Final receiving tests are owned by the same H
+checkpoint; these changes do not complete the remaining F04 producer/client population.
+
 ## Packages
 
 | ID | State | Prerequisite | Delivery and targeted acceptance |
@@ -258,7 +304,7 @@ scientific result or F06 assembled journey.
 | F01 | in-progress | Actual native consumer readiness; I01/J01 semantic design; 65a metadata and 65b policy identities | Completion-owned permission/local-validity and developer evidence observation slices are delivered; complete diagnostic/observation/outcome/result-description products across native diagnostics, runtime documents, producer facts, scientific product-use scope/coverage/selection and developer action/inventory/fixture/assertion/capture/settlement. Preserve every selected distinction with exhaustive mappings and independent records. |
 | F02 | in-progress | F01; 65a generated adapters and 65b violations | Semantic RPC family is integrated with typed detail dispositions, original causes, canonical corrections and recursive redaction. Complete the remaining native-to-CLI/local error populations with the same category fidelity. Recognized malformed, unknown, absent, multi-cause, rule/compiler/evaluator failures and oversized details must differ. Delete replaced string classification and duplicate field maps; keep native rendering where consumed. |
 | F03 | planned | F01/F02; narrow C scientific or J developer retention contract according to family | Deliver full evidence with bounded details and protected readback. Exercise omitted selectors, unknown counts, missing spans, expired locators, failed publication, report without inventory and forbidden verdict reconstruction. No summary implies complete retained evidence. Remove replaced inline blobs/readers together. |
-| F04 | in-progress | F01 selected metadata; 65d original-operation streaming/custody | Selected readable-root hydration/explicit narrower check coverage is designed under the proposed ADR-0224 amendment; implementation/acceptance remains. Migrate remaining post-64 progress and result-inspection producers/clients. Selection reaches producer; selected/full/empty output, continuation, partial final failure and backing-buffer release retain original semantics. Compare useful native/Arrow products rather than force a single format. Delete duplicate projection/extent passes only when equivalent protection moves. |
+| F04 | in-progress | F01 selected metadata; 65d original-operation streaming/custody | Selected readable-root hydration with explicit narrower coverage is integrated and targeted-tested on main under proposed ADR-0224. Complete remaining post-64 progress/result-inspection producers and clients. Selection reaches producer; selected/full/empty output, continuation, partial final failure and backing-buffer release retain original semantics. Compare useful native/Arrow products rather than force a single format. Delete duplicate projection/extent passes only when equivalent protection moves. |
 | F05 | planned | F01 fact vocabulary; working F02/F04 consumers | Generate shared observation/sink projections and correlate CLI, OTLP, Perfetto and optional task observations through existing identities. Test unknown/disabled/stale/lost coverage, precise timestamps and Debug-versus-explicit-export redaction. Retire replaced string-unit/classification mirrors, retaining externally required wire schemas. |
 | F06 | planned | F02–F05; I scientific products and J05 developer population; 65g reader | Complete produce→summarize→publish→readback across validation/preparation/solve/provider/store/host failures plus list/check/rustdoc/test and exact rerun. Preserve native verdict ownership, raw versus scientific selection, disconnect and retained reads. Measure complete paths for materialization claims; hand evidence to H. |
 
