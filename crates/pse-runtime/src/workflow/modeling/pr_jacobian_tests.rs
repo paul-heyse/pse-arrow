@@ -112,6 +112,7 @@ fn numerical_preparation(settings: &Settings) -> TestResult<crate::workflow::Pre
     Ok(preparation)
 }
 
+#[cfg(any(feature = "solver-ipopt", feature = "solver-pounce"))]
 pub(super) fn numerical_solver(
     mut solver: crate::math::solves::SolverProfile,
 ) -> TestResult<crate::math::solves::SolverProfile> {
