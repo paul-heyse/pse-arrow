@@ -432,10 +432,8 @@ fn case<'a>(message: &DynamicMessage, names: &'a [&str]) -> Result<&'a str, Meta
     known_fields(message, names)?;
     let mut selected = None;
     for name in names {
-        if value(message, name)?.is_some() {
-            if selected.replace(*name).is_some() {
-                return Err(error("native declaration has multiple oneof meanings"));
-            }
+        if value(message, name)?.is_some() && selected.replace(*name).is_some() {
+            return Err(error("native declaration has multiple oneof meanings"));
         }
     }
     selected.ok_or_else(|| {

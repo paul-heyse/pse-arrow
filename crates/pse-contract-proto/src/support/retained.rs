@@ -20,10 +20,15 @@ fn slots<T>(capacity: usize) -> Result<usize, RetainedExtentError> {
         .checked_mul(size_of::<T>())
         .ok_or(RetainedExtentError)
 }
-fn cow(value: &Cow<'static, str>) -> usize {
-    match value {
-        Cow::Borrowed(_) => 0,
-        Cow::Owned(value) => value.capacity(),
+trait RetainedStringCapacity {
+    fn owned_capacity(&self) -> usize;
+}
+impl RetainedStringCapacity for Cow<'_, str> {
+    fn owned_capacity(&self) -> usize {
+        match self {
+            Cow::Borrowed(_) => 0,
+            Cow::Owned(value) => value.capacity(),
+        }
     }
 }
 fn rule(error: &ValidationError) -> Result<usize, RetainedExtentError> {
@@ -41,11 +46,17 @@ fn path(path: &FieldPath) -> Result<usize, RetainedExtentError> {
     path.elements.iter().try_fold(
         slots::<protovalidate_buffa::FieldPathElement>(path.elements.capacity())?,
         |bytes, element| {
-            let bytes = add(bytes, element.field_name.as_ref().map_or(0, cow))?;
+            let bytes = add(
+                bytes,
+                element
+                    .field_name
+                    .as_ref()
+                    .map_or(0, RetainedStringCapacity::owned_capacity),
+            )?;
             add(
                 bytes,
                 match &element.subscript {
-                    Some(Subscript::StringKey(key)) => cow(key),
+                    Some(Subscript::StringKey(key)) => key.owned_capacity(),
                     _ => 0,
                 },
             )
@@ -65,8 +76,8 @@ fn validation(error: &protovalidate_buffa::ValidationError) -> Result<usize, Ret
         let bytes = add(bytes, path(&violation.field)?)?;
         let bytes = add(bytes, path(&violation.rule)?)?;
         add(
-            add(bytes, cow(&violation.rule_id))?,
-            cow(&violation.message),
+            add(bytes, violation.rule_id.owned_capacity())?,
+            violation.message.owned_capacity(),
         )
     })
 }
@@ -93,6 +104,19 @@ mod tests {
         let mut value = String::with_capacity(capacity);
         value.push_str(text);
         Cow::Owned(value)
+    }
+    #[test]
+    fn cow_retained_extent_follows_owned_capacity() {
+        let borrowed: Cow<'_, str> = Cow::Borrowed("original static selector");
+        assert_eq!(borrowed.owned_capacity(), 0);
+        let mut storage = String::with_capacity(128);
+        storage.push_str("selector");
+        let capacity = storage.capacity();
+        let pointer = storage.as_ptr();
+        let owned: Cow<'_, str> = Cow::Owned(storage);
+        assert!(capacity > owned.len());
+        assert_eq!(owned.owned_capacity(), capacity);
+        assert_eq!(owned.as_ptr(), pointer);
     }
     #[test]
     fn retained_crossing_failure_counts_capacities_and_preserves_original_selectors() {

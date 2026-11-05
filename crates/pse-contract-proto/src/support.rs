@@ -280,11 +280,31 @@ impl<T> ProjectionItems for Vec<T> {
         self.into_iter()
     }
 }
+/// Owning source-order iteration over a shared slice, cloning only yielded values.
+#[derive(Debug)]
+pub struct ArcProjectionItems<T> {
+    values: Arc<[T]>,
+    remaining: std::ops::Range<usize>,
+}
+impl<T: Clone> Iterator for ArcProjectionItems<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.remaining
+            .next()
+            .map(|index| self.values[index].clone())
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.remaining.size_hint()
+    }
+}
 impl<T: Clone> ProjectionItems for Arc<[T]> {
     type Item = T;
-    type Items = std::vec::IntoIter<T>;
+    type Items = ArcProjectionItems<T>;
     fn projection_items(self) -> Self::Items {
-        self.to_vec().into_iter()
+        ArcProjectionItems {
+            remaining: 0..self.len(),
+            values: self,
+        }
     }
 }
 impl<T> ProjectionItems for BTreeSet<T> {
@@ -376,6 +396,64 @@ pub fn wire_map<K, V, M: FromIterator<(K, V)>>(pairs: impl Iterator<Item = (K, V
 mod tests {
     use super::*;
     use miette::Diagnostic;
+
+    #[test]
+    fn arc_projection_items_clone_on_demand_and_retain_source() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        #[derive(Debug)]
+        struct Tracked {
+            value: usize,
+            clones: Arc<AtomicUsize>,
+            drops: Arc<AtomicUsize>,
+        }
+        impl Clone for Tracked {
+            fn clone(&self) -> Self {
+                self.clones.fetch_add(1, Ordering::Relaxed);
+                Self {
+                    value: self.value,
+                    clones: self.clones.clone(),
+                    drops: self.drops.clone(),
+                }
+            }
+        }
+        impl Drop for Tracked {
+            fn drop(&mut self) {
+                self.drops.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+        for consumed in [1, 3] {
+            let clones = Arc::new(AtomicUsize::new(0));
+            let drops = Arc::new(AtomicUsize::new(0));
+            let source: Arc<[Tracked]> = (0..3)
+                .map(|value| Tracked {
+                    value,
+                    clones: clones.clone(),
+                    drops: drops.clone(),
+                })
+                .collect();
+            let weak = Arc::downgrade(&source);
+            let mut iterator = items(source);
+            assert_eq!(clones.load(Ordering::Relaxed), 0);
+            assert_eq!(iterator.size_hint(), (3, Some(3)));
+            assert!(weak.upgrade().is_some());
+            for expected in 0..consumed {
+                let value = iterator.next().unwrap();
+                assert_eq!(value.value, expected);
+                assert_eq!(clones.load(Ordering::Relaxed), expected + 1);
+                assert_eq!(iterator.size_hint(), (2 - expected, Some(2 - expected)));
+            }
+            if consumed == 3 {
+                assert!(iterator.next().is_none());
+                assert!(iterator.next().is_none());
+            }
+            assert_eq!(drops.load(Ordering::Relaxed), consumed);
+            assert!(weak.upgrade().is_some());
+            drop(iterator);
+            assert!(weak.upgrade().is_none());
+            assert_eq!(clones.load(Ordering::Relaxed), consumed);
+            assert_eq!(drops.load(Ordering::Relaxed), 3 + consumed);
+        }
+    }
 
     #[test]
     fn original_rule_infrastructure_and_outgoing_failures_remain_distinct() {
