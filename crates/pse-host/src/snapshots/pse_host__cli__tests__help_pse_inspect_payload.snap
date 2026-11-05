@@ -23,9 +23,9 @@ Options:
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
       --max-binary-element-bytes <MAX_BINARY_ELEMENT_BYTES>
-          Maximum materialized element bytes per descriptor or payload binary decode [default: 33554432]
+          Maximum element bytes per acquired-descriptor or payload-root binary decode [default: 33554432]
       --binary-recursion-limit <BINARY_RECURSION_LIMIT>
-          Maximum nested messages per descriptor or payload binary decode [default: 100]
+          Maximum nested messages per acquired-descriptor or payload-root binary decode [default: 100]
       --descriptor <DESCRIPTOR>
           Complete descriptor-set artifact
       --message <MESSAGE>
@@ -85,12 +85,12 @@ Options:
           Limit whole payload records; producer pages retain their omission and continuation facts
 
       --max-binary-element-bytes <MAX_BINARY_ELEMENT_BYTES>
-          Maximum materialized element bytes per descriptor or payload binary decode
+          Maximum element bytes per acquired-descriptor or payload-root binary decode
 
           [default: 33554432]
 
       --binary-recursion-limit <BINARY_RECURSION_LIMIT>
-          Maximum nested messages per descriptor or payload binary decode
+          Maximum nested messages per acquired-descriptor or payload-root binary decode
 
           [default: 100]
 

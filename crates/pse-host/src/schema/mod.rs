@@ -78,14 +78,14 @@ pub enum SchemaError {
     Tool(String),
 }
 pse_diagnostics::impl_diagnostic! {SchemaError,
-    code(this){Some(match this {
+    code(this){if matches!(this, Self::DeveloperEvidence(_)) { None } else { Some(match this {
         Self::InputLimit { .. } => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
         Self::BinaryDecode(error) if pse_contract_proto::support::decode_resource_refusal(error) => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
         Self::Settlement { .. } | Self::Supervision { .. } => pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
         Self::OutputReaderPanic(_) => pse_diagnostics::DiagnosticCode::WorkflowPanic,
         _ => pse_diagnostics::DiagnosticCode::HostOwnership,
-    })},
-    forward(_this){None},help(_this){None},related(this){match this {
+    }) }},
+    forward(this){match this { Self::DeveloperEvidence(error) => Some(error.as_ref()), _ => None }},help(_this){None},related(this){match this {
         Self::Settlement { operation, cleanup } => {
             let operation: &dyn pse_diagnostics::TypedDiagnostic = operation.as_ref();
             let cleanup: &dyn pse_diagnostics::TypedDiagnostic = cleanup.as_ref();

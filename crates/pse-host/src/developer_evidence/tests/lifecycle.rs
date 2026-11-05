@@ -99,7 +99,8 @@ async fn retained_report_without_inventory_exports_without_promoting_native_sett
         let output = scratch.path().join(format!("{scope:?}.bin"));
         let receipt = export(&store, id.as_str(), None, &output, scope).unwrap();
         let bytes = fs::read(&output).unwrap();
-        let readback = inspect(&descriptors(), &receipt.message, &bytes).unwrap();
+        let readback =
+            inspect(&descriptors(), &receipt.message, &bytes, &binary_options()).unwrap();
         assert_eq!(
             readback.recorded_manager_settlement,
             Some(Settlement::Unknown)

@@ -24,6 +24,7 @@ use std::{
 };
 
 const DEFAULT_INPUT_BYTES: usize = crate::developer_evidence::MAX_INPUT_BYTES;
+const TEXT_STDERR_PREFIX_BYTES: usize = 64 << 10;
 
 /// Request-owned byte and binary decode allowances, independent of presentation.
 #[derive(Clone, Copy, Debug, ClapArgs, Serialize, JsonSchema)]
@@ -37,10 +38,10 @@ pub struct Admission {
     /// Maximum binary output bytes collected from textproto conversion.
     #[arg(long, default_value_t = DEFAULT_INPUT_BYTES)]
     pub max_converted_bytes: usize,
-    /// Maximum materialized element bytes per descriptor or payload binary decode.
+    /// Maximum element bytes per acquired-descriptor or payload-root binary decode.
     #[arg(long, default_value_t = buffa::DecodeOptions::new().element_memory_limit())]
     pub max_binary_element_bytes: usize,
-    /// Maximum nested messages per descriptor or payload binary decode.
+    /// Maximum nested messages per acquired-descriptor or payload-root binary decode.
     #[arg(long, default_value_t = buffa::DecodeOptions::new().recursion_limit())]
     pub binary_recursion_limit: u32,
 }
@@ -226,9 +227,9 @@ pub struct Unknown {
 /// Payload interpretation with mandatory original identities and coverage.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct Report {
-    /// Effective request allowances; captured evidence also retains its family byte cap.
+    /// Effective primary allowances; captured evidence also retains its family byte cap.
     pub admission: Admission,
-    /// Binary payload allowances apply to binary and converted textproto, not JSON parsing.
+    /// Caller binary limits constrain primary decoding and selected family readback, not JSON.
     pub binary_payload_limits_applied: bool,
     /// Selected descriptor artifact path.
     pub descriptor: NativePath,
@@ -257,7 +258,7 @@ pub struct Report {
     pub developer_evidence_refusal: Option<crate::envelope::ErrorRecord>,
     /// Bounded interpreted fields.
     pub preview: Preview,
-    /// Original successful text-parser warnings, if any.
+    /// Bounded original text-parser stderr prefix on success; completeness is unavailable.
     pub parser_diagnostics: String,
     /// Limits on interpretation and preservation.
     pub limitations: Vec<String>,
@@ -283,12 +284,14 @@ pub fn inspect(args: &Args) -> Result<Report, SchemaError> {
 
 fn inspect_bundle(args: &Args, bundle: &Bundle) -> Result<Report, SchemaError> {
     args.admission.validate()?;
+    let compiled_world = bundle.compiled_world()?;
     let input_path = std::fs::canonicalize(&args.input)?;
-    let captured_evidence = matches!(
-        args.message.as_str(),
-        "pse.developer.evidence.v1.CapturedWorkflowReport"
-            | "pse.developer.evidence.v1.CapturedWorkflowEvidence"
-    );
+    let captured_evidence = compiled_world == Some(CompiledWorld::DeveloperEvidence)
+        && matches!(
+            args.message.as_str(),
+            "pse.developer.evidence.v1.CapturedWorkflowReport"
+                | "pse.developer.evidence.v1.CapturedWorkflowEvidence"
+        );
     let mut admission = args.admission;
     if captured_evidence {
         admission.max_input_bytes = admission
@@ -324,7 +327,6 @@ fn inspect_bundle(args: &Args, bundle: &Bundle) -> Result<Report, SchemaError> {
             args.message
         ))
     })?;
-    let compiled_world = bundle.compiled_world()?;
     if matches!(args.encoding, Encoding::Json) {
         strict_json(&input)?;
         if compiled_world.is_some() {
@@ -376,7 +378,7 @@ fn inspect_bundle(args: &Args, bundle: &Bundle) -> Result<Report, SchemaError> {
     };
     let (developer_evidence, developer_evidence_refusal) =
         if captured_evidence && !matches!(args.encoding, Encoding::Json) {
-            match crate::developer_evidence::inspect(&bundle.set, &args.message, &wire) {
+            match crate::developer_evidence::inspect(&bundle.set, &args.message, &wire, &options) {
                 Ok(readback) => (Some(readback), None),
                 Err(
                     error @ (crate::developer_evidence::EvidenceError::Decode(_)
@@ -402,7 +404,7 @@ fn inspect_bundle(args: &Args, bundle: &Bundle) -> Result<Report, SchemaError> {
         input: input_path.into(), payload_sha256: Sha256::digest(&input).iter().map(|byte| format!("{byte:02x}")).collect(), payload_bytes: input.len(),
         original_base64: args.original.then(|| STANDARD.encode(&input)), message: args.message.clone(), encoding: args.encoding,
         representation: representation.into(), validation, developer_evidence, developer_evidence_refusal, preview, parser_diagnostics,
-        limitations: vec!["Successful decoding does not establish semantic validity. Re-encoding does not preserve original byte identity or wire ordering.".into(), "Presence follows protobuf semantics; implicit scalar default and absence may be indistinguishable. Display limits do not limit decode coverage.".into(), "Any resolves only within the selected descriptor closure; nested payload bytes remain bytes. Original path/digest does not guarantee future availability; --original includes exact input.".into(), "Byte admission bounds complete original and converted inputs. Binary element/recursion limits apply per decode, including descriptors; they do not account complete JSON parsing, descriptor linking, cumulative operation heap or process memory.".into()],
+        limitations: vec!["Successful decoding does not establish semantic validity. Re-encoding does not preserve original byte identity or wire ordering.".into(), "Presence follows protobuf semantics; implicit scalar default and absence may be indistinguishable. Display limits do not limit decode coverage.".into(), "Any resolves only within the selected descriptor closure; nested payload bytes remain bytes. Original path/digest does not guarantee future availability; --original includes exact input.".into(), "Byte admission bounds complete original and converted inputs. Caller binary element/recursion limits apply independently to acquired-descriptor and payload-root decodes, including selected family readback under stricter family ceilings. Trusted built-in descriptor matching and original-content interpretation retain their own owners; these limits do not account complete JSON parsing, descriptor linking, cumulative operation heap or process memory.".into(), format!("Textproto parser diagnostics retain at most {TEXT_STDERR_PREFIX_BYTES} stderr bytes as an original prefix; stderr completeness is unavailable.")],
     })
 }
 
@@ -888,7 +890,7 @@ impl Conversion {
                 .into_owned();
         if status.is_none_or(|status| !status.success()) {
             return Err(SchemaError::Tool(format!(
-                "protoc {status:?}: {diagnostics}"
+                "protoc {status:?}; bounded stderr prefix (completeness unavailable): {diagnostics}"
             )));
         }
         Ok((bytes, diagnostics))
@@ -921,7 +923,7 @@ fn convert(
         command,
         DrainFailurePolicy::Park,
         Some(StderrCapture {
-            bytes: 65536,
+            bytes: TEXT_STDERR_PREFIX_BYTES,
             stack_bytes: 256 * 1024,
         }),
     )
@@ -1250,6 +1252,31 @@ mod tests {
             convert(&mut command, 3, Instant::now() + Duration::from_secs(5)).unwrap();
         assert_eq!(bytes, b"abc");
         assert_eq!(warnings, "warning");
+    }
+    #[test]
+    fn schema_payload_conversion_retains_only_a_labeled_stderr_prefix() {
+        let mut command = Command::new("/bin/sh");
+        command
+            .args([
+                "-c",
+                "printf abc; head -c \"$1\" /dev/zero >&2",
+                "stderr-test",
+            ])
+            .arg((TEXT_STDERR_PREFIX_BYTES * 3).to_string());
+        let (bytes, prefix) =
+            convert(&mut command, 3, Instant::now() + Duration::from_secs(5)).unwrap();
+        assert_eq!(bytes, b"abc");
+        assert_eq!(prefix.len(), TEXT_STDERR_PREFIX_BYTES);
+        assert!(prefix.bytes().all(|byte| byte == 0));
+        let mut failed = Command::new("/bin/sh");
+        failed.args(["-c", "printf failure >&2; exit 7"]);
+        let SchemaError::Tool(detail) =
+            convert(&mut failed, 0, Instant::now() + Duration::from_secs(5)).unwrap_err()
+        else {
+            panic!("typed tool refusal expected")
+        };
+        assert!(detail.contains("bounded stderr prefix (completeness unavailable)"));
+        assert!(detail.ends_with(": failure"));
     }
     #[test]
     fn schema_payload_output_reader_settles_panicking_payload_destructor() {
