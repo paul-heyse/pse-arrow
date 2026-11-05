@@ -1778,6 +1778,115 @@ two-role coordinator fixture,period layouts,input-pointer closure and raw
 annual data cardinalities; no CBC,Prescient,Pyomo model or native scientific
 execution occurred.
 
+## Grid price-taker, clustering and forecast cases — 2026-11-05
+
+**Interface-checked, source only:** the remaining selected C grid owners are
+`pricetaker/{clustering,price_taker_model,design_and_operation_models,unit_commitment}.py`
+and their four test modules,plus `forecaster.py` and
+`tests/{test_backcaster,test_perfectforecaster,test_model_data}.py`. Their
+constructors,expression checks and surrogate inputs are required in their
+actual roles; none is a solved physical generator qualification by itself.
+
+| Price-signal/case selector | Exact data and configuration |
+|---|---|
+| `test_clustering.py::sample_data_fixture` | Sole file input `pricetaker/tests/lmp_data.csv`,8760 rows with time1…8760 and `BaseCase_2030` price column;24-value periods produce365 days. The fixture opens bare `lmp_data.csv`,so reference working-directory/path resolution must be explicit. Source naming is not ordinary price provenance. |
+| `dummy_data_fixture` |24 inline values representing twelve2-value samples around three clusters: four corners each near(.5,.5),(10.5,.5),(5.5,10.5). `cluster_lmp_data` uses3 clusters,seed42,expects those centers with weight4 each. These are synthetic clustering inputs,not a market year. |
+| Cluster-count selection | Full file uses elbow search k4…30 inclusive,seed42,expected optimum7. Twelve-sample synthetic data uses silhouette k2…7,expected2; `PriceTakerModel` silhouette k2…6 on the same data expects3. Preserve the different search windows and actual scoring outcome; do not substitute a single universal cluster count. |
+| Price-taker full-vector and representative cases | Source `test_mp_model_full_year` actually uses only the24-value synthetic vector,one24-step period,weight1. Other fixtures select3 representative periods×2 steps (weights4 each),3×4 for update-error cases,2×12 for adjacent-period links/ramp/commitment,3×6 for periodic links,and1×12 for startup counts. An append-only configuration test uses[−4,5,2,50,−3.2],representatives3,horizon2,seed30; negative prices are admitted. These are actual selected configurations,not8760-step plant solutions. |
+
+Daily-data conversion explicitly refuses a horizon longer than the vector;
+nonmultiple lengths warn and discard trailing values (range8/horizon3 drops2).
+K-means uses `random_state=seed` but does not explicitly pin algorithm/init/
+`n_init` in its constructor; exact scikit-learn version/defaults and label
+correspondence therefore belong to reference readiness. Count search requires
+2≤kmin<kmax<number of samples and recognizes only silhouette/elbow; degenerate
+elbow/normalization behavior has separate diagnostic tests. Core SciPy spline
+interpolation,NumPy,pandas,matplotlib and scikit-learn are the transitive
+analysis dependencies. There is no external trainer executable or saved
+clustering artifact in these cases.
+
+The period callback `simple_flowsheet_func` constructs x+y=1 and dummy
+power/binary operation variables; its links even connect prior power to next
+binary mode in a structural test. These are expression/index witnesses,not
+meaningful physical port coupling. Representative periods link adjacent steps
+only within each selected representative; periodic tests connect each period's
+first/last power. Weighting represents repeated samples without restoring
+chronology or inter-period inventory by itself.
+
+The design/operation fixture selects capacity300–400,installation binary,
+capex1000,fixed annual O&M30,operating power0–400,cost23×power+50×on,
+startup/shutdown cost5/4,revenue price×power plus fixed100,and fixed cost50.
+The initialized readback fixture uses constant price5 over24 steps,assigns
+powers1…24 and synthetic startup/shutdown patterns without solving feasibility.
+Separate design variants use fixed capacity650/capex40/fom35 or variable
+power150–650 with polynomial capex coefficients[4,5,6,7],fom[2,3] and
+constant auxiliary ng_flow42. Operation variants include explicit callbacks,
+no automatically declared operation/LMP variables,default single startup
+versus named hot/warm/cold startup times4/8/12,and polynomial surrogates.
+Polynomial constant terms multiply operation status; coefficient lists are
+inline declared formulas,not fitted coefficients or a trainer/data closure.
+The tests also distinguish explicit auxiliary variables/equalities from
+direct expression outputs.
+
+| Commitment/storage consumer | Source configurations and boundary controls |
+|---|---|
+| `test_unit_commitment.py` capacity/ramp cases |10 steps,capacity650 or variable capacity150–600,minimum operating fraction .3. Ramp case startup/shutdown .3,up .2,down .15 fractions of capacity per period; first-period ramp inequalities are absent. Scalar-vs-variable capacity are distinct construction roles. |
+| Startup/shutdown cases |10 steps with min-up3/min-down4 and no startup categories;10 steps with same minima and hot2/warm5/cold8 transitions;5 steps with min-up/down2 and transitionNone or empty dictionary;8 steps with min-up2/min-down3 and a single hot2 category;10 steps with min-up2/min-down4 and hot3/warm6. Lower-level UC accepts that single category while `OperationModel`'s startup-type validator requires at least two named categories. Preserve that API boundary rather than declaring a global refusal. First binary-transition/min-up/min-down constraints start only where their local history fits; prior physical state is not supplied by these structural cases. |
+| Price-taker wrappers |Capacity100/minimum fraction .3 with full24 or3×2 layout; design-capacity ramp startup .3/shutdown .4/up-down .2 with full24 or2×12; min-up3/min-down4 with/without installation variable and full24/2×12. Duplicate additions,missing operation blocks and inconsistent UC data are explicit failure roles. |
+| Automatic power-cycle/storage fixture |Inline polynomial ng_flow[1,2],vom5; unit named ngcc has capacity500,min-up/down3,minimum fraction .3,startup/shutdown .3,up/down .5. A unit named coal_pp only adds commitment; a default storage block is linked/periodic when requested. These names do not instantiate NGCC or coal thermodynamics. |
+| Fixed storage |Time interval .14,charge efficiency1,discharge .8,inventory50.5–100,charge≤10.5,discharge≤20. Inventory change=(charge−discharge/.8)×.14. |
+| Variable storage design |Time interval .5,charge/discharge efficiencies .9/.8,inventory .2×capacity…capacity,charge≤design charge limit,discharge≤.8×that limit. Variable bounds become inequalities; they are not evaluated as fixed numeric limits. No battery material/electrochemical law or loss calibration is selected. |
+
+Overall cashflow defaults are30-year life,8% discount,20% corporate tax,
+straight-line depreciation,optional annualization factor and cash-inflow scale1.
+Objective selection exposes annualized `npv`,lifetime_npv and net_profit;
+only net_profit objective construction is explicitly selected in its positive
+test. Representative-day weights feed cashflow aggregation. Missing hourly
+cost/revenue/design callbacks warn and produce zero corresponding terms;
+missing overall cashflows/unknown objective names refuse. These synthetic
+financial formulas need explicit periods,units and ordinary economic provenance
+before an assessment result is scientific acceptance. Construction/string
+equality is not an independently optimized cost/profit witness.
+
+Forecast cases have finite,distinct time semantics:
+
+- `test_backcaster.py` supplies three24-hour DA days valued1/2/3 and RT
+  days10/20/30 at `test_bus`,default history limit10 days. RT request
+  2022-05-11,hour18,horizon4,three samples chooses newest-to-oldest days;
+  DA request hour0,horizon48,two samples wraps across the retained price
+  vector,producing3→1 and2→3 day pairs. Forecast date does not select actual
+  dated weather/market history in this implementation. This is deterministic
+  cycling,not random resampling.
+- History cap1 drops oldest two days; hourly stats append a completed24-hour
+  day of price15 then clear its partial buffer. Eight further synthetic days
+  exercise retention at10 days; DA callbacks similarly retain the last10.
+  Missing bus raises `ForecastError`. Input guards require nonempty dicts of
+  lists,at least24 values in multiples of24; invalid max-days values are
+  types `"10"`,`"ten"`,[10] and values−10,0,−0.0 (six parameter rows).
+- `test_perfectforecaster.py` supplies one hourly2020-01-01 DataFrame at
+  `Caesar`/`303_WIND_1`: DA prices0…23,RT1…24,DA capacity0… .23,RT .01… .24.
+  DA24-step and RT4-step reads are exact data access,not forecast validation;
+  scenario-count argument is unused. DataFrame or CSV path are allowed,
+  ndarray/list are two explicit rejected input forms. At exhaustion the source
+  appends values from the beginning **once**,rather than arbitrary cyclic
+  repetition or a missing-coverage refusal. Long/out-of-range windows need
+  explicit admissibility controls before adoption.
+
+Generator-data validation separately has23 parameter rows:8 nonnumeric
+fields,5 negative values,3 capacity/startup/shutdown values below Pmin,
+2 empty bid lists,2 invalid initial statuses and3 inconsistent initial-output
+roles. Individual guards additionally cover missing Pmin/Pmax bid endpoints,
+invalid startup/cost curves,fixed commitment and generator/bus names. These
+refusals constrain accepted reference inputs; they are not extra physical
+experiments. The selected forecast/price-taker tests load no additional data
+file beyond `lmp_data.csv` and no saved fit/initialization. Native G05/G06
+still require matched period/history/stock/commitment,weighted assessment,
+incomplete-coverage and failed-horizon controls plus independently sourced
+ordinary inputs. Exact provider versions,numerical cluster execution and
+native/reference qualification remain open. Ephemeral AST/CSV inspection
+confirmed8760 price rows,the24-value synthetic vector and the23 parameter
+rows; no clustering,market,optimization or scientific reference was run.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

@@ -250,6 +250,16 @@ Unseeded forecast sampling,provider versions/raw parser semantics,remaining
 price-taker/forecast cases,ordinary data and native/reference execution remain
 open.
 
+**Update, 2026-11-05 — price-taker/forecast case census:** the
+[remaining grid cases](64h-required-process-population.md#grid-price-taker-clustering-and-forecast-cases--2026-11-05)
+resolve8760-row versus synthetic clustering inputs,actual search windows and
+representative layouts,design/operation/commitment/storage formulas,history
+cycling and perfect-data read windows. The23 generator-data parameter rows
+and actual missing-input/initial-history boundaries remain explicit controls.
+Source names such as full_year,ngcc or battery do not establish corresponding
+physical models or execution. Provider pinning,native period/state mapping,
+ordinary data and independent numerical/scientific acceptance remain open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
