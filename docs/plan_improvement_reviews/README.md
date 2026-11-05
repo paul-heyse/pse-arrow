@@ -1,5 +1,13 @@
 # Plan improvement reviews
 
+The [Plan65 Proto capabilities and codebase-integration review](plan65-proto-capabilities-and-codebase-integration-2026-11-05.md)
+assesses the implemented foundations and remaining 65a–65j footprint at `282da134f`.
+Twelve proposed amendments address scientific coordinates/products, worker handoff and
+settlement, explicit preparation, typed supplier composition, effective-world validation,
+demand-shaped inspection and large evidence acquisition. It also evaluates broader client,
+deployment and chemical-workflow opportunities. Recommendations remain separate from plan
+revision, implementation and the stopped qualification campaign.
+
 The [Plan65 integrated Proto and simulation-extensibility review](plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md)
 recommends eleven coordinated amendments across scientific operations/product use, developer
 and production evidence lifecycles, directional authority, descriptor/option fidelity and
