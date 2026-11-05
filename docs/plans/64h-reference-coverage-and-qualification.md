@@ -364,6 +364,15 @@ Source count/prose mismatches,caloric units andthehelper'somitted failures
 remain explicit. Native fit/curve products,ordinary data provenance andexact
 independent numerical/solver acceptance remain required.
 
+**Update, 2026-11-05 — electrolyte input census:** the
+[eNRTL closure](64h-required-process-population.md#electrolyte-reference-state-and-verification-input-closure--2026-11-05)
+resolves NaCl/KCl/NaBr solventdefinitions,symmetric/unsymmetric references,
+actual digitized curves/limits,interaction variants andmolal/log conventions.
+Repeated NaCl datasets areconfirmed separately fromtheir distinct embedding
+roles. Ordinary data admission,native charge/species/property acceptance,
+remaining configurations andindependent numerical execution remain required;
+expression assignments do notestablish a solved electrolyte process.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

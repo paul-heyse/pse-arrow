@@ -2908,6 +2908,92 @@ initial guesses andgenerated plot/fit outputs retain separate roles;noother
 datafile,trainer orsaved initialization isloaded by these consumers. Reads
 andstdlib CSV/JSON inspection executed no estimator,EOS,diagram orsolver.
 
+## Electrolyte reference-state and verification-input closure — 2026-11-05
+
+**Interface-checked, source only:** C `modular_properties/examples/
+enrtl_{H2O_NaCl_KCl,NaBr_mixed_solvent}.py`,the NaCl/KCl core example test,
+`eos/{enrtl,enrtl_parameters,enrtl_reference_states}.py` andV
+`verification/properties/eNRTL/test_enrtl_verification_{NaCl,KCl,NaCl_KCl,
+2_solvent}.py` resolve these selected activity populations. All useFTPx,
+true-species state coordinates,one aqueous Liq phase andexplicit apparent
+salt dissociation;this doesnot qualify alternate apparent-coordinate,
+multiphase,caloric orprocess-unit consumers.
+
+C NaCl/KCl definesapparent NaCl/KCl andtrueH2O/Na+/K+/Cl−,unit ion charges,
+water molar density1000/.018 mol/m³,MW .018 kg/mol andpermittivity78.54.
+Symmetric reference isexplicit,referenceT300 K/P1e5 Pa;its constant ordered
+water→NaCl/NaCl→water tau are9.0234/−4.5916 andwater→KCl/KCl→water
+8.1354/−4.1341. These ion-pair interactions arenot molecule-only NRTL tau.
+Core'sactual50-point NaCl limit test changes Na tau to8.885/−4.549,sets
+T298.15 K andleaves K+ at1e-12;do not compare it against unmodified default
+NaCl/KCl data orcall KCl exactlyabsent.
+
+C mixed-solvent NaBr definesH2O/MeOH/EtOH solvents,apparentNaBr→Na++Br−,
+same unit charges,defaultSymmetric reference andtrue coordinates. Solvent
+densities are1000/.018,792/.032,789.45/.046 mol/m³,respectively;permittivities
+78.54/32.6146/24.113. Function comments swap the alcohol names,butthe actual
+keyed methods use these values. Three symmetric solvent–solvent alpha values
+are.3031(H2O/EtOH),.2994(H2O/MeOH),.3356(MeOH/EtOH);solvent–salt alpha
+.2/.2/.1. Ordered solvent tau pairs areH2O↔MeOH1.4265/−.42864,
+H2O↔EtOH2.2485/−.18514,MeOH↔EtOH−.04394/.02147;water,methanol,ethanol
+→NaBr/reverse are9.527/−4.790,5.910/−3.863,6.118/−4.450. No solvent
+temperature dependence isselected by these constant methods.
+
+| Exact V class/family | Input/reference/target population |
+|---|---|
+| SingleNaCl,Symmetric andUnsymmetric | T298.15 K,watertrue fractionx andeachion(1−x)/2. The same four digitized tables have47 water-ln-gamma points(x .0166772823..999998),48 long-range ionic points(.0102202097..9945432987),51 local-composition ionic points(.0064291094..9926673601),50 total ionic points(.0162094136..9855967963). Tau8.885/−4.549;water/NaCl constant molar-volume method18e-6 m³/mol. Pure-water limits retain1e-12 ions;Symmetric also testsnear-pure salt withwater1e-12 andions .5/.5. |
+| SingleKCl,Unsymmetric | T298 K,tau8.064/−4.107.28 molality/gamma pairs,m=.001..4.9908 mol/kg;water w=1000/18 mol on1 kg basis. True fractions waterw/(w+2m),eachionm/(w+2m). Compare natural-log ionic gamma minusln(1+.036m) againstln(observed molal gamma),rel.03/abs.006. |
+| MixedNaCl/KCl,zeroKCl limits | Symmetric andUnsymmetric at298.15 K,Na tauoverridden8.885/−4.549. Reuse the four singleNaCl dictionaries exactly;K+ remains1e-12. These are species-embedding/reference-state checks,not new independent digitized data. |
+| MixedNaCl/KCl,zeroNaCl limit | Unsymmetric at298 K,Ktauoverridden8.064/−4.107. Reuses singleKCl's28 molality pairs;Na+ remains1e-12. |
+| Mixedsalts,tau0 | Unsymmetric298.15 K,totalmolality4,waterw=1000/18. K=x*4,Na=(1−x)*4,Cl=4;normalize by w+8. Default water–salt tau retained;both ordered salt–salt tau0. Separate NaCl/KCl target curves41/44 points. |
+| Mixedsalts,tau1 | SameT/molality/composition map;ordered KCl→NaCl tau−1,NaCl→KCl+1. Separate NaCl/KCl curves36/38 points. |
+| Mixedsalts,tau2 | Sameinputs;ordered KCl→NaCl+1,NaCl→KCl−1. Separate NaCl/KCl curves50/46 points. These sign-reversed interactions aredistinct scientific definitions. |
+| NaBr,binary-solvent saturation curves | DefaultSymmetric,298.15 K;H2O/EtOH44,H2O/MeOH50,MeOH/EtOH31 digitized(x,g) pairs from the citedfigure. x isfirst-solvent mass percent ofsalt-free solvent,g issalt mass on100 total-mass basis. Convert saltg/.1029,solvent masses(100−g)*x/100 and(100−g)*(1−x/100) bytheir MW,andnormalize withtwice saltmoles. Compareln(activityNa*activityBr) to−7.157,rel .02/.025/.023 respectively. No solid phase orsolubility solver isselected. |
+
+The NaCl four tables areparsed-equal across symmetric/unsymmetric andmixed
+zero-K embedding roles;the core50-point total-gamma table matches themtoo.
+Count data origins separately from repeated method/reference-state checks.
+NaBr solventx rangesare1.90023165..97.80665581,6.82452237..98.90094264 and
+2.71536367..97.33767574 percent intheroworder above. The unused thirdsolvent
+is1e-12,so each isatrace-containing limit rather than exactlybinary.
+The digitized targets andupstream fitted interactions areoracle verification
+inputs;ordinary material parameters require original-source admission and
+digitization allowances. Target dictionaries arenot ordinary EOS coefficient
+tables simply because they areinlinePython.
+
+For symmetric NaCl comparisons,the long-range target adds.971,the local
+target subtracts2.414 andtotal subtracts1.462. Unsymmetric ionic comparisons
+use the unshifted targets. These offsets align referenceconventions;do not
+treat themasfree regression knobs orremove themfrom comparison allowances.
+Water gamma andapparent-salt gamma areadditional products,not substitutes
+forindividual true-ion activities. Mixed-salt curves comparelog10 meanionic
+gamma onmolal basis:half thesum ofionicln-gamma,divided byln10,minus
+log10((w+8)/w). Watertrue fraction .874125874,Cltruefraction/ionicstrength
+.06293706294 areseparate normalization controls.
+
+ENRTL defaults toSymmetric,ConstantAlpha/ConstantTau andclosest-approach14.9.
+Alpha is symmetric,default .3 formolecule/molecule and.2 otherwise;conflicting
+reversealpha andinvalid pair keysrefuse. Tau isordered,default0 withinvalid
+pairsrefused. Customalpha/tau/reference callbacks areopen methodcontracts,
+not afinite arbitrary-callback catalog. Symmetric normalizes referenceions
+toafused-salt composition,withreference solvent0;Unsymmetric normalizes
+reference molecularspecies andusesionEPS1e-20. Those referenceEPS andstate
+trace1e-12 have differentroles. Exactzero ion/solvent limits canmake logarithms
+orcomposition denominatorssingular;neither nonnegative statebounds nor
+the shownnear-limit controls establish arbitraryzero-state admissibility.
+
+V fixtures often use `dict(configuration)` thenmutate nestedphase options
+toUnsymmetric;this shallowcopy also changes theshared configuration.
+Reference execution mustfreeze percase options andtestorder rather than
+inferreproducibility fromaclassname. The sources assignproperty composition
+values andevaluateexpressions withoutinitializing/solving acharge-balanced
+flowsheet. No measured processstream,CSV,trainer,savedstate ornative solver
+isloaded bythese selected verificationowners. Native D03 stillowes admitted
+electrolyte inputs,true/apparent andchargeconservation,referenceconversion,
+complete property/derivative validity,remainingmethod/state selections and
+independent numerical evidence. Source/AST dictionary inspection here didnot
+evaluate activityexpressions orqualify thepinned referenceenvironment.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
