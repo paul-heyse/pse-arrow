@@ -1312,6 +1312,10 @@ pub struct PreflightDiagnostic {
 /// No generated code is published when this returns diagnostics.
 pub fn preflight(messages: &[MessageValidators]) -> Vec<PreflightDiagnostic> {
     let schemas = build_schema_index(messages);
+    preflight_with_schema(messages, &schemas)
+}
+
+pub(crate) fn preflight_with_schema(messages: &[MessageValidators], schemas: &SchemaIndex) -> Vec<PreflightDiagnostic> {
     let mut diagnostics = Vec::new();
     for message in messages {
         if let Some(reason) = &message.compile_error {
@@ -1322,7 +1326,7 @@ pub fn preflight(messages: &[MessageValidators]) -> Vec<PreflightDiagnostic> {
         }
         let schema = build_message_schema(message);
         let check = |field: Option<&str>, id: &str, expression: &str, ty: CelType, rule_const: Option<&crate::scan::RuleConst>| {
-            let mut compiler = Compiler::new().with_schemas(&schemas);
+            let mut compiler = Compiler::new().with_schemas(schemas);
             compiler.bind("this", Binding { rust_expr: quote! { __cel_this }, ty, constant: None });
             if let Some(value) = rule_const { compiler.bind_rule_const("rule", value); }
             let result = compiler.compile(expression).and_then(|output| {
@@ -1353,7 +1357,7 @@ pub fn preflight(messages: &[MessageValidators]) -> Vec<PreflightDiagnostic> {
                 }
                 continue;
             }
-            let ty = scalar_this_for_with(&field.field_type, Some(&schemas)).unwrap_or(CelType::Dyn);
+            let ty = scalar_this_for_with(&field.field_type, Some(schemas)).unwrap_or(CelType::Dyn);
             for rule in &field.cel { diagnostics.extend(check(Some(&field.field_name), &rule.id, &rule.expression, ty.clone(), None)); }
             for rule in &field.standard.predefined {
                 diagnostics.extend(check(Some(&field.field_name), &rule.id, &rule.expression, ty.clone(), rule.rule_const.as_ref()));

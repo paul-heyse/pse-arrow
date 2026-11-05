@@ -18,6 +18,31 @@ targets, while retaining their complete import schema. Ordinary plugin stdin run
 Success prints exactly `pse-cel-preflight-v1` followed by a newline. Missing/duplicate targets
 and duplicate descriptor filenames refuse before rule scanning.
 
+The maintained library entrypoint is `prepare(&CodeGeneratorRequest)`. It owns one
+selected scan, its complete import-derived rule visibility, one CEL schema index and
+the original `proto_module` output option. It returns an immutable `PreparedValidators`
+only after the existing corrected CEL admission succeeds; `PreparedValidators::render`
+uses that same scan/index to emit the unchanged owned/view and package/module layout.
+`PreparationError::diagnostics` retains structured source/message/field/rule/category
+details; the CLI renders them in its existing format. Both ordinary plugin input and
+`--preflight` delegate to this entrypoint. Each process prepares its own world: no global
+cache or cross-process/cross-world reuse is claimed. Raw `scan`/`emit` helpers remain
+test primitives rather than an admitted production-generation route.
+
+This local extraction does not alter the source archive identified above, its original
+manifest, or the committed standalone dependency lock. Before using the changed tool,
+run its locked tests and explicitly rebuild the prepared installation:
+
+```sh
+scripts/pse-env -- cargo test --manifest-path vendor/protoc-gen-protovalidate-buffa/Cargo.toml --locked
+scripts/pse-env -- cargo install --path vendor/protoc-gen-protovalidate-buffa --root .local/plan61-tools --locked --force
+```
+
+Repository generation remains the caller's separate publication step. Preparation
+removes the second scan/schema-index construction inside a plugin invocation; the
+external preflight process still prepares independently. This is no selection of an
+in-process publisher and no measured performance claim.
+
 This remains a bounded typed lowerer, not a complete CEL checker. Heterogeneous numeric
 branches/lists require a dynamic representation to preserve integer precision, so admission
 reports Unsupported rather than silently converting integers to doubles. Mixed scalar

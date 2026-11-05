@@ -8,7 +8,7 @@ use buffa_codegen::generated::{
     compiler::{CodeGeneratorRequest, CodeGeneratorResponse},
     descriptor::Edition,
 };
-use protoc_gen_protovalidate_buffa::{emit, scan};
+use protoc_gen_protovalidate_buffa::{PreparedValidators, prepare};
 
 fn main() -> anyhow::Result<()> {
     let mut args = std::env::args_os().skip(1);
@@ -24,7 +24,7 @@ fn main() -> anyhow::Result<()> {
         }
         anyhow::ensure!(!files.is_empty(), "explicit --file targets are required");
         let request = CodeGeneratorRequest { proto_file: descriptors.file, file_to_generate: files, ..Default::default() };
-        admit(&request)?;
+        admitted(&request)?;
         println!("pse-cel-preflight-v1");
         return Ok(());
     }
@@ -56,53 +56,18 @@ fn main() -> anyhow::Result<()> {
 fn run(
     request: &CodeGeneratorRequest,
 ) -> anyhow::Result<Vec<buffa_codegen::generated::compiler::code_generator_response::File>> {
-    let opts = parse_opts(request.parameter.as_deref().unwrap_or(""));
-    admit(request)?;
-    let validators = scan::gather(request)?;
-    emit::render_with_options(&validators, &opts)
+    admitted(request)?.render()
 }
 
-/// Parse the `opt: [...]` parameters passed via `buf.gen.yaml`. Accepts a
-/// comma-separated `key=value,flag,...` list (the format protoc / buf use
-/// to invoke plugins). Unknown keys are ignored so callers can pass
-/// forward-compatible options.
-fn parse_opts(parameter: &str) -> emit::Options {
-    let mut opts = emit::Options::default();
-    for part in parameter.split(',') {
-        let part = part.trim();
-        if part.is_empty() {
-            continue;
+fn admitted(request: &CodeGeneratorRequest) -> anyhow::Result<PreparedValidators> {
+    prepare(request).map_err(|error| {
+        for diagnostic in error.diagnostics() {
+            eprintln!("CEL {:?}: file={} message={} field={} rule={}: {}", diagnostic.kind,
+                diagnostic.source_file, diagnostic.message, diagnostic.field.as_deref().unwrap_or("-"),
+                diagnostic.rule, diagnostic.reason);
         }
-        if let Some((k, v)) = part.split_once('=')
-            && k.trim() == "proto_module"
-        {
-            opts.proto_module = v.trim().to_string();
-        }
-    }
-    opts
-}
-
-fn admit(request: &CodeGeneratorRequest) -> anyhow::Result<()> {
-    anyhow::ensure!(!request.file_to_generate.is_empty(), "explicit authored generation targets are required");
-    let mut names = std::collections::BTreeSet::new();
-    for file in &request.proto_file {
-        let name = file.name.as_deref().ok_or_else(|| anyhow::anyhow!("descriptor has no logical filename"))?;
-        anyhow::ensure!(names.insert(name), "duplicate descriptor filename: {name}");
-    }
-    let mut selected = std::collections::BTreeSet::new();
-    for name in &request.file_to_generate {
-        anyhow::ensure!(selected.insert(name), "duplicate authored target: {name}");
-        anyhow::ensure!(names.contains(name.as_str()), "authored target missing from descriptor: {name}");
-    }
-    let messages = scan::gather(request)?;
-    let diagnostics = emit::cel::preflight(&messages);
-    for diagnostic in &diagnostics {
-        eprintln!("CEL {:?}: file={} message={} field={} rule={}: {}", diagnostic.kind,
-            diagnostic.source_file, diagnostic.message, diagnostic.field.as_deref().unwrap_or("-"),
-            diagnostic.rule, diagnostic.reason);
-    }
-    anyhow::ensure!(diagnostics.is_empty(), "CEL preflight refused {} rule(s)", diagnostics.len());
-    Ok(())
+        anyhow::Error::new(error)
+    })
 }
 
 #[cfg(test)]
@@ -111,7 +76,7 @@ mod tests {
     #[test]
     fn preflight_refuses_absent_or_empty_target_populations() {
         let absent = CodeGeneratorRequest { file_to_generate: vec!["missing.proto".into()], ..Default::default() };
-        assert!(admit(&absent).unwrap_err().to_string().contains("missing.proto"));
-        assert!(admit(&CodeGeneratorRequest::default()).is_err());
+        assert!(admitted(&absent).unwrap_err().to_string().contains("missing.proto"));
+        assert!(admitted(&CodeGeneratorRequest::default()).is_err());
     }
 }

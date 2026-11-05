@@ -25,6 +25,22 @@ impl Default for Options {
     }
 }
 
+impl Options {
+    /// Parse the existing protoc/Buf option vocabulary; unknown options retain
+    /// the plugin's forward-compatible ignore behavior.
+    pub(crate) fn from_parameter(parameter: &str) -> Self {
+        let mut options = Self::default();
+        for part in parameter.split(',').map(str::trim) {
+            if let Some((key, value)) = part.split_once('=')
+                && key.trim() == "proto_module"
+            {
+                options.proto_module = value.trim().to_string();
+            }
+        }
+        options
+    }
+}
+
 pub mod cel;
 pub mod cel_compile;
 pub mod field;
@@ -133,9 +149,13 @@ pub fn render(messages: &[MessageValidators]) -> Result<Vec<File>> {
 ///
 /// See [`render`].
 pub fn render_with_options(messages: &[MessageValidators], opts: &Options) -> Result<Vec<File>> {
+    let schemas = cel::build_schema_index(messages);
+    render_with_schema(messages, opts, &schemas)
+}
+
+pub(crate) fn render_with_schema(messages: &[MessageValidators], opts: &Options, schemas: &cel::SchemaIndex) -> Result<Vec<File>> {
     use std::collections::BTreeMap;
 
-    let schemas = cel::build_schema_index(messages);
     let mut by_file: BTreeMap<String, Vec<&MessageValidators>> = BTreeMap::new();
     for m in messages {
         by_file.entry(m.source_file.clone()).or_default().push(m);
@@ -147,7 +167,7 @@ pub fn render_with_options(messages: &[MessageValidators], opts: &Options) -> Re
     // file under the right `pub mod` nesting.
     let mut by_package: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (source_file, msgs) in by_file {
-        let body = render_file(&msgs, &schemas)?;
+        let body = render_file(&msgs, schemas)?;
         let stem = source_file.trim_end_matches(".proto").replace('/', ".");
         let path = format!("{stem}.rs");
         let body_str = body.to_string();

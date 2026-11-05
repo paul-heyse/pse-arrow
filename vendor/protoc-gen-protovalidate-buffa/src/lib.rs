@@ -1,4 +1,4 @@
-//! Plugin internals, exposed as a library so integration tests can import from `scan` and `emit`.
+//! Admitted validator generation and the scan/emit primitives used by its tests.
 #![expect(
     clippy::too_many_lines,
     reason = "codegen emitters render one Rust file per rule family — splitting the match-per-kind dispatcher into helpers would fragment the per-rule mapping that's meant to be read linearly"
@@ -20,3 +20,5 @@
 
 pub mod emit;
 pub mod scan;
+mod prepare;
+pub use prepare::{PreparedValidators, PreparationError, prepare};
