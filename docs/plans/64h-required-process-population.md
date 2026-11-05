@@ -173,6 +173,111 @@ and complete shipped operating cases still needs case-level reconciliation.
 | `helm/turbine_multistage.py`, `helm/valve_steam.py` | HP/IP/LP and parallel-inlet stage counts, splits/disconnections/outlet counts and throttle curve; steam valve liquid/vapor and linear/equal-percentage/quick-opening law. Stage counts and split locations require finite authored case selections, not all integers. |
 | `soec_design.py` | Selected reaction EOS and heat-transfer inclusion; configured reaction/property mapping and actual design specifications remain necessary. |
 
+## TSA0D configured census and input closure — 2026-11-05
+
+**Interface-checked, source only:** this slice reads C's entire
+`models_extra/temperature_swing_adsorption` Python/test/costing directory, its
+inherited `UnitModelBlockData`/`ProcessBlockData` configuration, the consumed
+flue-gas/steam/costing owners, and X's four TSA notebook renderings at the fixed
+revisions above. Native correspondence was inspected at `85868b3b4`. It closes
+the source selection and shipped-case inputs below, not TSA implementation,
+reference execution, ordinary-data admission or the rest of H01. All rows remain
+required. The held NETL-32D 1D adsorption/desorption case is a separate model.
+
+### Effective configuration and refusals
+
+| Axis / actual source owner | Effective choices and construction boundary |
+| --- | --- |
+| Inherited `dynamic`, `has_holdup` | Both start as `useDefault`; dynamic inherits the parent and holdup resolves to dynamic. A dynamic unit in a steady parent and dynamic=True/holdup=False are refused by the base. The shipped TSA cases use a steady parent, hence False/False. TSA's heating/cooling have their own normalized time domains and retained stage states; these exist even when the parent is steady. TSA does not add a generic parent-time accumulation law: its inlet composition/pressure coupling samples the parent's final time. True/True and steady/holdup=True inheritance therefore do not establish additional transient scientific cases or native support. |
+| Adsorbent | Default `zeolite_13x`; alternatives `mmen_mg_mof_74`, `polystyrene_amine`. Each builds a different loading law/parameter set. All use CO2/N2 adsorption; external ports additionally expose H2O/O2. Port membership does not make them adsorbing species. |
+| Bed specification | Default integer 120 fixes adsorption-bed allocation; `None` selects calculated allocation with inlet velocity free and an independently fixed pressure drop. It is not an enumeration of every integer or an integer bed-design optimization. The reported total bed count also includes regeneration duty; it is distinct from this configured adsorption-bed count. |
+| Stage discretization | Actual defaults are collocation/Radau, 20 finite elements and 6 collocation points. Explicit `useDefault` resolves to backward finite difference or Radau collocation. Finite difference permits backward/forward; collocation permits Radau only. Other method/scheme pairs are refusals. In particular finite difference with an omitted scheme retains the actual Radau default and is refused; the scheme's descriptive default text is not authoritative. Missing element/point values are checked in the transformation owner; those checks follow transformation invocation, so do not promise a particular first error. Zero/negative mesh sizes have no TSA-specific admissibility proof. |
+| Compressor | Default False. True requires an explicit property package; the shipped package has only N2/CO2 and feeds an isentropic pressure changer. Pressure rise offsets the TSA pressure loss; efficiency is a separate fixed specification. An explicitly supplied incompatible package is not certified by the presence-only guard. |
+| Steam | Default `none`; `simplified` builds a fixed algebraic steam-demand correlation without a trainer/artifact; `rigorous` requires an explicit steam package and builds a heater. Shipped rigorous cases use IAPWS95, inlet 510000 Pa and 52465.8 J/mol, zero pressure change, and an outlet vapor fraction of 1e-9. Missing rigorous properties are refused; no guard proves arbitrary supplied packages compatible. |
+| Balance / flow policies | There is no user-selectable material/energy/momentum balance enum, reversed-bed direction, sweep or axial grid for this shortcut. Heating exchanges matter and heat; cooling is closed; repressurization uses feed; adsorption ends at breakthrough. Their fixed equations must be preserved rather than acquiring unrelated control-volume axes. |
+
+These are factorized categorical choices with guards, not a claim that their
+Cartesian product has been physically validated. Uninstantiated cross-combinations,
+forward-difference numerical behavior and inherited parent-time settings retain
+separate readiness/acceptance questions; the six concrete configurations below
+do not discharge them.
+
+### Shipped specifications, numerical variants and assessment roles
+
+All flows are mol/s, pressures Pa, temperatures K and lengths m. All six
+configurations fix inlet H2O=O2=0 and pressure=100000. The temperature tuple is
+(inlet, adsorption, desorption, heating utility, cooling utility); utility
+temperatures are not the stage terminal state. Unless overridden, the mesh is
+20-element/6-point Radau collocation. No `pytest.mark.parametrize` expansion is
+present in the three TSA test modules; scientific differences are fixture classes,
+the UI override and the notebook specifications.
+
+| Exact selector / case role | Complete independent operating/design specifications | Additional products / initialization selection |
+| --- | --- | --- |
+| C `tests/test_fixed_bed_tsa0d.py::TestTsaZeolite` | Zeolite; 120 beds; CO2=40, N2=99960; temperatures (303.15,310,470,500,300); diameter=4, height=8; compressor off; steam none | Cycle and stream products; heating/cooling initial time guesses 70000/110000 s. |
+| C same file `TestTsaMgmof` | MgMOF; beds=None; CO2=0.001152, N2=0.008448; temperatures (300,310,430,440,300); diameter=0.03, height=1.2; pressure drop=-4000; compressor off; steam simplified | Calculated bed allocation/velocity and steam flow; time guesses 2000/900 s, initializer constraint tolerance 1e-4. |
+| C same file `TestTsaPolystyrene` | Polystyrene; 1 bed; same feed rates as MgMOF; temperatures (300,440,445,450,435); diameter=0.1, height=1.2; compressor on, N2/CO2 flue-gas package, efficiency=0.8; rigorous IAPWS95 steam | Compressor work/pressure rise and steam flow/heater states; time guesses 700/700 s. |
+| X `docs/flowsheets/temperature_swing_adsorption/temperature_swing_adsorption.ipynb`; C UI base/solve/output tests | Zeolite; 1 bed; MgMOF feed rates and temperatures; diameter=0.03, height=1.2; compressor off; steam none | Distinct from the 120-bed fixture. Notebook uses user scaling and Ipopt tolerance 1e-6; initializer default time guesses 1000/500 s. UI has the same physical specification and default mesh, but retains its own solver settings. |
+| C `tests/test_fixed_bed_tsa0d_ui.py::test_build_with_finite_elements` | Same UI physical specification; backward finite difference with 10 elements; collocation-point option remains 6 but is not a finite-difference order | A construction/refinement configuration, not a demonstrated transient solve. Forward difference remains an exposed numerical configuration without a shipped solved fixture here. |
+| C `tests/test_fixed_bed_tsa0d_costing.py::{TestElectricBoilerCosting,TestRetrofitNgccCosting}` | Zeolite; 600 beds; 120-bed fixture feed, temperatures and geometry; compressor on with N2/CO2 flue-gas package and efficiency=0.8; rigorous IAPWS95 steam | One physical configuration, two distinct assessment roles: `electric_boiler` and `retrofit_ngcc`. Both initialize at default time guesses; final solver sets bound_push=1e-6. Preserve each role's capital, fixed/variable O&M, annualized cost and cost-of-capture products. Unknown costing-case strings are refused. |
+
+The X base and `_test` code cells have the same parsed statements. After removing
+assertions, `_doc`/`_usr` differ only by absent assertion-only pytest and
+termination-condition imports. Thus these four wrappers supply one scientific
+specification, while retaining their distinct evidence/rendering roles. The SVG
+and directory index are documentation, not coefficient inputs. The UI's graphical
+processor is not required to reconstruct the native scientific problem; executing
+its adapter tests separately requires `idaes_flowsheet_processor.api`. Upstream
+skip/importorskip behavior is not an accepted native qualification outcome.
+
+### Recursive prerequisite closure and input roles
+
+| Selected consumer | Complete case-specific source/artifact dependency and unresolved readiness |
+| --- | --- |
+| All six configurations | C `fixed_bed_tsa0d.py` plus `initializer.py`, base units/core scaling/math/serializer and Pyomo DAE/NLP support; `util.py` adds pandas/matplotlib for summaries/profiles. General wall capacity, gas viscosity, molecular weights, sphericity and fluidization voidage are inline parameters. Adsorbent builders supply voidages, solid heat capacity/density, heat transfer, particle diameter, adsorption heats and reference temperatures, plus their distinct isotherm coefficients. No case reads an external dataset, trained weight, trainer executable or serialized starting solution. Initializer serializer dictionaries are created/restored in memory; its optional JSON initial-guess API is not selected by these fixtures. |
+| Adsorbent law/data | Zeolite builder supplies saturation/affinity/heterogeneity and their temperature dependence; MgMOF supplies lower/upper capacities and affinities, step width/pressure/enthalpy and weighting; polystyrene supplies saturation, affinity and Toth parameters. Original-source leads below identify scientific provenance. All coefficient values, conventions and units still need independently sourced ordinary records at B/D/F owners; reading these reference coefficients does not grant ordinary production eligibility. Expected values in tests/notebook remain oracle-only. |
+| Compressor configurations | C `power_generation/properties/flue_gas_ideal.py` and generic `pressure_changer.py` with ideal flue-gas coefficients, state/enthalpy/entropy and isentropic pressure/work closure; no external cubic-root or trainer artifact is selected. Only the explicit N2/CO2 composition is selected here. Original ordinary coefficient provenance remains D02/F05 work. |
+| Rigorous steam configurations | C `iapws95.py` → general Helmholtz parameter/state/expression owners → registered Water component, its parameter JSON and generated `h2o_expressions_eos.nl` with expression metadata, plus loadable `general_helmholtz_external` library. The registration path and exact installed artifacts must be frozen and checked before execution. Water JSON alone is insufficient. This heater demands thermodynamic saturation/enthalpy/mass flow, not a blanket qualification of Water viscosity, conductivity or surface tension. |
+| Both costing roles | C `costing/dac_costing.py` reads its matching `costing_params_dac_electric_boiler.json` or `costing_params_dac_retrofit_ngcc.json`. It consumes QGESS `power_plant_capcost.py`, `costing_dictionaries.py`/`BB_costing_data.json`, and `generic_ccs_capcost_custom_dict.py`/`generic_ccs_costing_data.json`. The sCO2 dictionary loader is imported but not called by these DAC cost-account routes. Capacity/utilization, USD_2018 prices/currency conversions, inline resource/emissions correlations and labor/land/account assumptions are assessment inputs, not adsorption material data. Neither role trains these correlations. |
+| Actual execution environment | Core remains IDAES2.13.0 with Pyomo6.10.1/Pint selected by `pyproject.toml` and its lock; initializer explicitly selects legacy `ipopt`, not `ipopt_v2`. Pin exact interpreter, Ipopt executable/options and selected Helmholtz binary/data identity at execution. No environment was prepared or changed for this census. X2.10.0 metadata is not compatibility evidence for this notebook against core2.13.0; its source inputs are resolved but that environment remains unqualified. |
+
+### Native handoff and remaining evidence
+
+E04/F05 must author the adsorbent loading/thermal laws and explicit heating,
+closed-cooling, repressurization and adsorption states using the existing temporal,
+inventory and operating-program owners. `vessels.pse::HomogeneousInventory`/`Vessel`,
+`control-volumes.pse`, `control.pse` and `workflow/horizon.rs` are enabling surfaces;
+inspection of these process declarations and specialization owners found no TSA
+science or complete cycle case. This bounded search is not a whole-tree absence
+proof. D02 supplies the exact compressor/Water closure; G06 consumes physical
+outputs for each costing role. No native TSA declaration/case/output identity is
+yet available for a matched reference exchange; that is a concrete blocker rather
+than permission to substitute a generic vessel or an independent study sequence.
+
+Each case must map all four port streams (component flows, temperature, pressure),
+the full `get_var_dict` summary population and, when selected, compressor/steam
+products. Retain stage endpoint composition/loading/temperature/pressure,
+heating/cooling profiles at requested physical times, all four durations, total
+cycle time, purity/recovery/productivity, per-bed/total heat and captured amount,
+bed allocation, fluidization/pressure loss and annual throughput/emissions. Summary
+pressure loss is the negative of the signed equation variable. Reported annual
+quantities require the same cycle/utilization convention. Original component and
+energy integrals, stage continuity and full cycle closure remain required checks
+beyond the upstream scalar assertions.
+
+The shipped cases select operating points, not certified continuous validity
+envelopes. Before native acceptance, D/F must admit source-backed loading/thermal
+domains containing each selected temperature/partial-pressure path, and select
+boundary/interior and independently refined stage-time meshes. Do not infer a
+global pressure/temperature or zero-feed claim from variable domains. Wrong
+adsorbent/steam formulation, missing stage output, incompatible property package,
+invalid mesh policy and broken closed-cooling inventory require discriminating
+refusals or failures. Forward finite difference, additional admissible categorical
+combinations, ordinary coefficient admission, actual 2.13.0 reference runs and
+native physical/assessment acceptance remain open. This slice resolves six shipped
+physical/numerical configurations and two assessment roles; it does not close the
+family's full configuration qualification or H01.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

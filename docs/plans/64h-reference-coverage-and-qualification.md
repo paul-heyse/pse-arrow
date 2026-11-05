@@ -92,6 +92,19 @@ the entry-point inventory owner; source wrapper deduplication cannot erase disti
 scientific specifications. No total configuration count, accepted execution,
 native family completion or H04/H07 qualification follows from this source handoff.
 
+**Update, 2026-11-05 — TSA source closure:** the crosswalk's
+[configured TSA census](64h-required-process-population.md#tsa0d-configured-census-and-input-closure--2026-11-05)
+now resolves inherited defaults/guards, six shipped physical/numerical configurations,
+two costing roles, exact operating specifications and recursive case-specific inputs.
+The one-bed notebook/UI case is distinct from the 120-bed core fixture; the four
+notebook renderings have one scientific specification. Compressor, simplified/rigorous
+steam and the 600-bed assessment retain their actual separate dependencies. No trainer
+or saved initial-state artifact is selected by these cases. Ordinary parameter admission,
+source-backed validity envelopes, uninstantiated categorical combinations, the exact
+executable reference environment and native cycle/scientific/assessment implementation
+remain open. This source-only increment prepares E04/F05/G06 selection; it supplies no
+reference solve or native qualification and leaves held NETL-32D behavior required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
