@@ -101,6 +101,7 @@ pub fn run(
     let needle = query.query.to_lowercase();
     let nodes = bundle
         .declarations()
+        .map_err(convert)?
         .iter()
         .filter(|node| {
             (node.name.to_lowercase().contains(&needle)

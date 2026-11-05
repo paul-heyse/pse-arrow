@@ -10,7 +10,7 @@
     "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto": "a4ca9080f9e7b823960a1d5bfd2382b8f93ee9cd2635e45c8003213596e180bb",
     "scripts/protobuf-associations.rs": "9612092ad4a1424d391ad3843e1aa74f1d2257b2370f975422f8498fbc7c9a35",
     "xtask/Cargo.toml": "37c53b06029bd8d0639a00b193a0818f17b6e73be3fc4b3c10714d15c8b7b3b8",
-    "xtask/src/codegen/code_intelligence.rs": "3ad101cab78ca36ddfe7380b1e3e343e33796c4baed0bd7237661c5000361f65",
+    "xtask/src/codegen/code_intelligence.rs": "642fa50341960bec0883ea731ba16a0148c3bbacf69bf63224f080b514d0337d",
     "xtask/src/codegen/code_intelligence/associations.rs": "75b8f68ae52e489a443ae03d720f8c78a52ff47774720446224f7771bef1e534"
   },
   "associations": [

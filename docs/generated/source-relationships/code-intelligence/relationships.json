@@ -241,6 +241,22 @@
       "direction": null,
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/descriptor-runtime.bin",
+      "source_identity": "sha256:263fafafa9b53cffb155042cf87a2349d2508e2c4320b5d817e0eef588e0db7a",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_wire_contract",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/descriptor.bin",
       "source_identity": "sha256:263fafafa9b53cffb155042cf87a2349d2508e2c4320b5d817e0eef588e0db7a",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
@@ -469,6 +485,22 @@
       "source_identity": "sha256:a4ca9080f9e7b823960a1d5bfd2382b8f93ee9cd2635e45c8003213596e180bb",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/contracts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/descriptor-runtime.bin",
+      "source_identity": "sha256:a4ca9080f9e7b823960a1d5bfd2382b8f93ee9cd2635e45c8003213596e180bb",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
+      "source_role": "authored_wire_contract",
       "source_symbol": null
     },
     {

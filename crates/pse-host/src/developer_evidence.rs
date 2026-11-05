@@ -200,7 +200,7 @@ pub fn inspect(
     let compiled = buffa_descriptor::generated::descriptor::FileDescriptorSet::decode_from_slice(
         contracts::DESCRIPTORS,
     )?;
-    if !same_runtime_world(descriptors, &compiled) {
+    if !crate::schema::same_runtime_world(descriptors, &compiled) {
         return Err(EvidenceError::Invalid("developer_evidence.proto: this compiled reader requires the complete compiled descriptor content; acquired wire tags, kinds, nested shapes or options cannot select a different decoder world".into()));
     }
     let options = buffa::DecodeOptions::new()
@@ -376,25 +376,6 @@ pub fn inspect(
     Ok(result)
 }
 
-fn same_runtime_world(
-    acquired: &buffa_descriptor::generated::descriptor::FileDescriptorSet,
-    compiled: &buffa_descriptor::generated::descriptor::FileDescriptorSet,
-) -> bool {
-    if acquired == compiled {
-        return true;
-    }
-    // Full/source-aware and compact runtime artifacts carry the same effective
-    // interpretation. Ignore only genuine source locations/comments; every file,
-    // wire shape, option, feature and unknown field must still match exactly.
-    let compact = |source: &buffa_descriptor::generated::descriptor::FileDescriptorSet| {
-        let mut runtime = source.clone();
-        for file in &mut runtime.file {
-            file.source_code_info = Default::default();
-        }
-        runtime
-    };
-    compact(acquired) == compact(compiled)
-}
 fn digest(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
         .iter()

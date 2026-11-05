@@ -145,6 +145,22 @@
       "direction": null,
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/plan61/descriptor-runtime.bin",
+      "source_identity": "sha256:b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_path": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
+      "source_role": "authored_wire_contract",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "plan61/qualification/v1/contract.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/plan61/descriptor.bin",
       "source_identity": "sha256:b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
       "source_path": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",

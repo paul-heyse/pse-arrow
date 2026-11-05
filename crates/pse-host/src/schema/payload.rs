@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Passive payload interpretation in one explicitly selected descriptor world.
-use super::{Bundle, SchemaError};
+use super::{Bundle, CompiledWorld, SchemaError};
 use crate::investigation::NativePath;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use buffa_descriptor::{DynamicMessage, ReflectMessage, ValueRef};
@@ -207,6 +207,10 @@ pub fn inspect(args: &Args) -> Result<Report, SchemaError> {
         ));
     }
     let bundle = Bundle::load(&args.descriptor)?;
+    inspect_bundle(args, &bundle)
+}
+
+fn inspect_bundle(args: &Args, bundle: &Bundle) -> Result<Report, SchemaError> {
     let input_path = std::fs::canonicalize(&args.input)?;
     let captured_evidence = matches!(
         args.message.as_str(),
@@ -236,9 +240,10 @@ pub fn inspect(args: &Args) -> Result<Report, SchemaError> {
             args.message
         ))
     })?;
+    let compiled_world = bundle.compiled_world()?;
     if matches!(args.encoding, Encoding::Json) {
         strict_json(&input)?;
-        if bundle.compiled_world() {
+        if compiled_world.is_some() {
             let json = serde_json::from_slice(&input)?;
             check_keys(&bundle.pool, bundle.pool.message(index), &json)?;
         }
@@ -267,8 +272,15 @@ pub fn inspect(args: &Args) -> Result<Report, SchemaError> {
         } else {
             (None, None)
         };
-    let static_value = if bundle.compiled_world() {
-        compiled(&args.message, &wire, args.encoding, args.depth, args.limit)?
+    let static_value = if let Some(world) = compiled_world {
+        compiled(
+            world,
+            &args.message,
+            &wire,
+            args.encoding,
+            args.depth,
+            args.limit,
+        )?
     } else {
         None
     };
@@ -301,13 +313,14 @@ pub fn inspect(args: &Args) -> Result<Report, SchemaError> {
 }
 
 fn compiled(
+    world: CompiledWorld,
     name: &str,
     input: &[u8],
     encoding: Encoding,
     depth: usize,
     limit: usize,
 ) -> Result<Option<(Preview, Validation)>, SchemaError> {
-    if name.starts_with("pse.developer.evidence.v1.") {
+    if world == CompiledWorld::DeveloperEvidence {
         use crate::developer_evidence_contracts::pb::pse::developer::evidence::v1 as pb;
         return match name {
             "pse.developer.evidence.v1.CapturedWorkflowReport" => {
@@ -807,6 +820,24 @@ mod tests {
         assert_eq!(report.representation, "generated_static");
         assert_eq!(report.validation.state, "violations");
         assert!(matches!(report.preview, Preview::Message { .. }));
+    }
+    #[test]
+    fn schema_payload_source_world_uses_same_validator_without_presentation() {
+        let (_directory, mut args) = args(&[], Encoding::Binary);
+        args.message = "pse.code_intelligence.v1.NativeControl".into();
+        let mut digests = Vec::new();
+        for bytes in [
+            include_bytes!("../generated/code-intelligence/descriptor-runtime.bin").as_slice(),
+            crate::code_intelligence_contracts::DESCRIPTORS,
+        ] {
+            let bundle = Bundle::from_bytes("compiled".into(), bytes.to_vec()).unwrap();
+            let report = inspect_bundle(&args, &bundle).unwrap();
+            assert_eq!(report.representation, "generated_static");
+            assert_eq!(report.validation.state, "violations");
+            assert!(bundle.declarations.get().is_none());
+            digests.push(report.descriptor_sha256);
+        }
+        assert_ne!(digests[0], digests[1]);
     }
     #[test]
     fn schema_payload_compiled_json_never_discards_unknown_names() {

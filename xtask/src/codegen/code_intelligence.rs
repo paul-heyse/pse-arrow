@@ -93,6 +93,15 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
             .env("PATH", std::env::join_paths(paths)?),
         "generate checked code-intelligence contracts",
     )?;
+    let generated_root = std::fs::read_to_string(output.path().join("mod.rs"))?;
+    let runtime = runtime_descriptors(&set, &generated_root)?;
+    // descriptor.bin remains Buf's original complete source-aware compiler output.
+    // descriptor-runtime.bin is the actual pinned shared-pool reflection artifact;
+    // these two worlds must differ only in genuine SourceCodeInfo.
+    std::fs::write(
+        output.path().join("descriptor-runtime.bin"),
+        runtime.encode_to_vec(),
+    )?;
     std::fs::remove_file(&image)?;
     let destination = PathBuf::from(destination);
     let mut tree = GeneratedTree::empty(vec![destination.clone()]);
@@ -128,6 +137,12 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
             basis: "declared".into(),
         };
         tree.relationships.push(origin.clone());
+        let mut runtime_origin = origin.clone();
+        runtime_origin.output_path = destination
+            .join("descriptor-runtime.bin")
+            .to_string_lossy()
+            .into_owned();
+        tree.relationships.push(runtime_origin);
         for output in tree
             .files
             .keys()
@@ -151,6 +166,77 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
     tree.files.extend(origins.files);
     associations::generate(root, &source, &inputs, &bytes, &set, &mut tree)?;
     Ok((tree, inputs))
+}
+
+/// Read the actual pinned packaging supplier's shared reflection artifact, rather
+/// than reproduce its feature configuration or infer it from generated type names.
+fn runtime_descriptors(
+    source: &FileDescriptorSet,
+    generated_root: &str,
+) -> Result<FileDescriptorSet> {
+    let syntax = syn::parse_file(generated_root)?;
+    let roots = syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            syn::Item::Mod(module) if module.ident == "__buffa_fds" => Some(module),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let [root] = roots.as_slice() else {
+        bail!("pinned shared descriptor publisher must emit exactly one __buffa_fds root");
+    };
+    let (_, items) = root
+        .content
+        .as_ref()
+        .context("shared descriptor root must be inline")?;
+    let descriptors = items
+        .iter()
+        .filter_map(|item| match item {
+            syn::Item::Const(item) if item.ident == "FILE_DESCRIPTOR_SET_BYTES" => Some(item),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let [descriptor] = descriptors.as_slice() else {
+        bail!("pinned shared descriptor root must emit exactly one complete artifact");
+    };
+    let syn::Expr::Lit(syn::ExprLit {
+        lit: syn::Lit::ByteStr(bytes),
+        ..
+    }) = descriptor.expr.as_ref()
+    else {
+        bail!("pinned shared descriptor artifact must be a literal byte string");
+    };
+    let mut runtime = FileDescriptorSet::decode_from_slice(&bytes.value())?;
+    reject_conflicting_files(&runtime)?;
+    anyhow::ensure!(
+        source.file.len() == runtime.file.len(),
+        "shared descriptor publication changed the file population"
+    );
+    for (original, effective) in source.file.iter().zip(&runtime.file) {
+        anyhow::ensure!(
+            original.name == effective.name,
+            "shared descriptor publication changed file order or identity"
+        );
+        anyhow::ensure!(
+            effective.source_code_info.as_option().is_none(),
+            "shared runtime descriptor unexpectedly retains source information"
+        );
+        let mut compact = original.clone();
+        compact.source_code_info = Default::default();
+        // The pinned protoc plugin explicitly refuses feature overrides in shared
+        // pool mode. Preserve that limit: do not publish mismatched effective
+        // options/features or silently drop source-retained content.
+        anyhow::ensure!(
+            compact == *effective,
+            "shared descriptor runtime content differs from the complete compiler world: {}",
+            original.name.as_deref().unwrap_or("")
+        );
+    }
+    // The supplier accepts a file slice. Retain the compiler artifact's outer-set
+    // unknown fields too, rather than silently dropping them during that crossing.
+    runtime.__buffa_unknown_fields = source.__buffa_unknown_fields.clone();
+    Ok(runtime)
 }
 
 struct Inputs {
@@ -449,6 +535,90 @@ pub(super) fn qualify_generated_rust(source: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn shared_root(set: &FileDescriptorSet) -> String {
+        let bytes = syn::LitByteStr::new(
+            &set.encode_to_vec(),
+            syn::parse_str::<syn::Ident>("artifact").unwrap().span(),
+        );
+        quote::quote!(pub mod __buffa_fds { pub const FILE_DESCRIPTOR_SET_BYTES: &[u8] = #bytes; })
+            .to_string()
+    }
+    #[test]
+    fn code_intelligence_artifacts_preserve_source_and_exact_shared_runtime_content() {
+        use buffa_descriptor::generated::descriptor::{SourceCodeInfo, source_code_info::Location};
+        let mut source = FileDescriptorSet {
+            file: vec![
+                FileDescriptorProto {
+                    name: Some("dependency.proto".into()),
+                    syntax: Some("proto3".into()),
+                    ..Default::default()
+                },
+                FileDescriptorProto {
+                    name: Some("main.proto".into()),
+                    dependency: vec!["dependency.proto".into()],
+                    syntax: Some("proto3".into()),
+                    source_code_info: SourceCodeInfo {
+                        location: vec![Location {
+                            path: vec![],
+                            leading_comments: Some("original compiler source".into()),
+                            ..Default::default()
+                        }],
+                        ..Default::default()
+                    }
+                    .into(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        // Independently specified file options: explicit presence feature plus
+        // unknown option100. Neither is allowed to vanish during publication.
+        let mut main = source.file[1].encode_to_vec();
+        main.extend_from_slice(&[0x42, 0x08, 0x92, 0x03, 0x02, 0x08, 0x01, 0xa0, 0x06, 0x09]);
+        source.file[1] = FileDescriptorProto::decode_from_slice(&main).unwrap();
+        let mut runtime = source.clone();
+        for file in &mut runtime.file {
+            file.source_code_info = Default::default();
+        }
+        let root = shared_root(&runtime);
+        let original = source.encode_to_vec();
+        assert_eq!(runtime_descriptors(&source, &root).unwrap(), runtime);
+        assert_eq!(source.encode_to_vec(), original);
+        assert_ne!(source.encode_to_vec(), runtime.encode_to_vec());
+        source.__buffa_unknown_fields.push(buffa::UnknownField {
+            number: 100,
+            data: buffa::UnknownFieldData::Varint(9),
+        });
+        let retained = runtime_descriptors(&source, &root).unwrap();
+        assert_eq!(
+            retained.__buffa_unknown_fields,
+            source.__buffa_unknown_fields
+        );
+        for change in 0..5 {
+            let mut changed = runtime.clone();
+            match change {
+                0 => changed.file.reverse(),
+                1 => {
+                    changed.file.pop();
+                }
+                2 => changed.file[1].dependency.clear(),
+                3 => changed.file[1].options = Default::default(),
+                _ => changed.file[1].source_code_info = source.file[1].source_code_info.clone(),
+            }
+            assert!(
+                runtime_descriptors(&source, &shared_root(&changed)).is_err(),
+                "change {change}"
+            );
+        }
+        assert!(runtime_descriptors(&source, "mod __buffa_fds {}").is_err());
+        assert!(
+            runtime_descriptors(
+                &source,
+                "mod __buffa_fds { const FILE_DESCRIPTOR_SET_BYTES: &[u8] = other(); }"
+            )
+            .is_err()
+        );
+    }
     #[test]
     fn generated_lint_qualification_preserves_spelling_and_limits_expect_permissions() {
         let source = "// source comment\n#![allow(dead_code)]\n#[allow(unused_imports,)]\nmod schema {}\nfn descriptor_pool() { parsed.expect(\"buffa-codegen emitted a decodable FileDescriptorSet\"); }\n";

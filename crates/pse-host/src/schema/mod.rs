@@ -17,7 +17,7 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, OnceLock},
 };
 
 /// An invalid schema cannot be interpreted as an empty successful query.
@@ -60,7 +60,35 @@ pub struct Bundle {
     pool: Arc<DescriptorPool>,
     /// Complete source-aware descriptors, including raw options.
     set: FileDescriptorSet,
-    declarations: Vec<Declaration>,
+    declarations: OnceLock<Vec<Declaration>>,
+}
+
+/// A complete acquired world selecting one existing generated decoder family.
+/// This is neither semantic compatibility nor permission to construct native authority.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CompiledWorld {
+    /// Native code-intelligence messages and their compiled local validators.
+    CodeIntelligence,
+    /// Passive developer observations and their compiled local validators.
+    DeveloperEvidence,
+}
+
+/// Source locations do not change runtime interpretation; all other descriptor content does.
+pub(crate) fn same_runtime_world(
+    acquired: &FileDescriptorSet,
+    compiled: &FileDescriptorSet,
+) -> bool {
+    if acquired == compiled {
+        return true;
+    }
+    let compact = |source: &FileDescriptorSet| {
+        let mut runtime = source.clone();
+        for file in &mut runtime.file {
+            file.source_code_info = Default::default();
+        }
+        runtime
+    };
+    compact(acquired) == compact(compiled)
 }
 
 /// A schema address is meaningful only within the exact artifact digest.
@@ -150,7 +178,7 @@ impl Bundle {
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect();
-        let mut set = FileDescriptorSet::decode_from_slice(&original)
+        let set = FileDescriptorSet::decode_from_slice(&original)
             .map_err(|error| SchemaError::Decode(error.to_string()))?;
         let mut files = BTreeMap::new();
         for file in &set.file {
@@ -190,56 +218,75 @@ impl Bundle {
             }
         }
         let mut seen = BTreeSet::new();
-        set.file.retain(|file| seen.insert(file.name.clone()));
+        let mut linked = set.clone();
+        linked.file.retain(|file| seen.insert(file.name.clone()));
         let pool = Arc::new(
-            DescriptorPool::new(set.clone())
-                .map_err(|error| SchemaError::Decode(error.to_string()))?,
+            DescriptorPool::new(linked).map_err(|error| SchemaError::Decode(error.to_string()))?,
         );
-        let mut bundle = Self {
+        Ok(Self {
             path,
             digest,
             original,
             pool,
             set,
-            declarations: Vec::new(),
-        };
-        bundle.declarations = bundle.index()?;
-        Ok(bundle)
+            declarations: OnceLock::new(),
+        })
     }
-    /// Compiled decoders/validators require this exact compiled schema world.
-    pub fn compiled_world(&self) -> bool {
-        self.original == crate::code_intelligence_contracts::DESCRIPTORS
-            || self.original == crate::developer_evidence_contracts::DESCRIPTORS
+    /// Bind complete runtime content to exactly one supported compiled family.
+    /// Original artifact bytes and their digest are never normalized by recognition.
+    pub fn compiled_world(&self) -> Result<Option<CompiledWorld>, SchemaError> {
+        for (world, bytes) in [
+            (
+                CompiledWorld::CodeIntelligence,
+                crate::code_intelligence_contracts::DESCRIPTORS,
+            ),
+            (
+                CompiledWorld::DeveloperEvidence,
+                crate::developer_evidence_contracts::DESCRIPTORS,
+            ),
+        ] {
+            let compiled = FileDescriptorSet::decode_from_slice(bytes)
+                .map_err(|error| SchemaError::Decode(error.to_string()))?;
+            if same_runtime_world(&self.set, &compiled) {
+                return Ok(Some(world));
+            }
+        }
+        Ok(None)
     }
-    /// All declaration observations in deterministic descriptor-address order.
-    pub fn declarations(&self) -> &[Declaration] {
-        &self.declarations
+    /// Prepare exhaustive presentation only when a search requests it.
+    pub fn declarations(&self) -> Result<&[Declaration], SchemaError> {
+        if self.declarations.get().is_none() {
+            let _ = self.declarations.set(self.index(None)?);
+        }
+        self.declarations
+            .get()
+            .map(Vec::as_slice)
+            .ok_or_else(|| SchemaError::Invalid("schema presentation was not initialized".into()))
     }
     /// Resolve an exact descriptor address or an unambiguous original qualified name.
-    pub fn declaration(&self, address: &str) -> Result<&Declaration, SchemaError> {
-        self.declarations
-            .iter()
-            .find(|node| node.address == address)
-            .or_else(|| {
-                self.declarations
-                    .iter()
-                    .find(|node| node.name == address.trim_start_matches('.'))
-            })
+    pub fn declaration(&self, address: &str) -> Result<Declaration, SchemaError> {
+        let address = address.trim_start_matches('.');
+        self.index(Some(address))?
+            .into_iter()
+            .find(|node| node.address == address || node.name == address)
             .ok_or_else(|| {
                 SchemaError::Invalid(format!("schema declaration unavailable: {address}"))
             })
     }
     /// Inspect a selected declaration, or list top-level file nodes.
     pub fn inspect(&self, address: Option<&str>) -> Result<Report, SchemaError> {
-        let declarations = if let Some(address) = address {
-            vec![self.declaration(address)?.clone()]
+        let mut declarations = if let Some(address) = address {
+            vec![self.declaration(address)?]
         } else {
-            self.declarations
+            self.pool
+                .files()
                 .iter()
-                .filter(|node| node.kind == "file")
-                .cloned()
-                .collect()
+                .map(|file| {
+                    self.declaration(&format!("file:{}", file.name.as_deref().unwrap_or("")))
+                })
+                .collect::<Result<Vec<_>, _>>()?
         };
+        declarations.sort_by(|a, b| a.address.cmp(&b.address));
         Ok(Report {descriptor:self.path.clone().into(),descriptor_sha256:self.digest.clone(),declarations,associations:Vec::new(),limitations:vec!["Schema links do not establish native Rust identity or constraint validity.".into(),"Descriptor source spans retain producer coordinates; no source byte action is inferred.".into()]})
     }
     fn options<O: Message + buffa::MessageName + Serialize>(
@@ -302,9 +349,25 @@ impl Bundle {
             }),
         }
     }
-    fn index(&self) -> Result<Vec<Declaration>, SchemaError> {
+    fn index(&self, selected: Option<&str>) -> Result<Vec<Declaration>, SchemaError> {
         let mut nodes = Vec::new();
-        for file in &self.set.file {
+        let files = if let Some(address) = selected {
+            let file = if let Some(name) = address.strip_prefix("file:") {
+                self.pool.file_by_name(name)
+            } else {
+                let symbol = address.strip_prefix("extension:").unwrap_or(address);
+                let symbol = symbol.split(['#', '@']).next().unwrap_or(symbol);
+                self.pool.file_containing_symbol(symbol)
+                    // Presentation qualifies enum values under their enum; protobuf's
+                    // linked symbol index qualifies them under the parent scope.
+                    .or_else(|| symbol.rsplit_once('.').and_then(|(parent, _)| self.pool.file_containing_symbol(parent)))
+                    .or_else(|| self.pool.file_by_name(address))
+            };
+            file.into_iter().collect::<Vec<_>>()
+        } else {
+            self.pool.files().iter().collect()
+        };
+        for file in files {
             let filename = file.name.clone().unwrap_or_default();
             let address = format!("file:{filename}");
             let package = file.package.as_deref().unwrap_or("");
@@ -312,12 +375,26 @@ impl Bundle {
             for (index, message) in file.message_type.iter().enumerate() {
                 let name = qualified(package, message.name.as_deref().unwrap_or(""));
                 children.push(name.clone());
-                self.message(file, message, name, vec![4, index as i32], &mut nodes)?;
+                self.message(
+                    file,
+                    message,
+                    name,
+                    vec![4, index as i32],
+                    selected,
+                    &mut nodes,
+                )?;
             }
             for (index, enumeration) in file.enum_type.iter().enumerate() {
                 let name = qualified(package, enumeration.name.as_deref().unwrap_or(""));
                 children.push(name.clone());
-                self.enumeration(file, enumeration, name, vec![5, index as i32], &mut nodes)?;
+                self.enumeration(
+                    file,
+                    enumeration,
+                    name,
+                    vec![5, index as i32],
+                    selected,
+                    &mut nodes,
+                )?;
             }
             for (index, service) in file.service.iter().enumerate() {
                 let name = qualified(package, service.name.as_deref().unwrap_or(""));
@@ -326,21 +403,25 @@ impl Bundle {
                 for (method_index, method) in service.method.iter().enumerate() {
                     let method_name = qualified(&name, method.name.as_deref().unwrap_or(""));
                     methods.push(method_name.clone());
-                    nodes.push(self.node(file, vec![6,index as i32,2,method_index as i32], NodeIdentity { address: method_name.clone(), name: method_name, kind: "method", parent: Some(name.clone()), number: None }, json!({"input":method.input_type,"output":method.output_type,"client_streaming":method.client_streaming.unwrap_or(false),"server_streaming":method.server_streaming.unwrap_or(false),"options":self.options(method.options.as_option())?}), [method.input_type.as_deref(),method.output_type.as_deref()].into_iter().flatten().map(|name|name.trim_start_matches('.').into()).collect()));
+                    if selected.is_none_or(|selected| selected == method_name) {
+                        nodes.push(self.node(file, vec![6,index as i32,2,method_index as i32], NodeIdentity { address: method_name.clone(), name: method_name, kind: "method", parent: Some(name.clone()), number: None }, json!({"input":method.input_type,"output":method.output_type,"client_streaming":method.client_streaming.unwrap_or(false),"server_streaming":method.server_streaming.unwrap_or(false),"options":self.options(method.options.as_option())?}), [method.input_type.as_deref(),method.output_type.as_deref()].into_iter().flatten().map(|name|name.trim_start_matches('.').into()).collect()));
+                    }
                 }
-                nodes.push(self.node(
-                    file,
-                    vec![6, index as i32],
-                    NodeIdentity {
-                        address: name.clone(),
-                        name,
-                        kind: "service",
-                        parent: Some(address.clone()),
-                        number: None,
-                    },
-                    json!({"options":self.options(service.options.as_option())?}),
-                    methods,
-                ));
+                if selected.is_none_or(|selected| selected == name) {
+                    nodes.push(self.node(
+                        file,
+                        vec![6, index as i32],
+                        NodeIdentity {
+                            address: name.clone(),
+                            name,
+                            kind: "service",
+                            parent: Some(address.clone()),
+                            number: None,
+                        },
+                        json!({"options":self.options(service.options.as_option())?}),
+                        methods,
+                    ));
+                }
             }
             for (index, extension) in file.extension.iter().enumerate() {
                 children.push(format!(
@@ -350,14 +431,16 @@ impl Bundle {
                 self.field(
                     file,
                     extension,
-                    package,
+                    (package, true),
                     vec![7, index as i32],
-                    true,
+                    selected,
                     &mut nodes,
                 )?;
             }
             children.extend(file.dependency.iter().map(|name| format!("file:{name}")));
-            nodes.push(self.node(file, vec![], NodeIdentity { address, name: filename, kind: "file", parent: None, number: None }, json!({"package":file.package,"syntax":file.syntax,"edition":file.edition.map(|edition|format!("{edition:?}")),"imports":file.dependency,"public_imports":file.public_dependency,"weak_imports":file.weak_dependency,"option_imports":file.option_dependency,"options":self.options(file.options.as_option())?}), children));
+            if selected.is_none_or(|selected| selected == address || selected == filename) {
+                nodes.push(self.node(file, vec![], NodeIdentity { address, name: filename, kind: "file", parent: None, number: None }, json!({"package":file.package,"syntax":file.syntax,"edition":file.edition.map(|edition|format!("{edition:?}")),"imports":file.dependency,"public_imports":file.public_dependency,"weak_imports":file.weak_dependency,"option_imports":file.option_dependency,"options":self.options(file.options.as_option())?}), children));
+            }
         }
         nodes.sort_by(|a, b| a.address.cmp(&b.address));
         Ok(nodes)
@@ -368,6 +451,7 @@ impl Bundle {
         message: &DescriptorProto,
         name: String,
         path: Vec<i32>,
+        selected: Option<&str>,
         nodes: &mut Vec<Declaration>,
     ) -> Result<(), SchemaError> {
         let mut children = Vec::new();
@@ -376,9 +460,9 @@ impl Bundle {
             self.field(
                 file,
                 field,
-                &name,
+                (&name, false),
                 child_path(&path, 2, index),
-                false,
+                selected,
                 nodes,
             )?;
         }
@@ -387,61 +471,93 @@ impl Bundle {
                 "extension:{}",
                 qualified(&name, field.name.as_deref().unwrap_or(""))
             ));
-            self.field(file, field, &name, child_path(&path, 6, index), true, nodes)?;
+            self.field(
+                file,
+                field,
+                (&name, true),
+                child_path(&path, 6, index),
+                selected,
+                nodes,
+            )?;
         }
         for (index, oneof) in message.oneof_decl.iter().enumerate() {
             let child = format!("{name}@oneof:{}", oneof.name.as_deref().unwrap_or(""));
             children.push(child.clone());
-            nodes.push(
-                self.node(
-                    file,
-                    child_path(&path, 8, index),
-                    NodeIdentity {
-                        address: child,
-                        name: qualified(&name, oneof.name.as_deref().unwrap_or("")),
-                        kind: "oneof",
-                        parent: Some(name.clone()),
-                        number: None,
-                    },
-                    json!({"options":self.options(oneof.options.as_option())?}),
-                    message
-                        .field
-                        .iter()
-                        .filter(|field| field.oneof_index == Some(index as i32))
-                        .map(|field| format!("{name}#{}", field.number.unwrap_or_default()))
-                        .collect(),
-                ),
-            );
+            if selected.is_none_or(|selected| {
+                selected == child
+                    || selected == qualified(&name, oneof.name.as_deref().unwrap_or(""))
+            }) {
+                nodes.push(
+                    self.node(
+                        file,
+                        child_path(&path, 8, index),
+                        NodeIdentity {
+                            address: child,
+                            name: qualified(&name, oneof.name.as_deref().unwrap_or("")),
+                            kind: "oneof",
+                            parent: Some(name.clone()),
+                            number: None,
+                        },
+                        json!({"options":self.options(oneof.options.as_option())?}),
+                        message
+                            .field
+                            .iter()
+                            .filter(|field| field.oneof_index == Some(index as i32))
+                            .map(|field| format!("{name}#{}", field.number.unwrap_or_default()))
+                            .collect(),
+                    ),
+                );
+            }
         }
         for (index, nested) in message.nested_type.iter().enumerate() {
             let child = qualified(&name, nested.name.as_deref().unwrap_or(""));
             children.push(child.clone());
-            self.message(file, nested, child, child_path(&path, 3, index), nodes)?;
+            self.message(
+                file,
+                nested,
+                child,
+                child_path(&path, 3, index),
+                selected,
+                nodes,
+            )?;
         }
         for (index, enumeration) in message.enum_type.iter().enumerate() {
             let child = qualified(&name, enumeration.name.as_deref().unwrap_or(""));
             children.push(child.clone());
-            self.enumeration(file, enumeration, child, child_path(&path, 4, index), nodes)?;
+            self.enumeration(
+                file,
+                enumeration,
+                child,
+                child_path(&path, 4, index),
+                selected,
+                nodes,
+            )?;
         }
         let parent = schema_parent(file, &name);
-        nodes.push(self.node(file, path, NodeIdentity { address: name.clone(), name, kind: "message", parent: Some(parent), number: None }, json!({"options":self.options(message.options.as_option())?,"reserved_names":message.reserved_name,"reserved_ranges":serde_json::to_value(&message.reserved_range)?}), children));
+        if selected.is_none_or(|selected| selected == name) {
+            nodes.push(self.node(file, path, NodeIdentity { address: name.clone(), name, kind: "message", parent: Some(parent), number: None }, json!({"options":self.options(message.options.as_option())?,"reserved_names":message.reserved_name,"reserved_ranges":serde_json::to_value(&message.reserved_range)?}), children));
+        }
         Ok(())
     }
     fn field(
         &self,
         file: &FileDescriptorProto,
         field: &buffa_descriptor::generated::descriptor::FieldDescriptorProto,
-        parent: &str,
+        scope: (&str, bool),
         path: Vec<i32>,
-        extension: bool,
+        selected: Option<&str>,
         nodes: &mut Vec<Declaration>,
     ) -> Result<(), SchemaError> {
+        let (parent, extension) = scope;
         let name = qualified(parent, field.name.as_deref().unwrap_or(""));
         let address = if extension {
             format!("extension:{name}")
         } else {
             format!("{parent}#{}", field.number.unwrap_or_default())
         };
+        if selected.is_some_and(|selected| selected != address && selected != name) {
+            return Ok(());
+        }
         let resolved = self.pool.message_by_name(parent).and_then(|message| {
             message
                 .fields()
@@ -462,13 +578,18 @@ impl Bundle {
         enumeration: &EnumDescriptorProto,
         name: String,
         path: Vec<i32>,
+        selected: Option<&str>,
         nodes: &mut Vec<Declaration>,
     ) -> Result<(), SchemaError> {
         let mut children = Vec::new();
         for (index, value) in enumeration.value.iter().enumerate() {
             let child = format!("{name}@value:{}", value.name.as_deref().unwrap_or(""));
             children.push(child.clone());
-            nodes.push(self.node(
+            if selected.is_none_or(|selected| {
+                selected == child
+                    || selected == qualified(&name, value.name.as_deref().unwrap_or(""))
+            }) {
+                nodes.push(self.node(
                 file,
                 child_path(&path, 2, index),
                 NodeIdentity {
@@ -481,21 +602,24 @@ impl Bundle {
                 json!({"number":value.number,"options":self.options(value.options.as_option())?}),
                 vec![],
             ));
+            }
         }
         let parent = schema_parent(file, &name);
-        nodes.push(self.node(
-            file,
-            path,
-            NodeIdentity {
-                address: name.clone(),
-                name,
-                kind: "enum",
-                parent: Some(parent),
-                number: None,
-            },
-            json!({"options":self.options(enumeration.options.as_option())?}),
-            children,
-        ));
+        if selected.is_none_or(|selected| selected == name) {
+            nodes.push(self.node(
+                file,
+                path,
+                NodeIdentity {
+                    address: name.clone(),
+                    name,
+                    kind: "enum",
+                    parent: Some(parent),
+                    number: None,
+                },
+                json!({"options":self.options(enumeration.options.as_option())?}),
+                children,
+            ));
+        }
         Ok(())
     }
 }
@@ -533,7 +657,7 @@ mod tests {
     #[test]
     fn schema_parent_and_relationship_addresses_resolve() {
         let bundle = Bundle::from_bytes("fixture".into(), CORPUS.to_vec()).unwrap();
-        for node in bundle.declarations() {
+        for node in bundle.declarations().unwrap() {
             for address in node.parent.iter().chain(&node.relationships) {
                 assert!(
                     bundle.declaration(address).is_ok(),
@@ -583,6 +707,7 @@ mod tests {
         .unwrap();
         let service = production
             .declarations()
+            .unwrap()
             .iter()
             .find(|node| node.kind == "service")
             .unwrap();
@@ -598,5 +723,151 @@ mod tests {
             .unwrap();
         assert_eq!(field.field_number, Some(6));
         assert!(field.source_info.is_some());
+    }
+    #[test]
+    fn schema_exact_presentation_is_lazy_and_matches_exhaustive_rows() {
+        let bundle = Bundle::from_bytes("fixture".into(), CORPUS.to_vec()).unwrap();
+        assert!(bundle.declarations.get().is_none());
+        let exact = bundle
+            .declaration("plan61.qualification.v1.Payload#6")
+            .unwrap();
+        assert_eq!(exact.field_number, Some(6));
+        assert!(bundle.declarations.get().is_none());
+        assert!(!bundle.inspect(None).unwrap().declarations.is_empty());
+        assert!(bundle.declarations.get().is_none());
+        for expected in bundle.declarations().unwrap() {
+            for selector in [&expected.address, &expected.name] {
+                let selected = bundle.declaration(selector).unwrap();
+                assert_eq!(
+                    serde_json::to_value(selected).unwrap(),
+                    serde_json::to_value(expected).unwrap(),
+                    "{selector}"
+                );
+            }
+        }
+        assert!(bundle.declaration("absent.message").is_err());
+    }
+    #[test]
+    fn schema_file_listing_keeps_sorted_unique_presentation_without_full_index() {
+        let mut set = FileDescriptorSet::decode_from_slice(CORPUS).unwrap();
+        let expected = Bundle::from_bytes("original".into(), CORPUS.to_vec())
+            .unwrap()
+            .declarations()
+            .unwrap()
+            .iter()
+            .filter(|node| node.kind == "file")
+            .map(|node| node.address.clone())
+            .collect::<Vec<_>>();
+        set.file.reverse();
+        set.file.push(set.file[0].clone());
+        let bundle = Bundle::from_bytes("reordered".into(), set.encode_to_vec()).unwrap();
+        let actual = bundle
+            .inspect(None)
+            .unwrap()
+            .declarations
+            .into_iter()
+            .map(|node| node.address)
+            .collect::<Vec<_>>();
+        assert_eq!(actual, expected);
+        assert!(bundle.declarations.get().is_none());
+    }
+    #[test]
+    fn schema_compiled_binding_preserves_source_identity_and_refuses_other_content() {
+        use buffa_descriptor::generated::descriptor::{SourceCodeInfo, source_code_info::Location};
+        for (world, bytes) in [
+            (
+                CompiledWorld::CodeIntelligence,
+                crate::code_intelligence_contracts::DESCRIPTORS,
+            ),
+            (
+                CompiledWorld::DeveloperEvidence,
+                crate::developer_evidence_contracts::DESCRIPTORS,
+            ),
+        ] {
+            let original = Bundle::from_bytes("compiled".into(), bytes.to_vec()).unwrap();
+            assert_eq!(original.compiled_world().unwrap(), Some(world));
+            let mut source = FileDescriptorSet::decode_from_slice(bytes).unwrap();
+            source.file[0].source_code_info = SourceCodeInfo {
+                location: vec![Location {
+                    path: vec![4, 0],
+                    leading_comments: Some("selected source information".into()),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }
+            .into();
+            let source_bytes = source.encode_to_vec();
+            let acquired = Bundle::from_bytes("source".into(), source_bytes.clone()).unwrap();
+            assert_eq!(acquired.compiled_world().unwrap(), Some(world));
+            assert_ne!(acquired.digest, original.digest);
+            assert_eq!(acquired.original, source_bytes);
+            assert!(acquired.declarations.get().is_none());
+            let mut unknown = source_bytes;
+            unknown.extend_from_slice(&[0xa0, 0x06, 0x09]);
+            assert_eq!(
+                Bundle::from_bytes("unknown".into(), unknown)
+                    .unwrap()
+                    .compiled_world()
+                    .unwrap(),
+                None
+            );
+            let mut reordered = source.clone();
+            reordered.file.reverse();
+            assert_eq!(
+                Bundle::from_bytes("reordered".into(), reordered.encode_to_vec())
+                    .unwrap()
+                    .compiled_world()
+                    .unwrap(),
+                None
+            );
+            let mut duplicate = source.clone();
+            duplicate.file.push(source.file[0].clone());
+            assert_eq!(
+                Bundle::from_bytes("duplicate".into(), duplicate.encode_to_vec())
+                    .unwrap()
+                    .compiled_world()
+                    .unwrap(),
+                None
+            );
+            let mut imports = source.clone();
+            let file = imports
+                .file
+                .iter_mut()
+                .find(|file| file.dependency.len() >= 2)
+                .unwrap();
+            file.dependency.swap(0, 1);
+            assert_eq!(
+                Bundle::from_bytes("imports".into(), imports.encode_to_vec())
+                    .unwrap()
+                    .compiled_world()
+                    .unwrap(),
+                None
+            );
+            let mut features = source.clone();
+            let mut file = features.file[0].encode_to_vec();
+            // FileOptions.features (field50), FeatureSet.field_presence=EXPLICIT.
+            file.extend_from_slice(&[0x42, 0x05, 0x92, 0x03, 0x02, 0x08, 0x01]);
+            features.file[0] = FileDescriptorProto::decode_from_slice(&file).unwrap();
+            assert_eq!(
+                Bundle::from_bytes("features".into(), features.encode_to_vec())
+                    .unwrap()
+                    .compiled_world()
+                    .unwrap(),
+                None
+            );
+            let mut option = source;
+            let mut file = option.file[0].encode_to_vec();
+            // FileDescriptorProto.options (field8) with an independently specified
+            // unknown option (field100) is runtime content, not source information.
+            file.extend_from_slice(&[0x42, 0x03, 0xa0, 0x06, 0x09]);
+            option.file[0] = FileDescriptorProto::decode_from_slice(&file).unwrap();
+            assert_eq!(
+                Bundle::from_bytes("option".into(), option.encode_to_vec())
+                    .unwrap()
+                    .compiled_world()
+                    .unwrap(),
+                None
+            );
+        }
     }
 }
