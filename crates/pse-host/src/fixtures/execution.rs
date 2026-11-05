@@ -109,6 +109,7 @@ pub struct PreparedExecution {
     workers: BTreeMap<(Input, usize), Executable>,
     runner: Option<Executable>,
     reader: Option<crate::product_reader::ProductReaderSelection>,
+    runtime: Option<runtime::SelectedRuntime>,
 }
 impl PreparedExecution {
     /// Source-build only the implementation tools demanded by actual selected tests.
@@ -124,14 +125,19 @@ impl PreparedExecution {
             .iter()
             .flat_map(|requirement| requirement.inputs().iter().copied())
             .collect();
+        let runtime = runtime::selected_for_demand(root, environment, &demand)?;
         let missing: Vec<_> = demand
             .iter()
             .copied()
             .filter(|&input| {
                 original_input_variable(input, environment).is_some_and(|variable| {
-                    environment
-                        .get(OsStr::new(variable))
-                        .is_none_or(|value| value.is_empty())
+                    environment.get(OsStr::new(variable)).map_or_else(
+                        || {
+                            runtime.is_none()
+                                || !matches!(input, Input::ScientificInputs | Input::NativeLane)
+                        },
+                        |value| value.is_empty(),
+                    )
                 })
             })
             .collect();
@@ -168,6 +174,7 @@ impl PreparedExecution {
             workers: BTreeMap::new(),
             runner: None,
             reader: None,
+            runtime,
         };
         if demand.contains(&Input::ServiceHelper) || borrowed {
             let mut bins = vec!["pse-canonical-service"];
@@ -281,6 +288,9 @@ impl PreparedExecution {
             .iter()
             .flat_map(|requirement| requirement.inputs().iter().copied())
             .collect();
+        if let Some(runtime) = &self.runtime {
+            runtime.bind(&command.cwd, &mut command.environment, &demand)?;
+        }
         let borrowed = relevant
             .iter()
             .any(|requirement| requirement.ownership() == Ownership::RunnerBorrowed);
@@ -510,6 +520,44 @@ fn build(
     features: &[String],
     bins: &[&str],
 ) -> Result<Vec<(String, Executable)>, FixtureError> {
+    let captured = build_capture(root, environment, destination, package, features, bins)?;
+    Ok(captured
+        .artifacts
+        .into_iter()
+        .filter(|artifact| bins.contains(&artifact.cargo.target.name.as_str()))
+        .map(|artifact| (artifact.cargo.target.name.to_string(), artifact.executable))
+        .collect())
+}
+
+pub(super) fn build_capture(
+    root: &Path,
+    environment: &Environment,
+    destination: &Path,
+    package: &str,
+    features: &[String],
+    bins: &[&str],
+) -> Result<discovery::BuildCapture, FixtureError> {
+    build_capture_with(
+        root,
+        environment,
+        destination,
+        package,
+        features,
+        bins,
+        |_| Ok(()),
+    )
+    .map(|(capture, ())| capture)
+}
+
+pub(super) fn build_capture_with<T>(
+    root: &Path,
+    environment: &Environment,
+    destination: &Path,
+    package: &str,
+    features: &[String],
+    bins: &[&str],
+    before: impl FnOnce(&correctness::Resolution) -> Result<T, FixtureError>,
+) -> Result<(discovery::BuildCapture, T), FixtureError> {
     let cargo = correctness::real_cargo_in(environment)?;
     let mut arguments: Vec<OsString> = vec![
         "build".into(),
@@ -537,6 +585,7 @@ fn build(
         }
         Ok(output.stdout)
     })?;
+    let observation = before(&resolution)?;
     let mut command = Command::new(&cargo);
     command
         .args(&resolution.arguments)
@@ -555,13 +604,8 @@ fn build(
             "fixture helper source build exited {status}"
         )));
     }
-    let captured: discovery::BuildCapture = serde_json::from_slice(
-        &fs::read(destination.join("build.json")).map_err(HostError::from)?,
-    )?;
-    Ok(captured
-        .artifacts
-        .into_iter()
-        .filter(|artifact| bins.contains(&artifact.cargo.target.name.as_str()))
-        .map(|artifact| (artifact.cargo.target.name.to_string(), artifact.executable))
-        .collect())
+    Ok((
+        discovery::BuildCapture::read(&destination.join("build.json"))?,
+        observation,
+    ))
 }

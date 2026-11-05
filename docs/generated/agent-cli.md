@@ -2772,7 +2772,9 @@ Usage: pse fixture prepare [OPTIONS] <FIXTURE>
 
 Arguments:
   <FIXTURE>
-          [possible values: study-module]
+          Possible values:
+          - study-module: Production module receipt through its existing native owner
+          - runtime:      Scientific input capsule and captured native-lane executable only
 
 Options:
   -C <checkout>
@@ -2808,7 +2810,9 @@ Usage: pse fixture show [OPTIONS] <FIXTURE>
 
 Arguments:
   <FIXTURE>
-          [possible values: study-module]
+          Possible values:
+          - study-module: Production module receipt through its existing native owner
+          - runtime:      Scientific input capsule and captured native-lane executable only
 
 Options:
   -C <checkout>

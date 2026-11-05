@@ -17,6 +17,35 @@ use std::{
 
 mod execution;
 pub use execution::{PreparedExecution, prepare_module, selected_module};
+mod runtime;
+pub use runtime::{RuntimeInputArtifact, RuntimeInputs, prepare_runtime, selected_runtime};
+
+/// Explicit preparation scope, distinct from an assertion that a live fixture is ready.
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
+pub enum FixtureKind {
+    /// Production module receipt through its existing native owner.
+    StudyModule,
+    /// Scientific input capsule and captured native-lane executable only.
+    Runtime,
+}
+impl FixtureKind {
+    pub(crate) fn argument(self) -> &'static str {
+        match self {
+            Self::StudyModule => "study-module",
+            Self::Runtime => "runtime",
+        }
+    }
+}
+
+/// Native owner-selected preparation input; no service or scientific readiness is asserted.
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(untagged)]
+pub enum FixtureSelection {
+    /// Existing module receipt retains its public representation.
+    StudyModule(study_module::StudyModuleReceipt),
+    /// Exact scientific capsule and lane capture selection.
+    Runtime(RuntimeInputs),
+}
 
 /// Explicit immutable predecessor artifact, interpreted by the native fixture owner.
 /// Presence takes precedence over a recorded deployment state, including an empty value.
@@ -390,6 +419,9 @@ fn prepare(input: Input) -> Vec<String> {
     let args: &[&str] = match input {
         Input::Server => &["scripts/pse-host", "server", "prepare"],
         Input::StudyModule => &["scripts/pse-host", "study-module", "prepare"],
+        Input::ScientificInputs | Input::NativeLane => {
+            &["scripts/pse-host", "fixture", "prepare", "runtime"]
+        }
         _ => &[],
     };
     args.iter()
@@ -434,7 +466,6 @@ pub fn readiness(
             | Input::ScientificWorker
             | Input::ObservationHelper
             | Input::CanonicalTools
-            | Input::NativeLane
             | Input::TraceProcessor => {
                 if let Some(executable) = sources.executables.get(&input) {
                     executable.verify()?;
@@ -446,6 +477,24 @@ pub fn readiness(
                     InputState::OwnerAdmissionRequired {
                         path: sources.locations.get(&input).map(|path| path.to_path_buf()),
                     }
+                }
+            }
+            Input::NativeLane if sources.executables.contains_key(&input) => {
+                let executable = &sources.executables[&input];
+                executable.verify()?;
+                InputState::CapturedBytes {
+                    path: executable.captured.clone(),
+                    sha256: executable.sha256.clone(),
+                }
+            }
+            Input::ScientificInputs | Input::NativeLane
+                if !sources.locations.contains_key(&input) =>
+            {
+                InputState::Unprepared {
+                    code: pse_diagnostics::DiagnosticCode::FixtureUnprepared
+                        .as_str()
+                        .into(),
+                    next: prepare(input),
                 }
             }
             Input::StudyModule if sources.locations.contains_key(&input) => {

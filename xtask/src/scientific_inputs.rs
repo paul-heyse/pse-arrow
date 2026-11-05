@@ -98,6 +98,29 @@ pub(super) fn run(root: &Path, catalog: &Path, output: &Path) -> Result<()> {
         .with_context(|| format!("writing scientific inputs {}", output.display()))
 }
 
+/// Reuse the capture owner's complete file/membership interpretation. This operation
+/// writes nothing, builds nothing and executes no scientific model or provider.
+pub(super) fn check(root: &Path, catalog: &Path, original: &Path) -> Result<()> {
+    let mut original_bytes = Vec::new();
+    ensure!(
+        std::fs::symlink_metadata(original)?.file_type().is_file(),
+        "scientific capsule must be a regular file"
+    );
+    std::fs::File::open(original)?
+        .take(MAX_CAPTURE_BYTES as u64 + 1)
+        .read_to_end(&mut original_bytes)?;
+    ensure!(
+        original_bytes.len() <= MAX_CAPTURE_BYTES,
+        "scientific capsule exceeds comparison byte bound"
+    );
+    let current = serde_json::to_vec(&capture(root, catalog)?)?;
+    ensure!(
+        current == original_bytes,
+        "scientific capsule source bytes or dependency membership changed; explicitly prepare again"
+    );
+    Ok(())
+}
+
 fn capture(root: &Path, catalog_path: &Path) -> Result<Capsule> {
     let catalog_path = if catalog_path.is_absolute() {
         catalog_path
@@ -731,6 +754,66 @@ documents = ["inventory/a/models/source.pse"]
 projection = "declarations""#,
         );
         root
+    }
+
+    #[test]
+    fn scientific_inputs_check_refuses_changed_deleted_and_added_actual_dependencies() {
+        for change in 0..6 {
+            let root = fixture();
+            let output = tempfile::tempdir().unwrap();
+            let original = output.path().join("capsule.json");
+            std::fs::write(root.path().join("synthetic.pse"), "package substitute {}\n").unwrap();
+            let catalog_path = root.path().join("inputs.toml");
+            let catalog = format!(
+                "{}\nsubstitutions = [\"synthetic.pse\"]\n",
+                std::fs::read_to_string(&catalog_path).unwrap()
+            );
+            std::fs::write(&catalog_path, &catalog).unwrap();
+            run(root.path(), Path::new("inputs.toml"), &original).unwrap();
+            let retained = std::fs::read(&original).unwrap();
+            check(root.path(), Path::new("inputs.toml"), &original).unwrap();
+            match change {
+                0 => std::fs::write(
+                    &catalog_path,
+                    format!("{catalog}\n# changed original catalog bytes\n"),
+                )
+                .unwrap(),
+                1 => std::fs::write(
+                    root.path().join("inventory/b/models/source.pse"),
+                    "package beta {}\n// changed authored bytes\n",
+                )
+                .unwrap(),
+                2 => {
+                    std::fs::remove_file(root.path().join("inventory/b/models/source.pse")).unwrap()
+                }
+                3 => package(
+                    root.path(),
+                    "inventory/new",
+                    4,
+                    &[],
+                    "package additional {}\n",
+                ),
+                4 => std::fs::write(
+                    root.path().join("inventory/b/models/additional.pse"),
+                    "package extra {}\n",
+                )
+                .unwrap(),
+                _ => std::fs::write(
+                    root.path().join("synthetic.pse"),
+                    "package substitute {}\n// changed substitution bytes\n",
+                )
+                .unwrap(),
+            }
+            assert!(
+                check(root.path(), Path::new("inputs.toml"), &original).is_err(),
+                "dependency change {change}"
+            );
+            assert_eq!(
+                std::fs::read(&original).unwrap(),
+                retained,
+                "checking cannot rewrite original capsule"
+            );
+        }
     }
 
     #[test]

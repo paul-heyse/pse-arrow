@@ -337,6 +337,33 @@ fn missing_sources_report_exact_prepare_routes_and_do_not_adopt_arbitrary_paths(
 }
 
 #[test]
+fn missing_runtime_inputs_report_explicit_bounded_preparation_scope() {
+    let mut requirement = requirement();
+    requirement.declaration.inputs = BTreeSet::from([Input::ScientificInputs, Input::NativeLane]);
+    let observed = readiness(&requirement, &Sources::default()).unwrap();
+    for input in [Input::ScientificInputs, Input::NativeLane] {
+        let InputState::Unprepared { code, next } = &observed.inputs[&input] else {
+            panic!("missing original runtime input");
+        };
+        assert_eq!(code, "fixture.unprepared");
+        assert_eq!(
+            next.as_slice(),
+            ["scripts/pse-host", "fixture", "prepare", "runtime"]
+        );
+    }
+    let mut sources = Sources::default();
+    sources.locations.insert(
+        Input::ScientificInputs,
+        Path::new("/explicit/invalid-capsule"),
+    );
+    let observed = readiness(&requirement, &sources).unwrap();
+    assert!(matches!(
+        observed.inputs[&Input::ScientificInputs],
+        InputState::OwnerAdmissionRequired { path: Some(_) }
+    ));
+}
+
+#[test]
 fn existing_capture_owner_verifies_bytes_without_conferring_source_build_or_service_authority() {
     use sha2::{Digest, Sha256};
     let directory = tempfile::tempdir().unwrap();

@@ -110,7 +110,10 @@ enum Command {
         action: FixtureAction,
     },
     #[command(name = "__fixture-prepare", hide = true)]
-    FixturePrepare,
+    FixturePrepare {
+        #[arg(value_enum, default_value = "study-module")]
+        fixture: crate::fixtures::FixtureKind,
+    },
     #[command(name = "__workflow", hide = true)]
     Workflow(ManagedEntryArgs),
     #[command(name = "__semantic-service", hide = true)]
@@ -281,7 +284,7 @@ impl Command {
             | Self::Workflow(_)
             | Self::SemanticService { .. }
             | Self::Bundle(_)
-            | Self::FixturePrepare => GenerationIntent::Internal,
+            | Self::FixturePrepare { .. } => GenerationIntent::Internal,
             Self::Boundary(options)
                 if !options.print && !options.explain && !options.command.is_empty() =>
             {
@@ -408,12 +411,12 @@ pub(crate) enum HookAction {
 #[derive(Debug, Subcommand)]
 enum FixtureAction {
     Prepare {
-        #[arg(value_parser = ["study-module"])]
-        fixture: String,
+        #[arg(value_enum)]
+        fixture: crate::fixtures::FixtureKind,
     },
     Show {
-        #[arg(value_parser = ["study-module"])]
-        fixture: String,
+        #[arg(value_enum)]
+        fixture: crate::fixtures::FixtureKind,
     },
 }
 #[derive(Debug, Subcommand)]
@@ -810,7 +813,8 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         }
         "activity" => envelope::schema::<crate::activity::ActivityObservation>(command, view),
         "fixture prepare" => envelope::schema::<ManagedReply>(command, view),
-        "fixture show" | "study-module" | "study-module prepare" | "study-module select" => {
+        "fixture show" => envelope::schema::<crate::fixtures::FixtureSelection>(command, view),
+        "study-module" | "study-module prepare" | "study-module select" => {
             envelope::schema::<crate::study_module::StudyModuleReceipt>(command, view)
         }
         "telemetry-service"
@@ -860,8 +864,8 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                 "--format".into(),
                 "json".into(),
                 "__fixture-prepare".into(),
+                fixture.argument().into(),
             ];
-            debug_assert_eq!(fixture, "study-module");
             launch_managed(
                 ManagedCommand {
                     parent: None,
@@ -881,11 +885,21 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
             )
         }
         Command::Fixture {
-            action: FixtureAction::Show { fixture: _fixture },
+            action: FixtureAction::Show { fixture },
         } => {
             let root = checkout_root(selected)?;
-            let receipt = crate::fixtures::selected_module(&root, &std::env::vars_os().collect())
-                .map_err(|error| {
+            let environment = std::env::vars_os().collect();
+            let receipt = match fixture {
+                crate::fixtures::FixtureKind::StudyModule => {
+                    crate::fixtures::selected_module(&root, &environment)
+                        .map(crate::fixtures::FixtureSelection::StudyModule)
+                }
+                crate::fixtures::FixtureKind::Runtime => {
+                    crate::fixtures::selected_runtime(&root, &environment)
+                        .map(crate::fixtures::FixtureSelection::Runtime)
+                }
+            }
+            .map_err(|error| {
                 HostError::Workflow(Box::new(crate::test_workflow::WorkflowError::Fixture(
                     error,
                 )))
@@ -898,20 +912,26 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
         }
         Command::RunAll(options) => bundle::start(options, selected, entry, presentation),
         Command::Bundle(args) => bundle::run(args, selected, entry),
-        Command::FixturePrepare => {
-            let receipt = runtime()?
-                .block_on(crate::fixtures::prepare_module(
-                    &checkout_root(selected)?,
-                    &std::env::vars_os().collect(),
-                ))
-                .map_err(|error| {
-                    HostError::Workflow(Box::new(crate::test_workflow::WorkflowError::Fixture(
-                        error,
-                    )))
-                })?;
+        Command::FixturePrepare { fixture } => {
+            let root = checkout_root(selected)?;
+            let environment = std::env::vars_os().collect();
+            let receipt = match fixture {
+                crate::fixtures::FixtureKind::StudyModule => runtime()?
+                    .block_on(crate::fixtures::prepare_module(&root, &environment))
+                    .map(crate::fixtures::FixtureSelection::StudyModule),
+                crate::fixtures::FixtureKind::Runtime => {
+                    crate::fixtures::prepare_runtime(&root, &environment)
+                        .map(crate::fixtures::FixtureSelection::Runtime)
+                }
+            }
+            .map_err(|error| {
+                HostError::Workflow(Box::new(crate::test_workflow::WorkflowError::Fixture(
+                    error,
+                )))
+            })?;
             Ok(presentation.emit(Envelope::response(
                 "fixture prepare input",
-                "native owner prepared the fixture module",
+                "native owner prepared the selected fixture inputs",
                 receipt,
             ))?)
         }
@@ -2067,11 +2087,23 @@ mod tests {
             ("prepare", GenerationIntent::NewWork),
             ("show", GenerationIntent::Passive),
         ] {
-            let parsed = Cli::try_parse_from(["pse", "fixture", action, "study-module"]).unwrap();
-            assert_eq!(parsed.command.unwrap().generation_intent(), expected);
+            for fixture in ["study-module", "runtime"] {
+                let parsed = Cli::try_parse_from(["pse", "fixture", action, fixture]).unwrap();
+                assert_eq!(parsed.command.unwrap().generation_intent(), expected);
+            }
             assert!(response_schema(&format!("fixture {action}"), &Default::default()).is_ok());
         }
         assert!(Cli::try_parse_from(["pse", "fixture", "show", "unknown"]).is_err());
+        let show_schema =
+            serde_json::to_string(&response_schema("fixture show", &Default::default()).unwrap())
+                .unwrap();
+        assert!(show_schema.contains("scientific_inputs"));
+        assert!(show_schema.contains("native_lane"));
+        let private = Cli::try_parse_from(["pse", "__fixture-prepare", "runtime"]).unwrap();
+        assert_eq!(
+            private.command.unwrap().generation_intent(),
+            GenerationIntent::Internal
+        );
     }
     #[test]
     fn failure_pages_are_passive_and_exclusive() {

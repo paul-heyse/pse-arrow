@@ -159,6 +159,12 @@ enum Cmd {
         catalog: PathBuf,
         output: PathBuf,
     },
+    /// Quietly compare the complete current source capture with an original capsule.
+    #[cfg(feature = "physical-admission")]
+    ScientificInputsCheck {
+        catalog: PathBuf,
+        capsule: PathBuf,
+    },
     /// Parse files with the pinned parser and all optional grammar; never execute SQL.
     #[cfg(feature = "surrealql-tools")]
     SurrealqlValidate {
@@ -699,6 +705,10 @@ fn main() -> Result<()> {
         #[cfg(feature = "physical-admission")]
         Cmd::ScientificInputs { catalog, output } => {
             scientific_inputs::run(&root, &catalog, &output)
+        }
+        #[cfg(feature = "physical-admission")]
+        Cmd::ScientificInputsCheck { catalog, capsule } => {
+            scientific_inputs::check(&root, &catalog, &capsule)
         }
         #[cfg(feature = "surrealql-tools")]
         Cmd::SurrealqlValidate { inputs } => {
