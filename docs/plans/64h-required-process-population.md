@@ -6054,6 +6054,73 @@ antiwindup and native/reference trajectory checks remain required. These
 smooth and prescribed segment examples do not qualify arbitrary event/reset
 sensitivity,MHE or all admissible controller combinations. H01 remains open.
 
+## Effective inherited control-volume balance population — 2026-11-05
+
+**Interface-checked, source only:** C `core/base/control_volume_base.py`,
+`control_volume0d.py`,`control_volume1d.py`,`process_base.py`,both
+`extended_control_volume{0d,1d}.py` and their four primary test modules
+resolve the shared base balance choices. The underscore spelling appears
+in test filenames,not the two implementation filenames. This matrix
+specializes the shared enum axes above;unit-specific forced choices and
+refusals in each family section still take precedence. No volume,state,
+balance or discretizer was constructed here.
+
+| Requested axis | Effective0D/1D behavior and finite acceptance/refusal roles |
+|---|---|
+| Material none/component-phase/component-total/element-total/total | None omits material equations;component-phase and component-total are implemented;element-total uses declared component elemental composition and removes detected linearly dependent element equations. **Total-material is refused by both base volumes.** It is not granted by its enum value. |
+| Energy none/enthalpy-total/enthalpy-phase/energy-total/energy-phase/isothermal | None omits energy equations;enthalpy-total is implemented,including internal-energy storage where selected. Both base volumes explicitly refuse the other four choices. Extended volumes additionally supply isothermal constraints only;they do not add phase-enthalpy or full-energy balance families. |
+| Momentum none/pressure-total/pressure-phase/momentum-total/momentum-phase | None omits momentum equations;pressure-total is implemented with optional deltaP/custom pressure contribution. All other modes are refused. A pressure balance does not itself provide friction,gravity,acceleration or a hydraulic constitutive law. |
+| Effective defaults | Material/energy `useDefault` asks the representative state for its defaults;missing default methods fail. Representative state is0D outlet or1D first spatial point. Momentum defaults explicitly to pressure-total,not a property-selected mode. State/reaction builders require explicit Boolean equilibrium arguments;omitted/invalid arguments fail. |
+| Storage/time | Dynamic inherits parent;holdup defaults to dynamic. Steady/no-holdup,steady/holdup and dynamic/holdup are admissible base choices;dynamic/no-holdup and dynamic child inside steady parent refuse. A steady child inside dynamic parent remains permitted. Holdup without dynamic constructs algebraic stored quantities,not accumulation. Dynamic units require compatible dimensional or jointly unitless time conventions. |
+| Geometry/state allocation |0D requires volume before holdup equations;material/element/energy storage uses outlet-state density×phase volume.1D uses cross-sectional area×density per physical length,with uniform scalar area or time/position-dependent area and explicit physical length. Multi-phase volume fractions sum1 but require additional physical allocation closure. Flow direction changes signed spatial flux;information direction changes the defined-state boundary and is a separate choice. |
+| Reaction terms | Component balances separately admit rate,equilibrium and property-owned inherent generation,with declared reaction indices/stoichiometry and matching built blocks. Missing indices,missing reaction block or disabled requested equilibrium constraints fail. Rate extent uses volume or local area×rate;component-total sums actual phase membership. Reaction rate and material flow bases must be molar/mass;cross-basis conversion requires component molecular weight. Undefined basis fails for reaction/custom conversion. |
+| Phase transfer | Component-phase balances add phase-equilibrium generation from declared phase-pair/component membership;component-total cancels internal phase transfer. Requested equilibrium requires state equilibrium enabled. A one-phase request is converted to no explicit phase-transfer terms with deprecation warning,not a two-phase solve. Material transfer and custom molar/mass sources remain separately selected external terms. |
+| Element balance restrictions | Requires element_list/element_comp and defined molar/mass basis,with mass-to-moles conversion through molecular weights. Explicit rate/equilibrium/phase-equilibrium generation flags refuse because internal chemistry/phase transfer conserves these element totals;external elemental transfer/custom elemental sources are supported. This is not a claim that any supplied reaction conserves an undeclared element projection. |
+| Enthalpy/pressure terms | Heat,work,enthalpy transfer and custom power contributions are independent opt-ins,defaultFalse/None. Reaction heat requires previously constructed rate/equilibrium extents. Holdup uses internal-energy density rather than transported enthalpy density. DeltaP/custom pressure are independent opt-ins. Source signs/units are retained in the consuming unit specifications above. |
+| Extended isothermal |0D equates inlet/outlet T;1D equates adjacent spatial temperatures,skipping first point. Both steady/dynamic structural fixtures exist. Heat,reaction heat,work,enthalpy transfer or custom energy contribution requests are refused with this mode. It cannot calculate isothermal duty;that requires full enthalpy accounting plus a temperature specification. |
+|1D approximation | Explicit transformation method/scheme required:finite difference BACKWARD/FORWARD orcollocation LAGRANGE-RADAU/LAGRANGE-LEGENDRE. Missing/mismatched methods/schemes fail;local application additionally requires finite_elements and collocation_points where relevant and refuses transformation of an external spatial domain. FORWARD balances skip last point;other schemes skip first. Geometry's flow direction and selected scheme jointly determine the physical boundary correspondence. |
+
+The finite base tests use `PhysicalParameterTestBlock` and
+`ReactionParameterTestBlock`,not an independent fluid/reaction dataset.
+Their principal roles are default versus missing-default;component-phase/
+component-total/element and total-refusal;steady/dynamic storage;rate/
+equilibrium/inherent/phase transfer;external transfer/custom terms;molar/
+mass/undefined bases and missing molecular weight;reaction heat and four
+energy/momentum refusal families.1D adds distributed area,forward/backward
+discretization and flow direction;extended tests add the isothermal success/
+dynamic construction plus five forbidden energy-term choices. Scaling
+variants repeat these meanings rather than create additional physics.
+Dummy flow/density/energy terms are free synthetic values;structural
+construction and dimensional checks do not establish closed physical
+inventories,thermal allocation or solved trajectories.
+
+Actual selected package defaults differ:legacy activity-coefficient and
+flue-gas packages choose component-total/enthalpy-total;all six modular
+coordinates do likewise. Saponification chooses **component-phase** and
+enthalpy-total. These packages use molar transport. The natural-gas
+pipeline package supplies molar transport but does not implement a default
+balance selector here;its unit consumers explicitly choose balances.
+Generic MEA packages get defaults through their selected modular state
+definition. An explicit unit override remains effective over these defaults.
+
+Helmholtz defaults component-total/enthalpy-total,but its material-basis
+method always reports molar while its mass-coordinate material-flow/density
+expressions use mass. Thus mass-basis dynamic/reaction/element consumers
+require an explicit dimensional/correspondence probe rather than inferring
+correct basis conversion from the state-variable label. This is a retained
+reference-source inconsistency,not permission to adopt inconsistent native
+units. PH/PS/PU/TPX and L/G/LG/MIX parameter choices stay in the pure-fluid
+population above.
+
+This closes the shared base **source-choice matrix**,not every physical
+case or native capability. Native D01/E01 must combine each selected unit's
+forced terms with actual property methods,phase membership,geometry and
+initial/boundary closure;record omitted equations and refused configurations
+explicitly. Ordinary density/internal-energy/reaction records,independent
+source/flux/inventory accounting and each requested dynamic/distributed
+native/reference trajectory remain required. No Cartesian-product count or
+reference construction result is asserted.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

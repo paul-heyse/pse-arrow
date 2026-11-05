@@ -729,6 +729,15 @@ source expansion. H01 is not complete. Existing H02/H03 ordinary comparisons
 and D02 native water consumers are the next executable boundary,followed by
 E01/E02's selected physical storage closure after ordinary science admission.
 
+**Update, 2026-11-05 — inherited balance source closure:** the
+[effective balance matrix](64h-required-process-population.md#effective-inherited-control-volume-balance-population--2026-11-05)
+resolves implemented/omitted/refused base0D/1D modes,extended isothermal,
+storage inheritance,reaction/basis/phase allocation and spatial boundary
+policies. Actual package defaults and the Helmholtz mass-coordinate/molar-
+reported-basis inconsistency are explicit. Unit-specific physical closure,
+ordinary records and native/reference conservation/trajectory acceptance
+remain required;this is source analysis only.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
