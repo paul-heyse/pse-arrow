@@ -4806,6 +4806,114 @@ physical-domain/refusal controls, ordinary data and independent complete
 component/dynamic/derivative qualification remain required. Only source/AST
 inspection ran; no thermal unit or solver was executed.
 
+## Boiler exchanger geometry, radiation and discretization closure — 2026-11-05
+
+**Interface-checked, source only:** C `power_generation/unit_models/
+{boiler_heat_exchanger,cross_flow_heat_exchanger_1D,heater_1D,
+heat_exchanger_3streams,boiler_heat_exchanger_2D,heat_exchanger_common}.py`
+and their tests select five additional thermal formulations. They consume
+inline geometry/material/correlation data, FlueGas, IAPWS95 or the modular
+natural-gas helper; they read no experiment file, trained artifact or saved
+state. Boiler radiation includes embedded empirical expressions, whose
+original scientific provenance/envelopes remain ordinary-data work. Neither
+their availability nor a successful reference solve admits them as ordinary
+native coefficients.
+
+| Owner | Finite configurations and selected physical case |
+|---|---|
+| BoilerHeatExchanger | Inherits the generic two-CV exchanger balance/holdup and temperature callback selections. Tube arrangement in-line/staggered; water correlation selector Liq/Vap defaultsLiq; radiation defaultsFalse. It explicitly refuses the generic crossflow flow-pattern selection. Test construction/solve/units variants select countercurrent, in-line, Liq, radiationTrue and pressure change on both sides; construction holdupTrue differs from physical/units cases holdupFalse. Three scientific driving-force selections are AMTD, LMTD and Underwood; nine test functions are not nine physical input cases. |
+| CrossFlowHeatExchanger1D | Inherits the generic 1D per-side balances, transformations and directions; shell_is_hot=True by default, selectableFalse; arrangement in-line/staggered. Each property package must have exactly one vapor phase: multiphase or liquid-only packages are explicitly refused. Either side's pressure-change flag together with either side's Legendre collocation is explicitly unsupported. Replaces instantaneous hot/cold heat equality with wall storage; parent holdup and per-fluid holdup are separate. The selected steady fixture has parent holdupTrue, both fluids holdupFalse, hot-shellTrue, staggered, countercurrent, hot BACKWARD/cold FORWARD finite differences with12 elements. Both pressure flags are jointlyFalse or jointlyTrue. A third case selects4 elements×3 Legendre points, both pressure flagsFalse, and explicitly deactivates the extra boundary equations. |
+| Heater1D | Inherited dynamics/holdup, componentTotal/enthalpyTotal/pressureTotal defaults, pressure-changeFalse; fluid holdup is restricted toFalse. Defaults finite difference/BACKWARD,5 elements/3 collocation points, forward gas flow and in-line; staggered remains selectable. The selected steady wall-holdupTrue case uses4 elements and either pressure flag. Its fixed electrical input is a total3.6504 MW; there is no second fluid, fuel balance or furnace radiation boundary. It directly uses vapor transport products, so enum availability does not establish arbitrary phase/balance admissibility. |
+| HeatExchangerWith3Streams | Three independently supplied property packages; componentPhase/enthalpyTotal/pressureTotal, heatTrue and pressureFalse defaults. Side2 and side3 each independently choose co-current/counter-current relative to side1, giving four arrangement selections; the fixture chooses both counter-current, steady/no-holdup, pressureTrue. Both driving forces use an Underwood approximation, despite the source relation names containing LMTD. Side1 heat loss is reduced by an imposed fractional ambient loss before supplying sides2/3; no ambient material stream or ambient-temperature heat law is solved. |
+| HeatExchangerCrossFlow2D_Header | Distinct source in `boiler_heat_exchanger_2D.py`: independent tube/shell packages and pressure flags; defaults componentTotal/enthalpyTotal/pressureTotal, finite difference/BACKWARD,5 axial elements/3 collocation points, co_current, in-line, waterLiq, radiationFalse,5 radial tube elements, headerTrue/5 radial header elements. Counter_current, staggered, waterVap, radiationTrue and headerFalse are explicit alternatives. Tube inner diameter/thickness are required; enabled header requires its inner diameter/wall thickness. Selected steady fixture has5 axial and5+5 radial elements, counter_current, in-line, waterVap, radiation/headerTrue and both pressure flagsTrue. It includes radial wall/header temperatures, thermal/mechanical stress and empirical creep products, beyond fluid exchanger outlets. |
+
+The lumped boiler fixture feeds water24678.26 mol/s at25.449 MPa, with
+enthalpy supplied by IAPWS at773.15 K/same pressure. Hot gas1102.335 K,
+100145 Pa has nominal flow5109.768 mol/s multiplied componentwise by
+H2O/CO2/N2/O2/NO/SO2 factors .0869/.1449/.7434/.0247/.0006/.002.
+Their sum is1.0025; do not normalize this actual component-flow input.
+Tube ID .055118 m,thickness .004191 m,pitch_x .0762 m,
+pitch_y54.78/108×12×.0254 m,length53.13×12×.0254 m,40 rows,
+108 columns,4 inlet rows and elevation50 m complete the geometry.
+The consumer overwrites tube fouling .000176 with **.003131**; shell
+fouling retains .0008,wall conductivity43 W/(m K),U-turn loss .5.
+Emissivity .7,overall HTC correction1.5,both pressure corrections1.
+Underwood/LMTD assert cold/hot outlet809.55/788.53 K, whereas AMTD
+asserts817.7/720 K, each abs.5 K. These are different formulations, not
+alternate tolerances for one reference answer.
+
+The gas-only 1D exchanger uses modular IDEAL H2/H2O/Ar/N2 vapor properties.
+Both inlets2619.7 mol/s and120000 Pa; hot971.6 K with mole fractions
+.79715/.20177/.00086358/.00021589; cold446.21 K with
+.36203/.63689/the same trace fractions. Both totals are .99999947,
+retained without silent normalization. Tube ID .0525018 m,thickness
+.0039116 m,segment4.3 m,12 passes,50 columns/pass,25 rows/pass,
+both pitches .1 m,wall conductivity43,wall Cp502.4 J/(kg K),density
+7800 kg/m3,tube/shell fouling .0001 and all selected correction factors1.
+Finite-difference outlet targets hot485.34/cold911.47 K (abs.1 K),
+with/without pressure change; enabled pressure targets118870.08569/
+111418.71399 Pa (abs1 Pa). The Legendre case instead asserts476.51/
+895.69 K (abs.1 K). A matched native comparison preserves grid, boundary
+deactivation and output conventions; grid refinement remains separate
+evidence rather than an allowance that merges these cases.
+
+Heater1D uses the same four-species ideal vapor,5102.5 mol/s,938.83 K,
+120000 Pa and fractions .57375/.42517/.00086358/.00021589
+(same .99999947 sum). Tube ID/thickness and pitches match the preceding
+fixture,segment10 m,one pass,40×40 columns/rows. Wall Cp502.4,density
+7800 and conductivity1 retain shared-helper defaults; HTC/pressure
+corrections1. The consumer's `rfouling` assignment does not target the
+helper's `rfouling_shell` parameter, whose default .0001 already matches
+that assigned number. Both pressure selections target959.55 K(abs.1 K);
+enabled outlet pressure119762.3 Pa(abs1 Pa). Both distributed models'
+initializers use Ipopt/MA57,user scaling,tol and constraint tolerance1e-8,
+max350 iterations. Source structural checks suppress evaluation errors;
+scaled numerical checks are additional controls, not all-domain evidence.
+
+The three-stream fixture uses FlueGas on all sides. Hot nominal5109.76
+mol/s uses the six component factors above at650.335 K/100145 Pa.
+Side2/3 nominal flows are60%/40% of that value with factors O2 .20784,
+N2 .783994,NO .000001,CO2 .000337339,H2O .0078267,SO2 .000001
+(sum1.000000039),T324.15/373.15 K,same pressure. UA2/UA3 are
+150000/620000 W/K,loss fraction .05 and each deltaP−1000 Pa.
+Targets three outlets434.650/522.135/642.115 K(abs.001 K),optimal
+termination/zero DOF, individual fluid energy residuals and pressure check.
+Loss-inclusive total energy must retain the imposed5% loss; equating all
+three fluid enthalpy changes to zero would change this case.
+
+The 2D/header fixture uses the lumped case's water feed/hot-gas factors,
+temperature/pressure,pitches,segment length,elevation and final tube fouling,
+but nominal hot flow5109.76 mol/s,40 tube segments×4 inlet rows
+(160 total rows),108 columns,tube ID .035 m/thickness .0035 m,
+header ID .3 m/thickness .03 m,
+both HTC corrections1 and radial tube-wall conductivity43,density7850,
+Cp510.8,Young modulus2e5 in the source stress convention,Poisson .29,
+expansion1.2e-5. Consumer assignments to `Possion_ratio` and
+`coefficient_therm_expansion` do not target the model's `Poisson_ratio`
+and `coefficient_thermal_expansion`; the latter retains1.2e-5 rather than
+the attempted1.3e-5. Shell fouling retains its independent .0001 default.
+Header defaults conductivity44,density7800,Cp470,
+Young modulus2e5,Poisson .29,expansion1.2e-5;air conductivity .03,
+insulation conductivity .08 and fixed convection constants20.223/.322
+remain separate inputs. Ambient350 K,insulation .025 m,emissivity .7,
+pressure corrections1. Source solve uses Ipopt/MA27,tol1e-6,max40;
+asserts optimal termination, combined fluid energy/mass residuals .001
+and shell outlet100134.3247 Pa(abs.001 Pa). It does not assert radial
+temperature/stress/creep values or header ambient loss closure. Those
+products and their original material/correlation validity remain required.
+
+Native F02/E03 requires selected lumped/distributed/radial formulations,
+actual package phase/transport products, geometry and material coordinates,
+radiation/fouling/loss permissions, independently sourced correlation data,
+wall/fluid/header storage, physical outlets and full energy accounts.
+Positive-flow/pitch/diameter, Reynolds-correlation, logarithm/fractional-power,
+temperature-driving-force and stress/creep domains require explicit controls;
+configuration enums alone do not establish admissibility. Unselected
+arrangements/phases/radiation/header/dynamic and independent per-side flags,
+original ordinary-source admission and complete component/grid/dynamic/
+derivative qualification remain required. Only source inspection ran; no
+property, exchanger, initializer, external function or solver was executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
