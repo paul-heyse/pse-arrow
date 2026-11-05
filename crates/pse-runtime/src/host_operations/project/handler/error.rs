@@ -20,7 +20,7 @@ pub enum ProjectOperationError {
     NativeDrain {
         /// Original native lane failure.
         #[source]
-        source: Box<crate::math::MathRuntimeError>,
+        source: crate::math::MathRuntimeError,
     },
     /// Neither the original action failure nor the drain failure replaces the other.
     #[error("{action}; terminal native drain also failed: {drain}")]
@@ -63,7 +63,7 @@ fn original<'a>(
 pse_diagnostics::impl_diagnostic! {
     ProjectOperationError,
     code(this) { match this { Self::Action { source } | Self::ActionAndDrain { action: source, .. } if original(source.as_ref()).is_none() => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure), _ => None } },
-    forward(this) { match this { Self::Action { source } | Self::ActionAndDrain { action: source, .. } => original(source.as_ref()), Self::NativeDrain { source } => Some(source.as_ref()) } },
+    forward(this) { match this { Self::Action { source } | Self::ActionAndDrain { action: source, .. } => original(source.as_ref()), Self::NativeDrain { source } => Some(source) } },
     help(_this) { None },
     related(this) { match this { Self::ActionAndDrain { action, drain } => { let mut errors: Vec<&dyn pse_diagnostics::TypedDiagnostic> = vec![drain.as_ref()]; if let Some(action) = original(action.as_ref()) { errors.push(action); } Some(Box::new(errors.into_iter())) }, _ => None } },
     source(_this) { None }
@@ -82,9 +82,7 @@ pub(super) fn settle_action<T>(
     match (action, drain) {
         (Ok(value), Ok(())) => Ok(value),
         (Err(source), Ok(())) => Err(ProjectOperationError::Action { source }),
-        (Ok(_), Err(source)) => Err(ProjectOperationError::NativeDrain {
-            source: Box::new(source),
-        }),
+        (Ok(_), Err(source)) => Err(ProjectOperationError::NativeDrain { source }),
         (Err(action), Err(drain)) => Err(ProjectOperationError::ActionAndDrain {
             action,
             drain: Box::new(drain),
