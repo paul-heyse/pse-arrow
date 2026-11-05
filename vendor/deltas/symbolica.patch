@@ -60,10 +60,10 @@ index a32e9695635e55c4c908162c4f36197485037a2e..51182bd44b6416a34fda29488bba2a6c
  #[inline(always)]
 diff --git a/src/atom/packing.rs b/src/atom/packing.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..3e9a7a939c648329c936fc9ac0212c18f253214a
+index 0000000000000000000000000000000000000000..d638a0b83a8a4811d048c767786c796286239330
 --- /dev/null
 +++ b/src/atom/packing.rs
-@@ -0,0 +1,524 @@
+@@ -0,0 +1,531 @@
 +//! Passive, allocation-free inspection of a restricted packed-atom profile.
 +//!
 +//! This module reads bytes directly. It never constructs an atom/view, materializes a
@@ -161,7 +161,14 @@ index 0000000000000000000000000000000000000000..3e9a7a939c648329c936fc9ac0212c18
 +    }
 +}
 +
-+impl<E: std::error::Error + 'static> std::error::Error for PackingError<E> {}
++impl<E: std::error::Error + 'static> std::error::Error for PackingError<E> {
++    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
++        match self {
++            Self::Symbol(error) => Some(error),
++            Self::Layout { .. } => None,
++        }
++    }
++}
 +
 +type LayoutResult<T> = Result<T, (usize, PackingIssue)>;
 +
@@ -956,10 +963,10 @@ index 7fac867d337cb888371313162b1b6d976ab350a3..730cf12253f607f9299ffdd959fc415b
      pub fn refine_root_interval(
 diff --git a/tests/packing.rs b/tests/packing.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..fd0633fe5fe45b05446e049499a4c9a6b22f0813
+index 0000000000000000000000000000000000000000..6996ed119f23f5c2377446b1377722cbae347f52
 --- /dev/null
 +++ b/tests/packing.rs
-@@ -0,0 +1,693 @@
+@@ -0,0 +1,753 @@
 +use std::convert::Infallible;
 +use symbolica::{
 +    atom::{Atom, packing::*},
@@ -1432,6 +1439,66 @@ index 0000000000000000000000000000000000000000..fd0633fe5fe45b05446e049499a4c9a6
 +        }
 +        _ => panic!("callback error was lost"),
 +    }
++}
++
++#[test]
++fn callback_error_source_preserves_nonclone_original_and_chain() {
++    #[derive(Debug)]
++    struct OriginalCause {
++        payload: Box<u8>,
++    }
++    impl std::fmt::Display for OriginalCause {
++        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++            f.write_str("original callback cause")
++        }
++    }
++    impl std::error::Error for OriginalCause {}
++    #[derive(Debug)]
++    struct OriginalCallbackError {
++        cause: OriginalCause,
++    }
++    impl std::fmt::Display for OriginalCallbackError {
++        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++            f.write_str("original callback refusal")
++        }
++    }
++    impl std::error::Error for OriginalCallbackError {
++        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
++            Some(&self.cause)
++        }
++    }
++
++    let original = OriginalCallbackError {
++        cause: OriginalCause {
++            payload: Box::new(23),
++        },
++    };
++    let pointer = (&*original.cause.payload) as *const u8;
++    let mut original = Some(original);
++    let atom = parse!("packing_callback_cause");
++    let error = inspect_packing(
++        bytes(&atom),
++        &mut [PackingFrame::default(); 8],
++        environment(),
++        |_| Err(original.take().unwrap()),
++    )
++    .unwrap_err();
++    let source = std::error::Error::source(&error).unwrap();
++    let callback = source.downcast_ref::<OriginalCallbackError>().unwrap();
++    assert_eq!((&*callback.cause.payload) as *const u8, pointer);
++    let cause = source
++        .source()
++        .unwrap()
++        .downcast_ref::<OriginalCause>()
++        .unwrap();
++    assert_eq!((&*cause.payload) as *const u8, pointer);
++    assert!(source.source().unwrap().source().is_none());
++
++    let layout = PackingError::<OriginalCallbackError>::Layout {
++        offset: 0,
++        issue: PackingIssue::Truncated,
++    };
++    assert!(std::error::Error::source(&layout).is_none());
 +}
 +
 +#[test]

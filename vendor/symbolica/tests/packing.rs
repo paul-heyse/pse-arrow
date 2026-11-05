@@ -473,6 +473,66 @@ fn scratch_capacity_and_original_callback_error() {
 }
 
 #[test]
+fn callback_error_source_preserves_nonclone_original_and_chain() {
+    #[derive(Debug)]
+    struct OriginalCause {
+        payload: Box<u8>,
+    }
+    impl std::fmt::Display for OriginalCause {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("original callback cause")
+        }
+    }
+    impl std::error::Error for OriginalCause {}
+    #[derive(Debug)]
+    struct OriginalCallbackError {
+        cause: OriginalCause,
+    }
+    impl std::fmt::Display for OriginalCallbackError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("original callback refusal")
+        }
+    }
+    impl std::error::Error for OriginalCallbackError {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            Some(&self.cause)
+        }
+    }
+
+    let original = OriginalCallbackError {
+        cause: OriginalCause {
+            payload: Box::new(23),
+        },
+    };
+    let pointer = (&*original.cause.payload) as *const u8;
+    let mut original = Some(original);
+    let atom = parse!("packing_callback_cause");
+    let error = inspect_packing(
+        bytes(&atom),
+        &mut [PackingFrame::default(); 8],
+        environment(),
+        |_| Err(original.take().unwrap()),
+    )
+    .unwrap_err();
+    let source = std::error::Error::source(&error).unwrap();
+    let callback = source.downcast_ref::<OriginalCallbackError>().unwrap();
+    assert_eq!((&*callback.cause.payload) as *const u8, pointer);
+    let cause = source
+        .source()
+        .unwrap()
+        .downcast_ref::<OriginalCause>()
+        .unwrap();
+    assert_eq!((&*cause.payload) as *const u8, pointer);
+    assert!(source.source().unwrap().source().is_none());
+
+    let layout = PackingError::<OriginalCallbackError>::Layout {
+        offset: 0,
+        issue: PackingIssue::Truncated,
+    };
+    assert!(std::error::Error::source(&layout).is_none());
+}
+
+#[test]
 fn headers_counts_parent_exhaustion_and_denominators() {
     let atom = parse!("packing_j(packing_u, packing_v)");
     let original = bytes(&atom);

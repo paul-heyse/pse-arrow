@@ -95,7 +95,14 @@ impl<E: std::fmt::Display> std::fmt::Display for PackingError<E> {
     }
 }
 
-impl<E: std::error::Error + 'static> std::error::Error for PackingError<E> {}
+impl<E: std::error::Error + 'static> std::error::Error for PackingError<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Symbol(error) => Some(error),
+            Self::Layout { .. } => None,
+        }
+    }
+}
 
 type LayoutResult<T> = Result<T, (usize, PackingIssue)>;
 
