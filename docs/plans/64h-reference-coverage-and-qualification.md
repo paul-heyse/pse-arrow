@@ -291,6 +291,16 @@ tests do not prove production activation coverage. ONNX standalone evaluation
 is explicitly unimplemented. Native formulation/backend/domain correspondence,
 exact reference dependencies andindependent execution remain required.
 
+**Update, 2026-11-05 — PySMO basics/benchmark closure:** the
+[analytic census](64h-required-process-population.md#pysmo-basics-and-analytic-benchmark-closure--2026-11-05)
+resolves three30-row basics fits andsix separate helper experiments,actual
+sampling counts/domains,data/format dependencies andstochastic custody.
+All helper imports use an absent old package path;five also expect data beside
+their modules while files live in the notebook tree. Those cases remain held
+required,not discarded. Generated pickles,training-point accuracy andphysical
+process acceptance remain different roles;core parameterization,native mapping
+andreference compatibility/execution remain open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

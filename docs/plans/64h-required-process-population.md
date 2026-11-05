@@ -2199,6 +2199,73 @@ artifacts,100/10000 training rows,15 Keras/two ONNX solve sites andfive
 activation parameter rows; no network import/evaluation,training orsolver run
 was performed.
 
+## PySMO basics and analytic benchmark closure — 2026-11-05
+
+**Interface-checked, source only:** X `docs/surrogates/pysmo/pysmo_basics*.ipynb`
+has four identical scientific ASTs. It first creates25 Hammersley points in
+the numeric rectangle[273,373]×[1,50]; this demonstrates sample creation,not
+thermodynamic model execution. It then reads the30-row,three-column
+`brainin_30.txt` andselects three separate fit/evaluation families:
+
+| Basics stage | Actual selection |
+|---|---|
+| Polynomial |Same30 rows for original/regression data,degree4,multinomialsTrue,internal split .8,10 cross-validations,extra terms x1²×x2²,exp(x1),exp(x2);core default Pyomo/Ipopt least squares. Generate an expression,predict at(5,8),(−3,10),(−2,3),andplot parity/residuals. |
+| RBF |Same30 rows,Gaussian basis,default **algebraic** solution route,regularization defaultTrue. Predict the same three points andreport training R²/RMSE. Source prose claiming a Pyomo default is superseded by the selected constructor's actual algebraic assignment. |
+| Kriging |Same30 rows,numerical gradients defaultTrue,regularization defaultTrue (SciPy gradient optimizer). Predict the same three points,report training R²/RMSE andgenerate a Pyomo expression. |
+
+No independent fit-validation dataset or numerical accuracy threshold is
+specified by this notebook. Core serialization writes default `solution.pickle`
+outputs; each selected overwrite=True fit can replace an earlier fit's file.
+These are generated model outputs,not preexisting input artifacts or proof
+that old pickles are compatible. Match fitted family,actual coefficients,
+prediction/error products andgenerated-equation behavior separately. No
+standalone optimization is constructed by the basics notebook.
+
+Six separate X `mod/surrogates/pysmo/` helpers extend this bounded source
+population; they are not imported orrun by `pysmo_basics`:
+
+| Helper basename | Actual analytic/data/trainer/consumer closure |
+|---|---|
+| `polyregression_branin_function.py` |Inline Branin function with source pi3.1417;NumPy seed100;**25** random training and100 distinct test draws over[−5,10]×[0,15]. Degree4,multinomialsTrue,.8 split,5 cross-validations;extra x1²x2,x1x2²,x1²x2²,exp(x1),exp(x2). Report held-out R² andgenerated expression. Comments mentioning20 samples do not change25. |
+| `kriging_branin_function.py` |`branin_5625.txt`5625 rows;uniform9×9 nearest-data selection gives up to81 unique training rows,not the descriptive49. Kriging numerical_gradientsFalse,regularizationTrue selects stochastic basin hopping. Evaluate **all** data rows including training matches. Subsequent Ipopt minimization uses x1[−5,0],x2[10,15],not the full data rectangle;initial(2.5,7.5) lies outside both declared bounds. Retain this actual restricted-domain/start behavior for readiness. |
+| `kriging_six_hump_function.py` |`six_hump_data_2400.txt`actually2501 rows,61×41 grid over[−3,3]×[−2,2]. Scale features to[0,1],retain unscaled target;Hammersley nearest-data selection requests**50**,not descriptive100,rows. Kriging numerical_gradientsFalse,default regularizationTrue;evaluate all2501 rows (including training matches),reshape errors61×41. No independent unseen-point guarantee orminimization is selected. |
+| `polyregression_matyas_function.py` |Legacy binary Excel `matyas_function.xls`;pandas read_excel,30 Latin-hypercube-selected data rows,degree8,multinomialsTrue,default .75 internal split/3 cross-validations/Pyomo fit;generate expression. Compatible legacy-XLS reader andactual sheet/column admission remain explicit prerequisites. |
+| `polyregression_six_hump_function.py` |`six_hump_function_data.tab`,10201 data rows plus header,index column removed;30 Latin-hypercube selections,degree8,multinomialsTrue,default split/CV/Pyomo fit,overwriteTrue;generate expression. |
+| `polyregression_three_hump_function.py` |`three_humpback_data_v4.csv`,10201 data rows plus header,index removed;30 Latin-hypercube selections,degree8,multinomialsTrue,default split/CV/Pyomo fit;generate expression. |
+
+Every helper imports obsolete `idaes.surrogate.pysmo` paths; the selected
+core source owns `idaes.core.surrogate.pysmo` andhas no corresponding old
+package tree. Five helpers resolve data relative to their own module directory,
+but no `mod/surrogates/pysmo/data_files/` exists in the fixed examples archive.
+Their required files are instead shipped under notebook
+`docs/surrogates/pysmo/data_files/`. These exact import/path correspondences
+are unresolved execution prerequisites,not permission to copy an upstream
+implementation orsilently select another dataset. Preserve old entry points
+as held required source selections pending explicit compatibility disposition.
+The inline Branin helper has no data-file dependency but shares the import
+problem. No helper selects external ALAMO orneural trainers.
+
+Latin-hypercube selection is stochastic with no explicit helper seed; basin
+hopping also has no explicit helper seed. Core sampling finds nearest existing
+rows anddeduplicates,so requested count is not a guaranteed count of unique
+selected rows; freeze actual sample identities/cardinality before fitting.
+Polynomial internal fold seeding does not by itself freeze initial sample
+selection. NumPy/SciPy/pandas/Pyomo/Ipopt andXLS-reader versions,working
+directories,generated pickle custody andfailure treatment remain to establish.
+
+Additional shipped cardinal_sine(100 rows),cardinal_sine_2500(2500),
+griewank_data(10201) andexponential_function_data(10201 plus header) files
+are not consumed by these seven selected entry points. Their remaining
+benchmark consumers/source selection stay open,not excluded oradded to a
+training population merely because files exist. C's full polynomial/RBF/
+kriging/sampling test parameterizations remain a separate unresolved expansion.
+No native matched benchmark/training/equation/optimization case has been
+established;G04 retains each selected stage andordinary analytic-function/
+process-data distinctions. Ephemeral AST/text/file inspection established
+four-wrapper equivalence,actual constants,data cardinalities/imports and
+module-relative missing paths. No sampler,fit,Excel parser,model import,
+pickle load orsolver was executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
