@@ -675,7 +675,7 @@ escaping includes refuse generation. Lifetime-bearing views are not owned decode
 The [maintained validator](../../vendor/protoc-gen-protovalidate-buffa/README.md) still
 owns rule realization; the facade selects that implementation rather than replacing it.
 
-Both current host worlds are complete under this mechanism: 122 code-intelligence and
+At `89c22c769`, both host worlds contain 122 code-intelligence and
 138 developer-evidence owned messages, including nested carriers (260 total). The earlier
 143-message summary was corrected against actual emitted match arms and recursive descriptor
 population; this corrects accounting, not a missing dispatch implementation. The consumer deletes both handwritten payload
@@ -691,6 +691,12 @@ Receiving regeneration completed all fourteen targets; independent engineering c
 also passed after its declared generator repaired a malformed on-disk token. The authentic
 Recipe `into` owned-accessor warning remains visible;
 this is not a zero-warning generation claim.
+
+The subsequently integrated J04 directory profile adds exactly three emitted messages:
+`CapturedWorkflowDirectoryManifest`, `WorkflowEvidenceDirectoryProfile` and its empty unit
+carrier. The current total is **263 (122 intelligence, 141 developer)**. Every existing
+developer descriptor is retained; intelligence descriptor and dispatch bytes are unchanged.
+This extends the same generated validation/dispatch population, not a second report hierarchy.
 
 Imported-message CEL is narrower than complete import visibility: the maintained scanner
 admits selected messages into its CEL schema index. Traversing an unselected imported message

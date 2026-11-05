@@ -102,6 +102,8 @@ destination protection, definition-before-read, fixed builtin discriminant/arity
 encoding exhaustion before constructing the existing evaluator. Refuse external functions,
 callbacks and unsupported control flow; omit preparation-only settings/hot-start expression
 trees. Verify actual emitted instruction coverage before selecting that first profile.
+Recursively refuse an actual native/JIT block as well: recompiling it as interpreted would
+substitute the parent's numerical realization rather than transfer it.
 
 Pre-admit actual input/output overlap, programs, layouts, nested stages, attribution and fresh
 worker/scratch allocations under the original owner; serialized counts cannot grant allowances.

@@ -227,7 +227,7 @@ performance benefit is established by these plan amendments.
 | J01 | in-progress | P01; current test and scientific evidence owners | Shared passive report-observation contract and original terminal matching are implemented in source; remaining population/construction/closure agreement and working generated delivery remain. Extend native fixture/readiness owners with conditional pre-list and exact post-list complete missing/refused/owner-required inputs and explicit preparation routes. Compare list/check/test/rustdoc, expected refusal, setup failure, zero match and incomplete capture before A/B interfaces freeze; passive inspection prepares nothing. |
 | J02 | in-progress | J01; working narrow A/B records/options/decode policy; narrow G02 inspector | Current report interpretation three seals original dependency commitments/omissions; source-generated one-way roots support explicit report, selection and full scopes. Independent binary readback and foreign/malformed/oversized/missing-import controls are narrowly tested. Define bounded manifest/member acquisition using that same commitment/adoption owner rather than a second verdict representation; keep compact input/output at 64 MiB. Full lifecycle/population delivery and retained raw-artifact protection remain; Buffa metadata decode grants no performing authority. |
 | J03 | in-progress | J02; native failed-test rerun and current listing; J01 exact prerequisite agreement | Native rerun consumes authenticated original input and report/inventory commitments. The representative controlled failure/export/readback/exact-rerun journey passed for the earlier selection family; interpretation-three full dependency delivery and its new journey are recorded below. Runtime capsule/native-lane preparation and invocation-local equivalent BuildCapture reuse are implemented with distinct group attribution; mutable fixtures remain independent. Complete the broader changed package/features/identity, absent-evidence, stale-binary and all-missing-prerequisite populations, and every selected consumer/deletion. Historical outcomes never become present evidence. |
-| J04 | planned | J02/J03; identified actual original-file acquisition/protection owner, not an assumed prune API | Deliver offline protected original-file reading and staged bundle export above the compact 64 MiB profile under one interpretation-three ordinal/role/extent/digest/omission commitment. Use the [existing invocation publisher](../../crates/pse-host/src/invocation.rs) staging/sync/no-replace behavior; [Tokio-util 0.7.19 ReaderStream/StreamReader](https://docs.rs/tokio-util/0.7.19/tokio_util/io/index.html) supply consumed I/O, not attribution or atomicity. Establish opened-file protection/support limits before active-reader retirement claims; design additional disposal ownership only if required. Test missing/corrupt later members, old policy, original omission, slow/escaped reader, collision, interrupted/failed publication and release. Preserve fixture/native/capture settlement separately; remove replaced full-closure copies and reference/cleanup translations only with complete consumers. |
+| J04 | in-progress | J02/J03; [integrated original-file directory delivery](#original-file-directory-delivery) | Original-file acquisition, staged publication, generated passive manifest, offline readback and explicit CLI selection are integrated. Receiving-main checks and broader J05 lifecycle/consumer acceptance remain; opened descriptors protect inode access without a directory-retention lease or snapshot claim. |
 | J05 | planned | J02–J04 full population; narrow F02 presentation and G02 reading | Complete conditional/exact readiness → explicit preparation → list/check/rustdoc/test → compact or staged original evidence → independent read → exact rerun. Include assertion failure, passing expected-refusal test, zero match with no preparation, setup failure, incomplete capture, interruption and independent cleanup failures. Migrate every selected reader/exporter and remove replaced maps/fixtures/preparation recipes; supply actual limits and population to H. No service chunk transport or automatic pruning is a prerequisite of the offline consumer. |
 
 J01 supplies early design agreement. Narrow A/B implementation enables J02; G02's inspector
@@ -557,6 +557,46 @@ Worktree consolidation preserves the original invocation stores and full portabl
 outside the retired checkouts. Checkout-local tools/build outputs are retired; original
 outcomes and incomplete/unavailable custody observations are unchanged. This administrative
 cleanup does not qualify J04 expiry, active-reader retention, release or interruption behavior.
+
+### Original-file directory delivery
+
+Integrated foundation `9f5a8aaa6` and directory consumer `32f1094bc` on main. Native
+`OpenedReport`/`OpenedFile` retain authenticated descriptors and original ordinal, role, extent,
+digest and omission meaning. Range reads use borrowed descriptors without a shared seek cursor;
+before/after identity and complete digest checks refuse in-place mutation/growth. Replacement
+and unlink do not substitute a different inode. These are protected reads, not atomic snapshots;
+`atomic_snapshot` remains false and no disposal lease is inferred.
+
+The [descriptor owner](../../crates/pse-host/src/artifacts/descriptor.rs) uses
+[`rustix::fs::openat`](https://docs.rs/rustix/1.1.5/rustix/fs/fn.openat.html) with `NOFOLLOW`
+and `NONBLOCK`, followed by `fstat`, so a raced FIFO cannot block acquisition. Native layout is
+fixed: `manifest.pb`, `descriptor.bin`, `members/<ordinal>`. Paths decoded from a manifest
+cannot choose output locations. A pinned root/member-directory pair and an exact member set
+preserve the original closure; omission never grants bytes that appear later.
+
+The shared [publisher](../../crates/pse-host/src/invocation.rs) stages private files
+beside the destination, synchronizes members/directories, writes the manifest last, publishes
+with `renameat_with(NOREPLACE)`, then synchronizes the parent. Collision leaves the existing
+destination untouched. A failed final parent sync is `PublicationDurabilityUnknown`, retaining
+the visible publication and original error; operation and cleanup failures remain distinct.
+
+The generated manifest nests the existing named report plus `OriginalFullV1` profile intent.
+It contains no second member metadata/paths/verdict hierarchy. Shared role/content validation
+serves compact, native retained and directory readback directly. Compact remains bounded at
+64 MiB with no automatic fallback; explicit directory export handles larger original files.
+Compact materializes and hashes once; retained acquisition verifies every selected descriptor.
+CLI export selects the profile explicitly and offline inspection reads bounded member ranges
+after native custody and the original export pathname are gone. Decoding remains passive.
+
+**Tested in the isolated implementation**, pinned toolchain, configured unbounded/cache-off
+mode and zero failure baseline: `scripts/pse check pse-host --all-targets` and
+`scripts/pse check xtask --all-targets --features host-contracts` completed with zero errors or
+warnings; selected host directory/role/report/CLI/publisher/descriptor/schema controls passed
+97/97 and generator/dispatch controls 4/4. Controls include a real 65 MiB file, moved offline
+readback, Input/inventory/population counterexamples, mutation/missing/extra/symlink/FIFO members,
+collision/interrupted prefix, durability and cleanup failures. `just codegen` completed fourteen
+targets with the retained Recipe accessor warning. Receiving-main acceptance is pending; these
+checks do not close J03 readiness, J05 full workflow population or H qualification.
 
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.

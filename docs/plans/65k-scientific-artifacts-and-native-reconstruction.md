@@ -754,6 +754,8 @@ definition-before-read, fixed builtin identity/arity, complete extent and pre-gr
 Refuse external functions, callbacks and unsupported instruction/control-flow profiles. Omit
 preparation-only optimization/hot-start state; promise execution correspondence, not later
 preparation/vectorization equivalence. Do not implement an independent arithmetic interpreter.
+The existing feature-gated `BlockEvaluator::Native` is outside this first f64 interpreter
+profile. Refuse it recursively rather than silently recompiling it as interpreted.
 Sources: [private and exported instruction owners](../../vendor/symbolica/src/evaluate/instruction.rs),
 [external-function restoration](../../vendor/symbolica/src/evaluate/external.rs) and
 [native evaluator preparation](../../crates/pse-math/src/library/admission.rs).
@@ -796,6 +798,14 @@ and reap. Child entry must perform no source admission, symbolic analysis/differ
 MPFR restoration. No complete loader, native split, activation, memory bound or speed claim is
 established by this source investigation. Packed-atom inspection remains useful passive work;
 canonical atom remapping is not the next prerequisite for this private profile.
+
+Execution now separates two bounded prerequisites: extraction of the existing numerical
+template/frame, preserving all current sourceful modes, and supplier-owned checked f64
+export/loading. Root-core/backend integration follows their concrete interfaces, then complete
+native restoration and the actual child cutover. Keep `SourceBindings`' original weak-source
+checks unchanged, including the original owner's independent death; an execution projection
+must not extend that source lifetime or issue a source witness. Shared provider state remains
+one bank for existing in-process consumers even though the delegated profile refuses providers.
 
 Sources: [parent preparation and child path](../../crates/pse-runtime/src/math/native_child.rs),
 [compiled stages/order selection/worker](../../crates/pse-math/src/execution.rs),
