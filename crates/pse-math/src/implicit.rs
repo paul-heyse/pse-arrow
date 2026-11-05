@@ -345,6 +345,22 @@ fn owned_evaluation(
 }
 
 impl Problem {
+    /// Called by the actual implicit owner after releasing native callback aliases.
+    /// The bank lock drains any current evaluation; poison never hides its payload.
+    pub(super) fn finish_providers(&self) -> Result<(), pse_kernels::ProviderError> {
+        match self.providers.lock() {
+            Ok(mut bank) => std::mem::take(&mut *bank).finish(),
+            Err(poisoned) => {
+                let cleanup = std::mem::take(&mut *poisoned.into_inner()).finish();
+                Err(settle_provider_error(
+                    provider_error(MathError::PoisonedOwner {
+                        owner: "implicit provider retirement",
+                    }),
+                    cleanup,
+                ))
+            }
+        }
+    }
     /// Bind compiled residuals with their library-owned structural Jacobian support.
     pub fn new(
         id: SemanticId,
@@ -519,9 +535,8 @@ impl Problem {
     /// with every consumed offset; verifier projection must apply the same subtraction.
     pub fn with_residual_offsets(mut self, offsets: &[f64]) -> Result<Self, MathError> {
         if offsets.len() != self.rows.len() || offsets.iter().any(|v| !v.is_finite()) {
-            return Err(MathError::Contract(
-                "implicit residual offset extent/value".into(),
-            ));
+            let operation = MathError::Contract("implicit residual offset extent/value".into());
+            return Err(settle_math_error(operation, self.finish_providers()));
         }
         let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
         h.str("authored-implicit-residual-offsets")
@@ -534,9 +549,15 @@ impl Problem {
         Ok(self)
     }
     /// Attach admitted external workers to this residual worker; ownership is attempt-local.
-    pub fn with_providers(mut self, providers: pse_kernels::ProviderBindings) -> Self {
+    pub fn with_providers(
+        mut self,
+        providers: pse_kernels::ProviderBindings,
+    ) -> Result<Self, pse_kernels::ProviderError> {
+        if let Err(operation) = self.finish_providers() {
+            return Err(settle_provider_error(operation, providers.finish()));
+        }
         self.providers = Mutex::new(providers);
-        self
+        Ok(self)
     }
     /// Attach the compiler's resolved selected-function requirements to its residual problem.
     pub fn with_requirements(
@@ -544,9 +565,10 @@ impl Problem {
         requirements: pse_kernels::DerivativeRequirements,
     ) -> Result<Self, MathError> {
         if self.native_order < requirements.inner_minimum {
-            return Err(MathError::Contract(
+            let operation = MathError::Contract(
                 "implicit native product is below the inner algorithm minimum".into(),
-            ));
+            );
+            return Err(settle_math_error(operation, self.finish_providers()));
         }
         self.requirements = requirements;
         Ok(self)
@@ -1926,11 +1948,6 @@ impl Factory {
                 "selected realization cannot honor implicit operational settings".into(),
             ));
         }
-        let providers = self
-            .providers
-            .iter()
-            .map(|(k, r)| r.worker_scoped(scope.nested()).map(|w| (*k, w)))
-            .collect::<Result<_, _>>()?;
         // Admission is a capacity ceiling, not placement or a promise of actual
         // parallel work. Query the pool width only on a Rayon worker: outside one,
         // current_num_threads would initialize the unrelated global pool.
@@ -1959,36 +1976,23 @@ impl Factory {
         )
         .map_err(provider_error)?
         .with_requirements(self.requirements)
-        .map_err(provider_error)?
-        .with_providers(providers);
-        problem
-            .source_worker
-            .get_mut()
-            .map_err(|_| {
-                provider_error(MathError::PoisonedOwner {
-                    owner: "implicit worker",
-                })
-            })?
-            .worker
-            .set_scope(scope.clone());
-        problem
-            .unknown_worker
-            .get_mut()
-            .map_err(|_| {
-                provider_error(MathError::PoisonedOwner {
-                    owner: "implicit unknown worker",
-                })
-            })?
-            .worker
-            .set_scope(scope.clone());
-        {
-            let providers = problem.providers.get_mut().map_err(|_| {
-                provider_error(MathError::PoisonedOwner {
-                    owner: "implicit provider",
-                })
-            })?;
+        .map_err(provider_error)?;
+        let mut bindings = Vec::new();
+        for (key, registration) in &self.providers {
+            match registration.worker_scoped(scope.nested()) {
+                Ok(worker) => bindings.push((*key, worker)),
+                Err(operation) => {
+                    let cleanup = pse_kernels::ProviderBindings::try_from_iter(bindings)
+                        .and_then(pse_kernels::ProviderBindings::finish);
+                    return Err(settle_provider_error(operation, cleanup));
+                }
+            }
+        }
+        problem =
+            problem.with_providers(pse_kernels::ProviderBindings::try_from_iter(bindings)?)?;
+        let configured = (|| {
             problem
-                .unknown_worker
+                .source_worker
                 .get_mut()
                 .map_err(|_| {
                     provider_error(MathError::PoisonedOwner {
@@ -1996,17 +2000,47 @@ impl Factory {
                     })
                 })?
                 .worker
-                .prepare_providers(providers)
-                .map_err(provider_error)?;
+                .set_scope(scope.clone());
+            problem
+                .unknown_worker
+                .get_mut()
+                .map_err(|_| {
+                    provider_error(MathError::PoisonedOwner {
+                        owner: "implicit unknown worker",
+                    })
+                })?
+                .worker
+                .set_scope(scope.clone());
+            {
+                let providers = problem.providers.get_mut().map_err(|_| {
+                    provider_error(MathError::PoisonedOwner {
+                        owner: "implicit provider",
+                    })
+                })?;
+                problem
+                    .unknown_worker
+                    .get_mut()
+                    .map_err(|_| {
+                        provider_error(MathError::PoisonedOwner {
+                            owner: "implicit worker",
+                        })
+                    })?
+                    .worker
+                    .prepare_providers(providers)
+                    .map_err(provider_error)?;
+            }
+            scope.check()?;
+            if let Configuration::Fixed(_, options) = &self.configuration
+                && self.selection.anchor.is_none()
+            {
+                problem.validate_options(options).map_err(provider_error)?;
+            }
+            Ok(())
+        })();
+        if let Err(operation) = configured {
+            return Err(settle_provider_error(operation, problem.finish_providers()));
         }
-        let problem = Arc::new(problem);
-        scope.check()?;
-        if let Configuration::Fixed(_, options) = &self.configuration
-            && self.selection.anchor.is_none()
-        {
-            problem.validate_options(options).map_err(provider_error)?;
-        }
-        Ok(problem)
+        Ok(Arc::new(problem))
     }
 }
 
@@ -2023,6 +2057,19 @@ struct Nested {
     linearization: Option<ContentHash>,
 }
 impl pse_kernels::Provider for Nested {
+    fn finish(self: Box<Self>) -> Result<(), pse_kernels::ProviderError> {
+        let Self {
+            problem,
+            solver,
+            configuration,
+            selection,
+            ..
+        } = *self;
+        drop(solver);
+        drop(configuration);
+        drop(selection);
+        problem.finish_providers()
+    }
     fn supports(&self, demand: &pse_kernels::ProviderDemand) -> bool {
         matches!(
             demand,
@@ -2369,6 +2416,30 @@ fn provider_error(error: MathError) -> pse_kernels::ProviderError {
         }
     }
 }
+fn settle_provider_error(
+    operation: pse_kernels::ProviderError,
+    cleanup: Result<(), pse_kernels::ProviderError>,
+) -> pse_kernels::ProviderError {
+    match cleanup {
+        Ok(()) => operation,
+        Err(cleanup) => pse_kernels::ProviderError::Settlement {
+            operation: Box::new(operation),
+            cleanup: Box::new(cleanup),
+        },
+    }
+}
+fn settle_math_error(
+    operation: MathError,
+    cleanup: Result<(), pse_kernels::ProviderError>,
+) -> MathError {
+    match cleanup {
+        Ok(()) => operation,
+        Err(cleanup) => MathError::Scope(settle_provider_error(
+            provider_error(operation),
+            Err(cleanup),
+        )),
+    }
+}
 
 /// Bind a handcrafted numerical fixture while its real admitted source is in scope.
 /// These fixtures use actual source IDs directly and have no local attribution tokens.
@@ -2528,6 +2599,102 @@ mod tests {
             derivative_tolerance: 1e-10,
         };
         (problem, scope, options)
+    }
+
+    #[test]
+    fn implicit_provider_retirement_preserves_poison_and_settles_every_slot() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        #[derive(Debug)]
+        struct Retiring(Arc<AtomicUsize>, bool);
+        impl pse_kernels::Provider for Retiring {
+            fn finish(self: Box<Self>) -> Result<(), pse_kernels::ProviderError> {
+                self.0.fetch_add(1, Ordering::Relaxed);
+                if self.1 {
+                    Err(pse_kernels::ProviderError::Terminal(
+                        "native child retirement".into(),
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
+            fn fill(
+                &mut self,
+                _: &[f64],
+                _: &pse_kernels::PreparedProviderRequest,
+                _: pse_kernels::ProviderRuntime<'_>,
+                _: pse_kernels::ProviderOutput<'_>,
+                _: &pse_kernels::EvaluationContext<'_>,
+            ) -> Result<(), pse_kernels::ProviderError> {
+                Ok(())
+            }
+        }
+        for poisoned in [false, true] {
+            for failed_cleanup in [false, true] {
+                let (problem, _, _) = poison_fixture();
+                let finished = Arc::new(AtomicUsize::new(0));
+                let registry = pse_quantity::standard::standard_registry().unwrap();
+                let quantity = registry.neutral_dimensionless().unwrap();
+                let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+                let bindings = (0..3).map(|ordinal| {
+                    let spec = pse_kernels::ProviderSpec {
+                        shapes: Default::default(),
+                        derivative_source: pse_kernels::DerivativeSource::Analytic,
+                        id: pse_ids::named_id(problem.id, &format!("child {ordinal}")),
+                        revision: problem.identity,
+                        data: ContentHash::from_bytes([0; 32]),
+                        inputs: vec![],
+                        outputs: vec![pse_kernels::Port {
+                            id: problem.id,
+                            quantity,
+                            unit,
+                        }],
+                        derivatives: DerivativeOrder::Value,
+                        smoothness: DerivativeOrder::Value,
+                    };
+                    (
+                        spec.key(),
+                        pse_kernels::ProviderBinding::new(
+                            spec,
+                            Box::new(Retiring(finished.clone(), failed_cleanup && ordinal != 1)),
+                        ),
+                    )
+                });
+                let bindings = pse_kernels::ProviderBindings::try_from_iter(bindings).unwrap();
+                let problem = problem.with_providers(bindings).unwrap();
+                if poisoned {
+                    poison(&problem.providers);
+                }
+                let result = problem.finish_providers();
+                assert_eq!(finished.load(Ordering::Relaxed), 3);
+                assert_eq!(result.is_err(), poisoned || failed_cleanup);
+                if poisoned {
+                    let error = result.unwrap_err();
+                    let operation = if failed_cleanup {
+                        let pse_kernels::ProviderError::Settlement { operation, cleanup } = &error
+                        else {
+                            panic!("independent cleanup failure missing")
+                        };
+                        assert!(
+                            matches!(cleanup.as_ref(), pse_kernels::ProviderError::Retirement { failures } if failures.len() == 2)
+                        );
+                        operation.as_ref()
+                    } else {
+                        &error
+                    };
+                    let pse_kernels::ProviderError::Nested { cause, .. } = operation else {
+                        panic!("original poison missing")
+                    };
+                    assert!(matches!(
+                        cause.as_error().downcast_ref::<MathError>(),
+                        Some(MathError::PoisonedOwner { .. })
+                    ));
+                } else if failed_cleanup {
+                    assert!(
+                        matches!(result, Err(pse_kernels::ProviderError::Retirement { failures }) if failures.len() == 2)
+                    );
+                }
+            }
+        }
     }
 
     #[test]

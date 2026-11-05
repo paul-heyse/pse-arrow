@@ -66,6 +66,9 @@ impl Vessel {
     }
 }
 impl Oracle for Vessel {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         &self.c
     }
@@ -369,6 +372,9 @@ impl Degenerate {
     }
 }
 impl Oracle for Degenerate {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         &self.c
     }
@@ -508,6 +514,9 @@ impl Tank {
 }
 #[cfg(feature = "idas")]
 impl Oracle for Tank {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         &self.c
     }

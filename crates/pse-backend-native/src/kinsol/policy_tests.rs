@@ -13,6 +13,9 @@ struct TranslatedCubic {
     points: Arc<Mutex<Vec<f64>>>,
 }
 impl NleOracle for TranslatedCubic {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.contract
     }
@@ -207,6 +210,9 @@ struct AffineTear {
     calls: Arc<std::sync::atomic::AtomicUsize>,
 }
 impl FixedPointOracle for AffineTear {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.contract
     }

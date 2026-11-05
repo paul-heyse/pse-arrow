@@ -20,6 +20,7 @@ pub use supervised_child::{DrainFailurePolicy, StderrCapture, SupervisedChild, S
 
 pub mod boundary;
 pub mod inspection;
+pub mod panic;
 #[macro_use]
 pub mod observation;
 /// SDK-independent process-host telemetry settings.

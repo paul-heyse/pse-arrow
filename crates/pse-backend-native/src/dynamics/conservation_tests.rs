@@ -41,6 +41,9 @@ impl Conserved {
     }
 }
 impl Oracle for Conserved {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         self.toy.contract()
     }

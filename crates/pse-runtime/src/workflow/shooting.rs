@@ -1093,7 +1093,11 @@ impl ShootingProblem {
     /// continuity rows hold there.
     pub fn initial_point(&self, execution: &Execution) -> Result<Vec<f64>, ProblemError> {
         let mut worker = self.experiment.worker(execution)?;
-        self.initial_point_with_worker(&mut worker, execution)
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.initial_point_with_worker(&mut worker, execution)
+        }))
+        .unwrap_or_else(|payload| Err(shooting_retirement_panic(payload)));
+        ProblemError::with_retirement(result, finish_dynamic_worker(worker))
     }
     fn initial_point_with_worker(
         &self,
@@ -1199,6 +1203,18 @@ fn same_execution(a: &Execution, b: &Execution) -> bool {
             _ => false,
         }
 }
+fn shooting_retirement_panic(payload: Box<dyn std::any::Any + Send>) -> ProblemError {
+    let detail = pse_diagnostics::panic::settle_payload(payload, "shooting owner non-text panic");
+    crate::math::MathRuntimeError::Panic(detail).into_problem()
+}
+fn finish_window_team(team: WindowTeam) -> Result<(), ProblemError> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| team.finish()))
+        .unwrap_or_else(|payload| Err(shooting_retirement_panic(payload)))
+}
+fn finish_dynamic_worker(worker: super::dynamics::DynamicWorker) -> Result<(), ProblemError> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| worker.finish()))
+        .unwrap_or_else(|payload| Err(shooting_retirement_panic(payload)))
+}
 impl ShootingOracle {
     fn derivative_purpose(&self) -> crate::invocation::IntegrationPurpose {
         match self.purpose {
@@ -1217,7 +1233,9 @@ impl ShootingOracle {
         if !compatible {
             // End the incompatible provider ownership before rebuilding it; never
             // retarget an existing provider to another attempt's execution scope.
-            self.worker = None;
+            if let Some(worker) = self.worker.take() {
+                finish_window_team(worker)?;
+            }
             // Native callback teams are admitted before entering the NLP. A fresh
             // standalone/original assessment uses its current owner's width-one lane.
             self.worker = Some(WindowTeam::inline(
@@ -1551,6 +1569,9 @@ impl ShootingOracle {
     }
 }
 impl NlpOracle for ShootingOracle {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        self.worker.map_or(Ok(()), finish_window_team)
+    }
     fn normalization(&self) -> Option<&Normalization> {
         Some(&self.problem.normalization)
     }
@@ -1743,14 +1764,28 @@ impl ShootingProblem {
                 .foreign_allowance(&solver.controls),
         );
         let mut worker = self.experiment.worker(&execution)?;
-        let initial = match initial {
-            Some(x) => x.to_vec(),
-            None => self.initial_point_with_worker(&mut worker, &execution)?,
+        let prepared = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let initial = match initial {
+                Some(x) => x.to_vec(),
+                None => self.initial_point_with_worker(&mut worker, &execution)?,
+            };
+            if initial.len() != self.contract.variables.len() {
+                return Err(ProblemError::Contract(
+                    "shooting initial point extent".into(),
+                ));
+            }
+            Ok(initial)
+        }))
+        .unwrap_or_else(|payload| Err(shooting_retirement_panic(payload)));
+        let initial = match prepared {
+            Ok(initial) => initial,
+            Err(error) => {
+                return ProblemError::with_retirement(Err(error), finish_dynamic_worker(worker))
+                    .map_err(crate::math::MathRuntimeError::from);
+            }
         };
-        if initial.len() != self.contract.variables.len() {
-            return Err(ProblemError::Contract("shooting initial point extent".into()).into());
-        }
         let team = if initial.is_empty() {
+            finish_dynamic_worker(worker)?;
             None
         } else {
             Some(WindowTeam::new(
@@ -1764,7 +1799,14 @@ impl ShootingProblem {
             (None, Some(vec![]))
         } else {
             let native::routing::Route::Native(backend) = self.route else {
-                return Err(ProblemError::unsupported("shooting NLP has no native route").into());
+                let cleanup = team.map_or(Ok(()), finish_window_team);
+                return ProblemError::with_retirement(
+                    Err(ProblemError::unsupported(
+                        "shooting NLP has no native route",
+                    )),
+                    cleanup,
+                )
+                .map_err(crate::math::MathRuntimeError::from);
             };
             let report = native::execution::nlp(
                 native::execution::Step {
@@ -1858,153 +1900,167 @@ impl ShootingProblem {
                     point: None,
                     worker: None,
                 };
-                let point = match oracle.evaluate(&x, DerivativeOrder::Value) {
-                    Ok(point) => point,
-                    Err(error) => {
-                        let diagnostic = super::diagnostics::observed(
-                            &error,
-                            pse_diagnostics::DiagnosticStage::Shooting,
-                        );
-                        if let Some(native) = report.solve.as_mut() {
-                            native.record_validation_failure(error);
-                        }
-                        report.validation_error = Some(diagnostic);
-                        return Ok(());
-                    }
-                };
-                report.quality = Some(native::quality::observed(
-                    &self.contract,
-                    &self.bounds,
-                    &x,
-                    &point.constraints,
-                    &self.tolerances,
-                )?);
-                report.constraint_values = Some(point.constraints.clone());
-                report.objective = Some(point.objective);
-                report.continuity = Some(
-                    self.rows
-                        .iter()
-                        .zip(&point.constraints)
-                        .filter(|(r, _)| matches!(r, Row::Continuity { .. }))
-                        .map(|(_, v)| v.abs())
-                        .fold(0., f64::max),
-                );
-                let integration = self.integration(&x);
-                for (control, value) in self.controls.iter().zip(&x) {
-                    report
-                        .controls
-                        .entry(control.input)
-                        .or_default()
-                        .push(*value);
-                }
-                report.nodes = (0..self.windows.len())
-                    .map(|k| self.anchors(k, &x).to_vec())
-                    .collect();
-                let mut stitched = native::dynamics::Report {
-                    forward_axes: vec![],
-                    termination: native::dynamics::Termination::Completed,
-                    completed_time: self.experiment.profile.end,
-                    requested_initial: point.reports[0].requested_initial.clone(),
-                    consistent_initial: point.reports[0].consistent_initial.clone(),
-                    coverage: native::dynamics::SampleCoverage::default(),
-                    samples: Vec::with_capacity(self.samples.len()),
-                    endpoint: point.reports.last().and_then(|r| r.endpoint.clone()),
-                    conservation: Vec::new(),
-                    events: point
-                        .reports
-                        .iter()
-                        .flat_map(|r| r.events.clone())
-                        .collect(),
-                    statistics: point
-                        .reports
-                        .iter()
-                        .flat_map(|r| r.statistics.clone())
-                        .collect(),
-                    error: None,
-                    progress: Vec::new(),
-                    dropped_progress: 0,
-                };
-                // Each window integrates its quadratures from its own start.
-                let mut before = vec![vec![0.; self.experiment.program.contract.quadratures.len()]];
-                for window in &point.reports {
-                    let end = window.samples.last().ok_or_else(|| {
-                        ProblemError::internal("shooting window without its end sample")
-                    })?;
-                    let previous = before.last().cloned().unwrap_or_default();
-                    before.push(
-                        previous
-                            .iter()
-                            .zip(&end.integrals)
-                            .map(|(a, b)| a + b)
-                            .collect(),
-                    );
-                }
-                if let Some(endpoint) = stitched.endpoint.as_mut() {
-                    // Window anchors are execution coordinates, not physical model inputs.
-                    // Preserve the final window's actual left-side values while projecting its
-                    // column map back onto the original experiment integration vector.
-                    let parameters = self.experiment.program.contract.parameters.len();
-                    let window = self.windows.last().ok_or_else(|| {
-                        ProblemError::internal("shooting endpoint without window")
-                    })?;
-                    if endpoint.inputs.len() < parameters
-                        || endpoint.input_columns.len() < parameters
-                    {
-                        return Err(ProblemError::internal(
-                            "shooting endpoint physical input extent",
-                        )
-                        .into());
-                    }
-                    endpoint.inputs.truncate(parameters);
-                    endpoint.input_columns.truncate(parameters);
-                    for column in &mut endpoint.input_columns {
-                        *column = match window.columns.get(*column) {
-                            Some(WindowColumn::Integration(original)) => *original,
-                            _ => {
-                                return Err(ProblemError::internal(
-                                    "shooting endpoint physical input map",
-                                )
-                                .into());
+                let assessed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let point = match oracle.evaluate(&x, DerivativeOrder::Value) {
+                        Ok(point) => point,
+                        Err(error) => {
+                            let diagnostic = super::diagnostics::observed(
+                                &error,
+                                pse_diagnostics::DiagnosticStage::Shooting,
+                            );
+                            if let Some(native) = report.solve.as_mut() {
+                                native.record_validation_failure(error);
                             }
-                        };
+                            report.validation_error = Some(diagnostic);
+                            return Ok(());
+                        }
+                    };
+                    report.quality = Some(native::quality::observed(
+                        &self.contract,
+                        &self.bounds,
+                        &x,
+                        &point.constraints,
+                        &self.tolerances,
+                    )?);
+                    report.constraint_values = Some(point.constraints.clone());
+                    report.objective = Some(point.objective);
+                    report.continuity = Some(
+                        self.rows
+                            .iter()
+                            .zip(&point.constraints)
+                            .filter(|(r, _)| matches!(r, Row::Continuity { .. }))
+                            .map(|(_, v)| v.abs())
+                            .fold(0., f64::max),
+                    );
+                    let integration = self.integration(&x);
+                    for (control, value) in self.controls.iter().zip(&x) {
+                        report
+                            .controls
+                            .entry(control.input)
+                            .or_default()
+                            .push(*value);
                     }
-                    let offset = &before[point.reports.len() - 1];
-                    for (value, offset) in endpoint.point.integrals.iter_mut().zip(offset) {
-                        *value += offset;
+                    report.nodes = (0..self.windows.len())
+                        .map(|k| self.anchors(k, &x).to_vec())
+                        .collect();
+                    let mut stitched = native::dynamics::Report {
+                        forward_axes: vec![],
+                        termination: native::dynamics::Termination::Completed,
+                        completed_time: self.experiment.profile.end,
+                        requested_initial: point.reports[0].requested_initial.clone(),
+                        consistent_initial: point.reports[0].consistent_initial.clone(),
+                        coverage: native::dynamics::SampleCoverage::default(),
+                        samples: Vec::with_capacity(self.samples.len()),
+                        endpoint: point.reports.last().and_then(|r| r.endpoint.clone()),
+                        conservation: Vec::new(),
+                        events: point
+                            .reports
+                            .iter()
+                            .flat_map(|r| r.events.clone())
+                            .collect(),
+                        statistics: point
+                            .reports
+                            .iter()
+                            .flat_map(|r| r.statistics.clone())
+                            .collect(),
+                        error: None,
+                        progress: Vec::new(),
+                        dropped_progress: 0,
+                    };
+                    // Each window integrates its quadratures from its own start.
+                    let mut before =
+                        vec![vec![0.; self.experiment.program.contract.quadratures.len()]];
+                    for window in &point.reports {
+                        let end = window.samples.last().ok_or_else(|| {
+                            ProblemError::internal("shooting window without its end sample")
+                        })?;
+                        let previous = before.last().cloned().unwrap_or_default();
+                        before.push(
+                            previous
+                                .iter()
+                                .zip(&end.integrals)
+                                .map(|(a, b)| a + b)
+                                .collect(),
+                        );
                     }
-                    endpoint.point.state_sensitivities.clear();
-                    endpoint.point.output_sensitivities.clear();
-                }
-                stitched.conservation = stitch_conservation(
-                    &self.experiment.program.contract,
-                    &point.reports,
-                    &before,
-                    self.experiment.profile.max_cells,
-                )?;
-                for (k, local) in &self.samples {
-                    let mut sample = point.reports[*k].samples[*local].clone();
-                    sample.state_sensitivities.clear();
-                    sample.output_sensitivities.clear();
-                    for (value, offset) in sample.integrals.iter_mut().zip(&before[*k]) {
-                        *value += offset;
+                    if let Some(endpoint) = stitched.endpoint.as_mut() {
+                        // Window anchors are execution coordinates, not physical model inputs.
+                        // Preserve the final window's actual left-side values while projecting its
+                        // column map back onto the original experiment integration vector.
+                        let parameters = self.experiment.program.contract.parameters.len();
+                        let window = self.windows.last().ok_or_else(|| {
+                            ProblemError::internal("shooting endpoint without window")
+                        })?;
+                        if endpoint.inputs.len() < parameters
+                            || endpoint.input_columns.len() < parameters
+                        {
+                            return Err(ProblemError::internal(
+                                "shooting endpoint physical input extent",
+                            )
+                            .into());
+                        }
+                        endpoint.inputs.truncate(parameters);
+                        endpoint.input_columns.truncate(parameters);
+                        for column in &mut endpoint.input_columns {
+                            *column = match window.columns.get(*column) {
+                                Some(WindowColumn::Integration(original)) => *original,
+                                _ => {
+                                    return Err(ProblemError::internal(
+                                        "shooting endpoint physical input map",
+                                    )
+                                    .into());
+                                }
+                            };
+                        }
+                        let offset = &before[point.reports.len() - 1];
+                        for (value, offset) in endpoint.point.integrals.iter_mut().zip(offset) {
+                            *value += offset;
+                        }
+                        endpoint.point.state_sensitivities.clear();
+                        endpoint.point.output_sensitivities.clear();
                     }
-                    stitched.samples.push(sample);
-                }
-                stitched.coverage.points =
-                    stitched.samples.iter().map(|s| (s.time, s.mode)).collect();
-                let checks = self.simulation.check_samples(
-                    run_id,
-                    &stitched,
-                    &integration,
-                    &execution.scope()?,
-                );
-                report.checks_complete = checks.complete && checks.error.is_none();
-                report.checks = checks.rows;
-                report.reports = checks.reports;
-                report.validation_error = checks.error;
-                report.trajectory = Some(Arc::new(stitched));
-                report.parameters = Some(integration);
-                Ok(())
+                    stitched.conservation = stitch_conservation(
+                        &self.experiment.program.contract,
+                        &point.reports,
+                        &before,
+                        self.experiment.profile.max_cells,
+                    )?;
+                    for (k, local) in &self.samples {
+                        let mut sample = point.reports[*k].samples[*local].clone();
+                        sample.state_sensitivities.clear();
+                        sample.output_sensitivities.clear();
+                        for (value, offset) in sample.integrals.iter_mut().zip(&before[*k]) {
+                            *value += offset;
+                        }
+                        stitched.samples.push(sample);
+                    }
+                    stitched.coverage.points =
+                        stitched.samples.iter().map(|s| (s.time, s.mode)).collect();
+                    let checks = self.simulation.check_samples(
+                        run_id,
+                        &stitched,
+                        &integration,
+                        &execution.scope()?,
+                    );
+                    report.checks_complete = checks.complete && checks.error.is_none();
+                    report.checks = checks.rows;
+                    report.reports = checks.reports;
+                    report.validation_error = checks.error;
+                    report.trajectory = Some(Arc::new(stitched));
+                    report.parameters = Some(integration);
+                    Ok(())
+                }))
+                .unwrap_or_else(|payload| {
+                    Err(crate::math::MathRuntimeError::from(
+                        shooting_retirement_panic(payload),
+                    ))
+                });
+                crate::math::MathRuntimeError::settle(
+                    assessed,
+                    Box::new(oracle)
+                        .finish()
+                        .map_err(crate::math::MathRuntimeError::from),
+                )
             })();
             original.finish(
                 if assessed.is_ok() && report.checks_complete && report.validation_error.is_none() {

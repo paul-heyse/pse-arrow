@@ -293,9 +293,11 @@ fn case_worker_same_key_visits_operational_anchor_and_restriction_for_partials_a
             let (assembly, values) = case(&factory);
             let expected = demand.expected(&assembly, &factory.spec);
             let mut worker = assembly.worker(
-                [(factory.spec.key(), factory.create().unwrap())]
-                    .into_iter()
-                    .collect(),
+                pse_kernels::ProviderBindings::try_from_iter([(
+                    factory.spec.key(),
+                    factory.create().unwrap(),
+                )])
+                .unwrap(),
                 control.clone(),
             );
             for _ in 0..2 {
@@ -417,9 +419,11 @@ fn case_worker_unchanged_key_configuration_change_refusal_and_recovery() {
         let (assembly, values) = case(&factory);
         let expected = demand.expected(&assembly, &factory.spec);
         let mut worker = assembly.worker(
-            [(factory.spec.key(), factory.create().unwrap())]
-                .into_iter()
-                .collect(),
+            pse_kernels::ProviderBindings::try_from_iter([(
+                factory.spec.key(),
+                factory.create().unwrap(),
+            )])
+            .unwrap(),
             control.clone(),
         );
         for _ in 0..2 {
@@ -460,9 +464,11 @@ fn case_worker_operational_order_upgrades_and_cross_demand_keep_current_effects(
         let (factory, _, effect) = operational_factory(&control, restriction);
         let (assembly, values) = case(&factory);
         let mut worker = assembly.worker(
-            [(factory.spec.key(), factory.create().unwrap())]
-                .into_iter()
-                .collect(),
+            pse_kernels::ProviderBindings::try_from_iter([(
+                factory.spec.key(),
+                factory.create().unwrap(),
+            )])
+            .unwrap(),
             control,
         );
         close(worker.constraints(&values).unwrap(), &[0.8]);

@@ -2983,10 +2983,10 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
     let returned = Arc::new(std::sync::Mutex::new(None));
     let output = returned.clone();
     let mut worker = assembly.worker(
-        pse_kernels::ProviderBindings::from([(spec.key(), provider)]),
+        pse_kernels::ProviderBindings::try_from_iter([(spec.key(), provider)]).unwrap(),
         stop_control.clone(),
     );
-    worker.recycle_on_drop(move |scratch| {
+    worker.recycle_on_finish(move |scratch| {
         assert!(
             dropped.load(std::sync::atomic::Ordering::Acquire),
             "provider destruction precedes detachment"
@@ -2999,7 +2999,7 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
     let warmed = worker.instantiated_orders();
     values.scalars.insert(id(1), f64::NAN);
     assert!(worker.objective(&values).is_err());
-    drop(worker);
+    worker.finish().unwrap();
     drop(stop);
     drop(stop_control);
     assert!(old_stop.upgrade().is_none());
@@ -3033,6 +3033,149 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
     );
     assert!(reference.instantiated_orders().iter().all(Vec::is_empty));
     assert!(returned.lock().unwrap().is_none());
+}
+
+#[test]
+fn case_scratch_publication_requires_successful_explicit_finish() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    #[derive(Debug)]
+    struct Retirement {
+        finished: Arc<AtomicUsize>,
+        dropped: Arc<AtomicUsize>,
+        fail: bool,
+    }
+    impl Drop for Retirement {
+        fn drop(&mut self) {
+            self.dropped.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    impl pse_kernels::Provider for Retirement {
+        fn finish(self: Box<Self>) -> Result<(), pse_kernels::ProviderError> {
+            self.finished.fetch_add(1, Ordering::Relaxed);
+            if self.fail {
+                Err(pse_kernels::ProviderError::Terminal(
+                    "retirement refusal".into(),
+                ))
+            } else {
+                Ok(())
+            }
+        }
+        fn fill(
+            &mut self,
+            _: &[f64],
+            _: &pse_kernels::PreparedProviderRequest,
+            _: pse_kernels::ProviderRuntime<'_>,
+            _: pse_kernels::ProviderOutput<'_>,
+            _: &pse_kernels::EvaluationContext<'_>,
+        ) -> Result<(), pse_kernels::ProviderError> {
+            Ok(())
+        }
+    }
+    for (explicit_finish, fail) in [(false, false), (true, false), (true, true)] {
+        let (assembly, values) = fixture(false, false);
+        let (template, _, _) = controlled_jet_provider();
+        let finished = Arc::new(AtomicUsize::new(0));
+        let dropped = Arc::new(AtomicUsize::new(0));
+        let recycled = Arc::new(AtomicUsize::new(0));
+        let provider = pse_kernels::ProviderBinding::new(
+            template.spec.clone(),
+            Box::new(Retirement {
+                finished: finished.clone(),
+                dropped: dropped.clone(),
+                fail,
+            }),
+        );
+        let mut worker = assembly.worker(
+            pse_kernels::ProviderBindings::try_from_iter([(template.spec.key(), provider)])
+                .unwrap(),
+            pse_diagnostics::Cancellation::default(),
+        );
+        let publications = recycled.clone();
+        let retired = finished.clone();
+        let departed = dropped.clone();
+        worker.recycle_on_finish(move |scratch| {
+            assert_eq!(retired.load(Ordering::Relaxed), 1);
+            assert_eq!(departed.load(Ordering::Relaxed), 1);
+            assert!(scratch.reset().is_ok());
+            publications.fetch_add(1, Ordering::Relaxed);
+        });
+        assert_eq!(worker.objective(&values).unwrap(), 6.0);
+        if explicit_finish {
+            let result = worker.finish();
+            assert_eq!(result.is_err(), fail);
+            if fail {
+                assert!(matches!(
+                    result,
+                    Err(crate::MathError::Scope(
+                        pse_kernels::ProviderError::Retirement { .. }
+                    ))
+                ));
+            }
+        } else {
+            drop(worker);
+        }
+        assert_eq!(
+            finished.load(Ordering::Relaxed),
+            usize::from(explicit_finish)
+        );
+        assert_eq!(dropped.load(Ordering::Relaxed), 1);
+        assert_eq!(
+            recycled.load(Ordering::Relaxed),
+            usize::from(explicit_finish && !fail)
+        );
+    }
+    for cancelled in [false, true] {
+        let (assembly, _) = fixture(false, false);
+        let returned = Arc::new(std::sync::Mutex::new(None));
+        let captured = returned.clone();
+        let mut worker = assembly.worker(Default::default(), Default::default());
+        worker.recycle_on_finish(move |scratch| *captured.lock().unwrap() = Some(scratch));
+        worker.finish().unwrap();
+        let scratch = returned.lock().unwrap().take().unwrap();
+        let (template, _, _) = controlled_jet_provider();
+        let finished = Arc::new(AtomicUsize::new(0));
+        let dropped = Arc::new(AtomicUsize::new(0));
+        let binding = pse_kernels::ProviderBinding::new(
+            template.spec.clone(),
+            Box::new(Retirement {
+                finished: finished.clone(),
+                dropped: dropped.clone(),
+                fail: true,
+            }),
+        );
+        let providers =
+            pse_kernels::ProviderBindings::try_from_iter([(template.spec.key(), binding)]).unwrap();
+        let stop = pse_diagnostics::Cancellation::default();
+        if cancelled {
+            stop.cancel();
+        }
+        let error = assembly
+            .worker_from_scratch(
+                scratch,
+                providers,
+                pse_kernels::ExecutionScope::new(stop, None),
+            )
+            .unwrap_err();
+        assert_eq!(finished.load(Ordering::Relaxed), 1);
+        assert_eq!(dropped.load(Ordering::Relaxed), 1);
+        let crate::MathError::Scope(pse_kernels::ProviderError::Settlement { operation, cleanup }) =
+            error
+        else {
+            panic!("scratch refusal and provider retirement both survive")
+        };
+        let pse_kernels::ProviderError::Nested { cause, .. } = operation.as_ref() else {
+            panic!("original typed scratch refusal")
+        };
+        assert!(
+            matches!(cause.as_error().downcast_ref::<crate::MathError>(),
+            Some(crate::MathError::Cancelled) if cancelled)
+                || matches!(cause.as_error().downcast_ref::<crate::MathError>(), Some(crate::MathError::Contract(_)) if !cancelled)
+        );
+        assert!(matches!(
+            cleanup.as_ref(),
+            pse_kernels::ProviderError::Retirement { .. }
+        ));
+    }
 }
 
 #[test]
@@ -4701,7 +4844,7 @@ fn failed_or_cancelled_upgrade_preserves_only_independently_complete_provider_re
         let (assembly, values) = overlapping_output_fixture(Some(&provider.spec), false);
         let provider = pse_kernels::ProviderBinding::new(provider.spec.clone(), Box::new(provider));
         let mut worker = assembly.worker(
-            pse_kernels::ProviderBindings::from([(key, provider)]),
+            pse_kernels::ProviderBindings::try_from_iter([(key, provider)]).unwrap(),
             pse_diagnostics::Cancellation::default(),
         );
         assert_eq!(worker.objective(&values).unwrap(), 36.);
@@ -4752,7 +4895,7 @@ fn provider_composition_hessian_action_uses_narrow_actions_and_library_pullbacks
     );
     let provider = pse_kernels::ProviderBinding::new(provider.spec.clone(), Box::new(provider));
     let mut worker = assembly.worker(
-        pse_kernels::ProviderBindings::from([(key, provider)]),
+        pse_kernels::ProviderBindings::try_from_iter([(key, provider)]).unwrap(),
         pse_diagnostics::Cancellation::default(),
     );
     let mut output = [f64::NAN; 2];
@@ -4794,7 +4937,7 @@ fn weighted_provider_products_reexecute_for_same_key_changed_weights_points_and_
     let stop = pse_diagnostics::Cancellation::default();
     let provider = pse_kernels::ProviderBinding::new(provider.spec.clone(), Box::new(provider));
     let mut worker = assembly.worker(
-        pse_kernels::ProviderBindings::from([(key, provider)]),
+        pse_kernels::ProviderBindings::try_from_iter([(key, provider)]).unwrap(),
         stop.clone(),
     );
     let mut output = [f64::NAN; 2];
@@ -4921,12 +5064,12 @@ fn concurrent_exclusive_case_lanes_isolate_stateful_providers_failure_and_cancel
             let control = pse_diagnostics::Cancellation::default();
             let old_control = Arc::downgrade(&control.flag());
             let mut worker = assembly.worker(
-                pse_kernels::ProviderBindings::from([(key, provider)]),
+                pse_kernels::ProviderBindings::try_from_iter([(key, provider)]).unwrap(),
                 control.clone(),
             );
             let returned = Arc::new(Mutex::new(None));
             let captured = returned.clone();
-            worker.recycle_on_drop(move |scratch| {
+            worker.recycle_on_finish(move |scratch| {
                 assert!(
                     dropped.load(Ordering::Acquire),
                     "provider state must depart before scratch publication"
@@ -4963,7 +5106,7 @@ fn concurrent_exclusive_case_lanes_isolate_stateful_providers_failure_and_cancel
                 })
                 .sum::<usize>();
             assert!(used <= assembly.census().numeric_worker_bytes);
-            drop(worker);
+            worker.finish().unwrap();
             drop(control);
             assert!(
                 old_control.upgrade().is_none(),
@@ -5227,7 +5370,7 @@ fn completed_assemblies_never_bypass_current_provider_effects() {
     let (assembly, values) = overlapping_output_fixture(Some(&provider.spec), false);
     let provider = pse_kernels::ProviderBinding::new(provider.spec.clone(), Box::new(provider));
     let mut worker = assembly.worker(
-        pse_kernels::ProviderBindings::from([(key, provider)]),
+        pse_kernels::ProviderBindings::try_from_iter([(key, provider)]).unwrap(),
         pse_diagnostics::Cancellation::default(),
     );
     for _ in 0..2 {

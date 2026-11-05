@@ -382,6 +382,13 @@ pub enum SupplierSelection {
     Regimes(Box<RegimeSelection>),
 }
 impl SupplierSelection {
+    /// Consume the actual selected supplier and retire all nested providers.
+    pub fn finish(self) -> Result<(), pse_kernels::ProviderError> {
+        match self {
+            Self::Root(root) => root.finish(),
+            Self::Regimes(regimes) => regimes.finish(),
+        }
+    }
     /// Observation from the actual admitted reconstruction producer.
     pub fn sheet_identity(&self) -> Option<ContentHash> {
         match self {
@@ -603,6 +610,19 @@ pub struct RootSelection {
     action_cells: u64,
 }
 impl RootSelection {
+    fn finish(self) -> Result<(), pse_kernels::ProviderError> {
+        let Self {
+            problem,
+            configuration,
+            selection,
+            solver,
+            ..
+        } = self;
+        drop(solver);
+        drop(configuration);
+        drop(selection);
+        problem.finish_providers()
+    }
     fn new(
         factory: &super::Factory,
         program: Arc<crate::factorable::RootIsolationProgram>,
@@ -611,24 +631,6 @@ impl RootSelection {
         offsets: Option<&[f64]>,
     ) -> Result<Self, pse_kernels::ProviderError> {
         scope.check()?;
-        let problem = factory.problem(scope.clone())?;
-        let problem = if let Some(offsets) = offsets {
-            let owned = Arc::try_unwrap(problem).map_err(|_| {
-                pse_kernels::ProviderError::Contract(
-                    "fresh root residual unexpectedly shared".into(),
-                )
-            })?;
-            Arc::new(
-                owned
-                    .with_residual_offsets(offsets)
-                    .map_err(super::provider_error)?,
-            )
-        } else {
-            problem
-        };
-        problem
-            .prepare_complete(DerivativeOrder::First, &scope)
-            .map_err(super::provider_error)?;
         let program = if let Some(offsets) = offsets {
             if program.residuals.len() != offsets.len() || offsets.iter().any(|v| !v.is_finite()) {
                 return Err(pse_kernels::ProviderError::Contract(
@@ -656,6 +658,33 @@ impl RootSelection {
         {
             return Err(pse_kernels::ProviderError::Contract(
                 "single-root exact projection layout".into(),
+            ));
+        }
+        let problem = factory.problem(scope.clone())?;
+        let problem = if let Some(offsets) = offsets {
+            let owned = Arc::try_unwrap(problem).map_err(|problem| {
+                super::settle_provider_error(
+                    pse_kernels::ProviderError::Contract(
+                        "fresh root residual unexpectedly shared".into(),
+                    ),
+                    problem.finish_providers(),
+                )
+            })?;
+            Arc::new(
+                owned
+                    .with_residual_offsets(offsets)
+                    .map_err(super::provider_error)?,
+            )
+        } else {
+            problem
+        };
+        if let Err(operation) = problem
+            .prepare_complete(DerivativeOrder::First, &scope)
+            .map_err(super::provider_error)
+        {
+            return Err(super::settle_provider_error(
+                operation,
+                problem.finish_providers(),
             ));
         }
         let time_limit = factory.configuration.time_limit();
@@ -1616,7 +1645,10 @@ impl<E> SelectedImplicitReconstruction<E> {
     /// Existing regime selection keeps its declared complete covering contract.
     pub fn with_proof_cell_limit(mut self, max_cells: u64) -> Result<Self, MathError> {
         if max_cells == 0 {
-            return Err(MathError::Limit("root initial proof cell allowance"));
+            return Err(super::settle_math_error(
+                MathError::Limit("root initial proof cell allowance"),
+                self.selection.finish(),
+            ));
         }
         if let SupplierSelection::Root(root) = &mut self.selection {
             root.proof_limit = max_cells;
@@ -2056,6 +2088,11 @@ impl<E: From<MathError> + std::fmt::Debug> ReconstructionOracle
     for SelectedImplicitReconstruction<E>
 {
     type Error = E;
+    fn finish(self) -> Result<(), Vec<Self::Error>> {
+        self.selection
+            .finish()
+            .map_err(|cause| vec![E::from(MathError::Scope(cause))])
+    }
     fn contract(&self) -> &ReconstructionContract {
         &self.contract
     }

@@ -2268,6 +2268,12 @@ impl ModelingPackage {
             crate::math::MathService::within_task(&scope, cancel, probe.prepared(*fixture)).await?;
             probe.phase(*fixture, "native CPU/memory admission");
         }
+        let execution = pse_backend_native::solve::Execution::within(
+            scope.cancellation_control().clone(),
+            &controls,
+            scope.clone(),
+        )
+        .map_err(MathRuntimeError::from)?;
         Ok(service
             .with_owned_worker(
                 assembly,
@@ -2279,11 +2285,6 @@ impl ModelingPackage {
                     if let Some((probe, fixture)) = probe {
                         probe.native_worker(fixture, worker.cancellation());
                     }
-                    let execution = pse_backend_native::solve::Execution::within(
-                        scope.cancellation_control().clone(),
-                        &controls,
-                        scope,
-                    )?;
                     let oracle =
                         pse_backend_native::assembled::AlgebraicOracle::new(worker, values)?;
                     let result = pse_backend_native::derivative_diagnostics::analyze(
@@ -3577,12 +3578,12 @@ mod tests {
         let expected = scope.clone();
         let values = resolution.model.values.clone();
         let result = service
-            .with_owned_worker(
+            .with_borrowed_worker(
                 assembly.clone(),
                 providers(std::time::Duration::ZERO),
                 &cancel,
                 Some((scope.clone(), control)),
-                move |mut worker| {
+                move |worker| {
                     let execution = Execution::within(
                         scope.cancellation_control().clone(),
                         &Controls::default(),
@@ -3649,7 +3650,7 @@ mod tests {
         assert!(Arc::ptr_eq(observed.cancellation(), scope.cancellation()));
         // Already-expired prepared work does not construct another provider.
         let result = service
-            .with_owned_worker(
+            .with_borrowed_worker(
                 assembly,
                 providers(std::time::Duration::ZERO),
                 &cancel,

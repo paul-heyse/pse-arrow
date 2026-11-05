@@ -129,6 +129,8 @@ impl PreparedExecutable {
         Ok(ProcessCustody {
             process,
             reaped: false,
+            #[cfg(all(test, feature = "property-coolprop"))]
+            reap_gate: None,
             admission: Some(admission),
             executable: self.observation.clone(),
             #[cfg(all(test, feature = "property-coolprop"))]
@@ -151,6 +153,8 @@ impl PreparedExecutable {
 pub struct ProcessCustody {
     process: Child,
     reaped: bool,
+    #[cfg(all(test, feature = "property-coolprop"))]
+    reap_gate: Option<(std::sync::mpsc::Sender<()>, std::sync::mpsc::Receiver<()>)>,
     admission: Option<Arc<dyn PayloadOwner>>,
     executable: FileObservation,
     #[cfg(all(test, feature = "property-coolprop"))]
@@ -208,16 +212,38 @@ impl ProcessCustody {
     /// Finite graceful allowance followed by unconditional owned kill and wait.
     /// Admission is released only after wait has observed actual process exit.
     pub fn drain(&mut self, grace: Duration) -> Result<ExitStatus, WorkerError> {
-        let end = Instant::now()
-            .checked_add(grace)
-            .ok_or_else(|| infrastructure("scientific worker drain extent"))?;
+        let mut failures = Vec::new();
+        let end = Instant::now().checked_add(grace).unwrap_or_else(|| {
+            failures.push(infrastructure("scientific worker drain extent"));
+            Instant::now()
+        });
+        #[cfg(all(test, feature = "property-coolprop"))]
+        if let Some((entered, release)) = self.reap_gate.take() {
+            // A controlled failed observation keeps the original physical owner
+            // performing settlement until a later actual wait can establish it.
+            failures.push(WorkerError::Process {
+                action: "wait",
+                source: std::io::Error::other("controlled unknown reap"),
+            });
+            let _ = entered.send(());
+            let _ = release.recv();
+        }
         loop {
-            if let Some(status) = self.process.try_wait().map_err(infrastructure)? {
-                self.reaped = true;
-                #[cfg(all(test, feature = "property-coolprop"))]
-                self.finish_measurement(status);
-                self.admission.take();
-                return Ok(status);
+            match self.process.try_wait() {
+                Ok(Some(status)) => {
+                    if !status.success() {
+                        failures.push(WorkerError::Exit(status));
+                    }
+                    return self.finish_reap(status, failures);
+                }
+                Ok(None) => {}
+                Err(source) => {
+                    failures.push(WorkerError::Process {
+                        action: "try_wait",
+                        source,
+                    });
+                    break;
+                }
             }
             if Instant::now() >= end {
                 break;
@@ -228,24 +254,59 @@ impl ProcessCustody {
         }
         // A concurrent natural exit may make kill fail. Wait still establishes
         // settlement and its actual outcome; do not release admission early.
-        let killed = self.process.kill();
-        let status = self
-            .process
-            .wait()
-            .map_err(|error| infrastructure(format!("kill={killed:?}; wait={error}")))?;
+        if let Err(source) = self.process.kill() {
+            failures.push(WorkerError::Process {
+                action: "kill",
+                source,
+            });
+        }
+        loop {
+            match self.process.wait() {
+                Ok(status) => return self.finish_reap(status, failures),
+                Err(source) => {
+                    // Unknown reap is not a returned failure: this original
+                    // operation still owns the child and its admission.
+                    if !failures
+                        .iter()
+                        .any(|error| matches!(error, WorkerError::Process { action: "wait", .. }))
+                    {
+                        failures.push(WorkerError::Process {
+                            action: "wait",
+                            source,
+                        });
+                    }
+                    let _ = self.process.kill();
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+            }
+        }
+    }
+    fn finish_reap(
+        &mut self,
+        status: ExitStatus,
+        failures: Vec<WorkerError>,
+    ) -> Result<ExitStatus, WorkerError> {
         self.reaped = true;
         #[cfg(all(test, feature = "property-coolprop"))]
         self.finish_measurement(status);
         self.admission.take();
-        Ok(status)
+        super::retirement_result(failures).map(|()| status)
+    }
+    #[cfg(all(test, feature = "property-coolprop"))]
+    pub(super) fn delay_reap(
+        &mut self,
+    ) -> (std::sync::mpsc::Receiver<()>, std::sync::mpsc::Sender<()>) {
+        let (entered, observation) = std::sync::mpsc::channel();
+        let (release, wait) = std::sync::mpsc::channel();
+        self.reap_gate = Some((entered, wait));
+        (observation, release)
     }
     /// Retain the original dispatch/stop cause if cleanup also fails.
     pub fn settle_failure(&mut self, cause: WorkerError) -> WorkerError {
         match self.drain(Duration::from_millis(100)) {
             Ok(_) => cause,
-            Err(cleanup) => WorkerError::Cleanup {
-                cause: Box::new(cause),
-                cleanup: cleanup.to_string(),
+            Err(cleanup) => WorkerError::Retirement {
+                causes: vec![cause, cleanup],
             },
         }
     }
@@ -325,13 +386,9 @@ impl ProcessCustody {
 impl Drop for ProcessCustody {
     fn drop(&mut self) {
         if !self.reaped {
-            let _ = self.process.kill();
             // This destructor deliberately blocks: outstanding child work must
             // never outlive its native admission/opaque allocation ownership.
-            if self.process.wait().is_ok() {
-                self.reaped = true;
-                self.admission.take();
-            }
+            let _ = self.drain(Duration::ZERO);
         }
     }
 }

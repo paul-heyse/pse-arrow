@@ -840,18 +840,6 @@ impl MathService {
         let charge = budget
             .charge(wrapper)
             .map_err(MathRuntimeError::into_problem)?;
-        let super::ExecutionWorker {
-            worker,
-            _case,
-            _charge,
-        } = self
-            .worker(
-                prepared.executable.clone(),
-                providers,
-                execution.scope()?,
-                budget,
-            )
-            .map_err(MathRuntimeError::into_problem)?;
         let initial = prepared
             .view
             .boundary
@@ -896,6 +884,18 @@ impl MathService {
                 })
                 .collect::<Result<_, _>>()?,
         };
+        let super::ExecutionWorker {
+            worker,
+            _case,
+            _charge,
+        } = self
+            .worker(
+                prepared.executable.clone(),
+                providers,
+                execution.scope()?,
+                budget,
+            )
+            .map_err(MathRuntimeError::into_problem)?;
         let oracle = native::assembled::AlgebraicOracle::compact(worker, value)?
             .with_structural_analysis(prepared.view.structure.clone().into())?
             .with_normalization(prepared.normalization.clone())?;
@@ -939,14 +939,11 @@ pub(crate) struct ConditionalUnitSession {
     pub(crate) last_setup_reused: bool,
 }
 #[cfg(feature = "solver-kinsol")]
-impl Drop for ConditionalUnitSession {
-    fn drop(&mut self) {
-        self.retained.clear();
-        self.retained.release();
-    }
-}
-#[cfg(feature = "solver-kinsol")]
 impl ConditionalUnitSession {
+    /// Retire callback aliases before the actual shared evaluator owner.
+    pub(crate) fn finish(self) -> Result<(), native::ProblemError> {
+        native::ProblemError::with_retirement(self.retained.finish(), self.oracle.finish())
+    }
     pub(crate) fn evaluate(
         &mut self,
         prepared: &PreparedConditionalUnit,
@@ -1044,7 +1041,7 @@ impl ConditionalUnitSession {
                 warm: None,
             };
             let run = execution::Roots {
-                oracle: Box::new(self.oracle.clone()),
+                oracle: Box::new(self.oracle.callback()),
                 initial: &self.initial,
                 owner: proof_charge.map(|charge| -> Box<dyn std::any::Any> { Box::new(charge) }),
             };
@@ -1113,8 +1110,9 @@ impl ConditionalUnitSession {
             );
         }
         if result.is_err() {
-            self.retained.clear();
+            let cleanup = self.retained.clear();
             self.retained.release();
+            return native::ProblemError::with_retirement(result, cleanup);
         }
         result
     }
@@ -1764,56 +1762,58 @@ impl Blocks<'_, '_> {
                 });
                 completed = self.local.construct(bytes, |_storage| {
                     let budget = WorkerBudget::new(bytes);
-                    let mut worker = self.service.worker(
+                    let worker = self.service.worker(
                         original_case.clone(),
                         self.providers,
                         validation_scope.clone(),
                         &budget,
                     )?;
-                    let mut execution = self.local.execution().clone();
-                    execution.work_admission =
-                        admission.map(|owner| -> Arc<dyn WorkAdmission> { owner });
-                    let rows = execution.counted(
-                        WorkEvidence {
-                            evaluations: Some(1),
-                            iterations: Some(0),
-                            factorizations: Some(0),
-                            proof_steps: Some(0),
-                        },
-                        || worker.worker().constraints(&values).map_err(Into::into),
-                    )?;
-                    let row_ids: Vec<_> = structure.rows().iter().map(|r| r.id).collect();
-                    let tolerances = Tolerances::from_policy(
-                        &numerics,
-                        &structure
-                            .variables()
-                            .iter()
-                            .filter(|v| !v.fixed)
-                            .map(|v| v.port.id)
-                            .collect::<Vec<_>>(),
-                        &row_ids,
-                    )?;
-                    let rows_ok = rows.iter().zip(structure.rows()).zip(&tolerances.rows).all(
-                        |((value, row), tolerance)| {
-                            value.is_finite()
-                                && *value >= row.lower - tolerance
-                                && *value <= row.upper + tolerance
-                        },
-                    );
-                    let mut free_tolerances = tolerances.variables.iter();
-                    let bounds_ok = structure.variables().iter().all(|variable| {
-                        let tolerance = if variable.fixed {
-                            Some(0.0)
-                        } else {
-                            free_tolerances.next().copied()
-                        };
-                        values.scalars.get(&variable.port.id).is_some_and(|value| {
-                            tolerance.is_some_and(|tolerance| {
-                                original_bound_accepts(variable, *value, tolerance)
+                    super::solves::with_local_worker(worker, |worker| {
+                        let mut execution = self.local.execution().clone();
+                        execution.work_admission =
+                            admission.map(|owner| -> Arc<dyn WorkAdmission> { owner });
+                        let rows = execution.counted(
+                            WorkEvidence {
+                                evaluations: Some(1),
+                                iterations: Some(0),
+                                factorizations: Some(0),
+                                proof_steps: Some(0),
+                            },
+                            || worker.constraints(&values).map_err(Into::into),
+                        )?;
+                        let row_ids: Vec<_> = structure.rows().iter().map(|r| r.id).collect();
+                        let tolerances = Tolerances::from_policy(
+                            &numerics,
+                            &structure
+                                .variables()
+                                .iter()
+                                .filter(|v| !v.fixed)
+                                .map(|v| v.port.id)
+                                .collect::<Vec<_>>(),
+                            &row_ids,
+                        )?;
+                        let rows_ok = rows.iter().zip(structure.rows()).zip(&tolerances.rows).all(
+                            |((value, row), tolerance)| {
+                                value.is_finite()
+                                    && *value >= row.lower - tolerance
+                                    && *value <= row.upper + tolerance
+                            },
+                        );
+                        let mut free_tolerances = tolerances.variables.iter();
+                        let bounds_ok = structure.variables().iter().all(|variable| {
+                            let tolerance = if variable.fixed {
+                                Some(0.0)
+                            } else {
+                                free_tolerances.next().copied()
+                            };
+                            values.scalars.get(&variable.port.id).is_some_and(|value| {
+                                tolerance.is_some_and(|tolerance| {
+                                    original_bound_accepts(variable, *value, tolerance)
+                                })
                             })
-                        })
-                    });
-                    Ok(rows_ok && bounds_ok)
+                        });
+                        Ok(rows_ok && bounds_ok)
+                    })
                 })?;
             }
             if completed {
@@ -2211,47 +2211,52 @@ impl BlockAssessor {
             Tolerances::from_policy(&self.numerics, assembly.columns(), &contract.rows)?;
         let inputs = assembly.bind_inputs(|id| self.values.scalars.get(&id).copied())?;
         let scratch = WorkerBudget::new(assembly.numeric_worker_bytes());
-        let mut worker =
+        let worker =
             self.service
                 .worker(self.case.clone(), &self.providers, scope.clone(), &scratch)?;
-        let mut execution = self.original.clone();
-        execution.work_admission = budget
-            .admission()
-            .map(|owner| -> Arc<dyn WorkAdmission> { owner });
-        let values = execution.counted(
-            WorkEvidence {
-                evaluations: Some(1),
-                iterations: Some(0),
-                factorizations: Some(0),
-                proof_steps: Some(0),
-            },
-            || {
-                *evaluations += 1;
-                worker
-                    .worker()
-                    .constraints(inputs.trial(&candidate.primal)?)
-                    .map(<[f64]>::to_vec)
-                    .map_err(Into::into)
-            },
-        )?;
-        self.original.check()?;
-        if worker
-            .worker()
-            .applicability_observations()
-            .iter()
-            .any(|observation| observation.required && !observation.admitted)
-        {
-            return Err(native::ProblemError::numerical(
-                "independent original block applicability refused",
-            )
-            .into());
-        }
-        let quality =
-            native::quality::observed(&contract, &bounds, &candidate.primal, &values, &tolerance)?;
-        let mut observation = native::quality::Observation::from_values(None, values, bounds)?;
-        observation.sources = worker.worker().constraint_sources()?;
-        self.original.check()?;
-        Ok((quality, observation))
+        super::solves::with_local_worker(worker, |worker| {
+            let mut execution = self.original.clone();
+            execution.work_admission = budget
+                .admission()
+                .map(|owner| -> Arc<dyn WorkAdmission> { owner });
+            let values = execution.counted(
+                WorkEvidence {
+                    evaluations: Some(1),
+                    iterations: Some(0),
+                    factorizations: Some(0),
+                    proof_steps: Some(0),
+                },
+                || {
+                    *evaluations += 1;
+                    worker
+                        .constraints(inputs.trial(&candidate.primal)?)
+                        .map(<[f64]>::to_vec)
+                        .map_err(Into::into)
+                },
+            )?;
+            self.original.check()?;
+            if worker
+                .applicability_observations()
+                .iter()
+                .any(|observation| observation.required && !observation.admitted)
+            {
+                return Err(native::ProblemError::numerical(
+                    "independent original block applicability refused",
+                )
+                .into());
+            }
+            let quality = native::quality::observed(
+                &contract,
+                &bounds,
+                &candidate.primal,
+                &values,
+                &tolerance,
+            )?;
+            let mut observation = native::quality::Observation::from_values(None, values, bounds)?;
+            observation.sources = worker.constraint_sources()?;
+            self.original.check()?;
+            Ok((quality, observation))
+        })
     }
 }
 

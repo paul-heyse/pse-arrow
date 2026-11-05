@@ -562,12 +562,12 @@ impl MathService {
         execution.work_admission = admission.map(|owner| -> Arc<dyn WorkAdmission> { owner });
         let control = Cancellation::default();
         let task = pse_kernels::ExecutionScope::new(control.clone(), scope.deadline());
-        self.with_owned_worker(
+        self.with_borrowed_worker(
             case,
             providers,
             cancel,
             Some((task, control)),
-            move |mut worker| {
+            move |worker| {
                 let rows = execution.counted(
                     WorkEvidence {
                         evaluations: Some(1),

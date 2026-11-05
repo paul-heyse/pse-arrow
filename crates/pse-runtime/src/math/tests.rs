@@ -3,6 +3,59 @@
 use super::*;
 use datafusion::execution::memory_pool::FairSpillPool;
 use std::sync::atomic::{AtomicBool, Ordering};
+
+#[test]
+fn failed_retirement_never_retries_the_original_trial_or_hides_cancellation() {
+    use pse_backend_native::{ProblemError, callback};
+    use pse_model::diagnostic::{BoundaryClass, DiagnosticProjection};
+    use pse_model::generated::enums::NumericalAttemptObservation;
+    for cancelled in [false, true] {
+        let original = if cancelled {
+            MathRuntimeError::Cancelled
+        } else {
+            MathRuntimeError::Solve(ProblemError::Provider(pse_kernels::ProviderError::Trial(
+                "original trial".into(),
+            )))
+        };
+        let error = MathRuntimeError::settle::<()>(
+            Err(original),
+            Err(MathRuntimeError::Infrastructure("retirement failed".into())),
+        )
+        .unwrap_err();
+        let MathRuntimeError::Settlement { operation, cleanup } = &error else {
+            panic!("both original typed causes")
+        };
+        assert!(matches!(operation.as_ref(), MathRuntimeError::Cancelled) == cancelled);
+        if !cancelled {
+            assert!(
+                matches!(operation.as_ref(), MathRuntimeError::Solve(ProblemError::Provider(pse_kernels::ProviderError::Trial(detail))) if detail == "original trial")
+            );
+        }
+        assert!(
+            matches!(cleanup.as_ref(), MathRuntimeError::Infrastructure(detail) if detail == "retirement failed")
+        );
+        assert_eq!(
+            strategy::runtime_failure(&error),
+            NumericalAttemptObservation::OperationalFailure
+        );
+        let diagnostic = error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native);
+        assert_eq!(diagnostic.class, BoundaryClass::Infrastructure);
+        assert_eq!(diagnostic.causes.len(), 2);
+        assert_eq!(
+            diagnostic.causes[0].class,
+            if cancelled {
+                BoundaryClass::Cancelled
+            } else {
+                BoundaryClass::TrialRejected
+            }
+        );
+        assert_eq!(diagnostic.causes[1].class, BoundaryClass::Infrastructure);
+        assert!(matches!(
+            callback::classify(&error.into_problem()),
+            callback::Failure::Fatal
+        ));
+    }
+}
 pub(super) fn service() -> Arc<MathService> {
     service_and_cache().0
 }

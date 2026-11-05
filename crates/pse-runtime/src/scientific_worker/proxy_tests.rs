@@ -6,6 +6,36 @@ use datafusion::execution::memory_pool::{FairSpillPool, MemoryPool};
 use pse_kernels::{DerivativeOrder, ProviderBuffer};
 use std::io::Write as _;
 
+fn original_provider_error(error: &ProviderError) -> &ProviderError {
+    fn original_worker(error: &WorkerError) -> Option<&ProviderError> {
+        match error {
+            WorkerError::Provider(error) => Some(original_provider_error(error)),
+            WorkerError::Retirement { causes } => causes.first().and_then(original_worker),
+            _ => None,
+        }
+    }
+    match error {
+        ProviderError::Nested { cause, .. } => cause
+            .as_error()
+            .downcast_ref::<WorkerError>()
+            .and_then(original_worker)
+            .unwrap_or(error),
+        _ => error,
+    }
+}
+fn original_worker_error(error: &WorkerError) -> &WorkerError {
+    match error {
+        WorkerError::Retirement { causes } => original_worker_error(causes.first().unwrap()),
+        _ => error,
+    }
+}
+fn original_remote_error(error: &ProviderError) -> &WorkerError {
+    let ProviderError::Nested { cause, .. } = error else {
+        panic!("typed remote error required");
+    };
+    original_worker_error(cause.as_error().downcast_ref::<WorkerError>().unwrap())
+}
+
 #[derive(Debug)]
 struct ControlledFactory {
     spec: ProviderSpec,
@@ -36,6 +66,23 @@ struct ControlledNative {
     marker: std::path::PathBuf,
 }
 impl Provider for ControlledNative {
+    fn finish(self: Box<Self>) -> Result<(), ProviderError> {
+        if self.mode == "finish-native-faults" {
+            writeln!(
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(self.marker.with_extension("finished"))
+                    .unwrap(),
+                "finished"
+            )
+            .unwrap();
+            return Err(ProviderError::Contract(
+                "controlled native finish failure".into(),
+            ));
+        }
+        Ok(())
+    }
     fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
         self.mode == "batch-cooperative"
             && request.order == DerivativeOrder::Value
@@ -353,6 +400,51 @@ fn service() -> (
     (math, pool, native)
 }
 
+#[test]
+fn opaque_local_error_extent_stays_unknown_and_finite_retention_refuses_its_sentinel() {
+    let original = WorkerError::Process {
+        action: "controlled error",
+        source: std::io::Error::other("x".repeat(1 << 20)),
+    };
+    assert_eq!(original.retained_bytes(), None);
+    let aggregate = WorkerError::Retirement {
+        causes: vec![
+            ProviderError::Trial("original trial".into()).into(),
+            original,
+        ],
+    };
+    assert_eq!(aggregate.retained_bytes(), None);
+    let provider = aggregate.into_provider();
+    let ProviderError::Nested { cause, retained } = &provider else {
+        panic!("original typed cause must stay owned");
+    };
+    assert_eq!(
+        *retained,
+        usize::MAX,
+        "unknown extent is a conservative refusal sentinel"
+    );
+    let WorkerError::Retirement { causes } =
+        cause.as_error().downcast_ref::<WorkerError>().unwrap()
+    else {
+        panic!("original aggregate must stay typed");
+    };
+    let WorkerError::Process { source, .. } = &causes[1] else {
+        panic!("original I/O error must stay typed");
+    };
+    assert_eq!(source.to_string().len(), 1 << 20);
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    assert!(
+        service
+            .reserve(
+                "controlled-unknown-error-retention",
+                provider.retained_bytes()
+            )
+            .is_err()
+    );
+    assert_eq!(pool.reserved(), baseline);
+}
+
 fn provider(
     mode: &str,
     marker: &std::path::Path,
@@ -393,6 +485,216 @@ fn provider(
     let mut binding = ProviderBinding::new(factory.spec().clone(), Box::new(proxy));
     let request = binding.prepare(raw).unwrap();
     (binding, request, pid, prepared_reservation)
+}
+
+fn finish_proxy(
+    mode: &str,
+    marker: &std::path::Path,
+    service: &Arc<crate::math::MathService>,
+) -> Proxy {
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let executable = PreparedExecutable::observe(std::env::current_exe().unwrap(), 64 << 20)
+        .unwrap()
+        .test_entry(
+            "scientific_worker::proxy::tests::controlled_child",
+            mode,
+            marker.to_path_buf(),
+        );
+    let factory =
+        LocalWaterFactory::prepare(executable, &registry, WaterRegime::Vapor, service.clone())
+            .unwrap();
+    let mut proxy = Proxy {
+        factory,
+        scope: ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+        attempt: pse_operations::mint_id(),
+        remote: None,
+        prepared: vec![],
+        invocation: 0,
+        failed: false,
+    };
+    for order in [DerivativeOrder::Value, DerivativeOrder::First] {
+        let request = PreparedProviderRequest::new(
+            Arc::new(proxy.factory.spec().clone()),
+            ProviderRequest::all(proxy.factory.spec(), order),
+        )
+        .unwrap();
+        proxy.prepare_demand(&request).unwrap();
+    }
+    proxy
+}
+
+#[test]
+fn provider_binding_finish_reaches_actual_remote_handles_process_and_io() {
+    let directory = tempfile::tempdir().unwrap();
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let (mut binding, request, pid, _) = provider(
+        "ordinary",
+        &directory.path().join("native"),
+        ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+        &service,
+        &pool,
+    );
+    let flag = std::sync::atomic::AtomicBool::new(false);
+    let mut buffer = ProviderBuffer::new(&request);
+    buffer
+        .fill(
+            &mut binding,
+            &[500., 20.],
+            &request,
+            ProviderRuntime::default(),
+            &EvaluationContext {
+                cancelled: &flag,
+                max_result_bytes: 4096,
+            },
+        )
+        .unwrap();
+    binding.finish().unwrap();
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert_eq!(pool.reserved(), baseline);
+}
+
+#[test]
+fn finish_attempts_every_handle_and_shutdown_retaining_all_typed_acknowledgement_failures() {
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("native");
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let proxy = finish_proxy("finish-ack-faults", &marker, &service);
+    let pid = proxy.remote.as_ref().unwrap().child.pid();
+    let error = Box::new(proxy).finish().unwrap_err();
+    let ProviderError::Nested { cause, .. } = error else {
+        panic!("remote finish must preserve typed cause");
+    };
+    let error = cause.as_error().downcast_ref::<WorkerError>().unwrap();
+    let WorkerError::Retirement { causes } = error else {
+        panic!("independent lifecycle failures must all survive: {error}");
+    };
+    assert_eq!(causes.len(), 3);
+    assert!(
+        matches!(&causes[0], WorkerError::Lifecycle { action: "Close", handle: Some(_), cause } if matches!(cause.as_ref(), WorkerError::Provider(ProviderError::Contract(_))))
+    );
+    assert!(matches!(
+        &causes[1],
+        WorkerError::Lifecycle {
+            action: "Close",
+            handle: Some(_),
+            ..
+        }
+    ));
+    assert!(matches!(
+        &causes[2],
+        WorkerError::Lifecycle {
+            action: "Shutdown",
+            handle: None,
+            ..
+        }
+    ));
+    assert_eq!(
+        std::fs::read_to_string(marker.with_extension("lifecycle")).unwrap(),
+        "Close\nClose\nShutdown\n"
+    );
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert_eq!(pool.reserved(), baseline);
+}
+
+#[test]
+fn unknown_reap_keeps_original_finish_endpoint_and_admission_until_actual_settlement() {
+    let directory = tempfile::tempdir().unwrap();
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let mut proxy = finish_proxy("ordinary", &directory.path().join("native"), &service);
+    let remote = proxy.remote.as_mut().unwrap();
+    let endpoint = remote._endpoint.path().to_path_buf();
+    let pid = remote.child.pid();
+    let (unknown, release) = remote.child.delay_reap();
+    let charged = pool.reserved();
+    let finish = std::thread::spawn(move || Box::new(proxy).finish());
+    unknown.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert!(!finish.is_finished());
+    assert!(endpoint.exists());
+    assert_eq!(pool.reserved(), charged);
+    release.send(()).unwrap();
+    assert!(
+        finish.join().unwrap().is_err(),
+        "failed wait observation remains reportable after actual retirement"
+    );
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert!(!endpoint.exists());
+    assert_eq!(pool.reserved(), baseline);
+}
+
+#[test]
+fn actual_child_finishes_every_native_owner_even_when_each_close_fails() {
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("native");
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let proxy = finish_proxy("finish-native-faults", &marker, &service);
+    let key = proxy.factory.spec().key();
+    let pid = proxy.remote.as_ref().unwrap().child.pid();
+    let error = Box::new(proxy).finish().unwrap_err();
+    let ProviderError::Nested { cause, .. } = error else {
+        panic!("typed remote failure required");
+    };
+    let WorkerError::Retirement { causes } =
+        cause.as_error().downcast_ref::<WorkerError>().unwrap()
+    else {
+        panic!("both native close failures must survive");
+    };
+    assert_eq!(causes.len(), 2);
+    for error in causes {
+        let WorkerError::Lifecycle {
+            action: "Close",
+            handle: Some(_),
+            cause,
+        } = error
+        else {
+            panic!("independent handle close required");
+        };
+        let WorkerError::Provider(ProviderError::Retirement { failures }) = cause.as_ref() else {
+            panic!("original keyed native retirement required");
+        };
+        assert_eq!(failures.len(), 1);
+        assert_eq!(failures[0].key, key);
+        assert!(
+            matches!(failures[0].cause.as_ref(), ProviderError::Contract(detail) if detail == "controlled native finish failure")
+        );
+    }
+    assert_eq!(
+        std::fs::read_to_string(marker.with_extension("finished")).unwrap(),
+        "finished\nfinished\n"
+    );
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert_eq!(pool.reserved(), baseline);
+}
+
+#[test]
+fn successful_native_close_still_holds_admission_until_late_io_cleanup_finishes() {
+    let directory = tempfile::tempdir().unwrap();
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let mut proxy = finish_proxy("ordinary", &directory.path().join("native"), &service);
+    let remote = proxy.remote.as_mut().unwrap();
+    let pid = remote.child.pid();
+    let endpoint = remote._endpoint.path().to_path_buf();
+    let (entered, release) = remote.io.as_mut().unwrap().delay_cleanup();
+    let charged = pool.reserved();
+    let finish = std::thread::spawn(move || Box::new(proxy).finish());
+    entered.recv_timeout(Duration::from_secs(5)).unwrap();
+    // The I/O owner can reach its gate before the parent has reaped the child.
+    let end = Instant::now() + Duration::from_secs(5);
+    while std::path::Path::new(&format!("/proc/{pid}")).exists() {
+        assert!(Instant::now() < end);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert!(!finish.is_finished());
+    assert!(endpoint.exists());
+    assert_eq!(pool.reserved(), charged);
+    release.send(()).unwrap();
+    finish.join().unwrap().unwrap();
+    assert!(!endpoint.exists());
+    assert_eq!(pool.reserved(), baseline);
 }
 
 #[test]
@@ -720,7 +1022,7 @@ fn crash_after_dispatch_is_unknown_reaped_and_never_replayed() {
     );
     use pse_model::diagnostic::{DiagnosticProjection as _, Observation};
     assert!(matches!(
-        error
+        original_remote_error(&error)
             .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation)
             .observations
             .get("scientific_worker_completion_unknown"),
@@ -801,9 +1103,14 @@ fn failed_remote_retains_aggregate_admission_after_reap_until_io_executor_joins(
         "parent executor and buffers still require their aggregate reservation"
     );
     release_cleanup.send(()).unwrap();
+    use pse_model::diagnostic::{DiagnosticProjection as _, Observation};
+    let error = cleanup.join().unwrap();
     assert!(matches!(
-        cleanup.join().unwrap(),
-        WorkerError::UnknownCompletion(_)
+        original_worker_error(&error)
+            .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation)
+            .observations
+            .get("scientific_worker_completion_unknown"),
+        Some(Observation::Boolean(true))
     ));
     assert_eq!(
         pool.reserved(),
@@ -847,7 +1154,7 @@ fn malformed_shape_nonfinite_and_stale_context_responses_never_publish_completio
         use pse_model::diagnostic::{DiagnosticProjection as _, Observation};
         assert!(
             matches!(
-                error
+                original_remote_error(&error)
                     .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation)
                     .observations
                     .get("scientific_worker_completion_unknown"),
@@ -1320,15 +1627,18 @@ fn active_native_cancellation_reaps_before_releasing_admission() {
         max_result_bytes: 4096,
     };
     let mut buffer = ProviderBuffer::new(&request);
-    assert!(matches!(
-        buffer.fill(
+    let error = buffer
+        .fill(
             &mut binding,
             &[500.0, 20.0],
             &request,
             ProviderRuntime::default(),
-            &context
-        ),
-        Err(ProviderError::Cancelled)
+            &context,
+        )
+        .unwrap_err();
+    assert!(matches!(
+        original_provider_error(&error),
+        ProviderError::Cancelled
     ));
     cancellation.join().unwrap();
     assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
@@ -1368,19 +1678,19 @@ fn independent_attempts_share_admission_without_sharing_process_or_stop_context(
     assert_ne!(pid_a, pid_b);
     let blocked = std::thread::spawn(move || {
         let mut buffer = ProviderBuffer::new(&request_a);
-        matches!(
-            buffer.fill(
+        let error = buffer
+            .fill(
                 &mut a,
                 &[500., 20.],
                 &request_a,
                 ProviderRuntime::default(),
                 &EvaluationContext {
                     cancelled: &flag_a,
-                    max_result_bytes: 4096
-                }
-            ),
-            Err(ProviderError::Cancelled)
-        )
+                    max_result_bytes: 4096,
+                },
+            )
+            .unwrap_err();
+        matches!(original_provider_error(&error), ProviderError::Cancelled)
     });
     let until = Instant::now() + Duration::from_secs(10);
     while !blocked_marker.exists() {
@@ -1443,15 +1753,18 @@ fn original_deadline_expires_during_native_work_without_late_completion() {
         max_result_bytes: 4096,
     };
     let mut buffer = ProviderBuffer::new(&request);
-    assert!(matches!(
-        buffer.fill(
+    let error = buffer
+        .fill(
             &mut binding,
             &[500.0, 20.0],
             &request,
             ProviderRuntime::default(),
-            &context
-        ),
-        Err(ProviderError::Deadline)
+            &context,
+        )
+        .unwrap_err();
+    assert!(matches!(
+        original_provider_error(&error),
+        ProviderError::Deadline
     ));
     assert!(!flag.load(std::sync::atomic::Ordering::Acquire));
     assert!(

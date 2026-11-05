@@ -33,6 +33,9 @@ impl Linear {
     }
 }
 impl Oracle for Linear {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         &self.contract
     }

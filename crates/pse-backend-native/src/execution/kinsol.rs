@@ -360,58 +360,82 @@ impl BackendExecution for Kinsol {
         };
         #[cfg(feature = "kinsol")]
         {
-            use crate::kinsol::{Function, Session};
-            use std::{any::Any, cell::Cell};
-            let settings = settings(input.settings, budgets)?;
-            let stamp = input.compatibility;
-            let function = Cell::new(Some(Function::Equations(oracle)));
-            let owner = Cell::new(owner);
-            let take = || {
-                function
-                    .take()
-                    .ok_or_else(|| ProblemError::Internal("KINSOL function consumed".into()))
-            };
-            // The session retains the function, so the function's owner lives with it.
-            let (state, reused) = retained.session(
-                Backend::Kinsol,
-                input.controls.reuse,
-                |(session, held): &mut (Session, Option<Box<dyn Any>>)| {
-                    if !(session.matches_layout(&stamp) && session.matches_settings(&settings)) {
-                        return Ok(super::SessionUpdate::Incompatible);
-                    }
-                    session.replace(take()?, settings.clone(), stamp.clone())?;
-                    *held = owner.take();
-                    Ok(super::SessionUpdate::Compatible)
+            crate::retiring(
+                oracle,
+                |oracle| oracle.finish(),
+                |pending| {
+                    use crate::kinsol::{Function, Session};
+                    use std::{any::Any, cell::Cell};
+                    let settings = settings(input.settings, budgets)?;
+                    let stamp = input.compatibility;
+                    let function =
+                        Cell::new(Some(Function::Equations(pending.take().ok_or_else(
+                            || ProblemError::internal("missing KINSOL submission owner"),
+                        )?)));
+                    let owner = Cell::new(owner);
+                    let take = || {
+                        function.take().ok_or_else(|| {
+                            ProblemError::Internal("KINSOL function consumed".into())
+                        })
+                    };
+                    let result = (|| {
+                        // The session retains the function, so the function's owner lives with it.
+                        let (state, reused) = retained.session(
+                            Backend::Kinsol,
+                            input.controls.reuse,
+                            |(session, held): &mut (Session, Option<Box<dyn Any>>)| {
+                                if !(session.matches_layout(&stamp)
+                                    && session.matches_settings(&settings))
+                                {
+                                    return Ok(super::SessionUpdate::Incompatible);
+                                }
+                                session.replace(take()?, settings.clone(), stamp.clone())?;
+                                *held = owner.take();
+                                Ok(super::SessionUpdate::Compatible)
+                            },
+                            || {
+                                let session = Session::new(
+                                    take()?,
+                                    settings.clone(),
+                                    input.execution.clone(),
+                                    stamp.clone(),
+                                )?;
+                                Ok((session, owner.take()))
+                            },
+                            |(session, owner)| {
+                                let result = session.finish();
+                                drop(owner);
+                                result
+                            },
+                        )?;
+                        let mut report = state.0.solve(
+                            initial,
+                            input.controls,
+                            input.accuracy,
+                            input.execution,
+                            input.tolerances,
+                            input.warm,
+                        )?;
+                        report.metrics.insert(
+                            "reuse.native_model".into(),
+                            crate::solve::Metric::Bool(reused),
+                        );
+                        report.evidence.reused_native_state = reused;
+                        Ok(report)
+                    })();
+                    ProblemError::with_retirement(
+                        result,
+                        function.take().map_or(Ok(()), Function::finish),
+                    )
                 },
-                || {
-                    let session = Session::new(
-                        take()?,
-                        settings.clone(),
-                        input.execution.clone(),
-                        stamp.clone(),
-                    )?;
-                    Ok((session, owner.take()))
-                },
-            )?;
-            let mut report = state.0.solve(
-                initial,
-                input.controls,
-                input.accuracy,
-                input.execution,
-                input.tolerances,
-                input.warm,
-            )?;
-            report.metrics.insert(
-                "reuse.native_model".into(),
-                crate::solve::Metric::Bool(reused),
-            );
-            report.evidence.reused_native_state = reused;
-            Ok(report)
+            )
         }
         #[cfg(not(feature = "kinsol"))]
         {
-            let _ = (retained, oracle, initial, budgets, owner);
-            Err(super::unlinked(Backend::Kinsol))
+            let _ = (retained, initial, budgets);
+            let retirement = oracle.finish();
+            drop(owner);
+            ProblemError::with_retirement(Err(super::unlinked(Backend::Kinsol)), retirement)
         }
     }
 }

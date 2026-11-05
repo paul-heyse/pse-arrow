@@ -1692,16 +1692,30 @@ impl PreparedFit {
                                 })?;
                             let mut worker =
                                 program.assembly.worker_scoped(providers, scope.clone());
-                            let outputs = worker.constraints(&values).map_err(math)?;
-                            let observed = program
-                                .assembly
-                                .structure()
-                                .rows()
-                                .iter()
-                                .map(|r| r.id)
-                                .zip(outputs.iter().copied())
-                                .collect();
-                            applicability = worker.applicability_observations();
+                            let assessed =
+                                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                    let outputs = worker.constraints(&values).map_err(math)?;
+                                    let observed = program
+                                        .assembly
+                                        .structure()
+                                        .rows()
+                                        .iter()
+                                        .map(|r| r.id)
+                                        .zip(outputs.iter().copied())
+                                        .collect();
+                                    Ok((observed, worker.applicability_observations()))
+                                }))
+                                .unwrap_or_else(|payload| {
+                                    Err(WorkflowError::from(crate::math::MathRuntimeError::Panic(
+                                        pse_diagnostics::panic::settle_payload(
+                                            payload,
+                                            "fit assessment panic with opaque payload",
+                                        ),
+                                    )))
+                                });
+                            let (observed, observations) =
+                                WorkflowError::settle(assessed, worker.finish().map_err(math))?;
+                            applicability = observations;
                             observed
                         } else {
                             BTreeMap::new()

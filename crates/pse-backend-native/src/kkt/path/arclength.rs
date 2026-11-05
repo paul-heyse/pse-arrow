@@ -442,36 +442,48 @@ impl<O: ParameterizedOracle<Error = ProblemError>> Corrector<O> {
         binding: BoundArclength<O>,
         smoothness: pse_kernels::DerivativeOrder,
     ) -> Result<Self, ProblemError> {
-        if smoothness < pse_kernels::DerivativeOrder::First {
-            return Err(ProblemError::Unsupported(
-                "arclength corrector requires admitted original smoothness".into(),
-            ));
-        }
-        let family = binding.family();
-        let d = family.coordinates().len();
-        let pattern = AssemblyMatrix::new(d, d, family.incidence(), i32::MAX as usize)?;
-        let contract = crate::OracleContract {
-            identity: binding.key(),
-            variables: family
-                .coordinates()
-                .into_iter()
-                .map(|v| crate::Variable {
-                    id: v.id,
-                    lower: v.lower,
-                    upper: v.upper,
-                })
-                .collect(),
-            rows: family.constraints().into_iter().map(|r| r.id).collect(),
-            derivatives: pse_kernels::DerivativeOrder::First,
-            smoothness,
-        };
-        contract.square()?;
-        Ok(Self {
+        crate::retiring(
             binding,
-            contract,
-            pattern,
-            bounds: vec![(0., 0.); d],
-        })
+            |binding| ProblemError::retirement(binding.into_oracle().finish()),
+            |pending| {
+                let binding = pending
+                    .as_ref()
+                    .ok_or_else(|| ProblemError::internal("missing arclength native owner"))?;
+
+                if smoothness < pse_kernels::DerivativeOrder::First {
+                    return Err(ProblemError::Unsupported(
+                        "arclength corrector requires admitted original smoothness".into(),
+                    ));
+                }
+                let family = binding.family();
+                let d = family.coordinates().len();
+                let pattern = AssemblyMatrix::new(d, d, family.incidence(), i32::MAX as usize)?;
+                let contract = crate::OracleContract {
+                    identity: binding.key(),
+                    variables: family
+                        .coordinates()
+                        .into_iter()
+                        .map(|v| crate::Variable {
+                            id: v.id,
+                            lower: v.lower,
+                            upper: v.upper,
+                        })
+                        .collect(),
+                    rows: family.constraints().into_iter().map(|r| r.id).collect(),
+                    derivatives: pse_kernels::DerivativeOrder::First,
+                    smoothness,
+                };
+                contract.square()?;
+                Ok(Self {
+                    binding: pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing arclength native transfer")
+                    })?,
+                    contract,
+                    pattern,
+                    bounds: vec![(0., 0.); d],
+                })
+            },
+        )
     }
     /// Recover the original actual supplier and correspondence for assessment/rebinding.
     pub fn into_binding(self) -> BoundArclength<O> {
@@ -479,6 +491,9 @@ impl<O: ParameterizedOracle<Error = ProblemError>> Corrector<O> {
     }
 }
 impl<O: ParameterizedOracle<Error = ProblemError>> crate::NleOracle for Corrector<O> {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        ProblemError::retirement(self.binding.into_oracle().finish())
+    }
     fn operations(&self) -> crate::RootOperations {
         crate::RootOperations {
             jacobian: true,
@@ -841,6 +856,9 @@ pub fn probe<O: ParameterizedOracle<Error = ProblemError>>(
 }
 
 impl<O: ParameterizedOracle<Error = ProblemError>> crate::NlpOracle for Corrector<O> {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        ProblemError::retirement(self.binding.into_oracle().finish())
+    }
     fn contract(&self) -> &crate::OracleContract {
         &self.contract
     }
@@ -902,6 +920,9 @@ mod tests {
         fail_parameter: bool,
     }
     impl ParameterizedOracle for Curve {
+        fn finish(self) -> Result<(), Vec<Self::Error>> {
+            Ok(())
+        }
         type Error = ProblemError;
         fn contract(&self) -> &OriginalContract {
             self.family.original()

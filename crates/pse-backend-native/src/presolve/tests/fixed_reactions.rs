@@ -62,6 +62,9 @@ impl Fixed {
     }
 }
 impl NlpOracle for Fixed {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn normalization(&self) -> Option<&Normalization> {
         self.0.normalization()
     }
@@ -186,8 +189,10 @@ fn manufactured(
         bound_dual: duals.then(|| (vec![0.0; initial.len()], vec![0.0; initial.len()])),
         ..candidate(sign)
     });
+    NlpOracle::finish(Box::new(oracle)).unwrap();
     pipeline
         .finish(report, &tolerance(), sense, &Analysis::NONE, UNUSED)
+        .unwrap()
         .0
 }
 
@@ -363,13 +368,16 @@ fn eliminated_fixed_reactions_qualify_actual_native_ipopt_original_kkt() {
         ),
         "{native:?}"
     );
-    let (mut report, _) = pipeline.finish(
-        native,
-        &tolerance(),
-        ObjectiveSense::Minimize,
-        &Analysis::NONE,
-        UNUSED,
-    );
+    NlpOracle::finish(Box::new(oracle)).unwrap();
+    let (mut report, _) = pipeline
+        .finish(
+            native,
+            &tolerance(),
+            ObjectiveSense::Minimize,
+            &Analysis::NONE,
+            UNUSED,
+        )
+        .unwrap();
     crate::quality::record_kkt(&mut report, &Normalization::identity(4, 2), &accuracy);
     crate::quality::qualify(&mut report, &accuracy);
     assert!(report.validation_failure().is_none(), "{report:?}");

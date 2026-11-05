@@ -685,7 +685,9 @@ struct ZeroRoot {
 }
 impl ZeroRoot {
     fn new(actual: Box<dyn NleOracle>, source: &PreparedPetscSource) -> Result<Self, ProblemError> {
-        actual.operations().admit(actual.contract(), false)?;
+        if let Err(cause) = actual.operations().admit(actual.contract(), false) {
+            return ProblemError::with_retirement(Err(cause), actual.finish());
+        }
         let bridge = native::derived::RootBridge::new(
             actual,
             source.physical.clone(),
@@ -698,10 +700,13 @@ impl ZeroRoot {
         )?
         .zero_residuals()?;
         if bridge.numerical_contract().as_ref() != source.zero.as_ref() {
-            return Err(ProblemError::Contract(
-                "PETSc explicit authored equality subtraction differs from its frozen source"
-                    .into(),
-            ));
+            return ProblemError::with_retirement(
+                Err(ProblemError::Contract(
+                    "PETSc explicit authored equality subtraction differs from its frozen source"
+                        .into(),
+                )),
+                ProblemError::retirement(pse_math::derived::Oracle::finish(Box::new(bridge))),
+            );
         }
         let (actual, _) = bridge.into_original().into_original();
         let mut contract = actual.contract().clone();
@@ -710,6 +715,10 @@ impl ZeroRoot {
     }
 }
 impl NleOracle for ZeroRoot {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        self.actual.finish()
+    }
+
     fn contract(&self) -> &OracleContract {
         &self.contract
     }
@@ -1215,6 +1224,12 @@ struct CompiledDomain {
     _owner: (Arc<ExecutableCase>, super::super::WorkerCharge),
 }
 impl DomainOracle for CompiledDomain {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        let worker = self.worker.finish().map_err(ProblemError::from);
+        let supplemental = self.supplemental.map_or(Ok(()), |owner| owner.finish());
+        ProblemError::with_retirement(worker, supplemental)
+    }
+
     fn source(&self) -> ContentHash {
         self.source
     }
@@ -1285,6 +1300,10 @@ impl LocalBlock {
     }
 }
 impl native_petsc::BlockOracle for LocalBlock {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        self.worker.finish().map_err(ProblemError::from)
+    }
+
     fn family(&self) -> &Arc<DerivedFamily> {
         &self.prepared.family
     }
@@ -1424,6 +1443,11 @@ impl MathService {
             .and_then(|bytes| bytes.checked_add(source_values))
             .ok_or(MathRuntimeError::Limit("PETSc supplier attempt extent"))?;
         let _supplier_charge = budget.charge(bytes)?;
+        let _root_support =
+            budget.charge(native::assembled::AlgebraicOracle::root_support_allowance(
+                &source.source.prepared.compiled().plan,
+                &source.source.prepared.compiled().structure,
+            )?)?;
         let ExecutionWorker {
             worker,
             _case,
@@ -1435,254 +1459,300 @@ impl MathService {
             budget,
         )?;
         let _original_owner = (_case, _charge);
-        let _root_support =
-            budget.charge(native::assembled::AlgebraicOracle::root_support_allowance(
-                &source.source.prepared.compiled().plan,
-                &source.source.prepared.compiled().structure,
-            )?)?;
         let actual =
             native::assembled::AlgebraicOracle::new(worker, source.source.values.as_ref().clone())?
                 .with_structural_analysis(source.source.prepared.compiled().structure.clone())?
                 .with_presolve_facts(source.source.prepared.compiled().presolve.clone())?
                 .with_normalization(source.original.normalization.clone())?;
-        actual.admit_nle()?;
+        if let Err(cause) = actual.admit_nle() {
+            return ProblemError::with_retirement(Err(cause), actual.finish())
+                .map_err(MathRuntimeError::from);
+        }
         let mut original = ZeroRoot::new(Box::new(actual), source)?;
-        let supplemental = match &prepared.domain {
-            Some(factory) => {
-                let actual = factory.bind(&source.physical, scope.clone())?;
-                if factory.inventory() != source.guards.as_ref()
-                    || actual.source() != source.physical.obligations().guards
-                {
-                    return Err(ProblemError::Contract("PETSc supplemental domain supplier changed its full frozen original obligation".into()).into());
+        let mut domain_owner: Option<CompiledDomain> = None;
+        let mut supplemental_owner: Option<Box<dyn DomainOracle>> = None;
+        let result = (|| -> Result<DerivedAttempt, MathRuntimeError> {
+            let supplemental = match &prepared.domain {
+                Some(factory) => {
+                    let actual = factory.bind(&source.physical, scope.clone())?;
+                    if factory.inventory() != source.guards.as_ref()
+                        || actual.source() != source.physical.obligations().guards
+                    {
+                        return ProblemError::with_retirement(Err(ProblemError::Contract("PETSc supplemental domain supplier changed its full frozen original obligation".into())), actual.finish()).map_err(MathRuntimeError::from);
+                    }
+                    Some(actual)
                 }
-                Some(actual)
-            }
-            None => None,
-        };
-        let ExecutionWorker {
-            worker,
-            _case,
-            _charge,
-        } = self.case_worker(
-            source.source.case.clone(),
-            source.source.providers.clone(),
-            &scope,
-            budget,
-        )?;
-        let mut domain = CompiledDomain {
-            worker,
-            values: source.source.values.as_ref().clone(),
-            columns: source.source.prepared.compiled().plan.columns().to_vec(),
-            source: source.physical.obligations().guards,
-            scope: scope.clone(),
-            supplemental,
-            _owner: (_case, _charge),
-        };
-        execution.check()?;
-        let mut report = match prepared.product.as_ref() {
-            Product::Flow {
-                family,
-                mass,
-                limits,
-            } => {
-                let actions = mass.bind(scope.clone())?;
-                let mut refresh = mass.refresh(scope.clone())?;
-                if mass.binding() != (source.original_identity(), source.preparation_identity()) {
-                    return Err(ProblemError::Contract(
-                        "PETSc physical mass source changed its frozen binding".into(),
-                    )
-                    .into());
-                }
-                if let MassBinding::StateDependent(actual) = &actions
-                    && (actual.realization() != mass.realization()
-                        || actual.structure() != mass.structure())
-                {
-                    return Err(ProblemError::Contract(
+                None => None,
+            };
+            supplemental_owner = supplemental;
+            let ExecutionWorker {
+                worker,
+                _case,
+                _charge,
+            } = self.case_worker(
+                source.source.case.clone(),
+                source.source.providers.clone(),
+                &scope,
+                budget,
+            )?;
+            domain_owner = Some(CompiledDomain {
+                worker,
+                values: source.source.values.as_ref().clone(),
+                columns: source.source.prepared.compiled().plan.columns().to_vec(),
+                source: source.physical.obligations().guards,
+                scope: scope.clone(),
+                supplemental: supplemental_owner.take(),
+                _owner: (_case, _charge),
+            });
+            let domain = domain_owner
+                .as_mut()
+                .ok_or_else(|| ProblemError::internal("missing PETSc domain owner"))?;
+            execution.check()?;
+            let mut report = match prepared.product.as_ref() {
+                Product::Flow {
+                    family,
+                    mass,
+                    limits,
+                } => {
+                    let mut mass_owner = Some(mass.bind(scope.clone())?);
+                    let mut refresh = None;
+                    let result = (|| -> Result<SolveReport, MathRuntimeError> {
+                        refresh = mass.refresh(scope.clone())?;
+                        let actions = mass_owner.as_ref().ok_or_else(|| {
+                            ProblemError::internal("missing PETSc flow mass owner")
+                        })?;
+                        if mass.binding()
+                            != (source.original_identity(), source.preparation_identity())
+                        {
+                            return Err(ProblemError::Contract(
+                                "PETSc physical mass source changed its frozen binding".into(),
+                            )
+                            .into());
+                        }
+                        if let MassBinding::StateDependent(actual) = actions
+                            && (actual.realization() != mass.realization()
+                                || actual.structure() != mass.structure())
+                        {
+                            return Err(ProblemError::Contract(
                         "PETSc actual mass/DM realization differs from its declared producer"
                             .into(),
                     )
                     .into());
+                        }
+                        let mut flow = native_petsc::ArtificialFlow::new(
+                            family.clone(),
+                            &mut original,
+                            mass_owner.take().ok_or_else(|| {
+                                ProblemError::internal("missing PETSc flow mass transfer")
+                            })?,
+                            domain,
+                        )?;
+                        if let Some(refresh) = refresh.as_mut() {
+                            flow = flow.with_frozen_refresh(refresh.as_mut())?;
+                        }
+                        let result = native_petsc::solve_flow(
+                            &mut flow,
+                            original_start,
+                            &prepared.settings,
+                            *limits,
+                            native_petsc::SolveRequest {
+                                controls: &prepared.profile.controls,
+                                accuracy: &source.original.accuracy,
+                                execution: execution.clone(),
+                                tolerances: &source.original.tolerances,
+                                warm: None,
+                                compatibility: &prepared.compatibility,
+                            },
+                        );
+                        ProblemError::with_retirement(result, flow.finish())
+                            .map_err(MathRuntimeError::from)
+                    })();
+                    let mass = match mass_owner {
+                        Some(MassBinding::StateDependent(mass)) => {
+                            ProblemError::retirement(mass.finish())
+                        }
+                        Some(MassBinding::Frozen(_)) | None => Ok(()),
+                    };
+                    let refresh = refresh.map_or(Ok(()), |owner| owner.finish());
+                    MathRuntimeError::settle(
+                        result,
+                        ProblemError::with_retirement(mass, refresh)
+                            .map_err(MathRuntimeError::from),
+                    )?
                 }
-                let mut flow = native_petsc::ArtificialFlow::new(
-                    family.clone(),
-                    &mut original,
-                    actions,
-                    &mut domain,
-                )?;
-                if let Some(refresh) = refresh.as_mut() {
-                    flow = flow.with_frozen_refresh(refresh.as_mut())?;
+                Product::Blocks {
+                    blocks,
+                    declaration,
+                } => {
+                    let mut locals = Vec::with_capacity(blocks.len());
+                    let result = (|| -> Result<SolveReport, MathRuntimeError> {
+                        for block in blocks {
+                            execution.check()?;
+                            let ExecutionWorker {
+                                worker,
+                                _case,
+                                _charge,
+                            } = self.worker(
+                                block.executable.clone(),
+                                &source.source.providers,
+                                scope.clone(),
+                                budget,
+                            )?;
+                            locals.push(LocalBlock {
+                                prepared: block.clone(),
+                                worker,
+                                scope: scope.clone(),
+                                realization: prepared.key,
+                                _owner: (_case, _charge),
+                            });
+                        }
+                        let mut specs = Vec::with_capacity(locals.len());
+                        for local in &mut locals {
+                            let interior = local
+                                .prepared
+                                .family
+                                .coordinate_map()
+                                .ok_or_else(|| {
+                                    ProblemError::Contract(
+                                        "PETSc compiled block has no local map".into(),
+                                    )
+                                })?
+                                .to_vec();
+                            specs.push(native_petsc::BlockSpec::new(
+                                local,
+                                interior,
+                                native_petsc::DomainWitness {
+                                    source: source.physical.obligations().guards,
+                                    declaration: *declaration,
+                                },
+                            )?);
+                        }
+                        let mut composition =
+                            native_petsc::BlockComposition::new(&mut original, domain, specs)?;
+                        Ok(native_petsc::solve_blocks(
+                            &mut composition,
+                            original_start,
+                            &prepared.settings,
+                            native_petsc::SolveRequest {
+                                controls: &prepared.profile.controls,
+                                accuracy: &source.original.accuracy,
+                                execution: execution.clone(),
+                                tolerances: &source.original.tolerances,
+                                warm: None,
+                                compatibility: &prepared.compatibility,
+                            },
+                        )?)
+                    })();
+                    let mut cleanup = Ok(());
+                    for local in locals {
+                        cleanup = ProblemError::with_retirement(
+                            cleanup,
+                            native_petsc::BlockOracle::finish(Box::new(local)),
+                        );
+                    }
+                    MathRuntimeError::settle(result, cleanup.map_err(MathRuntimeError::from))?
                 }
-                native_petsc::solve_flow(
-                    &mut flow,
-                    original_start,
-                    &prepared.settings,
-                    *limits,
-                    native_petsc::SolveRequest {
-                        controls: &prepared.profile.controls,
-                        accuracy: &source.original.accuracy,
-                        execution: execution.clone(),
-                        tolerances: &source.original.tolerances,
-                        warm: None,
-                        compatibility: &prepared.compatibility,
-                    },
-                )?
-            }
-            Product::Blocks {
-                blocks,
-                declaration,
-            } => {
-                let mut locals = Vec::with_capacity(blocks.len());
-                for block in blocks {
+            };
+            report.provenance.insert(
+                "mathematical_role".into(),
+                "auxiliary-original-coordinate-proposal".into(),
+            );
+            report.provenance.insert(
+                "physical_original".into(),
+                source.physical.identity().to_string(),
+            );
+            report.provenance.insert(
+                "compiled_source".into(),
+                source.preparation_identity().to_string(),
+            );
+            // Native callback counts remain available in Evidence. A supplied domain or mass
+            // can perform additional library work whose inclusive extent is not observed here.
+            report.evidence.work.evaluations = None;
+            let outcome = Outcome::Native(Box::new(report));
+            let observation = super::super::strategy::observe(&outcome);
+            let cause = super::super::strategy::cause(&outcome);
+            let permitted = derived::proposal_observation_allowed(observation)
+                && cause.as_deref().is_none_or(|cause| {
+                    derived::proposal_observation_allowed(super::super::strategy::failure(cause))
+                });
+            let mut report = match outcome {
+                Outcome::Native(report) => *report,
+                _ => {
+                    return Err(ProblemError::Internal(
+                        "PETSc auxiliary runner lost its native report".into(),
+                    )
+                    .into());
+                }
+            };
+            let mut screening_failure = None;
+            let mut proposal = None;
+            if permitted
+                && !report.evidence.callback.terminal_failure
+                && let Some(candidate) = &report.candidate
+            {
+                let screen = (|| {
                     execution.check()?;
-                    let ExecutionWorker {
-                        worker,
-                        _case,
-                        _charge,
-                    } = self.worker(
-                        block.executable.clone(),
-                        &source.source.providers,
-                        scope.clone(),
-                        budget,
-                    )?;
-                    locals.push(LocalBlock {
-                        prepared: block.clone(),
-                        worker,
-                        scope: scope.clone(),
-                        realization: prepared.key,
-                        _owner: (_case, _charge),
-                    });
+                    domain.check(&candidate.primal)?;
+                    let mut residual = vec![0.0; n];
+                    original.residual(&candidate.primal, &mut residual)?;
+                    if residual.iter().any(|v| !v.is_finite()) {
+                        return Err(ProblemError::numerical(
+                            "PETSc original proposal screen produced nonfinite source values",
+                        ));
+                    }
+                    domain.check(&candidate.primal)?;
+                    execution.check()?;
+                    let coordinates = candidate.primal.clone();
+                    let bytes = coordinates
+                        .capacity()
+                        .checked_mul(size_of::<f64>())
+                        .and_then(|n| n.checked_add(size_of::<OriginalProposal>()))
+                        .ok_or_else(|| ProblemError::memory("PETSc original proposal extent"))?;
+                    let owner = self
+                        .reserve("math:petsc-original-proposal", bytes)
+                        .map_err(MathRuntimeError::into_problem)?;
+                    OriginalProposal::from_original(
+                        source.original_identity(),
+                        prepared.key,
+                        coordinates,
+                        &source.physical,
+                        None,
+                        owner,
+                    )
+                })();
+                match screen {
+                    Ok(point) => proposal = Some(point),
+                    Err(error) => screening_failure = Some(Arc::new(error)),
                 }
-                let mut specs = Vec::with_capacity(locals.len());
-                for local in &mut locals {
-                    let interior = local
-                        .prepared
-                        .family
-                        .coordinate_map()
-                        .ok_or_else(|| {
-                            ProblemError::Contract("PETSc compiled block has no local map".into())
-                        })?
-                        .to_vec();
-                    specs.push(native_petsc::BlockSpec::new(
-                        local,
-                        interior,
-                        native_petsc::DomainWitness {
-                            source: source.physical.obligations().guards,
-                            declaration: *declaration,
-                        },
-                    )?);
+            }
+            // Native handles and callback suppliers end before the final clock observation.
+            // A late failure preserves native code/work/candidate and withdraws proposal use.
+            if let Err(error) = execution.check() {
+                proposal = None;
+                report.evidence.callback.terminal_failure = true;
+                report.termination.category = execution.stopped().unwrap_or(Termination::Limit);
+                if report.validation_failure().is_none() {
+                    report.record_validation_failure(error);
+                } else {
+                    screening_failure = Some(Arc::new(error));
                 }
-                let mut composition =
-                    native_petsc::BlockComposition::new(&mut original, &mut domain, specs)?;
-                native_petsc::solve_blocks(
-                    &mut composition,
-                    original_start,
-                    &prepared.settings,
-                    native_petsc::SolveRequest {
-                        controls: &prepared.profile.controls,
-                        accuracy: &source.original.accuracy,
-                        execution: execution.clone(),
-                        tolerances: &source.original.tolerances,
-                        warm: None,
-                        compatibility: &prepared.compatibility,
-                    },
-                )?
             }
-        };
-        report.provenance.insert(
-            "mathematical_role".into(),
-            "auxiliary-original-coordinate-proposal".into(),
-        );
-        report.provenance.insert(
-            "physical_original".into(),
-            source.physical.identity().to_string(),
-        );
-        report.provenance.insert(
-            "compiled_source".into(),
-            source.preparation_identity().to_string(),
-        );
-        // Native callback counts remain available in Evidence. A supplied domain or mass
-        // can perform additional library work whose inclusive extent is not observed here.
-        report.evidence.work.evaluations = None;
-        let outcome = Outcome::Native(Box::new(report));
-        let observation = super::super::strategy::observe(&outcome);
-        let cause = super::super::strategy::cause(&outcome);
-        let permitted = derived::proposal_observation_allowed(observation)
-            && cause.as_deref().is_none_or(|cause| {
-                derived::proposal_observation_allowed(super::super::strategy::failure(cause))
-            });
-        let mut report = match outcome {
-            Outcome::Native(report) => *report,
-            _ => {
-                return Err(ProblemError::Internal(
-                    "PETSc auxiliary runner lost its native report".into(),
-                )
-                .into());
-            }
-        };
-        let mut screening_failure = None;
-        let mut proposal = None;
-        if permitted
-            && !report.evidence.callback.terminal_failure
-            && let Some(candidate) = &report.candidate
-        {
-            let screen = (|| {
-                execution.check()?;
-                domain.check(&candidate.primal)?;
-                let mut residual = vec![0.0; n];
-                original.residual(&candidate.primal, &mut residual)?;
-                if residual.iter().any(|v| !v.is_finite()) {
-                    return Err(ProblemError::numerical(
-                        "PETSc original proposal screen produced nonfinite source values",
-                    ));
-                }
-                domain.check(&candidate.primal)?;
-                execution.check()?;
-                let coordinates = candidate.primal.clone();
-                let bytes = coordinates
-                    .capacity()
-                    .checked_mul(size_of::<f64>())
-                    .and_then(|n| n.checked_add(size_of::<OriginalProposal>()))
-                    .ok_or_else(|| ProblemError::memory("PETSc original proposal extent"))?;
-                let owner = self
-                    .reserve("math:petsc-original-proposal", bytes)
-                    .map_err(MathRuntimeError::into_problem)?;
-                OriginalProposal::from_original(
-                    source.original_identity(),
-                    prepared.key,
-                    coordinates,
-                    &source.physical,
-                    None,
-                    owner,
-                )
-            })();
-            match screen {
-                Ok(point) => proposal = Some(point),
-                Err(error) => screening_failure = Some(Arc::new(error)),
-            }
-        }
-        // Native handles and callback suppliers end before the final clock observation.
-        // A late failure preserves native code/work/candidate and withdraws proposal use.
-        drop(domain);
-        drop(original);
-        drop(_original_owner);
-        drop(_root_support);
-        drop(_supplier_charge);
-        if let Err(error) = execution.check() {
-            proposal = None;
-            report.evidence.callback.terminal_failure = true;
-            report.termination.category = execution.stopped().unwrap_or(Termination::Limit);
-            if report.validation_failure().is_none() {
-                report.record_validation_failure(error);
-            } else {
-                screening_failure = Some(Arc::new(error));
-            }
-        }
-        Ok(DerivedAttempt {
-            applied_action: None,
-            outcome: Outcome::Native(Box::new(report)),
-            proposal,
-            screening_failure,
-            refinement_product: None,
-        })
+            Ok(DerivedAttempt {
+                applied_action: None,
+                outcome: Outcome::Native(Box::new(report)),
+                proposal,
+                screening_failure,
+                refinement_product: None,
+            })
+        })();
+        let supplemental = supplemental_owner.map_or(Ok(()), |owner| owner.finish());
+        let domain = domain_owner.map_or(Ok(()), |owner| DomainOracle::finish(Box::new(owner)));
+        let original = NleOracle::finish(Box::new(original));
+        let cleanup = ProblemError::with_retirement(
+            ProblemError::with_retirement(supplemental, domain),
+            original,
+        )
+        .map_err(MathRuntimeError::from);
+        MathRuntimeError::settle(result, cleanup)
     }
 }

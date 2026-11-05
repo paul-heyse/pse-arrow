@@ -26,35 +26,36 @@ pub struct CompositeReconstruction<R> {
     columns: Vec<Vec<Option<usize>>>,
 }
 
+use crate::derived::SupplierConstructionFailure;
+
 impl<R: ReconstructionOracle> CompositeReconstruction<R> {
     /// Bind a compiler-derived global projection to actual local supplier workers.
     pub fn new(
         contract: Arc<ReconstructionContract>,
         suppliers: Vec<R>,
-    ) -> Result<Self, MathError> {
-        let expected = Self::prepare_contract(
-            Arc::new(contract.original().clone()),
-            contract.retained().to_vec(),
-            &suppliers
+    ) -> Result<Self, SupplierConstructionFailure<R::Error>> {
+        let columns = (|| {
+            let expected = Self::prepare_contract(
+                Arc::new(contract.original().clone()),
+                contract.retained().to_vec(),
+                &suppliers
+                    .iter()
+                    .map(|s| Arc::new(s.contract().clone()))
+                    .collect::<Vec<_>>(),
+            )?;
+            if expected.as_ref() != contract.as_ref() {
+                return Err(MathError::Contract(
+                    "composite supplier contract mismatch".into(),
+                ));
+            }
+            let correspondence = Correspondence::new(contract.original())?;
+            let columns = suppliers
                 .iter()
-                .map(|s| Arc::new(s.contract().clone()))
-                .collect::<Vec<_>>(),
-        )?;
-        if expected.as_ref() != contract.as_ref() {
-            return Err(MathError::Contract(
-                "composite supplier contract mismatch".into(),
-            ));
-        }
-        let correspondence = Correspondence::new(contract.original())?;
-        let columns = suppliers
-            .iter()
-            .map(|supplier| correspondence.columns(supplier.contract()))
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(Self {
-            contract,
-            suppliers,
-            columns,
-        })
+                .map(|supplier| correspondence.columns(supplier.contract()))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(columns)
+        })();
+        Self::constructed(contract, suppliers, columns)
     }
     /// Compose exact projections of the original physical scales. A smaller local
     /// normalization identity does not by itself prove correspondence.
@@ -63,33 +64,58 @@ impl<R: ReconstructionOracle> CompositeReconstruction<R> {
         suppliers: Vec<R>,
         normalization: &crate::normalization::Normalization,
         local: &[crate::normalization::Normalization],
-    ) -> Result<Self, MathError> {
-        let contracts = suppliers
-            .iter()
-            .map(|s| Arc::new(s.contract().clone()))
-            .collect::<Vec<_>>();
-        let expected = Self::prepare_contract_normalized(
-            Arc::new(contract.original().clone()),
-            contract.retained().to_vec(),
-            &contracts,
-            normalization,
-            local,
-        )?;
-        if expected.as_ref() != contract.as_ref() {
-            return Err(MathError::Contract(
-                "composite normalized contract mismatch".into(),
-            ));
+    ) -> Result<Self, SupplierConstructionFailure<R::Error>> {
+        let columns = (|| {
+            let contracts = suppliers
+                .iter()
+                .map(|s| Arc::new(s.contract().clone()))
+                .collect::<Vec<_>>();
+            let expected = Self::prepare_contract_normalized(
+                Arc::new(contract.original().clone()),
+                contract.retained().to_vec(),
+                &contracts,
+                normalization,
+                local,
+            )?;
+            if expected.as_ref() != contract.as_ref() {
+                return Err(MathError::Contract(
+                    "composite normalized contract mismatch".into(),
+                ));
+            }
+            let correspondence = Correspondence::new(contract.original())?;
+            let columns = suppliers
+                .iter()
+                .map(|s| correspondence.columns(s.contract()))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(columns)
+        })();
+        Self::constructed(contract, suppliers, columns)
+    }
+    fn constructed(
+        contract: Arc<ReconstructionContract>,
+        suppliers: Vec<R>,
+        columns: Result<Vec<Vec<Option<usize>>>, MathError>,
+    ) -> Result<Self, SupplierConstructionFailure<R::Error>> {
+        match columns {
+            Ok(columns) => Ok(Self {
+                contract,
+                suppliers,
+                columns,
+            }),
+            Err(operation) => Err(SupplierConstructionFailure {
+                operation: operation.into(),
+                cleanup: Self::retire_suppliers(suppliers),
+            }),
         }
-        let correspondence = Correspondence::new(contract.original())?;
-        let columns = suppliers
-            .iter()
-            .map(|s| correspondence.columns(s.contract()))
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(Self {
-            contract,
-            suppliers,
-            columns,
-        })
+    }
+    fn retire_suppliers(suppliers: Vec<R>) -> Vec<R::Error> {
+        let mut failures = Vec::new();
+        for supplier in suppliers {
+            if let Err(errors) = crate::derived::finish_supplier(|| supplier.finish()) {
+                failures.extend(errors);
+            }
+        }
+        failures
     }
     /// Validate source-coordinate scale correspondence before admitting local errors.
     pub fn prepare_contract_normalized(
@@ -485,6 +511,14 @@ impl<R: ReconstructionOracle> CompositeReconstruction<R> {
 }
 impl<R: ReconstructionOracle> ReconstructionOracle for CompositeReconstruction<R> {
     type Error = R::Error;
+    fn finish(self) -> Result<(), Vec<Self::Error>> {
+        let failures = Self::retire_suppliers(self.suppliers);
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(failures)
+        }
+    }
     fn contract(&self) -> &ReconstructionContract {
         &self.contract
     }
@@ -642,7 +676,10 @@ fn consumed<R: ReconstructionOracle>(
 mod tests {
     use super::*;
     use crate::derived::{Constraint, Coordinate, DerivedFamily, Oracle, OriginalObligations};
-    use std::{cell::Cell, rc::Rc};
+    use std::{
+        cell::{Cell, RefCell},
+        rc::Rc,
+    };
     fn hash(n: u8) -> ContentHash {
         ContentHash::from_bytes([n; 32])
     }
@@ -688,9 +725,21 @@ mod tests {
         contract: Arc<ReconstructionContract>,
         error: f64,
         admitted: Rc<Cell<Option<f64>>>,
+        retirement: Option<(usize, Rc<RefCell<Vec<usize>>>)>,
+        finish_errors: Vec<MathError>,
     }
     impl ReconstructionOracle for Linear {
         type Error = MathError;
+        fn finish(self) -> Result<(), Vec<Self::Error>> {
+            if let Some((ordinal, finished)) = self.retirement {
+                finished.borrow_mut().push(ordinal);
+            }
+            if self.finish_errors.is_empty() {
+                Ok(())
+            } else {
+                Err(self.finish_errors)
+            }
+        }
         fn contract(&self) -> &ReconstructionContract {
             &self.contract
         }
@@ -745,6 +794,9 @@ mod tests {
     struct UniformLinear(Linear);
     impl ReconstructionOracle for UniformLinear {
         type Error = MathError;
+        fn finish(self) -> Result<(), Vec<Self::Error>> {
+            self.0.finish()
+        }
         fn contract(&self) -> &ReconstructionContract {
             self.0.contract()
         }
@@ -834,6 +886,8 @@ mod tests {
             contract,
             error,
             admitted: Rc::new(Cell::new(None)),
+            retirement: None,
+            finish_errors: Vec::new(),
         }
     }
     #[derive(Debug)]
@@ -843,6 +897,9 @@ mod tests {
     }
     impl Oracle for LinearOriginal {
         type Error = MathError;
+        fn finish(self: Box<Self>) -> Result<(), Vec<Self::Error>> {
+            Ok(())
+        }
         fn contract(&self) -> &OriginalContract {
             &self.contract
         }
@@ -926,6 +983,97 @@ mod tests {
             ..original.constraints()[0].clone()
         };
         assert!(correspondence.rows(&make(fixed, row)).is_err());
+    }
+
+    #[test]
+    fn composite_finish_preserves_every_supplier_retirement_failure() {
+        for fail in [false, true] {
+            let original = original();
+            let finished = Rc::new(RefCell::new(Vec::new()));
+            let mut workers = vec![
+                supplier(&original, 0, 1, 0, 0.),
+                supplier(&original, 1, 2, 1, 0.),
+            ];
+            for (ordinal, worker) in workers.iter_mut().enumerate() {
+                worker.retirement = Some((ordinal, finished.clone()));
+                if fail {
+                    worker.finish_errors = vec![MathError::Library(format!("supplier {ordinal}"))];
+                }
+            }
+            let contract = CompositeReconstruction::<Linear>::prepare_contract(
+                original,
+                vec![0.into()],
+                &workers
+                    .iter()
+                    .map(|worker| worker.contract.clone())
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap();
+            let composite = CompositeReconstruction::new(contract, workers).unwrap();
+            let result = composite.finish();
+            assert_eq!(*finished.borrow(), [0, 1]);
+            assert_eq!(result.is_err(), fail);
+            if fail {
+                let failures = result.unwrap_err();
+                assert_eq!(failures.len(), 2);
+                for (ordinal, error) in failures.into_iter().enumerate() {
+                    assert!(
+                        matches!(error, MathError::Library(message) if message == format!("supplier {ordinal}"))
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn composite_failed_construction_retires_all_suppliers_and_preserves_typed_errors() {
+        for normalized in [false, true] {
+            let original = original();
+            let finished = Rc::new(RefCell::new(Vec::new()));
+            let valid = [
+                supplier(&original, 0, 1, 0, 0.),
+                supplier(&original, 1, 2, 1, 0.),
+            ];
+            let contract = CompositeReconstruction::<Linear>::prepare_contract(
+                original.clone(),
+                vec![0.into()],
+                &valid
+                    .iter()
+                    .map(|worker| worker.contract.clone())
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap();
+            for worker in valid {
+                worker.finish().unwrap();
+            }
+            let workers = (0..2)
+                .map(|ordinal| {
+                    let mut worker = supplier(&original, 0, 1, 0, 0.);
+                    worker.retirement = Some((ordinal, finished.clone()));
+                    worker.finish_errors = vec![MathError::Library(format!("cleanup {ordinal}"))];
+                    worker
+                })
+                .collect();
+            let failure = if normalized {
+                CompositeReconstruction::new_normalized(
+                    contract,
+                    workers,
+                    &crate::normalization::Normalization::identity(3, 2),
+                    &[],
+                )
+            } else {
+                CompositeReconstruction::new(contract, workers)
+            }
+            .unwrap_err();
+            assert!(matches!(failure.operation, MathError::Contract(_)));
+            assert_eq!(*finished.borrow(), [0, 1]);
+            assert_eq!(failure.cleanup.len(), 2);
+            for (ordinal, error) in failure.cleanup.into_iter().enumerate() {
+                assert!(
+                    matches!(error, MathError::Library(message) if message == format!("cleanup {ordinal}"))
+                );
+            }
+        }
     }
 
     #[test]

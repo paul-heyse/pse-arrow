@@ -105,6 +105,9 @@ impl Root {
     }
 }
 impl NleOracle for Root {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &crate::OracleContract {
         &self.contract
     }
@@ -186,6 +189,9 @@ impl UnstableRoot {
     }
 }
 impl NleOracle for UnstableRoot {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &crate::OracleContract {
         &self.base.contract
     }
@@ -229,6 +235,9 @@ impl Domain {
     }
 }
 impl DomainOracle for Domain {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn source(&self) -> ContentHash {
         self.source
     }
@@ -261,6 +270,9 @@ struct Refresh {
     calls: usize,
 }
 impl FrozenMassRefresh for Refresh {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn source(&self) -> ContentHash {
         hash(65)
     }
@@ -279,6 +291,9 @@ struct VariableMass {
     derivatives: Arc<std::sync::atomic::AtomicUsize>,
 }
 impl MassOracle for VariableMass {
+    fn finish(self: Box<Self>) -> Result<(), Vec<Self::Error>> {
+        Ok(())
+    }
     type Error = ProblemError;
     fn structure(&self) -> &MassStructure {
         &self.structure
@@ -667,6 +682,9 @@ struct Local {
     ghost_observed: bool,
 }
 impl BlockOracle for Local {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn family(&self) -> &Arc<DerivedFamily> {
         &self.family
     }
@@ -895,6 +913,9 @@ impl GuardRoot {
     }
 }
 impl NleOracle for GuardRoot {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &crate::OracleContract {
         &self.base.contract
     }
@@ -934,6 +955,9 @@ struct GuardLocal {
     observed: Vec<f64>,
 }
 impl BlockOracle for GuardLocal {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn family(&self) -> &Arc<DerivedFamily> {
         &self.family
     }

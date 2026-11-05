@@ -95,183 +95,229 @@ pub fn nlp(
     retained: &mut Retained,
     mut run: Nlp<'_>,
 ) -> Result<SolveReport, ProblemError> {
-    let _original = super::original_scope(&step.execution);
-    step.preflight()?;
-    if let Some(structure) = step.structure {
-        crate::structural::check(
-            run.oracle.contract(),
-            run.oracle.jacobian_pattern(),
-            run.oracle.constraint_bounds(),
-            structure.mode,
-            Some(&structure.witness),
-        )?;
-        run.oracle = crate::structural::retain_nlp(run.oracle, structure.witness.clone());
-    }
-    // Feasibility purposes solve a constant objective, whose curvature says nothing.
-    if (run.analysis.second_order
-        || run.analysis.sensitivity.is_some()
-        || run.analysis.output_accuracy.is_some())
-        && run.intent != SolveIntent::Optimize
-    {
-        return Err(ProblemError::Contract(format!(
-            "a second-order or sensitivity analysis needs an optimizing intent, not {}",
-            run.intent.as_str()
-        )));
-    }
-    let sensitivity = run.analysis.sensitivity.take();
-    if run.analysis.output_accuracy.is_some() && !run.analysis.second_order {
-        return Err(ProblemError::Contract(
-            "KKT output accuracy requires original exact-Hessian local analysis".into(),
-        ));
-    }
-    if let Some(observer) = &run.analysis.output_accuracy {
-        let source = observer.source();
-        let goals = observer.goals();
-        let distinct = goals
-            .iter()
-            .map(|goal| goal.declaration.goal_id)
-            .collect::<std::collections::BTreeSet<_>>();
-        if goals.is_empty()
-            || distinct.len() != goals.len()
-            || source.normalization != Some(step.normalization.key())
-            || goals.iter().any(|goal| {
-                goal.source != source
-                    || pse_model::engineering_accuracy::validate_goal(&goal.declaration).is_err()
-            })
-        {
-            return Err(ProblemError::Contract("KKT output accuracy needs distinct valid goals bound to its actual original context and normalization".into()));
-        }
-    }
-    if let Some(request) = &sensitivity {
-        request.admit(run.oracle.contract())?;
-    }
-    // An inverse reduced Hessian is read from the step's own analysis, over distinct
-    // columns of the solve.
-    if let Some(columns) = &run.analysis.inverse_reduced_hessian {
-        let n = run.oracle.contract().variables.len();
-        let distinct: std::collections::BTreeSet<_> = columns.iter().collect();
-        if !run.analysis.second_order
-            || columns.is_empty()
-            || distinct.len() != columns.len()
-            || columns.iter().any(|c| c.get() >= n)
-        {
-            return Err(ProblemError::Contract(
-                "an inverse reduced Hessian names distinct columns of the solve and needs its second-order analysis".into(),
+    let mut pending = Some(run.oracle);
+    let result = (|| {
+        let _original = super::original_scope(&step.execution);
+        step.preflight()?;
+        if let Some(structure) = step.structure {
+            crate::structural::check(
+                pending
+                    .as_ref()
+                    .ok_or_else(|| ProblemError::internal("missing NLP source owner"))?
+                    .contract(),
+                pending
+                    .as_ref()
+                    .ok_or_else(|| ProblemError::internal("missing NLP source owner"))?
+                    .jacobian_pattern(),
+                pending
+                    .as_ref()
+                    .ok_or_else(|| ProblemError::internal("missing NLP source owner"))?
+                    .constraint_bounds(),
+                structure.mode,
+                Some(&structure.witness),
+            )?;
+            pending = Some(crate::structural::retain_nlp(
+                pending
+                    .take()
+                    .ok_or_else(|| ProblemError::internal("missing NLP structural transfer"))?,
+                structure.witness.clone(),
             ));
         }
-    }
-    // Presolve tightens bounds and removes rows on the premise that every row holds; a
-    // method that relaxes the rows would then minimize violation over a domain those rows
-    // already restricted. `Auto` lets the system choose, and it chooses no pass, recorded
-    // with its reason; an explicitly requested pass is refused.
-    let (policy, resolution) = match (step.settings.relaxes_rows(), run.presolve) {
-        (false, requested) => (requested.clone(), None),
-        (true, presolve::Policy::Off) => (presolve::Policy::Off, None),
-        (true, presolve::Policy::Auto) => (
-            presolve::Policy::Off,
-            Some(presolve::Resolution::RelaxedRows),
-        ),
-        (true, presolve::Policy::Explicit { .. }) => {
+        // Feasibility purposes solve a constant objective, whose curvature says nothing.
+        if (run.analysis.second_order
+            || run.analysis.sensitivity.is_some()
+            || run.analysis.output_accuracy.is_some())
+            && run.intent != SolveIntent::Optimize
+        {
+            return Err(ProblemError::Contract(format!(
+                "a second-order or sensitivity analysis needs an optimizing intent, not {}",
+                run.intent.as_str()
+            )));
+        }
+        let sensitivity = run.analysis.sensitivity.take();
+        if run.analysis.output_accuracy.is_some() && !run.analysis.second_order {
             return Err(ProblemError::Contract(
+                "KKT output accuracy requires original exact-Hessian local analysis".into(),
+            ));
+        }
+        if let Some(observer) = &run.analysis.output_accuracy {
+            let source = observer.source();
+            let goals = observer.goals();
+            let distinct = goals
+                .iter()
+                .map(|goal| goal.declaration.goal_id)
+                .collect::<std::collections::BTreeSet<_>>();
+            if goals.is_empty()
+                || distinct.len() != goals.len()
+                || source.normalization != Some(step.normalization.key())
+                || goals.iter().any(|goal| {
+                    goal.source != source
+                        || pse_model::engineering_accuracy::validate_goal(&goal.declaration)
+                            .is_err()
+                })
+            {
+                return Err(ProblemError::Contract("KKT output accuracy needs distinct valid goals bound to its actual original context and normalization".into()));
+            }
+        }
+        if let Some(request) = &sensitivity {
+            request.admit(
+                pending
+                    .as_ref()
+                    .ok_or_else(|| ProblemError::internal("missing NLP source owner"))?
+                    .contract(),
+            )?;
+        }
+        // An inverse reduced Hessian is read from the step's own analysis, over distinct
+        // columns of the solve.
+        if let Some(columns) = &run.analysis.inverse_reduced_hessian {
+            let n = pending
+                .as_ref()
+                .ok_or_else(|| ProblemError::internal("missing NLP source owner"))?
+                .contract()
+                .variables
+                .len();
+            let distinct: std::collections::BTreeSet<_> = columns.iter().collect();
+            if !run.analysis.second_order
+                || columns.is_empty()
+                || distinct.len() != columns.len()
+                || columns.iter().any(|c| c.get() >= n)
+            {
+                return Err(ProblemError::Contract(
+                "an inverse reduced Hessian names distinct columns of the solve and needs its second-order analysis".into(),
+            ));
+            }
+        }
+        // Presolve tightens bounds and removes rows on the premise that every row holds; a
+        // method that relaxes the rows would then minimize violation over a domain those rows
+        // already restricted. `Auto` lets the system choose, and it chooses no pass, recorded
+        // with its reason; an explicitly requested pass is refused.
+        let (policy, resolution) = match (step.settings.relaxes_rows(), run.presolve) {
+            (false, requested) => (requested.clone(), None),
+            (true, presolve::Policy::Off) => (presolve::Policy::Off, None),
+            (true, presolve::Policy::Auto) => (
+                presolve::Policy::Off,
+                Some(presolve::Resolution::RelaxedRows),
+            ),
+            (true, presolve::Policy::Explicit { .. }) => {
+                return Err(ProblemError::Contract(
                 "the ℓ1 exact penalty relaxes every row; explicit presolve passes assume they hold"
                     .into(),
             ));
+            }
+        };
+        let oracle: Box<dyn NlpOracle> = if matches!(
+            run.intent,
+            SolveIntent::FeasiblePoint | SolveIntent::Root | SolveIntent::Initialize
+        ) {
+            Box::new(FeasibilityOracle(pending.take().ok_or_else(|| {
+                ProblemError::internal("missing feasibility source transfer")
+            })?))
+        } else {
+            pending
+                .take()
+                .ok_or_else(|| ProblemError::internal("missing original NLP transfer"))?
+        };
+        let mut pipeline = Pipeline::new(
+            oracle,
+            run.initial,
+            &policy,
+            step.tolerances,
+            step.accuracy,
+            step.execution.clone(),
+            step.warm,
+            step.compatibility,
+            run.limit,
+        )?;
+        if let Some(resolution) = resolution {
+            pipeline.resolved(run.presolve, resolution);
         }
-    };
-    let oracle: Box<dyn NlpOracle> = if matches!(
-        run.intent,
-        SolveIntent::FeasiblePoint | SolveIntent::Root | SolveIntent::Initialize
-    ) {
-        Box::new(FeasibilityOracle(run.oracle))
-    } else {
-        run.oracle
-    };
-    let mut pipeline = Pipeline::new(
-        oracle,
-        run.initial,
-        &policy,
-        step.tolerances,
-        step.accuracy,
-        step.execution.clone(),
-        step.warm,
-        step.compatibility,
-        run.limit,
-    )?;
-    if let Some(resolution) = resolution {
-        pipeline.resolved(run.presolve, resolution);
-    }
-    let report = match pipeline.terminal_report(run.sense)? {
-        Some(report) => report,
-        None => {
-            let transport = pipeline.take_oracle()?;
-            let oracle: Box<dyn NlpOracle> = match step.structure {
-                Some(structure)
-                    if crate::structural::same_inventory(structure, transport.contract()) =>
-                {
-                    crate::structural::retain_nlp(Box::new(transport), structure.witness.clone())
+        let report_result = (|| {
+            let report = match pipeline.terminal_report(run.sense)? {
+                Some(report) => report,
+                None => {
+                    let transport = pipeline.take_oracle()?;
+                    let oracle: Box<dyn NlpOracle> = match step.structure {
+                        Some(structure)
+                            if crate::structural::same_inventory(
+                                structure,
+                                transport.contract(),
+                            ) =>
+                        {
+                            crate::structural::retain_nlp(
+                                Box::new(transport),
+                                structure.witness.clone(),
+                            )
+                        }
+                        _ => Box::new(transport),
+                    };
+                    let tolerances = pipeline.tolerances(step.tolerances);
+                    let mut transported_execution = step.execution.clone();
+                    transported_execution.callback_work_owner = false;
+                    transported_execution.callback_role =
+                        pse_diagnostics::observation::ProducerRole::CoordinateTransport;
+                    step.adapter.execute(
+                        retained,
+                        Input {
+                            problem: Problem::Nlp {
+                                oracle,
+                                initial: pipeline.initial(),
+                                sense: run.sense,
+                            },
+                            controls: step.controls,
+                            accuracy: step.accuracy,
+                            settings: step.settings,
+                            snapshot: step.snapshot,
+                            structure: step.structure,
+                            execution: transported_execution,
+                            tolerances: &tolerances,
+                            warm: pipeline.warm(),
+                            compatibility: pipeline.native_compatibility().clone(),
+                        },
+                    )?
                 }
-                _ => Box::new(transport),
             };
-            let tolerances = pipeline.tolerances(step.tolerances);
-            let mut transported_execution = step.execution.clone();
-            transported_execution.callback_work_owner = false;
-            transported_execution.callback_role =
-                pse_diagnostics::observation::ProducerRole::CoordinateTransport;
-            step.adapter.execute(
-                retained,
-                Input {
-                    problem: Problem::Nlp {
-                        oracle,
-                        initial: pipeline.initial(),
-                        sense: run.sense,
-                    },
-                    controls: step.controls,
-                    accuracy: step.accuracy,
-                    settings: step.settings,
-                    snapshot: step.snapshot,
-                    structure: step.structure,
-                    execution: transported_execution,
-                    tolerances: &tolerances,
-                    warm: pipeline.warm(),
-                    compatibility: pipeline.native_compatibility().clone(),
-                },
-            )?
+            Ok(report)
+        })();
+        let report = match report_result {
+            Ok(report) => report,
+            Err(cause) => return ProblemError::with_retirement(Err(cause), pipeline.retire()),
+        };
+        // The requested local analysis (L-N6) runs at the recovered candidate: multipliers
+        // within the dual stationarity budget are weak, and the run's ceiling bounds the KKT.
+        let budget = crate::kkt::Budget {
+            dual: step.accuracy.stationarity,
+            limit: run.limit,
+            bytes: step.execution.memory.unwrap_or(usize::MAX),
+        };
+        let (mut report, factor) =
+            pipeline.finish(report, step.tolerances, run.sense, &run.analysis, budget)?;
+        quality::record_kkt(&mut report, step.normalization, step.accuracy);
+        quality::qualify(&mut report, step.accuracy);
+        report.least_infeasible = quality::least_infeasible(&report);
+        if let Some(mut observer) = run.analysis.output_accuracy.take() {
+            // The clone only shares existing factor storage. Output work is deferred
+            // until the workflow completes its original scientific/model checks.
+            report.evidence.output_accuracy = crate::engineering_accuracy::defer_kkt(
+                observer.as_mut(),
+                factor.clone(),
+                &report,
+                &step.execution,
+            );
         }
-    };
-    // The requested local analysis (L-N6) runs at the recovered candidate: multipliers
-    // within the dual stationarity budget are weak, and the run's ceiling bounds the KKT.
-    let budget = crate::kkt::Budget {
-        dual: step.accuracy.stationarity,
-        limit: run.limit,
-        bytes: step.execution.memory.unwrap_or(usize::MAX),
-    };
-    let (mut report, factor) =
-        pipeline.finish(report, step.tolerances, run.sense, &run.analysis, budget);
-    quality::record_kkt(&mut report, step.normalization, step.accuracy);
-    quality::qualify(&mut report, step.accuracy);
-    report.least_infeasible = quality::least_infeasible(&report);
-    if let Some(mut observer) = run.analysis.output_accuracy.take() {
-        // The clone only shares existing factor storage. Output work is deferred
-        // until the workflow completes its original scientific/model checks.
-        report.evidence.output_accuracy = crate::engineering_accuracy::defer_kkt(
-            observer.as_mut(),
-            factor.clone(),
-            &report,
-            &step.execution,
-        );
-    }
-    // The requested sensitivities read the qualified report; their factor lives for this
-    // step only, unless the request keeps it for an advanced step (ADR-0118 item 12).
-    if let Some(request) = sensitivity
-        && let Some(advance) =
-            crate::kkt::derive(&mut report, request, step.tolerances, run.sense, budget)
-    {
-        retained.keep(advance);
-    }
-    if let Some(columns) = run.analysis.inverse_reduced_hessian.take() {
-        crate::kkt::invert(&mut report, factor, &columns, run.sense);
-    }
-    Ok(report)
+        // The requested sensitivities read the qualified report; their factor lives for this
+        // step only, unless the request keeps it for an advanced step (ADR-0118 item 12).
+        if let Some(request) = sensitivity
+            && let Some(advance) =
+                crate::kkt::derive(&mut report, request, step.tolerances, run.sense, budget)
+        {
+            retained.keep(advance);
+        }
+        if let Some(columns) = run.analysis.inverse_reduced_hessian.take() {
+            crate::kkt::invert(&mut report, factor, &columns, run.sense);
+        }
+        Ok(report)
+    })();
+    ProblemError::with_retirement(result, pending.map_or(Ok(()), |oracle| oracle.finish()))
 }
 
 /// One square root-system run.
@@ -308,56 +354,82 @@ pub fn roots(
     retained: &mut Retained,
     run: Roots<'_>,
 ) -> Result<SolveReport, ProblemError> {
-    let _original = super::original_scope(&step.execution);
-    step.preflight()?;
-    let contract = run.oracle.contract().clone();
-    let original = if let Some(structure) = step.structure {
-        crate::structural::check(
-            run.oracle.contract(),
-            run.oracle.jacobian_pattern(),
-            &vec![(0.0, 0.0); contract.rows.len()],
-            structure.mode,
-            Some(&structure.witness),
-        )?;
-        crate::structural::retain_roots(run.oracle, structure.witness.clone())
-    } else {
-        run.oracle
-    };
-    let oracle = transport::Roots::new(original, step.normalization.clone())?;
-    let initial = step.normalization.normalized_point(run.initial)?;
-    let warm = step
-        .warm
-        .map(|w| transport::warm(w, step.normalization, true))
-        .transpose()?;
-    let tolerances = step.tolerances.normalized(step.normalization)?;
-    let mut report = step.adapter.execute(
-        retained,
-        Input {
-            problem: Problem::Roots {
-                oracle: Box::new(oracle),
-                initial: &initial,
-                budgets: Budgets {
-                    accuracy: step.accuracy,
-                    tolerances: step.tolerances,
-                    normalization: step.normalization,
+    let mut pending = Some(run.oracle);
+    let result = (|| {
+        let _original = super::original_scope(&step.execution);
+        step.preflight()?;
+        let contract = pending
+            .as_ref()
+            .ok_or_else(|| ProblemError::internal("missing root source owner"))?
+            .contract()
+            .clone();
+        let original = if let Some(structure) = step.structure {
+            crate::structural::check(
+                pending
+                    .as_ref()
+                    .ok_or_else(|| ProblemError::internal("missing root source owner"))?
+                    .contract(),
+                pending
+                    .as_ref()
+                    .ok_or_else(|| ProblemError::internal("missing root source owner"))?
+                    .jacobian_pattern(),
+                &vec![(0.0, 0.0); contract.rows.len()],
+                structure.mode,
+                Some(&structure.witness),
+            )?;
+            crate::structural::retain_roots(
+                pending
+                    .take()
+                    .ok_or_else(|| ProblemError::internal("missing root structural transfer"))?,
+                structure.witness.clone(),
+            )
+        } else {
+            pending
+                .take()
+                .ok_or_else(|| ProblemError::internal("missing root source transfer"))?
+        };
+        pending = Some(Box::new(transport::Roots::new(
+            original,
+            step.normalization.clone(),
+        )?));
+        let initial = step.normalization.normalized_point(run.initial)?;
+        let warm = step
+            .warm
+            .map(|w| transport::warm(w, step.normalization, true))
+            .transpose()?;
+        let tolerances = step.tolerances.normalized(step.normalization)?;
+        let mut report = step.adapter.execute(
+            retained,
+            Input {
+                problem: Problem::Roots {
+                    oracle: pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing normalized root transfer")
+                    })?,
+                    initial: &initial,
+                    budgets: Budgets {
+                        accuracy: step.accuracy,
+                        tolerances: step.tolerances,
+                        normalization: step.normalization,
+                    },
+                    owner: run.owner,
                 },
-                owner: run.owner,
+                controls: step.controls,
+                accuracy: step.accuracy,
+                settings: step.settings,
+                snapshot: step.snapshot,
+                structure: step.structure,
+                execution: step.execution,
+                tolerances: &tolerances,
+                warm: warm.as_ref(),
+                compatibility: step.compatibility,
             },
-            controls: step.controls,
-            accuracy: step.accuracy,
-            settings: step.settings,
-            snapshot: step.snapshot,
-            structure: step.structure,
-            execution: step.execution,
-            tolerances: &tolerances,
-            warm: warm.as_ref(),
-            compatibility: step.compatibility,
-        },
-    )?;
-    transport::recover(&mut report, step.normalization, &contract)?;
-    quality::record_kkt(&mut report, step.normalization, step.accuracy);
-    quality::qualify(&mut report, step.accuracy);
-    Ok(report)
+        )?;
+        transport::recover(&mut report, step.normalization, &contract)?;
+        quality::record_kkt(&mut report, step.normalization, step.accuracy);
+        quality::qualify(&mut report, step.accuracy);
+        Ok(report)
+    })();
+    ProblemError::with_retirement(result, pending.map_or(Ok(()), |oracle| oracle.finish()))
 }
 
 /// Fresh evaluation of the original compiled model, independent of any solver projection.

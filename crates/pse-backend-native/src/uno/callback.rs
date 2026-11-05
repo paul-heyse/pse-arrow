@@ -766,6 +766,9 @@ mod tests {
     #[derive(Debug)]
     struct Domain(crate::solver_tests::Polynomial);
     impl NlpOracle for Domain {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &crate::OracleContract {
             NlpOracle::contract(&self.0)
         }

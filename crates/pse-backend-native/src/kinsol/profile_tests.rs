@@ -93,6 +93,9 @@ impl Root {
     }
 }
 impl NleOracle for Root {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.contract
     }
@@ -411,6 +414,9 @@ struct Recycle {
     coefficient: f64,
 }
 impl FixedPointOracle for Recycle {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.root.contract
     }
@@ -642,6 +648,9 @@ impl Manufactured {
     }
 }
 impl NleOracle for Manufactured {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.contract
     }

@@ -1013,7 +1013,7 @@ impl ModelingPackage {
         let scaled_columns = column_scales.clone();
         let retained = report._owner.clone();
         let sampled = service
-            .with_owned_worker(assembly, providers.clone(), operation.driver(), Some((operation.scope().clone(), operation.scope().cancellation_control().clone())), move |mut worker| {
+            .with_borrowed_worker(assembly, providers.clone(), operation.driver(), Some((operation.scope().clone(), operation.scope().cancellation_control().clone())), move |worker| {
                 let rows = crate::workflow::dynamics::analysis("diagnostic.original_rows", || worker.constraints(&candidate).map(<[f64]>::to_vec))?;
                 let flag = worker.cancellation().clone();
                 let jacobian = crate::workflow::dynamics::analysis("diagnostic.original_jacobian", || worker.jacobian(&candidate))?;
@@ -2204,12 +2204,12 @@ impl ModelingPackage {
                 )
                 .await?;
                 let (evidence, owner) = service
-                    .with_owned_worker(
+                    .with_borrowed_worker(
                         assembly,
                         providers,
                         operation.driver(),
                         Some((scope.clone(), control)),
-                        move |mut worker| {
+                        move |worker| {
                             let execution = pse_backend_native::solve::Execution::within(
                                 scope.cancellation_control().clone(),
                                 &controls,

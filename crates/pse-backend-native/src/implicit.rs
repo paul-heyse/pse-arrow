@@ -268,6 +268,9 @@ impl Oracle {
     }
 }
 impl NleOracle for Oracle {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.contract
     }
@@ -769,6 +772,9 @@ mod tests {
         fault: Option<Arc<ProblemError>>,
     }
     impl NleOracle for LateOriginalOracle {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &OracleContract {
             self.original.contract()
         }

@@ -97,6 +97,9 @@ impl QuadraticQuartic {
     }
 }
 impl NlpOracle for QuadraticQuartic {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.contract
     }

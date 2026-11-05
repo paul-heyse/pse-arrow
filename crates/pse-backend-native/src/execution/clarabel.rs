@@ -146,6 +146,7 @@ impl BackendExecution for Clarabel {
                     stamp.clone(),
                 )
             },
+            conic::Session::finish,
         )?;
         let mut report = session.solve(
             problem,

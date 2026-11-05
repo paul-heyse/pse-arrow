@@ -7,6 +7,8 @@ use pse_math::derived::OriginalContract;
 
 /// Executable original guard/domain owner. Derivative support grants no domain permission.
 pub trait DomainOracle: std::fmt::Debug {
+    /// Retire an owned domain evaluator after every native borrow ends.
+    fn finish(self: Box<Self>) -> Result<(), ProblemError>;
     /// Identity of the consumed original guard/applicability obligation.
     fn source(&self) -> ContentHash;
     /// Execute the original checks at this original-coordinate point.

@@ -15,7 +15,7 @@ pub(crate) struct Adapter {
     pub(crate) normalization: pse_math::normalization::Normalization,
     pub(crate) certification_budget: Option<crate::quality::Tolerances>,
     pub(crate) normalize_affine: bool,
-    pub(crate) oracle: Box<dyn NlpOracle>,
+    pub(crate) oracle: Option<Box<dyn NlpOracle>>,
     pub(crate) state: CallbackState,
     pub(crate) jac: Pattern,
     pub(crate) hess: Pattern,
@@ -25,6 +25,25 @@ pub(crate) struct Adapter {
     pub(crate) duals: Option<(Vec<f64>, Vec<f64>, Vec<f64>)>,
     pub(crate) solution: Option<Candidate>,
     pub(crate) scratch: Scratch,
+}
+impl Adapter {
+    pub(crate) fn oracle(&self) -> Result<&dyn NlpOracle, ProblemError> {
+        self.oracle
+            .as_deref()
+            .ok_or_else(|| ProblemError::Contract("native callback owner retired".into()))
+    }
+    pub(crate) fn take_oracle(&mut self) -> Result<Box<dyn NlpOracle>, ProblemError> {
+        self.oracle
+            .take()
+            .ok_or_else(|| ProblemError::Contract("native callback owner already retired".into()))
+    }
+    pub(crate) fn finish(&mut self) -> Result<(), ProblemError> {
+        let owner = self.take_oracle()?;
+        let admission = self.state.execution.work_admission.take();
+        let result = crate::finish_owner(|| owner.finish());
+        drop(admission);
+        result
+    }
 }
 /// Exclusive, prepared transport storage. Numerical failure never publishes it.
 pub(crate) struct Scratch {
@@ -43,7 +62,9 @@ impl Scratch {
 }
 impl pounce_nlp::expression_provider::ExpressionProvider for Adapter {
     fn constraint_expression(&self, i: usize) -> Option<pounce_nlp::expression_provider::FbbtTape> {
-        let f = self.oracle.presolve_facts()?;
+        let oracle = self.oracle.as_deref()?;
+
+        let f = oracle.presolve_facts()?;
         let tape = match f.affine.get(i)?.as_ref() {
             // The transported bounds absorb the proof's constant, so the row's tape is the
             // proof's linear part. The projected tape evaluates the same row with its own
@@ -97,15 +118,16 @@ impl TNLP for Adapter {
         &mut self,
         types: &mut [pounce_nlp::tnlp::Linearity],
     ) -> bool {
-        if types.len() != self.oracle.contract().variables.len() {
+        let Some(oracle) = self.oracle.as_deref_mut() else {
+            return false;
+        };
+
+        if types.len() != oracle.contract().variables.len() {
             return false;
         }
         // Structural proof only: a zero objective gradient at a stationary start must
         // never remove a coordinate from a partitioned or finite-difference element.
-        let proof = self
-            .oracle
-            .presolve_facts()
-            .map(|facts| &facts.objective_linear);
+        let proof = oracle.presolve_facts().map(|facts| &facts.objective_linear);
         for (column, kind) in types.iter_mut().enumerate() {
             *kind = if proof.is_some_and(|linear| linear.get(column) == Some(&true)) {
                 pounce_nlp::tnlp::Linearity::Linear
@@ -116,7 +138,11 @@ impl TNLP for Adapter {
         true
     }
     fn get_variables_linearity(&mut self, types: &mut [pounce_nlp::tnlp::Linearity]) -> bool {
-        let Some(f) = self.oracle.presolve_facts() else {
+        let Some(oracle) = self.oracle.as_deref_mut() else {
+            return false;
+        };
+
+        let Some(f) = oracle.presolve_facts() else {
             return false;
         };
         if types.len() != f.objective_linear.len() {
@@ -132,20 +158,32 @@ impl TNLP for Adapter {
         true
     }
     fn derivative_proofs(&mut self) -> pounce_nlp::constant_derivatives::DerivativeProofs {
+        let Some(oracle) = self.oracle.as_deref() else {
+            return DerivativeProofs {
+                grad_f: pounce_nlp::constant_derivatives::DerivativeProof::Unknown,
+                hessian: pounce_nlp::constant_derivatives::DerivativeProof::Unknown,
+                jac: Vec::new(),
+            };
+        };
+
         use pounce_nlp::constant_derivatives::{DerivativeProof as P, DerivativeProofs};
-        let f = self.oracle.derivative_facts();
+        let f = oracle.derivative_facts();
         let proof = |v| if v { P::Constant } else { P::Unknown };
         DerivativeProofs {
             grad_f: proof(f.gradient_constant),
             hessian: proof(f.hessian_constant),
-            jac: self.oracle.presolve_facts().map_or_else(
-                || vec![proof(f.jacobian_constant); self.oracle.contract().rows.len()],
+            jac: oracle.presolve_facts().map_or_else(
+                || vec![proof(f.jacobian_constant); oracle.contract().rows.len()],
                 |p| p.affine.iter().map(|r| proof(r.is_some())).collect(),
             ),
         }
     }
     fn get_constraints_linearity(&mut self, types: &mut [pounce_nlp::tnlp::Linearity]) -> bool {
-        if let Some(f) = self.oracle.presolve_facts() {
+        let Some(oracle) = self.oracle.as_deref_mut() else {
+            return false;
+        };
+
+        if let Some(f) = oracle.presolve_facts() {
             if types.len() != f.affine.len() {
                 return false;
             }
@@ -158,8 +196,8 @@ impl TNLP for Adapter {
             }
             return true;
         }
-        if self.oracle.derivative_facts().jacobian_constant
-            && types.len() == self.oracle.contract().rows.len()
+        if oracle.derivative_facts().jacobian_constant
+            && types.len() == oracle.contract().rows.len()
         {
             types.fill(pounce_nlp::tnlp::Linearity::Linear);
             true
@@ -169,58 +207,52 @@ impl TNLP for Adapter {
     }
 
     fn get_nlp_info(&mut self) -> Option<NlpInfo> {
+        let oracle = self.oracle.as_deref_mut()?;
+
         Some(NlpInfo {
             n: i32::try_from(self.initial.len()).ok()?,
-            m: i32::try_from(self.oracle.contract().rows.len()).ok()?,
+            m: i32::try_from(oracle.contract().rows.len()).ok()?,
             nnz_jac_g: i32::try_from(self.jac.rows.len()).ok()?,
             nnz_h_lag: i32::try_from(self.hess.rows.len()).ok()?,
             index_style: IndexStyle::C,
         })
     }
     fn get_bounds_info(&mut self, b: BoundsInfo<'_>) -> bool {
+        let Some(oracle) = self.oracle.as_deref_mut() else {
+            return false;
+        };
+
         self.state
             .evaluate("bounds", || {
                 if b.x_l.len() != self.initial.len()
                     || b.x_u.len() != self.initial.len()
-                    || b.g_l.len() != self.oracle.contract().rows.len()
-                    || b.g_u.len() != self.oracle.contract().rows.len()
+                    || b.g_l.len() != oracle.contract().rows.len()
+                    || b.g_u.len() != oracle.contract().rows.len()
                 {
                     return Err(ProblemError::Internal(
                         "POUNCE bound output dimensions".into(),
                     ));
                 }
-                let lower: Vec<_> = self
-                    .oracle
+                let lower: Vec<_> = oracle
                     .contract()
                     .variables
                     .iter()
                     .map(|v| v.lower)
                     .collect();
-                let upper: Vec<_> = self
-                    .oracle
+                let upper: Vec<_> = oracle
                     .contract()
                     .variables
                     .iter()
                     .map(|v| v.upper)
                     .collect();
-                let gl: Vec<_> = self
-                    .oracle
-                    .constraint_bounds()
-                    .iter()
-                    .map(|v| v.0)
-                    .collect();
-                let gu: Vec<_> = self
-                    .oracle
-                    .constraint_bounds()
-                    .iter()
-                    .map(|v| v.1)
-                    .collect();
+                let gl: Vec<_> = oracle.constraint_bounds().iter().map(|v| v.0).collect();
+                let gu: Vec<_> = oracle.constraint_bounds().iter().map(|v| v.1).collect();
                 copy(&lower, b.x_l)?;
                 copy(&upper, b.x_u)?;
                 copy(&gl, b.g_l)?;
                 copy(&gu, b.g_u)?;
                 if self.normalize_affine
-                    && let Some(f) = self.oracle.presolve_facts()
+                    && let Some(f) = oracle.presolve_facts()
                 {
                     for (r, row) in f.affine.iter().enumerate() {
                         if let Some(row) = row {
@@ -293,6 +325,10 @@ impl TNLP for Adapter {
             .is_some()
     }
     fn get_starting_point(&mut self, s: StartingPoint<'_>) -> bool {
+        let Some(oracle) = self.oracle.as_deref_mut() else {
+            return false;
+        };
+
         let primal_requested = s.init_x;
         let accepted = self
             .state
@@ -300,7 +336,7 @@ impl TNLP for Adapter {
                 if s.init_x && s.x.len() != self.initial.len()
                     || s.init_z
                         && (s.z_l.len() != self.initial.len() || s.z_u.len() != self.initial.len())
-                    || s.init_lambda && s.lambda.len() != self.oracle.contract().rows.len()
+                    || s.init_lambda && s.lambda.len() != oracle.contract().rows.len()
                 {
                     return Err(ProblemError::Internal(
                         "POUNCE start output dimensions".into(),
@@ -353,11 +389,13 @@ impl TNLP for Adapter {
         accepted
     }
     fn eval_f(&mut self, x: &[f64], _: bool) -> Option<f64> {
+        let oracle = self.oracle.as_deref_mut()?;
+
         self.state.evaluate("objective", || {
             self.normalization
                 .physical_point_into(x, &mut self.scratch.point)?;
             let v = pse_math::normalization::checked_ratio(
-                self.oracle.objective(&self.scratch.point)?,
+                oracle.objective(&self.scratch.point)?,
                 self.normalization.objective,
             )?;
             finite(&[v])?;
@@ -365,13 +403,17 @@ impl TNLP for Adapter {
         })
     }
     fn eval_grad_f(&mut self, x: &[f64], _: bool, out: &mut [f64]) -> bool {
+        let Some(oracle) = self.oracle.as_deref_mut() else {
+            return false;
+        };
+
         self.state
             .evaluate("gradient", || {
                 self.normalization
                     .physical_point_into(x, &mut self.scratch.point)?;
                 let v = &mut self.scratch.output[..self.normalization.variables.len()];
                 v.fill(f64::NAN);
-                self.oracle.gradient(&self.scratch.point, v)?;
+                oracle.gradient(&self.scratch.point, v)?;
                 for (i, value) in v.iter_mut().enumerate() {
                     *value = pse_math::normalization::checked_ratio(
                         pse_math::normalization::checked_product(
@@ -387,15 +429,19 @@ impl TNLP for Adapter {
             .is_some()
     }
     fn eval_g(&mut self, x: &[f64], _: bool, out: &mut [f64]) -> bool {
+        let Some(oracle) = self.oracle.as_deref_mut() else {
+            return false;
+        };
+
         self.state
             .evaluate("constraints", || {
                 self.normalization
                     .physical_point_into(x, &mut self.scratch.point)?;
                 let v = &mut self.scratch.output[..self.normalization.rows.len()];
                 v.fill(f64::NAN);
-                self.oracle.constraints(&self.scratch.point, v)?;
+                oracle.constraints(&self.scratch.point, v)?;
                 if self.normalize_affine
-                    && let Some(f) = self.oracle.presolve_facts()
+                    && let Some(f) = oracle.presolve_facts()
                 {
                     for (v, row) in v.iter_mut().zip(&f.affine) {
                         if let Some(row) = row {
@@ -413,6 +459,10 @@ impl TNLP for Adapter {
             .is_some()
     }
     fn eval_jac_g(&mut self, x: Option<&[f64]>, _: bool, mode: SparsityRequest<'_>) -> bool {
+        let Some(oracle) = self.oracle.as_deref_mut() else {
+            return false;
+        };
+
         self.state
             .evaluate("jacobian", || match mode {
                 SparsityRequest::Structure { irow, jcol } => {
@@ -429,7 +479,7 @@ impl TNLP for Adapter {
                         .physical_point_into(point(x)?, &mut self.scratch.point)?;
                     let v = &mut self.scratch.output[..self.jac.rows.len()];
                     v.fill(f64::NAN);
-                    self.oracle.jacobian(&self.scratch.point, v)?;
+                    oracle.jacobian(&self.scratch.point, v)?;
                     for (i, value) in v.iter_mut().enumerate() {
                         *value = pse_math::normalization::checked_ratio(
                             pse_math::normalization::checked_product(
@@ -454,6 +504,10 @@ impl TNLP for Adapter {
         _: bool,
         mode: SparsityRequest<'_>,
     ) -> bool {
+        let Some(oracle) = self.oracle.as_deref_mut() else {
+            return false;
+        };
+
         self.state
             .evaluate("hessian", || match mode {
                 SparsityRequest::Structure { irow, jcol } => {
@@ -478,7 +532,7 @@ impl TNLP for Adapter {
                     if values.is_empty() {
                         return Ok(());
                     }
-                    let lambda = if self.oracle.contract().rows.is_empty() {
+                    let lambda = if oracle.contract().rows.is_empty() {
                         &[][..]
                     } else {
                         point(lambda)?
@@ -499,7 +553,7 @@ impl TNLP for Adapter {
                         .physical_point_into(point(x)?, &mut self.scratch.point)?;
                     let v = &mut self.scratch.output[..self.hess.rows.len()];
                     v.fill(f64::NAN);
-                    self.oracle.hessian(
+                    oracle.hessian(
                         &self.scratch.point,
                         pse_math::normalization::checked_ratio(
                             weight,
@@ -581,9 +635,13 @@ impl TNLP for Adapter {
         });
     }
     fn get_var_con_metadata(&mut self, v: &mut MetaData, r: &mut MetaData) -> bool {
+        let Some(oracle) = self.oracle.as_deref_mut() else {
+            return false;
+        };
+
         v.strings.insert(
             IDX_NAMES.into(),
-            self.oracle
+            oracle
                 .contract()
                 .variables
                 .iter()
@@ -592,7 +650,7 @@ impl TNLP for Adapter {
         );
         r.strings.insert(
             IDX_NAMES.into(),
-            self.oracle
+            oracle
                 .contract()
                 .rows
                 .iter()

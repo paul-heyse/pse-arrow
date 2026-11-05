@@ -128,6 +128,9 @@ fn csc(
     (matrix, sorted.iter().map(|&(_, _, v)| v).collect())
 }
 impl NlpOracle for Analytic {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn normalization(&self) -> Option<&Normalization> {
         Some(&self.normalization)
     }

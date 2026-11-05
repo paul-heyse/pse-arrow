@@ -2015,6 +2015,10 @@ impl std::fmt::Debug for OwnedNlp {
     }
 }
 impl NlpOracle for OwnedNlp {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        self.oracle.finish()
+    }
+
     fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
         self.oracle.structural_analysis()
     }
@@ -2055,18 +2059,64 @@ impl NlpOracle for OwnedNlp {
         self.oracle.hessian(x, w, l, o)
     }
 }
+fn collect_suppliers<T: math::ReconstructionOracle<Error = ProblemError>>(
+    input: impl IntoIterator<Item = Result<T, pse_math::MathError>>,
+) -> Result<Vec<T>, MathRuntimeError> {
+    let mut suppliers = Vec::new();
+    for supplier in input {
+        match supplier {
+            Ok(supplier) => suppliers.push(supplier),
+            Err(operation) => {
+                let mut cleanup = Ok(());
+                for supplier in suppliers {
+                    cleanup = ProblemError::with_retirement(
+                        cleanup,
+                        ProblemError::retirement(supplier.finish()),
+                    );
+                }
+                return MathRuntimeError::settle(
+                    Err(operation.into()),
+                    cleanup.map_err(MathRuntimeError::from),
+                );
+            }
+        }
+    }
+    Ok(suppliers)
+}
+pub(super) fn supplier_failure<E: Into<ProblemError>>(
+    failure: pse_math::derived::SupplierConstructionFailure<E>,
+) -> MathRuntimeError {
+    let operation = MathRuntimeError::from(failure.operation.into());
+    if failure.cleanup.is_empty() {
+        operation
+    } else {
+        MathRuntimeError::Settlement {
+            operation: Box::new(operation),
+            cleanup: Box::new(
+                ProblemError::Retirement {
+                    failures: failure.cleanup.into_iter().map(Into::into).collect(),
+                }
+                .into(),
+            ),
+        }
+    }
+}
 type ConcreteReduced =
     ReducedOracle<NlpBridge, CompositeReconstruction<SelectedImplicitReconstruction<ProblemError>>>;
 /// Only one callback borrows the selected worker at a time. The original-proposal
 /// consumer retains the actual worker/lineage used by native iteration, not a replay.
 #[derive(Debug)]
 struct SharedReduced {
-    actual: Rc<RefCell<ConcreteReduced>>,
+    actual: Rc<RefCell<Option<ConcreteReduced>>>,
     contract: OracleContract,
     bounds: Vec<(f64, f64)>,
     pattern: AssemblyMatrix,
 }
 impl NlpOracle for SharedReduced {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
+
     fn contract(&self) -> &OracleContract {
         &self.contract
     }
@@ -2083,24 +2133,32 @@ impl NlpOracle for SharedReduced {
         self.actual
             .try_borrow_mut()
             .map_err(|_| ProblemError::Contract("simultaneous reduced oracle application".into()))?
+            .as_mut()
+            .ok_or_else(|| ProblemError::Contract("selected reduced evaluator retired".into()))?
             .objective(x)
     }
     fn constraints(&mut self, x: &[f64], o: &mut [f64]) -> Result<(), ProblemError> {
         self.actual
             .try_borrow_mut()
             .map_err(|_| ProblemError::Contract("simultaneous reduced oracle application".into()))?
+            .as_mut()
+            .ok_or_else(|| ProblemError::Contract("selected reduced evaluator retired".into()))?
             .constraints(x, o)
     }
     fn gradient(&mut self, x: &[f64], o: &mut [f64]) -> Result<(), ProblemError> {
         self.actual
             .try_borrow_mut()
             .map_err(|_| ProblemError::Contract("simultaneous reduced oracle application".into()))?
+            .as_mut()
+            .ok_or_else(|| ProblemError::Contract("selected reduced evaluator retired".into()))?
             .gradient(x, o)
     }
     fn jacobian(&mut self, x: &[f64], o: &mut [f64]) -> Result<(), ProblemError> {
         self.actual
             .try_borrow_mut()
             .map_err(|_| ProblemError::Contract("simultaneous reduced oracle application".into()))?
+            .as_mut()
+            .ok_or_else(|| ProblemError::Contract("selected reduced evaluator retired".into()))?
             .jacobian(x, o)
     }
     fn hessian(&mut self, _: &[f64], _: f64, _: &[f64], _: &mut [f64]) -> Result<(), ProblemError> {
@@ -2210,44 +2268,47 @@ impl MathService {
             let (mut oracle, _oracle_owner) = self
                 .derived_original_oracle(p, &scope, budget)
                 .map_err(MathRuntimeError::into_problem)?;
-            let eval = WorkEvidence {
-                evaluations: Some(1),
-                iterations: Some(0),
-                factorizations: Some(0),
-                proof_steps: Some(0),
-            };
-            let mut rows = vec![0.0; p.physical.constraints().len()];
-            execution.counted(eval, || {
-                calls += 1;
-                oracle.constraints(&proposal.coordinates, &mut rows)
-            })?;
-            let objective = execution.counted(eval, || {
-                calls += 1;
-                oracle.objective(&proposal.coordinates)
-            })?;
-            let quality = quality::observed(
-                oracle.contract(),
-                oracle.constraint_bounds(),
-                &proposal.coordinates,
-                &rows,
-                &p.original.tolerances,
-            )?;
-            let sense = p
-                .source
-                .prepared
-                .prepared
-                .plan
-                .structure()
-                .objective()
-                .map(|o| o.sense);
-            let mut observation = quality::Observation::from_values(
-                sense.map(|sense| objective * sense.sign()),
-                rows,
-                oracle.constraint_bounds().to_vec(),
-            )?;
-            observation.sources = oracle.constraint_sources()?;
-            execution.check()?;
-            Ok((quality, observation))
+            let result = (|| {
+                let eval = WorkEvidence {
+                    evaluations: Some(1),
+                    iterations: Some(0),
+                    factorizations: Some(0),
+                    proof_steps: Some(0),
+                };
+                let mut rows = vec![0.0; p.physical.constraints().len()];
+                execution.counted(eval, || {
+                    calls += 1;
+                    oracle.constraints(&proposal.coordinates, &mut rows)
+                })?;
+                let objective = execution.counted(eval, || {
+                    calls += 1;
+                    oracle.objective(&proposal.coordinates)
+                })?;
+                let quality = quality::observed(
+                    oracle.contract(),
+                    oracle.constraint_bounds(),
+                    &proposal.coordinates,
+                    &rows,
+                    &p.original.tolerances,
+                )?;
+                let sense = p
+                    .source
+                    .prepared
+                    .prepared
+                    .plan
+                    .structure()
+                    .objective()
+                    .map(|o| o.sense);
+                let mut observation = quality::Observation::from_values(
+                    sense.map(|sense| objective * sense.sign()),
+                    rows,
+                    oracle.constraint_bounds().to_vec(),
+                )?;
+                observation.sources = oracle.constraint_sources()?;
+                execution.check()?;
+                Ok((quality, observation))
+            })();
+            ProblemError::with_retirement(result, oracle.finish())
         })();
         report.evidence.work.evaluations = report
             .evidence
@@ -2281,16 +2342,16 @@ impl MathService {
     ) -> Result<(native::assembled::AlgebraicOracle, Box<dyn std::any::Any>), MathRuntimeError>
     {
         let source = &p.source;
-        let ExecutionWorker {
-            worker,
-            _case,
-            _charge,
-        } = self.case_worker(source.case.clone(), source.providers.clone(), scope, budget)?;
         let root_support =
             budget.charge(native::assembled::AlgebraicOracle::root_support_allowance(
                 &source.prepared.prepared.plan,
                 &source.prepared.prepared.structure,
             )?)?;
+        let ExecutionWorker {
+            worker,
+            _case,
+            _charge,
+        } = self.case_worker(source.case.clone(), source.providers.clone(), scope, budget)?;
         let oracle =
             native::assembled::AlgebraicOracle::new(worker, source.values.as_ref().clone())?
                 .with_structural_analysis(source.prepared.prepared.structure.clone())?
@@ -2377,350 +2438,409 @@ impl MathService {
         } = &p.request
             && columns.is_empty()
         {
-            let prepared = p.reduced.as_ref().ok_or_else(|| {
-                ProblemError::Contract("full reconstruction preparation absent".into())
-            })?;
-            let workers = suppliers
-                .iter()
-                .zip(&prepared.suppliers)
-                .map(|(supplier, prepared)| {
-                    SelectedImplicitReconstruction::<ProblemError>::new_with_binding(
-                        supplier.factory.as_ref(),
+            let mut reconstruction_owner = None;
+            let result = (|| -> Result<DerivedAttempt, MathRuntimeError> {
+                let prepared = p.reduced.as_ref().ok_or_else(|| {
+                    ProblemError::Contract("full reconstruction preparation absent".into())
+                })?;
+                let workers = collect_suppliers(suppliers.iter().zip(&prepared.suppliers).map(
+                    |(supplier, prepared)| {
+                        SelectedImplicitReconstruction::<ProblemError>::new_with_binding(
+                            supplier.factory.as_ref(),
+                            prepared.contract.clone(),
+                            prepared.normalization.clone(),
+                            scope.clone(),
+                            &prepared.binding,
+                        )?
+                        .with_proof_cell_limit(accuracy.refinement.proof_cells)
+                    },
+                ))?;
+                reconstruction_owner = Some(
+                    CompositeReconstruction::new_normalized(
                         prepared.contract.clone(),
-                        prepared.normalization.clone(),
-                        scope.clone(),
-                        &prepared.binding,
-                    )?
-                    .with_proof_cell_limit(accuracy.refinement.proof_cells)
-                })
-                .collect::<Result<Vec<_>, pse_math::MathError>>()?;
-            let mut reconstruction = CompositeReconstruction::new_normalized(
-                prepared.contract.clone(),
-                workers,
-                &p.original.normalization,
-                &prepared
-                    .suppliers
-                    .iter()
-                    .map(|p| p.normalization.clone())
-                    .collect::<Vec<_>>(),
-            )?;
-            math::ReconstructionOracle::admit(&mut reconstruction, &[])?;
-            let mut product = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
-            product
-                .str("complete-original-reconstruction")
-                .hash(&p.original_identity)
-                .hash(&p.family.key());
-            let demand = pse_model::strategy::AccuracyDemand {
-                product: product.finish_hash(),
-                normalization: p.physical.normalization(),
-                allowance: accuracy.point,
-                class: accuracy.class,
-            };
-            let optional_refinement = !p.original.numerics.policy.goals.is_empty()
-                && accuracy.refinement.rounds >= prepared.suppliers.len().saturating_mul(2)
-                && accuracy.refinement.proof_cells
-                    >= (prepared.suppliers.len() as u64).saturating_mul(2);
-            // Two consumed products share the declared finite round/proof-cell ceiling.
-            // No-goal execution retains its whole mandatory operational allowance.
-            let first_limits = if optional_refinement {
-                math::RefinementLimits {
-                    rounds: accuracy.refinement.rounds / 2,
-                    proof_cells: accuracy.refinement.proof_cells / 2,
-                }
-            } else {
-                accuracy.refinement
-            };
-            let mut point =
-                math::ReconstructionOracle::point(&mut reconstruction, &[], &demand, first_limits)?;
-            let eval = WorkEvidence {
-                evaluations: Some(1),
-                iterations: Some(0),
-                factorizations: Some(0),
-                proof_steps: Some(0),
-            };
-            let mut assess = |values: &[f64]| -> Result<_, ProblemError> {
-                screen_bounds(&p.physical, values)?;
-                let mut rows = vec![0.0; m];
-                execution.counted(eval, || oracle.constraints(values, &mut rows))?;
-                let objective = execution.counted(eval, || oracle.objective(values))?;
-                let quality = quality::observed(
-                    oracle.contract(),
-                    oracle.constraint_bounds(),
-                    values,
-                    &rows,
-                    &p.original.tolerances,
-                )?;
-                let objective = p
-                    .source
-                    .prepared
-                    .prepared
-                    .plan
-                    .structure()
-                    .objective()
-                    .map(|o| objective * o.sense.sign());
-                let mut observation = quality::Observation::from_values(
-                    objective,
-                    rows,
-                    oracle.constraint_bounds().to_vec(),
-                )?;
-                observation.sources = oracle.constraint_sources()?;
-                Ok((quality, objective, observation))
-            };
-            let (mut quality, mut objective, mut observation) = assess(&point.values)?;
-            let mut certified_reconstruction = CertifiedReconstructionPoint::issue(
-                self,
-                p,
-                &point,
-                math::ReconstructionOracle::realization(&reconstruction),
-            )?;
-            if optional_refinement
-                && quality.feasible()
-                && let Some(receipt) = &certified_reconstruction
-            {
-                let _values_charge = budget.charge(case_values_bytes(
-                    p.source
-                        .values
-                        .scalars
-                        .len()
-                        .checked_add(n)
-                        .ok_or(MathRuntimeError::Limit("goal reconstruction values extent"))?,
-                )?)?;
-                let mut values = p.source.values.as_ref().clone();
-                values.scalars.extend(
-                    p.physical
-                        .coordinates()
-                        .iter()
-                        .map(|coordinate| coordinate.id)
-                        .zip(point.values.iter().copied()),
+                        workers,
+                        &p.original.normalization,
+                        &prepared
+                            .suppliers
+                            .iter()
+                            .map(|p| p.normalization.clone())
+                            .collect::<Vec<_>>(),
+                    )
+                    .map_err(supplier_failure)?,
                 );
-                let consuming = match receipt.refinement_demand(
-                    self,
-                    &p.original,
-                    &values,
-                    &scope,
-                    budget,
-                    &execution,
-                ) {
-                    Ok(demand) => demand,
-                    Err(error) if engineering_accuracy::optional_failure(&error) => None,
-                    Err(error) => return Err(error.into()),
+                let reconstruction = reconstruction_owner
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing full reconstruction owner"))?;
+                math::ReconstructionOracle::admit(reconstruction, &[])?;
+                let mut product = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
+                product
+                    .str("complete-original-reconstruction")
+                    .hash(&p.original_identity)
+                    .hash(&p.family.key());
+                let demand = pse_model::strategy::AccuracyDemand {
+                    product: product.finish_hash(),
+                    normalization: p.physical.normalization(),
+                    allowance: accuracy.point,
+                    class: accuracy.class,
                 };
-                if let Some(consuming) = consuming {
-                    let remaining = math::RefinementLimits {
-                        rounds: accuracy.refinement.rounds - first_limits.rounds,
-                        proof_cells: accuracy.refinement.proof_cells - first_limits.proof_cells,
-                    };
-                    match math::ReconstructionOracle::point(
-                        &mut reconstruction,
-                        &[],
-                        &consuming,
-                        remaining,
+                let optional_refinement = !p.original.numerics.policy.goals.is_empty()
+                    && accuracy.refinement.rounds >= prepared.suppliers.len().saturating_mul(2)
+                    && accuracy.refinement.proof_cells
+                        >= (prepared.suppliers.len() as u64).saturating_mul(2);
+                // Two consumed products share the declared finite round/proof-cell ceiling.
+                // No-goal execution retains its whole mandatory operational allowance.
+                let first_limits = if optional_refinement {
+                    math::RefinementLimits {
+                        rounds: accuracy.refinement.rounds / 2,
+                        proof_cells: accuracy.refinement.proof_cells / 2,
+                    }
+                } else {
+                    accuracy.refinement
+                };
+                let mut point =
+                    math::ReconstructionOracle::point(reconstruction, &[], &demand, first_limits)?;
+                let eval = WorkEvidence {
+                    evaluations: Some(1),
+                    iterations: Some(0),
+                    factorizations: Some(0),
+                    proof_steps: Some(0),
+                };
+                let mut assess = |values: &[f64]| -> Result<_, ProblemError> {
+                    screen_bounds(&p.physical, values)?;
+                    let mut rows = vec![0.0; m];
+                    execution.counted(eval, || oracle.constraints(values, &mut rows))?;
+                    let objective = execution.counted(eval, || oracle.objective(values))?;
+                    let quality = quality::observed(
+                        oracle.contract(),
+                        oracle.constraint_bounds(),
+                        values,
+                        &rows,
+                        &p.original.tolerances,
+                    )?;
+                    let objective = p
+                        .source
+                        .prepared
+                        .prepared
+                        .plan
+                        .structure()
+                        .objective()
+                        .map(|o| objective * o.sense.sign());
+                    let mut observation = quality::Observation::from_values(
+                        objective,
+                        rows,
+                        oracle.constraint_bounds().to_vec(),
+                    )?;
+                    observation.sources = oracle.constraint_sources()?;
+                    Ok((quality, objective, observation))
+                };
+                let (mut quality, mut objective, mut observation) = assess(&point.values)?;
+                let mut certified_reconstruction = CertifiedReconstructionPoint::issue(
+                    self,
+                    p,
+                    &point,
+                    math::ReconstructionOracle::realization(&*reconstruction),
+                )?;
+                if optional_refinement
+                    && quality.feasible()
+                    && let Some(receipt) = &certified_reconstruction
+                {
+                    let _values_charge =
+                        budget.charge(case_values_bytes(
+                            p.source.values.scalars.len().checked_add(n).ok_or(
+                                MathRuntimeError::Limit("goal reconstruction values extent"),
+                            )?,
+                        )?)?;
+                    let mut values = p.source.values.as_ref().clone();
+                    values.scalars.extend(
+                        p.physical
+                            .coordinates()
+                            .iter()
+                            .map(|coordinate| coordinate.id)
+                            .zip(point.values.iter().copied()),
+                    );
+                    let consuming = match receipt.refinement_demand(
+                        self,
+                        &p.original,
+                        &values,
+                        &scope,
+                        budget,
+                        &execution,
                     ) {
-                        Ok(refined) => {
-                            point = refined;
-                            (quality, objective, observation) = assess(&point.values)?;
-                            certified_reconstruction = CertifiedReconstructionPoint::issue(
-                                self,
-                                p,
-                                &point,
-                                math::ReconstructionOracle::realization(&reconstruction),
-                            )?;
-                        }
-                        // A bounded optional proof refusal retains the actual first
-                        // certificate and unmet goal; original checks remain mandatory.
-                        Err(ProblemError::Math(pse_math::MathError::Refinement { .. })) => {}
+                        Ok(demand) => demand,
+                        Err(error) if engineering_accuracy::optional_failure(&error) => None,
                         Err(error) => return Err(error.into()),
+                    };
+                    if let Some(consuming) = consuming {
+                        let remaining = math::RefinementLimits {
+                            rounds: accuracy.refinement.rounds - first_limits.rounds,
+                            proof_cells: accuracy.refinement.proof_cells - first_limits.proof_cells,
+                        };
+                        match math::ReconstructionOracle::point(
+                            reconstruction,
+                            &[],
+                            &consuming,
+                            remaining,
+                        ) {
+                            Ok(refined) => {
+                                point = refined;
+                                (quality, objective, observation) = assess(&point.values)?;
+                                certified_reconstruction = CertifiedReconstructionPoint::issue(
+                                    self,
+                                    p,
+                                    &point,
+                                    math::ReconstructionOracle::realization(&*reconstruction),
+                                )?;
+                            }
+                            // A bounded optional proof refusal retains the actual first
+                            // certificate and unmet goal; original checks remain mandatory.
+                            Err(ProblemError::Math(pse_math::MathError::Refinement { .. })) => {}
+                            Err(error) => return Err(error.into()),
+                        }
                     }
                 }
-            }
-            execution.check()?;
-            let proposal_owner = self.reserve(
-                "math:complete-reconstruction-proposal",
-                size_of::<OriginalProposal>() + point.values.capacity() * size_of::<f64>(),
-            )?;
-            let proposal = OriginalProposal::from_original(
-                p.original_identity,
-                p.family.key(),
-                point.values,
-                &p.physical,
-                Some(point.accuracy),
-                proposal_owner,
-            )?;
-            let coordinates = p
-                .physical
-                .coordinates()
-                .iter()
-                .map(|c| c.id)
-                .zip(proposal.coordinates.iter().copied())
-                .collect();
-            drop(owner);
-            if let Some(context) = pse_diagnostics::observation::current() {
-                context.count("derived.constant_attempts_completed", "count", 1);
-                context.boolean("derived.original_proposal_available", true);
-            }
-            return Ok(DerivedAttempt {
-                outcome: Outcome::Constant(Box::new(ConstantReport {
-                    owner: Some(result_owner),
-                    components: Vec::new(),
-                    objective,
-                    observation,
-                    quality,
-                    coordinates,
-                    certified_reconstruction,
-                    // Actual nested root/proof totals remain unavailable, not invented zero.
-                    work: WorkEvidence::default(),
-                })),
-                proposal: Some(proposal),
-                screening_failure: None,
-                refinement_product: None,
-                applied_action: None,
+                execution.check()?;
+                let proposal_owner = self.reserve(
+                    "math:complete-reconstruction-proposal",
+                    size_of::<OriginalProposal>() + point.values.capacity() * size_of::<f64>(),
+                )?;
+                let proposal = OriginalProposal::from_original(
+                    p.original_identity,
+                    p.family.key(),
+                    point.values,
+                    &p.physical,
+                    Some(point.accuracy),
+                    proposal_owner,
+                )?;
+                let coordinates = p
+                    .physical
+                    .coordinates()
+                    .iter()
+                    .map(|c| c.id)
+                    .zip(proposal.coordinates.iter().copied())
+                    .collect();
+
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("derived.constant_attempts_completed", "count", 1);
+                    context.boolean("derived.original_proposal_available", true);
+                }
+                return Ok(DerivedAttempt {
+                    outcome: Outcome::Constant(Box::new(ConstantReport {
+                        owner: Some(result_owner),
+                        components: Vec::new(),
+                        objective,
+                        observation,
+                        quality,
+                        coordinates,
+                        certified_reconstruction,
+                        // Actual nested root/proof totals remain unavailable, not invented zero.
+                        work: WorkEvidence::default(),
+                    })),
+                    proposal: Some(proposal),
+                    screening_failure: None,
+                    refinement_product: None,
+                    applied_action: None,
+                });
+            })();
+            let original = oracle.finish();
+            let reconstruction = reconstruction_owner.map_or(Ok(()), |owner| {
+                ProblemError::retirement(math::ReconstructionOracle::finish(owner))
             });
+            let cleanup = ProblemError::with_retirement(original, reconstruction)
+                .map_err(MathRuntimeError::from);
+            return MathRuntimeError::settle(result, cleanup).map_err(DerivedFailure::from);
         }
-        let mut selected: Option<Rc<RefCell<ConcreteReduced>>> = None;
-        let mut initial = p.family.coordinate_map().map_or_else(
-            || original_start.to_vec(),
-            |cols| {
-                cols.iter()
-                    .map(|c| original_start[c.get()])
-                    .collect::<Vec<_>>()
-            },
-        );
-        if let PreparedFamily::LeastDeviation(f) = &p.family {
-            for c in f.held() {
-                initial[c.get()] = f.center()[c.get()];
+        let mut original_owner = Some(oracle);
+        let mut selected: Option<Rc<RefCell<Option<ConcreteReduced>>>> = None;
+        let completed = (|| {
+            let mut initial = p.family.coordinate_map().map_or_else(
+                || original_start.to_vec(),
+                |cols| {
+                    cols.iter()
+                        .map(|c| original_start[c.get()])
+                        .collect::<Vec<_>>()
+                },
+            );
+            if let PreparedFamily::LeastDeviation(f) = &p.family {
+                for c in f.held() {
+                    initial[c.get()] = f.center()[c.get()];
+                }
+                f.validate_point(&initial)?;
             }
-            f.validate_point(&initial)?;
-        }
-        let result = (|| -> Result<SolveReport, MathRuntimeError> {
-            let report = match &p.request {
-                DerivedRequest::LeastDeviation { .. } => {
-                    let PreparedFamily::LeastDeviation(family) = &p.family else {
-                        return Err(ProblemError::Internal(
-                            "least-deviation mathematical product mismatch".into(),
-                        )
-                        .into());
-                    };
-                    let binding = native::initialization::OriginalNlpBinding {
-                        original: p.physical.identity(),
-                        source: NlpOracle::contract(&oracle).identity,
-                        preparation: p.original.preparation_identity()?,
-                    };
-                    let oracle = native::initialization::LeastDeviationOracle::new(
-                        Box::new(oracle),
-                        family.clone(),
-                        binding,
-                        scope.clone(),
-                        isize::MAX as usize,
-                    )?;
-                    execution::nlp(
-                        step(p, execution.clone()),
-                        retained,
-                        execution::Nlp {
-                            oracle: Box::new(OwnedNlp {
-                                oracle: Box::new(oracle),
-                                _owner: owner,
-                            }),
-                            initial: &initial,
-                            presolve: &p.profile.presolve,
-                            intent: SolveIntent::Initialize,
-                            sense: ObjectiveSense::Minimize,
-                            limit: self.policy.worker_bytes / 256,
-                            analysis: execution::Analysis::NONE,
-                        },
-                    )?
-                }
-                DerivedRequest::Feasibility => {
-                    let bridge = NlpBridge::new(Box::new(oracle), p.physical.clone())?;
-                    let bound = p.family.general()?.bind_feasibility(bridge)?;
-                    let oracle = FeasibilityOracle::new(
-                        bound,
-                        p.source.prepared.prepared.plan.available_order(),
-                        isize::MAX as usize,
-                    )?;
-                    execution::nlp(
-                        step(p, execution.clone()),
-                        retained,
-                        execution::Nlp {
-                            oracle: Box::new(OwnedNlp {
-                                oracle: Box::new(oracle),
-                                _owner: owner,
-                            }),
-                            initial: &initial,
-                            presolve: &p.profile.presolve,
-                            intent: p.profile.intent,
-                            sense: ObjectiveSense::Minimize,
-                            limit: self.policy.worker_bytes / 256,
-                            analysis: execution::Analysis::NONE,
-                        },
-                    )?
-                }
-                DerivedRequest::AnchoredHomotopy { anchor, parameter } => {
-                    oracle.admit_nle()?;
-                    let offsets = p.physical.constraints().iter().map(|r| r.lower).collect();
-                    let bridge = RootBridge::new(Box::new(oracle), p.physical.clone(), offsets)?
+            let result = (|| -> Result<SolveReport, MathRuntimeError> {
+                let report = match &p.request {
+                    DerivedRequest::LeastDeviation { .. } => {
+                        let PreparedFamily::LeastDeviation(family) = &p.family else {
+                            return Err(ProblemError::Internal(
+                                "least-deviation mathematical product mismatch".into(),
+                            )
+                            .into());
+                        };
+                        let binding = native::initialization::OriginalNlpBinding {
+                            original: p.physical.identity(),
+                            source: NlpOracle::contract(original_owner.as_ref().ok_or_else(
+                                || ProblemError::internal("missing derived original owner"),
+                            )?)
+                            .identity,
+                            preparation: p.original.preparation_identity()?,
+                        };
+                        let oracle = native::initialization::LeastDeviationOracle::new(
+                            Box::new(original_owner.take().ok_or_else(|| {
+                                ProblemError::internal("missing derived original transfer")
+                            })?),
+                            family.clone(),
+                            binding,
+                            scope.clone(),
+                            isize::MAX as usize,
+                        )?;
+                        execution::nlp(
+                            step(p, execution.clone()),
+                            retained,
+                            execution::Nlp {
+                                oracle: Box::new(OwnedNlp {
+                                    oracle: Box::new(oracle),
+                                    _owner: owner,
+                                }),
+                                initial: &initial,
+                                presolve: &p.profile.presolve,
+                                intent: SolveIntent::Initialize,
+                                sense: ObjectiveSense::Minimize,
+                                limit: self.policy.worker_bytes / 256,
+                                analysis: execution::Analysis::NONE,
+                            },
+                        )?
+                    }
+                    DerivedRequest::Feasibility => {
+                        let bridge = NlpBridge::new(
+                            Box::new(original_owner.take().ok_or_else(|| {
+                                ProblemError::internal("missing derived original transfer")
+                            })?),
+                            p.physical.clone(),
+                        )?;
+                        let bound = p
+                            .family
+                            .general()?
+                            .bind_feasibility(bridge)
+                            .map_err(supplier_failure)?;
+                        let oracle = FeasibilityOracle::new(
+                            bound,
+                            p.source.prepared.prepared.plan.available_order(),
+                            isize::MAX as usize,
+                        )?;
+                        execution::nlp(
+                            step(p, execution.clone()),
+                            retained,
+                            execution::Nlp {
+                                oracle: Box::new(OwnedNlp {
+                                    oracle: Box::new(oracle),
+                                    _owner: owner,
+                                }),
+                                initial: &initial,
+                                presolve: &p.profile.presolve,
+                                intent: p.profile.intent,
+                                sense: ObjectiveSense::Minimize,
+                                limit: self.policy.worker_bytes / 256,
+                                analysis: execution::Analysis::NONE,
+                            },
+                        )?
+                    }
+                    DerivedRequest::AnchoredHomotopy { anchor, parameter } => {
+                        original_owner
+                            .as_ref()
+                            .ok_or_else(|| {
+                                ProblemError::internal("missing derived original owner")
+                            })?
+                            .admit_nle()?;
+                        let offsets = p.physical.constraints().iter().map(|r| r.lower).collect();
+                        let bridge = RootBridge::new(
+                            Box::new(original_owner.take().ok_or_else(|| {
+                                ProblemError::internal("missing derived original transfer")
+                            })?),
+                            p.physical.clone(),
+                            offsets,
+                        )?
                         .zero_residuals()?;
-                    let bound = p.family.general()?.bind_anchored_homotopy(
-                        bridge,
-                        anchor.clone(),
-                        *parameter,
-                        p.original_identity,
-                    )?;
-                    let oracle = FamilyRoot::new(
-                        bound,
-                        p.source.prepared.prepared.plan.available_order(),
-                        isize::MAX as usize,
-                    )?;
-                    execution::roots(
-                        step(p, execution.clone()),
-                        retained,
-                        execution::Roots {
-                            oracle: Box::new(oracle),
-                            initial: &initial,
-                            owner: Some(owner),
-                        },
-                    )?
-                }
-                DerivedRequest::ShiftedPseudoTime {
-                    anchor,
-                    step: dt,
-                    mass,
-                    ..
-                } => {
-                    oracle.admit_nle()?;
-                    let offsets = p.physical.constraints().iter().map(|r| r.lower).collect();
-                    let bridge = RootBridge::new(Box::new(oracle), p.physical.clone(), offsets)?
+                        let bound = p
+                            .family
+                            .general()?
+                            .bind_anchored_homotopy(
+                                bridge,
+                                anchor.clone(),
+                                *parameter,
+                                p.original_identity,
+                            )
+                            .map_err(supplier_failure)?;
+                        let oracle = FamilyRoot::new(
+                            bound,
+                            p.source.prepared.prepared.plan.available_order(),
+                            isize::MAX as usize,
+                        )?;
+                        execution::roots(
+                            step(p, execution.clone()),
+                            retained,
+                            execution::Roots {
+                                oracle: Box::new(oracle),
+                                initial: &initial,
+                                owner: Some(owner),
+                            },
+                        )?
+                    }
+                    DerivedRequest::ShiftedPseudoTime {
+                        anchor,
+                        step: dt,
+                        mass,
+                        ..
+                    } => {
+                        original_owner
+                            .as_ref()
+                            .ok_or_else(|| {
+                                ProblemError::internal("missing derived original owner")
+                            })?
+                            .admit_nle()?;
+                        let offsets = p.physical.constraints().iter().map(|r| r.lower).collect();
+                        let bridge = RootBridge::new(
+                            Box::new(original_owner.take().ok_or_else(|| {
+                                ProblemError::internal("missing derived original transfer")
+                            })?),
+                            p.physical.clone(),
+                            offsets,
+                        )?
                         .zero_residuals()?;
-                    let bound = p.family.general()?.bind_pseudo_time(
-                        bridge,
-                        anchor.clone(),
-                        *dt,
-                        MassBinding::Frozen(mass.as_ref().clone()),
-                    )?;
-                    let oracle = FamilyRoot::new(
-                        bound,
-                        p.source.prepared.prepared.plan.available_order(),
-                        isize::MAX as usize,
-                    )?;
-                    execution::roots(
-                        step(p, execution.clone()),
-                        retained,
-                        execution::Roots {
-                            oracle: Box::new(oracle),
-                            initial: &initial,
-                            owner: Some(owner),
-                        },
-                    )?
-                }
-                DerivedRequest::Reduced {
-                    suppliers,
-                    accuracy,
-                    ..
-                } => {
-                    let prepared = p.reduced.as_ref().ok_or_else(|| {
-                        ProblemError::Contract("missing selected reconstruction preparation".into())
-                    })?;
-                    let bridge = NlpBridge::new(Box::new(oracle), p.physical.clone())?;
-                    let workers = suppliers
+                        let bound = p
+                            .family
+                            .general()?
+                            .bind_pseudo_time(
+                                bridge,
+                                anchor.clone(),
+                                *dt,
+                                MassBinding::Frozen(mass.as_ref().clone()),
+                            )
+                            .map_err(supplier_failure)?;
+                        let oracle = FamilyRoot::new(
+                            bound,
+                            p.source.prepared.prepared.plan.available_order(),
+                            isize::MAX as usize,
+                        )?;
+                        execution::roots(
+                            step(p, execution.clone()),
+                            retained,
+                            execution::Roots {
+                                oracle: Box::new(oracle),
+                                initial: &initial,
+                                owner: Some(owner),
+                            },
+                        )?
+                    }
+                    DerivedRequest::Reduced {
+                        suppliers,
+                        accuracy,
+                        ..
+                    } => {
+                        let prepared = p.reduced.as_ref().ok_or_else(|| {
+                            ProblemError::Contract(
+                                "missing selected reconstruction preparation".into(),
+                            )
+                        })?;
+                        let workers = collect_suppliers(suppliers
                         .iter()
                         .zip(&prepared.suppliers)
                         .map(|(supplier, prepared)| {
@@ -2733,193 +2853,251 @@ impl MathService {
                                 &prepared.binding,
                             )?
                             .with_proof_cell_limit(accuracy.refinement.proof_cells)
-                        })
-                        .collect::<Result<Vec<_>, pse_math::MathError>>()?;
-                    let reconstruction = CompositeReconstruction::new_normalized(
-                        prepared.contract.clone(),
-                        workers,
-                        &p.original.normalization,
-                        &prepared
-                            .suppliers
-                            .iter()
-                            .map(|p| p.normalization.clone())
-                            .collect::<Vec<_>>(),
-                    )?;
-                    let bound = p.family.general()?.bind_reduced(
-                        bridge,
-                        reconstruction,
-                        p.original_identity,
-                    )?;
-                    let actual = ReducedOracle::new(
-                        bound,
-                        &initial,
-                        *accuracy,
-                        p.source.prepared.prepared.plan.available_order(),
-                        isize::MAX as usize,
-                    )?;
-                    let contract = actual.contract().clone();
-                    let bounds = actual.constraint_bounds().to_vec();
-                    let (_, _, entries, _) = layout(&p.family, p.reduced.as_ref())?;
-                    let pattern = AssemblyMatrix::new(
-                        contract.rows.len(),
-                        contract.variables.len(),
-                        &entries,
-                        isize::MAX as usize,
-                    )?;
-                    let actual = Rc::new(RefCell::new(actual));
-                    selected = Some(actual.clone());
-                    let oracle = SharedReduced {
-                        actual,
-                        contract,
-                        bounds,
-                        pattern,
-                    };
-                    execution::nlp(
-                        step(p, execution.clone()),
-                        retained,
-                        execution::Nlp {
-                            oracle: Box::new(OwnedNlp {
-                                oracle: Box::new(oracle),
-                                _owner: owner,
-                            }),
-                            initial: &initial,
-                            presolve: &p.profile.presolve,
-                            intent: p.profile.intent,
-                            sense: p
-                                .source
-                                .prepared
-                                .prepared
-                                .plan
-                                .structure()
-                                .objective()
-                                .map_or(ObjectiveSense::Minimize, |o| o.sense),
-                            limit: self.policy.worker_bytes / 256,
-                            analysis: execution::Analysis::NONE,
-                        },
-                    )?
-                }
-            };
-            Ok(report)
-        })();
-        let report = match result {
-            Ok(report) => report,
-            Err(cause) => {
-                let cause = Arc::new(cause.into_problem());
-                let refinement_product = issued_refinement(p, &cause, selected.as_ref());
-                let mut failure = DerivedFailure::from(cause);
-                failure.refinement_product = refinement_product;
-                return Err(failure);
-            }
-        };
-        let outcome = Outcome::Native(Box::new(report.with_owner(result_owner)));
-        let observation = super::super::strategy::observe(&outcome);
-        let cause = super::super::strategy::cause(&outcome);
-        let permitted = proposal_observation_allowed(observation)
-            && cause.as_deref().is_none_or(|cause| {
-                proposal_observation_allowed(super::super::strategy::failure(cause))
-            });
-        let mut report = match outcome {
-            Outcome::Native(report) => *report,
-            _ => {
-                return Err(
-                    ProblemError::Internal("derived runner lost its native report".into()).into(),
-                );
-            }
-        };
-        let mut screening_calls = 0u64;
-        let proposal = if let Some(candidate) = report.candidate.as_ref().filter(|_| permitted) {
-            let reconstructed = match selected.as_ref() {
-                Some(actual) => actual
-                    .try_borrow_mut()
-                    .map_err(|_| {
-                        ProblemError::Contract(
-                            "reconstruction still borrowed by native callback".into(),
+                        }))?;
+                        let reconstruction = CompositeReconstruction::new_normalized(
+                            prepared.contract.clone(),
+                            workers,
+                            &p.original.normalization,
+                            &prepared
+                                .suppliers
+                                .iter()
+                                .map(|p| p.normalization.clone())
+                                .collect::<Vec<_>>(),
                         )
-                    })
-                    .and_then(|mut oracle| oracle.original_proposal(&candidate.primal))
-                    .map(|observed| (observed.values, Some(observed.accuracy))),
-                None => p
-                    .family
-                    .reconstruct(&candidate.primal)
-                    .map(|point| (point, None))
-                    .map_err(ProblemError::from),
-            };
-            match reconstructed.and_then(|(point, accuracy)| {
-                self.screen_derived_original(p, &point, &scope, budget, &mut screening_calls)
-                    .map(|_| (point, accuracy))
-                    .map_err(MathRuntimeError::into_problem)
-            }) {
-                Ok((coordinates, reconstruction_accuracy)) => {
-                    // A late stop or pool refusal remains part of this completed
-                    // native attempt, retaining its actual counters and cause.
-                    Some(
-                        execution
-                            .check()
-                            .and_then(|()| {
-                                self.reserve(
-                                    "math:derived-original-proposal",
-                                    size_of::<OriginalProposal>()
-                                        + coordinates.capacity() * size_of::<f64>(),
+                        .map_err(supplier_failure)?;
+                        let bridge = match NlpBridge::new(
+                            Box::new(original_owner.take().ok_or_else(|| {
+                                ProblemError::internal("missing derived original transfer")
+                            })?),
+                            p.physical.clone(),
+                        ) {
+                            Ok(bridge) => bridge,
+                            Err(cause) => {
+                                return ProblemError::with_retirement(
+                                    Err(cause),
+                                    ProblemError::retirement(math::ReconstructionOracle::finish(
+                                        reconstruction,
+                                    )),
                                 )
-                                .map_err(MathRuntimeError::into_problem)
-                            })
-                            .and_then(|owner| {
-                                OriginalProposal::from_original(
-                                    p.original_identity,
-                                    p.family.key(),
-                                    coordinates,
-                                    &p.physical,
-                                    reconstruction_accuracy,
-                                    owner,
-                                )
-                            }),
-                    )
+                                .map_err(MathRuntimeError::from);
+                            }
+                        };
+                        let bound = p
+                            .family
+                            .general()?
+                            .bind_reduced(bridge, reconstruction, p.original_identity)
+                            .map_err(supplier_failure)?;
+                        let actual = ReducedOracle::new(
+                            bound,
+                            &initial,
+                            *accuracy,
+                            p.source.prepared.prepared.plan.available_order(),
+                            isize::MAX as usize,
+                        )?;
+                        let contract = actual.contract().clone();
+                        let bounds = actual.constraint_bounds().to_vec();
+                        let (_, _, entries, _) = layout(&p.family, p.reduced.as_ref())?;
+                        let pattern = AssemblyMatrix::new(
+                            contract.rows.len(),
+                            contract.variables.len(),
+                            &entries,
+                            isize::MAX as usize,
+                        )?;
+                        let actual = Rc::new(RefCell::new(Some(actual)));
+                        selected = Some(actual.clone());
+                        let oracle = SharedReduced {
+                            actual,
+                            contract,
+                            bounds,
+                            pattern,
+                        };
+                        execution::nlp(
+                            step(p, execution.clone()),
+                            retained,
+                            execution::Nlp {
+                                oracle: Box::new(OwnedNlp {
+                                    oracle: Box::new(oracle),
+                                    _owner: owner,
+                                }),
+                                initial: &initial,
+                                presolve: &p.profile.presolve,
+                                intent: p.profile.intent,
+                                sense: p
+                                    .source
+                                    .prepared
+                                    .prepared
+                                    .plan
+                                    .structure()
+                                    .objective()
+                                    .map_or(ObjectiveSense::Minimize, |o| o.sense),
+                                limit: self.policy.worker_bytes / 256,
+                                analysis: execution::Analysis::NONE,
+                            },
+                        )?
+                    }
+                };
+                Ok(report)
+            })();
+            let report = match result {
+                Ok(report) => report,
+                Err(cause) => {
+                    let cause = Arc::new(cause.into_problem());
+                    let refinement_product = issued_refinement(p, &cause, selected.as_ref());
+                    let mut failure = DerivedFailure::from(cause);
+                    failure.refinement_product = refinement_product;
+                    return Err(failure);
                 }
-                Err(error) => Some(Err(error)),
+            };
+            let outcome = Outcome::Native(Box::new(report.with_owner(result_owner)));
+            let observation = super::super::strategy::observe(&outcome);
+            let cause = super::super::strategy::cause(&outcome);
+            let permitted = proposal_observation_allowed(observation)
+                && cause.as_deref().is_none_or(|cause| {
+                    proposal_observation_allowed(super::super::strategy::failure(cause))
+                });
+            let mut report = match outcome {
+                Outcome::Native(report) => *report,
+                _ => {
+                    return Err(ProblemError::Internal(
+                        "derived runner lost its native report".into(),
+                    )
+                    .into());
+                }
+            };
+            let mut screening_calls = 0u64;
+            let proposal = if let Some(candidate) = report.candidate.as_ref().filter(|_| permitted)
+            {
+                let reconstructed = match selected.as_ref() {
+                    Some(actual) => actual
+                        .try_borrow_mut()
+                        .map_err(|_| {
+                            ProblemError::Contract(
+                                "reconstruction still borrowed by native callback".into(),
+                            )
+                        })
+                        .and_then(|mut oracle| {
+                            oracle
+                                .as_mut()
+                                .ok_or_else(|| {
+                                    ProblemError::Contract(
+                                        "selected reduced evaluator retired".into(),
+                                    )
+                                })?
+                                .original_proposal(&candidate.primal)
+                        })
+                        .map(|observed| (observed.values, Some(observed.accuracy))),
+                    None => p
+                        .family
+                        .reconstruct(&candidate.primal)
+                        .map(|point| (point, None))
+                        .map_err(ProblemError::from),
+                };
+                match reconstructed.and_then(|(point, accuracy)| {
+                    self.screen_derived_original(p, &point, &scope, budget, &mut screening_calls)
+                        .map(|_| (point, accuracy))
+                        .map_err(MathRuntimeError::into_problem)
+                }) {
+                    Ok((coordinates, reconstruction_accuracy)) => {
+                        // A late stop or pool refusal remains part of this completed
+                        // native attempt, retaining its actual counters and cause.
+                        Some(
+                            execution
+                                .check()
+                                .and_then(|()| {
+                                    self.reserve(
+                                        "math:derived-original-proposal",
+                                        size_of::<OriginalProposal>()
+                                            + coordinates.capacity() * size_of::<f64>(),
+                                    )
+                                    .map_err(MathRuntimeError::into_problem)
+                                })
+                                .and_then(|owner| {
+                                    OriginalProposal::from_original(
+                                        p.original_identity,
+                                        p.family.key(),
+                                        coordinates,
+                                        &p.physical,
+                                        reconstruction_accuracy,
+                                        owner,
+                                    )
+                                }),
+                        )
+                    }
+                    Err(error) => Some(Err(error)),
+                }
+            } else {
+                None
+            };
+            // Internal selected reconstruction work is not present in every native counter.
+            // Keep unknown accounting unknown rather than treat callbacks as total work.
+            if let Some(observed) = report.evidence.work.evaluations {
+                report.evidence.work.evaluations = observed.checked_add(screening_calls);
             }
-        } else {
-            None
-        };
-        // Internal selected reconstruction work is not present in every native counter.
-        // Keep unknown accounting unknown rather than treat callbacks as total work.
-        if let Some(observed) = report.evidence.work.evaluations {
-            report.evidence.work.evaluations = observed.checked_add(screening_calls);
-        }
-        if p.reduced.is_some() {
-            report.evidence.work.evaluations = None;
-            report.evidence.work.factorizations = None;
-            report.evidence.work.proof_steps = None;
-        }
-        let (proposal, screening_failure) = match proposal {
-            Some(Ok(p)) => (Some(p), None),
-            Some(Err(e)) => (None, Some(Arc::new(e))),
-            None => (None, None),
-        };
-        let recorded = screening_failure
-            .as_deref()
-            .or_else(|| report.callback_failure());
-        let refinement_product =
-            recorded.and_then(|cause| issued_refinement(p, cause, selected.as_ref()));
-        let applied_action = selected.as_ref().and_then(|actual| {
-            actual
-                .try_borrow()
-                .ok()
-                .and_then(|oracle| oracle.applied_action().cloned())
+            if p.reduced.is_some() {
+                report.evidence.work.evaluations = None;
+                report.evidence.work.factorizations = None;
+                report.evidence.work.proof_steps = None;
+            }
+            let (proposal, screening_failure) = match proposal {
+                Some(Ok(p)) => (Some(p), None),
+                Some(Err(e)) => (None, Some(Arc::new(e))),
+                None => (None, None),
+            };
+            let recorded = screening_failure
+                .as_deref()
+                .or_else(|| report.callback_failure());
+            let refinement_product =
+                recorded.and_then(|cause| issued_refinement(p, cause, selected.as_ref()));
+            let applied_action = selected.as_ref().and_then(|actual| {
+                actual.try_borrow().ok().and_then(|oracle| {
+                    oracle
+                        .as_ref()
+                        .and_then(|oracle| oracle.applied_action().cloned())
+                })
+            });
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("derived.native_attempts_returned", "count", 1);
+                context.boolean("derived.original_proposal_available", proposal.is_some());
+                context.boolean("derived.screening_failed", screening_failure.is_some());
+                context.boolean("derived.refinement_available", refinement_product.is_some());
+                context.boolean("derived.refinement_applied", applied_action.is_some());
+            }
+            Ok(DerivedAttempt {
+                applied_action,
+                outcome: Outcome::Native(Box::new(report)),
+                proposal,
+                screening_failure,
+                refinement_product,
+            })
+        })();
+        let retirement = selected.map_or(Ok(()), |actual| {
+            let actual = actual
+                .try_borrow_mut()
+                .map_err(|_| {
+                    ProblemError::internal("reduced retirement overlaps an active callback")
+                })?
+                .take()
+                .ok_or_else(|| {
+                    ProblemError::Contract("selected reduced evaluator already retired".into())
+                })?;
+            NlpOracle::finish(Box::new(actual))
         });
-        if let Some(context) = pse_diagnostics::observation::current() {
-            context.count("derived.native_attempts_returned", "count", 1);
-            context.boolean("derived.original_proposal_available", proposal.is_some());
-            context.boolean("derived.screening_failed", screening_failure.is_some());
-            context.boolean("derived.refinement_available", refinement_product.is_some());
-            context.boolean("derived.refinement_applied", applied_action.is_some());
+        let original = original_owner.map_or(Ok(()), |owner| owner.finish());
+        let retirement = ProblemError::with_retirement(original, retirement);
+        match (completed, retirement) {
+            (result, Ok(())) => result,
+            (Ok(_), Err(cause)) => Err(cause.into()),
+            (Err(mut failure), Err(cleanup)) => {
+                let original = ProblemError::Math(pse_math::MathError::Typed {
+                    retained: failure.cause.retained_bytes(),
+                    cause: pse_model::diagnostic::DiagnosticCause::from_shared(failure.cause),
+                });
+                failure.cause = Arc::new(ProblemError::Retirement {
+                    failures: vec![original, cleanup],
+                });
+                Err(failure)
+            }
         }
-        Ok(DerivedAttempt {
-            applied_action,
-            outcome: Outcome::Native(Box::new(report)),
-            proposal,
-            screening_failure,
-            refinement_product,
-        })
     }
     fn screen_derived_original(
         &self,
@@ -2940,25 +3118,28 @@ impl MathService {
         screen_bounds(&p.physical, point)?;
         scope.check().map_err(ProblemError::from)?;
         let (mut oracle, _owner) = self.derived_original_oracle(p, scope, budget)?;
-        let mut rows = vec![0.0; p.physical.constraints().len()];
-        *screening_calls += 1;
-        NlpOracle::constraints(&mut oracle, point, &mut rows)?;
-        *screening_calls += 1;
-        let objective = NlpOracle::objective(&mut oracle, point)?;
-        if rows.iter().any(|v| !v.is_finite()) || !objective.is_finite() {
-            return Err(ProblemError::numerical(
-                "original proposal evaluates to nonfinite authored values",
-            )
-            .into());
-        }
-        scope.check().map_err(ProblemError::from)?;
-        Ok(())
+        let result = (|| {
+            let mut rows = vec![0.0; p.physical.constraints().len()];
+            *screening_calls += 1;
+            NlpOracle::constraints(&mut oracle, point, &mut rows)?;
+            *screening_calls += 1;
+            let objective = NlpOracle::objective(&mut oracle, point)?;
+            if rows.iter().any(|v| !v.is_finite()) || !objective.is_finite() {
+                return Err(ProblemError::numerical(
+                    "original proposal evaluates to nonfinite authored values",
+                )
+                .into());
+            }
+            scope.check().map_err(ProblemError::from)?;
+            Ok(())
+        })();
+        MathRuntimeError::settle(result, oracle.finish().map_err(MathRuntimeError::from))
     }
 }
 fn issued_refinement(
     prepared: &PreparedDerived,
     cause: &ProblemError,
-    actual: Option<&Rc<RefCell<ConcreteReduced>>>,
+    actual: Option<&Rc<RefCell<Option<ConcreteReduced>>>>,
 ) -> Option<pse_ids::ContentHash> {
     let (product, source_key, validity) = refinement_cause(cause)?;
     if prepared
@@ -2970,7 +3151,11 @@ fn issued_refinement(
     }
     actual
         .and_then(|actual| actual.try_borrow().ok())
-        .filter(|actual| actual.accepts_refinement_product(product))
+        .filter(|actual| {
+            actual
+                .as_ref()
+                .is_some_and(|actual| actual.accepts_refinement_product(product))
+        })
         .map(|_| product)
 }
 fn refinement_cause(

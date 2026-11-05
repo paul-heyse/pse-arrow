@@ -117,6 +117,28 @@ pub use convexity::GramCertificate;
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::DerivativeOrder;
 
+/// Keep constructor custody until the exact owner is transferred. Every failure
+/// before transfer retires that owner and preserves the original construction cause.
+pub(crate) fn retiring<T, R>(
+    owner: T,
+    finish: impl FnOnce(T) -> Result<(), ProblemError>,
+    build: impl FnOnce(&mut Option<T>) -> Result<R, ProblemError>,
+) -> Result<R, ProblemError> {
+    let mut pending = Some(owner);
+    let result = build(&mut pending);
+    let retirement = pending.map_or(Ok(()), |owner| finish_owner(|| finish(owner)));
+    ProblemError::with_retirement(result, retirement)
+}
+
+pub(crate) fn finish_owner(
+    work: impl FnOnce() -> Result<(), ProblemError>,
+) -> Result<(), ProblemError> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(work)).unwrap_or_else(|payload| {
+        let detail = pse_diagnostics::panic::settle_payload(payload, "opaque retirement panic");
+        Err(ProblemError::RetirementPanic { detail })
+    })
+}
+
 #[cfg(any(feature = "kinsol", feature = "idas"))]
 #[expect(
     unsafe_code,
@@ -223,6 +245,18 @@ pub enum NativeFailureKind {
 /// A refused request or an attributable failure, classified by its cause (DP-21).
 #[derive(Debug, thiserror::Error)]
 pub enum ProblemError {
+    /// A consuming owner panicked while independent retirements must still proceed.
+    #[error("native owner retirement panicked: {detail}")]
+    RetirementPanic {
+        /// Original panic payload when it has a string representation.
+        detail: String,
+    },
+    /// Original action and independent retirement failures, in attempted order.
+    #[error("native retirement failed: {failures:?}")]
+    Retirement {
+        /// Unflattened scientific and cleanup causes.
+        failures: Vec<ProblemError>,
+    },
     /// The selected backend is not linked; no implicit fallback is performed.
     #[error(
         "selected backend {backend:?} is unavailable; available alternatives: {alternatives:?}"
@@ -312,6 +346,46 @@ pub enum ProblemError {
     Internal(String),
 }
 impl ProblemError {
+    /// Keep a report's original typed scientific cause when retirement also fails.
+    pub fn after_solve(
+        result: Result<solve::SolveReport, Self>,
+        retirement: Result<(), Self>,
+    ) -> Result<solve::SolveReport, Self> {
+        match (result, retirement) {
+            (Ok(report), Err(cleanup)) => {
+                let cause = report
+                    .shared_callback_failure()
+                    .or_else(|| report.shared_validation_failure());
+                if let Some(cause) = cause {
+                    let original = Self::Math(pse_math::MathError::Typed {
+                        retained: cause.retained_bytes(),
+                        cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+                    });
+                    Self::with_retirement(Err(original), Err(cleanup))
+                } else {
+                    Err(cleanup)
+                }
+            }
+            (result, retirement) => Self::with_retirement(result, retirement),
+        }
+    }
+    /// Preserve all failures returned by a generic mathematical supplier.
+    pub fn retirement(result: Result<(), Vec<Self>>) -> Result<(), Self> {
+        result.map_err(|failures| Self::Retirement { failures })
+    }
+    /// Preserve the action outcome while reporting every independent retirement failure.
+    pub fn with_retirement<T>(
+        result: Result<T, Self>,
+        retirement: Result<(), Self>,
+    ) -> Result<T, Self> {
+        match (result, retirement) {
+            (result, Ok(())) => result,
+            (Ok(_), Err(cause)) => Err(cause),
+            (Err(action), Err(retirement)) => Err(Self::Retirement {
+                failures: vec![action, retirement],
+            }),
+        }
+    }
     /// No eligible route, or an adapter that cannot represent the request.
     pub fn unsupported(message: impl Into<String>) -> Self {
         Self::Unsupported(message.into())
@@ -388,6 +462,11 @@ impl ProblemError {
     /// Owned error payload admitted separately from bounded native report history.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>().saturating_add(match self {
+            Self::RetirementPanic { detail } => detail.capacity(),
+            Self::Retirement { failures } => failures.iter().fold(
+                failures.capacity().saturating_mul(size_of::<Self>()),
+                |bytes, cause| bytes.saturating_add(cause.retained_bytes()),
+            ),
             Self::Unavailable { alternatives, .. } => alternatives
                 .capacity()
                 .saturating_mul(size_of::<solve::Backend>()),
@@ -428,6 +507,8 @@ impl ProblemError {
 pse_diagnostics::impl_diagnostic! {
     ProblemError,
     code(this) { match this {
+        Self::RetirementPanic { .. } => Some(pse_diagnostics::DiagnosticCode::WorkflowPanic),
+        Self::Retirement { .. } => Some(pse_diagnostics::DiagnosticCode::InternalInvariant),
         Self::Contract(_) => Some(pse_diagnostics::DiagnosticCode::NativeContract),
         Self::Structural{..} => Some(pse_diagnostics::DiagnosticCode::NativeStructural),
         Self::Unavailable{..} => Some(pse_diagnostics::DiagnosticCode::NativeUnavailable),
@@ -455,7 +536,10 @@ pse_diagnostics::impl_diagnostic! {
         Self::Math(_) | Self::Provider(_) => None,
     } },
     forward(this) { match this { Self::Math(error) => Some(error), Self::Provider(error) => Some(error), _ => None } },
-    help(_this) { None }, related(_this) { None }, source(_this) { None }
+    help(_this) { None }, related(this) { match this {
+        Self::Retirement { failures } => Some(Box::new(failures.iter().map(|cause| -> &dyn pse_diagnostics::TypedDiagnostic { cause }))),
+        _ => None,
+    } }, source(_this) { None }
 }
 /// Stable source identity and interval in its declared source representation.
 #[derive(Clone, Debug)]
@@ -558,6 +642,8 @@ impl RootOperations {
 }
 /// Square nonlinear equations, with a residual Jacobian or Jacobian-vector product.
 pub trait NleOracle: std::fmt::Debug {
+    /// Retire this owned supplier on its native thread. Borrowed aliases release only themselves.
+    fn finish(self: Box<Self>) -> Result<(), ProblemError>;
     /// Actual executable operations. Generic First contracts retain their existing guarantees.
     fn operations(&self) -> RootOperations {
         RootOperations::from_order(self.contract().derivatives)
@@ -607,6 +693,8 @@ pub struct DerivativeFacts {
 }
 /// Nonlinear optimization shared only by compatible NLP adapters.
 pub trait NlpOracle: std::fmt::Debug {
+    /// Retire this owned supplier on its native thread. Owning wrappers forward to their supplier.
+    fn finish(self: Box<Self>) -> Result<(), ProblemError>;
     /// An optional admitted original-coordinate solve separator.
     fn solve_separator(&self) -> Option<&SolveSeparator> {
         None
@@ -1138,7 +1226,9 @@ impl pse_model::diagnostic::DiagnosticProjection for ProblemError {
         match self {
             Self::Math(error) => return error.boundary_diagnostic(stage),
             Self::Provider(error) => return error.boundary_diagnostic(stage),
-            Self::Unavailable { .. }
+            Self::RetirementPanic { .. }
+            | Self::Retirement { .. }
+            | Self::Unavailable { .. }
             | Self::RouteRefused(_)
             | Self::DynamicRouteRefused(_)
             | Self::Contract(_)
@@ -1164,6 +1254,20 @@ impl pse_model::diagnostic::DiagnosticProjection for ProblemError {
                 .unwrap_or(pse_diagnostics::DiagnosticCode::InternalInvariant),
         );
         let (class, rule) = match error {
+            E::RetirementPanic { .. } => (
+                Class::Internal,
+                pse_diagnostics::DiagnosticRule::NativeInternal,
+            ),
+            E::Retirement { failures } => {
+                result.causes = failures
+                    .iter()
+                    .map(|cause| cause.boundary_diagnostic(stage))
+                    .collect();
+                (
+                    Class::Internal,
+                    pse_diagnostics::DiagnosticRule::NativeInternal,
+                )
+            }
             E::DynamicRouteRefused(decision) => {
                 result.causes = decision
                     .candidates

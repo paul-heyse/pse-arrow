@@ -160,6 +160,7 @@ impl BackendExecution for Highs {
                         session.update(problem, certificate, stamp.clone(), &input.execution)
                     },
                     || highs::Session::new(problem, certificate, stamp.clone(), &input.execution),
+                    highs::Session::finish,
                 )?;
                 if let Some(start) = &settings.sparse_start {
                     let start = start
@@ -234,7 +235,7 @@ impl BackendExecution for Highs {
                 Ok(report)
             })();
             if outcome.is_err() {
-                retained.clear();
+                return ProblemError::with_retirement(outcome, retained.clear());
             }
             outcome
         }

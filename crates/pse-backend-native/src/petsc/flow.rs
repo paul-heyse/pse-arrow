@@ -14,6 +14,8 @@ use std::sync::Arc;
 /// Supplier explicitly refreshing a frozen mass at an accepted original anchor.
 /// Rejected stages never call this owner.
 pub trait FrozenMassRefresh: std::fmt::Debug {
+    /// Retire an owned accepted-anchor supplier after its flow borrow ends.
+    fn finish(self: Box<Self>) -> Result<(), ProblemError>;
     /// Immutable producer identity of this accepted-anchor refresh declaration.
     fn source(&self) -> ContentHash;
     /// Actual parameter/provider realization used by the next accepted-anchor refresh.
@@ -33,6 +35,10 @@ pub struct ArtificialFlow<'a> {
     mass_realization: Option<ContentHash>,
 }
 impl<'a> ArtificialFlow<'a> {
+    /// End borrowed original/domain aliases and consume the owned mass supplier.
+    pub fn finish(self) -> Result<(), ProblemError> {
+        finish_mass(self.mass)
+    }
     /// Bind the immutable original inventory, normalization, sign and mass authority.
     /// A frozen matrix without a refresh supplier is fixed for the entire trajectory.
     /// # Errors
@@ -43,27 +49,34 @@ impl<'a> ArtificialFlow<'a> {
         mass: MassBinding<ProblemError>,
         domain: &'a mut dyn DomainOracle,
     ) -> Result<Self, ProblemError> {
-        if family.class() != FamilyClass::ShiftedPseudoTime
-            || domain.source() != family.original().obligations().guards
-        {
-            return Err(ProblemError::Contract(
-                "PETSc artificial flow family or original domain owner".into(),
-            ));
-        }
-        owner::original(family.original(), original)?;
-        validate_mass(&family, &mass)?;
-        let mass_realization = match &mass {
-            MassBinding::Frozen(_) => None,
-            MassBinding::StateDependent(m) => Some(m.realization()),
-        };
-        Ok(Self {
-            family,
-            original,
-            mass,
-            domain,
-            refresh: None,
-            refresh_source: None,
-            mass_realization,
+        crate::retiring(mass, finish_mass, |pending| {
+            let mass = pending
+                .as_ref()
+                .ok_or_else(|| ProblemError::internal("missing PETSc mass owner"))?;
+            if family.class() != FamilyClass::ShiftedPseudoTime
+                || domain.source() != family.original().obligations().guards
+            {
+                return Err(ProblemError::Contract(
+                    "PETSc artificial flow family or original domain owner".into(),
+                ));
+            }
+            owner::original(family.original(), original)?;
+            validate_mass(&family, &mass)?;
+            let mass_realization = match &mass {
+                MassBinding::Frozen(_) => None,
+                MassBinding::StateDependent(m) => Some(m.realization()),
+            };
+            Ok(Self {
+                family,
+                original,
+                mass: pending
+                    .take()
+                    .ok_or_else(|| ProblemError::internal("missing PETSc mass transfer"))?,
+                domain,
+                refresh: None,
+                refresh_source: None,
+                mass_realization,
+            })
         })
     }
     /// Declare accepted-anchor refresh; the supplied initial frozen matrix remains the
@@ -75,9 +88,12 @@ impl<'a> ArtificialFlow<'a> {
         refresh: &'a mut dyn FrozenMassRefresh,
     ) -> Result<Self, ProblemError> {
         if !matches!(self.mass, MassBinding::Frozen(_)) {
-            return Err(ProblemError::Contract(
-                "PETSc accepted-anchor refresh requires frozen mass".into(),
-            ));
+            return ProblemError::with_retirement(
+                Err(ProblemError::Contract(
+                    "PETSc accepted-anchor refresh requires frozen mass".into(),
+                )),
+                self.finish(),
+            );
         }
         self.mass_realization = Some(refresh.realization());
         self.refresh_source = Some(refresh.source());
@@ -938,4 +954,11 @@ pub fn solve_flow(
     }
     objects.close()?;
     Ok(report)
+}
+
+fn finish_mass(mass: MassBinding<ProblemError>) -> Result<(), ProblemError> {
+    match mass {
+        MassBinding::Frozen(_) => Ok(()),
+        MassBinding::StateDependent(owner) => ProblemError::retirement(owner.finish()),
+    }
 }

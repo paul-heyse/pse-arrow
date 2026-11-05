@@ -222,7 +222,7 @@ impl BackendExecution for Scip {
         #[cfg(not(feature = "scip"))]
         {
             let _ = (program, initial, intent, normalization, settings);
-            retained.clear();
+            retained.clear()?;
             Err(super::unlinked(Backend::Scip))
         }
     }

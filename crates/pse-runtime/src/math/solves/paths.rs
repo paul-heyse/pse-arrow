@@ -1281,6 +1281,10 @@ impl Supplier {
     }
 }
 impl ParameterizedOracle for Supplier {
+    fn finish(self) -> Result<(), Vec<Self::Error>> {
+        self.oracle.finish().map_err(|cause| vec![cause])
+    }
+
     type Error = ProblemError;
     fn contract(&self) -> &OriginalContract {
         &self.original
@@ -1374,6 +1378,10 @@ struct NormalizedCorrector {
     normalization: Normalization,
 }
 impl NlpOracle for NormalizedCorrector {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        NlpOracle::finish(Box::new(self.inner))
+    }
+
     fn contract(&self) -> &native::OracleContract {
         NlpOracle::contract(&self.inner)
     }
@@ -1679,7 +1687,8 @@ fn correct(
         let supplier = path.supplier(service, execution, budget)?;
         let binding = path
             .family
-            .bind(supplier, point.to_vec(), orientation.to_vec(), source)?;
+            .bind(supplier, point.to_vec(), orientation.to_vec(), source)
+            .map_err(derived::supplier_failure)?;
         let identity = binding.key();
         if let Some(context) = pse_diagnostics::observation::current() {
             context.source_ref("path.corrector", identity.to_string());
@@ -1748,6 +1757,10 @@ struct FixedCorrector {
     normalization: Normalization,
 }
 impl NlpOracle for FixedCorrector {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        ProblemError::retirement(self.supplier.finish())
+    }
+
     fn contract(&self) -> &native::OracleContract {
         &self.contract
     }
@@ -2434,6 +2447,9 @@ pub(crate) fn run_path(
     };
     let calls = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let mut events = Vec::new();
+    let mut supplier_owner = None;
+    let mut curvature_owner = None;
+    let mut retained = Retained::default();
     let result = (|| -> Result<(), MathRuntimeError> {
         execution.check()?;
         if path.original.semantic_point_key(&start.point)? != start.source
@@ -2504,10 +2520,13 @@ pub(crate) fn run_path(
             })
             .transpose()?;
         let mut orientation = start.orientation.as_ref().clone();
-        let mut supplier = path.supplier(service, &execution, budget)?;
+        supplier_owner = Some(path.supplier(service, &execution, budget)?);
+        let supplier = supplier_owner
+            .as_mut()
+            .ok_or_else(|| ProblemError::internal("missing path supplier owner"))?;
         supplier.calls = Some(calls.clone());
-        let mut curvature = path.curvature_supplier(service, &execution, budget, calls.clone())?;
-        let mut retained = Retained::default();
+        curvature_owner = path.curvature_supplier(service, &execution, budget, calls.clone())?;
+        let curvature = &mut curvature_owner;
         let mut steps = crate::math::strategy::path_control::StepControl::new(
             path.request.policy.step,
             path.request.policy.minimum_step,
@@ -2584,8 +2603,8 @@ pub(crate) fn run_path(
                     orientation: &orientation,
                     localization: None,
                 },
-                &mut supplier,
-                &mut curvature,
+                supplier,
+                curvature,
                 &execution,
                 &mut outcome,
                 &mut events,
@@ -2608,7 +2627,7 @@ pub(crate) fn run_path(
                         backward_limit: path.request.policy.backward_limit,
                         limits: path.request.policy.tangent,
                     },
-                    &mut supplier,
+                    supplier,
                     &execution,
                     &mut tangent_workspace,
                 ) {
@@ -2709,7 +2728,18 @@ pub(crate) fn run_path(
                             context.count("path.subdivisions", "count", 1);
                         }
                         if path.profile().controls.reuse != ReusePolicy::RequireReuse {
-                            retained.clear();
+                            if let Err(cleanup) = retained.clear() {
+                                let original = ProblemError::Math(pse_math::MathError::Typed {
+                                    retained: cause.retained_bytes(),
+                                    cause: pse_model::diagnostic::DiagnosticCause::from_shared(
+                                        cause,
+                                    ),
+                                });
+                                outcome.terminal = Some(Arc::new(ProblemError::Retirement {
+                                    failures: vec![original, cleanup],
+                                }));
+                                return Ok(());
+                            }
                         }
                         continue;
                     }
@@ -2779,8 +2809,8 @@ pub(crate) fn run_path(
                             tangent: &tangent,
                             displacement,
                         },
-                        &mut supplier,
-                        &mut curvature,
+                        supplier,
+                        curvature,
                         &mut outcome,
                         &mut events,
                     )?;
@@ -2977,6 +3007,28 @@ pub(crate) fn run_path(
         execution.check()?;
         Ok(())
     })();
+    let retained = retained.finish();
+    let supplier = supplier_owner.map_or(Ok(()), |owner| ProblemError::retirement(owner.finish()));
+    let curvature = curvature_owner.map_or(Ok(()), |owner| {
+        ProblemError::retirement(owner.inner.finish())
+    });
+    let cleanup =
+        ProblemError::with_retirement(ProblemError::with_retirement(retained, supplier), curvature)
+            .map_err(MathRuntimeError::from);
+    let result = if result.is_ok() && cleanup.is_err() {
+        match &outcome.terminal {
+            Some(cause) => Err(MathRuntimeError::from(ProblemError::Math(
+                pse_math::MathError::Typed {
+                    retained: cause.retained_bytes(),
+                    cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause.clone()),
+                },
+            ))),
+            None => result,
+        }
+    } else {
+        result
+    };
+    let result = MathRuntimeError::settle(result, cleanup);
     if let Err(error) = result {
         outcome.terminal = Some(Arc::new(error.into_problem()));
         outcome.proposal = None;

@@ -6,6 +6,35 @@ use super::*;
 use std::collections::BTreeMap;
 use std::sync::atomic::AtomicU64;
 
+/// Original retirement failure attributed to its admitted provider identity.
+#[derive(Debug, thiserror::Error)]
+#[error("provider {} retirement: {cause}", .key.0)]
+pub struct ProviderRetirementFailure {
+    /// Bank membership identity, including an admitted narrowed capability.
+    pub key: ProviderKey,
+    /// Original provider failure; typed nested causes remain owned and inspectable.
+    #[source]
+    pub cause: Box<ProviderError>,
+}
+impl ProviderRetirementFailure {
+    /// Owned failure extent, including its original source allocation.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>().saturating_add(self.cause.retained_bytes())
+    }
+}
+pse_diagnostics::impl_diagnostic! {
+    ProviderRetirementFailure,
+    code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
+    forward(_this) { None }, help(_this) { None },
+    related(this) { let cause: &dyn pse_diagnostics::TypedDiagnostic = this.cause.as_ref(); Some(Box::new(std::iter::once(cause))) },
+    source(this) { Some(this.cause.as_ref()) },
+    facts(this) {
+        let mut facts = pse_diagnostics::DiagnosticFacts::default();
+        facts.observe("provider_key", pse_diagnostics::DiagnosticObservation::Text(this.key.0.to_string()));
+        facts
+    }
+}
+
 /// Exact local derivative product; numeric seeds belong to each invocation.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum ProviderDemand {
@@ -386,6 +415,32 @@ pub struct ProviderBinding {
     worker: Box<dyn Provider>,
 }
 impl ProviderBinding {
+    /// Consume this binding and await its actual worker's physical retirement.
+    /// Returning an error still establishes completed physical retirement.
+    pub fn finish(self) -> Result<(), ProviderError> {
+        let key = self.key;
+        self.finish_inner().map_err(|error| match error {
+            error @ (ProviderError::Retirement { .. } | ProviderError::Settlement { .. }) => error,
+            cause => ProviderError::Retirement {
+                failures: vec![ProviderRetirementFailure {
+                    key,
+                    cause: Box::new(cause),
+                }],
+            },
+        })
+    }
+    // The enclosing bank supplies admitted-key attribution and nonrecoverability.
+    fn finish_inner(self) -> Result<(), ProviderError> {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.worker.finish())) {
+            Ok(result) => result,
+            Err(payload) => Err(ProviderError::RetirementPanic(
+                pse_diagnostics::panic::settle_payload(
+                    payload,
+                    "non-string provider retirement panic",
+                ),
+            )),
+        }
+    }
     /// Pair fresh mutable implementation state with its immutable descriptor.
     pub fn new(spec: ProviderSpec, worker: Box<dyn Provider>) -> Self {
         let linearization_capability = worker.supports_linearization();
@@ -660,7 +715,7 @@ static NEXT_BANK: AtomicU64 = AtomicU64::new(1);
 #[derive(Debug)]
 pub struct ProviderBindings {
     identity: u64,
-    slots: Vec<ProviderBinding>,
+    slots: Vec<(ProviderKey, ProviderBinding)>,
     index: BTreeMap<ProviderKey, usize>,
 }
 impl Default for ProviderBindings {
@@ -669,6 +724,59 @@ impl Default for ProviderBindings {
     }
 }
 impl ProviderBindings {
+    /// Consume every owned slot, retaining every keyed original failure.
+    /// Cancellation or an earlier failure never suppresses independent teardown.
+    /// This returns only after every slot has physically retired, including failures.
+    pub fn finish(self) -> Result<(), ProviderError> {
+        let mut failures = Vec::new();
+        self.finish_into(&mut failures);
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(ProviderError::Retirement { failures })
+        }
+    }
+    fn finish_into(self, failures: &mut Vec<ProviderRetirementFailure>) {
+        for (key, binding) in self.slots {
+            if let Err(cause) = binding.finish_inner() {
+                failures.push(ProviderRetirementFailure {
+                    key,
+                    cause: Box::new(cause),
+                });
+            }
+        }
+    }
+    /// Construct immutable membership with last-value lookup semantics.
+    /// Retire each displaced duplicate before installing its replacement. If any
+    /// retirement fails, consume the entire iterator and retire the final bank,
+    /// returning every keyed failure instead of publishing an active bank.
+    pub fn try_from_iter<T: IntoIterator<Item = (ProviderKey, ProviderBinding)>>(
+        iter: T,
+    ) -> Result<Self, ProviderError> {
+        let mut bank = Self::new();
+        let mut failures = Vec::new();
+        for (key, binding) in iter {
+            if let Some(&slot) = bank.index.get(&key) {
+                let (_, displaced) = bank.slots.remove(slot);
+                if let Err(cause) = displaced.finish_inner() {
+                    failures.push(ProviderRetirementFailure {
+                        key,
+                        cause: Box::new(cause),
+                    });
+                }
+                bank.slots.insert(slot, (key, binding));
+            } else {
+                bank.index.insert(key, bank.slots.len());
+                bank.slots.push((key, binding));
+            }
+        }
+        if failures.is_empty() {
+            Ok(bank)
+        } else {
+            bank.finish_into(&mut failures);
+            Err(ProviderError::Retirement { failures })
+        }
+    }
     /// Create an empty attempt binding bank with a fresh identity.
     pub fn new() -> Self {
         Self {
@@ -692,7 +800,7 @@ impl ProviderBindings {
     pub fn supports_linearization(&self, key: ProviderKey) -> bool {
         self.index
             .get(&key)
-            .is_some_and(|&slot| self.slots[slot].supports_linearization())
+            .is_some_and(|&slot| self.slots[slot].1.supports_linearization())
     }
     /// Validate a prepared request against a stable slot without exposing membership mutation.
     pub fn bind_request(
@@ -703,7 +811,7 @@ impl ProviderBindings {
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("kernel.provider.request_bindings", "count", 1);
         }
-        let binding = self
+        let (_, binding) = self
             .slots
             .get_mut(slot)
             .ok_or_else(|| ProviderError::Contract("missing provider slot".into()))?;
@@ -719,7 +827,7 @@ impl ProviderBindings {
             .index
             .get(&request.key())
             .ok_or_else(|| ProviderError::Contract("missing provider worker".into()))?;
-        let binding = &mut self.slots[slot];
+        let binding = &mut self.slots[slot].1;
         binding.check_prepared(request)?;
         binding.prepare_demand(request)
     }
@@ -729,7 +837,7 @@ impl ProviderBindings {
         slot: usize,
         request: &mut PreparedProviderRequest,
     ) -> Result<(), ProviderError> {
-        let binding = self
+        let (_, binding) = self
             .slots
             .get(slot)
             .ok_or_else(|| ProviderError::Contract("missing provider slot".into()))?;
@@ -748,7 +856,7 @@ impl ProviderBindings {
         runtime: ProviderRuntime<'_>,
         context: &EvaluationContext<'_>,
     ) -> Result<ProviderCompletion<'a>, ProviderError> {
-        let binding = self
+        let (_, binding) = self
             .slots
             .get_mut(slot)
             .ok_or_else(|| ProviderError::Contract("missing provider slot".into()))?;
@@ -766,26 +874,5 @@ impl ProviderBindings {
     /// Whether this attempt has no provider workers.
     pub fn is_empty(&self) -> bool {
         self.slots.is_empty()
-    }
-}
-impl FromIterator<(ProviderKey, ProviderBinding)> for ProviderBindings {
-    fn from_iter<T: IntoIterator<Item = (ProviderKey, ProviderBinding)>>(iter: T) -> Self {
-        let mut bank = Self::new();
-        for (key, binding) in iter {
-            // Duplicate keys have the same deterministic last-value semantics as
-            // the previous BTreeMap, without mutable membership after publication.
-            if let Some(&slot) = bank.index.get(&key) {
-                bank.slots[slot] = binding;
-            } else {
-                bank.index.insert(key, bank.slots.len());
-                bank.slots.push(binding);
-            }
-        }
-        bank
-    }
-}
-impl<const N: usize> From<[(ProviderKey, ProviderBinding); N]> for ProviderBindings {
-    fn from(bindings: [(ProviderKey, ProviderBinding); N]) -> Self {
-        bindings.into_iter().collect()
     }
 }

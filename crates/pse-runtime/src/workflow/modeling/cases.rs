@@ -363,12 +363,12 @@ impl ModelingPackage {
                     .collect::<Vec<_>>();
                 let retained = owner.clone();
                 let (values, applicability, _previous_owner) = service
-                    .with_owned_worker(
+                    .with_borrowed_worker(
                         assembly,
                         providers,
                         cancel,
                         Some((scope.clone(), scope.cancellation_control().clone())),
-                        move |mut worker| {
+                        move |worker| {
                             let observed = worker.constraints(&values)?;
                             Ok((
                                 ids.into_iter().zip(observed.iter().copied()).collect(),

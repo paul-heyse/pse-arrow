@@ -236,17 +236,19 @@ fn shared_conditional_oracle_lends_one_worker_and_keeps_other_owners_private() {
         )
         .unwrap()
     };
-    let mut one = create();
-    let mut loan = one.clone();
-    let mut other = create();
+    let one = create();
+    let mut callback = one.callback();
+    let mut loan = one.callback();
+    let other = create();
+    let mut other_callback = other.callback();
     let mut output = [99.0];
-    NleOracle::residual(&mut one, &[3.0], &mut output).unwrap();
+    NleOracle::residual(&mut callback, &[3.0], &mut output).unwrap();
     assert_eq!(output, [1.0]);
-    NleOracle::residual(&mut other, &[8.0], &mut output).unwrap();
+    NleOracle::residual(&mut other_callback, &[8.0], &mut output).unwrap();
     assert_eq!(output, [6.0]);
     // A loan sees the same current source witness, the independent owner does not.
     let loan_observation = NleOracle::observe(&loan, vec![1.0]).unwrap();
-    let other_observation = NleOracle::observe(&other, vec![6.0]).unwrap();
+    let other_observation = NleOracle::observe(&other_callback, vec![6.0]).unwrap();
     assert_eq!(loan_observation.sources[0].value, 3.0);
     assert_eq!(other_observation.sources[0].value, 8.0);
     assert!(
@@ -256,9 +258,12 @@ fn shared_conditional_oracle_lends_one_worker_and_keeps_other_owners_private() {
     assert!(NleOracle::observe(&loan, vec![1.0]).is_err());
     NleOracle::residual(&mut loan, &[4.0], &mut output).unwrap();
     assert_eq!(output, [2.0]);
-    assert!(NleOracle::observe(&one, vec![2.0]).is_ok());
+    assert!(NleOracle::observe(&callback, vec![2.0]).is_ok());
     NleOracle::jacobian_product(&mut loan, &[4.0], &[5.0], &mut output).unwrap();
     assert_eq!(output, [5.0]);
+    one.finish().unwrap();
+    assert!(NleOracle::residual(&mut loan, &[4.0], &mut output).is_err());
+    other.finish().unwrap();
 }
 
 #[test]
@@ -388,7 +393,7 @@ fn fresh_native_oracle_prepares_provider_demands_before_any_callback_effect() {
             }),
         );
         let worker = assembly.worker(
-            pse_kernels::ProviderBindings::from([(spec.key(), binding)]),
+            pse_kernels::ProviderBindings::try_from_iter([(spec.key(), binding)]).unwrap(),
             pse_diagnostics::Cancellation::default(),
         );
         assert_eq!(preparations.load(Ordering::Relaxed), 0);

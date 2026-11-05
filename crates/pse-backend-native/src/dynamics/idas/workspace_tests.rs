@@ -84,6 +84,9 @@ impl Source {
     }
 }
 impl Oracle for Source {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         &self.contract
     }
@@ -590,6 +593,9 @@ impl ScheduledDae {
     }
 }
 impl Oracle for ScheduledDae {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         &self.contract
     }

@@ -340,6 +340,8 @@ impl OriginalContract {
 pub trait Oracle: std::fmt::Debug {
     /// Concrete boundary failure; derivative failures are not rewritten as success.
     type Error: From<MathError>;
+    /// Consume this actual supplier; borrowed facades end only their own borrow.
+    fn finish(self: Box<Self>) -> Result<(), Vec<Self::Error>>;
     /// Full admitted original structure and actual action support.
     fn contract(&self) -> &OriginalContract;
     /// Original constraint values in declared order.
@@ -351,6 +353,49 @@ pub trait Oracle: std::fmt::Debug {
         direction: &[f64],
         out: &mut [f64],
     ) -> Result<(), Self::Error>;
+}
+/// Failed construction after every consumed supplier has retired.
+#[derive(Debug)]
+pub struct SupplierConstructionFailure<E> {
+    /// Original validation or scientific evaluation failure in its actual boundary.
+    pub operation: E,
+    /// Every independent supplier retirement failure, in consumed-owner order.
+    pub cleanup: Vec<E>,
+}
+
+pub(crate) fn finish_supplier<E: From<MathError>>(
+    work: impl FnOnce() -> Result<(), Vec<E>>,
+) -> Result<(), Vec<E>> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(work)).unwrap_or_else(|payload| {
+        let detail = pse_diagnostics::panic::settle_payload(
+            payload,
+            "opaque mathematical supplier retirement panic",
+        );
+        Err(vec![
+            MathError::Scope(pse_kernels::ProviderError::RetirementPanic(detail)).into(),
+        ])
+    })
+}
+
+pub(crate) fn construct_supplier<T, R, E, P>(
+    owner: T,
+    finish: impl FnOnce(T) -> Result<(), Vec<E>>,
+    build: impl FnOnce(&mut Option<T>) -> Result<R, P>,
+) -> Result<R, SupplierConstructionFailure<E>>
+where
+    E: From<P> + From<MathError>,
+{
+    let mut pending = Some(owner);
+    match build(&mut pending) {
+        Ok(value) => Ok(value),
+        Err(operation) => Err(SupplierConstructionFailure {
+            operation: operation.into(),
+            cleanup: pending
+                .map_or(Ok(()), |owner| finish_supplier(|| finish(owner)))
+                .err()
+                .unwrap_or_default(),
+        }),
+    }
 }
 /// Optional admitted original objective. Projected problems do not acquire an
 /// independent block objective merely by selecting rows or coordinates.
@@ -692,6 +737,8 @@ mod refinement_projection_tests {
 /// solve, selected root sheet, chart validity and actual derivatives behind this API.
 /// This transformation provides neither a nonlinear solver nor an inverse approximation.
 pub trait ReconstructionOracle: std::fmt::Debug {
+    /// Retire this owned reconstruction supplier.
+    fn finish(self) -> Result<(), Vec<Self::Error>>;
     /// Same concrete failure boundary as its consumed original oracle.
     type Error: From<MathError>;
     /// Actual immutable source, structural map and explicit validity obligations.
@@ -826,6 +873,8 @@ pub enum MassStructure {
 }
 /// Actual state-dependent mass supplier. No wrapper invents `DM` from a mass value.
 pub trait MassOracle: std::fmt::Debug {
+    /// Consume an owned state-dependent mass supplier.
+    fn finish(self: Box<Self>) -> Result<(), Vec<Self::Error>>;
     /// Same concrete boundary failure as the consumed residual supplier.
     type Error: From<MathError>;
     /// Complete supplied mass and derivative structure.
@@ -1378,18 +1427,30 @@ impl DerivedFamily {
     pub fn bind_feasibility<O: Oracle>(
         self: &Arc<Self>,
         oracle: O,
-    ) -> Result<BoundFeasibility<O>, MathError> {
-        if !matches!(self.kind, FamilyKind::Feasibility)
-            || oracle.contract() != self.original.as_ref()
-        {
-            return Err(MathError::Contract(
-                "feasibility family/supplier mismatch".into(),
-            ));
-        }
-        Ok(BoundFeasibility {
-            family: self.clone(),
+    ) -> Result<BoundFeasibility<O>, SupplierConstructionFailure<O::Error>> {
+        construct_supplier(
             oracle,
-        })
+            |oracle| Box::new(oracle).finish(),
+            |pending| -> Result<_, MathError> {
+                let oracle = pending.as_mut().ok_or_else(|| {
+                    MathError::Contract("missing mathematical construction owner".into())
+                })?;
+
+                if !matches!(self.kind, FamilyKind::Feasibility)
+                    || oracle.contract() != self.original.as_ref()
+                {
+                    return Err(MathError::Contract(
+                        "feasibility family/supplier mismatch".into(),
+                    ));
+                }
+                Ok(BoundFeasibility {
+                    family: self.clone(),
+                    oracle: pending.take().ok_or_else(|| {
+                        MathError::Contract("missing mathematical supplier transfer".into())
+                    })?,
+                })
+            },
+        )
     }
     /// Bind one artificial step. Rejected retries reuse the same frozen mass/anchor.
     /// # Errors
@@ -1400,46 +1461,73 @@ impl DerivedFamily {
         anchor: Vec<f64>,
         step: f64,
         mass: MassBinding<O::Error>,
-    ) -> Result<BoundPseudoTime<O>, MathError> {
-        let FamilyKind::PseudoTime {
-            mass: expected,
-            sign,
-            ..
-        } = &self.kind
-        else {
-            return Err(MathError::Contract("not a pseudo-time family".into()));
-        };
-        let n = self.original.coordinates.len();
-        trial(&anchor, n)?;
-        if oracle.contract() != self.original.as_ref() || !step.is_finite() || step <= 0.0 {
-            return Err(MathError::Contract("pseudo-time supplier or step".into()));
-        }
-        match (&mass, expected) {
-            (MassBinding::Frozen(matrix), MassStructure::Frozen { incidence })
-                if matrix.matrix().nrows() == n
-                    && matrix.matrix().ncols() == n
-                    && matrix.matrix().val().iter().all(|v| v.is_finite())
-                    && matrix_edges(matrix) == *incidence => {}
-            (
-                MassBinding::StateDependent(supplier),
-                expected @ MassStructure::StateDependent { .. },
-            ) if supplier.structure() == expected => {}
-            _ => {
-                return Err(MathError::Contract(
-                    "bound mass differs from prepared mass support or semantics".into(),
-                ));
-            }
-        }
-        let key = binding_key(self.key, &anchor, step, &mass);
-        Ok(BoundPseudoTime {
-            family: self.clone(),
-            sign: *sign,
-            oracle,
-            anchor,
-            step,
-            mass,
-            key,
-        })
+    ) -> Result<BoundPseudoTime<O>, SupplierConstructionFailure<O::Error>> {
+        construct_supplier(
+            (oracle, mass),
+            |(oracle, mass)| {
+                let mut failures = finish_supplier(|| Box::new(oracle).finish())
+                    .err()
+                    .unwrap_or_default();
+                if let MassBinding::StateDependent(mass) = mass {
+                    if let Err(errors) = finish_supplier(|| mass.finish()) {
+                        failures.extend(errors);
+                    }
+                }
+                if failures.is_empty() {
+                    Ok(())
+                } else {
+                    Err(failures)
+                }
+            },
+            |pending| -> Result<_, MathError> {
+                let (oracle, mass) = pending.as_mut().ok_or_else(|| {
+                    MathError::Contract("missing mathematical construction owner".into())
+                })?;
+
+                let FamilyKind::PseudoTime {
+                    mass: expected,
+                    sign,
+                    ..
+                } = &self.kind
+                else {
+                    return Err(MathError::Contract("not a pseudo-time family".into()));
+                };
+                let n = self.original.coordinates.len();
+                trial(&anchor, n)?;
+                if oracle.contract() != self.original.as_ref() || !step.is_finite() || step <= 0.0 {
+                    return Err(MathError::Contract("pseudo-time supplier or step".into()));
+                }
+                match (&mass, expected) {
+                    (MassBinding::Frozen(matrix), MassStructure::Frozen { incidence })
+                        if matrix.matrix().nrows() == n
+                            && matrix.matrix().ncols() == n
+                            && matrix.matrix().val().iter().all(|v| v.is_finite())
+                            && matrix_edges(matrix) == *incidence => {}
+                    (
+                        MassBinding::StateDependent(supplier),
+                        expected @ MassStructure::StateDependent { .. },
+                    ) if supplier.structure() == expected => {}
+                    _ => {
+                        return Err(MathError::Contract(
+                            "bound mass differs from prepared mass support or semantics".into(),
+                        ));
+                    }
+                }
+                let key = binding_key(self.key, &anchor, step, &mass);
+                let (oracle, mass) = pending.take().ok_or_else(|| {
+                    MathError::Contract("missing mathematical supplier transfer".into())
+                })?;
+                Ok(BoundPseudoTime {
+                    family: self.clone(),
+                    sign: *sign,
+                    oracle,
+                    anchor,
+                    step,
+                    mass,
+                    key,
+                })
+            },
+        )
     }
     /// Fix the natural parameter without recompiling the immutable family. Realization
     /// identifies consumed provider/branch/parameter state beyond the explicit value.
@@ -1450,31 +1538,43 @@ impl DerivedFamily {
         oracle: O,
         value: f64,
         realization: ContentHash,
-    ) -> Result<BoundProjection<O>, MathError> {
-        let FamilyKind::Parameter {
-            parameter,
-            columns,
-            rows,
-        } = &self.kind
-        else {
-            return Err(MathError::Contract("not a natural parameter family".into()));
-        };
-        if oracle.contract() != self.original.as_ref() {
-            return Err(MathError::Contract("parameter supplier mismatch".into()));
-        }
-        coordinate_value(&self.original.coordinates[parameter.get()], value)?;
-        let mut anchor = vec![0.0; self.original.coordinates.len()];
-        anchor[parameter.get()] = value;
-        let key = projection_binding_key(self.key, &anchor, realization);
-        Ok(BoundProjection {
-            family: self.clone(),
-            columns: columns.clone(),
-            rows: rows.clone(),
+    ) -> Result<BoundProjection<O>, SupplierConstructionFailure<O::Error>> {
+        construct_supplier(
             oracle,
-            anchor,
-            realization,
-            key,
-        })
+            |oracle| Box::new(oracle).finish(),
+            |pending| -> Result<_, MathError> {
+                let oracle = pending.as_mut().ok_or_else(|| {
+                    MathError::Contract("missing mathematical construction owner".into())
+                })?;
+
+                let FamilyKind::Parameter {
+                    parameter,
+                    columns,
+                    rows,
+                } = &self.kind
+                else {
+                    return Err(MathError::Contract("not a natural parameter family".into()));
+                };
+                if oracle.contract() != self.original.as_ref() {
+                    return Err(MathError::Contract("parameter supplier mismatch".into()));
+                }
+                coordinate_value(&self.original.coordinates[parameter.get()], value)?;
+                let mut anchor = vec![0.0; self.original.coordinates.len()];
+                anchor[parameter.get()] = value;
+                let key = projection_binding_key(self.key, &anchor, realization);
+                Ok(BoundProjection {
+                    family: self.clone(),
+                    columns: columns.clone(),
+                    rows: rows.clone(),
+                    oracle: pending.take().ok_or_else(|| {
+                        MathError::Contract("missing mathematical supplier transfer".into())
+                    })?,
+                    anchor,
+                    realization,
+                    key,
+                })
+            },
+        )
     }
     /// Freeze the full original external state for a block trial. Other block trials
     /// cannot mutate it through this binding; retries keep this admitted anchor.
@@ -1485,24 +1585,36 @@ impl DerivedFamily {
         oracle: O,
         anchor: Vec<f64>,
         realization: ContentHash,
-    ) -> Result<BoundProjection<O>, MathError> {
-        let FamilyKind::Block { columns, rows, .. } = &self.kind else {
-            return Err(MathError::Contract("not a block family".into()));
-        };
-        if oracle.contract() != self.original.as_ref() {
-            return Err(MathError::Contract("block family/supplier mismatch".into()));
-        }
-        original_point(&self.original, &anchor)?;
-        let key = projection_binding_key(self.key, &anchor, realization);
-        Ok(BoundProjection {
-            family: self.clone(),
-            columns: columns.clone(),
-            rows: rows.clone(),
+    ) -> Result<BoundProjection<O>, SupplierConstructionFailure<O::Error>> {
+        construct_supplier(
             oracle,
-            anchor,
-            realization,
-            key,
-        })
+            |oracle| Box::new(oracle).finish(),
+            |pending| -> Result<_, MathError> {
+                let oracle = pending.as_mut().ok_or_else(|| {
+                    MathError::Contract("missing mathematical construction owner".into())
+                })?;
+
+                let FamilyKind::Block { columns, rows, .. } = &self.kind else {
+                    return Err(MathError::Contract("not a block family".into()));
+                };
+                if oracle.contract() != self.original.as_ref() {
+                    return Err(MathError::Contract("block family/supplier mismatch".into()));
+                }
+                original_point(&self.original, &anchor)?;
+                let key = projection_binding_key(self.key, &anchor, realization);
+                Ok(BoundProjection {
+                    family: self.clone(),
+                    columns: columns.clone(),
+                    rows: rows.clone(),
+                    oracle: pending.take().ok_or_else(|| {
+                        MathError::Contract("missing mathematical supplier transfer".into())
+                    })?,
+                    anchor,
+                    realization,
+                    key,
+                })
+            },
+        )
     }
     /// Bind the actual reconstruction supplier without a duplicate implicit solver.
     /// Numerical realization and consumed accuracy remain checked at each operation.
@@ -1513,60 +1625,98 @@ impl DerivedFamily {
         oracle: O,
         reconstruction: R,
         realization: ContentHash,
-    ) -> Result<BoundReduced<O, R>, MathError> {
-        let FamilyKind::Reduced {
-            reconstruction: expected,
-            rows,
-        } = &self.kind
-        else {
-            return Err(MathError::Contract("not a reduced family".into()));
-        };
-        if oracle.contract() != self.original.as_ref()
-            || reconstruction.contract() != expected.as_ref()
-        {
-            return Err(MathError::Contract(
-                "reduced supplier contract mismatch".into(),
-            ));
-        }
-        Ok(BoundReduced {
-            family: self.clone(),
-            rows: rows.clone(),
-            oracle,
-            reconstruction,
-            realization,
-        })
+    ) -> Result<BoundReduced<O, R>, SupplierConstructionFailure<O::Error>> {
+        construct_supplier(
+            (oracle, reconstruction),
+            |(oracle, reconstruction)| {
+                let mut failures = finish_supplier(|| Box::new(oracle).finish())
+                    .err()
+                    .unwrap_or_default();
+                if let Err(errors) = finish_supplier(|| reconstruction.finish()) {
+                    failures.extend(errors);
+                }
+                if failures.is_empty() {
+                    Ok(())
+                } else {
+                    Err(failures)
+                }
+            },
+            |pending| -> Result<_, MathError> {
+                let (oracle, reconstruction) = pending.as_mut().ok_or_else(|| {
+                    MathError::Contract("missing mathematical construction owner".into())
+                })?;
+
+                let FamilyKind::Reduced {
+                    reconstruction: expected,
+                    rows,
+                } = &self.kind
+                else {
+                    return Err(MathError::Contract("not a reduced family".into()));
+                };
+                if oracle.contract() != self.original.as_ref()
+                    || reconstruction.contract() != expected.as_ref()
+                {
+                    return Err(MathError::Contract(
+                        "reduced supplier contract mismatch".into(),
+                    ));
+                }
+                let (oracle, reconstruction) = pending.take().ok_or_else(|| {
+                    MathError::Contract("missing mathematical supplier transfer".into())
+                })?;
+                Ok(BoundReduced {
+                    family: self.clone(),
+                    rows: rows.clone(),
+                    oracle,
+                    reconstruction,
+                    realization,
+                })
+            },
+        )
     }
     /// Evaluate and freeze the anchor residual using the actual original supplier.
     /// Binding does not infer anchor validity from structural matching.
     pub fn bind_anchored_homotopy<O: Oracle>(
         self: &Arc<Self>,
-        mut oracle: O,
+        oracle: O,
         anchor: Vec<f64>,
         parameter: f64,
         realization: ContentHash,
-    ) -> Result<BoundHomotopy<O>, O::Error> {
-        if !matches!(self.kind, FamilyKind::AnchoredHomotopy)
-            || oracle.contract() != self.original.as_ref()
-        {
-            return Err(
-                MathError::Contract("anchored homotopy family/supplier mismatch".into()).into(),
-            );
-        }
-        original_point(&self.original, &anchor)?;
-        homotopy_parameter(parameter)?;
-        let mut residual = vec![0.0; self.original.constraints.len()];
-        oracle.values(&anchor, &mut residual)?;
-        finite(&residual)?;
-        let data = HomotopyData::Anchored { anchor, residual };
-        let key = homotopy_binding_key(self.key, parameter, realization, &data);
-        Ok(BoundHomotopy {
-            family: self.clone(),
+    ) -> Result<BoundHomotopy<O>, SupplierConstructionFailure<O::Error>> {
+        construct_supplier::<O, BoundHomotopy<O>, O::Error, O::Error>(
             oracle,
-            data,
-            parameter,
-            realization,
-            key,
-        })
+            |oracle| Box::new(oracle).finish(),
+            |pending: &mut Option<O>| -> Result<_, O::Error> {
+                let oracle = pending.as_mut().ok_or_else(|| {
+                    MathError::Contract("missing mathematical construction owner".into())
+                })?;
+
+                if !matches!(self.kind, FamilyKind::AnchoredHomotopy)
+                    || oracle.contract() != self.original.as_ref()
+                {
+                    return Err(MathError::Contract(
+                        "anchored homotopy family/supplier mismatch".into(),
+                    )
+                    .into());
+                }
+                original_point(&self.original, &anchor)?;
+                homotopy_parameter(parameter)?;
+                let mut residual = vec![0.0; self.original.constraints.len()];
+                oracle.values(&anchor, &mut residual)?;
+                finite(&residual)?;
+                let data = HomotopyData::Anchored { anchor, residual };
+                let key = homotopy_binding_key(self.key, parameter, realization, &data);
+                Ok(BoundHomotopy {
+                    family: self.clone(),
+                    oracle: pending.take().ok_or_else(|| {
+                        MathError::Contract("missing mathematical supplier transfer".into())
+                    })?,
+                    data,
+                    parameter,
+                    realization,
+                    key,
+                })
+            },
+        )
     }
     /// Bind the actual start supplier with the same concrete failure boundary.
     /// Both suppliers' guard and selection checks execute during residual evaluations.
@@ -1578,28 +1728,55 @@ impl DerivedFamily {
         start: S,
         parameter: f64,
         realization: ContentHash,
-    ) -> Result<BoundHomotopy<O>, MathError> {
-        let FamilyKind::AffineHomotopy { start: expected } = &self.kind else {
-            return Err(MathError::Contract("not an affine homotopy family".into()));
-        };
-        if oracle.contract() != self.original.as_ref() || start.contract() != expected.as_ref() {
-            return Err(MathError::Contract(
-                "affine homotopy supplier mismatch".into(),
-            ));
-        }
-        homotopy_parameter(parameter)?;
-        let data = HomotopyData::Affine {
-            start: Box::new(start),
-        };
-        let key = homotopy_binding_key(self.key, parameter, realization, &data);
-        Ok(BoundHomotopy {
-            family: self.clone(),
-            oracle,
-            data,
-            parameter,
-            realization,
-            key,
-        })
+    ) -> Result<BoundHomotopy<O>, SupplierConstructionFailure<O::Error>> {
+        construct_supplier(
+            (oracle, start),
+            |(oracle, start)| {
+                let mut failures = finish_supplier(|| Box::new(oracle).finish())
+                    .err()
+                    .unwrap_or_default();
+                if let Err(errors) = finish_supplier(|| Box::new(start).finish()) {
+                    failures.extend(errors);
+                }
+                if failures.is_empty() {
+                    Ok(())
+                } else {
+                    Err(failures)
+                }
+            },
+            |pending| -> Result<_, MathError> {
+                let (oracle, start) = pending.as_mut().ok_or_else(|| {
+                    MathError::Contract("missing mathematical construction owner".into())
+                })?;
+
+                let FamilyKind::AffineHomotopy { start: expected } = &self.kind else {
+                    return Err(MathError::Contract("not an affine homotopy family".into()));
+                };
+                if oracle.contract() != self.original.as_ref()
+                    || start.contract() != expected.as_ref()
+                {
+                    return Err(MathError::Contract(
+                        "affine homotopy supplier mismatch".into(),
+                    ));
+                }
+                homotopy_parameter(parameter)?;
+                let (oracle, start) = pending.take().ok_or_else(|| {
+                    MathError::Contract("missing mathematical supplier transfer".into())
+                })?;
+                let data = HomotopyData::Affine {
+                    start: Box::new(start),
+                };
+                let key = homotopy_binding_key(self.key, parameter, realization, &data);
+                Ok(BoundHomotopy {
+                    family: self.clone(),
+                    oracle,
+                    data,
+                    parameter,
+                    realization,
+                    key,
+                })
+            },
+        )
     }
     /// Explicit row/state correspondence of the artificial flow.
     pub fn pairing(&self) -> Option<&[GlobalCol]> {
@@ -1682,6 +1859,10 @@ pub struct BoundProjection<O> {
     key: ContentHash,
 }
 impl<O: Oracle> BoundProjection<O> {
+    /// Consume the actual projected supplier.
+    pub fn finish(self) -> Result<(), Vec<O::Error>> {
+        Box::new(self.oracle).finish()
+    }
     /// Immutable family and complete original obligations.
     pub fn family(&self) -> &Arc<DerivedFamily> {
         &self.family
@@ -1797,16 +1978,32 @@ impl<O: Oracle> BoundProjection<O> {
     /// Rebind the natural parameter while preserving the prepared family/supplier.
     /// # Errors
     /// Block binding or value outside the original parameter interval.
-    pub fn rebind_parameter(mut self, value: f64) -> Result<Self, MathError> {
-        let FamilyKind::Parameter { parameter, .. } = self.family.kind else {
-            return Err(MathError::Contract(
-                "block binding has no continuation parameter".into(),
-            ));
-        };
-        coordinate_value(&self.family.original.coordinates[parameter.get()], value)?;
-        self.anchor[parameter.get()] = value;
-        self.key = projection_binding_key(self.family.key, &self.anchor, self.realization);
-        Ok(self)
+    pub fn rebind_parameter(
+        self,
+        value: f64,
+    ) -> Result<Self, SupplierConstructionFailure<O::Error>> {
+        construct_supplier(
+            self,
+            BoundProjection::finish,
+            |pending| -> Result<_, MathError> {
+                let owner = pending.as_mut().ok_or_else(|| {
+                    MathError::Contract("missing mathematical rebind owner".into())
+                })?;
+
+                let FamilyKind::Parameter { parameter, .. } = owner.family.kind else {
+                    return Err(MathError::Contract(
+                        "block binding has no continuation parameter".into(),
+                    ));
+                };
+                coordinate_value(&owner.family.original.coordinates[parameter.get()], value)?;
+                owner.anchor[parameter.get()] = value;
+                owner.key =
+                    projection_binding_key(owner.family.key, &owner.anchor, owner.realization);
+                pending.take().ok_or_else(|| {
+                    MathError::Contract("missing mathematical rebind transfer".into())
+                })
+            },
+        )
     }
     /// Evaluate all original constraints after reconstruction. A block's own successful
     /// rows cannot replace this simultaneous original observation or its assessment.
@@ -2290,6 +2487,22 @@ pub struct BoundHomotopy<O: Oracle> {
     key: ContentHash,
 }
 impl<O: Oracle> BoundHomotopy<O> {
+    /// Retire the original and independent affine start suppliers.
+    pub fn finish(self) -> Result<(), Vec<O::Error>> {
+        let mut failures = finish_supplier(|| Box::new(self.oracle).finish())
+            .err()
+            .unwrap_or_default();
+        if let HomotopyData::Affine { start } = self.data
+            && let Err(errors) = start.finish()
+        {
+            failures.extend(errors);
+        }
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(failures)
+        }
+    }
     /// Immutable family and original obligations.
     pub fn family(&self) -> &Arc<DerivedFamily> {
         &self.family
@@ -2317,11 +2530,31 @@ impl<O: Oracle> BoundHomotopy<O> {
     /// Rebind a homotopy parameter without rebuilding its programs or anchor residual.
     /// # Errors
     /// Parameter outside the finite closed unit interval.
-    pub fn rebind_parameter(mut self, parameter: f64) -> Result<Self, MathError> {
-        homotopy_parameter(parameter)?;
-        self.parameter = parameter;
-        self.key = homotopy_binding_key(self.family.key, parameter, self.realization, &self.data);
-        Ok(self)
+    pub fn rebind_parameter(
+        self,
+        parameter: f64,
+    ) -> Result<Self, SupplierConstructionFailure<O::Error>> {
+        construct_supplier(
+            self,
+            BoundHomotopy::finish,
+            |pending| -> Result<_, MathError> {
+                let owner = pending.as_mut().ok_or_else(|| {
+                    MathError::Contract("missing mathematical rebind owner".into())
+                })?;
+
+                homotopy_parameter(parameter)?;
+                owner.parameter = parameter;
+                owner.key = homotopy_binding_key(
+                    owner.family.key,
+                    parameter,
+                    owner.realization,
+                    &owner.data,
+                );
+                pending.take().ok_or_else(|| {
+                    MathError::Contract("missing mathematical rebind transfer".into())
+                })
+            },
+        )
     }
     /// Preserve every original coordinate and its bounds before original assessment.
     /// # Errors
@@ -2433,8 +2666,20 @@ impl<O: Oracle> BoundHomotopy<O> {
         Ok(())
     }
     /// Consume the wrapper before original correction/assessment.
-    pub fn into_original(self) -> O {
-        self.oracle
+    pub fn into_original(self) -> Result<O, Vec<O::Error>> {
+        let cleanup = match self.data {
+            HomotopyData::Affine { start } => finish_supplier(|| start.finish()),
+            HomotopyData::Anchored { .. } => Ok(()),
+        };
+        match cleanup {
+            Ok(()) => Ok(self.oracle),
+            Err(mut failures) => {
+                if let Err(errors) = finish_supplier(|| Box::new(self.oracle).finish()) {
+                    failures.extend(errors);
+                }
+                Err(failures)
+            }
+        }
     }
 }
 /// Executable artificial step; successful evaluation does not imply an original root.
@@ -2449,6 +2694,23 @@ pub struct BoundPseudoTime<O: Oracle> {
     key: ContentHash,
 }
 impl<O: Oracle> BoundPseudoTime<O> {
+    /// Retire both independent suppliers without requiring a universal error type.
+    pub fn finish(self) -> Result<(), Vec<O::Error>> {
+        let mut failures = Vec::new();
+        if let Err(error) = finish_supplier(|| Box::new(self.oracle).finish()) {
+            failures.extend(error);
+        }
+        if let MassBinding::StateDependent(mass) = self.mass
+            && let Err(error) = mass.finish()
+        {
+            failures.extend(error);
+        }
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(failures)
+        }
+    }
     /// Family structure and retained original obligations.
     pub fn family(&self) -> &Arc<DerivedFamily> {
         &self.family
@@ -2468,13 +2730,25 @@ impl<O: Oracle> BoundPseudoTime<O> {
     /// Retry with another step; accepted anchor and frozen mass are preserved.
     /// # Errors
     /// Nonpositive/nonfinite step.
-    pub fn rebind_step(mut self, step: f64) -> Result<Self, MathError> {
-        if !step.is_finite() || step <= 0.0 {
-            return Err(MathError::Contract("pseudo-time retry step".into()));
-        }
-        self.step = step;
-        self.key = binding_key(self.family.key, &self.anchor, step, &self.mass);
-        Ok(self)
+    pub fn rebind_step(self, step: f64) -> Result<Self, SupplierConstructionFailure<O::Error>> {
+        construct_supplier(
+            self,
+            BoundPseudoTime::finish,
+            |pending| -> Result<_, MathError> {
+                let owner = pending.as_mut().ok_or_else(|| {
+                    MathError::Contract("missing mathematical rebind owner".into())
+                })?;
+
+                if !step.is_finite() || step <= 0.0 {
+                    return Err(MathError::Contract("pseudo-time retry step".into()));
+                }
+                owner.step = step;
+                owner.key = binding_key(owner.family.key, &owner.anchor, step, &owner.mass);
+                pending.take().ok_or_else(|| {
+                    MathError::Contract("missing mathematical rebind transfer".into())
+                })
+            },
+        )
     }
     fn sign(&self) -> f64 {
         self.sign
@@ -2598,8 +2872,20 @@ impl<O: Oracle> BoundPseudoTime<O> {
         Ok(matrix)
     }
     /// Consume the auxiliary realization before original correction/assessment.
-    pub fn into_original(self) -> O {
-        self.oracle
+    pub fn into_original(self) -> Result<O, Vec<O::Error>> {
+        let cleanup = match self.mass {
+            MassBinding::StateDependent(mass) => finish_supplier(|| mass.finish()),
+            MassBinding::Frozen(_) => Ok(()),
+        };
+        match cleanup {
+            Ok(()) => Ok(self.oracle),
+            Err(mut failures) => {
+                if let Err(errors) = finish_supplier(|| Box::new(self.oracle).finish()) {
+                    failures.extend(errors);
+                }
+                Err(failures)
+            }
+        }
     }
 }
 
@@ -3096,6 +3382,9 @@ mod tests {
     }
     impl Oracle for Quadratic {
         type Error = MathError;
+        fn finish(self: Box<Self>) -> Result<(), Vec<Self::Error>> {
+            Ok(())
+        }
         fn contract(&self) -> &OriginalContract {
             &self.contract
         }
@@ -3113,6 +3402,89 @@ mod tests {
             out[0] = 2.0 * x[0] * direction[0];
             Ok(())
         }
+    }
+    #[derive(Debug)]
+    struct TrackedSupplier {
+        contract: Arc<OriginalContract>,
+        name: &'static str,
+        finished: std::rc::Rc<std::cell::RefCell<Vec<&'static str>>>,
+        panic_on_finish: bool,
+    }
+    impl Oracle for TrackedSupplier {
+        type Error = MathError;
+        fn finish(self: Box<Self>) -> Result<(), Vec<MathError>> {
+            self.finished.borrow_mut().push(self.name);
+            assert!(!self.panic_on_finish, "supplier retirement control");
+            Err(vec![MathError::Contract(self.name.into())])
+        }
+        fn contract(&self) -> &OriginalContract {
+            &self.contract
+        }
+        fn values(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), MathError> {
+            out[0] = x[0];
+            Ok(())
+        }
+        fn jacobian_product(
+            &mut self,
+            _: &[f64],
+            v: &[f64],
+            out: &mut [f64],
+        ) -> Result<(), MathError> {
+            out.copy_from_slice(v);
+            Ok(())
+        }
+    }
+    #[test]
+    fn failed_affine_binding_keeps_primary_and_retires_both_consumed_suppliers() {
+        let original = original(DerivativeOrder::First, false, false);
+        let family =
+            Arc::new(DerivedFamily::affine_homotopy(original.clone(), original.clone()).unwrap());
+        let finished = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let supplier = |name, panic_on_finish| TrackedSupplier {
+            contract: original.clone(),
+            name,
+            finished: finished.clone(),
+            panic_on_finish,
+        };
+        let failure = family
+            .bind_affine_homotopy(
+                supplier("original", true),
+                supplier("start", false),
+                2.0,
+                hash(70),
+            )
+            .unwrap_err();
+        assert!(matches!(failure.operation, MathError::Contract(_)));
+        assert_eq!(failure.cleanup.len(), 2);
+        assert!(matches!(
+            &failure.cleanup[0],
+            MathError::Scope(pse_kernels::ProviderError::RetirementPanic(_))
+        ));
+        assert_eq!(*finished.borrow(), ["original", "start"]);
+    }
+    #[test]
+    fn affine_homotopy_finish_and_original_handoff_retire_erased_start() {
+        let original = original(DerivativeOrder::First, false, false);
+        let family =
+            Arc::new(DerivedFamily::affine_homotopy(original.clone(), original.clone()).unwrap());
+        let finished = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let supplier = |name| TrackedSupplier {
+            contract: original.clone(),
+            name,
+            finished: finished.clone(),
+            panic_on_finish: false,
+        };
+        let bound = family
+            .bind_affine_homotopy(supplier("original"), supplier("start"), 0.5, hash(70))
+            .unwrap();
+        assert_eq!(bound.finish().unwrap_err().len(), 2);
+        assert_eq!(*finished.borrow(), ["original", "start"]);
+        finished.borrow_mut().clear();
+        let bound = family
+            .bind_affine_homotopy(supplier("original"), supplier("start"), 0.5, hash(70))
+            .unwrap();
+        assert_eq!(bound.into_original().unwrap_err().len(), 2);
+        assert_eq!(*finished.borrow(), ["start", "original"]);
     }
     fn frozen(value: f64) -> AssemblyMatrix {
         let mut m = AssemblyMatrix::new(1, 1, &[edge(0, 0)], 100).unwrap();
@@ -3301,7 +3673,7 @@ mod tests {
         assert_eq!(out, [15.0]);
         assert_eq!(retry.family().correspondence(), Correspondence::Approximate);
         let auxiliary_root = 2.0f64.sqrt() - 1.0;
-        let mut original_oracle = retry.into_original();
+        let mut original_oracle = retry.into_original().unwrap();
         original_oracle.values(&[auxiliary_root], &mut out).unwrap();
         assert!(out[0].abs() > 0.5);
     }
@@ -3311,6 +3683,9 @@ mod tests {
         dm_calls: usize,
     }
     impl MassOracle for VariableMass {
+        fn finish(self: Box<Self>) -> Result<(), Vec<Self::Error>> {
+            Ok(())
+        }
         type Error = MathError;
         fn structure(&self) -> &MassStructure {
             &self.structure
@@ -3678,6 +4053,9 @@ mod tests {
     }
     impl Oracle for Coupled {
         type Error = MathError;
+        fn finish(self: Box<Self>) -> Result<(), Vec<Self::Error>> {
+            Ok(())
+        }
         fn contract(&self) -> &OriginalContract {
             &self.contract
         }
@@ -3932,7 +4310,7 @@ mod tests {
         terminal.residual(&[2.0], &mut out).unwrap();
         assert_eq!(out, [3.0]);
         assert_eq!(terminal.reconstruct(&[2.0]).unwrap(), [2.0]);
-        assert_eq!(terminal.into_original().jvp_calls, 1);
+        assert_eq!(terminal.into_original().unwrap().jvp_calls, 1);
         assert!(
             family
                 .bind_anchored_homotopy(oracle(&original), vec![4.0], 0.0, hash(70))
@@ -3949,6 +4327,9 @@ mod tests {
     }
     impl Oracle for LinearStart {
         type Error = MathError;
+        fn finish(self: Box<Self>) -> Result<(), Vec<Self::Error>> {
+            Ok(())
+        }
         fn contract(&self) -> &OriginalContract {
             &self.contract
         }
@@ -4130,6 +4511,9 @@ mod tests {
     }
     impl ReconstructionOracle for SelectedReconstruction {
         type Error = MathError;
+        fn finish(self) -> Result<(), Vec<Self::Error>> {
+            Ok(())
+        }
         fn contract(&self) -> &ReconstructionContract {
             &self.contract
         }
@@ -4502,6 +4886,9 @@ mod canonical_product_tests {
     }
     impl Oracle for Coupled {
         type Error = MathError;
+        fn finish(self: Box<Self>) -> Result<(), Vec<Self::Error>> {
+            Ok(())
+        }
         fn contract(&self) -> &OriginalContract {
             &self.original
         }

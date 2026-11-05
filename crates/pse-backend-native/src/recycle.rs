@@ -12,6 +12,8 @@ use std::{
 /// native solver and return only independently validated outputs. Direct explicit
 /// physical calculations may return their exact outputs without a solver attempt.
 pub trait CausalUnit: std::fmt::Debug {
+    /// Retire the unit's owned evaluators after the final causal sweep.
+    fn finish(self: Box<Self>) -> Result<(), ProblemError>;
     /// Owning flowsheet node.
     fn id(&self) -> SemanticId;
     /// Complete declared input ports; all must be available before this call.
@@ -36,8 +38,17 @@ pub trait CausalUnit: std::fmt::Debug {
         }
     }
 }
-type OriginalObserver =
-    Box<dyn FnMut(Option<&pse_math::binding::CaseValues>, &Execution) -> Result<(), ProblemError>>;
+/// Original-state observer whose actual evaluator ownership remains consumable.
+pub trait OriginalObserver: std::fmt::Debug {
+    /// Observe the reconstructed original state or clear a preceding observation.
+    fn observe(
+        &mut self,
+        state: Option<&pse_math::binding::CaseValues>,
+        execution: &Execution,
+    ) -> Result<(), ProblemError>;
+    /// Retire the observer's actual scientific owner.
+    fn finish(self: Box<Self>) -> Result<(), ProblemError>;
+}
 /// Complete declared causal map in selected tear destination coordinates.
 #[derive(Debug)]
 pub struct CausalMap {
@@ -51,7 +62,7 @@ pub struct CausalMap {
     predicted: Vec<f64>,
     execution: Execution,
     _graph: Arc<FlowGraph>,
-    original_observer: Option<OriginalObserverWrapper>,
+    original_observer: Option<Box<dyn OriginalObserver>>,
     inner_context: crate::solve::RawMapInnerContext,
 }
 /// Prepared ordinals preserve each unit's declared input/output order.
@@ -63,12 +74,6 @@ struct UnitExchange {
     input_values: Vec<f64>,
     output_values: Vec<f64>,
 }
-impl std::fmt::Debug for OriginalObserverWrapper {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("OriginalObserver")
-    }
-}
-struct OriginalObserverWrapper(OriginalObserver);
 impl CausalMap {
     /// Known propagation/tear containers and conservative full source support before
     /// constructing a causal map. Every original port may depend on every tear column;
@@ -157,8 +162,8 @@ impl CausalMap {
     }
     /// Attach independent complete-model validation. None begins a new assessment;
     /// Some carries its complete reconstruction after a successful sweep.
-    pub fn with_original_observer(mut self, observer: OriginalObserver) -> Self {
-        self.original_observer = Some(OriginalObserverWrapper(observer));
+    pub fn with_original_observer(mut self, observer: Box<dyn OriginalObserver>) -> Self {
+        self.original_observer = Some(observer);
         self
     }
     /// Admit exact unit inventory, physical bindings, tear coordinates and the
@@ -168,195 +173,231 @@ impl CausalMap {
         graph: Arc<FlowGraph>,
         selected: BTreeSet<SemanticId>,
         contract: OracleContract,
-        mut units: BTreeMap<SemanticId, Box<dyn CausalUnit>>,
+        units: BTreeMap<SemanticId, Box<dyn CausalUnit>>,
         fixed: BTreeMap<SemanticId, f64>,
         execution: Execution,
     ) -> Result<Self, ProblemError> {
-        contract.validate(pse_kernels::DerivativeOrder::Value)?;
-        if contract.rows.len() != contract.variables.len() || fixed.values().any(|v| !v.is_finite())
-        {
-            return Err(ProblemError::Contract(
-                "causal map dimensions/values".into(),
-            ));
-        }
-        let order = graph
-            .witness(&selected)
-            .map_err(|e| ProblemError::Contract(e.to_string()))?;
-        if units.len() != order.len() {
-            return Err(ProblemError::Contract(
-                "causal unit inventory differs from complete flow graph".into(),
-            ));
-        }
-        let mut propagate: BTreeMap<_, Vec<_>> = BTreeMap::new();
-        let mut tears = BTreeMap::new();
-        let mut connected = BTreeSet::new();
-        for e in &graph.declaration().connections {
-            let source = units
-                .get(&e.from)
-                .ok_or_else(|| ProblemError::Contract("missing causal source".into()))?;
-            let target = units
-                .get(&e.to)
-                .ok_or_else(|| ProblemError::Contract("missing causal destination".into()))?;
-            for b in &graph.bindings()[&e.id] {
-                if !source.outputs().contains(&b.source) || !target.inputs().contains(&b.target) {
-                    return Err(ProblemError::Contract(
-                        "connection must bind a causal output to a causal input".into(),
-                    ));
+        crate::retiring(
+            (units, Vec::new()),
+            |(units, ordered)| {
+                let mut failures = Vec::new();
+                for unit in ordered.into_iter().chain(units.into_values()) {
+                    if let Err(error) = crate::finish_owner(|| unit.finish()) {
+                        failures.push(error);
+                    }
                 }
-                connected.insert(b.target);
-                if selected.contains(&e.decision) {
-                    tears.insert(b.target, b.clone());
+                if failures.is_empty() {
+                    Ok(())
                 } else {
-                    propagate.entry(e.from).or_default().push(b.clone());
+                    Err(ProblemError::Retirement { failures })
                 }
-            }
-        }
-        let external: BTreeSet<_> = units
-            .values()
-            .flat_map(|u| u.inputs())
-            .copied()
-            .filter(|id| !connected.contains(id))
-            .collect();
-        if fixed.keys().copied().collect::<BTreeSet<_>>() != external {
-            return Err(ProblemError::Contract(
-                "fixed inputs must exactly cover unconnected causal inputs".into(),
-            ));
-        }
-        if tears.len() != contract.variables.len()
-            || contract
-                .variables
-                .iter()
-                .any(|v| !tears.contains_key(&v.id) || fixed.contains_key(&v.id))
-        {
-            return Err(ProblemError::Contract(
-                "tear coordinate inventory differs from declared map".into(),
-            ));
-        }
-        let mut available: BTreeSet<_> =
-            fixed.keys().copied().chain(tears.keys().copied()).collect();
-        let mut ordered = vec![];
-        for id in order {
-            let unit = units
-                .remove(&id)
-                .ok_or_else(|| ProblemError::Contract("missing causal unit".into()))?;
-            let node = graph
-                .declaration()
-                .nodes
-                .iter()
-                .find(|n| n.id == id)
-                .ok_or_else(|| ProblemError::Contract("missing flow node".into()))?;
-            let ports: BTreeSet<_> = node.ports.iter().map(|p| p.id).collect();
-            let declared: BTreeSet<_> = unit
-                .inputs()
-                .iter()
-                .chain(unit.outputs())
-                .copied()
-                .collect();
-            if unit.id() != id
-                || declared != ports
-                || declared.len() != unit.inputs().len() + unit.outputs().len()
-                || unit.inputs().iter().any(|v| !available.contains(v))
-                || unit.outputs().iter().any(|v| available.contains(v))
-            {
-                return Err(ProblemError::Contract(format!(
-                    "causal unit {id} has incomplete/overlapping ports or missing predecessor input"
-                )));
-            }
-            available.extend(unit.outputs().iter().copied());
-            for b in propagate.get(&id).into_iter().flatten() {
-                if !unit.outputs().contains(&b.source) {
+            },
+            |pending| {
+                let (units, ordered) = pending
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing causal constructor custody"))?;
+
+                contract.validate(pse_kernels::DerivativeOrder::Value)?;
+                if contract.rows.len() != contract.variables.len()
+                    || fixed.values().any(|v| !v.is_finite())
+                {
                     return Err(ProblemError::Contract(
-                        "flow source is not a causal output".into(),
+                        "causal map dimensions/values".into(),
                     ));
                 }
-                available.insert(b.target);
-            }
-            ordered.push(unit);
-        }
-        if tears.values().any(|b| !available.contains(&b.source)) {
-            return Err(ProblemError::Contract(
-                "tear source is unavailable after causal sweep".into(),
-            ));
-        }
-        let tears: Vec<_> = contract
-            .variables
-            .iter()
-            .map(|v| tears[&v.id].clone())
-            .collect();
-        // Causal units are opaque: conservatively retain all declared input support.
-        // This projects the already admitted DAG, not the iteration/splitting matrix.
-        let mut support: BTreeMap<SemanticId, BTreeSet<usize>> =
-            fixed.keys().map(|&id| (id, BTreeSet::new())).collect();
-        for (column, variable) in contract.variables.iter().enumerate() {
-            support.insert(variable.id, BTreeSet::from([column]));
-        }
-        for unit in &ordered {
-            let columns: BTreeSet<_> = unit
-                .inputs()
-                .iter()
-                .flat_map(|id| support[id].iter().copied())
-                .collect();
-            for &output in unit.outputs() {
-                support.insert(output, columns.clone());
-            }
-            for binding in propagate.get(&unit.id()).into_iter().flatten() {
-                support.insert(binding.target, support[&binding.source].clone());
-            }
-        }
-        let mut indices = Vec::new();
-        for (row, binding) in tears.iter().enumerate() {
-            let mut columns = support[&binding.source].clone();
-            columns.insert(row); // The original connection residual is predicted - x.
-            indices.extend(columns.into_iter().map(|c| faer::sparse::Pair::new(row, c)));
-        }
-        let n = contract.variables.len();
-        let (original, _) =
-            faer::sparse::SymbolicSparseColMat::try_new_from_indices(n, n, &indices)
-                .map_err(|e| ProblemError::Internal(e.to_string()))?;
-        // Semantic port lookup ends at construction. Every sweep uses these exact
-        // ordered gather/scatter and conversion slots, with no map rebuilt per unit.
-        let slots: BTreeMap<_, _> = available
-            .iter()
-            .enumerate()
-            .map(|(slot, &id)| (id, slot))
-            .collect();
-        let exchange = ordered
-            .iter()
-            .map(|unit| UnitExchange {
-                inputs: unit.inputs().iter().map(|id| slots[id]).collect(),
-                outputs: unit.outputs().iter().map(|id| slots[id]).collect(),
-                propagate: propagate
-                    .get(&unit.id())
-                    .into_iter()
-                    .flatten()
+                let order = graph
+                    .witness(&selected)
+                    .map_err(|e| ProblemError::Contract(e.to_string()))?;
+                if units.len() != order.len() {
+                    return Err(ProblemError::Contract(
+                        "causal unit inventory differs from complete flow graph".into(),
+                    ));
+                }
+                let mut propagate: BTreeMap<_, Vec<_>> = BTreeMap::new();
+                let mut tears = BTreeMap::new();
+                let mut connected = BTreeSet::new();
+                for e in &graph.declaration().connections {
+                    let source = units
+                        .get(&e.from)
+                        .ok_or_else(|| ProblemError::Contract("missing causal source".into()))?;
+                    let target = units.get(&e.to).ok_or_else(|| {
+                        ProblemError::Contract("missing causal destination".into())
+                    })?;
+                    for b in &graph.bindings()[&e.id] {
+                        if !source.outputs().contains(&b.source)
+                            || !target.inputs().contains(&b.target)
+                        {
+                            return Err(ProblemError::Contract(
+                                "connection must bind a causal output to a causal input".into(),
+                            ));
+                        }
+                        connected.insert(b.target);
+                        if selected.contains(&e.decision) {
+                            tears.insert(b.target, b.clone());
+                        } else {
+                            propagate.entry(e.from).or_default().push(b.clone());
+                        }
+                    }
+                }
+                let external: BTreeSet<_> = units
+                    .values()
+                    .flat_map(|u| u.inputs())
+                    .copied()
+                    .filter(|id| !connected.contains(id))
+                    .collect();
+                if fixed.keys().copied().collect::<BTreeSet<_>>() != external {
+                    return Err(ProblemError::Contract(
+                        "fixed inputs must exactly cover unconnected causal inputs".into(),
+                    ));
+                }
+                if tears.len() != contract.variables.len()
+                    || contract
+                        .variables
+                        .iter()
+                        .any(|v| !tears.contains_key(&v.id) || fixed.contains_key(&v.id))
+                {
+                    return Err(ProblemError::Contract(
+                        "tear coordinate inventory differs from declared map".into(),
+                    ));
+                }
+                let mut available: BTreeSet<_> =
+                    fixed.keys().copied().chain(tears.keys().copied()).collect();
+
+                for id in order {
+                    let unit = units
+                        .remove(&id)
+                        .ok_or_else(|| ProblemError::Contract("missing causal unit".into()))?;
+                    ordered.push(unit);
+                    let unit = ordered
+                        .last()
+                        .ok_or_else(|| ProblemError::internal("missing ordered causal unit"))?;
+                    let node = graph
+                        .declaration()
+                        .nodes
+                        .iter()
+                        .find(|n| n.id == id)
+                        .ok_or_else(|| ProblemError::Contract("missing flow node".into()))?;
+                    let ports: BTreeSet<_> = node.ports.iter().map(|p| p.id).collect();
+                    let declared: BTreeSet<_> = unit
+                        .inputs()
+                        .iter()
+                        .chain(unit.outputs())
+                        .copied()
+                        .collect();
+                    if unit.id() != id
+                        || declared != ports
+                        || declared.len() != unit.inputs().len() + unit.outputs().len()
+                        || unit.inputs().iter().any(|v| !available.contains(v))
+                        || unit.outputs().iter().any(|v| available.contains(v))
+                    {
+                        return Err(ProblemError::Contract(format!(
+                            "causal unit {id} has incomplete/overlapping ports or missing predecessor input"
+                        )));
+                    }
+                    available.extend(unit.outputs().iter().copied());
+                    for b in propagate.get(&id).into_iter().flatten() {
+                        if !unit.outputs().contains(&b.source) {
+                            return Err(ProblemError::Contract(
+                                "flow source is not a causal output".into(),
+                            ));
+                        }
+                        available.insert(b.target);
+                    }
+                }
+                if tears.values().any(|b| !available.contains(&b.source)) {
+                    return Err(ProblemError::Contract(
+                        "tear source is unavailable after causal sweep".into(),
+                    ));
+                }
+                let tears: Vec<_> = contract
+                    .variables
+                    .iter()
+                    .map(|v| tears[&v.id].clone())
+                    .collect();
+                // Causal units are opaque: conservatively retain all declared input support.
+                // This projects the already admitted DAG, not the iteration/splitting matrix.
+                let mut support: BTreeMap<SemanticId, BTreeSet<usize>> =
+                    fixed.keys().map(|&id| (id, BTreeSet::new())).collect();
+                for (column, variable) in contract.variables.iter().enumerate() {
+                    support.insert(variable.id, BTreeSet::from([column]));
+                }
+                for unit in ordered.iter() {
+                    let columns: BTreeSet<_> = unit
+                        .inputs()
+                        .iter()
+                        .flat_map(|id| support[id].iter().copied())
+                        .collect();
+                    for &output in unit.outputs() {
+                        support.insert(output, columns.clone());
+                    }
+                    for binding in propagate.get(&unit.id()).into_iter().flatten() {
+                        support.insert(binding.target, support[&binding.source].clone());
+                    }
+                }
+                let mut indices = Vec::new();
+                for (row, binding) in tears.iter().enumerate() {
+                    let mut columns = support[&binding.source].clone();
+                    columns.insert(row); // The original connection residual is predicted - x.
+                    indices.extend(columns.into_iter().map(|c| faer::sparse::Pair::new(row, c)));
+                }
+                let n = contract.variables.len();
+                let (original, _) =
+                    faer::sparse::SymbolicSparseColMat::try_new_from_indices(n, n, &indices)
+                        .map_err(|e| ProblemError::Internal(e.to_string()))?;
+                // Semantic port lookup ends at construction. Every sweep uses these exact
+                // ordered gather/scatter and conversion slots, with no map rebuilt per unit.
+                let slots: BTreeMap<_, _> = available
+                    .iter()
+                    .enumerate()
+                    .map(|(slot, &id)| (id, slot))
+                    .collect();
+                let exchange = ordered
+                    .iter()
+                    .map(|unit| UnitExchange {
+                        inputs: unit.inputs().iter().map(|id| slots[id]).collect(),
+                        outputs: unit.outputs().iter().map(|id| slots[id]).collect(),
+                        propagate: propagate
+                            .get(&unit.id())
+                            .into_iter()
+                            .flatten()
+                            .map(|b| (slots[&b.source], slots[&b.target], b.conversion))
+                            .collect(),
+                        input_values: vec![f64::NAN; unit.inputs().len()],
+                        output_values: vec![f64::NAN; unit.outputs().len()],
+                    })
+                    .collect();
+                let tears = tears
+                    .iter()
                     .map(|b| (slots[&b.source], slots[&b.target], b.conversion))
-                    .collect(),
-                input_values: vec![f64::NAN; unit.inputs().len()],
-                output_values: vec![f64::NAN; unit.outputs().len()],
-            })
-            .collect();
-        let tears = tears
-            .iter()
-            .map(|b| (slots[&b.source], slots[&b.target], b.conversion))
-            .collect();
-        let fixed = fixed
-            .into_iter()
-            .map(|(id, value)| (slots[&id], value))
-            .collect();
-        Ok(Self {
-            contract,
-            original,
-            units: ordered,
-            exchange,
-            tears,
-            fixed,
-            values: vec![f64::NAN; slots.len()],
-            predicted: vec![f64::NAN; n],
-            execution,
-            _graph: graph,
-            original_observer: None,
-            inner_context: crate::solve::RawMapInnerContext::default(),
-        })
+                    .collect();
+                let fixed = fixed
+                    .into_iter()
+                    .map(|(id, value)| (slots[&id], value))
+                    .collect();
+                if !units.is_empty() {
+                    return Err(ProblemError::Contract(
+                        "causal construction left unordered units".into(),
+                    ));
+                }
+                let (_, ordered) = pending
+                    .take()
+                    .ok_or_else(|| ProblemError::internal("missing causal owner transfer"))?;
+                Ok(Self {
+                    contract,
+                    original,
+                    units: ordered,
+                    exchange,
+                    tears,
+                    fixed,
+                    values: vec![f64::NAN; slots.len()],
+                    predicted: vec![f64::NAN; n],
+                    execution,
+                    _graph: graph,
+                    original_observer: None,
+                    inner_context: crate::solve::RawMapInnerContext::default(),
+                })
+            },
+        )
     }
     fn sweep(&mut self, x: &[f64]) -> Result<pse_math::binding::CaseValues, ProblemError> {
         if x.len() != self.tears.len() || x.iter().any(|v| !v.is_finite()) {
@@ -426,6 +467,24 @@ impl CausalMap {
     }
 }
 impl FixedPointOracle for CausalMap {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        let mut failures = Vec::new();
+        for unit in self.units {
+            if let Err(cause) = crate::finish_owner(|| unit.finish()) {
+                failures.push(cause);
+            }
+        }
+        if let Some(observer) = self.original_observer
+            && let Err(cause) = crate::finish_owner(|| observer.finish())
+        {
+            failures.push(cause);
+        }
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(ProblemError::Retirement { failures })
+        }
+    }
     fn inner_context(&self) -> crate::solve::RawMapInnerContext {
         self.inner_context
     }
@@ -453,11 +512,11 @@ impl FixedPointOracle for CausalMap {
             ));
         }
         if let Some(observer) = &mut self.original_observer {
-            (observer.0)(None, &self.execution)?;
+            observer.observe(None, &self.execution)?;
         }
         let original = self.sweep(x)?;
         if let Some(observer) = &mut self.original_observer {
-            (observer.0)(Some(&original), &self.execution)?;
+            observer.observe(Some(&original), &self.execution)?;
         }
         for ((out, p), x) in out.iter_mut().zip(&self.predicted).zip(x) {
             *out = p - x;
@@ -477,6 +536,9 @@ mod tests {
         hidden: f64,
     }
     impl CausalUnit for Unit {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn id(&self) -> SemanticId {
             id(10)
         }
@@ -510,6 +572,9 @@ mod tests {
         outputs: [SemanticId; 2],
     }
     impl CausalUnit for PermutedUnit {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn id(&self) -> SemanticId {
             id(10)
         }
@@ -644,6 +709,21 @@ mod tests {
         });
         let units = BTreeMap::from([(id(10), unit)]);
         let observed = std::rc::Rc::new(std::cell::RefCell::new(None));
+        #[derive(Debug)]
+        struct TestObserver(std::rc::Rc<std::cell::RefCell<Option<pse_math::binding::CaseValues>>>);
+        impl OriginalObserver for TestObserver {
+            fn observe(
+                &mut self,
+                state: Option<&pse_math::binding::CaseValues>,
+                _: &Execution,
+            ) -> Result<(), ProblemError> {
+                *self.0.borrow_mut() = state.cloned();
+                Ok(())
+            }
+            fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+                Ok(())
+            }
+        }
         let final_state = observed.clone();
         let mut map = CausalMap::new(
             graph,
@@ -654,10 +734,7 @@ mod tests {
             execution(),
         )
         .unwrap()
-        .with_original_observer(Box::new(move |state, _| {
-            *final_state.borrow_mut() = state.cloned();
-            Ok(())
-        }));
+        .with_original_observer(Box::new(TestObserver(final_state)));
         let mut out = [0.0];
         map.map(&[0.0], &mut out).unwrap();
         assert!(map.physical_tear_coordinates());

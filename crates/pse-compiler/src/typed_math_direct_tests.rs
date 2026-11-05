@@ -540,10 +540,11 @@ fn executable_provider_admission_preserves_physics_phase_and_recoverable_errors(
     assert_eq!(owner.providers.descriptors().count(), 1);
     assert_eq!(owner.providers.calls().count(), 1);
     assert_eq!(admitted.spec().providers.len(), 1);
-    let mut workers = pse_kernels::ProviderBindings::from([(
+    let mut workers = pse_kernels::ProviderBindings::try_from_iter([(
         registration.spec().key(),
         registration.worker().unwrap(),
-    )]);
+    )])
+    .unwrap();
     let mut worker = artifact.worker();
     assert!(
         matches!(worker.evaluate(&[-1.0], DerivativeOrder::Value, &mut workers, &cancel),
@@ -560,10 +561,11 @@ fn executable_provider_admission_preserves_physics_phase_and_recoverable_errors(
         revision: ContentHash::from_bytes([4; 32]),
         ..registration.spec().clone()
     });
-    let mut incompatible = pse_kernels::ProviderBindings::from([(
+    let mut incompatible = pse_kernels::ProviderBindings::try_from_iter([(
         registration.spec().key(),
         pse_kernels::ProviderBinding::new(other.0.clone(), Box::new(other)),
-    )]);
+    )])
+    .unwrap();
     assert!(
         worker
             .evaluate(&[3.0], DerivativeOrder::Value, &mut incompatible, &cancel)

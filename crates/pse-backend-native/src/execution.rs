@@ -664,6 +664,24 @@ pub enum Problem<'a> {
         normalization: &'a Normalization,
     },
 }
+impl Problem<'_> {
+    /// Retire an unsubmitted owned representation; coefficient views are borrowed.
+    pub fn finish(self) -> Result<(), ProblemError> {
+        match self {
+            Self::Nlp { oracle, .. } => oracle.finish(),
+            Self::Roots { oracle, owner, .. } => {
+                let result = oracle.finish();
+                drop(owner);
+                result
+            }
+            #[cfg(feature = "kinsol")]
+            Self::FixedPoint { oracle, .. } => oracle.finish(),
+            #[cfg(feature = "kinsol")]
+            Self::Picard { oracle, .. } => oracle.finish(),
+            Self::Coefficients { .. } | Self::Cone { .. } | Self::Factorable { .. } => Ok(()),
+        }
+    }
+}
 
 #[cfg(feature = "kinsol")]
 impl<'a> Problem<'a> {
@@ -677,6 +695,9 @@ impl<'a> Problem<'a> {
         restarts: Option<&'a crate::kinsol::RestartSchedule>,
     ) -> Result<Self, ProblemError> {
         match function {
+            crate::kinsol::Function::Retired(_) => {
+                Err(ProblemError::internal("retired KINSOL function"))
+            }
             crate::kinsol::Function::FixedPoint(oracle) => Ok(Self::FixedPoint {
                 oracle,
                 initial,
@@ -1312,13 +1333,35 @@ impl ReuseHistory {
 /// (ADR-0118 item 12, I14). Clearing the adapter's session keeps it.
 #[derive(Default)]
 pub struct Retained {
-    session: Option<(Backend, Box<dyn Any>)>,
+    session: Option<(Backend, RetainedOwner)>,
     session_charge: Option<Box<dyn Any + Send>>,
     advance: Option<(crate::kkt::Advance, Option<Box<dyn Any + Send>>)>,
     reuse_history: ReuseHistory,
     /// One operation-local workflow owner on this native thread, independent of
     /// adapter session replacement. It never crosses scope destruction or parking.
-    workflow: Option<Box<dyn Any>>,
+    workflow: Option<RetainedOwner>,
+}
+/// The consuming function is bound to the exact type at construction, never inferred
+/// from a backend tag or a downcast search during retirement.
+struct RetainedOwner {
+    value: Box<dyn Any>,
+    finish: Box<dyn FnOnce(Box<dyn Any>) -> Result<(), ProblemError>>,
+}
+impl RetainedOwner {
+    fn new<T: Any>(value: T, finish: fn(T) -> Result<(), ProblemError>) -> Self {
+        Self {
+            value: Box::new(value),
+            finish: Box::new(move |value| {
+                let value = value
+                    .downcast::<T>()
+                    .map_err(|_| ProblemError::internal("retained finisher type invariant"))?;
+                finish(*value)
+            }),
+        }
+    }
+    fn finish(self) -> Result<(), ProblemError> {
+        crate::finish_owner(|| (self.finish)(self.value))
+    }
 }
 impl std::fmt::Debug for Retained {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1336,10 +1379,21 @@ impl std::fmt::Debug for Retained {
 }
 impl Retained {
     /// Drop the retained adapter session now. A kept advanced-step factor stays.
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self) -> Result<(), ProblemError> {
         self.reuse_history = self.scope_history();
-        self.session = None;
+        let result = self
+            .session
+            .take()
+            .map_or(Ok(()), |(_, owner)| owner.finish());
         self.session_charge = None;
+        result
+    }
+    /// Finish all operation-local owners independently before releasing their charges.
+    pub fn finish(mut self) -> Result<(), ProblemError> {
+        let session = self.clear();
+        let workflow = self.workflow.take().map_or(Ok(()), RetainedOwner::finish);
+        self.release();
+        ProblemError::with_retirement(session, workflow)
     }
     /// Metadata surviving owner-scope destruction; never a native object or start seed.
     pub fn scope_history(&self) -> ReuseHistory {
@@ -1360,44 +1414,37 @@ impl Retained {
     /// Only profiles with an accepted neutral reset may park a native object. Others
     /// take the fresh-object fallback; immutable external programs are unaffected.
     pub fn reset_independent(&mut self) -> Result<(), ProblemError> {
-        self.workflow = None;
+        let session = self.reset_adapter();
+        let workflow = self.workflow.take().map_or(Ok(()), RetainedOwner::finish);
         self.release();
-        #[cfg(feature = "scip")]
-        if let Some((Backend::Scip, state)) = &mut self.session
-            && let Some(session) = state.downcast_mut::<crate::scip::Session>()
-        {
-            let result = session.shutdown();
-            self.clear();
-            self.reuse_history.record(Backend::Scip);
-            return result;
-        }
+        ProblemError::with_retirement(session, workflow)
+    }
+    fn reset_adapter(&mut self) -> Result<(), ProblemError> {
         #[cfg(feature = "highs")]
         if let Some((Backend::Highs, state)) = &mut self.session
-            && let Some(session) = state.downcast_mut::<crate::highs::Session>()
+            && let Some(session) = state.value.downcast_mut::<crate::highs::Session>()
         {
             if let Err(cause) = session.reset_for_new_application() {
-                self.clear();
-                return Err(cause);
+                return ProblemError::with_retirement(Err(cause), self.clear());
             }
             return Ok(());
         }
         #[cfg(feature = "pounce")]
         if let Some((Backend::Pounce, state)) = &mut self.session
-            && let Some(session) = state.downcast_mut::<crate::pounce::Session>()
+            && let Some(session) = state.value.downcast_mut::<crate::pounce::Session>()
         {
             if let Err(cause) = session.reset_for_new_application() {
-                self.clear();
-                return Err(cause);
+                return ProblemError::with_retirement(Err(cause), self.clear());
             }
             if session.has_neutral_state() {
                 return Ok(());
             }
-            self.clear();
+            self.clear()?;
             self.reuse_history.record(Backend::Pounce);
             return Ok(());
         }
         let discarded = self.scope_history();
-        self.clear();
+        self.clear()?;
         // A subsequent RequireReuse must see the actual fresh fallback, even though
         // no native object remains. Initial construction of a new sequence is distinct.
         self.reuse_history = discarded;
@@ -1412,25 +1459,27 @@ impl Retained {
     pub fn workflow_owner<T: Any>(
         &mut self,
         build: impl FnOnce() -> Result<T, ProblemError>,
+        finish: fn(T) -> Result<(), ProblemError>,
     ) -> Result<(&mut T, bool), ProblemError> {
         let reused = self.workflow.is_some();
         if self.workflow.is_none() {
-            self.workflow = Some(Box::new(build()?));
+            self.workflow = Some(RetainedOwner::new(build()?, finish));
         }
         let owner = self
             .workflow
             .as_mut()
-            .and_then(|owner| owner.downcast_mut::<T>())
+            .and_then(|owner| owner.value.downcast_mut::<T>())
             .ok_or_else(|| ProblemError::Contract("native workflow owner type differs".into()))?;
         Ok((owner, reused))
     }
     /// Relinquish idle direct HiGHS state on its owning thread for a waiting Uno
     /// scheduler reset. Immutable starts and independent response factors survive.
-    pub fn relinquish_scheduler(&mut self) {
+    pub fn relinquish_scheduler(&mut self) -> Result<(), ProblemError> {
         if self.backend() == Some(Backend::Highs) {
-            self.clear();
+            self.clear()?;
             self.reuse_history.record(Backend::Highs);
         }
+        Ok(())
     }
     /// Keep the admitted opaque-library allowance until native session destruction.
     /// The runtime supplies this lease; native allocation observations are not exact extents.
@@ -1485,9 +1534,10 @@ impl Retained {
         policy: crate::solve::ReusePolicy,
         reuse: impl FnOnce(&mut S) -> Result<SessionUpdate, ProblemError>,
         build: impl FnOnce() -> Result<S, ProblemError>,
+        finish: fn(S) -> Result<(), ProblemError>,
     ) -> Result<(&mut S, bool), ProblemError> {
         if policy == crate::solve::ReusePolicy::Fresh {
-            self.clear();
+            self.clear()?;
         }
         if self.session.is_none()
             && self.reuse_history.contains(backend)
@@ -1499,15 +1549,14 @@ impl Retained {
             });
         }
         let refusal = match &mut self.session {
-            Some((held, state)) if *held == backend => match state.downcast_mut::<S>() {
+            Some((held, state)) if *held == backend => match state.value.downcast_mut::<S>() {
                 Some(session) => match reuse(session) {
                     Ok(SessionUpdate::Compatible) => None,
                     Ok(SessionUpdate::Incompatible) => Some(crate::ReuseRefusal::Structure),
                     Err(cause) => {
                         // A partial update is neither a layout refusal nor healthy state.
                         // Destruction and charge release precede returning the original cause.
-                        self.clear();
-                        return Err(cause);
+                        return ProblemError::with_retirement(Err(cause), self.clear());
                     }
                 },
                 None => Some(crate::ReuseRefusal::Structure),
@@ -1521,15 +1570,15 @@ impl Retained {
                 return Err(ProblemError::Reuse { backend, refusal });
             }
             // Native teardown precedes construction of the replacement.
-            self.clear();
+            self.clear()?;
             // A failed first construction is no longer a pristine sequence either.
             self.reuse_history.record(backend);
-            self.session = Some((backend, Box::new(build()?)));
+            self.session = Some((backend, RetainedOwner::new(build()?, finish)));
         }
         let session = self
             .session
             .as_mut()
-            .and_then(|(_, state)| state.downcast_mut::<S>())
+            .and_then(|(_, state)| state.value.downcast_mut::<S>())
             .ok_or_else(|| ProblemError::Internal("lost retained native session".into()))?;
         Ok((session, reused))
     }

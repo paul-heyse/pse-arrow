@@ -442,7 +442,18 @@ mod native {
         }
         // This profile has no neutral native allocation to retain. Teardown of a
         // predecessor precedes the independent cold batch and its backend factories.
-        retained.clear();
+        if let Err(cause) = retained.clear() {
+            let cause = std::sync::Arc::new(cause);
+            for result in &mut results {
+                if result.is_none() {
+                    *result = Some(Err(ProblemError::Math(pse_math::MathError::Typed {
+                        retained: cause.retained_bytes(),
+                        cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause.clone()),
+                    })));
+                }
+            }
+            return results.into_iter().flatten().collect();
+        }
         let active: Vec<usize> = (0..count).filter(|i| members[*i].is_some()).collect();
         let solutions = solve_members(&members, &active);
         let batch = active.len();

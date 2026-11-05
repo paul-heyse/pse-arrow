@@ -83,19 +83,25 @@ impl RegimeFactory {
         offsets: Option<&[f64]>,
     ) -> Result<RegimeSelection, pse_kernels::ProviderError> {
         let mut selection = self.build_selection_offsets(scope.clone(), offsets)?;
-        for r in &mut selection.alternatives {
-            r.problem
-                .prepare_complete(DerivativeOrder::First, &scope)
-                .map_err(super::provider_error)?;
-            let mut bank = r.problem.providers.lock().map_err(|_| {
-                pse_kernels::ProviderError::Terminal("regime provider lock poisoned".into())
-            })?;
-            r.eligibility
-                .prepare_providers(&mut bank)
-                .map_err(super::provider_error)?;
-            r.criterion
-                .prepare_providers(&mut bank)
-                .map_err(super::provider_error)?;
+        let prepared = (|| {
+            for r in &mut selection.alternatives {
+                r.problem
+                    .prepare_complete(DerivativeOrder::First, &scope)
+                    .map_err(super::provider_error)?;
+                let mut bank = r.problem.providers.lock().map_err(|_| {
+                    pse_kernels::ProviderError::Terminal("regime provider lock poisoned".into())
+                })?;
+                r.eligibility
+                    .prepare_providers(&mut bank)
+                    .map_err(super::provider_error)?;
+                r.criterion
+                    .prepare_providers(&mut bank)
+                    .map_err(super::provider_error)?;
+            }
+            Ok(())
+        })();
+        if let Err(operation) = prepared {
+            return Err(super::settle_provider_error(operation, selection.finish()));
         }
         Ok(selection)
     }
@@ -127,63 +133,73 @@ impl RegimeFactory {
                 "regime selector coordinates or derivative contract".into(),
             ));
         }
-        let alternatives = self
-            .alternatives
-            .iter()
-            .map(|r| {
-                Ok(Regime {
-                    problem: match offsets {
-                        None => r.residual.problem(scope.clone())?,
-                        Some(offsets) => {
-                            let problem = r.residual.problem(scope.clone())?;
-                            let owned = Arc::try_unwrap(problem).map_err(|_| {
-                                pse_kernels::ProviderError::Contract(
+        let mut alternatives = Vec::new();
+        for r in &self.alternatives {
+            let candidate =
+                (|| {
+                    Ok(Regime {
+                        problem: match offsets {
+                            None => r.residual.problem(scope.clone())?,
+                            Some(offsets) => {
+                                let problem = r.residual.problem(scope.clone())?;
+                                let owned = Arc::try_unwrap(problem).map_err(|problem| {
+                                super::settle_provider_error(pse_kernels::ProviderError::Contract(
                                     "fresh selected residual has an unexpected shared owner".into(),
-                                )
+                                ), problem.finish_providers())
                             })?;
-                            Arc::new(
-                                owned
-                                    .with_residual_offsets(offsets)
-                                    .map_err(super::provider_error)?,
-                            )
-                        }
-                    },
-                    solver: super::SolverWorker::new(r.residual.solver.as_ref()),
-                    configuration: super::ConfigurationWorker::new(
-                        r.residual.configuration.clone(),
-                        r.residual.hints.as_ref(),
-                        r.residual.terms.as_ref(),
-                    ),
-                    eligibility: r.eligibility.worker_scoped(scope.clone()),
-                    criterion: r.criterion.worker_scoped(scope.clone()),
-                    eligibility_source: r.eligibility.clone(),
-                    criterion_source: r.criterion.clone(),
-                    isolation_identity: None,
-                    eligibility_trial: Default::default(),
-                    criterion_trial: Default::default(),
-                    eligibility_inputs: Vec::new(),
-                    criterion_inputs: Vec::new(),
-                    isolation: match (&r.isolation, offsets) {
-                        (Some(program), Some(offsets)) => {
-                            let mut program = program.as_ref().clone();
-                            for (residual, offset) in program.residuals.iter_mut().zip(offsets) {
-                                let constant = program.nodes.len();
-                                program.nodes.push(crate::factorable::Node::Const(
-                                    crate::factorable::Constant::Float(-*offset),
-                                ));
-                                let difference = program.nodes.len();
-                                program
-                                    .nodes
-                                    .push(crate::factorable::Node::Sum(vec![*residual, constant]));
-                                *residual = difference;
+                                Arc::new(
+                                    owned
+                                        .with_residual_offsets(offsets)
+                                        .map_err(super::provider_error)?,
+                                )
                             }
-                            Some(Arc::new(program))
-                        }
-                        _ => r.isolation.clone(),
-                    },
-                })
-            })
-            .collect::<Result<_, _>>()?;
+                        },
+                        solver: super::SolverWorker::new(r.residual.solver.as_ref()),
+                        configuration: super::ConfigurationWorker::new(
+                            r.residual.configuration.clone(),
+                            r.residual.hints.as_ref(),
+                            r.residual.terms.as_ref(),
+                        ),
+                        eligibility: r.eligibility.worker_scoped(scope.clone()),
+                        criterion: r.criterion.worker_scoped(scope.clone()),
+                        eligibility_source: r.eligibility.clone(),
+                        criterion_source: r.criterion.clone(),
+                        isolation_identity: None,
+                        eligibility_trial: Default::default(),
+                        criterion_trial: Default::default(),
+                        eligibility_inputs: Vec::new(),
+                        criterion_inputs: Vec::new(),
+                        isolation: match (&r.isolation, offsets) {
+                            (Some(program), Some(offsets)) => {
+                                let mut program = program.as_ref().clone();
+                                for (residual, offset) in program.residuals.iter_mut().zip(offsets)
+                                {
+                                    let constant = program.nodes.len();
+                                    program.nodes.push(crate::factorable::Node::Const(
+                                        crate::factorable::Constant::Float(-*offset),
+                                    ));
+                                    let difference = program.nodes.len();
+                                    program.nodes.push(crate::factorable::Node::Sum(vec![
+                                        *residual, constant,
+                                    ]));
+                                    *residual = difference;
+                                }
+                                Some(Arc::new(program))
+                            }
+                            _ => r.isolation.clone(),
+                        },
+                    })
+                })();
+            match candidate {
+                Ok(regime) => alternatives.push(regime),
+                Err(operation) => {
+                    return Err(super::settle_provider_error(
+                        operation,
+                        finish_regimes(alternatives),
+                    ));
+                }
+            }
+        }
         let mut selection = RegimeSelection::new(
             self.spec.id,
             alternatives,
@@ -194,7 +210,9 @@ impl RegimeFactory {
         selection.verifier = self.verifier.clone();
         selection.control = Some(scope.cancellation_control().clone());
         selection.scope = Some(scope.clone());
-        scope.check()?;
+        if let Err(operation) = scope.check() {
+            return Err(super::settle_provider_error(operation, selection.finish()));
+        }
         Ok(selection)
     }
 }
@@ -232,8 +250,16 @@ impl pse_kernels::ProviderFactory for RegimeFactory {
     ) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
         scope.check()?;
         let cancel = scope.cancellation().clone();
+        let requested_output = self
+            .alternatives
+            .iter()
+            .map(|r| r.residual.requirements.requested_output)
+            .min()
+            .ok_or_else(|| pse_kernels::ProviderError::Contract("empty regime demand".into()))?;
         let selection = self.build_selection_offsets(scope.clone(), None)?;
-        scope.check()?;
+        if let Err(operation) = scope.check() {
+            return Err(super::settle_provider_error(operation, selection.finish()));
+        }
         Ok(pse_kernels::ProviderBinding::new(
             self.spec.clone(),
             Box::new(SelectedProvider {
@@ -241,14 +267,7 @@ impl pse_kernels::ProviderFactory for RegimeFactory {
                 cancel,
                 linearization: None,
                 prepared: Vec::new(),
-                requested_output: self
-                    .alternatives
-                    .iter()
-                    .map(|r| r.residual.requirements.requested_output)
-                    .min()
-                    .ok_or_else(|| {
-                        pse_kernels::ProviderError::Contract("empty regime demand".into())
-                    })?,
+                requested_output,
             }),
         ))
     }
@@ -262,6 +281,9 @@ struct SelectedProvider {
     prepared: Vec<pse_kernels::ProviderRequest>,
 }
 impl pse_kernels::Provider for SelectedProvider {
+    fn finish(self: Box<Self>) -> Result<(), pse_kernels::ProviderError> {
+        self.selection.finish()
+    }
     fn supports(&self, demand: &pse_kernels::ProviderDemand) -> bool {
         matches!(
             demand,
@@ -527,6 +549,35 @@ pub struct Regime {
     criterion_trial: crate::execution::TrialEvaluation,
     eligibility_inputs: Vec<f64>,
     criterion_inputs: Vec<f64>,
+}
+impl Regime {
+    fn finish(self) -> Result<(), pse_kernels::ProviderError> {
+        let Self {
+            problem,
+            solver,
+            configuration,
+            eligibility,
+            criterion,
+            ..
+        } = self;
+        drop(solver);
+        drop(configuration);
+        drop(eligibility);
+        drop(criterion);
+        problem.finish_providers()
+    }
+}
+fn finish_regimes(alternatives: Vec<Regime>) -> Result<(), pse_kernels::ProviderError> {
+    let mut failure = None;
+    for alternative in alternatives {
+        if let Err(error) = alternative.finish() {
+            failure = Some(match failure {
+                None => error,
+                Some(operation) => super::settle_provider_error(operation, Err(error)),
+            });
+        }
+    }
+    failure.map_or(Ok(()), Err)
 }
 
 #[cfg(test)]
@@ -1880,7 +1931,8 @@ mod tests {
             )
             .unwrap();
         let mut worker = body.worker_scoped(scope);
-        let mut bank = pse_kernels::ProviderBindings::from([(spec.key(), provider)]);
+        let mut bank =
+            pse_kernels::ProviderBindings::try_from_iter([(spec.key(), provider)]).unwrap();
         worker.prepare_providers(&mut bank).unwrap();
         let mut result = [f64::NAN];
         worker
@@ -2056,6 +2108,10 @@ struct PointRefinement {
     inverse_norm_upper: f64,
 }
 impl RegimeSelection {
+    /// Retire every actual alternative after its native aliases have departed.
+    pub fn finish(self) -> Result<(), pse_kernels::ProviderError> {
+        finish_regimes(self.alternatives)
+    }
     /// Alternatives must define the same ordered unknowns and independent input arity.
     /// A failed solve is not evidence that its regime is physically ineligible.
     pub fn new(
@@ -2064,30 +2120,41 @@ impl RegimeSelection {
         maximum_regimes: usize,
         time_limit: Duration,
     ) -> Result<Self, MathError> {
-        if maximum_regimes == 0
-            || alternatives.is_empty()
-            || alternatives.len() > maximum_regimes
-            || time_limit.is_zero()
-        {
-            return Err(MathError::Limit("implicit regime extent or time allowance"));
-        }
-        let first = &alternatives[0].problem;
-        let mut seen = std::collections::BTreeSet::new();
-        if alternatives.iter().any(|r| {
-            !seen.insert(r.problem.id)
-                || r.problem.inputs != first.inputs
-                || !r
-                    .problem
-                    .unknowns
-                    .iter()
-                    .map(|u| u.id)
-                    .eq(first.unknowns.iter().map(|u| u.id))
-        }) {
-            return Err(MathError::Contract(
-                "implicit regimes require unique identities and common coordinates".into(),
-            ));
-        }
-        let chart_bytes = chart_extent(&alternatives)?;
+        let validated = (|| {
+            if maximum_regimes == 0
+                || alternatives.is_empty()
+                || alternatives.len() > maximum_regimes
+                || time_limit.is_zero()
+            {
+                return Err(MathError::Limit("implicit regime extent or time allowance"));
+            }
+            let first = &alternatives[0].problem;
+            let mut seen = std::collections::BTreeSet::new();
+            if alternatives.iter().any(|r| {
+                !seen.insert(r.problem.id)
+                    || r.problem.inputs != first.inputs
+                    || !r
+                        .problem
+                        .unknowns
+                        .iter()
+                        .map(|u| u.id)
+                        .eq(first.unknowns.iter().map(|u| u.id))
+            }) {
+                return Err(MathError::Contract(
+                    "implicit regimes require unique identities and common coordinates".into(),
+                ));
+            }
+            chart_extent(&alternatives)
+        })();
+        let chart_bytes = match validated {
+            Ok(bytes) => bytes,
+            Err(operation) => {
+                return Err(super::settle_math_error(
+                    operation,
+                    finish_regimes(alternatives),
+                ));
+            }
+        };
         Ok(Self {
             id,
             alternatives,

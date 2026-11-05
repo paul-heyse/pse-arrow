@@ -50,7 +50,9 @@ pub fn map(input: MapInput<'_>) -> Result<SolveReport, ProblemError> {
 }
 pub(super) fn execute(input: MapInput<'_>) -> Result<SolveReport, ProblemError> {
     let _original = super::original_scope(&input.execution);
-    input.execution.check()?;
+    if let Err(cause) = input.execution.check() {
+        return ProblemError::with_retirement(Err(cause), input.problem.finish());
+    }
     let (function, initial, settings, restarts) = match input.problem {
         super::Problem::FixedPoint {
             oracle,
@@ -70,77 +72,91 @@ pub(super) fn execute(input: MapInput<'_>) -> Result<SolveReport, ProblemError> 
             settings,
             restarts,
         ),
-        _ => return Err(super::representation(Backend::Kinsol)),
+        other => {
+            return ProblemError::with_retirement(
+                Err(super::representation(Backend::Kinsol)),
+                other.finish(),
+            );
+        }
     };
-    if input.compatibility.backend != Backend::Kinsol {
-        return Err(ProblemError::Contract(
-            "declared map native identity differs".into(),
-        ));
-    }
-    let adapter = super::adapter(Backend::Kinsol);
-    let selected = super::BackendSettings::Kinsol(settings.method);
-    let capability = adapter.capability_for(&selected)?;
-    if capability.derivatives != crate::solve::DerivativeCapability::ValueOnly {
-        return Err(ProblemError::Contract(
-            "declared map method is not value-only".into(),
-        ));
-    }
-    // Validate before allocation and retain source-owned structure and original checks.
-    input.controls.validate()?;
-    if input.controls.threads != 1 || !input.controls.options.is_empty() {
-        return Err(ProblemError::Unsupported(
-            "declared maps require one thread and typed settings".into(),
-        ));
-    }
-    if input.controls.reuse == crate::solve::ReusePolicy::RequireReuse {
-        return Err(ProblemError::Unsupported(
-            "declared maps require a fresh native session".into(),
-        ));
-    }
-    if input.controls.start == crate::solve::StartPolicy::PreviousAccepted {
-        return Err(ProblemError::Unsupported(
-            "declared maps consume the authored physical start".into(),
-        ));
-    }
-    if initial.len() != function.contract().variables.len()
-        || initial.iter().any(|value| !value.is_finite())
-    {
-        return Err(ProblemError::Contract(
-            "declared map physical start dimensions/values".into(),
-        ));
-    }
-    settings.validate(&function)?;
-    input
-        .tolerances
-        .validate(initial.len(), function.contract().rows.len())?;
-    if let Some(schedule) = restarts {
-        if !matches!(function, Function::FixedPoint(_)) {
+    crate::retiring(function, Function::finish, |pending| {
+        let function = pending
+            .as_ref()
+            .ok_or_else(|| ProblemError::internal("missing declared map owner"))?;
+        if input.compatibility.backend != Backend::Kinsol {
             return Err(ProblemError::Contract(
-                "declared restarts require a frozen fixed-point map".into(),
+                "declared map native identity differs".into(),
             ));
         }
-        schedule.validate(function.contract(), input.controls)?;
-    }
-    let mut session = Session::new(
-        function,
-        settings.clone(),
-        input.execution.clone(),
-        input.compatibility,
-    )?;
-    let mut report = session.solve_with_restarts(
-        initial,
-        input.controls,
-        input.accuracy,
-        input.execution.clone(),
-        input.tolerances,
-        None,
-        restarts,
-    )?;
-    // A map iterate is diagnostic/result evidence, never an automatic future root seed.
-    report.warm_start = None;
-    quality::qualify(&mut report, input.accuracy);
-    drop(session);
-    Ok(report)
+        let adapter = super::adapter(Backend::Kinsol);
+        let selected = super::BackendSettings::Kinsol(settings.method);
+        let capability = adapter.capability_for(&selected)?;
+        if capability.derivatives != crate::solve::DerivativeCapability::ValueOnly {
+            return Err(ProblemError::Contract(
+                "declared map method is not value-only".into(),
+            ));
+        }
+        // Validate before allocation and retain source-owned structure and original checks.
+        input.controls.validate()?;
+        if input.controls.threads != 1 || !input.controls.options.is_empty() {
+            return Err(ProblemError::Unsupported(
+                "declared maps require one thread and typed settings".into(),
+            ));
+        }
+        if input.controls.reuse == crate::solve::ReusePolicy::RequireReuse {
+            return Err(ProblemError::Unsupported(
+                "declared maps require a fresh native session".into(),
+            ));
+        }
+        if input.controls.start == crate::solve::StartPolicy::PreviousAccepted {
+            return Err(ProblemError::Unsupported(
+                "declared maps consume the authored physical start".into(),
+            ));
+        }
+        if initial.len() != function.contract().variables.len()
+            || initial.iter().any(|value| !value.is_finite())
+        {
+            return Err(ProblemError::Contract(
+                "declared map physical start dimensions/values".into(),
+            ));
+        }
+        settings.validate(&function)?;
+        input
+            .tolerances
+            .validate(initial.len(), function.contract().rows.len())?;
+        if let Some(schedule) = restarts {
+            if !matches!(function, Function::FixedPoint(_)) {
+                return Err(ProblemError::Contract(
+                    "declared restarts require a frozen fixed-point map".into(),
+                ));
+            }
+            schedule.validate(function.contract(), input.controls)?;
+        }
+        let mut session = Session::new(
+            pending
+                .take()
+                .ok_or_else(|| ProblemError::internal("missing declared map transfer"))?,
+            settings.clone(),
+            input.execution.clone(),
+            input.compatibility,
+        )?;
+        let result = (|| {
+            let mut report = session.solve_with_restarts(
+                initial,
+                input.controls,
+                input.accuracy,
+                input.execution.clone(),
+                input.tolerances,
+                None,
+                restarts,
+            )?;
+            // A map iterate is diagnostic/result evidence, never an automatic future root seed.
+            report.warm_start = None;
+            quality::qualify(&mut report, input.accuracy);
+            Ok(report)
+        })();
+        ProblemError::after_solve(result, session.finish())
+    })
 }
 
 #[cfg(test)]
@@ -170,6 +186,9 @@ mod tests {
         }
     }
     impl FixedPointOracle for OriginalMap {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &OracleContract {
             &self.source.c
         }
@@ -261,6 +280,9 @@ mod tests {
             calls: Arc<Mutex<Vec<f64>>>,
         }
         impl FixedPointOracle for AffineMap {
+            fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+                Ok(())
+            }
             fn contract(&self) -> &OracleContract {
                 &self.source.c
             }
@@ -363,6 +385,9 @@ mod tests {
         #[derive(Debug)]
         struct ResidualOnly(Polynomial);
         impl NleOracle for ResidualOnly {
+            fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+                Ok(())
+            }
             fn contract(&self) -> &OracleContract {
                 &self.0.c
             }

@@ -238,6 +238,27 @@ impl std::fmt::Debug for Session {
     }
 }
 impl Session {
+    /// Destroy application aliases before neutral factor and allowance owners.
+    pub fn finish(mut self) -> Result<(), ProblemError> {
+        self.app = None;
+        let quiescent = self.factors.as_ref().map_or(Ok(()), |pool| {
+            let pool = pool.try_borrow().map_err(|_| {
+                ProblemError::Contract(
+                    "POUNCE finish requires exclusive factor-pool ownership".into(),
+                )
+            })?;
+            if pool.is_quiescent() {
+                Ok(())
+            } else {
+                Err(ProblemError::Contract(
+                    "POUNCE finish has outstanding factor leases".into(),
+                ))
+            }
+        });
+        self.factors = None;
+        self.storage_owner = None;
+        quiescent
+    }
     /// Construct after the owning worker has received admission.
     pub fn new() -> Self {
         Self::default()
@@ -318,781 +339,817 @@ impl Session {
         warm: Option<&WarmStart>,
         compatibility: Compatibility,
     ) -> Result<SolveReport, ProblemError> {
-        controls.validate()?;
-        settings.restart.validate()?;
-        if self.discarded && controls.reuse == ReusePolicy::RequireReuse {
-            return Err(ProblemError::Reuse {
-                backend: Backend::Pounce,
-                refusal: crate::ReuseRefusal::Structure,
-            });
-        }
-        let method = settings.method;
-        let mut feral = settings.linear.clone();
-        if oracle.normalization().is_some() {
-            return Err(ProblemError::Internal("model normalization must be transported through the shared NLP pipeline before native execution".into()));
-        }
-        let separator = oracle.solve_separator().cloned();
-        let n = oracle.contract().variables.len();
-        let m = oracle.contract().rows.len();
-        tolerances.validate(n, m)?;
-        // Every mode but the library's quasi-Newton approximation supplies the Hessian:
-        // the exact Lagrangian or the oracle's Gauss–Newton Gram.
-        let curvature_options = settings.curvature_options(controls.hessian)?;
-        let supplied = matches!(
-            controls.hessian,
-            HessianMode::Exact | HessianMode::GaussNewton
-        );
-        crate::validate_nlp(
-            oracle.as_ref(),
-            if supplied {
-                pse_kernels::DerivativeOrder::Second
+        let mut pending = Some(oracle);
+        let mut active: Option<Rc<RefCell<Adapter>>> = None;
+        let result = (|| {
+            let oracle = pending
+                .as_ref()
+                .ok_or_else(|| ProblemError::internal("missing POUNCE oracle"))?;
+            controls.validate()?;
+            settings.restart.validate()?;
+            if self.discarded && controls.reuse == ReusePolicy::RequireReuse {
+                return Err(ProblemError::Reuse {
+                    backend: Backend::Pounce,
+                    refusal: crate::ReuseRefusal::Structure,
+                });
+            }
+            let method = settings.method;
+            let mut feral = settings.linear.clone();
+            if oracle.normalization().is_some() {
+                return Err(ProblemError::Internal("model normalization must be transported through the shared NLP pipeline before native execution".into()));
+            }
+            let separator = oracle.solve_separator().cloned();
+            let n = oracle.contract().variables.len();
+            let m = oracle.contract().rows.len();
+            tolerances.validate(n, m)?;
+            // Every mode but the library's quasi-Newton approximation supplies the Hessian:
+            // the exact Lagrangian or the oracle's Gauss–Newton Gram.
+            let curvature_options = settings.curvature_options(controls.hessian)?;
+            let supplied = matches!(
+                controls.hessian,
+                HessianMode::Exact | HessianMode::GaussNewton
+            );
+            crate::validate_nlp(
+                oracle.as_ref(),
+                if supplied {
+                    pse_kernels::DerivativeOrder::Second
+                } else {
+                    pse_kernels::DerivativeOrder::First
+                },
+            )?;
+            if initial.len() != n || oracle.constraint_bounds().len() != m {
+                return Err(ProblemError::Internal("POUNCE dimensions".into()));
+            }
+            finite(initial)?;
+            if controls.threads > 1 && ADMITTED.with(|a| a.get()) < controls.threads {
+                return Err(ProblemError::Internal(
+                    "POUNCE must execute inside its admitted local pool".into(),
+                ));
+            }
+            for v in oracle
+                .contract()
+                .variables
+                .iter()
+                .flat_map(|v| [v.lower, v.upper])
+                .chain(oracle.constraint_bounds().iter().flat_map(|v| [v.0, v.1]))
+            {
+                crate::settings::pounce::admit_bound(v)?;
+            }
+            let jac = Pattern::new(oracle.jacobian_pattern(), false)?;
+            let hess = if supplied
+                || controls.hessian == HessianMode::FiniteDifference
+                    && oracle.hessian_pattern().is_some()
+            {
+                Pattern::new(
+                    oracle.hessian_pattern().ok_or_else(|| {
+                        ProblemError::Unsupported("POUNCE exact Hessian unavailable".into())
+                    })?,
+                    true,
+                )?
             } else {
-                pse_kernels::DerivativeOrder::First
-            },
-        )?;
-        if initial.len() != n || oracle.constraint_bounds().len() != m {
-            return Err(ProblemError::Internal("POUNCE dimensions".into()));
-        }
-        finite(initial)?;
-        if controls.threads > 1 && ADMITTED.with(|a| a.get()) < controls.threads {
-            return Err(ProblemError::Internal(
-                "POUNCE must execute inside its admitted local pool".into(),
-            ));
-        }
-        for v in oracle
-            .contract()
-            .variables
-            .iter()
-            .flat_map(|v| [v.lower, v.upper])
-            .chain(oracle.constraint_bounds().iter().flat_map(|v| [v.0, v.1]))
-        {
-            crate::settings::pounce::admit_bound(v)?;
-        }
-        let jac = Pattern::new(oracle.jacobian_pattern(), false)?;
-        let hess = if supplied
-            || controls.hessian == HessianMode::FiniteDifference
-                && oracle.hessian_pattern().is_some()
-        {
-            Pattern::new(
-                oracle.hessian_pattern().ok_or_else(|| {
-                    ProblemError::Unsupported("POUNCE exact Hessian unavailable".into())
-                })?,
-                true,
-            )?
-        } else {
-            Pattern {
-                rows: vec![],
-                columns: vec![],
-            }
-        };
-        let mut initial = initial.to_vec();
-        let mut duals = None;
-        let mut barrier = None;
-        let mut sqp_seed = None;
-        if let Some(w) = warm {
-            w.validate(&compatibility)?;
-            let WarmPayload::Nlp {
-                primal,
-                bounds,
-                rows,
-                barrier: seed_barrier,
-                working,
-            } = &w.payload
-            else {
-                return Err(ProblemError::Contract("POUNCE seed class".into()));
+                Pattern {
+                    rows: vec![],
+                    columns: vec![],
+                }
             };
-            if primal.len() != n {
-                return Err(ProblemError::Contract("POUNCE seed shape".into()));
-            }
-            finite(primal)?;
-            initial.clone_from(primal);
-            let complete = match (bounds, rows) {
-                (Some((l, u)), Some(r)) => {
-                    if l.len() != n
-                        || u.len() != n
-                        || r.len() != m
-                        || l.iter().chain(u).any(|v| *v < 0.0)
-                    {
-                        return Err(ProblemError::Contract("POUNCE dual seed shape/sign".into()));
-                    }
-                    finite(l)?;
-                    finite(u)?;
-                    finite(r)?;
-                    Some((l.clone(), u.clone(), r.clone()))
+            let mut initial = initial.to_vec();
+            let mut duals = None;
+            let mut barrier = None;
+            let mut sqp_seed = None;
+            if let Some(w) = warm {
+                w.validate(&compatibility)?;
+                let WarmPayload::Nlp {
+                    primal,
+                    bounds,
+                    rows,
+                    barrier: seed_barrier,
+                    working,
+                } = &w.payload
+                else {
+                    return Err(ProblemError::Contract("POUNCE seed class".into()));
+                };
+                if primal.len() != n {
+                    return Err(ProblemError::Contract("POUNCE seed shape".into()));
                 }
-                (None, None) => None,
-                _ => return Err(ProblemError::Unsupported("partial POUNCE dual seed".into())),
-            };
-            if method == Method::L1ExactPenalty {
-                // The exact-penalty problem has its own slack multipliers; only the primal
-                // seed is portable into it.
-            } else if method == Method::ActiveSetSqp {
-                // The active-set iterate: primal, row and packed bound multipliers, and the
-                // working set when the native transformation retained it (F07).
-                let mut s = pounce_rs::sqp::SqpIterates::cold(n, m);
-                s.x = primal.clone();
-                if let Some((l, u, r)) = &complete {
-                    s.lambda_g.clone_from(r);
-                    s.lambda_x = l.iter().zip(u).map(|(l, u)| l - u).collect();
-                }
-                if let Some(ws) = working {
-                    if ws.active.n() != n || ws.active.m() != m {
-                        return Err(ProblemError::Contract("POUNCE working set shape".into()));
-                    }
-                    s.working = Some(ws.active.clone());
-                }
-                sqp_seed = Some(s);
-            } else {
-                // Interior-point methods consume the primal-dual iterate and its barrier; a
-                // working set has no interior-point meaning and is recorded as not submitted.
-                duals = complete;
-                barrier = *seed_barrier;
-            }
-        }
-        reject_reserved(&controls.options, &PINNED_OFF)?;
-        reject_reserved(&controls.options, &RESERVED_METHODS)?;
-        reject_reserved(&controls.options, &RESTART_OPTIONS)?;
-        reject_reserved(
-            &controls.options,
-            &[
-                "algorithm",
-                "hessian_approximation",
-                "gradient_approximation",
-                "jacobian_approximation",
-                "grad_f_constant",
-                "jac_c_constant",
-                "jac_d_constant",
-                "hessian_constant",
-                "presolve",
-                "max_iter",
-                "max_wall_time",
-                "max_cpu_time",
-                "tol",
-                "constr_viol_tol",
-                "dual_inf_tol",
-                "compl_inf_tol",
-                "acceptable_tol",
-                "acceptable_iter",
-                "acceptable_constr_viol_tol",
-                "acceptable_dual_inf_tol",
-                "acceptable_compl_inf_tol",
-                "bound_relax_factor",
-                "honor_original_bounds",
-                "warm_start_init_point",
-                "nlp_scaling_method",
-                "linear_solver",
-                "option_file_name",
-                "nlp_lower_bound_inf",
-                "nlp_upper_bound_inf",
-                "start_point_perturbation",
-                "start_point_perturbation_seed",
-                "start_point_conditioner",
-            ],
-        )?;
-        if controls.options.keys().any(|key| {
-            key.rsplit('.')
-                .next()
-                .is_some_and(|key| key.starts_with("adam_warmup_"))
-        }) {
-            return Err(ProblemError::Contract(
-                "starting-point conditioning requires a screened task proposal".into(),
-            ));
-        }
-        if controls.options.keys().any(|k| {
-            k.rsplit('.')
-                .next()
-                .is_some_and(|k| k.starts_with("feral_") || k.starts_with("ma57_"))
-        }) {
-            return Err(ProblemError::Contract(
-                "linear solver settings use the explicit FERAL profile".into(),
-            ));
-        }
-        if controls.options.keys().any(|key| {
-            key.rsplit('.').next().is_some_and(|key| {
-                key.starts_with("partitioned_") || key.starts_with("fd_hessian_")
-            })
-        }) {
-            return Err(ProblemError::Contract(
-                "curvature settings use the typed POUNCE profile".into(),
-            ));
-        }
-        let mut options = controls.options.clone();
-        options.extend(curvature_options);
-        options.extend(accuracy.pounce_options());
-        options.extend([
-            (
-                "algorithm".into(),
-                OptionValue::Text(
-                    match method {
-                        Method::InteriorPoint | Method::L1ExactPenalty => "interior-point",
-                        Method::ActiveSetSqp => "active-set-sqp",
-                    }
-                    .into(),
-                ),
-            ),
-            (
-                "hessian_approximation".into(),
-                OptionValue::Text(
-                    match controls.hessian {
-                        HessianMode::Exact | HessianMode::GaussNewton => "exact",
-                        HessianMode::LimitedMemory => "limited-memory",
-                        HessianMode::Partitioned => "partitioned",
-                        HessianMode::FiniteDifference => "finite-difference",
-                        HessianMode::Auto => {
+                finite(primal)?;
+                initial.clone_from(primal);
+                let complete = match (bounds, rows) {
+                    (Some((l, u)), Some(r)) => {
+                        if l.len() != n
+                            || u.len() != n
+                            || r.len() != m
+                            || l.iter().chain(u).any(|v| *v < 0.0)
+                        {
                             return Err(ProblemError::Contract(
-                                "unresolved automatic curvature".into(),
+                                "POUNCE dual seed shape/sign".into(),
                             ));
                         }
+                        finite(l)?;
+                        finite(u)?;
+                        finite(r)?;
+                        Some((l.clone(), u.clone(), r.clone()))
                     }
-                    .into(),
-                ),
-            ),
-            (
-                "max_iter".into(),
-                OptionValue::Integer(controls.iterations as i32),
-            ),
-            (
-                "max_wall_time".into(),
-                OptionValue::Real(controls.time_limit.as_secs_f64()),
-            ),
-            (
-                "nlp_scaling_method".into(),
-                OptionValue::Text(
-                    if accuracy.native_scaling {
-                        "gradient-based"
-                    } else {
-                        "none"
+                    (None, None) => None,
+                    _ => return Err(ProblemError::Unsupported("partial POUNCE dual seed".into())),
+                };
+                if method == Method::L1ExactPenalty {
+                    // The exact-penalty problem has its own slack multipliers; only the primal
+                    // seed is portable into it.
+                } else if method == Method::ActiveSetSqp {
+                    // The active-set iterate: primal, row and packed bound multipliers, and the
+                    // working set when the native transformation retained it (F07).
+                    let mut s = pounce_rs::sqp::SqpIterates::cold(n, m);
+                    s.x = primal.clone();
+                    if let Some((l, u, r)) = &complete {
+                        s.lambda_g.clone_from(r);
+                        s.lambda_x = l.iter().zip(u).map(|(l, u)| l - u).collect();
                     }
-                    .into(),
-                ),
-            ),
-            ("linear_solver".into(), OptionValue::Text("feral".into())),
-            (
-                "warm_start_init_point".into(),
-                OptionValue::Bool(duals.is_some()),
-            ),
-            ("print_level".into(), OptionValue::Integer(0)),
-        ]);
-        options.extend(PINNED_OFF.map(|k| (k.to_owned(), OptionValue::Bool(false))));
-        options.extend([
-            (
-                "l1_exact_penalty_barrier".to_owned(),
-                OptionValue::Bool(method == Method::L1ExactPenalty),
-            ),
-            (
-                "l1_fallback_on_restoration_failure".to_owned(),
-                OptionValue::Bool(false),
-            ),
-        ]);
-        // A primal-dual seed restarts under the typed profile (L-N3); `mu_init` is read only
-        // by the monotone barrier update.
-        let restart = duals.is_some().then(|| {
-            let monotone = !matches!(
-                controls.options.get("mu_strategy"),
-                Some(OptionValue::Text(s)) if s == "adaptive"
-            );
-            let (restart_options, applied) = settings.restart.apply(barrier, monotone);
-            options.extend(restart_options);
-            applied
-        });
-        let pool_width = NonZeroUsize::new(controls.threads).ok_or_else(|| {
-            ProblemError::Contract("POUNCE factor pool width must be positive".into())
-        })?;
-        let linear_threads = pool_width.get();
-        feral.parallel = Some(linear_threads > 1);
-        feral.fma = false;
-        let factor_identity = serde_json::json!({"feral":crate::settings::pounce::record(&feral).map_err(|e|ProblemError::Internal(format!("FERAL identity: {e}")))?,"hessian_supplied":supplied,"method":serde_json::to_value(method).map_err(|e|ProblemError::Internal(format!("POUNCE method identity: {e}")))?});
-        let compatible = self
-            .stamp
-            .as_ref()
-            .is_some_and(|s| s.same_session(&compatibility))
-            && controls.reuse != ReusePolicy::Fresh;
-        let reused = self.app.is_some() && compatible;
-        if self.app.is_some() && !reused && controls.reuse == ReusePolicy::RequireReuse {
-            return Err(ProblemError::Reuse {
-                backend: Backend::Pounce,
-                refusal: crate::ReuseRefusal::Structure,
-            });
-        }
-        let factor_reused = compatible
-            && self
-                .factors
-                .as_ref()
-                .is_some_and(|pool| pool.borrow().matches(&factor_identity, pool_width));
-        if self.factors.is_some() && !factor_reused && controls.reuse == ReusePolicy::RequireReuse {
-            return Err(ProblemError::Reuse {
-                backend: Backend::Pounce,
-                refusal: crate::ReuseRefusal::Structure,
-            });
-        }
-        let mut app = if reused {
-            let mut app = self
-                .app
-                .take()
-                .ok_or_else(|| ProblemError::Internal("missing POUNCE application".into()))?;
-            // A reused application starts from an empty option table, so no option of an
-            // earlier step survives into this one (F02).
-            app.options_mut().clear();
-            app
-        } else {
-            self.app = None;
-            IpoptApplication::new()
-        };
-        app.set_convex_routing_available(false);
-        app.set_effective_feral_config(feral.clone());
-        app.clear_kkt_schur_block();
-        for (k, v) in &options {
-            let o = app.options_mut();
-            let set = match v {
-                OptionValue::Text(v) => o.set_string_value(k, v, true, false),
-                OptionValue::Real(v) => o.set_numeric_value(k, *v, true, false),
-                OptionValue::Integer(v) => o.set_integer_value(k, *v, true, false),
-                OptionValue::Bool(v) => o.set_bool_value(k, *v, true, false),
-            };
-            if !set.map_err(|e| ProblemError::Contract(format!("POUNCE option {k}: {e}")))? {
-                return Err(ProblemError::Contract(format!("POUNCE ignored option {k}")));
-            }
-        }
-        let pool = if factor_reused {
-            self.factors
-                .as_ref()
-                .ok_or_else(|| ProblemError::Internal("missing retained FERAL pool".into()))?
-                .clone()
-        } else {
-            retained::Pool::new(feral.clone(), factor_identity, pool_width)
-        };
-        self.factors = Some(pool.clone());
-        // Both replaced native owners have now dropped; earlier leases may be released.
-        if !reused && !factor_reused {
-            self.storage_owner = None;
-        }
-        self.foreign_allowance = controls.foreign_bytes.or(execution.memory);
-        let before_factors = pool.borrow().counts();
-        let sink = Arc::new(Mutex::new(Default::default()));
-        app.set_linear_backend_factory(retained::factory(
-            pool.clone(),
-            sink.clone(),
-            retained::Phase::Main,
-        ));
-        app.initialize()
-            .map_err(|e| ProblemError::Internal(format!("POUNCE initialization: {e}")))?;
-        let inner = app.algorithm_builder_from_options();
-        let restore_sink = sink.clone();
-        let restore_pool = pool.clone();
-        app.set_restoration_factory_provider(pounce_rs::pounce_restoration::resto_inner_solver::make_default_restoration_factory_provider(
-        Default::default(),inner,move || {let pool=restore_pool.clone();let sink=restore_sink.clone();Box::new(move ||retained::factory(pool.clone(),sink.clone(),retained::Phase::Restoration))}));
-        let working_set_submitted = sqp_seed.as_ref().is_some_and(|s| s.working.is_some());
-        if let Some(seed) = sqp_seed {
-            app.set_sqp_warm_start(seed);
-        }
-        let adapter = Rc::new(RefCell::new(Adapter {
-            scratch: crate::tnlp::Scratch::new(n, m, jac.rows.len(), hess.rows.len()),
-            normalization: pse_math::normalization::Normalization::identity(
-                oracle.contract().variables.len(),
-                oracle.contract().rows.len(),
-            ),
-            certification_budget: None,
-            normalize_affine: false,
-            oracle,
-            state: CallbackState::new(execution.clone()),
-            jac,
-            hess,
-            initial,
-            start_submitted: false,
-            duals,
-            solution: None,
-        }));
-        let native: Rc<RefCell<dyn TNLP>> = if method == Method::L1ExactPenalty {
-            let inner: Rc<RefCell<dyn TNLP>> = adapter.clone();
-            Rc::new(RefCell::new(
-                equalities::Equalities::new(inner).ok_or_else(|| {
-                    ProblemError::Internal("POUNCE equality form of the NLP".into())
-                })?,
-            ))
-        } else {
-            adapter.clone()
-        };
-        let observation = Rc::new(observed::Observation::new(
-            execution.clone(),
-            separator,
-            controls.foreign_bytes.or(execution.memory),
-        ));
-        let observation_scope = pounce_common::observed::Scope::enter(observation.clone());
-        let status = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            crate::observation::scoped("pounce.optimize", || {
-                app.optimize_tnlp_without_presolve(native)
-            })
-        }))
-        .map_err(|_| ProblemError::Internal("panic during native optimization".into()));
-        observation.finish_operations();
-        // The new admitted extent covers retained factors and their simultaneous
-        // replacement. Transfer only its allocation owner, after source admissions.
-        self.storage_owner = execution
-            .work_admission
-            .as_ref()
-            .and_then(|owner| owner.retain_storage());
-        pool.borrow_mut().retain_storage(self.storage_owner.clone());
-        let mut a = adapter.borrow_mut();
-        let status = match status {
-            Ok(status) => status,
-            Err(error) => {
-                // The algorithm can unwind after a refused FD probe before it emits a
-                // native status. Preserve both that source refusal and the unwind;
-                // neither partially filled derivatives nor a candidate may escape.
-                let mut report = SolveReport::new(
-                    Backend::Pounce,
-                    a.oracle.contract(),
-                    NativeTermination {
-                        code: i64::MIN,
-                        name: "rust.unwind".into(),
-                        message: Some(
-                            "panic during native optimization; no native status returned".into(),
-                        ),
-                        category: Termination::Panic,
-                        assurance: Assurance::None,
-                    },
-                    &execution,
-                );
-                a.state.terminal.get_or_insert_with(|| {
-                    (
-                        Termination::Panic,
-                        "panic during native optimization".into(),
-                    )
-                });
-                a.state.finish(&mut report);
-                observation.record(&mut report);
-                report.record_validation_failure(error);
-                drop(observation_scope);
-                a.state.execution.work_admission = None;
-                drop(a);
-                self.factors = None;
-                drop(app);
-                drop(pool);
-                self.storage_owner = None;
-                self.foreign_allowance = None;
-                return Ok(report);
-            }
-        };
-        let mut report = SolveReport::new(
-            Backend::Pounce,
-            a.oracle.contract(),
-            termination(status),
-            &execution,
-        );
-        // The option table read back from the application is what ran; `options` is only
-        // what this adapter set on it.
-        let (effective, defaults) = option_snapshot(&app);
-        report.options = effective;
-        report.native_defaults = defaults;
-        report
-            .metrics
-            .insert("reuse.native_application".into(), Metric::Bool(reused));
-        let after_factors = pool.borrow().counts();
-        report.evidence.reused_native_state =
-            reused || after_factors.reused > before_factors.reused;
-        for (name, count) in [
-            (
-                "linear.application_reset.completed",
-                after_factors.resets.saturating_sub(before_factors.resets),
-            ),
-            (
-                "linear.application_reset.symbolic_retained",
-                after_factors
-                    .symbolic_retained
-                    .saturating_sub(before_factors.symbolic_retained),
-            ),
-            (
-                "linear.application_reset.symbolic_not_retained",
-                after_factors
-                    .symbolic_not_retained
-                    .saturating_sub(before_factors.symbolic_not_retained),
-            ),
-            (
-                "linear.application_reset.refused",
-                after_factors
-                    .reset_refused
-                    .saturating_sub(before_factors.reset_refused),
-            ),
-            (
-                "linear.backend_objects.discarded",
-                after_factors
-                    .discarded
-                    .saturating_sub(before_factors.discarded),
-            ),
-            (
-                "linear.backend_objects.created",
-                after_factors.created.saturating_sub(before_factors.created),
-            ),
-            (
-                "linear.backend_objects.reused",
-                after_factors.reused.saturating_sub(before_factors.reused),
-            ),
-            (
-                "linear.structure_kept",
-                after_factors
-                    .pattern_kept
-                    .saturating_sub(before_factors.pattern_kept),
-            ),
-            (
-                "linear.structure_refreshes",
-                after_factors
-                    .structure_refreshes
-                    .saturating_sub(before_factors.structure_refreshes),
-            ),
-        ] {
-            report.metrics.insert(
-                name.into(),
-                Metric::Integer(i64::try_from(count).unwrap_or(i64::MAX)),
-            );
-        }
-        report.metrics.insert(
-            "linear.retained_pool_compatible".into(),
-            Metric::Bool(factor_reused),
-        );
-        report.metrics.insert(
-            "linear.retained_layout_bytes".into(),
-            Metric::Integer(i64::try_from(self.retained_layout_bytes()).unwrap_or(i64::MAX)),
-        );
-        report.metrics.insert(
-            "linear.lifetime_extrema".into(),
-            Metric::Text("unavailable-for-this-attempt-from-pinned-cumulative-summary".into()),
-        );
-        report
-            .metrics
-            .insert("linear.fresh_response_factor".into(), Metric::Bool(false));
-        report.metrics.insert(
-            "linear.threads".into(),
-            Metric::Integer(i64::try_from(linear_threads).unwrap_or(i64::MAX)),
-        );
-        let mut statistics = app.statistics();
-        let final_barrier = Some(statistics.final_mu)
-            .filter(|v| method == Method::InteriorPoint && v.is_finite() && *v > 0.0);
-        // Iteration evidence comes from our bounded intermediate-callback Progress,
-        // never from the upstream growing collector or arrays flattened into metrics.
-        statistics.iterations.clear();
-        // Preserve scalar native summaries; null denotes unavailable/nonfinite data.
-        match serde_json::to_value(&statistics) {
-            Ok(mut value) => {
-                if let Some(fields) = value.as_object_mut() {
-                    fields.remove("iterations");
+                    if let Some(ws) = working {
+                        if ws.active.n() != n || ws.active.m() != m {
+                            return Err(ProblemError::Contract("POUNCE working set shape".into()));
+                        }
+                        s.working = Some(ws.active.clone());
+                    }
+                    sqp_seed = Some(s);
+                } else {
+                    // Interior-point methods consume the primal-dual iterate and its barrier; a
+                    // working set has no interior-point meaning and is recorded as not submitted.
+                    duals = complete;
+                    barrier = *seed_barrier;
                 }
-                insert_native_metrics(&mut report.metrics, "statistics", value);
             }
-            Err(error) => {
+            reject_reserved(&controls.options, &PINNED_OFF)?;
+            reject_reserved(&controls.options, &RESERVED_METHODS)?;
+            reject_reserved(&controls.options, &RESTART_OPTIONS)?;
+            reject_reserved(
+                &controls.options,
+                &[
+                    "algorithm",
+                    "hessian_approximation",
+                    "gradient_approximation",
+                    "jacobian_approximation",
+                    "grad_f_constant",
+                    "jac_c_constant",
+                    "jac_d_constant",
+                    "hessian_constant",
+                    "presolve",
+                    "max_iter",
+                    "max_wall_time",
+                    "max_cpu_time",
+                    "tol",
+                    "constr_viol_tol",
+                    "dual_inf_tol",
+                    "compl_inf_tol",
+                    "acceptable_tol",
+                    "acceptable_iter",
+                    "acceptable_constr_viol_tol",
+                    "acceptable_dual_inf_tol",
+                    "acceptable_compl_inf_tol",
+                    "bound_relax_factor",
+                    "honor_original_bounds",
+                    "warm_start_init_point",
+                    "nlp_scaling_method",
+                    "linear_solver",
+                    "option_file_name",
+                    "nlp_lower_bound_inf",
+                    "nlp_upper_bound_inf",
+                    "start_point_perturbation",
+                    "start_point_perturbation_seed",
+                    "start_point_conditioner",
+                ],
+            )?;
+            if controls.options.keys().any(|key| {
+                key.rsplit('.')
+                    .next()
+                    .is_some_and(|key| key.starts_with("adam_warmup_"))
+            }) {
+                return Err(ProblemError::Contract(
+                    "starting-point conditioning requires a screened task proposal".into(),
+                ));
+            }
+            if controls.options.keys().any(|k| {
+                k.rsplit('.')
+                    .next()
+                    .is_some_and(|k| k.starts_with("feral_") || k.starts_with("ma57_"))
+            }) {
+                return Err(ProblemError::Contract(
+                    "linear solver settings use the explicit FERAL profile".into(),
+                ));
+            }
+            if controls.options.keys().any(|key| {
+                key.rsplit('.').next().is_some_and(|key| {
+                    key.starts_with("partitioned_") || key.starts_with("fd_hessian_")
+                })
+            }) {
+                return Err(ProblemError::Contract(
+                    "curvature settings use the typed POUNCE profile".into(),
+                ));
+            }
+            let mut options = controls.options.clone();
+            options.extend(curvature_options);
+            options.extend(accuracy.pounce_options());
+            options.extend([
+                (
+                    "algorithm".into(),
+                    OptionValue::Text(
+                        match method {
+                            Method::InteriorPoint | Method::L1ExactPenalty => "interior-point",
+                            Method::ActiveSetSqp => "active-set-sqp",
+                        }
+                        .into(),
+                    ),
+                ),
+                (
+                    "hessian_approximation".into(),
+                    OptionValue::Text(
+                        match controls.hessian {
+                            HessianMode::Exact | HessianMode::GaussNewton => "exact",
+                            HessianMode::LimitedMemory => "limited-memory",
+                            HessianMode::Partitioned => "partitioned",
+                            HessianMode::FiniteDifference => "finite-difference",
+                            HessianMode::Auto => {
+                                return Err(ProblemError::Contract(
+                                    "unresolved automatic curvature".into(),
+                                ));
+                            }
+                        }
+                        .into(),
+                    ),
+                ),
+                (
+                    "max_iter".into(),
+                    OptionValue::Integer(controls.iterations as i32),
+                ),
+                (
+                    "max_wall_time".into(),
+                    OptionValue::Real(controls.time_limit.as_secs_f64()),
+                ),
+                (
+                    "nlp_scaling_method".into(),
+                    OptionValue::Text(
+                        if accuracy.native_scaling {
+                            "gradient-based"
+                        } else {
+                            "none"
+                        }
+                        .into(),
+                    ),
+                ),
+                ("linear_solver".into(), OptionValue::Text("feral".into())),
+                (
+                    "warm_start_init_point".into(),
+                    OptionValue::Bool(duals.is_some()),
+                ),
+                ("print_level".into(), OptionValue::Integer(0)),
+            ]);
+            options.extend(PINNED_OFF.map(|k| (k.to_owned(), OptionValue::Bool(false))));
+            options.extend([
+                (
+                    "l1_exact_penalty_barrier".to_owned(),
+                    OptionValue::Bool(method == Method::L1ExactPenalty),
+                ),
+                (
+                    "l1_fallback_on_restoration_failure".to_owned(),
+                    OptionValue::Bool(false),
+                ),
+            ]);
+            // A primal-dual seed restarts under the typed profile (L-N3); `mu_init` is read only
+            // by the monotone barrier update.
+            let restart = duals.is_some().then(|| {
+                let monotone = !matches!(
+                    controls.options.get("mu_strategy"),
+                    Some(OptionValue::Text(s)) if s == "adaptive"
+                );
+                let (restart_options, applied) = settings.restart.apply(barrier, monotone);
+                options.extend(restart_options);
+                applied
+            });
+            let pool_width = NonZeroUsize::new(controls.threads).ok_or_else(|| {
+                ProblemError::Contract("POUNCE factor pool width must be positive".into())
+            })?;
+            let linear_threads = pool_width.get();
+            feral.parallel = Some(linear_threads > 1);
+            feral.fma = false;
+            let factor_identity = serde_json::json!({"feral":crate::settings::pounce::record(&feral).map_err(|e|ProblemError::Internal(format!("FERAL identity: {e}")))?,"hessian_supplied":supplied,"method":serde_json::to_value(method).map_err(|e|ProblemError::Internal(format!("POUNCE method identity: {e}")))?});
+            let compatible = self
+                .stamp
+                .as_ref()
+                .is_some_and(|s| s.same_session(&compatibility))
+                && controls.reuse != ReusePolicy::Fresh;
+            let reused = self.app.is_some() && compatible;
+            if self.app.is_some() && !reused && controls.reuse == ReusePolicy::RequireReuse {
+                return Err(ProblemError::Reuse {
+                    backend: Backend::Pounce,
+                    refusal: crate::ReuseRefusal::Structure,
+                });
+            }
+            let factor_reused = compatible
+                && self
+                    .factors
+                    .as_ref()
+                    .is_some_and(|pool| pool.borrow().matches(&factor_identity, pool_width));
+            if self.factors.is_some()
+                && !factor_reused
+                && controls.reuse == ReusePolicy::RequireReuse
+            {
+                return Err(ProblemError::Reuse {
+                    backend: Backend::Pounce,
+                    refusal: crate::ReuseRefusal::Structure,
+                });
+            }
+            let mut app = if reused {
+                let mut app = self
+                    .app
+                    .take()
+                    .ok_or_else(|| ProblemError::Internal("missing POUNCE application".into()))?;
+                // A reused application starts from an empty option table, so no option of an
+                // earlier step survives into this one (F02).
+                app.options_mut().clear();
+                app
+            } else {
+                self.app = None;
+                IpoptApplication::new()
+            };
+            app.set_convex_routing_available(false);
+            app.set_effective_feral_config(feral.clone());
+            app.clear_kkt_schur_block();
+            for (k, v) in &options {
+                let o = app.options_mut();
+                let set = match v {
+                    OptionValue::Text(v) => o.set_string_value(k, v, true, false),
+                    OptionValue::Real(v) => o.set_numeric_value(k, *v, true, false),
+                    OptionValue::Integer(v) => o.set_integer_value(k, *v, true, false),
+                    OptionValue::Bool(v) => o.set_bool_value(k, *v, true, false),
+                };
+                if !set.map_err(|e| ProblemError::Contract(format!("POUNCE option {k}: {e}")))? {
+                    return Err(ProblemError::Contract(format!("POUNCE ignored option {k}")));
+                }
+            }
+            let pool = if factor_reused {
+                self.factors
+                    .as_ref()
+                    .ok_or_else(|| ProblemError::Internal("missing retained FERAL pool".into()))?
+                    .clone()
+            } else {
+                retained::Pool::new(feral.clone(), factor_identity, pool_width)
+            };
+            self.factors = Some(pool.clone());
+            // Both replaced native owners have now dropped; earlier leases may be released.
+            if !reused && !factor_reused {
+                self.storage_owner = None;
+            }
+            self.foreign_allowance = controls.foreign_bytes.or(execution.memory);
+            let before_factors = pool.borrow().counts();
+            let sink = Arc::new(Mutex::new(Default::default()));
+            app.set_linear_backend_factory(retained::factory(
+                pool.clone(),
+                sink.clone(),
+                retained::Phase::Main,
+            ));
+            app.initialize()
+                .map_err(|e| ProblemError::Internal(format!("POUNCE initialization: {e}")))?;
+            let inner = app.algorithm_builder_from_options();
+            let restore_sink = sink.clone();
+            let restore_pool = pool.clone();
+            app.set_restoration_factory_provider(pounce_rs::pounce_restoration::resto_inner_solver::make_default_restoration_factory_provider(
+        Default::default(),inner,move || {let pool=restore_pool.clone();let sink=restore_sink.clone();Box::new(move ||retained::factory(pool.clone(),sink.clone(),retained::Phase::Restoration))}));
+            let working_set_submitted = sqp_seed.as_ref().is_some_and(|s| s.working.is_some());
+            if let Some(seed) = sqp_seed {
+                app.set_sqp_warm_start(seed);
+            }
+            let adapter =
+                Rc::new(RefCell::new(Adapter {
+                    scratch: crate::tnlp::Scratch::new(n, m, jac.rows.len(), hess.rows.len()),
+                    normalization: pse_math::normalization::Normalization::identity(
+                        oracle.contract().variables.len(),
+                        oracle.contract().rows.len(),
+                    ),
+                    certification_budget: None,
+                    normalize_affine: false,
+                    oracle: Some(pending.take().ok_or_else(|| {
+                        ProblemError::internal("POUNCE oracle transferred twice")
+                    })?),
+                    state: CallbackState::new(execution.clone()),
+                    jac,
+                    hess,
+                    initial,
+                    start_submitted: false,
+                    duals,
+                    solution: None,
+                }));
+            active = Some(adapter.clone());
+            let native: Rc<RefCell<dyn TNLP>> = if method == Method::L1ExactPenalty {
+                let inner: Rc<RefCell<dyn TNLP>> = adapter.clone();
+                Rc::new(RefCell::new(
+                    equalities::Equalities::new(inner).ok_or_else(|| {
+                        ProblemError::Internal("POUNCE equality form of the NLP".into())
+                    })?,
+                ))
+            } else {
+                adapter.clone()
+            };
+            let observation = Rc::new(observed::Observation::new(
+                execution.clone(),
+                separator,
+                controls.foreign_bytes.or(execution.memory),
+            ));
+            let observation_scope = pounce_common::observed::Scope::enter(observation.clone());
+            let status = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                crate::observation::scoped("pounce.optimize", || {
+                    app.optimize_tnlp_without_presolve(native)
+                })
+            }))
+            .map_err(|_| ProblemError::Internal("panic during native optimization".into()));
+            observation.finish_operations();
+            // The new admitted extent covers retained factors and their simultaneous
+            // replacement. Transfer only its allocation owner, after source admissions.
+            self.storage_owner = execution
+                .work_admission
+                .as_ref()
+                .and_then(|owner| owner.retain_storage());
+            pool.borrow_mut().retain_storage(self.storage_owner.clone());
+            let mut a = adapter.borrow_mut();
+            let status = match status {
+                Ok(status) => status,
+                Err(error) => {
+                    // The algorithm can unwind after a refused FD probe before it emits a
+                    // native status. Preserve both that source refusal and the unwind;
+                    // neither partially filled derivatives nor a candidate may escape.
+                    let mut report = SolveReport::new(
+                        Backend::Pounce,
+                        a.oracle()?.contract(),
+                        NativeTermination {
+                            code: i64::MIN,
+                            name: "rust.unwind".into(),
+                            message: Some(
+                                "panic during native optimization; no native status returned"
+                                    .into(),
+                            ),
+                            category: Termination::Panic,
+                            assurance: Assurance::None,
+                        },
+                        &execution,
+                    );
+                    a.state.terminal.get_or_insert_with(|| {
+                        (
+                            Termination::Panic,
+                            "panic during native optimization".into(),
+                        )
+                    });
+                    a.state.finish(&mut report);
+                    observation.record(&mut report);
+                    report.record_validation_failure(error);
+                    drop(observation_scope);
+                    a.state.execution.work_admission = None;
+                    drop(a);
+                    self.factors = None;
+                    drop(app);
+                    drop(pool);
+                    self.storage_owner = None;
+                    self.foreign_allowance = None;
+                    return Ok(report);
+                }
+            };
+            let mut report = SolveReport::new(
+                Backend::Pounce,
+                a.oracle()?.contract(),
+                termination(status),
+                &execution,
+            );
+            // The option table read back from the application is what ran; `options` is only
+            // what this adapter set on it.
+            let (effective, defaults) = option_snapshot(&app);
+            report.options = effective;
+            report.native_defaults = defaults;
+            report
+                .metrics
+                .insert("reuse.native_application".into(), Metric::Bool(reused));
+            let after_factors = pool.borrow().counts();
+            report.evidence.reused_native_state =
+                reused || after_factors.reused > before_factors.reused;
+            for (name, count) in [
+                (
+                    "linear.application_reset.completed",
+                    after_factors.resets.saturating_sub(before_factors.resets),
+                ),
+                (
+                    "linear.application_reset.symbolic_retained",
+                    after_factors
+                        .symbolic_retained
+                        .saturating_sub(before_factors.symbolic_retained),
+                ),
+                (
+                    "linear.application_reset.symbolic_not_retained",
+                    after_factors
+                        .symbolic_not_retained
+                        .saturating_sub(before_factors.symbolic_not_retained),
+                ),
+                (
+                    "linear.application_reset.refused",
+                    after_factors
+                        .reset_refused
+                        .saturating_sub(before_factors.reset_refused),
+                ),
+                (
+                    "linear.backend_objects.discarded",
+                    after_factors
+                        .discarded
+                        .saturating_sub(before_factors.discarded),
+                ),
+                (
+                    "linear.backend_objects.created",
+                    after_factors.created.saturating_sub(before_factors.created),
+                ),
+                (
+                    "linear.backend_objects.reused",
+                    after_factors.reused.saturating_sub(before_factors.reused),
+                ),
+                (
+                    "linear.structure_kept",
+                    after_factors
+                        .pattern_kept
+                        .saturating_sub(before_factors.pattern_kept),
+                ),
+                (
+                    "linear.structure_refreshes",
+                    after_factors
+                        .structure_refreshes
+                        .saturating_sub(before_factors.structure_refreshes),
+                ),
+            ] {
                 report.metrics.insert(
-                    "statistics.encoding_error".into(),
-                    Metric::Text(error.to_string()),
+                    name.into(),
+                    Metric::Integer(i64::try_from(count).unwrap_or(i64::MAX)),
                 );
             }
-        }
-        report.pounce_statistics = Some(Box::new(statistics));
-        let timing = app.timing_stats();
-        macro_rules! times {
+            report.metrics.insert(
+                "linear.retained_pool_compatible".into(),
+                Metric::Bool(factor_reused),
+            );
+            report.metrics.insert(
+                "linear.retained_layout_bytes".into(),
+                Metric::Integer(i64::try_from(self.retained_layout_bytes()).unwrap_or(i64::MAX)),
+            );
+            report.metrics.insert(
+                "linear.lifetime_extrema".into(),
+                Metric::Text("unavailable-for-this-attempt-from-pinned-cumulative-summary".into()),
+            );
+            report
+                .metrics
+                .insert("linear.fresh_response_factor".into(), Metric::Bool(false));
+            report.metrics.insert(
+                "linear.threads".into(),
+                Metric::Integer(i64::try_from(linear_threads).unwrap_or(i64::MAX)),
+            );
+            let mut statistics = app.statistics();
+            let final_barrier = Some(statistics.final_mu)
+                .filter(|v| method == Method::InteriorPoint && v.is_finite() && *v > 0.0);
+            // Iteration evidence comes from our bounded intermediate-callback Progress,
+            // never from the upstream growing collector or arrays flattened into metrics.
+            statistics.iterations.clear();
+            // Preserve scalar native summaries; null denotes unavailable/nonfinite data.
+            match serde_json::to_value(&statistics) {
+                Ok(mut value) => {
+                    if let Some(fields) = value.as_object_mut() {
+                        fields.remove("iterations");
+                    }
+                    insert_native_metrics(&mut report.metrics, "statistics", value);
+                }
+                Err(error) => {
+                    report.metrics.insert(
+                        "statistics.encoding_error".into(),
+                        Metric::Text(error.to_string()),
+                    );
+                }
+            }
+            report.pounce_statistics = Some(Box::new(statistics));
+            let timing = app.timing_stats();
+            macro_rules! times {
             ($($field:ident),*) => {$(
                 let (value, state) = timer_metric(&timing.$field, true);
                 report.metrics.insert(concat!("timing.", stringify!($field)).into(), value);
                 report.metrics.insert(concat!("timing.", stringify!($field), ".state").into(), Metric::Text(state.into()));
             )*}
         }
-        times!(
-            overall_alg,
-            print_problem_statistics,
-            initialize_iterates,
-            update_hessian,
-            output_iteration,
-            update_barrier_parameter,
-            compute_search_direction,
-            compute_acceptable_trial_point,
-            accept_trial_point,
-            check_convergence,
-            fire_intermediate,
-            linear_system_symbolic_factorization,
-            linear_system_factorization,
-            linear_system_back_solve,
-            quality_function_search,
-            total_callback_time,
-            total_function_evaluation_time,
-            eval_obj,
-            eval_grad_obj,
-            eval_constr,
-            eval_constr_jac,
-            eval_lag_hess
-        );
-        if let Ok(s) = sink.lock() {
-            report.evidence.work.factorizations = Some(s.n_factors);
+            times!(
+                overall_alg,
+                print_problem_statistics,
+                initialize_iterates,
+                update_hessian,
+                output_iteration,
+                update_barrier_parameter,
+                compute_search_direction,
+                compute_acceptable_trial_point,
+                accept_trial_point,
+                check_convergence,
+                fire_intermediate,
+                linear_system_symbolic_factorization,
+                linear_system_factorization,
+                linear_system_back_solve,
+                quality_function_search,
+                total_callback_time,
+                total_function_evaluation_time,
+                eval_obj,
+                eval_grad_obj,
+                eval_constr,
+                eval_constr_jac,
+                eval_lag_hess
+            );
+            if let Ok(s) = sink.lock() {
+                report.evidence.work.factorizations = Some(s.n_factors);
+                report
+                    .metrics
+                    .insert("linear.factors".into(), Metric::Integer(s.n_factors as i64));
+                report.metrics.insert(
+                    "linear.pattern_reuse".into(),
+                    Metric::Integer(s.n_pattern_reuse as i64),
+                );
+                report.metrics.insert(
+                    "linear.pattern_changes".into(),
+                    Metric::Integer(s.n_pattern_changes as i64),
+                );
+                for (k, v) in [
+                    ("linear.fill_ratio", s.max_fill_ratio),
+                    ("linear.min_pivot", s.min_abs_pivot),
+                    ("linear.max_pivot", s.max_abs_pivot),
+                ] {
+                    if let Some(v) = v {
+                        report.metrics.insert(k.into(), Metric::Real(v));
+                    }
+                }
+                if let Some((p, n, z)) = s.last_inertia {
+                    for (k, v) in [
+                        ("linear.inertia.positive", p),
+                        ("linear.inertia.negative", n),
+                        ("linear.inertia.zero", z),
+                    ] {
+                        report.metrics.insert(k.into(), Metric::Integer(v as i64));
+                    }
+                }
+                for (k, v) in [("linear.nnzA", s.last_nnz_a), ("linear.nnzL", s.last_nnz_l)] {
+                    if let Some(v) = v {
+                        report.metrics.insert(k.into(), Metric::Integer(v as i64));
+                    }
+                }
+            }
+            if let Some(d) = app.warm_start_diagnostics() {
+                report
+                    .provenance
+                    .insert("warm.diagnostics".into(), records::warm(&d));
+            }
+            if let Some(c) = app.crossover_report() {
+                report
+                    .provenance
+                    .insert("crossover".into(), records::crossover(c));
+            }
+            // A successful TNLP starting-point callback copied the explicit primal,
+            // independently of optional warm data or retained algorithm history.
+            report.evidence.start_submitted = a.start_submitted;
+            report.evidence.restart = restart;
+            report.evidence.working_set_submitted = working_set_submitted;
             report
                 .metrics
-                .insert("linear.factors".into(), Metric::Integer(s.n_factors as i64));
-            report.metrics.insert(
-                "linear.pattern_reuse".into(),
-                Metric::Integer(s.n_pattern_reuse as i64),
+                .insert("start.submitted".into(), Metric::Bool(a.start_submitted));
+            report.provenance.insert(
+                "native".into(),
+                "POUNCE 0.12.0; FERAL; shared preprocessing is applied before this adapter".into(),
             );
-            report.metrics.insert(
-                "linear.pattern_changes".into(),
-                Metric::Integer(s.n_pattern_changes as i64),
-            );
-            for (k, v) in [
-                ("linear.fill_ratio", s.max_fill_ratio),
-                ("linear.min_pivot", s.min_abs_pivot),
-                ("linear.max_pivot", s.max_abs_pivot),
-            ] {
-                if let Some(v) = v {
-                    report.metrics.insert(k.into(), Metric::Real(v));
-                }
-            }
-            if let Some((p, n, z)) = s.last_inertia {
-                for (k, v) in [
-                    ("linear.inertia.positive", p),
-                    ("linear.inertia.negative", n),
-                    ("linear.inertia.zero", z),
-                ] {
-                    report.metrics.insert(k.into(), Metric::Integer(v as i64));
-                }
-            }
-            for (k, v) in [("linear.nnzA", s.last_nnz_a), ("linear.nnzL", s.last_nnz_l)] {
-                if let Some(v) = v {
-                    report.metrics.insert(k.into(), Metric::Integer(v as i64));
-                }
-            }
-        }
-        if let Some(d) = app.warm_start_diagnostics() {
+            // The effective FERAL configuration through its identity encoding (F30).
+            let effective = crate::settings::pounce::record(&feral)
+                .map_err(|e| ProblemError::Internal(format!("FERAL settings record: {e}")))?;
             report
                 .provenance
-                .insert("warm.diagnostics".into(), records::warm(&d));
-        }
-        if let Some(c) = app.crossover_report() {
-            report
-                .provenance
-                .insert("crossover".into(), records::crossover(c));
-        }
-        // A successful TNLP starting-point callback copied the explicit primal,
-        // independently of optional warm data or retained algorithm history.
-        report.evidence.start_submitted = a.start_submitted;
-        report.evidence.restart = restart;
-        report.evidence.working_set_submitted = working_set_submitted;
-        report
-            .metrics
-            .insert("start.submitted".into(), Metric::Bool(a.start_submitted));
-        report.provenance.insert(
-            "native".into(),
-            "POUNCE 0.12.0; FERAL; shared preprocessing is applied before this adapter".into(),
-        );
-        // The effective FERAL configuration through its identity encoding (F30).
-        let effective = crate::settings::pounce::record(&feral)
-            .map_err(|e| ProblemError::Internal(format!("FERAL settings record: {e}")))?;
-        report
-            .provenance
-            .insert("feral.effective".into(), effective.to_string());
-        report.provenance.insert(
-            "feral.refinement_policy".into(),
-            "explicit_typed_configuration".into(),
-        );
-        observation.record(&mut report);
-        if let Some(mut candidate) = a.solution.take()
-            && candidate.primal.iter().all(|v| v.is_finite())
-            && candidate.objective.is_some_and(f64::is_finite)
-        {
-            candidate.objective = candidate.objective.map(|v| v * sense.sign());
-            let Adapter { state, oracle, .. } = &mut *a;
-            match state.evaluate("native.validation.constraints", || {
-                quality::nlp(oracle.as_mut(), &candidate.primal, tolerances)
-            }) {
-                Some(q) => {
-                    if !q.feasible() {
+                .insert("feral.effective".into(), effective.to_string());
+            report.provenance.insert(
+                "feral.refinement_policy".into(),
+                "explicit_typed_configuration".into(),
+            );
+            observation.record(&mut report);
+            if let Some(mut candidate) = a.solution.take()
+                && candidate.primal.iter().all(|v| v.is_finite())
+                && candidate.objective.is_some_and(f64::is_finite)
+            {
+                candidate.objective = candidate.objective.map(|v| v * sense.sign());
+                let Adapter { state, oracle, .. } = &mut *a;
+                match state.evaluate("native.validation.constraints", || {
+                    quality::nlp(
+                        oracle.as_deref_mut().ok_or_else(|| {
+                            ProblemError::Contract("POUNCE oracle retired".into())
+                        })?,
+                        &candidate.primal,
+                        tolerances,
+                    )
+                }) {
+                    Some(q) => {
+                        if !q.feasible() {
+                            report.termination.assurance = Assurance::None;
+                        }
+                        report.quality = Some(q);
+                    }
+                    None => {
+                        let error = state
+                            .terminal_error()
+                            .or_else(|| state.last_failure.take())
+                            .unwrap_or_else(|| {
+                                ProblemError::Internal("native validation callback failed".into())
+                            });
+                        report.record_validation_failure(error);
                         report.termination.assurance = Assurance::None;
                     }
-                    report.quality = Some(q);
                 }
-                None => {
-                    let error = state
-                        .terminal_error()
-                        .or_else(|| state.last_failure.take())
-                        .unwrap_or_else(|| {
-                            ProblemError::Internal("native validation callback failed".into())
-                        });
-                    report.record_validation_failure(error);
-                    report.termination.assurance = Assurance::None;
-                }
-            }
-            // The active-set working set is keyed by this attempt's native coordinates;
-            // an interior-point seed carries its final barrier value instead.
-            let working = (method == Method::ActiveSetSqp)
-                .then(|| app.last_sqp_working_set().cloned())
-                .flatten()
-                .map(|active| WorkingSet {
-                    transformation: compatibility.layout,
-                    active,
-                });
-            let complete = candidate.bound_dual.is_some() && candidate.row_dual.is_some();
-            let payload = WarmPayload::Nlp {
-                primal: candidate.primal.clone(),
-                bounds: candidate.bound_dual.clone(),
-                rows: candidate.row_dual.clone(),
-                barrier: final_barrier.filter(|_| complete),
-                working,
-            };
-            report.warm_start = Some(WarmStart {
-                origin: None,
-                compatibility: compatibility.clone(),
-                payload,
-            });
-            report.candidate = Some(candidate);
-        }
-        if report.candidate.is_none() {
-            report.termination.assurance = Assurance::None
-        }
-        a.state.finish(&mut report);
-        let source_abort = observation_scope.abort();
-        let source_error = observation.take_error().or_else(|| {
-            source_abort.as_ref().map(|abort| match abort {
-                pounce_common::observed::Abort::Cancelled => ProblemError::Cancelled,
-                pounce_common::observed::Abort::Resource(detail) => {
-                    ProblemError::memory(detail.clone())
-                }
-                pounce_common::observed::Abort::Contract(detail) => {
-                    ProblemError::Contract(detail.clone())
-                }
-                pounce_common::observed::Abort::Panic => {
-                    ProblemError::Internal("panic in native operation observer".into())
-                }
-            })
-        });
-        if let Some(error) = source_error {
-            report.termination.category =
-                if matches!(source_abort, Some(pounce_common::observed::Abort::Panic)) {
-                    Termination::Panic
-                } else {
-                    match crate::callback::classify(&error) {
-                        crate::callback::Failure::Stopped(stop) => stop,
-                        _ => Termination::Invalid,
-                    }
+                // The active-set working set is keyed by this attempt's native coordinates;
+                // an interior-point seed carries its final barrier value instead.
+                let working = (method == Method::ActiveSetSqp)
+                    .then(|| app.last_sqp_working_set().cloned())
+                    .flatten()
+                    .map(|active| WorkingSet {
+                        transformation: compatibility.layout,
+                        active,
+                    });
+                let complete = candidate.bound_dual.is_some() && candidate.row_dual.is_some();
+                let payload = WarmPayload::Nlp {
+                    primal: candidate.primal.clone(),
+                    bounds: candidate.bound_dual.clone(),
+                    rows: candidate.row_dual.clone(),
+                    barrier: final_barrier.filter(|_| complete),
+                    working,
                 };
-            report.record_validation_failure(error);
-            report.termination.assurance = Assurance::None;
-        }
-        drop(observation_scope);
-        // A retained native application must not retain a completed task ledger.
-        a.state.execution.work_admission = None;
-        drop(a);
-        if !matches!(
-            report.termination.category,
-            Termination::Panic
-                | Termination::Evaluation
-                | Termination::Invalid
-                | Termination::Numerical
-        ) {
-            self.app = Some(app);
-            self.stamp = Some(compatibility);
-            self.discarded = false;
-        } else {
-            self.discarded = true;
-            self.factors = None;
-            drop(app);
-            drop(pool);
-            self.storage_owner = None;
-            self.foreign_allowance = None;
-        }
-        Ok(report)
+                report.warm_start = Some(WarmStart {
+                    origin: None,
+                    compatibility: compatibility.clone(),
+                    payload,
+                });
+                report.candidate = Some(candidate);
+            }
+            if report.candidate.is_none() {
+                report.termination.assurance = Assurance::None
+            }
+            a.state.finish(&mut report);
+            let source_abort = observation_scope.abort();
+            let source_error = observation.take_error().or_else(|| {
+                source_abort.as_ref().map(|abort| match abort {
+                    pounce_common::observed::Abort::Cancelled => ProblemError::Cancelled,
+                    pounce_common::observed::Abort::Resource(detail) => {
+                        ProblemError::memory(detail.clone())
+                    }
+                    pounce_common::observed::Abort::Contract(detail) => {
+                        ProblemError::Contract(detail.clone())
+                    }
+                    pounce_common::observed::Abort::Panic => {
+                        ProblemError::Internal("panic in native operation observer".into())
+                    }
+                })
+            });
+            if let Some(error) = source_error {
+                report.termination.category =
+                    if matches!(source_abort, Some(pounce_common::observed::Abort::Panic)) {
+                        Termination::Panic
+                    } else {
+                        match crate::callback::classify(&error) {
+                            crate::callback::Failure::Stopped(stop) => stop,
+                            _ => Termination::Invalid,
+                        }
+                    };
+                report.record_validation_failure(error);
+                report.termination.assurance = Assurance::None;
+            }
+            drop(observation_scope);
+            // A retained native application must not retain a completed task ledger.
+            a.state.execution.work_admission = None;
+            drop(a);
+            if !matches!(
+                report.termination.category,
+                Termination::Panic
+                    | Termination::Evaluation
+                    | Termination::Invalid
+                    | Termination::Numerical
+            ) {
+                self.app = Some(app);
+                self.stamp = Some(compatibility);
+                self.discarded = false;
+            } else {
+                self.discarded = true;
+                self.factors = None;
+                drop(app);
+                drop(pool);
+                self.storage_owner = None;
+                self.foreign_allowance = None;
+            }
+            Ok(report)
+        })();
+        // Optimize owns its TNLP aliases only during the call. The retained
+        // application stores factories over the neutral factor pool, not the TNLP.
+        // Extracting the slot leaves any idle aliases without scientific ownership.
+        let retirement = match active {
+            Some(adapter) => adapter
+                .try_borrow_mut()
+                .map_err(|_| {
+                    ProblemError::internal("POUNCE retirement overlaps an active callback")
+                })?
+                .finish(),
+            None => pending.map_or(Ok(()), |oracle| oracle.finish()),
+        };
+        ProblemError::after_solve(result, retirement)
     }
 }
 /// POUNCE statuses share numeric ABI values with Ipopt, but retain their native identity
@@ -1145,7 +1202,7 @@ mod tests {
             normalize_affine: false,
             jac: Pattern::new(oracle.jacobian_pattern(), false).unwrap(),
             hess: Pattern::new(oracle.hessian_pattern().unwrap(), true).unwrap(),
-            oracle,
+            oracle: Some(oracle),
             state: CallbackState::new(crate::solver_tests::execution()),
             initial: vec![2.0],
             start_submitted: false,
@@ -1315,7 +1372,7 @@ mod tests {
         let mut a = adapter();
         let mut failing = crate::solver_tests::Polynomial::new();
         failing.fail = true;
-        a.oracle = Box::new(failing);
+        a.oracle = Some(Box::new(failing));
         let mut out = [73.];
         assert!(!a.eval_grad_f(&[2.], true, &mut out));
         assert_eq!(out, [73.], "oracle wrote private scratch before refusal");
@@ -1405,6 +1462,9 @@ mod tests {
         }
     }
     impl NlpOracle for FirstOnly {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &crate::OracleContract {
             &self.contract
         }
@@ -1450,13 +1510,13 @@ mod tests {
     #[test]
     fn empty_declared_tnlp_hessian_does_not_request_unavailable_second_order_work() {
         let mut a = adapter();
-        a.oracle = Box::new(FirstOnly::new(
+        a.oracle = Some(Box::new(FirstOnly::new(
             Arc::new(std::sync::atomic::AtomicUsize::new(0)),
             false,
-        ));
+        )));
         a.normalization = pse_math::normalization::Normalization::identity(4, 1);
         a.scratch = crate::tnlp::Scratch::new(4, 1, 4, 0);
-        a.jac = Pattern::new(a.oracle.jacobian_pattern(), false).unwrap();
+        a.jac = Pattern::new(a.oracle().unwrap().jacobian_pattern(), false).unwrap();
         a.hess = Pattern {
             rows: vec![],
             columns: vec![],
@@ -2354,9 +2414,10 @@ mod tests {
                     ReusePolicy::AllowRebuild,
                     |_: &mut NativeWitness| Ok(crate::execution::SessionUpdate::Compatible),
                     || Ok(NativeWitness),
+                    |_| Ok(()),
                 )
                 .unwrap();
-            retained.clear();
+            retained.clear().unwrap();
             drop(scopes);
         }
         assert_eq!(ADMITTED.with(|a| a.get()), 0);

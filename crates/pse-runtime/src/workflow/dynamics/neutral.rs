@@ -100,10 +100,10 @@ impl NeutralCase {
             Some(scratch) => assembly.worker_from_scratch(scratch, providers, scope)?,
             None => assembly.worker_scoped(providers, scope),
         };
-        worker.prepare_providers()?;
+        worker = prepare_case_worker(worker)?;
         if self.valid.load(Ordering::Acquire) {
             let slot = self.clone();
-            worker.recycle_on_drop(move |scratch| {
+            worker.recycle_on_finish(move |scratch| {
                 if slot.valid.load(Ordering::Acquire)
                     && let Ok(mut pending) = slot.pending.try_lock()
                     && pending.is_none()

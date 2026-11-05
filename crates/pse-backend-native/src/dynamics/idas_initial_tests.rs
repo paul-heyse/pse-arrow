@@ -31,6 +31,9 @@ impl AlgebraicFlux {
     }
 }
 impl Oracle for AlgebraicFlux {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         &self.contract
     }

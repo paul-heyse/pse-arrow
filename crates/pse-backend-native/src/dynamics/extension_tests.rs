@@ -14,6 +14,9 @@ struct LateTrial {
 }
 #[cfg(feature = "idas")]
 impl Oracle for LateTrial {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         self.toy.contract()
     }
@@ -358,6 +361,9 @@ struct Decay {
 }
 #[cfg(feature = "idas")]
 impl Oracle for Decay {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         &self.c
     }
@@ -532,6 +538,9 @@ impl Chain {
 }
 #[cfg(feature = "idas")]
 impl Oracle for Chain {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         &self.c
     }
@@ -744,6 +753,9 @@ fn idas_krylov_matches_klu() {
 struct Forced(Toy);
 #[cfg(feature = "idas")]
 impl Oracle for Forced {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         self.0.contract()
     }

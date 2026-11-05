@@ -444,21 +444,36 @@ impl Roots {
         original: Box<dyn NleOracle>,
         normalization: Normalization,
     ) -> Result<Self, ProblemError> {
-        let n = original.contract().variables.len();
-        let m = original.contract().rows.len();
-        let jacobian_nnz = original.jacobian_pattern().compute_nnz();
-        Ok(Self {
-            contract: contract(original.contract(), &normalization)?,
+        crate::retiring(
             original,
-            normalization,
-            point: vec![0.; n],
-            direction: vec![0.; n],
-            output: vec![0.; m.max(jacobian_nnz)],
-            jacobian_nnz,
-        })
+            |owner| owner.finish(),
+            |pending| {
+                let original = pending.as_mut().ok_or_else(|| {
+                    ProblemError::internal("missing native wrapper constructor owner")
+                })?;
+
+                let n = original.contract().variables.len();
+                let m = original.contract().rows.len();
+                let jacobian_nnz = original.jacobian_pattern().compute_nnz();
+                Ok(Self {
+                    contract: contract(original.contract(), &normalization)?,
+                    original: pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing native wrapper ownership transfer")
+                    })?,
+                    normalization,
+                    point: vec![0.; n],
+                    direction: vec![0.; n],
+                    output: vec![0.; m.max(jacobian_nnz)],
+                    jacobian_nnz,
+                })
+            },
+        )
     }
 }
 impl NleOracle for Roots {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        self.original.finish()
+    }
     fn operations(&self) -> crate::RootOperations {
         self.original.operations()
     }

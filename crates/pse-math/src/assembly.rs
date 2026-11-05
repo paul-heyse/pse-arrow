@@ -3091,10 +3091,16 @@ impl CaseAssembly {
         mut providers: pse_kernels::ProviderBindings,
         scope: pse_kernels::ExecutionScope,
     ) -> Result<CaseWorker, MathError> {
-        scope.check().map_err(crate::error::scope_error)?;
+        if let Err(error) = scope.check() {
+            return Err(retire_failed_provider_construction(
+                crate::error::scope_error(error),
+                providers,
+            ));
+        }
         if !Arc::ptr_eq(self, &scratch.assembly) || !scratch.reset {
-            return Err(MathError::Contract(
-                "incompatible or unreset case scratch".into(),
+            return Err(retire_failed_provider_construction(
+                MathError::Contract("incompatible or unreset case scratch".into()),
+                providers,
             ));
         }
         let CaseScratch {
@@ -3112,7 +3118,9 @@ impl CaseAssembly {
         } = scratch;
         for worker in &mut workers {
             worker.set_scope(scope.clone());
-            worker.prepare_providers(&mut providers)?;
+            if let Err(error) = worker.prepare_providers(&mut providers) {
+                return Err(retire_failed_provider_construction(error, providers));
+            }
         }
         Ok(CaseWorker {
             entries,
@@ -3134,6 +3142,21 @@ impl CaseAssembly {
             observation_operation: None,
             completion: AssemblyCompletion::new(self.columns.len(), self.rows.len()),
         })
+    }
+}
+fn retire_failed_provider_construction(
+    operation: MathError,
+    providers: pse_kernels::ProviderBindings,
+) -> MathError {
+    match providers.finish() {
+        Ok(()) => operation,
+        Err(cleanup) => MathError::Scope(pse_kernels::ProviderError::Settlement {
+            operation: Box::new(pse_kernels::ProviderError::Nested {
+                retained: operation.retained_bytes(),
+                cause: pse_model::diagnostic::DiagnosticCause::new(operation),
+            }),
+            cleanup: Box::new(cleanup),
+        }),
     }
 }
 #[derive(Debug)]
@@ -3348,29 +3371,42 @@ impl CaseScratch {
 }
 impl Drop for CaseWorker {
     fn drop(&mut self) {
-        let Some(recycler) = self.recycler.take() else {
-            return;
-        };
-        // Provider destruction precedes publication of detached storage. No cache or
-        // scope/cancellation handle is carried into the lane's pending slot.
+        // Abandonment containment never publishes reusable storage or reports
+        // positive retirement. Normal owners consume finish on their native thread.
         drop(std::mem::take(&mut self.providers));
+    }
+}
+impl CaseWorker {
+    /// Retire every provider before publishing detached reusable storage.
+    /// # Errors
+    /// Original keyed provider retirement failures; no scratch is recycled on failure.
+    pub fn finish(mut self) -> Result<(), MathError> {
+        let recycler = self.recycler.take();
+        let result = std::mem::take(&mut self.providers)
+            .finish()
+            .map_err(MathError::Scope);
         self.invalidate_trial();
         for worker in &mut self.workers {
             worker.detach_controls();
         }
-        (recycler.0)(CaseScratch {
-            assembly: self.assembly.clone(),
-            groups: std::mem::take(&mut self.groups),
-            workers: std::mem::take(&mut self.workers),
-            projections: std::mem::take(&mut self.projections),
-            jacobian: self.jacobian.take(),
-            hessian: self.hessian.take(),
-            constraint_values: std::mem::take(&mut self.constraint_values),
-            gradient_values: std::mem::take(&mut self.gradient_values),
-            action_values: std::mem::take(&mut self.action_values),
-            entries: std::mem::take(&mut self.entries),
-            reset: false,
-        });
+        if result.is_ok()
+            && let Some(recycler) = recycler
+        {
+            (recycler.0)(CaseScratch {
+                assembly: self.assembly.clone(),
+                groups: std::mem::take(&mut self.groups),
+                workers: std::mem::take(&mut self.workers),
+                projections: std::mem::take(&mut self.projections),
+                jacobian: self.jacobian.take(),
+                hessian: self.hessian.take(),
+                constraint_values: std::mem::take(&mut self.constraint_values),
+                gradient_values: std::mem::take(&mut self.gradient_values),
+                action_values: std::mem::take(&mut self.action_values),
+                entries: std::mem::take(&mut self.entries),
+                reset: false,
+            });
+        }
+        result
     }
 }
 /// A library-evaluated source output before signed row aggregation.
@@ -3463,10 +3499,10 @@ impl CaseWorker {
             observation.begin();
         }
     }
-    /// Return storage exactly once when the evaluator and its providers are destroyed.
+    /// Return storage exactly once after explicit evaluator/provider retirement succeeds.
     /// This only detaches storage; the lane must witness callback/native drain and
     /// precharge/reset before making it available to another attempt.
-    pub fn recycle_on_drop(&mut self, recycler: impl FnOnce(CaseScratch) + Send + 'static) {
+    pub fn recycle_on_finish(&mut self, recycler: impl FnOnce(CaseScratch) + Send + 'static) {
         self.recycler = Some(ScratchRecycler(Box::new(recycler)));
     }
     #[cfg(test)]

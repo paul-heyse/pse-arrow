@@ -280,18 +280,18 @@ impl PreparedSolve {
             }
             Err(_) => return Ok(absent(goals, U::Regularity)),
         }
-        let mut worker = service
+        let worker = service
             .case_worker(case.case.clone(), case.providers.clone(), scope, budget)
             .map_err(MathRuntimeError::into_problem)?;
-        let jacobian = budget
-            .evaluate(|| {
+        let jacobian = with_local_worker(worker, |worker| {
+            budget.evaluate(|| {
                 worker
-                    .worker()
                     .jacobian(values)
                     .cloned()
                     .map_err(MathRuntimeError::from)
             })
-            .map_err(MathRuntimeError::into_problem)?;
+        })
+        .map_err(MathRuntimeError::into_problem)?;
         let observable =
             self.evaluated_observable_outputs(service, values, scope, budget, &execution)?;
         for (goal, supported) in bound.iter().zip(&mut supported) {

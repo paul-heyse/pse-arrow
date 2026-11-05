@@ -171,38 +171,44 @@ impl BackendExecution for Ipopt {
         };
         #[cfg(feature = "ipopt")]
         {
-            let defaults = crate::ipopt::Settings::default();
-            let settings = match input.settings {
-                BackendSettings::Default => &defaults,
-                BackendSettings::Ipopt(settings) => settings,
-                _ => return Err(super::foreign(Backend::Ipopt)),
-            };
-            let (session, _) = retained.session(
-                Backend::Ipopt,
-                input.controls.reuse,
-                |_: &mut crate::ipopt::Session| Ok(super::SessionUpdate::Compatible),
-                || Ok(crate::ipopt::Session::new()),
-            )?;
-            session.solve(
-                oracle.as_mut(),
-                initial,
-                sense,
-                input.controls,
-                input.accuracy,
-                settings,
-                input.execution,
-                input.tolerances,
-                input.warm,
-                input.compatibility,
-            )
+            let result = (|| {
+                let defaults = crate::ipopt::Settings::default();
+                let settings = match input.settings {
+                    BackendSettings::Default => &defaults,
+                    BackendSettings::Ipopt(settings) => settings,
+                    _ => return Err(super::foreign(Backend::Ipopt)),
+                };
+                let (session, _) = retained.session(
+                    Backend::Ipopt,
+                    input.controls.reuse,
+                    |_: &mut crate::ipopt::Session| Ok(super::SessionUpdate::Compatible),
+                    || Ok(crate::ipopt::Session::new()),
+                    crate::ipopt::Session::finish,
+                )?;
+                session.solve(
+                    oracle.as_mut(),
+                    initial,
+                    sense,
+                    input.controls,
+                    input.accuracy,
+                    settings,
+                    input.execution,
+                    input.tolerances,
+                    input.warm,
+                    input.compatibility,
+                )
+            })();
+            ProblemError::after_solve(result, oracle.finish())
         }
         #[cfg(not(feature = "ipopt"))]
         {
             let _ = (retained, &mut oracle, initial, sense);
-            if !matches!(input.settings, BackendSettings::Default) {
-                return Err(super::foreign(Backend::Ipopt));
-            }
-            Err(super::unlinked(Backend::Ipopt))
+            let result = if !matches!(input.settings, BackendSettings::Default) {
+                Err(super::foreign(Backend::Ipopt))
+            } else {
+                Err(super::unlinked(Backend::Ipopt))
+            };
+            ProblemError::after_solve(result, oracle.finish())
         }
     }
 }

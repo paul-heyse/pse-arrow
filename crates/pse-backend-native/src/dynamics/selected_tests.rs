@@ -24,6 +24,9 @@ impl Coupled {
     }
 }
 impl Oracle for Coupled {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn snapshot_owner(
         &self,
         bytes: usize,
@@ -321,6 +324,9 @@ fn forward_quadrature_selected_physical_axes_offsets_and_admission_are_exact() {
     #[derive(Debug)]
     struct Flux(Coupled, Arc<std::sync::atomic::AtomicU64>);
     impl Oracle for Flux {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &Contract {
             self.0.contract()
         }
@@ -710,6 +716,9 @@ fn selected_adjoint_one_parameter_without_fixed_inputs_and_derivative_failure() 
     #[derive(Debug)]
     struct Single(Contract);
     impl Oracle for Single {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &Contract {
             &self.0
         }
@@ -759,6 +768,9 @@ fn selected_adjoint_one_parameter_without_fixed_inputs_and_derivative_failure() 
     #[derive(Debug)]
     struct Fails(Coupled);
     impl Oracle for Fails {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &Contract {
             self.0.contract()
         }

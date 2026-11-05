@@ -10298,10 +10298,11 @@ mod compact_tests {
             )
             .unwrap();
         let requests = Arc::new(std::sync::Mutex::new(Vec::new()));
-        let mut providers = ProviderBindings::from([(
+        let mut providers = ProviderBindings::try_from_iter([(
             spec.key(),
             pse_kernels::ProviderBinding::new(spec, Box::new(Wide(requests.clone()))),
-        )]);
+        )])
+        .unwrap();
         let mut worker =
             compiled.worker_scoped(pse_kernels::ExecutionScope::new(control.clone(), None));
         let mut inputs = vec![0.1; 64];
@@ -10468,7 +10469,8 @@ mod compact_tests {
             )
         };
         let mut scalar = product.worker();
-        let mut prior_providers = ProviderBindings::from([(key, fresh_provider())]);
+        let mut prior_providers =
+            ProviderBindings::try_from_iter([(key, fresh_provider())]).unwrap();
         assert_eq!(
             scalar
                 .evaluate(
@@ -10508,7 +10510,8 @@ mod compact_tests {
             pse_diagnostics::Cancellation::default(),
             None,
         ));
-        let mut fresh_providers = ProviderBindings::from([(key, fresh_provider())]);
+        let mut fresh_providers =
+            ProviderBindings::try_from_iter([(key, fresh_provider())]).unwrap();
         assert_eq!(
             scalar
                 .evaluate(
@@ -10525,7 +10528,7 @@ mod compact_tests {
             spec.clone(),
             Box::new(ProductProvider(spec.clone())),
         );
-        let mut providers = ProviderBindings::from([(key, provider)]);
+        let mut providers = ProviderBindings::try_from_iter([(key, provider)]).unwrap();
         let mut worker = product.worker();
         let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
         let operation = hub.start("provider.prepared_dispatch");
@@ -10615,7 +10618,7 @@ mod compact_tests {
             before,
             "warm dispatch borrows the prepared descriptor/request/slot"
         );
-        let mut replacement = ProviderBindings::from([(key, fresh_provider())]);
+        let mut replacement = ProviderBindings::try_from_iter([(key, fresh_provider())]).unwrap();
         assert_eq!(
             worker
                 .evaluate(

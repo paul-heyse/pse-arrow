@@ -19,53 +19,124 @@ use std::{
     },
     time::Duration,
 };
+use tower_service::Service as _;
 
 pub(super) const FRAME_LIMIT: usize = 1 << 20;
 pub(super) const DECODE_LIMIT: usize = 4 << 20;
 pub(super) const NATIVE_STACK: usize = 8 << 20;
 
+/// ConnectRPC owns framing/codecs; this adapter owns the one authenticated H2
+/// sender, without Tower reconnect/buffer tasks or a detached connection driver.
 #[derive(Clone)]
-struct Connector {
-    endpoint: PathBuf,
+struct OwnedTransport(hyper::client::conn::http2::SendRequest<connectrpc::client::ClientBody>);
+async fn authenticated_stream(
+    endpoint: &std::path::Path,
     pid: u32,
-    connected: Arc<AtomicBool>,
-}
-impl tower_service::Service<http::Uri> for Connector {
-    type Response = hyper_util::rt::TokioIo<tokio::net::UnixStream>;
-    type Error = std::io::Error;
-    type Future = std::pin::Pin<Box<dyn Future<Output = std::io::Result<Self::Response>> + Send>>;
-    fn poll_ready(
-        &mut self,
-        _: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        std::task::Poll::Ready(Ok(()))
+) -> Result<tokio::net::UnixStream, WorkerError> {
+    let stream = tokio::net::UnixStream::connect(endpoint)
+        .await
+        .map_err(|source| WorkerError::Process {
+            action: "connect",
+            source,
+        })?;
+    let peer = stream.peer_cred().map_err(|source| WorkerError::Process {
+        action: "peer_cred",
+        source,
+    })?;
+    if peer.uid() != rustix::process::geteuid().as_raw()
+        || peer.pid().and_then(|pid| u32::try_from(pid).ok()) != Some(pid)
+    {
+        return Err(WorkerError::Process {
+            action: "authenticate",
+            source: std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "scientific worker kernel peer differs from owned child",
+            ),
+        });
     }
-    fn call(&mut self, _: http::Uri) -> Self::Future {
-        let connector = self.clone();
-        Box::pin(async move {
-            // Reconnect cannot renew a scientific session. The native client's
-            // recovery machinery is deliberately refused at this connector.
-            if connector.connected.swap(true, Ordering::AcqRel) {
-                return Err(std::io::Error::other(
-                    "scientific worker reconnect is unavailable",
-                ));
+    Ok(stream)
+}
+impl connectrpc::client::ClientTransport for OwnedTransport {
+    type ResponseBody = hyper::body::Incoming;
+    type Error = hyper::Error;
+    fn send(
+        &self,
+        request: http::Request<connectrpc::client::ClientBody>,
+    ) -> connectrpc::client::BoxFuture<
+        'static,
+        Result<http::Response<Self::ResponseBody>, Self::Error>,
+    > {
+        let mut sender = self.0.clone();
+        Box::pin(async move { sender.send_request(request).await })
+    }
+}
+
+/// Hyper also starts H2 stream/keepalive work through its executor. Keep every
+/// task join in the same I/O owner, including tasks spawned by an earlier task.
+#[derive(Clone, Default)]
+struct OwnedExecutor(Arc<std::sync::Mutex<Vec<tokio::task::JoinHandle<()>>>>);
+impl<F> hyper::rt::Executor<F> for OwnedExecutor
+where
+    F: Future<Output = ()> + Send + 'static,
+{
+    fn execute(&self, future: F) {
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(tokio::spawn(future));
+    }
+}
+impl OwnedExecutor {
+    async fn finish(&self, failures: &mut Vec<WorkerError>) {
+        loop {
+            let tasks = std::mem::take(
+                &mut *self
+                    .0
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner),
+            );
+            if tasks.is_empty() {
+                break;
             }
-            let stream = tokio::net::UnixStream::connect(&connector.endpoint).await?;
-            let peer = stream.peer_cred()?;
-            if peer.uid() != rustix::process::geteuid().as_raw()
-                || peer.pid().and_then(|pid| u32::try_from(pid).ok()) != Some(connector.pid)
-            {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::PermissionDenied,
-                    "scientific worker kernel peer differs from owned child",
-                ));
+            for task in tasks {
+                if let Err(error) = task.await {
+                    failures.push(WorkerError::IoTask(error));
+                }
             }
-            Ok(hyper_util::rt::TokioIo::new(stream))
-        })
+        }
+    }
+}
+async fn finish_driver(
+    driver: tokio::task::JoinHandle<Result<(), hyper::Error>>,
+) -> Result<(), WorkerError> {
+    match driver.await {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(error)) => Err(WorkerError::Connection(error)),
+        Err(error) => Err(WorkerError::IoTask(error)),
     }
 }
 
 type Reply = std::sync::mpsc::Sender<Result<p::Response, WorkerError>>;
+fn deliver_reply(
+    reply: Reply,
+    result: Result<p::Response, WorkerError>,
+) -> (bool, Option<WorkerError>) {
+    let failed = result.is_err();
+    let departed = reply.send(result).err().and_then(|error| error.0.err());
+    (failed, departed)
+}
+fn received_outcome(
+    value: Result<p::Response, WorkerError>,
+    checkpoint: Result<(), WorkerError>,
+) -> Result<p::Response, WorkerError> {
+    match (value, checkpoint) {
+        (value, Ok(())) => value,
+        (Ok(_), Err(error)) => Err(error),
+        (Err(original), Err(checkpoint)) => Err(WorkerError::Retirement {
+            causes: vec![original, checkpoint],
+        }),
+    }
+}
 struct Outgoing {
     request: pb::Request,
     timeout: Option<Duration>,
@@ -105,7 +176,7 @@ type CleanupGate =
 /// An independent async driver; the native caller never drives Tokio itself.
 pub(super) struct IoOwner {
     sender: Option<tokio::sync::mpsc::Sender<Outgoing>>,
-    thread: Option<std::thread::JoinHandle<()>>,
+    thread: Option<std::thread::JoinHandle<Result<(), WorkerError>>>,
     stop: pse_diagnostics::Cancellation,
     #[cfg(test)]
     cleanup_gate: CleanupGate,
@@ -132,31 +203,45 @@ impl IoOwner {
         let thread_cleanup_gate = cleanup_gate.clone();
         let thread = std::thread::Builder::new().name("pse-science-io".into()).stack_size(2 << 20).spawn(move || {
             let runtime = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
-                Ok(value) => value, Err(error) => { let _ = ready.send(Err(infrastructure(error))); return; }
+                Ok(value) => value, Err(error) => { let _ = ready.send(Err(infrastructure(error))); return Ok(()); }
             };
-            runtime.block_on(async move {
+            let result = runtime.block_on(async move {
+                let executor = OwnedExecutor::default();
+                let mut failures = Vec::new();
+                let result = async {
                 let config = match "http://localhost".parse::<http::Uri>() {
                     Ok(uri) => connectrpc::client::ClientConfig::new(uri).with_protocol(connectrpc::Protocol::Grpc),
-                    Err(error) => { let _ = ready.send(Err(infrastructure(error))); return; }
+                    Err(error) => { let _ = ready.send(Err(infrastructure(error))); return Ok(()); }
                 };
-                let connector = Connector { endpoint, pid, connected: Arc::new(AtomicBool::new(false)) };
                 let connection = tokio::select! {
-                    result = tokio::time::timeout(timeout, connectrpc::client::Http2Connection::connect_with_connector(connector, config.base_uri().clone())) => result,
-                    _ = stopping.cancelled() => return,
+                    result = tokio::time::timeout(timeout, async {
+                        let stream = authenticated_stream(&endpoint, pid).await?;
+                        hyper::client::conn::http2::Builder::new(executor.clone())
+                            .handshake::<_, connectrpc::client::ClientBody>(hyper_util::rt::TokioIo::new(stream))
+                            .await.map_err(WorkerError::Connection)
+                    }) => result,
+                    _ = stopping.cancelled() => return Ok(()),
                 };
-                let connection = match connection {
-                    Ok(Ok(value)) => value.shared(2),
-                    Ok(Err(error)) => { let _ = ready.send(Err(infrastructure(error))); return; }
-                    Err(error) => { let _ = ready.send(Err(infrastructure(error))); return; }
+                let (sender, connection) = match connection {
+                    Ok(Ok(value)) => value,
+                    Ok(Err(error)) => { let _ = ready.send(Err(error)); return Ok(()); }
+                    Err(error) => { let _ = ready.send(Err(infrastructure(error))); return Ok(()); }
                 };
-                let client = services::ScientificWorkerClient::new(connection, config);
-                if ready.send(Ok(())).is_err() { return; }
+                let driver = tokio::spawn(connection);
+                let client = services::ScientificWorkerClient::new(OwnedTransport(sender), config);
+                let active = ready.send(Ok(())).is_ok();
                 use futures_util::{stream::FuturesUnordered, StreamExt as _};
                 let mut pending = FuturesUnordered::new();
-                loop {
+                while active {
                     tokio::select! {
                         completed = pending.next(), if !pending.is_empty() => {
-                            if completed != Some(false) { break; }
+                            match completed {
+                                Some((failed, departed)) => {
+                                    if let Some(error) = departed { failures.push(error); }
+                                    if failed { break; }
+                                },
+                                None => break,
+                            }
                         },
                         result = receiver.recv(), if pending.len() < 2 => {
                             let Some(outgoing) = result else { break; };
@@ -166,27 +251,35 @@ impl IoOwner {
                                     outgoing.request, call_options(outgoing.timeout),
                                 ).await;
                                 let result = response
-                                    .map_err(|error| WorkerError::UnknownCompletion(error.to_string()))
+                                    .map_err(WorkerError::Exchange)
                                     .and_then(|response| {
                                         let response = response.into_owned();
                                         p::Response::try_from(response)
                                     });
-                                let failed = result.is_err();
-                                let _ = outgoing.reply.send(result);
-                                failed
+                                deliver_reply(outgoing.reply, result)
                             });
                         },
                         _ = stopping.cancelled() => break,
                     }
                 }
+                drop(pending);
+                drop(client);
+                finish_driver(driver).await
+                }.await;
+                if let Err(error) = result { failures.push(error); }
+                executor.finish(&mut failures).await;
+                super::retirement_result(failures)
             });
+            // Runtime teardown precedes OS-thread completion and admission release.
+            drop(runtime);
             #[cfg(test)]
             if let Some((entered, release)) = thread_cleanup_gate.lock().unwrap().take() {
                 let _ = entered.send(());
                 let _ = release.recv();
             }
+            result
         }).map_err(infrastructure)?;
-        let mut owner = Self {
+        let owner = Self {
             sender: Some(sender),
             thread: Some(thread),
             stop,
@@ -196,17 +289,22 @@ impl IoOwner {
         loop {
             match startup.recv_timeout(Duration::from_millis(5)) {
                 Ok(result) => {
-                    result?;
-                    scope.check()?;
+                    if let Err(error) = result {
+                        return Err(owner.fail(error));
+                    }
+                    if let Err(error) = scope.check() {
+                        return Err(owner.fail(error.into()));
+                    }
                     return Ok(owner);
                 }
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                    return Err(infrastructure("scientific worker I/O startup departed"));
+                    return Err(
+                        owner.fail(infrastructure("scientific worker I/O startup departed"))
+                    );
                 }
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                     if let Err(error) = scope.check() {
-                        owner.sender.take();
-                        return Err(error.into());
+                        return Err(owner.fail(error.into()));
                     }
                 }
             }
@@ -259,8 +357,7 @@ impl IoOwner {
         loop {
             match received.recv_timeout(Duration::from_millis(5)) {
                 Ok(value) => {
-                    checkpoint()?;
-                    return value;
+                    return received_outcome(value, checkpoint());
                 }
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
                     return Err(WorkerError::UnknownCompletion(
@@ -273,13 +370,36 @@ impl IoOwner {
             }
         }
     }
+    pub(super) fn request_stop(&mut self) {
+        self.sender.take();
+        self.stop.cancel();
+    }
+    pub(super) fn finish(mut self) -> Result<(), WorkerError> {
+        self.join()
+    }
+    fn fail(mut self, cause: WorkerError) -> WorkerError {
+        match self.join() {
+            Ok(()) => cause,
+            Err(cleanup) => WorkerError::Retirement {
+                causes: vec![cause, cleanup],
+            },
+        }
+    }
+    fn join(&mut self) -> Result<(), WorkerError> {
+        self.request_stop();
+        match self.thread.take().map(std::thread::JoinHandle::join) {
+            None => Ok(()),
+            Some(Ok(result)) => result,
+            Some(Err(payload)) => Err(WorkerError::IoThread(
+                pse_diagnostics::panic::settle_payload(payload, "non-text panic payload"),
+            )),
+        }
+    }
 }
 impl Drop for IoOwner {
     fn drop(&mut self) {
-        self.sender.take();
-        self.stop.cancel();
-        if let Some(thread) = self.thread.take() {
-            let _ = thread.join();
+        if let Err(error) = self.join() {
+            tracing::error!(error = %error, "scientific worker I/O abandonment settlement failed");
         }
     }
 }
@@ -457,16 +577,35 @@ fn encode_response(value: p::Response) -> Result<pb::Response, connectrpc::Conne
     pb::Response::try_from(value)
         .map_err(|error| connectrpc::ConnectError::internal(error.to_string()))
 }
-fn join_native(
+fn join_native<T>(
     runtime: tokio::runtime::Runtime,
-    native: std::thread::JoinHandle<()>,
-) -> Result<(), WorkerError> {
+    native: std::thread::JoinHandle<T>,
+) -> Result<T, WorkerError> {
     // Hyper's connection future can depart before its spawned method tasks.
     // Destroy their delivery guards before joining the lane that observes them.
     drop(runtime);
-    native
-        .join()
-        .map_err(|_| infrastructure("scientific worker native lane panicked"))
+    native.join().map_err(|payload| {
+        WorkerError::NativePanic(pse_diagnostics::panic::settle_payload(
+            payload,
+            "non-text native lane panic payload",
+        ))
+    })
+}
+fn retire_sessions(
+    sessions: &mut BTreeMap<SemanticId, PreparedSession>,
+) -> Result<(), WorkerError> {
+    let mut failures = Vec::new();
+    for (_, mut owner) in std::mem::take(sessions) {
+        let handle = p::Handle::from(owner.handle());
+        if let Err(cause) = owner.stop() {
+            failures.push(WorkerError::Lifecycle {
+                action: "Stop",
+                handle: Some(handle),
+                cause: Box::new(cause),
+            });
+        }
+    }
+    super::retirement_result(failures)
 }
 struct Server {
     jobs: tokio::sync::mpsc::Sender<Job>,
@@ -580,7 +719,6 @@ pub(super) fn serve_with_preparation(
     + 'static,
 ) -> Result<(), WorkerError> {
     use services::ScientificWorkerExt as _;
-    use tower_service::Service as _;
 
     let parent_owner = ParentGuard::start(parent)?;
     let listener = std::os::unix::net::UnixListener::bind(&endpoint).map_err(infrastructure)?;
@@ -600,6 +738,7 @@ pub(super) fn serve_with_preparation(
         .stack_size(NATIVE_STACK)
         .spawn(move || {
             let mut sessions = BTreeMap::<SemanticId, PreparedSession>::new();
+            let mut failures = Vec::new();
             while let Some(job) = receiving.blocking_recv() {
                 let preparation = match &job.request {
                     p::Request::Prepare(value) => Some(value.handle.clone()),
@@ -612,7 +751,7 @@ pub(super) fn serve_with_preparation(
                     p::Request::Stop(handle) | p::Request::Close(handle) => Some(handle.clone()),
                     p::Request::Shutdown => None,
                 };
-                let result: Result<p::Response, WorkerError> = (|| match job.request {
+                let mut result: Result<p::Response, WorkerError> = (|| match job.request {
                     p::Request::Prepare(value) => {
                         if drained.load(Ordering::Acquire)
                             || sessions.len() >= 64
@@ -665,11 +804,16 @@ pub(super) fn serve_with_preparation(
                             )
                             .into());
                         }
-                        actual.stop();
+                        let retired = actual.stop();
                         sessions.remove(&handle.generation);
-                        controls_lock(&native_controls)?
-                            .handles
-                            .remove(&handle.generation);
+                        let mut failures: Vec<_> = retired.err().into_iter().collect();
+                        match controls_lock(&native_controls) {
+                            Ok(mut controls) => {
+                                controls.handles.remove(&handle.generation);
+                            }
+                            Err(error) => failures.push(error),
+                        }
+                        super::retirement_result(failures)?;
                         Ok(p::Response::Closed(handle))
                     }
                     p::Request::Close(handle) => {
@@ -684,20 +828,27 @@ pub(super) fn serve_with_preparation(
                             )
                             .into());
                         }
-                        actual.close();
+                        let retired = actual.close();
                         sessions.remove(&handle.generation);
-                        controls_lock(&native_controls)?
-                            .handles
-                            .remove(&handle.generation);
+                        let mut failures: Vec<_> = retired.err().into_iter().collect();
+                        match controls_lock(&native_controls) {
+                            Ok(mut controls) => {
+                                controls.handles.remove(&handle.generation);
+                            }
+                            Err(error) => failures.push(error),
+                        }
+                        super::retirement_result(failures)?;
                         Ok(p::Response::Closed(handle))
                     }
                     p::Request::Shutdown => {
-                        for owner in sessions.values_mut() {
-                            owner.stop();
+                        let mut failures: Vec<_> =
+                            retire_sessions(&mut sessions).err().into_iter().collect();
+                        match controls_lock(&native_controls) {
+                            Ok(mut controls) => controls.handles.clear(),
+                            Err(error) => failures.push(error),
                         }
-                        sessions.clear();
-                        controls_lock(&native_controls)?.handles.clear();
                         drained.store(true, Ordering::Release);
+                        super::retirement_result(failures)?;
                         Ok(p::Response::Shutdown)
                     }
                 })();
@@ -712,7 +863,14 @@ pub(super) fn serve_with_preparation(
                         // Native refusal before mutation (for example a replayed ordinal)
                         // leaves the admitted preparation ready. Preserve that owner's decision.
                         if owner.state() != super::SessionState::Ready {
-                            owner.stop();
+                            if let Err(cleanup) = owner.stop() {
+                                result = Err(match result {
+                                    Err(cause) => WorkerError::Retirement {
+                                        causes: vec![cause, cleanup],
+                                    },
+                                    Ok(_) => cleanup,
+                                });
+                            }
                         }
                     } else if let Ok(mut controls) = controls_lock(&native_controls) {
                         // Failed preparation never issued a live native handle.
@@ -723,22 +881,29 @@ pub(super) fn serve_with_preparation(
                     result.unwrap_or_else(|error| p::Response::Failure(handler::failure(error)));
                 #[cfg(test)]
                 let response = perturb_response_for_test(response);
-                if job
-                    .completion
-                    .finish(response, preparation, |handle| {
-                        if let Some(mut owner) = sessions.remove(&handle.generation) {
-                            owner.stop();
+                if let Err(error) = job.completion.finish(response, preparation, |handle| {
+                    let mut failures = Vec::new();
+                    if let Some(mut owner) = sessions.remove(&handle.generation) {
+                        if let Err(error) = owner.stop() {
+                            failures.push(error);
                         }
-                        controls_lock(&native_controls)?
-                            .handles
-                            .remove(&handle.generation);
-                        Ok(())
-                    })
-                    .is_err()
-                {
+                    }
+                    match controls_lock(&native_controls) {
+                        Ok(mut controls) => {
+                            controls.handles.remove(&handle.generation);
+                        }
+                        Err(error) => failures.push(error),
+                    }
+                    super::retirement_result(failures)
+                }) {
+                    failures.push(error);
                     break;
                 }
             }
+            if let Err(error) = retire_sessions(&mut sessions) {
+                failures.push(error);
+            }
+            super::retirement_result(failures)
         })
         .map_err(infrastructure)?;
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -794,14 +959,38 @@ pub(super) fn serve_with_preparation(
         parent_owner.terminate_unsettled_native();
     }
     drop(jobs);
-    join_native(runtime, native)?;
-    result
+    let native = join_native(runtime, native).and_then(std::convert::identity);
+    let failures = result.err().into_iter().chain(native.err()).collect();
+    super::retirement_result(failures)
 }
 
 #[cfg(test)]
 fn perturb_response_for_test(mut response: p::Response) -> p::Response {
     // Only the explicitly launched library test child includes these faults.
     // The deployed executable has neither the branch nor its environment input.
+    if std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() == Ok("finish-ack-faults") {
+        let action = match response {
+            p::Response::Closed(_) => Some("Close"),
+            p::Response::Shutdown => Some("Shutdown"),
+            _ => None,
+        };
+        if let Some(action) = action {
+            use std::io::Write as _;
+            let marker = PathBuf::from(std::env::var_os("PSE_SCIENCE_TEST_MARKER").unwrap());
+            writeln!(
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(marker.with_extension("lifecycle"))
+                    .unwrap(),
+                "{action}"
+            )
+            .unwrap();
+            return p::Response::Failure(p::Failure::Contract(format!(
+                "controlled {action} acknowledgement refusal"
+            )));
+        }
+    }
     if let p::Response::Values(values) = &mut response {
         match std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() {
             Ok("wrong-shape") => values.values.clear(),
@@ -850,7 +1039,87 @@ fn perturb_response_for_test(mut response: p::Response) -> p::Response {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tower_service::Service as _;
+
+    #[test]
+    fn departed_reply_observer_leaves_actual_typed_failure_with_io_owner() {
+        let (reply, observer) = std::sync::mpsc::channel();
+        drop(observer);
+        let (failed, departed) = deliver_reply(
+            reply,
+            Err(WorkerError::Process {
+                action: "controlled dispatch",
+                source: std::io::Error::other("original I/O error"),
+            }),
+        );
+        assert!(failed);
+        assert!(
+            matches!(departed, Some(WorkerError::Process { action: "controlled dispatch", source }) if source.to_string() == "original I/O error")
+        );
+    }
+
+    #[test]
+    fn checkpoint_after_receipt_preserves_original_failure_and_independent_cancellation() {
+        let error = received_outcome(
+            Err(WorkerError::Provider(ProviderError::Trial(
+                "original science".into(),
+            ))),
+            Err(ProviderError::Cancelled.into()),
+        )
+        .unwrap_err();
+        let WorkerError::Retirement { causes } = error else {
+            panic!("both originals required");
+        };
+        assert!(
+            matches!(&causes[..], [WorkerError::Provider(ProviderError::Trial(detail)), WorkerError::Provider(ProviderError::Cancelled)] if detail == "original science")
+        );
+    }
+
+    #[tokio::test]
+    async fn owned_driver_retains_inner_connection_failure_and_outer_task_failure() {
+        use tokio::io::AsyncWriteExt as _;
+        let executor = OwnedExecutor::default();
+        let (client, mut peer) = tokio::io::duplex(4096);
+        let (sender, connection) = hyper::client::conn::http2::Builder::new(executor.clone())
+            .handshake::<_, connectrpc::client::ClientBody>(hyper_util::rt::TokioIo::new(client))
+            .await
+            .unwrap();
+        let driver = tokio::spawn(connection);
+        peer.write_all(b"not an HTTP2 frame").await.unwrap();
+        drop(peer);
+        assert!(matches!(
+            finish_driver(driver).await,
+            Err(WorkerError::Connection(_))
+        ));
+        drop(sender);
+        let mut failures = Vec::new();
+        executor.finish(&mut failures).await;
+        assert!(failures.is_empty());
+
+        let driver = tokio::spawn(async {
+            assert!(std::hint::black_box(false), "controlled outer driver panic");
+            Ok::<(), hyper::Error>(())
+        });
+        assert!(
+            matches!(finish_driver(driver).await, Err(WorkerError::IoTask(error)) if error.is_panic())
+        );
+    }
+
+    #[tokio::test]
+    async fn every_owned_hyper_task_joins_after_an_independent_task_panics() {
+        let executor = OwnedExecutor::default();
+        let completed = Arc::new(AtomicBool::new(false));
+        hyper::rt::Executor::execute(&executor, async {
+            panic!("controlled H2 executor panic");
+        });
+        let signal = completed.clone();
+        hyper::rt::Executor::execute(&executor, async move {
+            signal.store(true, Ordering::Release);
+        });
+        let mut failures = Vec::new();
+        executor.finish(&mut failures).await;
+        assert!(completed.load(Ordering::Acquire));
+        assert!(matches!(&failures[..], [WorkerError::IoTask(error)] if error.is_panic()));
+    }
 
     fn handle(generation: u8) -> p::Handle {
         p::Handle {
@@ -1300,38 +1569,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn connector_refuses_wrong_kernel_peer_and_any_reconnect() {
+    async fn owned_connection_refuses_wrong_kernel_peer() {
         let directory = tempfile::tempdir().unwrap();
         let endpoint = directory.path().join("peer.sock");
         let _listener = tokio::net::UnixListener::bind(&endpoint).unwrap();
-        let mut wrong = Connector {
-            endpoint: endpoint.clone(),
-            pid: u32::MAX,
-            connected: Arc::new(AtomicBool::new(false)),
-        };
-        assert_eq!(
-            wrong
-                .call("http://localhost".parse().unwrap())
-                .await
-                .unwrap_err()
-                .kind(),
-            std::io::ErrorKind::PermissionDenied
-        );
-        let mut actual = Connector {
-            endpoint,
-            pid: std::process::id(),
-            connected: Arc::new(AtomicBool::new(false)),
-        };
-        let stream = actual
-            .call("http://localhost".parse().unwrap())
-            .await
-            .unwrap();
-        drop(stream);
         assert!(
-            actual
-                .call("http://localhost".parse().unwrap())
+            matches!(authenticated_stream(&endpoint, u32::MAX).await, Err(WorkerError::Process { action: "authenticate", source }) if source.kind() == std::io::ErrorKind::PermissionDenied)
+        );
+        drop(
+            authenticated_stream(&endpoint, std::process::id())
                 .await
-                .is_err()
+                .unwrap(),
         );
     }
 }

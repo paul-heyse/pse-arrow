@@ -41,18 +41,166 @@ crossing!(
     decode_request,
     contract
 );
-crossing!(
-    p::Response,
-    pb::Response,
-    encode_response,
-    decode_response,
-    response_failure
-);
+impl TryFrom<p::Response> for pb::Response {
+    type Error = WorkerError;
+    fn try_from(value: p::Response) -> Result<Self, Self::Error> {
+        validate_failure_response(&value)?;
+        native::encode_response(value).map_err(contract)
+    }
+}
+impl TryFrom<pb::Response> for p::Response {
+    type Error = WorkerError;
+    fn try_from(value: pb::Response) -> Result<Self, Self::Error> {
+        let value = native::decode_response(value).map_err(response_failure)?;
+        validate_failure_response(&value)?;
+        Ok(value)
+    }
+}
+
+fn validate_failure_response(value: &p::Response) -> Result<(), WorkerError> {
+    let valid = match value {
+        p::Response::Failure(failure) => failure.within_limits(),
+        p::Response::Batch(batch) => batch.points.iter().all(|point| match &point.result {
+            p::BatchResult::Refused(failure) => failure.within_limits(),
+            p::BatchResult::Product(_) => true,
+        }),
+        _ => true,
+    };
+    if valid {
+        Ok(())
+    } else {
+        Err(WorkerError::UnknownCompletion(
+            "scientific worker response failure exceeds its declared restoration allowance".into(),
+        ))
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use buffa::Message as _;
+
+    fn round_trip_failure(error: WorkerError) -> WorkerError {
+        let response = p::Response::Failure(super::super::handler::failure(error));
+        let encoded = pb::Response::try_from(response).unwrap().encode_to_vec();
+        let restored = p::Response::try_from(decode::<pb::Response>(&encoded)).unwrap();
+        let p::Response::Failure(failure) = restored else {
+            panic!("original failure required");
+        };
+        super::super::handler::refusal(failure)
+    }
+
+    #[test]
+    fn generated_binary_preserves_keyed_provider_settlement_and_panic_leaves() {
+        let first = pse_kernels::ProviderKey(pse_ids::ContentHash::from_bytes([3; 32]));
+        let second = pse_kernels::ProviderKey(pse_ids::ContentHash::from_bytes([4; 32]));
+        let original = ProviderError::Settlement {
+            operation: Box::new(ProviderError::Trial("original trial".into())),
+            cleanup: Box::new(ProviderError::Retirement {
+                failures: vec![
+                    pse_kernels::ProviderRetirementFailure {
+                        key: first,
+                        cause: Box::new(ProviderError::RetirementPanic("original panic".into())),
+                    },
+                    pse_kernels::ProviderRetirementFailure {
+                        key: second,
+                        cause: Box::new(ProviderError::Contract("independent contract".into())),
+                    },
+                ],
+            }),
+        };
+        let WorkerError::Provider(ProviderError::Settlement { operation, cleanup }) =
+            round_trip_failure(original.into())
+        else {
+            panic!("typed settlement required");
+        };
+        assert!(
+            matches!(operation.as_ref(), ProviderError::Trial(detail) if detail == "original trial")
+        );
+        let ProviderError::Retirement { failures } = *cleanup else {
+            panic!("keyed retirements required");
+        };
+        assert_eq!(failures.len(), 2);
+        assert_eq!(failures[0].key, first);
+        assert_eq!(failures[1].key, second);
+        assert!(
+            matches!(failures[0].cause.as_ref(), ProviderError::RetirementPanic(detail) if detail == "original panic")
+        );
+        assert!(
+            matches!(failures[1].cause.as_ref(), ProviderError::Contract(detail) if detail == "independent contract")
+        );
+    }
+
+    #[test]
+    fn generated_worker_aggregate_is_terminal_and_opaque_diagnostic_stays_an_observation() {
+        use pse_model::diagnostic::{BoundaryClass, DiagnosticProjection as _};
+        let opaque = ProviderError::Trial("opaque observed trial".into())
+            .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation);
+        let opaque_original = ProviderError::Trial("opaque observed trial".into());
+        let opaque_original = ProviderError::Nested {
+            retained: opaque_original.retained_bytes(),
+            cause: pse_model::diagnostic::DiagnosticCause::new(opaque_original),
+        };
+        let original = WorkerError::Retirement {
+            causes: vec![
+                ProviderError::Trial("original known trial".into()).into(),
+                opaque_original.into(),
+            ],
+        };
+        let restored = round_trip_failure(original);
+        let diagnostic = restored.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation);
+        assert_eq!(diagnostic.class, BoundaryClass::Infrastructure);
+        assert_eq!(diagnostic.causes.len(), 2);
+        assert_eq!(diagnostic.causes[0].class, BoundaryClass::TrialRejected);
+        let WorkerError::Retirement { causes } = restored else {
+            panic!("worker aggregate required");
+        };
+        let WorkerError::RemoteDiagnostic(observed) = &causes[1] else {
+            panic!("opaque observation must not become a native error");
+        };
+        assert_eq!(observed.code, opaque.code);
+        assert_eq!(observed.class, opaque.class);
+        assert!(
+            !WorkerError::RemoteDiagnostic(observed.clone())
+                .into_provider()
+                .recoverable()
+        );
+        let restored = WorkerError::Retirement { causes };
+        assert!(!restored.into_provider().recoverable());
+    }
+
+    #[test]
+    fn complete_generated_failure_restoration_refuses_depth_or_node_excess() {
+        let mut deep = p::Failure::Cancelled;
+        for _ in 0..=p::FAILURE_DEPTH {
+            deep = p::Failure::ProviderSettlement {
+                operation: Box::new(deep),
+                cleanup: Box::new(p::Failure::Cancelled),
+            };
+        }
+        assert!(!deep.within_limits());
+        assert!(matches!(
+            super::super::handler::refusal(deep),
+            WorkerError::UnknownCompletion(_)
+        ));
+        let wide = p::Failure::Retirement {
+            causes: (0..128)
+                .map(|_| p::Failure::Retirement {
+                    causes: (0..8).map(|_| p::Failure::Cancelled).collect(),
+                })
+                .collect(),
+        };
+        assert!(!wide.within_limits());
+        // Generated schema validation permits each local list; the source's
+        // whole-tree allowance independently rejects complete restoration.
+        let encoded = native::encode_response(p::Response::Failure(wide))
+            .unwrap()
+            .encode_to_vec();
+        assert!(matches!(
+            p::Response::try_from(decode::<pb::Response>(&encoded)),
+            Err(WorkerError::UnknownCompletion(_))
+        ));
+    }
 
     #[test]
     fn shutdown_has_an_explicit_wire_operation_and_acknowledgement() {

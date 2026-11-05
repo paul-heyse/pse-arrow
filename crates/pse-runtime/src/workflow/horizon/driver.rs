@@ -1681,14 +1681,17 @@ impl Loop {
                 &self.cancel,
                 move |retained, _, _| {
                     let execution = plant.execution(scope.clone())?;
-                    let (owner, reused) = retained.workflow_owner(|| {
-                        let charge = plant.experiment.snapshots.reserve(plant.worker_bytes)?;
-                        let inner = plant.experiment.worker_scoped(scope)?;
-                        Ok(PlantWorker {
-                            inner,
-                            _charge: charge,
-                        })
-                    })?;
+                    let (owner, reused) = retained.workflow_owner(
+                        || {
+                            let charge = plant.experiment.snapshots.reserve(plant.worker_bytes)?;
+                            let inner = plant.experiment.worker_scoped(scope)?;
+                            Ok(PlantWorker {
+                                inner,
+                                _charge: charge,
+                            })
+                        },
+                        |owner: PlantWorker| owner.inner.finish(),
+                    )?;
                     if let Some(context) = pse_diagnostics::observation::current() {
                         context.count(
                             if reused {

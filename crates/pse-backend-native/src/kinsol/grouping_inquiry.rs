@@ -84,6 +84,9 @@ impl Blocks {
     }
 }
 impl NleOracle for Blocks {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.contract
     }

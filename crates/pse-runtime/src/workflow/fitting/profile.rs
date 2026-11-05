@@ -134,6 +134,35 @@ pub enum ProfileWorkerFailure {
     Scheduling(String),
     /// Entering the worker's native environment failed with an original typed cause.
     Environment(ProfileFailure),
+    /// The worker's original failure and its independent retirement failure.
+    Settlement {
+        /// Original failure, retained without changing its classification.
+        operation: Box<ProfileWorkerFailure>,
+        /// Actual retirement failure.
+        cleanup: ProfileFailure,
+    },
+}
+impl ProfileWorkerFailure {
+    fn bytes(&self) -> usize {
+        match self {
+            Self::Panic => 0,
+            Self::Scheduling(detail) => detail.capacity(),
+            Self::Environment(failure) => failure.bytes(),
+            Self::Settlement { operation, cleanup } => size_of::<Self>()
+                .saturating_add(operation.bytes())
+                .saturating_add(cleanup.bytes()),
+        }
+    }
+    fn detail(&self) -> String {
+        match self {
+            Self::Panic => "profile chain worker panic".into(),
+            Self::Scheduling(reason) => reason.clone(),
+            Self::Environment(failure) => failure.cause().to_string(),
+            Self::Settlement { operation, cleanup } => {
+                format!("{}; retirement: {}", operation.detail(), cleanup.cause())
+            }
+        }
+    }
 }
 /// The chain of one free parameter toward one end.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
@@ -218,8 +247,10 @@ impl PreparedFit {
 }
 
 fn chain_worker<T>(run: impl FnOnce() -> T) -> Result<T, ProfileWorkerFailure> {
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(run))
-        .map_err(|_| ProfileWorkerFailure::Panic)
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(run)).map_err(|payload| {
+        pse_diagnostics::panic::settle_payload(payload, "opaque profile worker panic");
+        ProfileWorkerFailure::Panic
+    })
 }
 /// Production dispatch seam: tests can refuse starts before the OS spawn while every
 /// successful start runs the same atomic claim loop and panic handling as production.
@@ -289,7 +320,13 @@ fn dispatch<T: Send>(
             match handle.join() {
                 Ok(Ok(())) => {}
                 Ok(Err(error)) => scheduling.push(error),
-                Err(_) => scheduling.push(ProfileWorkerFailure::Panic),
+                Err(payload) => {
+                    pse_diagnostics::panic::settle_payload(
+                        payload,
+                        "opaque profile environment panic",
+                    );
+                    scheduling.push(ProfileWorkerFailure::Panic);
+                }
             }
         }
         started
@@ -307,6 +344,9 @@ fn dispatch<T: Send>(
                 ProfileWorkerFailure::Panic => "profile worker panicked outside a chain",
                 ProfileWorkerFailure::Scheduling(detail) => detail.as_str(),
                 ProfileWorkerFailure::Environment(_) => "profile worker environment failed",
+                ProfileWorkerFailure::Settlement { .. } => {
+                    "profile worker failed during retirement"
+                }
             })
             .collect::<Vec<_>>()
             .join("; ")
@@ -342,20 +382,15 @@ impl ProfileChain {
         size_of::<Self>()
             + self.qualifiers.capacity() * size_of::<CandidateQualifier>()
             + self.detail.as_ref().map_or(0, String::capacity)
-            + match &self.worker_failure {
-                Some(ProfileWorkerFailure::Scheduling(detail)) => detail.capacity(),
-                Some(ProfileWorkerFailure::Environment(failure)) => failure.bytes(),
-                _ => 0,
-            }
+            + self
+                .worker_failure
+                .as_ref()
+                .map_or(0, ProfileWorkerFailure::bytes)
             + self.scheduling_failures.capacity() * size_of::<ProfileWorkerFailure>()
             + self
                 .scheduling_failures
                 .iter()
-                .map(|failure| match failure {
-                    ProfileWorkerFailure::Scheduling(detail) => detail.capacity(),
-                    ProfileWorkerFailure::Environment(failure) => failure.bytes(),
-                    ProfileWorkerFailure::Panic => 0,
-                })
+                .map(ProfileWorkerFailure::bytes)
                 .sum::<usize>()
             + self.points.capacity() * size_of::<ProfilePoint>()
             + self
@@ -453,6 +488,23 @@ impl From<ProblemError> for PinFailure {
     }
 }
 impl PinFailure {
+    fn retire<T>(result: Result<T, Self>, cleanup: Result<(), ProblemError>) -> Result<T, Self> {
+        match cleanup {
+            Ok(()) => result,
+            Err(cause) => {
+                let cleanup = ProblemError::Retirement {
+                    failures: vec![cause],
+                };
+                match result {
+                    Err(mut failure) => {
+                        failure.failures.push(cleanup.into());
+                        Err(failure)
+                    }
+                    Ok(_) => Err(cleanup.into()),
+                }
+            }
+        }
+    }
     fn with_residual(mut self, report: &FitResidualReport) -> Self {
         self.qualification = Some(report.qualification);
         self.termination = Some(report.termination_category());
@@ -580,225 +632,230 @@ impl Chains<'_> {
         seed: &[f64],
         scratch: Option<Arc<oracle::neutral::FitScratch>>,
     ) -> Result<Solution, PinFailure> {
-        if let Some(stop) = self.execution.stopped() {
-            return Err(ProblemError::stopped(stop, "the fit stopped").into());
-        }
-        let p = self.problem;
-        if self.route == FitRoute::ResidualLm {
-            let (mut evidence, candidate) = oracle::residual::solve(
-                p,
-                self.math,
-                self.execution.clone(),
-                seed,
-                Some((column.get(), value)),
-                scratch.clone(),
-            )
-            .map_err(PinFailure::from)?;
-            // A latched callback stop is terminal for this native attempt. Retain
-            // its literal report before attempting any independent source evaluation.
-            if evidence.failure.is_some() || !evidence.termination.successful() {
-                let category = evidence.termination_category();
-                let terminal = evidence.failure.is_some();
-                let failure = evidence.failure.clone().unwrap_or_else(|| {
-                    ProfileFailure::from(match category {
-                        Termination::IterationLimit => ProblemError::Limit {
-                            kind: native::LimitKind::Work,
-                            detail: "residual LM evaluation allowance".into(),
-                        },
-                        _ => ProblemError::numerical(format!(
-                            "residual LM pin {:?} did not converge",
-                            evidence.termination
-                        )),
-                    })
-                });
-                return Err(PinFailure {
-                    qualification: Some(Qualification::Unqualified),
-                    termination: Some(category),
-                    residual: Some(Box::new(evidence)),
-                    failures: vec![failure],
-                    callback_terminal_failure: terminal,
-                });
+        let result = (|| -> Result<Solution, PinFailure> {
+            if let Some(stop) = self.execution.stopped() {
+                return Err(ProblemError::stopped(stop, "the fit stopped").into());
             }
-            let observed = oracle::observe_pin(
-                p,
-                self.math,
-                self.execution.clone(),
-                &candidate,
-                Some(column.get()),
-                scratch.clone(),
-            )
-            .map_err(|error| PinFailure::from(error).with_residual(&evidence))?;
-            let gradient = observed.gradient.unwrap_or(f64::INFINITY);
-            evidence.stationarity = Some(gradient);
-            evidence.qualification = if observed.quality.feasible()
-                && gradient.is_finite()
-                && gradient <= p.accuracy.stationarity
-            {
-                Qualification::Stationary
-            } else if observed.quality.feasible() {
-                Qualification::Feasible
-            } else {
-                Qualification::Unqualified
-            };
-            let (checks, _) = self
-                .prepared
-                .assess_candidate(
-                    self.run_id,
-                    &candidate,
-                    &observed.trajectories,
-                    &self.execution.scope().map_err(PinFailure::from)?,
+            let p = self.problem;
+            if self.route == FitRoute::ResidualLm {
+                let (mut evidence, candidate) = oracle::residual::solve(
+                    p,
+                    self.math,
+                    self.execution.clone(),
+                    seed,
+                    Some((column.get(), value)),
+                    scratch.clone(),
                 )
-                .map_err(|error| original_failure(error).with_residual(&evidence))?;
-            let decision = pin_acceptance(
-                NativeEvidence::residual(&evidence, Some(&candidate), Some(&observed.quality)),
-                CompletionEvidence::point(&checks, true, self.prepared.required_closure_checks()),
-                &p.numerics.policy,
-            );
-            if !decision.permits_use() {
-                let failure = ProfileFailure::from(ProblemError::numerical(format!(
-                    "residual LM pin {:?}: {}",
-                    evidence.termination,
-                    decision.reason()
-                )));
-                return Err(PinFailure {
-                    qualification: Some(evidence.qualification),
-                    termination: Some(evidence.termination_category()),
-                    residual: Some(Box::new(evidence)),
-                    failures: vec![failure],
-                    callback_terminal_failure: false,
-                });
-            }
-            evidence.stationarity = Some(gradient);
-            evidence.qualification = Qualification::Stationary;
-            return Ok(Solution {
-                objective: observed.objective,
-                qualifiers: decision.qualifiers,
-                primal: candidate,
-                qualification: Qualification::Stationary,
-                termination: evidence.termination_category(),
-                residual: Some(evidence),
-            });
-        }
-        let FitRoute::Native(backend) = self.route else {
-            return Err(
-                ProblemError::internal("nonconstant profile chain has no optimizer").into(),
-            );
-        };
-        let mut controls = p.profile.solver.controls.clone();
-        controls.time_limit = self
-            .execution
-            .time_limit
-            .saturating_sub(self.execution.started.elapsed());
-        let failed = PinFailure::from;
-        let oracle = FitOracle::with_scratch(
-            p.clone(),
-            self.math.clone(),
-            self.execution.clone(),
-            scratch.clone(),
-        )
-        .map_err(failed)?;
-        let pinned = native::transform::Pinned::new(Box::new(oracle), &[(column.get(), value)])
-            .map_err(failed)?;
-        let mut initial = seed.to_vec();
-        initial[column.get()] = value;
-        let report = native::execution::nlp(
-            native::execution::Step {
-                adapter: native::execution::adapter(backend),
-                snapshot: &p.snapshot,
-                structure: p.structural_assessment.as_ref(),
-                settings: &p.profile.solver.backend,
-                controls: &controls,
-                accuracy: &p.accuracy,
-                execution: self.execution.clone(),
-                tolerances: &p.tolerances,
-                normalization: &p.normalization,
-                compatibility: Compatibility {
-                    layout: p.key,
-                    profile: p.profile_key.as_id(),
-                    data: p.source_identity,
-                    backend,
-                },
-                warm: None,
-            },
-            retained,
-            native::execution::Nlp {
-                oracle: Box::new(pinned),
-                initial: &initial,
-                presolve: &p.profile.solver.presolve,
-                intent: SolveIntent::Optimize,
-                sense: pse_math::binding::ObjectiveSense::Minimize,
-                limit: p.profile.max_cells,
-                analysis: native::execution::Analysis::NONE,
-            },
-        )
-        .map_err(failed);
-        let report = match report {
-            Ok(report) => report,
-            Err(failure) => {
-                retained.clear();
-                return Err(failure);
-            }
-        };
-        let native = NativeEvidence::nlp(&report);
-        if !pin_acceptance(
-            native,
-            CompletionEvidence::point(&[], true, 0),
-            &p.numerics.policy,
-        )
-        .permits_use()
-        {
-            retained.clear();
-            return PinFailure::assess(
-                report,
-                CompletionEvidence::point(&[], false, self.prepared.required_closure_checks()),
-                &p.numerics.policy,
-            );
-        }
-        let assessed = (|| {
-            let original = if let Some(candidate) = &report.candidate {
+                .map_err(PinFailure::from)?;
+                // A latched callback stop is terminal for this native attempt. Retain
+                // its literal report before attempting any independent source evaluation.
+                if evidence.failure.is_some() || !evidence.termination.successful() {
+                    let category = evidence.termination_category();
+                    let terminal = evidence.failure.is_some();
+                    let failure = evidence.failure.clone().unwrap_or_else(|| {
+                        ProfileFailure::from(match category {
+                            Termination::IterationLimit => ProblemError::Limit {
+                                kind: native::LimitKind::Work,
+                                detail: "residual LM evaluation allowance".into(),
+                            },
+                            _ => ProblemError::numerical(format!(
+                                "residual LM pin {:?} did not converge",
+                                evidence.termination
+                            )),
+                        })
+                    });
+                    return Err(PinFailure {
+                        qualification: Some(Qualification::Unqualified),
+                        termination: Some(category),
+                        residual: Some(Box::new(evidence)),
+                        failures: vec![failure],
+                        callback_terminal_failure: terminal,
+                    });
+                }
                 let observed = oracle::observe_pin(
                     p,
                     self.math,
                     self.execution.clone(),
-                    &candidate.primal,
-                    None,
-                    scratch,
+                    &candidate,
+                    Some(column.get()),
+                    scratch.clone(),
                 )
-                .map_err(|error| PinFailure::from(error).with_native(&report))?;
-                if !observed.quality.feasible() {
-                    retained.clear();
-                    return Err(PinFailure::from(ProblemError::numerical(
-                        "fresh original pin is infeasible",
-                    ))
-                    .with_native(&report));
-                }
+                .map_err(|error| PinFailure::from(error).with_residual(&evidence))?;
+                let gradient = observed.gradient.unwrap_or(f64::INFINITY);
+                evidence.stationarity = Some(gradient);
+                evidence.qualification = if observed.quality.feasible()
+                    && gradient.is_finite()
+                    && gradient <= p.accuracy.stationarity
+                {
+                    Qualification::Stationary
+                } else if observed.quality.feasible() {
+                    Qualification::Feasible
+                } else {
+                    Qualification::Unqualified
+                };
                 let (checks, _) = self
                     .prepared
                     .assess_candidate(
                         self.run_id,
-                        &candidate.primal,
+                        &candidate,
                         &observed.trajectories,
                         &self.execution.scope().map_err(PinFailure::from)?,
                     )
-                    .map_err(|error| original_failure(error).with_native(&report))?;
-                Some(checks)
-            } else {
-                None
+                    .map_err(|error| original_failure(error).with_residual(&evidence))?;
+                let decision = pin_acceptance(
+                    NativeEvidence::residual(&evidence, Some(&candidate), Some(&observed.quality)),
+                    CompletionEvidence::point(
+                        &checks,
+                        true,
+                        self.prepared.required_closure_checks(),
+                    ),
+                    &p.numerics.policy,
+                );
+                if !decision.permits_use() {
+                    let failure = ProfileFailure::from(ProblemError::numerical(format!(
+                        "residual LM pin {:?}: {}",
+                        evidence.termination,
+                        decision.reason()
+                    )));
+                    return Err(PinFailure {
+                        qualification: Some(evidence.qualification),
+                        termination: Some(evidence.termination_category()),
+                        residual: Some(Box::new(evidence)),
+                        failures: vec![failure],
+                        callback_terminal_failure: false,
+                    });
+                }
+                evidence.stationarity = Some(gradient);
+                evidence.qualification = Qualification::Stationary;
+                return Ok(Solution {
+                    objective: observed.objective,
+                    qualifiers: decision.qualifiers,
+                    primal: candidate,
+                    qualification: Qualification::Stationary,
+                    termination: evidence.termination_category(),
+                    residual: Some(evidence),
+                });
+            }
+            let FitRoute::Native(backend) = self.route else {
+                return Err(
+                    ProblemError::internal("nonconstant profile chain has no optimizer").into(),
+                );
             };
-            PinFailure::assess(
-                report,
-                CompletionEvidence::point(
-                    original.as_deref().unwrap_or(&[]),
-                    original.is_some(),
-                    self.prepared.required_closure_checks(),
-                ),
+            let mut controls = p.profile.solver.controls.clone();
+            controls.time_limit = self
+                .execution
+                .time_limit
+                .saturating_sub(self.execution.started.elapsed());
+            let failed = PinFailure::from;
+            let oracle = FitOracle::with_scratch(
+                p.clone(),
+                self.math.clone(),
+                self.execution.clone(),
+                scratch.clone(),
+            )
+            .map_err(failed)?;
+            let pinned = native::transform::Pinned::new(Box::new(oracle), &[(column.get(), value)])
+                .map_err(failed)?;
+            let mut initial = seed.to_vec();
+            initial[column.get()] = value;
+            let report = native::execution::nlp(
+                native::execution::Step {
+                    adapter: native::execution::adapter(backend),
+                    snapshot: &p.snapshot,
+                    structure: p.structural_assessment.as_ref(),
+                    settings: &p.profile.solver.backend,
+                    controls: &controls,
+                    accuracy: &p.accuracy,
+                    execution: self.execution.clone(),
+                    tolerances: &p.tolerances,
+                    normalization: &p.normalization,
+                    compatibility: Compatibility {
+                        layout: p.key,
+                        profile: p.profile_key.as_id(),
+                        data: p.source_identity,
+                        backend,
+                    },
+                    warm: None,
+                },
+                retained,
+                native::execution::Nlp {
+                    oracle: Box::new(pinned),
+                    initial: &initial,
+                    presolve: &p.profile.solver.presolve,
+                    intent: SolveIntent::Optimize,
+                    sense: pse_math::binding::ObjectiveSense::Minimize,
+                    limit: p.profile.max_cells,
+                    analysis: native::execution::Analysis::NONE,
+                },
+            )
+            .map_err(failed);
+            let report = match report {
+                Ok(report) => report,
+                Err(failure) => {
+                    return Err(failure);
+                }
+            };
+            let native = NativeEvidence::nlp(&report);
+            if !pin_acceptance(
+                native,
+                CompletionEvidence::point(&[], true, 0),
                 &p.numerics.policy,
             )
+            .permits_use()
+            {
+                return PinFailure::assess(
+                    report,
+                    CompletionEvidence::point(&[], false, self.prepared.required_closure_checks()),
+                    &p.numerics.policy,
+                );
+            }
+            let assessed = (|| {
+                let original = if let Some(candidate) = &report.candidate {
+                    let observed = oracle::observe_pin(
+                        p,
+                        self.math,
+                        self.execution.clone(),
+                        &candidate.primal,
+                        None,
+                        scratch,
+                    )
+                    .map_err(|error| PinFailure::from(error).with_native(&report))?;
+                    if !observed.quality.feasible() {
+                        return Err(PinFailure::from(ProblemError::numerical(
+                            "fresh original pin is infeasible",
+                        ))
+                        .with_native(&report));
+                    }
+                    let (checks, _) = self
+                        .prepared
+                        .assess_candidate(
+                            self.run_id,
+                            &candidate.primal,
+                            &observed.trajectories,
+                            &self.execution.scope().map_err(PinFailure::from)?,
+                        )
+                        .map_err(|error| original_failure(error).with_native(&report))?;
+                    Some(checks)
+                } else {
+                    None
+                };
+                PinFailure::assess(
+                    report,
+                    CompletionEvidence::point(
+                        original.as_deref().unwrap_or(&[]),
+                        original.is_some(),
+                        self.prepared.required_closure_checks(),
+                    ),
+                    &p.numerics.policy,
+                )
+            })();
+            assessed
         })();
-        if assessed.is_err() {
-            retained.clear();
+        if result.is_err() {
+            PinFailure::retire(result, retained.clear())
+        } else {
+            result
         }
-        assessed
     }
     fn failed(&self, task: Task, failure: ProfileWorkerFailure) -> ProfileChain {
         ProfileChain {
@@ -810,11 +867,7 @@ impl Chains<'_> {
                 value: None,
                 outcome: IntervalOutcome::Stopped,
             },
-            detail: Some(match &failure {
-                ProfileWorkerFailure::Panic => "profile chain worker panic".into(),
-                ProfileWorkerFailure::Scheduling(reason) => reason.clone(),
-                ProfileWorkerFailure::Environment(failure) => failure.cause().to_string(),
-            }),
+            detail: Some(failure.detail()),
             points: Vec::new(),
             worker_failure: Some(failure),
             scheduling_failures: Vec::new(),
@@ -830,36 +883,59 @@ impl Chains<'_> {
         // Construct/drop this neutral population on the actual chain owner, including
         // width-one inline dispatch. No provider or numerical point crosses pins.
         let scratch = oracle::neutral::FitScratch::new(p, self.math);
-        let column = task.column.get();
-        let variable = &p.contract.variables[column];
-        let mut chain = ChainPolicy {
-            parameter: p.declaration.parameters[task.parameter].symbol_id,
-            column,
-            end: task.end,
-            step: task.step,
-            estimate: self.estimate,
-            limit: if task.end == IntervalEnd::Lower {
-                variable.lower
-            } else {
-                variable.upper
-            },
-            bound_tolerance: p.tolerances.variables[column],
-            scale: p.declaration.parameters[task.parameter].scale,
-            optimum: self.optimum,
-            threshold: self.threshold,
-            tolerance: self.tolerance,
-            points: self.points,
-            execution: self.execution,
-        }
-        .run(|value, seed| {
-            let result = self.solve(&mut retained, task.column, value, seed, scratch.clone());
-            if result.is_err()
-                && let Some(scratch) = &scratch
-            {
-                scratch.discard();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let column = task.column.get();
+            let variable = &p.contract.variables[column];
+            ChainPolicy {
+                parameter: p.declaration.parameters[task.parameter].symbol_id,
+                column,
+                end: task.end,
+                step: task.step,
+                estimate: self.estimate,
+                limit: if task.end == IntervalEnd::Lower {
+                    variable.lower
+                } else {
+                    variable.upper
+                },
+                bound_tolerance: p.tolerances.variables[column],
+                scale: p.declaration.parameters[task.parameter].scale,
+                optimum: self.optimum,
+                threshold: self.threshold,
+                tolerance: self.tolerance,
+                points: self.points,
+                execution: self.execution,
             }
-            result
-        });
+            .run(|value, seed| {
+                let result = self.solve(&mut retained, task.column, value, seed, scratch.clone());
+                if result.is_err()
+                    && let Some(scratch) = &scratch
+                {
+                    scratch.discard();
+                }
+                result
+            })
+        }));
+        let chain = match result {
+            Ok(chain) => chain,
+            Err(payload) => {
+                let detail =
+                    pse_diagnostics::panic::settle_payload(payload, "opaque profile chain panic");
+                let mut chain = self.failed(task, ProfileWorkerFailure::Panic);
+                chain.detail = Some(detail);
+                chain
+            }
+        };
+        let retirement =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| retained.finish()))
+                .unwrap_or_else(|payload| {
+                    Err(ProblemError::RetirementPanic {
+                        detail: pse_diagnostics::panic::settle_payload(
+                            payload,
+                            "opaque profile retirement panic",
+                        ),
+                    })
+                });
+        let mut chain = retire_chain(chain, retirement);
         for qualifier in self.qualifiers {
             if !chain.qualifiers.contains(qualifier) {
                 chain.qualifiers.push(*qualifier);
@@ -867,6 +943,38 @@ impl Chains<'_> {
         }
         chain
     }
+}
+fn retire_chain(mut chain: ProfileChain, retirement: Result<(), ProblemError>) -> ProfileChain {
+    if let Err(cause) = retirement {
+        let cleanup = ProfileFailure::from(ProblemError::Retirement {
+            failures: vec![cause],
+        });
+        let detail = format!("retirement: {}", cleanup.cause());
+        if let Some(point) = chain.points.last_mut() {
+            point.failures.push(cleanup.clone());
+            point.accepted = false;
+            point.detail = Some(point.detail.take().map_or_else(
+                || detail.clone(),
+                |original| format!("{original}; {detail}"),
+            ));
+        }
+        chain.bound = IntervalBound {
+            value: None,
+            outcome: IntervalOutcome::Stopped,
+        };
+        chain.detail = Some(chain.detail.take().map_or_else(
+            || detail.clone(),
+            |original| format!("{original}; {detail}"),
+        ));
+        chain.worker_failure = Some(match chain.worker_failure.take() {
+            Some(operation) => ProfileWorkerFailure::Settlement {
+                operation: Box::new(operation),
+                cleanup,
+            },
+            None => ProfileWorkerFailure::Environment(cleanup),
+        });
+    }
+    chain
 }
 /// Statistical target and bracketing policy, independent of problem/native startup.
 struct ChainPolicy<'a> {
@@ -1705,6 +1813,123 @@ mod worker_tests {
         });
         assert_eq!(pins, vec![1.0]);
         assert!(chain.points[0].callback_terminal_failure);
+        assert_eq!(chain.bound.outcome, IntervalOutcome::Stopped);
+    }
+
+    #[test]
+    fn failed_profile_retirement_stops_retry_and_keeps_native_failure_evidence() {
+        let execution = execution();
+        let mut native = report(Termination::Evaluation, &execution);
+        native.record_validation_failure(ProblemError::numerical("original profile trial"));
+        let original = native.shared_validation_failure().unwrap();
+        let failure = PinFailure::assess(
+            native,
+            CompletionEvidence::point(&[], false, 0),
+            &Default::default(),
+        )
+        .err()
+        .unwrap();
+        assert!(failure.subdivides());
+        let failure = PinFailure::retire::<Solution>(
+            Err(failure),
+            Err(ProblemError::Retirement {
+                failures: vec![
+                    ProblemError::numerical("adapter retirement"),
+                    ProblemError::internal("workflow retirement"),
+                ],
+            }),
+        )
+        .err()
+        .unwrap();
+        assert!(!failure.subdivides());
+        assert_eq!(failure.qualification, Some(Qualification::Unqualified));
+        assert_eq!(failure.termination, Some(Termination::Evaluation));
+        assert!(
+            failure
+                .failures
+                .iter()
+                .any(|failure| Arc::ptr_eq(&failure.0, &original))
+        );
+        let mut failure = Some(failure);
+        let mut calls = 0;
+        let chain = policy(&execution).run(|_, _| {
+            calls += 1;
+            Err(failure.take().expect("failed retirement cannot retry"))
+        });
+        assert_eq!(calls, 1);
+        assert_eq!(chain.bound.outcome, IntervalOutcome::Stopped);
+        assert_eq!(chain.points[0].termination, Some(Termination::Evaluation));
+        assert!(
+            chain.points[0]
+                .failures
+                .iter()
+                .any(|failure| Arc::ptr_eq(&failure.0, &original))
+        );
+        let cleanup = chain.points[0].failures.last().unwrap();
+        assert!(
+            matches!(cleanup.cause(), ProblemError::Retirement { failures } if matches!(failures.as_slice(), [ProblemError::Retirement { failures }] if failures.len() == 2))
+        );
+    }
+
+    #[test]
+    fn final_profile_retirement_attempts_every_owner_and_withdraws_interval() {
+        let execution = execution();
+        let chain = policy(&execution).run(|value, _| Ok(solution(value)));
+        assert_eq!(chain.bound.outcome, IntervalOutcome::Threshold);
+        let mut retained = native::execution::Retained::default();
+        let attempted = Arc::new(AtomicUsize::new(0));
+        retained
+            .session(
+                Backend::Ipopt,
+                native::solve::ReusePolicy::AllowRebuild,
+                |_: &mut Arc<AtomicUsize>| Ok(native::execution::SessionUpdate::Compatible),
+                || Ok(attempted.clone()),
+                |attempted| {
+                    attempted.fetch_add(1, Ordering::SeqCst);
+                    Err(ProblemError::numerical("retained adapter cleanup"))
+                },
+            )
+            .unwrap();
+        retained
+            .workflow_owner(
+                || Ok(attempted.clone()),
+                |attempted| {
+                    attempted.fetch_add(1, Ordering::SeqCst);
+                    Err(ProblemError::internal("retained workflow cleanup"))
+                },
+            )
+            .unwrap();
+        let chain = retire_chain(chain, retained.finish());
+        assert_eq!(attempted.load(Ordering::SeqCst), 2);
+        assert_eq!(chain.bound.outcome, IntervalOutcome::Stopped);
+        assert!(chain.bound.value.is_none());
+        assert_eq!(
+            chain.points[0].qualification,
+            Some(Qualification::Stationary)
+        );
+        assert_eq!(chain.points[0].termination, Some(Termination::Success));
+        assert!(!chain.points[0].accepted);
+        let Some(ProfileWorkerFailure::Environment(cleanup)) = &chain.worker_failure else {
+            panic!("retirement must remain a typed worker failure")
+        };
+        assert!(
+            matches!(cleanup.cause(), ProblemError::Retirement { failures } if matches!(failures.as_slice(), [ProblemError::Retirement { failures }] if failures.len() == 2))
+        );
+    }
+
+    #[test]
+    fn profile_worker_panic_and_cleanup_failure_are_both_retained() {
+        let execution = execution();
+        let mut chain = policy(&execution).run(|value, _| Ok(solution(value)));
+        chain.worker_failure = Some(ProfileWorkerFailure::Panic);
+        let chain = retire_chain(
+            chain,
+            Err(ProblemError::internal("cleanup after worker panic")),
+        );
+        assert!(
+            matches!(&chain.worker_failure, Some(ProfileWorkerFailure::Settlement { operation, cleanup })
+            if matches!(operation.as_ref(), ProfileWorkerFailure::Panic) && matches!(cleanup.cause(), ProblemError::Retirement { .. }))
+        );
         assert_eq!(chain.bound.outcome, IntervalOutcome::Stopped);
     }
     #[test]

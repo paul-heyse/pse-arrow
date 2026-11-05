@@ -1109,7 +1109,7 @@ fn cube_providers() -> pse_kernels::ProviderBindings {
     let spec = cube_spec(&registry);
     let key = spec.key();
     let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Cube));
-    pse_kernels::ProviderBindings::from([(key, provider)])
+    pse_kernels::ProviderBindings::try_from_iter([(key, provider)]).unwrap()
 }
 
 #[test]

@@ -107,7 +107,7 @@ impl PreparedSolve {
                 PointArithmeticEvidence::Incomplete { .. } => return Ok(()),
                 PointArithmeticEvidence::Interrupted { .. } => return Err(ProblemError::Cancelled),
             };
-            let mut worker = service
+            let worker = service
                 .case_worker(
                     Some(selected.executable.clone()),
                     BTreeMap::new(),
@@ -115,14 +115,15 @@ impl PreparedSolve {
                     budget,
                 )
                 .map_err(MathRuntimeError::into_problem)?;
-            let actual = budget
-                .evaluate(|| {
+            let actual = with_local_worker(worker, |worker| {
+                budget.evaluate(|| {
                     worker
-                        .worker()
                         .constraints(values)
+                        .map(<[f64]>::to_vec)
                         .map_err(MathRuntimeError::from)
                 })
-                .map_err(MathRuntimeError::into_problem)?;
+            })
+            .map_err(MathRuntimeError::into_problem)?;
             let mut validity = FramedHasher::new(pse_ids::Frame::EngineeringGoalV1);
             validity
                 .str("selected-output-over-certified-coordinate-box")

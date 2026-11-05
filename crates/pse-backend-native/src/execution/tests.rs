@@ -111,16 +111,18 @@ fn idle_scheduler_relinquishment_refuses_only_required_discarded_cache() {
             ReusePolicy::AllowRebuild,
             |_: &mut u64| Ok(SessionUpdate::Compatible),
             || Ok(1u64),
+            |_| Ok(()),
         )
         .unwrap();
-    retained.relinquish_scheduler();
+    retained.relinquish_scheduler().unwrap();
     assert!(retained.is_empty());
     assert!(matches!(
         retained.session(
             Backend::Highs,
             ReusePolicy::RequireReuse,
             |_: &mut u64| Ok(SessionUpdate::Compatible),
-            || Ok(2u64)
+            || Ok(2u64),
+            |_| Ok(()),
         ),
         Err(ProblemError::Reuse {
             backend: Backend::Highs,
@@ -133,6 +135,7 @@ fn idle_scheduler_relinquishment_refuses_only_required_discarded_cache() {
             ReusePolicy::RequireReuse,
             |_: &mut u64| Ok(SessionUpdate::Compatible),
             || Ok(3u64),
+            |_| Ok(()),
         )
         .unwrap();
     assert_eq!(retained.backend(), Some(Backend::Kinsol));
@@ -181,6 +184,7 @@ impl BackendExecution for Stub {
                 Ok(SessionUpdate::Compatible)
             },
             || Ok(1_i64),
+            |_| Ok(()),
         )?;
         // Scalar Newton iteration on the normalized residual.
         let (mut x, mut r, mut j) = (initial.to_vec(), [0.0], [0.0]);
@@ -347,6 +351,7 @@ fn stub_backend_routes_through_adapter_table() {
             ReusePolicy::AllowRebuild,
             |_: &mut u8| Ok(SessionUpdate::Compatible),
             || Ok(0_u8),
+            |_| Ok(()),
         )
         .unwrap();
     let refused = foreign_state.session(
@@ -354,6 +359,7 @@ fn stub_backend_routes_through_adapter_table() {
         ReusePolicy::RequireReuse,
         |_: &mut i64| Ok(SessionUpdate::Compatible),
         || Ok(0_i64),
+        |_| Ok(()),
     );
     assert!(matches!(
         refused,
@@ -368,6 +374,7 @@ fn stub_backend_routes_through_adapter_table() {
         ReusePolicy::RequireReuse,
         |_: &mut u8| Ok(SessionUpdate::Incompatible),
         || Ok(0_u8),
+        |_| Ok(()),
     );
     assert!(matches!(
         refused,
@@ -1351,6 +1358,7 @@ fn failed_mutation_destroys_retained_state_and_charge_before_returning_cause() {
                 ReusePolicy::AllowRebuild,
                 |_: &mut Owner| Ok(SessionUpdate::Compatible),
                 || Ok(Owner(destroyed.clone())),
+                |_| Ok(()),
             )
             .unwrap();
         retained.charge_session(Box::new(Owner(uncharged.clone())));
@@ -1359,6 +1367,7 @@ fn failed_mutation_destroys_retained_state_and_charge_before_returning_cause() {
             policy,
             |_: &mut Owner| Err(ProblemError::Contract("partial native mutation".into())),
             || panic!("failed mutation must not rebuild or replace its cause"),
+            |_| Ok(()),
         );
         assert!(
             matches!(result, Err(ProblemError::Contract(ref detail)) if detail == "partial native mutation")
@@ -1378,6 +1387,7 @@ fn pre_mutation_incompatibility_keeps_required_owner_healthy() {
             ReusePolicy::AllowRebuild,
             |_: &mut u64| Ok(SessionUpdate::Compatible),
             || Ok(5u64),
+            |_| Ok(()),
         )
         .unwrap();
     let refusal = retained.session(
@@ -1385,6 +1395,7 @@ fn pre_mutation_incompatibility_keeps_required_owner_healthy() {
         ReusePolicy::RequireReuse,
         |_: &mut u64| Ok(SessionUpdate::Incompatible),
         || panic!("forbidden rebuild"),
+        |_| Ok(()),
     );
     assert!(matches!(refusal, Err(ProblemError::Reuse { .. })));
     let (value, reused) = retained
@@ -1393,6 +1404,7 @@ fn pre_mutation_incompatibility_keeps_required_owner_healthy() {
             ReusePolicy::RequireReuse,
             |_: &mut u64| Ok(SessionUpdate::Compatible),
             || panic!("healthy state retained"),
+            |_| Ok(()),
         )
         .unwrap();
     assert!(reused);
@@ -1408,6 +1420,7 @@ fn independent_fresh_fallback_is_visible_to_required_reuse() {
             ReusePolicy::AllowRebuild,
             |_: &mut u64| Ok(SessionUpdate::Compatible),
             || Ok(1u64),
+            |_| Ok(()),
         )
         .unwrap();
     retained.reset_independent().unwrap();
@@ -1417,7 +1430,8 @@ fn independent_fresh_fallback_is_visible_to_required_reuse() {
             Backend::Kinsol,
             ReusePolicy::RequireReuse,
             |_: &mut u64| Ok(SessionUpdate::Compatible),
-            || panic!("fresh fallback cannot satisfy required reuse")
+            || panic!("fresh fallback cannot satisfy required reuse"),
+            |_| Ok(()),
         ),
         Err(ProblemError::Reuse { .. })
     ));
@@ -1427,6 +1441,7 @@ fn independent_fresh_fallback_is_visible_to_required_reuse() {
             ReusePolicy::Fresh,
             |_: &mut u64| panic!("Fresh must not visit previous state"),
             || Ok(2u64),
+            |_| Ok(()),
         )
         .unwrap();
     assert_eq!(*value, 2);
@@ -1442,17 +1457,19 @@ fn cleared_or_failed_native_state_cannot_cold_bootstrap_required_reuse() {
             ReusePolicy::RequireReuse,
             |_: &mut u64| panic!("pristine construction"),
             || Ok(1u64),
+            |_| Ok(()),
         )
         .unwrap();
-    pristine.clear();
-    pristine.clear();
+    pristine.clear().unwrap();
+    pristine.clear().unwrap();
     let mut reentered = Retained::after_scope(pristine.scope_history());
     assert!(matches!(
         reentered.session(
             Backend::Highs,
             ReusePolicy::RequireReuse,
             |_: &mut u64| panic!("no retained object"),
-            || panic!("discard forbids bootstrap")
+            || panic!("discard forbids bootstrap"),
+            |_| Ok(()),
         ),
         Err(ProblemError::Reuse { .. })
     ));
@@ -1462,15 +1479,17 @@ fn cleared_or_failed_native_state_cannot_cold_bootstrap_required_reuse() {
             ReusePolicy::RequireReuse,
             |_: &mut u64| panic!("unseen backend has no old object"),
             || Ok(2u64),
+            |_| Ok(()),
         )
         .unwrap();
-    reentered.clear();
+    reentered.clear().unwrap();
     assert!(matches!(
         reentered.session(
             Backend::Highs,
             ReusePolicy::RequireReuse,
             |_: &mut u64| panic!("old backend remains discarded"),
-            || panic!("history survives another backend")
+            || panic!("history survives another backend"),
+            |_| Ok(()),
         ),
         Err(ProblemError::Reuse { .. })
     ));
@@ -1481,7 +1500,8 @@ fn cleared_or_failed_native_state_cannot_cold_bootstrap_required_reuse() {
                 Backend::Highs,
                 ReusePolicy::AllowRebuild,
                 |_| panic!("no object"),
-                || Err(ProblemError::internal("construction failure"))
+                || Err(ProblemError::internal("construction failure")),
+                |_| Ok(())
             )
             .is_err()
     );
@@ -1490,7 +1510,8 @@ fn cleared_or_failed_native_state_cannot_cold_bootstrap_required_reuse() {
             Backend::Highs,
             ReusePolicy::RequireReuse,
             |_: &mut u64| panic!("no object"),
-            || panic!("failed construction forbids bootstrap")
+            || panic!("failed construction forbids bootstrap"),
+            |_| Ok(()),
         ),
         Err(ProblemError::Reuse { .. })
     ));
@@ -1560,6 +1581,7 @@ fn empty_pounce_reset_releases_retained_charge_and_preserves_required_refusal() 
             ReusePolicy::AllowRebuild,
             |_: &mut crate::pounce::Session| Ok(SessionUpdate::Compatible),
             || Ok(crate::pounce::Session::new()),
+            crate::pounce::Session::finish,
         )
         .unwrap();
     retained.charge_session(Box::new(Charge(released.clone())));
@@ -1571,7 +1593,8 @@ fn empty_pounce_reset_releases_retained_charge_and_preserves_required_refusal() 
             Backend::Pounce,
             ReusePolicy::RequireReuse,
             |_: &mut crate::pounce::Session| Ok(SessionUpdate::Compatible),
-            || panic!("empty reset cannot satisfy required reuse")
+            || panic!("empty reset cannot satisfy required reuse"),
+            |_| Ok(()),
         ),
         Err(ProblemError::Reuse { .. })
     ));
@@ -1590,31 +1613,152 @@ fn workflow_owner_is_lane_local_and_ends_before_independent_parking() {
     let mut retained = Retained::default();
     assert!(
         retained
-            .workflow_owner::<LocalOwner>(|| Err(ProblemError::Cancelled))
+            .workflow_owner::<LocalOwner>(|| Err(ProblemError::Cancelled), |_| Ok(()))
             .is_err()
     );
     let (_, reused) = retained
-        .workflow_owner(|| Ok(LocalOwner(dropped.clone())))
+        .workflow_owner(|| Ok(LocalOwner(dropped.clone())), |_| Ok(()))
         .unwrap();
     assert!(!reused);
-    retained.clear(); // Backend session changes do not destroy the operation's owner.
+    retained.clear().unwrap(); // Backend session changes do not destroy the operation's owner.
     let (_, reused) = retained
-        .workflow_owner::<LocalOwner>(|| panic!("must reuse"))
+        .workflow_owner::<LocalOwner>(|| panic!("must reuse"), |_| Ok(()))
         .unwrap();
     assert!(reused);
     assert!(matches!(
-        retained.workflow_owner(|| Ok(7usize)),
+        retained.workflow_owner(|| Ok(7usize), |_| Ok(()),),
         Err(ProblemError::Contract(_))
     ));
     assert_eq!(dropped.get(), 0);
     retained.reset_independent().unwrap();
     assert_eq!(dropped.get(), 1);
     let (_, reused) = retained
-        .workflow_owner(|| Ok(LocalOwner(dropped.clone())))
+        .workflow_owner(|| Ok(LocalOwner(dropped.clone())), |_| Ok(()))
         .unwrap();
     assert!(!reused);
     drop(retained);
     assert_eq!(dropped.get(), 2);
+}
+
+#[test]
+fn consuming_retirement_attempts_adapter_and_workflow_with_charge_through_adapter() {
+    use std::sync::{Arc, Mutex};
+    type Events = Arc<Mutex<Vec<&'static str>>>;
+    struct Owner {
+        events: Events,
+        name: &'static str,
+    }
+    struct Charge(Events);
+    impl Drop for Charge {
+        fn drop(&mut self) {
+            self.0.lock().unwrap().push("charge");
+        }
+    }
+    fn finish(owner: Owner) -> Result<(), ProblemError> {
+        owner.events.lock().unwrap().push(owner.name);
+        Err(ProblemError::Contract(owner.name.into()))
+    }
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let mut retained = Retained::default();
+    retained
+        .session(
+            Backend::Kinsol,
+            ReusePolicy::AllowRebuild,
+            |_: &mut Owner| Ok(SessionUpdate::Compatible),
+            || {
+                Ok(Owner {
+                    events: events.clone(),
+                    name: "adapter",
+                })
+            },
+            finish,
+        )
+        .unwrap();
+    retained.charge_session(Box::new(Charge(events.clone())));
+    retained
+        .workflow_owner(
+            || {
+                Ok(Owner {
+                    events: events.clone(),
+                    name: "workflow",
+                })
+            },
+            finish,
+        )
+        .unwrap();
+    let error = retained.finish().unwrap_err();
+    assert!(matches!(error, ProblemError::Retirement { failures } if failures.len() == 2));
+    assert_eq!(*events.lock().unwrap(), ["adapter", "charge", "workflow"]);
+}
+
+#[test]
+fn failed_update_preserves_action_and_retirement_and_prevents_replacement() {
+    use std::{cell::Cell, rc::Rc};
+    struct Owner(Rc<Cell<usize>>);
+    fn finish(owner: Owner) -> Result<(), ProblemError> {
+        owner.0.set(owner.0.get() + 1);
+        Err(ProblemError::Contract("retirement".into()))
+    }
+    let finishes = Rc::new(Cell::new(0));
+    let mut retained = Retained::default();
+    retained
+        .session(
+            Backend::Kinsol,
+            ReusePolicy::AllowRebuild,
+            |_: &mut Owner| Ok(SessionUpdate::Compatible),
+            || Ok(Owner(finishes.clone())),
+            finish,
+        )
+        .unwrap();
+    let error = retained
+        .session(
+            Backend::Kinsol,
+            ReusePolicy::AllowRebuild,
+            |_: &mut Owner| Err(ProblemError::Cancelled),
+            || panic!("failed retirement must prevent replacement construction"),
+            finish,
+        )
+        .err()
+        .unwrap();
+    let ProblemError::Retirement { failures } = error else {
+        panic!("missing typed causes")
+    };
+    assert!(matches!(
+        failures.as_slice(),
+        [ProblemError::Cancelled, ProblemError::Contract(_)]
+    ));
+    assert_eq!(finishes.get(), 1);
+    assert!(retained.is_empty());
+}
+
+#[test]
+fn panicking_retained_adapter_does_not_skip_workflow_retirement() {
+    use std::{cell::Cell, rc::Rc};
+    let finished = Rc::new(Cell::new(0));
+    let mut retained = Retained::default();
+    retained
+        .session(
+            Backend::Kinsol,
+            ReusePolicy::AllowRebuild,
+            |_: &mut ()| Ok(SessionUpdate::Compatible),
+            || Ok(()),
+            |_| panic!("adapter retirement control"),
+        )
+        .unwrap();
+    retained
+        .workflow_owner(
+            || Ok(finished.clone()),
+            |finished| {
+                finished.set(finished.get() + 1);
+                Ok(())
+            },
+        )
+        .unwrap();
+    assert!(matches!(
+        retained.finish(),
+        Err(ProblemError::RetirementPanic { .. })
+    ));
+    assert_eq!(finished.get(), 1);
 }
 
 #[test]

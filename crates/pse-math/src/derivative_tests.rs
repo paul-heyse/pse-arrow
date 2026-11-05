@@ -1143,7 +1143,7 @@ fn domain_predicates_use_value_only_providers_and_remain_demand_scoped() {
             calls: calls.clone(),
         }),
     );
-    let mut workers = ProviderBindings::from([(key, provider)]);
+    let mut workers = ProviderBindings::try_from_iter([(key, provider)]).unwrap();
     let mut guarded = prepared
         .compile(
             &[0],
@@ -1241,7 +1241,7 @@ fn composed_external_partials_use_symbolica_chain_rule_through_nested_calls() {
             )
             .unwrap()
             .worker();
-        let mut providers = ProviderBindings::from([(spec.key(), provider)]);
+        let mut providers = ProviderBindings::try_from_iter([(spec.key(), provider)]).unwrap();
         let result = compiled
             .evaluate(&[2.], order, &mut providers, &cancel)
             .unwrap();
@@ -1288,7 +1288,7 @@ fn symbolica_composes_provider_partials_after_arithmetic_barriers() {
     let mut worker = body.worker();
     let control = pse_diagnostics::Cancellation::new(false);
     let cancel = control.flag();
-    let mut providers = ProviderBindings::from([(spec.key(), provider)]);
+    let mut providers = ProviderBindings::try_from_iter([(spec.key(), provider)]).unwrap();
     let v = worker
         .evaluate(&[2.0], DerivativeOrder::Second, &mut providers, &cancel)
         .unwrap();
@@ -1508,7 +1508,8 @@ fn multi_input_provider_lift_preserves_mixed_raw_partials() {
         DerivativeOrder::Second,
     );
     let provider = ProviderBinding::new(spec.clone(), Box::new(Product));
-    let mut providers: ProviderBindings = ProviderBindings::from([(key, provider)]);
+    let mut providers: ProviderBindings =
+        ProviderBindings::try_from_iter([(key, provider)]).unwrap();
     let v = body
         .worker()
         .evaluate(
@@ -1628,7 +1629,8 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
     assert_eq!(prepared.providers().len(), 1);
     let control = pse_diagnostics::Cancellation::new(false);
     let cancel = control.flag();
-    let mut workers = ProviderBindings::from([(key, registration.worker().unwrap())]);
+    let mut workers =
+        ProviderBindings::try_from_iter([(key, registration.worker().unwrap())]).unwrap();
     let compile = |outputs: &[usize]| {
         prepared
             .compile(
@@ -2088,7 +2090,7 @@ fn selected_provider_demand_matches_fixed_coordinate_program_and_authored_partia
             calls: calls.clone(),
         }),
     );
-    let mut providers = ProviderBindings::from([(spec.key(), selected_provider)]);
+    let mut providers = ProviderBindings::try_from_iter([(spec.key(), selected_provider)]).unwrap();
     let result = worker
         .evaluate(&[3., 2.], DerivativeOrder::Second, &mut providers, &cancel)
         .unwrap();
@@ -2247,7 +2249,8 @@ fn selected_output_availability_and_incidence_ignore_unrelated_value_provider() 
             calls: calls.clone(),
         }),
     );
-    let mut providers = ProviderBindings::from([(provider.spec().key(), provider)]);
+    let mut providers =
+        ProviderBindings::try_from_iter([(provider.spec().key(), provider)]).unwrap();
     let mut effect_worker = body
         .compile(
             &[2],
@@ -2523,7 +2526,7 @@ fn demanded_directional_provider_composition_keeps_original_guard_and_first_part
         )
         .unwrap()
         .worker();
-    let mut providers = ProviderBindings::from([(spec.key(), provider)]);
+    let mut providers = ProviderBindings::try_from_iter([(spec.key(), provider)]).unwrap();
     let result = worker
         .evaluate_directional(&[2.0, 3.0], &[4.0, -1.0], &mut providers, &cancel)
         .unwrap();
@@ -2744,7 +2747,7 @@ fn conditional_block_keeps_actual_guard_provider_execution_inputs() {
             calls: calls.clone(),
         }),
     );
-    let providers = ProviderBindings::from([(spec.key(), selected_provider)]);
+    let providers = ProviderBindings::try_from_iter([(spec.key(), selected_provider)]).unwrap();
     let mut worker = guarded.worker(providers, control.clone());
     let mut values = CaseValues {
         scalars: BTreeMap::from([(id(1), 3.0), (id(2), 2.0)]),

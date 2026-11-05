@@ -229,11 +229,12 @@ impl StepRetention {
     pub(crate) const fn permits_session(&self) -> bool {
         self.candidate.permits_use() && matches!(self.session, SessionDisposition::RetainCompatible)
     }
-    fn apply(&self, retained: &mut Retained) {
+    fn apply(&self, retained: &mut Retained) -> Result<(), ProblemError> {
         if !self.permits_session() {
             // Independently admitted response factors have their own validity and owner.
-            retained.clear();
+            retained.clear()?;
         }
+        Ok(())
     }
 }
 
@@ -618,7 +619,7 @@ fn serve(
     population: &super::jobs::PopulationLane,
     #[cfg(test)] fail_scope_entry: &AtomicBool,
     current: &std::sync::Mutex<Scope>,
-) {
+) -> Result<(), MathRuntimeError> {
     let mut pending: Option<Request> = None;
     let mut discarded = execution::ReuseHistory::default();
     let mut scope = Scope {
@@ -664,132 +665,155 @@ fn serve(
             !adapters.is_empty() && fail_scope_entry.swap(false, Ordering::AcqRel);
         #[cfg(not(test))]
         let injected_failure = false;
+        let mut entered_scope = false;
         let exit = match team_owner {
             Ok(_) if injected_failure => Err(ProblemError::Contract(
                 "injected native scope entry failure".into(),
             )),
             Ok(_team_owner) => execution::scoped(&adapters, scope.threads, stack, || {
+                entered_scope = true;
                 let _scratch_lane = ScratchLaneGuard::install();
                 let mut retained = Retained::after_scope(discarded);
-                loop {
-                    let waker = std::task::Waker::from(idle.clone());
-                    let pressure_watch = pressure.watch_idle(&waker);
-                    let scheduler_watch = execution::watch_scheduler(&waker);
-                    if execution::scheduler_waiting() {
-                        retained.relinquish_scheduler();
-                    }
-                    let trim_idle = if pending.is_none() && pressure.active() {
-                        let mut live = current
-                            .lock()
-                            .unwrap_or_else(std::sync::PoisonError::into_inner);
-                        if population.idle() {
-                            // Publish departure while synchronized with the admitted
-                            // request's snapshot. A new claimant reserves full overlap.
-                            *live = Scope {
-                                backends: Vec::new(),
-                                threads: 1,
-                            };
-                            true
+                let operation = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    loop {
+                        let waker = std::task::Waker::from(idle.clone());
+                        let pressure_watch = pressure.watch_idle(&waker);
+                        let scheduler_watch = execution::watch_scheduler(&waker);
+                        if execution::scheduler_waiting() {
+                            retained.relinquish_scheduler()?;
+                        }
+                        let trim_idle = if pending.is_none() && pressure.active() {
+                            let mut live = current
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner);
+                            if population.idle() {
+                                // Publish departure while synchronized with the admitted
+                                // request's snapshot. A new claimant reserves full overlap.
+                                *live = Scope {
+                                    backends: Vec::new(),
+                                    threads: 1,
+                                };
+                                true
+                            } else {
+                                false
+                            }
                         } else {
                             false
-                        }
-                    } else {
-                        false
-                    };
-                    if trim_idle {
-                        SCRATCH_LANE.with(|slot| {
-                            if let Some(lane) = slot.borrow_mut().as_mut() {
-                                lane.clear();
+                        };
+                        if trim_idle {
+                            SCRATCH_LANE.with(|slot| {
+                                if let Some(lane) = slot.borrow_mut().as_mut() {
+                                    lane.clear();
+                                }
+                            });
+                            discarded = retained.scope_history();
+                            std::mem::take(&mut retained).finish()?;
+                            if entered.threads != 1 || !entered.backends.is_empty() {
+                                return Ok(Some(Scope {
+                                    backends: Vec::new(),
+                                    threads: 1,
+                                }));
                             }
-                        });
-                        retained.clear();
-                        discarded = retained.scope_history();
-                        retained.release();
-                        if entered.threads != 1 || !entered.backends.is_empty() {
-                            return Ok(Some(Scope {
-                                backends: Vec::new(),
-                                threads: 1,
-                            }));
                         }
-                    }
-                    let mut request = match pending.take() {
-                        Some(request) => request,
-                        // Only this thread receives; the lock lends the receiver to the scope.
-                        None => match receiver.lock().map(|r| r.recv()) {
-                            Ok(Ok(request)) => request,
-                            Ok(Err(mpsc::RecvError)) | Err(_) => {
-                                return Ok::<_, ProblemError>(None);
+                        let mut request = match pending.take() {
+                            Some(request) => request,
+                            // Only this thread receives; the lock lends the receiver to the scope.
+                            None => match receiver.lock().map(|r| r.recv()) {
+                                Ok(Ok(request)) => request,
+                                Ok(Err(mpsc::RecvError)) | Err(_) => {
+                                    return Ok::<_, ProblemError>(None);
+                                }
+                            },
+                        };
+                        drop(pressure_watch);
+                        drop(scheduler_watch);
+                        if request.work.is_none() {
+                            idle.pending.store(false, Ordering::Release);
+                            continue;
+                        }
+                        if !entered.admits(&request) {
+                            if let Some(context) = &request.observation {
+                                context.count("native.session.scope_replacements", "count", 1);
+                                context.text(
+                                    "native.session.previous_backends",
+                                    &format!("{:?}", entered.backends),
+                                );
+                                context.text(
+                                    "native.session.required_backends",
+                                    &format!("{:?}", request.backends),
+                                );
+                                context.boolean("native.session.scope_borrowed", false);
                             }
-                        },
-                    };
-                    drop(pressure_watch);
-                    drop(scheduler_watch);
-                    if request.work.is_none() {
-                        idle.pending.store(false, Ordering::Release);
-                        continue;
-                    }
-                    if !entered.admits(&request) {
+                            discarded = retained.scope_history();
+                            let next = entered.extended(&request);
+                            pending = Some(request);
+                            return Ok(Some(next));
+                        }
                         if let Some(context) = &request.observation {
-                            context.count("native.session.scope_replacements", "count", 1);
+                            context.boolean(
+                                "native.session.scope_borrowed",
+                                request.backends.is_empty() && !entered.backends.is_empty(),
+                            );
                             context.text(
-                                "native.session.previous_backends",
+                                "native.session.entered_backends",
                                 &format!("{:?}", entered.backends),
                             );
-                            context.text(
-                                "native.session.required_backends",
-                                &format!("{:?}", request.backends),
-                            );
-                            context.boolean("native.session.scope_borrowed", false);
                         }
-                        discarded = retained.scope_history();
-                        let next = entered.extended(&request);
-                        pending = Some(request);
-                        return Ok(Some(next));
-                    }
-                    if let Some(context) = &request.observation {
-                        context.boolean(
-                            "native.session.scope_borrowed",
-                            request.backends.is_empty() && !entered.backends.is_empty(),
-                        );
-                        context.text(
-                            "native.session.entered_backends",
-                            &format!("{:?}", entered.backends),
-                        );
-                    }
-                    // A ready next request must not indefinitely retain the previous
-                    // step's idle reader ahead of an already waiting Uno owner.
-                    if execution::scheduler_waiting() {
-                        retained.relinquish_scheduler();
-                    }
-                    drop(request.scope_owner.take());
-                    SCRATCH_LANE.with(|slot| {
-                        if let Some(lane) = slot.borrow_mut().as_mut() {
-                            lane.begin();
-                            if pressure.active() {
-                                lane.clear();
+                        // A ready next request must not indefinitely retain the previous
+                        // step's idle reader ahead of an already waiting Uno owner.
+                        if execution::scheduler_waiting() {
+                            if let Err(error) = retained.relinquish_scheduler() {
+                                pending = Some(request);
+                                return Err(error);
                             }
                         }
-                    });
-                    if let Some(work) = request.work.take() {
-                        work(Ok(&mut retained));
-                    }
-                    SCRATCH_LANE.with(|slot| {
-                        if let Some(lane) = slot.borrow_mut().as_mut() {
-                            if pressure.active() {
-                                lane.clear();
-                            } else {
-                                lane.finish();
+                        drop(request.scope_owner.take());
+                        SCRATCH_LANE.with(|slot| {
+                            if let Some(lane) = slot.borrow_mut().as_mut() {
+                                lane.begin();
+                                if pressure.active() {
+                                    lane.clear();
+                                }
                             }
+                        });
+                        if let Some(work) = request.work.take() {
+                            work(Ok(&mut retained));
                         }
-                    });
-                }
+                        SCRATCH_LANE.with(|slot| {
+                            if let Some(lane) = slot.borrow_mut().as_mut() {
+                                if pressure.active() {
+                                    lane.clear();
+                                } else {
+                                    lane.finish();
+                                }
+                            }
+                        });
+                    }
+                }));
+                let operation = operation.unwrap_or_else(|payload| {
+                    let message = pse_diagnostics::panic::settle_payload(
+                        payload,
+                        "native session scope panic with opaque payload",
+                    );
+                    Err(MathRuntimeError::Panic(message).into_problem())
+                });
+                ProblemError::with_retirement(operation, retained.finish())
             }),
             Err(error) => Err(error),
         };
         match exit {
-            Ok(None) => return,
+            Ok(None) => return Ok(()),
             Ok(Some(next)) => scope = next,
             Err(error) => {
+                if entered_scope {
+                    let error = Arc::new(MathRuntimeError::from(error));
+                    if let Some(request) = pending.take()
+                        && let Some(work) = request.work
+                    {
+                        work(Err(MathRuntimeError::Shared(error.clone()).into_problem()));
+                    }
+                    return Err(MathRuntimeError::Shared(error));
+                }
                 // The requested scope never became a live reusable owner. Publish its
                 // departure before replying/releasing dispatch to the next claimant.
                 *current
@@ -1021,19 +1045,12 @@ impl MathService {
         tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             // Joining, not the last reply, witnesses thread-local destruction.
             let result = match thread.await {
-                Ok(Ok(())) => Ok(()),
+                Ok(Ok(result)) => result,
                 Ok(Err(panic)) => {
-                    let message = panic
-                        .downcast_ref::<String>()
-                        .cloned()
-                        .or_else(|| {
-                            panic
-                                .downcast_ref::<&str>()
-                                .map(|message| (*message).to_owned())
-                        })
-                        .unwrap_or_else(|| {
-                            "native session thread panic with opaque payload".into()
-                        });
+                    let message = pse_diagnostics::panic::settle_payload(
+                        panic,
+                        "native session thread panic with opaque payload",
+                    );
                     Err(MathRuntimeError::Panic(message))
                 }
                 Err(source) => Err(MathRuntimeError::WorkerJoin {
@@ -1607,9 +1624,15 @@ impl NativeSession {
                             Err(_) => {
                                 // The request still owns its CPU guard. Destroy poisoned
                                 // foreign state inside its adapter scope before releasing it.
-                                retained.clear();
-                                retained.release();
-                                Err(MathRuntimeError::Panic("native session step panic".into()))
+                                let cleanup = std::mem::take(retained)
+                                    .finish()
+                                    .map_err(MathRuntimeError::from);
+                                MathRuntimeError::settle(
+                                    Err(MathRuntimeError::Panic(
+                                        "native session step panic".into(),
+                                    )),
+                                    cleanup,
+                                )
                             }
                         }
                     }
@@ -1694,8 +1717,7 @@ impl NativeSession {
             Some(scope),
             cancel,
             move |retained, flag, budget, context| {
-                retained.clear();
-                retained.release();
+                std::mem::take(retained).finish()?;
                 let local = LocalOperation::new(
                     service,
                     retained,
@@ -1705,7 +1727,16 @@ impl NativeSession {
                     local_scope,
                     controls,
                 )?;
-                work(&local)
+                let result =
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| work(&local)))
+                        .unwrap_or_else(|payload| {
+                            let message = pse_diagnostics::panic::settle_payload(
+                                payload,
+                                "local sequence panic with opaque payload",
+                            );
+                            Err(MathRuntimeError::Panic(message))
+                        });
+                MathRuntimeError::settle(result, local.finish())
             },
         )
         .await
@@ -1885,7 +1916,7 @@ impl NativeSession {
                     }
                 }
             }).collect();
-            if kept {retained.charge_session(Box::new(allowance));} else {retained.clear();}
+            if kept {retained.charge_session(Box::new(allowance));} else {retained.clear()?;}
             Ok(assessed)
         }).await
     }
@@ -2052,6 +2083,70 @@ impl Drop for NativeSession {
 mod admission_tests {
     use super::*;
     use std::sync::{Condvar, Mutex};
+
+    #[tokio::test]
+    async fn native_session_close_reports_every_retained_owner_failure_after_join() {
+        struct Owner {
+            finished: Arc<std::sync::atomic::AtomicUsize>,
+            label: &'static str,
+        }
+        fn finish(owner: Owner) -> Result<(), ProblemError> {
+            owner.finished.fetch_add(1, Ordering::AcqRel);
+            Err(ProblemError::Contract(owner.label.into()))
+        }
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let session = service.open_session().unwrap();
+        let finished = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let seen = finished.clone();
+        session
+            .run(
+                1,
+                None,
+                &crate::CancelSource::new(),
+                move |retained, _, _| {
+                    retained.session(
+                        Backend::Kinsol,
+                        pse_backend_native::solve::ReusePolicy::AllowRebuild,
+                        |_: &mut Owner| Ok(execution::SessionUpdate::Compatible),
+                        || {
+                            Ok(Owner {
+                                finished: seen.clone(),
+                                label: "adapter retirement",
+                            })
+                        },
+                        finish,
+                    )?;
+                    retained.workflow_owner(
+                        || {
+                            Ok(Owner {
+                                finished: seen,
+                                label: "workflow retirement",
+                            })
+                        },
+                        finish,
+                    )?;
+                    Ok(())
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(finished.load(Ordering::Acquire), 0);
+        let failure = session.close().await.unwrap_err();
+        assert_eq!(finished.load(Ordering::Acquire), 2);
+        let MathRuntimeError::Shared(failure) = failure else {
+            panic!("original shared retirement failure")
+        };
+        let MathRuntimeError::Solve(ProblemError::Retirement { failures }) = failure.as_ref()
+        else {
+            panic!("both original native retirement causes")
+        };
+        assert!(
+            matches!(failures.as_slice(), [ProblemError::Contract(a), ProblemError::Contract(b)]
+            if a == "adapter retirement" && b == "workflow retirement")
+        );
+        assert_eq!(service.pool.reserved(), baseline);
+    }
 
     enum JoinExit {
         Wait(mpsc::Receiver<()>, Arc<AtomicBool>),
@@ -2316,6 +2411,7 @@ mod admission_tests {
                     ReusePolicy::RequireReuse,
                     |_: &mut u64| panic!("first construction"),
                     || Ok(1u64),
+                    |_| Ok(()),
                 )?;
                 Ok(())
             })
@@ -2329,6 +2425,7 @@ mod admission_tests {
                         ReusePolicy::RequireReuse,
                         |_: &mut u64| panic!("old scope was destroyed"),
                         || panic!("scope change cannot satisfy required reuse"),
+                        |_: u64| Ok(()),
                     )?;
                     Ok(())
                 })
@@ -2345,6 +2442,7 @@ mod admission_tests {
                     ReusePolicy::AllowRebuild,
                     |_: &mut u64| panic!("no live object"),
                     || Ok(2u64),
+                    |_| Ok(()),
                 )?;
                 Ok(())
             })
@@ -2368,6 +2466,7 @@ mod admission_tests {
                 pse_backend_native::solve::ReusePolicy::AllowRebuild,
                 |_: &mut u64| Ok(execution::SessionUpdate::Compatible),
                 || Ok(3u64),
+                |_| Ok(()),
             )?;
             Ok(())
         })
@@ -2674,7 +2773,7 @@ mod admission_tests {
                     budget,
                 )?;
                 worker.constraints(&first_values)?;
-                drop(worker);
+                worker.finish()?;
                 drop(stop);
                 assert!(
                     weak.upgrade().is_none(),
@@ -2690,6 +2789,10 @@ mod admission_tests {
                     pse_backend_native::solve::ReusePolicy::AllowRebuild,
                     |_: &mut super::super::WorkerCharge| Ok(execution::SessionUpdate::Incompatible),
                     || Ok(_charge),
+                    |charge| {
+                        drop(charge);
+                        Ok(())
+                    },
                 )?;
                 drop(_case);
                 assert_eq!(budget.used(), bytes);
@@ -2706,7 +2809,7 @@ mod admission_tests {
                     assert!(lane.pending.is_some());
                     assert!(lane.ready.is_none());
                 });
-                retained.clear();
+                retained.clear()?;
                 SCRATCH_LANE.with(|slot| assert!(slot.borrow().as_ref().unwrap().ready.is_none()));
                 Ok(())
             })
@@ -2744,8 +2847,8 @@ mod admission_tests {
                     "independent original worker is cold"
                 );
                 assert_eq!(actual, independent.worker.constraints(&next_values)?);
-                drop(independent);
-                drop(reused);
+                independent.finish()?;
+                reused.finish()?;
                 Ok(())
             })
             .await
@@ -2774,12 +2877,14 @@ mod admission_tests {
         let first = case.clone();
         session
             .run(1, None, &cancel, move |_, flag, budget| {
-                drop(work_service.reusable_worker(
-                    first,
-                    &Default::default(),
-                    pse_kernels::ExecutionScope::new(flag.clone(), None),
-                    budget,
-                )?);
+                work_service
+                    .reusable_worker(
+                        first,
+                        &Default::default(),
+                        pse_kernels::ExecutionScope::new(flag.clone(), None),
+                        budget,
+                    )?
+                    .finish()?;
                 Ok(())
             })
             .await
@@ -2807,12 +2912,14 @@ mod admission_tests {
         let first = case.clone();
         session
             .run(1, None, &cancel, move |_, flag, budget| {
-                drop(work_service.reusable_worker(
-                    first,
-                    &Default::default(),
-                    pse_kernels::ExecutionScope::new(flag.clone(), None),
-                    budget,
-                )?);
+                work_service
+                    .reusable_worker(
+                        first,
+                        &Default::default(),
+                        pse_kernels::ExecutionScope::new(flag.clone(), None),
+                        budget,
+                    )?
+                    .finish()?;
                 Ok(())
             })
             .await
@@ -2857,7 +2964,7 @@ mod admission_tests {
                     budget,
                 )?;
                 worker.worker.constraints(&values)?;
-                drop(worker);
+                worker.finish()?;
                 assert_eq!(budget.used(), bytes);
                 Ok(())
             })
@@ -2894,12 +3001,14 @@ mod admission_tests {
         let first = case.clone();
         session
             .run(1, None, &cancel, move |_, flag, budget| {
-                drop(work_service.reusable_worker(
-                    first,
-                    &Default::default(),
-                    pse_kernels::ExecutionScope::new(flag.clone(), None),
-                    budget,
-                )?);
+                work_service
+                    .reusable_worker(
+                        first,
+                        &Default::default(),
+                        pse_kernels::ExecutionScope::new(flag.clone(), None),
+                        budget,
+                    )?
+                    .finish()?;
                 Ok(())
             })
             .await
@@ -2918,7 +3027,7 @@ mod admission_tests {
                     budget,
                 )?;
                 SCRATCH_LANE.with(|slot| assert!(slot.borrow().as_ref().unwrap().ready.is_none()));
-                drop(worker);
+                worker.finish()?;
                 drop(fill);
                 assert_eq!(budget.used(), 0);
                 Ok(())
@@ -2956,7 +3065,7 @@ mod admission_tests {
                         budget,
                     )?;
                     assert_eq!(budget.used(), cold);
-                    drop(worker);
+                    worker.finish()?;
                     assert_eq!(budget.used(), 0);
                     Ok(())
                 },
@@ -2988,7 +3097,7 @@ mod admission_tests {
                         budget,
                     )?;
                     assert_eq!(budget.used(), budget.capacity());
-                    drop(worker);
+                    worker.finish()?;
                     drop(fill);
                     assert_eq!(budget.used(), 0);
                     Ok(())
@@ -3469,6 +3578,7 @@ mod admission_tests {
                     pse_backend_native::solve::ReusePolicy::AllowRebuild,
                     |_: &mut u64| Ok(execution::SessionUpdate::Compatible),
                     || Ok(42u64),
+                    |_| Ok(()),
                 )
                 .unwrap();
             StepRetention {
@@ -3480,7 +3590,8 @@ mod admission_tests {
                 },
                 session: disposition,
             }
-            .apply(&mut retained);
+            .apply(&mut retained)
+            .unwrap();
             assert_eq!(
                 !retained.is_empty(),
                 expected,
@@ -3605,6 +3716,7 @@ mod admission_tests {
                                     Ok(execution::SessionUpdate::Compatible)
                                 },
                                 || Ok(1usize),
+                                |_| Ok(()),
                             )?;
                             assert_eq!(reused, expected > 1);
                             Ok(*count)
@@ -3843,6 +3955,10 @@ mod admission_tests {
                                 entered: seen,
                                 gate: held,
                             })
+                        },
+                        |state| {
+                            drop(state);
+                            Ok(())
                         },
                     )?;
                     retained.charge_session(Box::new(optional));
@@ -4165,6 +4281,10 @@ mod admission_tests {
                                 entered: seen,
                                 gate: held,
                             })
+                        },
+                        |state| {
+                            drop(state);
+                            Ok(())
                         },
                     )?;
                     panic!("gated staged-worker panic control");

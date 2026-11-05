@@ -339,6 +339,7 @@ fn highs_partial_mutation_and_verification_failure_destroy_retained_state_even_r
                 ReusePolicy::AllowRebuild,
                 |_: &mut Session| Ok(SessionUpdate::Compatible),
                 || Ok(new(&p, &execution)),
+                |_| Ok(()),
             )
             .unwrap();
         p.objective[0] = -3.;
@@ -350,6 +351,7 @@ fn highs_partial_mutation_and_verification_failure_destroy_retained_state_even_r
                 ReusePolicy::RequireReuse,
                 |s: &mut Session| update(s, &p, &execution),
                 || panic!("RequireReuse must not rebuild after mutation failure"),
+                |_| Ok(()),
             )
             .unwrap_err();
         assert!(

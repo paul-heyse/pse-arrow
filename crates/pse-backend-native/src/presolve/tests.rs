@@ -189,6 +189,9 @@ impl Mixed {
     }
 }
 impl NlpOracle for Mixed {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn normalization(&self) -> Option<&pse_math::normalization::Normalization> {
         self.normalization.as_ref()
     }
@@ -339,18 +342,21 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
             ..Controls::default()
         };
         let report = match backend {
-            Backend::Ipopt => crate::ipopt::Session::new().solve(
-                &mut oracle,
-                pipeline.initial(),
-                ObjectiveSense::Minimize,
-                &controls,
-                &accuracy,
-                &Default::default(),
-                execution(),
-                &pipeline.tolerances(&tolerances()),
-                pipeline.warm(),
-                pipeline.native_compatibility().clone(),
-            ),
+            Backend::Ipopt => {
+                let result = crate::ipopt::Session::new().solve(
+                    &mut oracle,
+                    pipeline.initial(),
+                    ObjectiveSense::Minimize,
+                    &controls,
+                    &accuracy,
+                    &Default::default(),
+                    execution(),
+                    &pipeline.tolerances(&tolerances()),
+                    pipeline.warm(),
+                    pipeline.native_compatibility().clone(),
+                );
+                ProblemError::with_retirement(result, NlpOracle::finish(Box::new(oracle)))
+            }
             Backend::Pounce => crate::pounce::Session::new().solve(
                 Box::new(oracle),
                 pipeline.initial(),
@@ -366,13 +372,15 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
             _ => panic!("test helper supports only the two shared NLP adapters"),
         }
         .unwrap();
-        let (mut report, _) = pipeline.finish(
-            report,
-            &tolerances(),
-            ObjectiveSense::Minimize,
-            &Analysis::NONE,
-            UNUSED,
-        );
+        let (mut report, _) = pipeline
+            .finish(
+                report,
+                &tolerances(),
+                ObjectiveSense::Minimize,
+                &Analysis::NONE,
+                UNUSED,
+            )
+            .unwrap();
         crate::quality::record_kkt(
             &mut report,
             &pse_math::normalization::Normalization::identity(2, 2),
@@ -527,13 +535,16 @@ fn shared_affine_transport_recovers_original_values_and_kkt() {
         slacks: None,
         commitment: None,
     });
-    let (report, _) = p.finish(
-        report,
-        &tolerances(),
-        ObjectiveSense::Minimize,
-        &Analysis::NONE,
-        UNUSED,
-    );
+    NlpOracle::finish(Box::new(oracle)).unwrap();
+    let (report, _) = p
+        .finish(
+            report,
+            &tolerances(),
+            ObjectiveSense::Minimize,
+            &Analysis::NONE,
+            UNUSED,
+        )
+        .unwrap();
     assert_eq!(report.candidate.as_ref().unwrap().primal, vec![2.0, 2.0]);
     let observation = report.observation.unwrap();
     assert_eq!(observation.values, vec![7.0, 8.0]);
@@ -550,6 +561,29 @@ fn shared_affine_transport_recovers_original_values_and_kkt() {
         report.preprocessing.unwrap().dimensions,
         dimensions(2, 2, 1, 1)
     );
+}
+
+#[test]
+fn pipeline_finish_extracts_actual_owner_while_idle_transport_aliases_survive() {
+    let mut pipeline = Pipeline::new(
+        Box::new(Mixed::new()),
+        &[1.0, 3.0],
+        &Policy::Off,
+        &tolerances(),
+        &ResolvedAccuracy::verification(),
+        execution(),
+        None,
+        stamp(),
+        1000,
+    )
+    .unwrap();
+    let mut callback = pipeline.take_oracle().unwrap();
+    pipeline.retire().unwrap();
+    assert!(
+        callback.objective(&[1.0, 3.0]).is_err(),
+        "retired callbacks cannot reenter the supplier"
+    );
+    NlpOracle::finish(Box::new(callback)).unwrap();
 }
 #[test]
 fn qualification_declines_tiny_support_and_narrow_intervals() {
@@ -772,13 +806,15 @@ fn maximization_and_original_warm_seed_preserve_conventions() {
         slacks: None,
         commitment: None,
     });
-    let (report, _) = pipeline.finish(
-        report,
-        &tolerances(),
-        ObjectiveSense::Maximize,
-        &Analysis::NONE,
-        UNUSED,
-    );
+    let (report, _) = pipeline
+        .finish(
+            report,
+            &tolerances(),
+            ObjectiveSense::Maximize,
+            &Analysis::NONE,
+            UNUSED,
+        )
+        .unwrap();
     let observed = report.observation.unwrap();
     assert_eq!(observed.objective, Some(8.0));
     assert_eq!(observed.stationarity, Some(vec![0.0, 0.0]));
@@ -902,13 +938,16 @@ fn normalization_callbacks_and_original_duals_round_trip() {
         slacks: None,
         commitment: None,
     });
-    let (report, _) = pipeline.finish(
-        report,
-        &tolerance,
-        ObjectiveSense::Minimize,
-        &Analysis::NONE,
-        UNUSED,
-    );
+    NlpOracle::finish(Box::new(oracle)).unwrap();
+    let (report, _) = pipeline
+        .finish(
+            report,
+            &tolerance,
+            ObjectiveSense::Minimize,
+            &Analysis::NONE,
+            UNUSED,
+        )
+        .unwrap();
     let c = report.candidate.unwrap();
     assert_eq!(c.primal, vec![2.0, 2.0]);
     assert_eq!(c.objective, Some(8.0));
@@ -985,6 +1024,9 @@ fn presolve_certificate_respects_each_bound_budget() {
 #[derive(Debug)]
 struct PropagationFixedRow(Mixed);
 impl NlpOracle for PropagationFixedRow {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.0.contract
     }
@@ -1134,6 +1176,9 @@ struct RoundedConstant(Mixed);
 const PROVED: f64 = -375.279_905_375_125_96;
 const PROJECTED: f64 = -375.279_905_375_125_8;
 impl NlpOracle for RoundedConstant {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.0.contract
     }
@@ -1324,13 +1369,15 @@ fn pipeline_original_callbacks_and_fresh_validation_are_charged_once() {
         "transported adapter does not charge original callbacks twice, including native final validation"
     );
     let before_source = source_calls.load(Ordering::SeqCst);
-    let (report, _) = pipeline.finish(
-        report,
-        &tolerances(),
-        ObjectiveSense::Minimize,
-        &Analysis::NONE,
-        UNUSED,
-    );
+    let (report, _) = pipeline
+        .finish(
+            report,
+            &tolerances(),
+            ObjectiveSense::Minimize,
+            &Analysis::NONE,
+            UNUSED,
+        )
+        .unwrap();
     assert!(
         report.quality.as_ref().is_some_and(|q| q.feasible()),
         "{report:?}"
@@ -1407,6 +1454,9 @@ fn root_primal_affine_keeps_tiny_coefficients_bounds_and_original_inventory() {
 struct RootMixed(Mixed);
 #[cfg(feature = "kinsol")]
 impl crate::NleOracle for RootMixed {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.0.contract
     }

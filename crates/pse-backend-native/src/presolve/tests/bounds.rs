@@ -107,6 +107,9 @@ impl ExpressionProvider for Source {
     }
 }
 impl NlpOracle for Source {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.contract
     }
@@ -347,13 +350,16 @@ fn native_run(model: Model) -> SolveReport {
             pipeline.native_compatibility().clone(),
         )
         .unwrap();
-    let (mut report, _) = pipeline.finish(
-        report,
-        &tolerance,
-        ObjectiveSense::Minimize,
-        &Analysis::NONE,
-        UNUSED,
-    );
+    NlpOracle::finish(Box::new(native)).unwrap();
+    let (mut report, _) = pipeline
+        .finish(
+            report,
+            &tolerance,
+            ObjectiveSense::Minimize,
+            &Analysis::NONE,
+            UNUSED,
+        )
+        .unwrap();
     crate::quality::record_kkt(
         &mut report,
         &pse_math::normalization::Normalization::identity(n, 1),

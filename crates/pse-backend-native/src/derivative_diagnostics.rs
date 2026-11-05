@@ -138,74 +138,95 @@ pub fn analyze(
     policy: Policy,
     execution: Execution,
 ) -> Result<Report, ProblemError> {
-    policy.allowance()?;
-    crate::validate_nlp(oracle.as_ref(), pse_kernels::DerivativeOrder::First)?;
-    let n = oracle.contract().variables.len();
-    let m = oracle.contract().rows.len();
-    if initial.len() != n || initial.iter().any(|v| !v.is_finite()) {
-        return Err(ProblemError::Contract("derivative diagnostic point".into()));
-    }
-    policy.check_extent(n, m)?;
-    normalization.validate(n, m)?;
-    let jac = Pattern::new(oracle.jacobian_pattern(), false)?;
-    // A coordinate its box fixes has no direction to difference along, so the library
-    // compares neither its gradient entry nor its Jacobian column. Every other coordinate
-    // owes both; one the step cannot move inside its box leaves the sample incomplete.
-    let moves: Vec<bool> = oracle
-        .contract()
-        .variables
-        .iter()
-        .map(|v| v.lower < v.upper)
-        .collect();
-    let expected = moves.iter().filter(|m| **m).count()
-        + jac
-            .columns
-            .iter()
-            .filter(|c| usize::try_from(**c).is_ok_and(|c| moves[c]))
-            .count();
-    // No Hessian demand or native solver construction is needed for this sample.
-    let mut adapter = Adapter {
-        scratch: crate::tnlp::Scratch::new(n, m, jac.rows.len(), 0),
-        normalization,
-        certification_budget: None,
-        normalize_affine: false,
+    crate::retiring(
         oracle,
-        state: CallbackState::new(execution.clone()),
-        jac,
-        hess: Pattern {
-            rows: vec![],
-            columns: vec![],
+        |oracle| oracle.finish(),
+        |pending| {
+            let oracle = pending
+                .as_ref()
+                .ok_or_else(|| ProblemError::internal("missing derivative diagnostic owner"))?;
+            policy.allowance()?;
+            crate::validate_nlp(oracle.as_ref(), pse_kernels::DerivativeOrder::First)?;
+            let n = oracle.contract().variables.len();
+            let m = oracle.contract().rows.len();
+            if initial.len() != n || initial.iter().any(|v| !v.is_finite()) {
+                return Err(ProblemError::Contract("derivative diagnostic point".into()));
+            }
+            policy.check_extent(n, m)?;
+            normalization.validate(n, m)?;
+            let jac = Pattern::new(oracle.jacobian_pattern(), false)?;
+            // A coordinate its box fixes has no direction to difference along, so the library
+            // compares neither its gradient entry nor its Jacobian column. Every other coordinate
+            // owes both; one the step cannot move inside its box leaves the sample incomplete.
+            let moves: Vec<bool> = oracle
+                .contract()
+                .variables
+                .iter()
+                .map(|v| v.lower < v.upper)
+                .collect();
+            let expected = moves.iter().filter(|m| **m).count()
+                + jac
+                    .columns
+                    .iter()
+                    .filter(|c| usize::try_from(**c).is_ok_and(|c| moves[c]))
+                    .count();
+            // No Hessian demand or native solver construction is needed for this sample.
+            let mut adapter = Adapter {
+                scratch: crate::tnlp::Scratch::new(n, m, jac.rows.len(), 0),
+                normalization,
+                certification_budget: None,
+                normalize_affine: false,
+                oracle: Some(pending.take().ok_or_else(|| {
+                    ProblemError::internal("missing derivative diagnostic transfer")
+                })?),
+                state: CallbackState::new(execution.clone()),
+                jac,
+                hess: Pattern {
+                    rows: vec![],
+                    columns: vec![],
+                },
+                initial,
+                start_submitted: false,
+                duals: None,
+                solution: None,
+            };
+            let mut comparisons = Vec::new();
+            let sample = bounded_sample(&mut adapter, policy, &mut comparisons);
+            let terminal = adapter
+                .state
+                .terminal
+                .as_ref()
+                .map(|v| v.0)
+                .or_else(|| execution.stopped());
+            let rejected_evaluations = adapter.state.rejected_evaluations;
+            let failure = adapter
+                .state
+                .terminal_error()
+                .or_else(|| adapter.state.last_failure.take());
+            let complete = terminal.is_none()
+                && rejected_evaluations == 0
+                && expected > 0
+                && sample.as_ref().is_some_and(|r| r.checked == expected);
+            let mut report = Report {
+                comparisons,
+                sample,
+                complete,
+                rejected_evaluations,
+                terminal,
+                failure,
+            };
+            let retirement = adapter.finish();
+            let result = if retirement.is_err() {
+                match report.failure.take() {
+                    Some(cause) => Err(cause),
+                    None => Ok(report),
+                }
+            } else {
+                Ok(report)
+            };
+            ProblemError::with_retirement(result, retirement)
         },
-        initial,
-        start_submitted: false,
-        duals: None,
-        solution: None,
-    };
-    let mut comparisons = Vec::new();
-    let sample = bounded_sample(&mut adapter, policy, &mut comparisons);
-    let terminal = adapter
-        .state
-        .terminal
-        .as_ref()
-        .map(|v| v.0)
-        .or_else(|| execution.stopped());
-    let rejected_evaluations = adapter.state.rejected_evaluations;
-    let failure = adapter
-        .state
-        .terminal_error()
-        .or_else(|| adapter.state.last_failure.take());
-    let complete = terminal.is_none()
-        && rejected_evaluations == 0
-        && expected > 0
-        && sample.as_ref().is_some_and(|r| r.checked == expected);
-    Ok(Report {
-        comparisons,
-        sample,
-        complete,
-        rejected_evaluations,
-        terminal,
-        failure,
-    })
+    )
 }
 
 /// The library owns the differences. A one-dimensional chart supplies exactly the
@@ -218,7 +239,7 @@ fn bounded_sample(
     comparisons: &mut Vec<ComparisonSample>,
 ) -> Option<DerivativeTestReport> {
     let n = adapter.initial.len();
-    let m = adapter.oracle.contract().rows.len();
+    let m = adapter.oracle.as_ref()?.contract().rows.len();
     let mut x = adapter
         .normalization
         .normalized_point(&adapter.initial)
@@ -558,6 +579,9 @@ mod tests {
         }
     }
     impl NlpOracle for Pair {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &crate::OracleContract {
             &self.contract
         }

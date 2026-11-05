@@ -412,6 +412,9 @@ mod tests {
         }
     }
     impl NleOracle for Coupled {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &OracleContract {
             &self.contract
         }

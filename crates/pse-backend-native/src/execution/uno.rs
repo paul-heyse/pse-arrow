@@ -140,32 +140,38 @@ impl BackendExecution for Uno {
             else {
                 return Err(super::representation(Backend::Uno));
             };
-            let defaults = crate::settings::uno::Settings::default();
-            let settings = match input.settings {
-                BackendSettings::Default => &defaults,
-                BackendSettings::Uno(s) => s,
-                _ => return Err(super::foreign(Backend::Uno)),
-            };
-            // No direct HiGHS session may remain on this worker before Uno takes its
-            // exclusive serial scheduler owner. Semantic response products are separate.
-            retained.clear();
-            crate::uno::solve(
-                oracle.as_mut(),
-                initial,
-                sense,
-                input.controls,
-                input.accuracy,
-                settings,
-                input.execution,
-                input.tolerances,
-                input.warm,
-                input.compatibility,
-            )
+            let result = (|| {
+                let defaults = crate::settings::uno::Settings::default();
+                let settings = match input.settings {
+                    BackendSettings::Default => &defaults,
+                    BackendSettings::Uno(s) => s,
+                    _ => return Err(super::foreign(Backend::Uno)),
+                };
+                // No direct HiGHS session may remain on this worker before Uno takes its
+                // exclusive serial scheduler owner. Semantic response products are separate.
+                retained.clear()?;
+                crate::uno::solve(
+                    oracle.as_mut(),
+                    initial,
+                    sense,
+                    input.controls,
+                    input.accuracy,
+                    settings,
+                    input.execution,
+                    input.tolerances,
+                    input.warm,
+                    input.compatibility,
+                )
+            })();
+            ProblemError::after_solve(result, oracle.finish())
         }
         #[cfg(not(feature = "uno"))]
         {
-            let _ = (retained, input);
-            Err(super::unlinked(Backend::Uno))
+            let _ = retained;
+            ProblemError::with_retirement(
+                Err(super::unlinked(Backend::Uno)),
+                input.problem.finish(),
+            )
         }
     }
 }

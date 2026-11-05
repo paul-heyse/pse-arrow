@@ -4079,7 +4079,8 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             let mut reconstruction =
-                CompositeReconstruction::new_normalized(combined, workers, &scales, &local_scales)?;
+                CompositeReconstruction::new_normalized(combined, workers, &scales, &local_scales)
+                    .map_err(|failure| supplier_failure(failure).into_problem())?;
             let admitted = reconstruction.admit(&[1.5])?;
             assert_eq!(admitted.values, [4.5, 6.5, 1.5]);
             let demand = AccuracyDemand {
@@ -4198,7 +4199,7 @@ async fn automatic_authored_supplier_actions_match_complete_original_equations()
                 .with_proof_cell_limit(accuracy.refinement.proof_cells)
         }).collect::<Result<Vec<_>, pse_math::MathError>>()?;
         let mut reconstruction = CompositeReconstruction::new_normalized(local.contract.clone(), workers,
-            &p.original.normalization, &local.suppliers.iter().map(|p|p.normalization.clone()).collect::<Vec<_>>())?;
+            &p.original.normalization, &local.suppliers.iter().map(|p|p.normalization.clone()).collect::<Vec<_>>()).map_err(|failure| supplier_failure(failure).into_problem())?;
         reconstruction.admit(&[1.5])?;
         let demand = AccuracyDemand { product: p.family.key(), normalization: p.physical.normalization(),
             allowance: accuracy.point, class: accuracy.class };
@@ -4253,7 +4254,7 @@ async fn automatic_authored_supplier_actions_match_complete_original_equations()
         // the action, while their accuracy identity still binds its exact direction.
         let bound = p.family.general()?.bind_reduced(
             NlpBridge::new(Box::new(oracle), p.physical.clone())?, reconstruction,
-            p.original_identity)?;
+            p.original_identity).map_err(|failure| supplier_failure(failure).into_problem())?;
         let other_direction = bound.action_product(&[1.5], &[2.0])?.key()?;
         let mut native = ReducedOracle::new(bound, &[1.5], accuracy,
             p.source.prepared.prepared.plan.available_order(), isize::MAX as usize)?;

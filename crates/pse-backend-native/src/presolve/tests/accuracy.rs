@@ -125,13 +125,16 @@ fn heterogeneous_row_budgets_transport_callbacks_bounds_and_original_duals() {
         slacks: None,
         commitment: None,
     });
-    let (report, _) = pipeline.finish(
-        report,
-        &tolerances,
-        ObjectiveSense::Minimize,
-        &Analysis::NONE,
-        UNUSED,
-    );
+    NlpOracle::finish(Box::new(native)).unwrap();
+    let (report, _) = pipeline
+        .finish(
+            report,
+            &tolerances,
+            ObjectiveSense::Minimize,
+            &Analysis::NONE,
+            UNUSED,
+        )
+        .unwrap();
     assert!(report.quality.as_ref().unwrap().feasible());
     assert_eq!(
         report.observation.unwrap().stationarity,
@@ -293,6 +296,9 @@ impl PressureRoot {
 }
 #[cfg(feature = "ipopt")]
 impl NlpOracle for PressureRoot {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.contract
     }
@@ -380,13 +386,16 @@ fn native_pressure_like_root_stops_with_heterogeneous_original_row_budgets() {
         Termination::Success,
         "{report:?}"
     );
-    let (report, _) = pipeline.finish(
-        report,
-        &tolerance,
-        ObjectiveSense::Minimize,
-        &Analysis::NONE,
-        UNUSED,
-    );
+    NlpOracle::finish(Box::new(native)).unwrap();
+    let (report, _) = pipeline
+        .finish(
+            report,
+            &tolerance,
+            ObjectiveSense::Minimize,
+            &Analysis::NONE,
+            UNUSED,
+        )
+        .unwrap();
     let quality = report.quality.unwrap();
     assert!(quality.feasible(), "{quality:?}");
     assert!(quality.rows.iter().all(|v| v.physical <= v.tolerance));

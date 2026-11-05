@@ -29,6 +29,9 @@ struct FunctionOracle {
     wrong: bool,
 }
 impl dynamics::Oracle for FunctionOracle {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &dynamics::Contract {
         &self.contract
     }
