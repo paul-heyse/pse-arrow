@@ -561,6 +561,14 @@ film-perimeter distinctions remain explicit. Ordinary transfer/property
 inputs and full physical/grid/dynamic qualification remain required; H02
 retains its separately selected ordinary exchanger mapping.
 
+**Update, 2026-11-05 — boiler inventory/hydraulics census:** the
+[drum/tank/pipe closure](64h-required-process-population.md#boiler-drum-tank-and-water-pipe-configuration-closure--2026-11-05)
+resolves eleven steady selections across Drum/Drum1D, four tank shapes,
+Downcomer and four WaterPipe cases. Mixed-phase guards, radial wall inputs,
+level domains, turbulent-only friction and hydraulic/energy boundary limits
+remain explicit. Ordinary material data, remaining flag/phase controls and
+complete independent fluid/wall/dynamic qualification remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

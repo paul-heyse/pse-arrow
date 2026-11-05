@@ -4681,6 +4681,73 @@ cases. Ordinary property/transfer provenance, unselected configuration
 controls and independent numerical/grid/dynamic qualification remain
 required; source/AST inspection executed no heat unit or solver.
 
+## Boiler drum, tank and water-pipe configuration closure — 2026-11-05
+
+**Interface-checked, source only:** C `power_generation/unit_models/{drum,
+drum1D,watertank,downcomer,waterpipe}.py` and corresponding tests resolve
+five equipment owners and eleven steady scientific selections: Drum1,
+Drum1D1, four tank shapes, Downcomer1 and WaterPipe4. Common IAPWS95
+default mixed presentation, its independent parameter/function artifacts
+and selected solver are recursive prerequisites; no case reads measured
+geometry/operating CSV or saved initialization. Plant-level dynamic uses
+above remain separate from these component tests.
+
+| Owner/configuration | Actual physical axes and selected case |
+|---|---|
+| Drum | Algebraic flash of circulating water/steam, mixing its liquid with feedwater, then liquid CV with level, gravity and downcomer-entry contraction. Flash/mixer are steady even when liquid CV dynamics is enabled. Defaults componentPhase/enthalpyTotal/pressureTotal, heatFalse/pressure-changeFalse, holdupFalse and inherited dynamics. Selected case enables heat/pressure, no holdup, diameter1.2 m,length15.3256 m, six downcomers .38 m,level .6 m,heat0. Circulation flow103745/3600×1000 mol/s,h28365.2608 J/mol,P12024201.99 Pa; feed83193/3600×1000 mol/s,h22723.907 J/mol,pressure solved by mixing. Targets deltaP+2261.2171 Pa(rel1e-4),level .6 m and original total-flow/energy residuals abs.001. Steam flow equals circulating-feed vapor fraction×flow, not vaporization of all added feedwater. |
+| Drum1D | Explicitly requires a **Helmholtz mixed-phase** package; saponification or IAPWS LG refuses. Same flash/mix/liquid topology plus radial metal conduction, insulation/ambient heat loss and thermo-mechanical stress expressions. Defaults heat/pressureTrue, radial elements5; actual discretizer is CENTRAL finite difference, regardless of its collocation-points option. Selected steady/holdupTrue case uses4 radial elements,diameter1.2 m,length15.3256 m,wall .119 m,insulation .145 m,six .38 m downcomers,level .6 m,ambient298.15 K. Circulation14409.02 mol/s and feed11554.58 mol/s share the Drum enthalpy/pressure seeds above, so this is a different throughput. Target deltaP+3662.5483 Pa(rel1e-5); original energy residual includes computed heat. |
+| WaterTank | Four enumerated shapes: default simple area, rectangular, vertical cylindrical and horizontal cylindrical. Each uses liquid volume-versus-level and hydrostatic outlet pressure increase. Default componentPhase/enthalpyTotal/pressureTotal,heatFalse/pressureTrue, inherited dynamics/holdup. Four selected steady/no-holdup cases enable heat and fix0,level .6 m. Simple area1.14 m2; rectangle width .5 m,length1.2 m; vertical diameter1.2 m; horizontal diameter1.2 m,length15.3256 m. Shared feed83193/3600×1000 mol/s,P12024201.99 Pa,h22723.907 J/mol. Targets volumes .684/.36/.679/8.666 m3(abs.001),deltaP+4410.081 Pa(rel.001), unchanged flow/enthalpy. |
+| Downcomer | Liquid-only hydraulic properties, friction plus **positive** gravity head for downward flow. Defaults holdupFalse,heatFalse,componentPhase/enthalpyTotal/pressureTotal; pressure-change equation is intrinsic. Selected steady no-holdup/heatTrue case fixesheat0, six tubes .3 m diameter,height40.1 m; feed49552.8 mol/s,h24944.7 J/mol,P12025072.9 Pa. Target deltaP+273583.120306 Pa(rel1e-5),Tout580.83299 K(abs.001),unchanged flow/enthalpy. |
+| WaterPipe | Phase selector Liq(default)/Vap × end condition `None`(default)/contraction/expansion: six candidate hydraulic configurations, four selected below. Defaults heatFalse/pressureTrue and inherited dynamics/holdup; componentPhase/enthalpyTotal/pressureTotal. Uses selected phase density/viscosity and total volume flow with friction, negative gravity for positive elevation, and end-area term. Phase selector is not an automatic two-phase friction correlation. |
+
+Drum1D inline material/ambient inputs are metal conductivity40,
+insulation .08 and air .03 W/(m K),density7753 kg/m3,Cp486 J/(kg K),
+Young modulus2.07e5 in its source stress convention,Poisson ratio .292,
+thermal expansion1.4e-5/K,ambient pressure1e5 Pa and free-convection
+constants20.223/.322. Geometry configuration diameter/thickness options
+are deprecated in2.13 and initialize fixed variables; actual fixed
+variables and selected radial grid remain the reference input authority.
+These values/stress conventions require ordinary material provenance and
+dimensional admission; component tests do not assert wall-temperature,
+stress/fatigue or dynamic-storage outputs merely by solving fluid balances.
+
+All four WaterPipe fixtures use100 pipes,.04 m diameter,40 m length,
+elevation change+25 m,friction correction1 and area ratio .5 where the
+end-area variable exists. They are steady with holdupTrue,heatFalse,
+pressureTrue. Three liquid cases use10000 mol/s,P13 MPa,h18000 J/mol:
+contraction→deltaP−224074.4039 Pa(rel1e-5),expansion→−224306.548 Pa(rel1e-5),
+no end change→−219382.990 Pa(rel.001). The vapor/no-end-change case instead
+usesP3.6 MPa,h53942 J/mol at the same flow and targets−539105.588 Pa
+(rel.001),checking inlet vapor fraction1. Unselected vapor contraction/
+expansion remain required case/refusal work. All preserve flow and h with
+abs.001 residual controls; this selected energy boundary omits an explicit
+elevation potential-energy contribution despite hydraulic gravity pressure.
+
+Downcomer/WaterPipe implement the turbulent Blasius form
+f×Re^.25=.3164 (times WaterPipe correction), with no laminar64/Re switch
+despite nearby generic descriptions. Physical low/Re/reverse-flow domains
+and fractional-power evaluation therefore need explicit controls. End area
+ratio must avoid zero; geometry and count must be physically positive.
+Drum/horizontal tank levels require0≤level≤diameter for acos/square roots,
+not only nonnegative volume. Changes to balance/pressure/heat flags must
+be checked against their specialized unconditional level/hydraulic/thermal
+relations rather than assumed valid from enum domains.
+
+Dynamic initial-condition helpers set all accumulation guesses0 and fix
+initial accumulation0; Drum1D additionally has metal-temperature derivatives.
+They do not supply a general consistent initial inventory or prove a
+transient solution. Default unit initializations/seed/fixedness and the
+ma27/tolerance/max-iteration choices in the named tests remain operational
+inputs; no missing solver/property artifact may be silently skipped in a
+selected local reference run.
+
+Native F02/E03 requires topology, phase selection, actual level/volume,
+hydraulic signs, wall/ambient/material data and full fluid/solid storage
+products where selected. Ordinary coefficient/material provenance,
+remaining valid/refused flags and phase/end choices, physical potential-
+energy disposition, independent component/dynamic and radial-refinement
+qualification remain required. Source/AST inspection ran no equipment model.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
