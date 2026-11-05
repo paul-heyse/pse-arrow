@@ -544,6 +544,175 @@ envelopes, configuration-specific native/reference solves and the remaining
 property/reaction configuration population remain open. No run was performed in
 this census slice and no initializer tolerance was adopted as native acceptance.
 
+## Pure-fluid Helmholtz census and input closure — 2026-11-05
+
+**Interface-checked, source only:** this slice resolves C's
+`general_helmholtz` parameter/state/expression/registration/generation owners,
+their six test modules, all eleven fluid parameter families, IAPWS95/SWCO2
+convenience wrappers, and V's eight Water/CO2 verification CSVs and drivers.
+Tracked-file inspection confirms that the fixed C revision includes generated
+EOS `.nl` files and expression metadata, not just source JSON. Their presence in
+the reading copy is not installation, shared-library compatibility or accepted
+execution. Native Water status remains owned by 64d/64f/64k; this census changes
+no scientific provider or reference pin.
+
+### Fluid and executable-artifact population
+
+All eleven have `<fluid>.json`, the corresponding parameter-generation Python
+owner, `<fluid>_parameters.json`, `<fluid>_expressions_eos.nl` and
+`<fluid>_expressions_st.nl` tracked under C
+`general_helmholtz/components/parameters`. `st`, `visc`, `tcx` denote surface
+tension, viscosity and conductivity. The table describes the tracked executable
+closure, not every correlation that appears in generator source or bibliography.
+
+| Registration key / fluid | Tracked transport expression families | EOS scientific source lead retained by its parameter JSON |
+| --- | --- | --- |
+| h2o / Water | st, visc, tcx | IAPWS95 2016 release and Wagner–Pruß 2002 |
+| co2 / carbon dioxide | st, visc, tcx | Span–Wagner 1996 |
+| butane / n-butane | st only | Bücker–Wagner butane/isobutane formulation |
+| isobutane | st only | Bücker–Wagner butane/isobutane formulation |
+| nh3 / ammonia | st only | Gao et al. 2023 associating ammonia EOS |
+| propane | st, visc, tcx | Lemmon–McLinden–Wagner 2009 |
+| r1234ze / trans R1234ze(E) | st, visc, tcx | Thol–Lemmon 2016 |
+| r125 | st only | Lemmon–Jacobsen 2005 |
+| r134a | st, visc, tcx | Tillner-Roth–Baehr 1994 |
+| r227ea | st only | Lemmon–Span R227ea formulation, cited DOI acs.jced.5b00684 |
+| r32 | st only | Tillner-Roth–Yokozeki 1997 |
+
+Ammonia's Python generator contains viscosity/conductivity definitions, but the
+tracked metadata has both availability flags False and no matching tracked
+transport `.nl` files. Regenerating that source would change the artifact
+population; do not claim those methods executable from source awareness alone.
+Similarly an EOS/transport bibliographic reference is not numerical coefficient
+admission. Missing visc/tcx are explicit unavailable products for the selected
+artifacts, not a reason to remove their fluids from required scope.
+
+The active registration owner scans the configured parameter path for EOS and
+transport expression filenames; default path is the packaged parameter directory,
+and changing it clears/rebuilds the registry. Component lookup is case-insensitive.
+The IAPWS95/SWCO2 classes specialize the component default to Water/CO2, respectively;
+they do not add a second scientific fluid. Construction requires a loadable
+`general_helmholtz_external` binary, an existing parameter path and a registered
+component. A negative availability result or unregistered component is a required
+failure, not a skipped native acceptance run. Exact binary ABI/version, parameter
+path and file identities must be retained with an executed reference.
+
+### Effective state/phase/basis and numeric domains
+
+Defaults are pure_component=None (not an executable fluid), state PH, mole amount
+basis and MIX phase presentation. PH/PS/PU use pressure and specific
+enthalpy/entropy/internal energy plus the corresponding mass/molar flow. TPX uses
+T/P and, only for MIX/LG, vapor fraction; L/G have T/P without quality. MIX exposes
+one framework phase while retaining private liquid/vapor thermodynamics, LG exposes
+both phases, and L/G impose a single branch. These four presentations are not four
+different EOSs or blanket stable-phase certificates. In particular single-phase
+presentation can report its imposed phase even for inputs outside the intended
+single-phase region; native branch/domain checks remain necessary.
+
+Base `defined_state=False` and has_phase_equilibrium=True remain inherited state
+settings. TPX MIX/LG receiving states add the smoothed saturation-complementarity
+condition; defined states omit it. A separate saturation constraint is initially
+inactive. PH/PS/PU obtain intensive products through external EOS inversions.
+The new Helmholtz initializer returns success without solving equations; neither
+that status nor inherited harness initialization establishes numerical convergence.
+The legacy initializer's fix/release behavior remains a separate state-management
+control. `htpx`/related helpers require exactly two of T, P, quality and check their
+selected input bounds; the general expression writer has its own admissible input
+combinations, including explicitly selected phase evaluation. Preserve the actual
+selected interface rather than treating every T/P/x triple as one helper call.
+
+Each fluid's `<fluid>_parameters.json::param` freezes R/MW, reducing/critical/triple
+constants, density bound, T_min/max, P_min/max and reference_state_offset. Those
+are executable-package bounds, not a certified scientific validity envelope.
+For example metadata T ranges include Water [235,1300] K, CO2 [216,1400] K and
+R134a [168,460] K; original EOS validity may differ. Preserve both the source
+validity and actual artifact setting when choosing case boundaries. CO2 has a
+nonzero ideal-Helmholtz reference offset; ammonia metadata has an empty offset
+list; the other nine store [0,0]. Retain those exact declarations and establish
+the effective enthalpy/entropy datum independently instead of interpreting every
+empty/zero list as the same physical reference. Metadata is dimensioned through
+the EOS library interface (including pressure conversion), never copied as
+unitless SI values into ordinary native science.
+
+### Shipped configured consumers and finite scientific inputs
+
+| Source selector under C `general_helmholtz/tests` | Actual finite configurations and required evidence role |
+| --- | --- |
+| `test_with_harness.py::TestBasic*` | 28 explicit Water harness configurations: PH/PS/PU × MIX/LG/L/G × mole/mass, plus TPX × MIX/LG/L/G on mass basis. TPX mole is not present in this harness matrix; its separate state/heater controls remain below. Inherited PropertyTestHarness tests are construction, demanded-product, state-management and CV integration controls, not additional fluids or operating envelopes. |
+| `test_stateblock.py::{test_scaler_object_mole_basis,test_scaler_object_mass_basis,test_scaler_object_mole_basis_TPX,test_misc_methods,test_set_not_fixed}` | PH MIX mole/mass and TPX MIX mole scaling/state-interface and state-management selections. Scaling is not a separate fluid problem. |
+| `test_with_heater.py::test_heater_ph{_mixed_byphase,mixed_mixed_total,_lg_total,_lg_phase}` | Water PH mole, 100 mol/s, inlet h=4000 J/mol/P=101325 Pa, heat=2 MW; MIX or LG, default/component-total/component-phase material balance as each selector declares. The first case also checks hold/release-state before fixing its inlet. |
+| Same file `test_heater_ph_l_phase` and `test_heater_ph_l_phase_two` | PH liquid-only, component-phase material balance, 100 mol/s, h_in=3000 J/mol/P=101325 Pa, heat=0.1 MW. Parsed bodies after their differing docstrings are identical: one scientific specification with two source wrappers, despite the latter's different descriptive intent. |
+| Same file `test_heater_ph_g_phase`, `test_heater_tpx_g_phase` | Vapor-only/component-phase, 100 mol/s/P=101325 Pa/heat=1 MW; respectively h_in=50000 J/mol or T_in=422.60419933276177 K. Keep rounded enthalpy versus fixed temperature specifications distinct. |
+| Same file `test_heater_tpx_lg{_total,_total_2,_phase}` | TPX LG mole feed T=326.1667075078748 K, quality=0, P=101325 Pa, 100 mol/s. Heat=2 MW/component-total, 5 MW/component-total or 5 MW/component-phase; distinct duty and balance choices. |
+| `test_functions_unit.py::test_htpx_{mass,mole}`, `test_expression_writer_{mass,mole,sat}` | Water input interfaces at 300 K and saturation P=3536.8 Pa, quality endpoints; pressure-side probes at 3536/3537 Pa. Mass inverse coordinates include h or u=112560 J/kg, h=2549900 J/kg, u=2411600 J/kg and s=393.09 or 8517.4 J/(kg K), with their exact selected products and explicit mass/mole result-basis conversions in source. Mole counterparts use MW=18.015268 g/mol. Preserve input/output/unit flags and saturation/liquid/vapor selections; repeated method calls are product demands, not extra fluids. Other argument/error controls in these functions must not be promoted into physically admissible nominal states. |
+| `test_functions_unit.py::test_{h2o,co2,r134a,r1234ze,propane}_transport` and `test_r134a_thermo` | Water viscosity at saturation 300/640 K (liquid/vapor), conductivity 300 K; CO2 viscosity liquid240/300 K and vapor220/300 K, conductivity vapor220 K. R134a viscosity170/370 K, conductivity170/270 K, surface tension270 K; saturation thermodynamics at 280 K or 372710 Pa. R1234ze transport selects vapor (250 K,50000 Pa), (300 K,1e5 Pa), (300 K,0.001 Pa), liquid (250/300 K,20 MPa) and (300 K,10 MPa). Propane transport uses 320 K at 0.1/2.5/4 MPa with specified vapor/liquid branch. Every exact product and result basis remains at its named test owner; no cross-product of all products/points is implied. |
+| `test_parameter_util.py::test_{h2o,nh3,co2,propane,r125,r134a,r32,butane,isobutane}` | Each has three inline saturation records (near triple, interior, near critical) for pressure/enthalpy/entropy and approximate saturation-density products. The Python generation entry is called with dry_run=True; tests probe the source-built expressions without publishing regenerated artifacts. Parameter-generation numerical agreement is distinct from installed-library state/equipment agreement. |
+| Same file `test_r1234ze` | Six declared (T,density) pressure records but dictionary key4 repeats: the 383 K record shadows the earlier 360 K record, leaving five realized records. Record the shadowed 360 K/2039.103 kPa declaration as an unresolved source case, not a passing sixth point. `r227ea_main` is imported but there is no test_r227ea in this module; its registered fluid remains required. |
+| `test_register.py`, `test_functions_unit.py::{test_available,test_available2,test_add_function,test_initialize_param_block,test_errors,test_plot_no_exception,test_default_initializer,test_HelmholtzEoSInitializer}` | Registration/availability, malformed state/input, nonexistent fluid, helper bounds, display and no-op-initializer controls. These are contract/refusal or presentation roles, not extra physical operating cases. |
+
+There are no pytest parameter decorators in these six Helmholtz test modules;
+the harness classes and inline numerical tables are the concrete expansions.
+The three coverage gaps above (uninstantiated basis/state tests,
+R227ea parameter test and ammonia transport artifacts) remain explicit coverage
+questions, not exclusions of their scientific families.
+
+### Independent Water/CO2 verification data and historical omissions
+
+V `verification/properties/IAPWS95/test_iawps_verification.py` and
+`SWCO2/test_swco2_verification.py` consume one CSV each for liquid, vapor,
+supercritical and saturation. Both select PH/MIX mass basis, defined state and
+flow_mass=1 kg/s. Each CSV row supplies P in MPa and h in kJ/kg as reference inputs;
+T, density, internal energy, entropy, heat capacities, sound speed and selected
+transport are independent expected outputs. Preserve BOM-aware CSV headers and
+per-property units, especially CO2 viscosity in microPa s versus Water in Pa s.
+
+| Family / CSV scientific row count (header excluded) | Driver behavior that limits its historical evidence |
+| --- | --- |
+| Water liquid: 5002 | Driver omits one row satisfying P=22 MPa and T>646.85 K. |
+| Water vapor: 5263 | Omits one row satisfying P=22 MPa and T<647 K. |
+| Water supercritical: 5731 | No whole-row omission in the inspected driver. |
+| Water saturated: 1200 | Omits row index0 and both phase rows at P=21.899 MPa/T=646.47 K, three rows total. Phase is selected from each row's liquid/vapor tag. |
+| CO2 liquid/vapor/supercritical/saturated: 9/157/101/4 | No whole-row omission; vapor entropy suppresses (1 MPa,476.59 K) and (7.3589 MPa,684.13/704.13 K); vapor Cv/Cp/sound-speed suppresses (7.3589 MPa,304.13 K). Supercritical entropy suppresses (7.3773 MPa,684.13/704.13 K); one supercritical row has Cv=ND and its Cv/Cp/sound-speed comparisons are omitted together. Current driver H_OFFSET/S_OFFSET are both zero; commented alternative datums are not selected. |
+
+These are 17196 Water and 271 CO2 source rows, not 17467 demonstrated passes.
+Historical guards do not authorize native exclusions. Retain the five Water
+whole-row omissions and every per-property missing/suppressed expectation for
+explicit source/near-critical/reference investigation; admit or hold the exact
+case/property with its reason rather than silently shrinking scope. Thermal
+conductivity is not asserted by these drivers; CO2 viscosity is also not asserted,
+and some CSV columns such as Joule–Thomson coefficient are not consumed. File
+presence cannot qualify those outputs. All CSVs and inline expected values remain
+oracle/independent-validation material, never ordinary property coefficients.
+
+### Recursive closure and native handoff
+
+The executable reference needs C's selected fluid source/metadata/EOS and demanded
+transport `.nl` files, parameter-path registration, external binary and linked
+dependencies, Pyomo external-function/DAE/unit machinery and the exact locked
+core/interpreter environment. Parameter regeneration additionally consumes the
+per-fluid Python transport definitions and `helmholtz_parameters.py::WriteParameters`;
+do not regenerate merely to make a missing declared product appear. Harness and
+heater cases additionally consume their existing unit/harness owners and selected
+Ipopt interface. V adds pandas and its exact eight CSVs. No training dataset,
+trainer, fitted neural artifact or saved initialization is selected. Installation,
+ABI/loadability and actual numeric runs remain unperformed for this census.
+
+Native `helmholtz.pse` owns a general residual-Helmholtz formulation, while the
+existing CoolProp Water factory/steam declarations and 64k worker own the selected
+liquid/vapor/supercritical Water realization and declared numerical products.
+Their current targeted status is linked from 64f/64k; it does not establish wet
+PH/PS/PU/TPX inversions, all Water transport or any of the other ten fluids. Match
+effective EOS constants, enthalpy/entropy datum, phase/root and input/output basis
+before constructing each native/reference case; a shared provider direct/worker
+comparison alone is not independent scientific validation. Ordinary scientific
+sources and coefficients require B/D02 admission separately from using the IDAES
+reference artifacts. D02 supplies those pure-fluid/property closures; F02/F05 and
+generic equipment consume exact phases/derivatives/transport rather than the
+Helmholtz package name. All missing native configurations, source-backed validity
+envelopes, near-critical/refusal products and independent output comparisons stay
+required under D02/H04. This resolves source/artifact selection and finite cases,
+not broad pure-fluid implementation or qualification.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
@@ -608,7 +777,7 @@ and readiness products, not missing test passes to be replaced by a source-count
 
 1. Expand the inherited per-model admissible balance/dynamic/holdup configurations,
    callable policies and actual parameterized scientific fixtures, including full
-   pure-fluid registration, solid-liquid/thickener, power units, SOC, grid and
+   remaining fluid/configuration selections, solid-liquid/thickener, power units, SOC, grid and
    surrogate benchmarks. Record physically invalid/unsupported combinations as
    refusals. The tables preserve their mandatory owners while enumeration proceeds.
 2. Inspect all remaining archive contents and compare candidate wrappers scientifically.

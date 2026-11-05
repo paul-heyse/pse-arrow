@@ -131,6 +131,19 @@ fixtures already exist; ragged membership, electrolyte mappings, exact scientifi
 data/cases, domains and independent execution remain obligations. This source-only
 increment neither replaces H02's ordinary BT selection nor qualifies D02/D03/H04.
 
+**Update, 2026-11-05 — pure-fluid source/artifact closure:** the crosswalk's
+[Helmholtz census](64h-required-process-population.md#pure-fluid-helmholtz-census-and-input-closure--2026-11-05)
+identifies all eleven tracked fluid EOS/metadata/surface-tension families, the five
+with executable viscosity/conductivity artifacts, state/phase/basis settings,
+28 Water harness configurations and concrete heater/parameter/transport cases.
+It also resolves V's 17196 Water and 271 CO2 data rows while preserving historical
+whole-row/per-property omissions and unavailable expectations. Ammonia generator
+source does not grant its absent transport artifacts; R1234ze's shadowed dictionary
+record and missing R227ea parameter test remain coverage questions. Exact installed
+binary/environment compatibility, ordinary-source admission, native family/case
+closure and scientific execution remain open. No data or core pin changed and no
+source count is represented as accepted qualification.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
