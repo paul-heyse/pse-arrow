@@ -375,8 +375,13 @@ mod tests {
         .unwrap();
         let descriptors = <buffa_descriptor::generated::descriptor::FileDescriptorSet as buffa::Message>::decode_from_slice(crate::developer_evidence_contracts::DESCRIPTORS).unwrap();
         let payload = std::fs::read(&exported).unwrap();
-        let readback =
-            crate::developer_evidence::inspect(&descriptors, &receipt.message, &payload).unwrap();
+        let readback = crate::developer_evidence::inspect(
+            &descriptors,
+            &receipt.message,
+            &payload,
+            &crate::developer_evidence::binary_options(),
+        )
+        .unwrap();
         assert_eq!(readback.invocation, id);
         assert_eq!(readback.report_version, 1);
         assert!(readback.inventory_sha256.is_none());

@@ -1945,12 +1945,15 @@ pub fn main(kind: BinKind) -> ExitCode {
                             | crate::investigation::Error::Reference(_)
                             | crate::investigation::Error::Configuration(_)
                     ),
-                    HostError::Schema(error) => matches!(
-                        error,
+                    HostError::Schema(error) => match error {
                         crate::schema::SchemaError::Invalid(_)
-                            | crate::schema::SchemaError::Decode(_)
-                            | crate::schema::SchemaError::Json(_)
-                    ),
+                        | crate::schema::SchemaError::Decode(_)
+                        | crate::schema::SchemaError::Json(_) => true,
+                        crate::schema::SchemaError::BinaryDecode(error) => {
+                            !pse_contract_proto::support::decode_resource_refusal(error)
+                        }
+                        _ => false,
+                    },
                     _ => false,
                 };
                 let outcome = if invalid_request {

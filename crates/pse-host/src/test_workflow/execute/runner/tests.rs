@@ -485,7 +485,7 @@ async fn actual_workflow_runs_only_the_original_selected_pure_host_test() {
         crate::developer_evidence_contracts::encode_captured_workflow_evidence(&captured).unwrap();
     let descriptors = <buffa_descriptor::generated::descriptor::FileDescriptorSet as buffa::Message>::decode_from_slice(crate::developer_evidence_contracts::DESCRIPTORS).unwrap();
     let read = |wire: &crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::CapturedWorkflowEvidence| {
-        crate::developer_evidence::inspect(&descriptors, "pse.developer.evidence.v1.CapturedWorkflowEvidence", &buffa::Message::encode_to_vec(wire))
+        crate::developer_evidence::inspect(&descriptors, "pse.developer.evidence.v1.CapturedWorkflowEvidence", &buffa::Message::encode_to_vec(wire), &crate::developer_evidence::binary_options())
     };
     let readback = read(&wire).unwrap();
     assert_eq!(readback.selected_tests, Some(1));

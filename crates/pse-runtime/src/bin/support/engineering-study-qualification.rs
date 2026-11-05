@@ -815,6 +815,7 @@ impl Driver for Native {
             &descriptors,
             &export.message,
             &read(&output, 64 << 20)?,
+            &pse_host::developer_evidence::binary_options(),
         )?;
         if facts.invocation != id
             || facts.selected_tests != Some(1)

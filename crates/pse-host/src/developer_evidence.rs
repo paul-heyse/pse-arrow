@@ -58,7 +58,11 @@ pub enum EvidenceError {
     Invalid(String),
 }
 pse_diagnostics::impl_diagnostic! {EvidenceError,
-    code(_this){Some(pse_diagnostics::DiagnosticCode::HostOwnership)},
+    code(this){Some(match this {
+        Self::InputLimit { .. } => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
+        Self::Decode(error) if pse_contract_proto::support::decode_resource_refusal(error) => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
+        _ => pse_diagnostics::DiagnosticCode::HostOwnership,
+    })},
     forward(_this){None},help(_this){None},related(_this){None},source(_this){None}
 }
 impl From<pse_contract::boundary_projection::AdapterError> for EvidenceError {
@@ -172,7 +176,15 @@ pub struct Readback {
     pub limitations: Vec<String>,
 }
 
-/// Read an explicitly acquired descriptor world and binary payload with finite limits.
+/// The existing captured-evidence family's maximum binary decode allowances.
+pub fn binary_options() -> buffa::DecodeOptions {
+    buffa::DecodeOptions::new()
+        .with_max_message_size(MAX_INPUT_BYTES)
+        .with_recursion_limit(64)
+        .with_element_memory_limit(MAX_INPUT_BYTES)
+}
+
+/// Read an explicitly acquired descriptor world under caller and family binary limits.
 /// Buffa 0.9.2 DecodeOptions limits input size, recursion and materialized elements;
 /// <https://github.com/anthropics/buffa/blob/v0.9.2/docs/guide.md#decode-options>.
 /// This constructs passive data only, never CapturedEvidence, Report or a verdict.
@@ -180,12 +192,29 @@ pub fn inspect(
     descriptors: &buffa_descriptor::generated::descriptor::FileDescriptorSet,
     message: &str,
     bytes: &[u8],
+    requested: &buffa::DecodeOptions,
 ) -> Result<Readback, EvidenceError> {
     use contracts::pb::pse::developer::evidence::v1 as pb;
-    if bytes.len() > MAX_INPUT_BYTES {
+    let family = binary_options();
+    let maximum = requested.max_message_size().min(family.max_message_size());
+    let options = requested
+        .clone()
+        .with_max_message_size(maximum)
+        .with_recursion_limit(requested.recursion_limit().min(family.recursion_limit()))
+        .with_element_memory_limit(
+            requested
+                .element_memory_limit()
+                .min(family.element_memory_limit()),
+        )
+        .with_unknown_field_limit(
+            requested
+                .unknown_field_limit()
+                .min(family.unknown_field_limit()),
+        );
+    if bytes.len() > maximum {
         return Err(EvidenceError::InputLimit {
             observed_at_least: bytes.len(),
-            maximum: MAX_INPUT_BYTES,
+            maximum,
         });
     }
     let assessment = pse_contract_proto::check_descriptors(
@@ -203,10 +232,6 @@ pub fn inspect(
     if !crate::schema::same_runtime_world(descriptors, &compiled) {
         return Err(EvidenceError::Invalid("developer_evidence.proto: this compiled reader requires the complete compiled descriptor content; acquired wire tags, kinds, nested shapes or options cannot select a different decoder world".into()));
     }
-    let options = buffa::DecodeOptions::new()
-        .with_max_message_size(MAX_INPUT_BYTES)
-        .with_recursion_limit(64)
-        .with_element_memory_limit(MAX_INPUT_BYTES);
     let (
         invocation,
         original,
@@ -455,7 +480,57 @@ mod tests {
             &descriptors(),
             "pse.developer.evidence.v1.CapturedWorkflowReport",
             &wire.encode_to_vec(),
+            &binary_options(),
         )
+    }
+
+    #[test]
+    fn independent_report_composes_caller_binary_refusals() {
+        let bytes = original().encode_to_vec();
+        let descriptors = descriptors();
+        let message = "pse.developer.evidence.v1.CapturedWorkflowReport";
+        assert!(inspect(&descriptors, message, &bytes, &binary_options()).is_ok());
+        let maximum = bytes.len() - 1;
+        let frame = inspect(
+            &descriptors,
+            message,
+            &bytes,
+            &binary_options().with_max_message_size(maximum),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(frame, EvidenceError::InputLimit { maximum: actual, observed_at_least } if actual == maximum && observed_at_least == bytes.len())
+        );
+        let mut unknown = bytes.clone();
+        unknown.extend_from_slice(&[0xf8, 0x7f, 1]);
+        for (wire, options, expected) in [
+            (
+                bytes.as_slice(),
+                binary_options().with_element_memory_limit(1),
+                buffa::DecodeError::ElementMemoryLimitExceeded,
+            ),
+            (
+                bytes.as_slice(),
+                binary_options().with_recursion_limit(0),
+                buffa::DecodeError::RecursionLimitExceeded,
+            ),
+            (
+                unknown.as_slice(),
+                binary_options().with_unknown_field_limit(0),
+                buffa::DecodeError::UnknownFieldLimitExceeded,
+            ),
+        ] {
+            let error = inspect(&descriptors, message, wire, &options).unwrap_err();
+            assert!(
+                matches!(&error, EvidenceError::Decode(actual) if actual == &expected),
+                "{error:?}"
+            );
+            let wrapper = crate::schema::SchemaError::DeveloperEvidence(Box::new(error));
+            assert_eq!(
+                pse_diagnostics::TypedDiagnostic::diagnostic_code(&wrapper),
+                Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit)
+            );
+        }
     }
 
     fn full_original(omit_raw: bool) -> pb::CapturedWorkflowReport {
@@ -685,7 +760,8 @@ mod tests {
             inspect(
                 &descriptors,
                 "pse.developer.evidence.v1.CapturedWorkflowReport",
-                &wire.encode_to_vec()
+                &wire.encode_to_vec(),
+                &binary_options(),
             )
             .is_err()
         );
@@ -693,7 +769,8 @@ mod tests {
             inspect(
                 &self::descriptors(),
                 "pse.developer.evidence.v1.CapturedWorkflowReport",
-                &[0x0a, 0xff]
+                &[0x0a, 0xff],
+                &binary_options(),
             ),
             Err(EvidenceError::Decode(_))
         ));
@@ -703,7 +780,8 @@ mod tests {
             inspect(
                 &self::descriptors(),
                 "pse.developer.evidence.v1.CapturedWorkflowReport",
-                &unknown
+                &unknown,
+                &binary_options(),
             ),
             Err(EvidenceError::Projection(_))
         ));
@@ -732,6 +810,7 @@ mod tests {
             &full,
             "pse.developer.evidence.v1.CapturedWorkflowReport",
             &wire.encode_to_vec(),
+            &binary_options(),
         )
         .unwrap();
         assert_eq!(observed.invocation, read(&wire).unwrap().invocation);
@@ -744,7 +823,7 @@ mod tests {
         unknown.extend_from_slice(&[0xa0, 0x06, 0x09]);
         let changed = FileDescriptorSet::decode_from_slice(&unknown).unwrap();
         assert!(
-            matches!(inspect(&changed, "pse.developer.evidence.v1.CapturedWorkflowReport", &wire.encode_to_vec()),
+            matches!(inspect(&changed, "pse.developer.evidence.v1.CapturedWorkflowReport", &wire.encode_to_vec(), &binary_options()),
             Err(EvidenceError::Invalid(reason)) if reason.contains("complete compiled descriptor content"))
         );
     }
@@ -797,11 +876,11 @@ mod tests {
             .unwrap();
             match metadata.disposition {
                 pse_contract::metadata::Disposition::Compatible => assert!(
-                    matches!(inspect(&descriptors, "pse.developer.evidence.v1.CapturedWorkflowReport", &wire), Err(EvidenceError::Invalid(reason)) if reason.contains("complete compiled descriptor content")),
+                    matches!(inspect(&descriptors, "pse.developer.evidence.v1.CapturedWorkflowReport", &wire, &binary_options()), Err(EvidenceError::Invalid(reason)) if reason.contains("complete compiled descriptor content")),
                     "surviving metadata never selects a different compiled wire world: drift {change}"
                 ),
                 _ => assert!(
-                    matches!(inspect(&descriptors, "pse.developer.evidence.v1.CapturedWorkflowReport", &wire), Err(EvidenceError::Interpretation { assessment }) if assessment.disposition == metadata.disposition),
+                    matches!(inspect(&descriptors, "pse.developer.evidence.v1.CapturedWorkflowReport", &wire, &binary_options()), Err(EvidenceError::Interpretation { assessment }) if assessment.disposition == metadata.disposition),
                     "a stronger shared checker may refuse earlier without losing its typed disposition"
                 ),
             }
@@ -818,7 +897,8 @@ mod tests {
             inspect(
                 &missing,
                 "pse.developer.evidence.v1.CapturedWorkflowReport",
-                &wire
+                &wire,
+                &binary_options(),
             ),
             Err(EvidenceError::Metadata(_))
         ));
@@ -829,6 +909,7 @@ mod tests {
             &foreign,
             "pse.developer.evidence.v1.CapturedWorkflowReport",
             &wire,
+            &binary_options(),
         ) else {
             panic!("an unavailable foreign interpretation must retain its typed disposition");
         };
@@ -848,7 +929,7 @@ mod tests {
     fn independent_report_refuses_oversize_without_partial_readback() {
         let oversized = vec![0; MAX_INPUT_BYTES + 1];
         assert!(
-            matches!(inspect(&descriptors(), "pse.developer.evidence.v1.CapturedWorkflowReport", &oversized), Err(EvidenceError::InputLimit { observed_at_least, maximum }) if observed_at_least == MAX_INPUT_BYTES + 1 && maximum == MAX_INPUT_BYTES)
+            matches!(inspect(&descriptors(), "pse.developer.evidence.v1.CapturedWorkflowReport", &oversized, &binary_options()), Err(EvidenceError::InputLimit { observed_at_least, maximum }) if observed_at_least == MAX_INPUT_BYTES + 1 && maximum == MAX_INPUT_BYTES)
         );
     }
 
@@ -862,6 +943,7 @@ mod tests {
         std::fs::write(&descriptor, descriptors.encode_to_vec()).unwrap();
         std::fs::write(&input, bytes).unwrap();
         crate::schema::payload::inspect(&crate::schema::payload::Args {
+            admission: Default::default(),
             descriptor,
             input,
             message: "pse.developer.evidence.v1.CapturedWorkflowReport".into(),
@@ -940,19 +1022,48 @@ mod tests {
         );
         let bytes = original().encode_to_vec();
         assert!(
-            matches!(inspect(&descriptors, "pse.developer.evidence.v1.CapturedWorkflowReport", &bytes), Err(EvidenceError::Interpretation { assessment }) if assessment.disposition == pse_contract::metadata::Disposition::Unknown)
+            matches!(inspect(&descriptors, "pse.developer.evidence.v1.CapturedWorkflowReport", &bytes, &binary_options()), Err(EvidenceError::Interpretation { assessment }) if assessment.disposition == pse_contract::metadata::Disposition::Unknown)
         );
         let report = raw_preview(&bytes, &descriptors).unwrap();
         assert_eq!(report.representation, "acquired_dynamic");
         assert_eq!(report.validation.state, "not_evaluated");
         assert!(report.developer_evidence.is_none());
-        let refusal = report.developer_evidence_refusal.unwrap();
-        assert!(refusal.message.contains("CapturedWorkflowReport"));
-        assert!(refusal.message.contains("developer_evidence.proto"));
+        assert!(
+            report.developer_evidence_refusal.is_none(),
+            "an acquired lookalike never selects a native family reader"
+        );
         assert!(matches!(
             report.preview,
             crate::schema::payload::Preview::Message { .. }
         ));
+    }
+    #[test]
+    fn raw_payload_secondary_family_refusal_keeps_resource_category() {
+        let mut wire = original();
+        let observation = wire.report_observation.as_option_mut().unwrap();
+        let seed = observation.failures[0].clone();
+        let mut failure = seed.clone();
+        for _ in 0..70 {
+            let mut parent = seed.clone();
+            parent.children = vec![failure];
+            failure = parent;
+        }
+        observation.failures = vec![failure];
+        let bytes = wire.encode_to_vec();
+        let primary = buffa::DecodeOptions::new().with_recursion_limit(100);
+        assert!(
+            primary
+                .decode_from_slice::<pb::CapturedWorkflowReport>(&bytes)
+                .is_ok()
+        );
+        let error = raw_preview(&bytes, &descriptors()).unwrap_err();
+        assert_eq!(
+            pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+            Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit)
+        );
+        assert!(
+            matches!(error, crate::schema::SchemaError::DeveloperEvidence(cause) if matches!(*cause, EvidenceError::Decode(buffa::DecodeError::RecursionLimitExceeded)))
+        );
     }
     #[test]
     fn raw_payload_file_read_stops_at_the_evidence_family_limit() {
@@ -965,6 +1076,11 @@ mod tests {
             .set_len((MAX_INPUT_BYTES * 4) as u64)
             .unwrap();
         let result = crate::schema::payload::inspect(&crate::schema::payload::Args {
+            admission: crate::schema::payload::Admission {
+                max_input_bytes: MAX_INPUT_BYTES * 2,
+                max_converted_bytes: MAX_INPUT_BYTES * 2,
+                ..Default::default()
+            },
             descriptor,
             input,
             message: "pse.developer.evidence.v1.CapturedWorkflowReport".into(),
@@ -973,6 +1089,10 @@ mod tests {
             limit: 10,
             original: false,
         });
+        assert_eq!(
+            pse_diagnostics::TypedDiagnostic::diagnostic_code(result.as_ref().unwrap_err()),
+            Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit)
+        );
         assert!(
             matches!(result, Err(crate::schema::SchemaError::DeveloperEvidence(error)) if matches!(*error, EvidenceError::InputLimit { observed_at_least, maximum } if observed_at_least == MAX_INPUT_BYTES + 1 && maximum == MAX_INPUT_BYTES))
         );
