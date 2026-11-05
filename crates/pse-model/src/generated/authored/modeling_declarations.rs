@@ -182,12 +182,7 @@ for AuthoredModelingDeclarationsFieldValueTemporal {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueTemporal {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -364,10 +359,7 @@ for AuthoredModelingDeclarationsFieldValueRelaxation {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueRelaxation {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -584,12 +576,7 @@ for AuthoredModelingDeclarationsFieldValueContinuation {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueContinuation {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -821,13 +808,10 @@ for AuthoredModelingDeclarationsFieldValueScopeParametersItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeParametersItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -1007,10 +991,7 @@ for AuthoredModelingDeclarationsFieldValueScopeSelection {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeSelection {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -1183,10 +1164,7 @@ for AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -1418,13 +1396,10 @@ for AuthoredModelingDeclarationsFieldValueScopeOperational {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeOperational {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -1596,9 +1571,7 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::EndpointPolicy as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::enums::EndpointPolicy as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -1767,9 +1740,7 @@ for AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <crate::generated::structures::ModelingCell as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -2391,46 +2362,7 @@ for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Option<
-            crate::generated::enums::NativeBackend,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            crate::generated::enums::PresolvePolicyKind,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            f64,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            f64,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || true
-        || <Option<
-            i64,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || true
-        || <Option<
-            i64,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || true
-        || <Option<
-            i64,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || true
-        || <Option<
-            i64,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || true
-        || <Option<
-            i64,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = true;
     fn validate_at(
         &self,
         path: &str,
@@ -2847,18 +2779,7 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || true
-        || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = true;
     fn validate_at(
         &self,
         path: &str,
@@ -3067,10 +2988,7 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -3453,23 +3371,11 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Vec<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -3935,25 +3841,17 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        String,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             f64,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -4196,11 +4094,8 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::ModelingFactNamespace as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::enums::ModelingFactNamespace as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -4381,10 +4276,7 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetIt
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -4706,17 +4598,11 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <crate::generated::enums::EventDirection as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -4962,13 +4848,10 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -5145,9 +5028,7 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::ShootingMethod as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::enums::ShootingMethod as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -5423,17 +5304,10 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::ModelingValidityLayer as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::enums::ModelingValidityLayer as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Vec<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -5807,19 +5681,9 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicabili
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::ModelingValidityLayer as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::enums::ModelingValidityLayer as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <crate::generated::enums::ModelingApplicabilityOutcome as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Vec<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -6135,17 +5999,13 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::NativeBoundaryClass as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::enums::NativeBoundaryClass as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Option<
             AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -6328,9 +6188,7 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::DiagnosticRule as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::enums::DiagnosticRule as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -6561,11 +6419,8 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <crate::generated::enums::ModelingFixtureBinding as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -7406,57 +7261,43 @@ for AuthoredModelingDeclarationsFieldValueScopeFixture {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScopeFixture {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Option<
             crate::generated::enums::ModelingAnalysisRoute,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             crate::generated::enums::ModelingProcedure,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             crate::generated::enums::NativeSolveIntent,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueScopeFixturePolicy,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueScopeFixtureShooting,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -8135,43 +7976,27 @@ for AuthoredModelingDeclarationsFieldValueScope {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueScope {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueScopeParametersItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueScopeParametersItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Vec<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueScopeSelection,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueScopeOperational,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             Vec<String>,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             crate::generated::enums::ModelingKindFacet,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueScopeFixture,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -8379,10 +8204,7 @@ for AuthoredModelingDeclarationsFieldValueBindingIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueBindingIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -8734,23 +8556,15 @@ for AuthoredModelingDeclarationsFieldValueBinding {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueBinding {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Option<
-            Vec<crate::generated::structures::ModelingTypeArenaNode>,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Option<
+        Vec<crate::generated::structures::ModelingTypeArenaNode>,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             AuthoredModelingDeclarationsFieldValueBindingIndicesItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             crate::generated::enums::ModelingVariableDomain,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -8988,13 +8802,10 @@ for AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -9409,20 +9220,7 @@ for AuthoredModelingDeclarationsFieldValueFunctionExternal {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueFunctionExternal {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <crate::generated::enums::ExternalDerivativeSource as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || true
-        || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || true
-        || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = true;
     fn validate_at(
         &self,
         path: &str,
@@ -10018,42 +9816,7 @@ for AuthoredModelingDeclarationsFieldValueFunction {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueFunction {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Vec<
-            crate::generated::structures::ModelingTypeArenaNode,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Vec<
-            crate::generated::structures::ModelingEnvelopeGuard,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Vec<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || true
-        || <Option<
-            i64,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            AuthoredModelingDeclarationsFieldValueFunctionExternal,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = true;
     fn validate_at(
         &self,
         path: &str,
@@ -10314,13 +10077,10 @@ for AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -10514,11 +10274,9 @@ for AuthoredModelingDeclarationsFieldValueCoordinateMap {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueCoordinateMap {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -10687,10 +10445,7 @@ for AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -10874,11 +10629,9 @@ for AuthoredModelingDeclarationsFieldValueCoordinateSlot {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueCoordinateSlot {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -11100,13 +10853,10 @@ for AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -11437,20 +11187,13 @@ for AuthoredModelingDeclarationsFieldValueReconstruction {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueReconstruction {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -11685,13 +11428,10 @@ for AuthoredModelingDeclarationsFieldValueResponseArgumentsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueResponseArgumentsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -11971,18 +11711,13 @@ for AuthoredModelingDeclarationsFieldValueResponse {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueResponse {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             AuthoredModelingDeclarationsFieldValueResponseArgumentsItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -12214,13 +11949,10 @@ for AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -12657,23 +12389,13 @@ for AuthoredModelingDeclarationsFieldValueReferenceTranslation {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueReferenceTranslation {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::structures::ModelingProvenance as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -12864,10 +12586,7 @@ for AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -13001,10 +12720,9 @@ for AuthoredModelingDeclarationsFieldValueBoundary {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueBoundary {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -13164,10 +12882,7 @@ for AuthoredModelingDeclarationsFieldValueExchangeIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueExchangeIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -13394,13 +13109,9 @@ for AuthoredModelingDeclarationsFieldValueExchange {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueExchange {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueExchangeIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueExchangeIndicesItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -13571,10 +13282,7 @@ for AuthoredModelingDeclarationsFieldValueEquationIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueEquationIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -13739,9 +13447,7 @@ for AuthoredModelingDeclarationsFieldValueEquationCondition {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueEquationCondition {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -13981,13 +13687,10 @@ for AuthoredModelingDeclarationsFieldValueEquation {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueEquation {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueEquationIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueEquationIndicesItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueEquationCondition,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -14160,10 +13863,7 @@ for AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -14397,13 +14097,9 @@ for AuthoredModelingDeclarationsFieldValueOrderedSet {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueOrderedSet {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -14574,10 +14270,7 @@ for AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -14811,13 +14504,9 @@ for AuthoredModelingDeclarationsFieldValueCardinality {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueCardinality {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -14988,10 +14677,7 @@ for AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -15319,17 +15005,9 @@ for AuthoredModelingDeclarationsFieldValuePiecewise {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValuePiecewise {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -15510,10 +15188,7 @@ for AuthoredModelingDeclarationsFieldValueLogicIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueLogicIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -15692,11 +15367,9 @@ for AuthoredModelingDeclarationsFieldValueLogic {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueLogic {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueLogicIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueLogicIndicesItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -15863,10 +15536,7 @@ for AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -16100,13 +15770,9 @@ for AuthoredModelingDeclarationsFieldValueComplementarity {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueComplementarity {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -16334,13 +16000,10 @@ for AuthoredModelingDeclarationsFieldValueTableKeysItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueTableKeysItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             crate::generated::structures::ModelingIntegerRange,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -16568,13 +16231,10 @@ for AuthoredModelingDeclarationsFieldValueTableColumnsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueTableColumnsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -16831,13 +16491,8 @@ for AuthoredModelingDeclarationsFieldValueTableSymmetry {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueTableSymmetry {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::enums::ModelingDiagonalPolicy as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -16975,10 +16630,9 @@ for AuthoredModelingDeclarationsFieldValueTableUniqueItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueTableUniqueItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        String,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -17635,45 +17289,34 @@ for AuthoredModelingDeclarationsFieldValueTable {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueTable {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueTableKeysItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueTableKeysItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             AuthoredModelingDeclarationsFieldValueTableColumnsItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             Vec<crate::generated::structures::ModelingTypeArenaNode>,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::enums::ModelingMissingPolicy as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             crate::generated::structures::ModelingCell,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             crate::generated::structures::ModelingCompleteness,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueTableSymmetry,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredModelingDeclarationsFieldValueTableUniqueItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             crate::generated::structures::ModelingEnvelope,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             crate::generated::structures::ModelingColumnStorage,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -17942,13 +17585,10 @@ for AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -18700,47 +18340,18 @@ for AuthoredModelingDeclarationsFieldValueApplicability {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueApplicability {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::enums::ModelingValidityLayer as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::enums::ModelingApplicabilityKind as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             crate::generated::enums::ModelingApplicabilityBasis,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Vec<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -19067,15 +18678,10 @@ for AuthoredModelingDeclarationsFieldValuePermission {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValuePermission {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::ModelingPermissionTarget as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::enums::ModelingPermissionTarget as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -19298,13 +18904,9 @@ for AuthoredModelingDeclarationsFieldValueEnvelope {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueEnvelope {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            crate::generated::structures::ModelingTypeArenaNode,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        crate::generated::structures::ModelingTypeArenaNode,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -19686,23 +19288,16 @@ for AuthoredModelingDeclarationsFieldValueAttribute {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueAttribute {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Option<
-            Vec<crate::generated::structures::ModelingTypeArenaNode>,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Option<
+        Vec<crate::generated::structures::ModelingTypeArenaNode>,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             crate::generated::structures::ModelingCell,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             crate::generated::structures::ModelingColumnStorage,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -19889,9 +19484,7 @@ for AuthoredModelingDeclarationsFieldValueDatasetBindingsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueDatasetBindingsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <crate::generated::structures::ModelingCell as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -20071,14 +19664,9 @@ for AuthoredModelingDeclarationsFieldValueDatasetRowsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueDatasetRowsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            crate::generated::structures::ModelingCell,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Vec<
-            crate::generated::structures::ModelingCell,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        crate::generated::structures::ModelingCell,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -20459,23 +20047,17 @@ for AuthoredModelingDeclarationsFieldValueDataset {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueDataset {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <crate::generated::structures::ModelingProvenance as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredModelingDeclarationsFieldValueDatasetBindingsItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             crate::generated::structures::ModelingCompleteness,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredModelingDeclarationsFieldValueDatasetRowsItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -20718,11 +20300,8 @@ for AuthoredModelingDeclarationsFieldValueEntityAttributesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueEntityAttributesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <crate::generated::structures::ModelingCell as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             crate::generated::structures::ModelingProvenance,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -20956,13 +20535,10 @@ for AuthoredModelingDeclarationsFieldValueEntity {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueEntity {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Option<
             crate::generated::structures::ModelingProvenance,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredModelingDeclarationsFieldValueEntityAttributesItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -21184,11 +20760,8 @@ for AuthoredModelingDeclarationsFieldValueEnumerationMembersItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueEnumerationMembersItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             crate::generated::enums::ModelingDataFacet,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -21326,10 +20899,9 @@ for AuthoredModelingDeclarationsFieldValueEnumeration {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueEnumeration {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueEnumerationMembersItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueEnumerationMembersItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -21549,13 +21121,10 @@ for AuthoredModelingDeclarationsFieldValueConstant {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueConstant {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            crate::generated::structures::ModelingTypeArenaNode,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        crate::generated::structures::ModelingTypeArenaNode,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <crate::generated::structures::ModelingCell as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::structures::ModelingProvenance as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -21729,9 +21298,7 @@ for AuthoredModelingDeclarationsFieldValueImport {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueImport {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::structures::VersionRequirement as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::structures::VersionRequirement as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -21859,8 +21426,7 @@ for AuthoredModelingDeclarationsFieldValueGuard {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueGuard {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -22020,10 +21586,7 @@ for AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -22355,21 +21918,16 @@ for AuthoredModelingDeclarationsFieldValueAccumulator {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueAccumulator {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::enums::ModelingAccumulatorMode as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -22551,10 +22109,7 @@ for AuthoredModelingDeclarationsFieldValueContributionIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueContributionIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -22833,15 +22388,10 @@ for AuthoredModelingDeclarationsFieldValueContribution {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueContribution {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueContributionIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueContributionIndicesItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::enums::ModelingContributionRole as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -23018,10 +22568,7 @@ for AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -23188,10 +22735,7 @@ for AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndic
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -23424,14 +22968,10 @@ for AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -23604,10 +23144,7 @@ for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemI
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -23887,16 +23424,10 @@ for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem 
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -24073,10 +23604,7 @@ for AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndice
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -24356,16 +23884,10 @@ for AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -24793,25 +24315,19 @@ for AuthoredModelingDeclarationsFieldValueStateSpecification {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueStateSpecification {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -24999,10 +24515,7 @@ for AuthoredModelingDeclarationsFieldValueStatePortIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueStatePortIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -25189,11 +24702,9 @@ for AuthoredModelingDeclarationsFieldValueStatePort {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueStatePort {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueStatePortIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueStatePortIndicesItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -25360,10 +24871,7 @@ for AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -25536,10 +25044,7 @@ for AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -25988,23 +25493,13 @@ for AuthoredModelingDeclarationsFieldValueInventoryBalance {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueInventoryBalance {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -26197,10 +25692,7 @@ for AuthoredModelingDeclarationsFieldValueConnectionIndicesItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueConnectionIndicesItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -26430,13 +25922,9 @@ for AuthoredModelingDeclarationsFieldValueConnection {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueConnection {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            AuthoredModelingDeclarationsFieldValueConnectionIndicesItem,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        AuthoredModelingDeclarationsFieldValueConnectionIndicesItem,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -26626,14 +26114,7 @@ for AuthoredModelingDeclarationsFieldValueAnnotationConnectivity {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueAnnotationConnectivity {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || true
-        || <Option<
-            i64,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || true
-        || <Option<
-            i64,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = true;
     fn validate_at(
         &self,
         path: &str,
@@ -27043,25 +26524,10 @@ for AuthoredModelingDeclarationsFieldValueAnnotationObjective {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueAnnotationObjective {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::NativeObjectiveSense as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::enums::NativeObjectiveSense as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Option<
             i64,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -27623,31 +27089,13 @@ for AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::AccuracyGoalSubject as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::enums::AccuracyGoalSubject as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <crate::generated::enums::AccuracyObservation as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::enums::NumericalAccuracyClass as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::enums::AccuracyGoalUse as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -27854,9 +27302,7 @@ for AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::EngineeringScaleKind as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::enums::EngineeringScaleKind as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -27976,8 +27422,7 @@ for AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -28545,35 +27990,26 @@ for AuthoredModelingDeclarationsFieldValueAnnotation {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueAnnotation {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::ModelingAnnotationKind as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::enums::ModelingAnnotationKind as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             crate::generated::enums::ConstraintScalingScheme,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueAnnotationConnectivity,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueAnnotationObjective,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -28782,10 +28218,7 @@ for AuthoredModelingDeclarationsFieldValueRequirement {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueRequirement {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -29059,13 +28492,7 @@ for AuthoredModelingDeclarationsFieldValueExpectation {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueExpectation {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -29304,13 +28731,9 @@ for AuthoredModelingDeclarationsFieldValueContinuous {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueContinuous {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <Vec<
-            crate::generated::structures::ModelingTypeArenaNode,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <Vec<
+        crate::generated::structures::ModelingTypeArenaNode,
+    > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -29588,20 +29011,7 @@ for AuthoredModelingDeclarationsFieldValueDifferenceScheme {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueDifferenceScheme {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || true
-        || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Vec<
-            i64,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Vec<
-            f64,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Vec<
-            f64,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = true;
     fn validate_at(
         &self,
         path: &str,
@@ -29819,11 +29229,7 @@ for AuthoredModelingDeclarationsFieldValueCollocationScheme {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueCollocationScheme {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -30082,14 +29488,7 @@ for AuthoredModelingDeclarationsFieldValueDiscretization {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueDiscretization {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -30420,19 +29819,8 @@ for AuthoredModelingDeclarationsFieldValueRealization {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsFieldValueRealization {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <crate::generated::enums::ModelingRealizationPolicy as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -40726,26 +40114,7 @@ for AuthoredModelingDeclarationsRow {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredModelingDeclarationsRow {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::identities::DeclarationId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            crate::generated::identities::DeclarationId,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || true
-        || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || true
-        || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || true
-        || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <AuthoredModelingDeclarationsFieldValue as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    const NEEDS_RECURSIVE_VALIDATION: bool = true;
     fn validate_at(
         &self,
         path: &str,

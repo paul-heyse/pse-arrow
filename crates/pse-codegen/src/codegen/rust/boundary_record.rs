@@ -39,7 +39,7 @@ pub(super) fn render(
     let mut names = Vec::new();
     let mut types = Vec::new();
     let mut recursive = Vec::new();
-    let mut field_rules = Vec::new();
+    let mut has_local_rules = false;
     for (((field_name, ty, _), column), field_stem) in fields.iter().zip(columns).zip(field_stems) {
         // Present malformed annotations must not disappear through convenience defaults.
         column.checked_role()?;
@@ -74,7 +74,7 @@ pub(super) fn render(
             .into_iter()
             .map(|(_, tokens)| tokens)
             .collect::<Vec<_>>();
-        field_rules.push(!rules.is_empty());
+        has_local_rules |= !rules.is_empty();
         let mut metadata = column
             .field()
             .metadata()
@@ -124,6 +124,7 @@ pub(super) fn render(
             &pse_contract::boundary_projection::field_path(path, #field_name), &[#(#rules),*])?;),
         );
     }
+    let needs_recursive_validation = recursive_validation_requirement(&types, has_local_rules);
     Ok(quote! {
         impl pse_contract::boundary_projection::ProjectionType for #row {
             fn projection(graph: &mut pse_contract::boundary_projection::ProjectionGraph)
@@ -142,11 +143,123 @@ pub(super) fn render(
                 -> Result<Self, pse_contract::boundary_projection::AdapterError> { Ok(Self { #(#names,)* }) }
         }
         impl pse_contract::boundary_projection::ValidateProjection for #row {
-            const NEEDS_RECURSIVE_VALIDATION: bool = false #(|| #field_rules || <#types as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION)*;
+            const NEEDS_RECURSIVE_VALIDATION: bool = #needs_recursive_validation;
             fn validate_at(&self, path: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> {
                 if Self::NEEDS_RECURSIVE_VALIDATION { #(#recursive)* }
                 Ok(())
             }
         }
     })
+}
+
+fn recursive_validation_requirement(types: &[TokenStream], has_local_rules: bool) -> TokenStream {
+    if has_local_rules {
+        return quote!(true);
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    let mut types = types.iter().filter(|ty| seen.insert(ty.to_string()));
+    let Some(first) = types.next() else {
+        return quote!(false);
+    };
+    quote!(
+        <#first as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        #(|| <#types as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION)*
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quote::ToTokens;
+
+    fn evaluate_requirement(expression: &syn::Expr, recursive_types: &[&str]) -> bool {
+        match expression {
+            syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Bool(value),
+                ..
+            }) => value.value,
+            syn::Expr::Path(path) => {
+                let ty = path
+                    .qself
+                    .as_ref()
+                    .unwrap()
+                    .ty
+                    .to_token_stream()
+                    .to_string();
+                recursive_types.contains(&ty.as_str())
+            }
+            syn::Expr::Binary(binary) if matches!(binary.op, syn::BinOp::Or(_)) => {
+                evaluate_requirement(&binary.left, recursive_types)
+                    || evaluate_requirement(&binary.right, recursive_types)
+            }
+            other => panic!(
+                "unexpected validation requirement: {}",
+                other.to_token_stream()
+            ),
+        }
+    }
+
+    #[test]
+    fn recursive_validation_requirement_preserves_local_and_distinct_type_requirements() {
+        for types in [
+            vec![],
+            vec![quote!(Alpha)],
+            vec![quote!(Alpha), quote!(Alpha), quote!(Beta)],
+        ] {
+            for has_local_rules in [false, true] {
+                let emitted = recursive_validation_requirement(&types, has_local_rules);
+                let expression: syn::Expr = syn::parse2(emitted.clone()).unwrap();
+                for recursive_types in [vec![], vec!["Alpha"], vec!["Beta"], vec!["Alpha", "Beta"]]
+                {
+                    assert_eq!(
+                        evaluate_requirement(&expression, &recursive_types),
+                        has_local_rules
+                            || types
+                                .iter()
+                                .any(|ty| recursive_types.contains(&ty.to_string().as_str())),
+                        "types: {types:?}, local: {has_local_rules}, recursive: {recursive_types:?}"
+                    );
+                }
+                assert!(emitted.to_string().matches("< Alpha as").count() <= 1);
+            }
+        }
+    }
+
+    #[test]
+    fn local_rule_enables_validation_of_every_original_field() {
+        let columns = vec![
+            FieldContract::nonnegative(7)
+                .with_name("bounded")
+                .with_boundary_tag(1),
+            FieldContract::native(arrow_schema::DataType::Utf8)
+                .with_name("text")
+                .with_boundary_tag(2),
+        ];
+        let emitted = render(
+            &BoundaryShape::native(
+                file!(),
+                1,
+                pse_contract::boundary_projection::Direction::Both,
+            ),
+            &columns,
+            &format_ident!("LocalRuleRecord"),
+            &[
+                ("bounded".into(), quote!(i64), String::new()),
+                ("text".into(), quote!(String), String::new()),
+            ],
+            &["Bounded".into(), "Text".into()],
+            super::super::super::native::Mode::Domain,
+        )
+        .unwrap();
+        syn::parse2::<syn::File>(emitted.clone()).unwrap();
+        let emitted = emitted.to_string();
+        assert!(emitted.contains("NEEDS_RECURSIVE_VALIDATION : bool = true"));
+        assert!(emitted.contains("SignedRange"));
+        assert!(emitted.contains("& self . bounded"));
+        assert!(emitted.contains("& self . text"));
+        assert_eq!(
+            emitted.matches(":: validate_field (").count(),
+            columns.len()
+        );
+    }
 }

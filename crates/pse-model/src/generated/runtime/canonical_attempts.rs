@@ -777,45 +777,22 @@ for RuntimeCanonicalAttemptsRow {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for RuntimeCanonicalAttemptsRow {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <u64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::Bytes as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::enums::CanonicalAttemptPhase as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             u64,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             crate::generated::enums::CanonicalTerminalOutcome,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             crate::Bytes,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,

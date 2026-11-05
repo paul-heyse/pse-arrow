@@ -315,22 +315,12 @@ for AuthoredFitCasesFieldParametersItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredFitCasesFieldParametersItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             f64,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            f64,
-        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -509,9 +499,7 @@ for AuthoredFitCasesFieldExperimentsItemBindingsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredFitCasesFieldExperimentsItemBindingsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -774,13 +762,9 @@ for AuthoredFitCasesFieldExperimentsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredFitCasesFieldExperimentsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::identities::InstanceId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::identities::InstanceId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <crate::generated::identities::DeclarationId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::enums::ModelingAnalysisRoute as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredFitCasesFieldExperimentsItemBindingsItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
@@ -1336,33 +1320,22 @@ for AuthoredFitCasesFieldObservationsItem {
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredFitCasesFieldObservationsItem {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::identities::DeclarationId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::identities::DeclarationId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::identities::InstanceId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             f64,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             crate::generated::enums::ObservationTimeBasis,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             pse_ids::SemanticId,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
@@ -1688,17 +1661,13 @@ impl pse_contract::boundary_projection::ProjectionRecord for AuthoredFitCasesRow
     }
 }
 impl pse_contract::boundary_projection::ValidateProjection for AuthoredFitCasesRow {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::identities::FitId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::identities::FitId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Vec<
             AuthoredFitCasesFieldParametersItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredFitCasesFieldExperimentsItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             AuthoredFitCasesFieldObservationsItem,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;

@@ -139,12 +139,10 @@ impl NativeInto<
                 items(field_0)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array16U8,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array16U8,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -175,12 +173,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array16U8,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array16U8,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -269,44 +265,36 @@ impl NativeInto<
                 items(field_6)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::TestIdentity,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::TestIdentity,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
             selected_population_complete: field_7
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            bool,
-                        >(value, &child_path(path, "selected_population_complete"))?,
-                    )
+                    native_into::<
+                        _,
+                        bool,
+                    >(value, &child_path(path, "selected_population_complete"))
                 })
                 .transpose()?,
             recorded_manager_settlement: field_8
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ManagerSettlement,
-                        >(value, &child_path(path, "recorded_manager_settlement"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ManagerSettlement,
+                    >(value, &child_path(path, "recorded_manager_settlement"))
                 })
                 .transpose()?
                 .into(),
             recorded_native_lifetime_pending: field_9
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            bool,
-                        >(value, &child_path(path, "recorded_native_lifetime_pending"))?,
-                    )
+                    native_into::<
+                        _,
+                        bool,
+                    >(value, &child_path(path, "recorded_native_lifetime_pending"))
                 })
                 .transpose()?,
             ..Default::default()
@@ -367,23 +355,19 @@ impl NativeInto<
             ),
             recorded_manager_settlement: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ManagerSettlement,
-                        >(value, &child_path(path, "recorded_manager_settlement"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ManagerSettlement,
+                    >(value, &child_path(path, "recorded_manager_settlement"))
                 })
                 .transpose()?
                 .into(),
             recorded_native_lifetime_pending: field_5
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            bool,
-                        >(value, &child_path(path, "recorded_native_lifetime_pending"))?,
-                    )
+                    native_into::<
+                        _,
+                        bool,
+                    >(value, &child_path(path, "recorded_native_lifetime_pending"))
                 })
                 .transpose()?,
             scope: buffa::MessageField::some(
@@ -397,12 +381,10 @@ impl NativeInto<
                 items(field_7)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowCapturedFile,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowCapturedFile,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -541,12 +523,10 @@ impl NativeInto<
                 items(field_0)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array16U8,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array16U8,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -555,18 +535,16 @@ impl NativeInto<
                 items(field_1)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticLocation,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticLocation,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
             rule: field_2
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "rule"))?)
+                    native_into::<_, String>(value, &child_path(path, "rule"))
                 })
                 .transpose()?,
             observations: wire_map(
@@ -614,12 +592,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array16U8,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array16U8,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -631,12 +607,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticLocation,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticLocation,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -644,7 +618,7 @@ impl NativeFrom<
             wire
                 .rule
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "rule"))?)
+                    native_from::<_, String>(value, &child_path(path, "rule"))
                 })
                 .transpose()?,
             unique_pairs(
@@ -716,7 +690,7 @@ impl NativeInto<
         Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticLabel {
             label: field_0
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "label"))?)
+                    native_into::<_, String>(value, &child_path(path, "label"))
                 })
                 .transpose()?,
             primary: native_into::<_, bool>(field_1, &child_path(path, "primary"))?,
@@ -730,17 +704,17 @@ impl NativeInto<
             >(field_3, &child_path(path, "byte_length"))?,
             source: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "source"))?)
+                    native_into::<_, String>(value, &child_path(path, "source"))
                 })
                 .transpose()?,
             line: field_5
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, u64>(value, &child_path(path, "line"))?)
+                    native_into::<_, u64>(value, &child_path(path, "line"))
                 })
                 .transpose()?,
             column: field_6
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, u64>(value, &child_path(path, "column"))?)
+                    native_into::<_, u64>(value, &child_path(path, "column"))
                 })
                 .transpose()?,
             column_encoding: native_into::<
@@ -749,12 +723,7 @@ impl NativeInto<
             >(field_7, &child_path(path, "column_encoding"))?,
             unavailable: field_8
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            String,
-                        >(value, &child_path(path, "unavailable"))?,
-                    )
+                    native_into::<_, String>(value, &child_path(path, "unavailable"))
                 })
                 .transpose()?,
             ..Default::default()
@@ -790,7 +759,7 @@ impl NativeFrom<
             wire
                 .label
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "label"))?)
+                    native_from::<_, String>(value, &child_path(path, "label"))
                 })
                 .transpose()?,
             native_from::<_, bool>(wire.primary, &child_path(path, "primary"))?,
@@ -799,19 +768,19 @@ impl NativeFrom<
             wire
                 .source
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "source"))?)
+                    native_from::<_, String>(value, &child_path(path, "source"))
                 })
                 .transpose()?,
             wire
                 .line
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, u64>(value, &child_path(path, "line"))?)
+                    native_from::<_, u64>(value, &child_path(path, "line"))
                 })
                 .transpose()?,
             wire
                 .column
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, u64>(value, &child_path(path, "column"))?)
+                    native_from::<_, u64>(value, &child_path(path, "column"))
                 })
                 .transpose()?,
             native_from::<
@@ -821,12 +790,7 @@ impl NativeFrom<
             wire
                 .unavailable
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            String,
-                        >(value, &child_path(path, "unavailable"))?,
-                    )
+                    native_from::<_, String>(value, &child_path(path, "unavailable"))
                 })
                 .transpose()?,
         );
@@ -885,60 +849,49 @@ impl NativeInto<
             ),
             revision: field_1
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array32U8,
-                        >(value, &child_path(path, "revision"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array32U8,
+                    >(value, &child_path(path, "revision"))
                 })
                 .transpose()?
                 .into(),
             document: field_2
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array16U8,
-                        >(value, &child_path(path, "document"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array16U8,
+                    >(value, &child_path(path, "document"))
                 })
                 .transpose()?
                 .into(),
             occurrence_role: field_3
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            String,
-                        >(value, &child_path(path, "occurrence_role"))?,
-                    )
+                    native_into::<_, String>(value, &child_path(path, "occurrence_role"))
                 })
                 .transpose()?,
             occurrence_position: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            u32,
-                        >(value, &child_path(path, "occurrence_position"))?,
-                    )
+                    native_into::<
+                        _,
+                        u32,
+                    >(value, &child_path(path, "occurrence_position"))
                 })
                 .transpose()?,
             path: native_into::<_, String>(field_5, &child_path(path, "path"))?,
             name: field_6
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "name"))?)
+                    native_into::<_, String>(value, &child_path(path, "name"))
                 })
                 .transpose()?,
             start: field_7
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, u32>(value, &child_path(path, "start"))?)
+                    native_into::<_, u32>(value, &child_path(path, "start"))
                 })
                 .transpose()?,
             end: field_8
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, u32>(value, &child_path(path, "end"))?)
+                    native_into::<_, u32>(value, &child_path(path, "end"))
                 })
                 .transpose()?,
             ..Default::default()
@@ -982,65 +935,54 @@ impl NativeFrom<
                 .revision
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array32U8,
-                        >(value, &child_path(path, "revision"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array32U8,
+                    >(value, &child_path(path, "revision"))
                 })
                 .transpose()?,
             wire
                 .document
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array16U8,
-                        >(value, &child_path(path, "document"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array16U8,
+                    >(value, &child_path(path, "document"))
                 })
                 .transpose()?,
             wire
                 .occurrence_role
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            String,
-                        >(value, &child_path(path, "occurrence_role"))?,
-                    )
+                    native_from::<_, String>(value, &child_path(path, "occurrence_role"))
                 })
                 .transpose()?,
             wire
                 .occurrence_position
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            u32,
-                        >(value, &child_path(path, "occurrence_position"))?,
-                    )
+                    native_from::<
+                        _,
+                        u32,
+                    >(value, &child_path(path, "occurrence_position"))
                 })
                 .transpose()?,
             native_from::<_, String>(wire.path, &child_path(path, "path"))?,
             wire
                 .name
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "name"))?)
+                    native_from::<_, String>(value, &child_path(path, "name"))
                 })
                 .transpose()?,
             wire
                 .start
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, u32>(value, &child_path(path, "start"))?)
+                    native_from::<_, u32>(value, &child_path(path, "start"))
                 })
                 .transpose()?,
             wire
                 .end
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, u32>(value, &child_path(path, "end"))?)
+                    native_from::<_, u32>(value, &child_path(path, "end"))
                 })
                 .transpose()?,
         );
@@ -1287,12 +1229,10 @@ impl NativeInto<
                                     items(field_0)
                                         .enumerate()
                                         .map(|(index, value)| -> Result<_, AdapterError> {
-                                            Ok(
-                                                native_into::<
-                                                    _,
-                                                    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticOperandContract,
-                                                >(value, &format!("{path}[{index}]", path = current_path))?,
-                                            )
+                                            native_into::<
+                                                _,
+                                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticOperandContract,
+                                            >(value, &format!("{path}[{index}]", path = current_path))
                                         })
                                         .collect::<Result<Vec<_>, _>>()?
                                 },
@@ -1523,12 +1463,10 @@ impl NativeFrom<
                             .into_iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticOperandContract,
-                                    >(value, &format!("{path}[{index}]", path = current_path))?,
-                                )
+                                native_from::<
+                                    _,
+                                    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticOperandContract,
+                                >(value, &format!("{path}[{index}]", path = current_path))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -1575,12 +1513,10 @@ impl NativeInto<
                 items(field_1)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array3Array16U8,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array3Array16U8,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -1618,12 +1554,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array3Array16U8,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array3Array16U8,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -1668,23 +1602,19 @@ impl NativeInto<
             >(field_0, &child_path(path, "operation"))?,
             operand: field_1
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NativePath,
-                        >(value, &child_path(path, "operand"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NativePath,
+                    >(value, &child_path(path, "operand"))
                 })
                 .transpose()?
                 .into(),
             origin: field_2
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::InputOrigin,
-                        >(value, &child_path(path, "origin"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::InputOrigin,
+                    >(value, &child_path(path, "origin"))
                 })
                 .transpose()?
                 .into(),
@@ -1696,12 +1626,10 @@ impl NativeInto<
             ),
             next: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NextAction,
-                        >(value, &child_path(path, "next"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NextAction,
+                    >(value, &child_path(path, "next"))
                 })
                 .transpose()?
                 .into(),
@@ -1736,24 +1664,20 @@ impl NativeFrom<
                 .operand
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NativePath,
-                        >(value, &child_path(path, "operand"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NativePath,
+                    >(value, &child_path(path, "operand"))
                 })
                 .transpose()?,
             wire
                 .origin
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::InputOrigin,
-                        >(value, &child_path(path, "origin"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::InputOrigin,
+                    >(value, &child_path(path, "origin"))
                 })
                 .transpose()?,
             native_from::<
@@ -1767,12 +1691,10 @@ impl NativeFrom<
                 .next
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NextAction,
-                        >(value, &child_path(path, "next"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NextAction,
+                    >(value, &child_path(path, "next"))
                 })
                 .transpose()?,
         );
@@ -2215,27 +2137,27 @@ impl NativeInto<
             message: native_into::<_, String>(field_1, &child_path(path, "message"))?,
             code: field_2
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "code"))?)
+                    native_into::<_, String>(value, &child_path(path, "code"))
                 })
                 .transpose()?,
             class: field_3
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "class"))?)
+                    native_into::<_, String>(value, &child_path(path, "class"))
                 })
                 .transpose()?,
             severity: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "severity"))?)
+                    native_into::<_, String>(value, &child_path(path, "severity"))
                 })
                 .transpose()?,
             help: field_5
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "help"))?)
+                    native_into::<_, String>(value, &child_path(path, "help"))
                 })
                 .transpose()?,
             url: field_6
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "url"))?)
+                    native_into::<_, String>(value, &child_path(path, "url"))
                 })
                 .transpose()?,
             facts: buffa::MessageField::some(
@@ -2249,12 +2171,10 @@ impl NativeInto<
                 items(field_8)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -2263,23 +2183,19 @@ impl NativeInto<
                 items(field_9)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                String,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            String,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
             diagnostic_source: field_10
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
-                        >(value, &child_path(path, "diagnostic_source"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
+                    >(value, &child_path(path, "diagnostic_source"))
                 })
                 .transpose()?
                 .into(),
@@ -2288,12 +2204,10 @@ impl NativeInto<
                 items(field_11)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -2302,12 +2216,10 @@ impl NativeInto<
                 items(field_12)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticLabel,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticLabel,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -2331,23 +2243,19 @@ impl NativeInto<
             ),
             recovery: field_14
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticRecovery,
-                        >(value, &child_path(path, "recovery"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticRecovery,
+                    >(value, &child_path(path, "recovery"))
                 })
                 .transpose()?
                 .into(),
             semantic_rpc: field_15
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcObservation,
-                        >(value, &child_path(path, "semantic_rpc"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcObservation,
+                    >(value, &child_path(path, "semantic_rpc"))
                 })
                 .transpose()?
                 .into(),
@@ -2393,31 +2301,31 @@ impl NativeFrom<
             wire
                 .code
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "code"))?)
+                    native_from::<_, String>(value, &child_path(path, "code"))
                 })
                 .transpose()?,
             wire
                 .class
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "class"))?)
+                    native_from::<_, String>(value, &child_path(path, "class"))
                 })
                 .transpose()?,
             wire
                 .severity
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "severity"))?)
+                    native_from::<_, String>(value, &child_path(path, "severity"))
                 })
                 .transpose()?,
             wire
                 .help
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "help"))?)
+                    native_from::<_, String>(value, &child_path(path, "help"))
                 })
                 .transpose()?,
             wire
                 .url
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "url"))?)
+                    native_from::<_, String>(value, &child_path(path, "url"))
                 })
                 .transpose()?,
             native_from::<
@@ -2434,12 +2342,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2451,12 +2357,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                String,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            String,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2465,12 +2369,10 @@ impl NativeFrom<
                 .diagnostic_source
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
-                        >(value, &child_path(path, "diagnostic_source"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
+                    >(value, &child_path(path, "diagnostic_source"))
                 })
                 .transpose()?,
             {
@@ -2480,12 +2382,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2497,12 +2397,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticLabel,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticLabel,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2530,24 +2428,20 @@ impl NativeFrom<
                 .recovery
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticRecovery,
-                        >(value, &child_path(path, "recovery"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::DiagnosticRecovery,
+                    >(value, &child_path(path, "recovery"))
                 })
                 .transpose()?,
             wire
                 .semantic_rpc
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcObservation,
-                        >(value, &child_path(path, "semantic_rpc"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcObservation,
+                    >(value, &child_path(path, "semantic_rpc"))
                 })
                 .transpose()?,
         );
@@ -3814,12 +3708,10 @@ impl NativeInto<
             provider: native_into::<_, String>(field_0, &child_path(path, "provider"))?,
             source: field_1
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NativePath,
-                        >(value, &child_path(path, "source"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NativePath,
+                    >(value, &child_path(path, "source"))
                 })
                 .transpose()?
                 .into(),
@@ -3848,12 +3740,10 @@ impl NativeFrom<
                 .source
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NativePath,
-                        >(value, &child_path(path, "source"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NativePath,
+                    >(value, &child_path(path, "source"))
                 })
                 .transpose()?,
         );
@@ -4314,12 +4204,10 @@ impl NativeInto<
                                     items(field_0)
                                         .enumerate()
                                         .map(|(index, value)| -> Result<_, AdapterError> {
-                                            Ok(
-                                                native_into::<
-                                                    _,
-                                                    String,
-                                                >(value, &format!("{path}[{index}]", path = current_path))?,
-                                            )
+                                            native_into::<
+                                                _,
+                                                String,
+                                            >(value, &format!("{path}[{index}]", path = current_path))
                                         })
                                         .collect::<Result<Vec<_>, _>>()?
                                 },
@@ -4426,12 +4314,10 @@ impl NativeFrom<
                             .into_iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        String,
-                                    >(value, &format!("{path}[{index}]", path = current_path))?,
-                                )
+                                native_from::<
+                                    _,
+                                    String,
+                                >(value, &format!("{path}[{index}]", path = current_path))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -4984,45 +4870,37 @@ impl NativeInto<
             >(field_4, &child_path(path, "native_detail_count"))?,
             native_state: field_5
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailureState,
-                        >(value, &child_path(path, "native_state"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailureState,
+                    >(value, &child_path(path, "native_state"))
                 })
                 .transpose()?
                 .into(),
             native_phase: field_6
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase,
-                        >(value, &child_path(path, "native_phase"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase,
+                    >(value, &child_path(path, "native_phase"))
                 })
                 .transpose()?
                 .into(),
             validation: field_7
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCorrection,
-                        >(value, &child_path(path, "validation"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCorrection,
+                    >(value, &child_path(path, "validation"))
                 })
                 .transpose()?
                 .into(),
             native_diagnostic_code: field_8
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            String,
-                        >(value, &child_path(path, "native_diagnostic_code"))?,
-                    )
+                    native_into::<
+                        _,
+                        String,
+                    >(value, &child_path(path, "native_diagnostic_code"))
                 })
                 .transpose()?,
             ..Default::default()
@@ -5076,47 +4954,39 @@ impl NativeFrom<
                 .native_state
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailureState,
-                        >(value, &child_path(path, "native_state"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailureState,
+                    >(value, &child_path(path, "native_state"))
                 })
                 .transpose()?,
             wire
                 .native_phase
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase,
-                        >(value, &child_path(path, "native_phase"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase,
+                    >(value, &child_path(path, "native_phase"))
                 })
                 .transpose()?,
             wire
                 .validation
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCorrection,
-                        >(value, &child_path(path, "validation"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCorrection,
+                    >(value, &child_path(path, "validation"))
                 })
                 .transpose()?,
             wire
                 .native_diagnostic_code
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            String,
-                        >(value, &child_path(path, "native_diagnostic_code"))?,
-                    )
+                    native_from::<
+                        _,
+                        String,
+                    >(value, &child_path(path, "native_diagnostic_code"))
                 })
                 .transpose()?,
         );
@@ -5223,12 +5093,10 @@ impl NativeInto<
                 items(field_1)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationViolation,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationViolation,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -5237,12 +5105,10 @@ impl NativeInto<
                 items(field_2)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                String,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            String,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -5283,12 +5149,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationViolation,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationViolation,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -5300,12 +5164,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                String,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            String,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -5601,22 +5463,15 @@ impl NativeInto<
         Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationDisclosure {
             message_type: field_0
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            String,
-                        >(value, &child_path(path, "message_type"))?,
-                    )
+                    native_into::<_, String>(value, &child_path(path, "message_type"))
                 })
                 .transpose()?,
             descriptor_sha256: field_1
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            String,
-                        >(value, &child_path(path, "descriptor_sha256"))?,
-                    )
+                    native_into::<
+                        _,
+                        String,
+                    >(value, &child_path(path, "descriptor_sha256"))
                 })
                 .transpose()?,
             outcome: buffa::MessageField::some(
@@ -5627,22 +5482,18 @@ impl NativeInto<
             ),
             source_violation_count: field_3
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            u64,
-                        >(value, &child_path(path, "source_violation_count"))?,
-                    )
+                    native_into::<
+                        _,
+                        u64,
+                    >(value, &child_path(path, "source_violation_count"))
                 })
                 .transpose()?,
             emitted_violation_count: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            u64,
-                        >(value, &child_path(path, "emitted_violation_count"))?,
-                    )
+                    native_into::<
+                        _,
+                        u64,
+                    >(value, &child_path(path, "emitted_violation_count"))
                 })
                 .transpose()?,
             coverage: buffa::MessageField::some(
@@ -5695,23 +5546,16 @@ impl NativeFrom<
             wire
                 .message_type
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            String,
-                        >(value, &child_path(path, "message_type"))?,
-                    )
+                    native_from::<_, String>(value, &child_path(path, "message_type"))
                 })
                 .transpose()?,
             wire
                 .descriptor_sha256
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            String,
-                        >(value, &child_path(path, "descriptor_sha256"))?,
-                    )
+                    native_from::<
+                        _,
+                        String,
+                    >(value, &child_path(path, "descriptor_sha256"))
                 })
                 .transpose()?,
             native_from::<
@@ -5724,23 +5568,19 @@ impl NativeFrom<
             wire
                 .source_violation_count
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            u64,
-                        >(value, &child_path(path, "source_violation_count"))?,
-                    )
+                    native_from::<
+                        _,
+                        u64,
+                    >(value, &child_path(path, "source_violation_count"))
                 })
                 .transpose()?,
             wire
                 .emitted_violation_count
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            u64,
-                        >(value, &child_path(path, "emitted_violation_count"))?,
-                    )
+                    native_from::<
+                        _,
+                        u64,
+                    >(value, &child_path(path, "emitted_violation_count"))
                 })
                 .transpose()?,
             native_from::<
@@ -6252,37 +6092,35 @@ impl NativeInto<
         Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement {
             field_number: field_0
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, i32>(value, &child_path(path, "field_number"))?)
+                    native_into::<_, i32>(value, &child_path(path, "field_number"))
                 })
                 .transpose()?,
             field_name: field_1
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "field_name"))?)
+                    native_into::<_, String>(value, &child_path(path, "field_name"))
                 })
                 .transpose()?,
             field_type: field_2
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "field_type"))?)
+                    native_into::<_, String>(value, &child_path(path, "field_type"))
                 })
                 .transpose()?,
             key_type: field_3
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "key_type"))?)
+                    native_into::<_, String>(value, &child_path(path, "key_type"))
                 })
                 .transpose()?,
             value_type: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "value_type"))?)
+                    native_into::<_, String>(value, &child_path(path, "value_type"))
                 })
                 .transpose()?,
             selector: field_5
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationSelector,
-                        >(value, &child_path(path, "selector"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationSelector,
+                    >(value, &child_path(path, "selector"))
                 })
                 .transpose()?
                 .into(),
@@ -6316,43 +6154,41 @@ impl NativeFrom<
             wire
                 .field_number
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, i32>(value, &child_path(path, "field_number"))?)
+                    native_from::<_, i32>(value, &child_path(path, "field_number"))
                 })
                 .transpose()?,
             wire
                 .field_name
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "field_name"))?)
+                    native_from::<_, String>(value, &child_path(path, "field_name"))
                 })
                 .transpose()?,
             wire
                 .field_type
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "field_type"))?)
+                    native_from::<_, String>(value, &child_path(path, "field_type"))
                 })
                 .transpose()?,
             wire
                 .key_type
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "key_type"))?)
+                    native_from::<_, String>(value, &child_path(path, "key_type"))
                 })
                 .transpose()?,
             wire
                 .value_type
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "value_type"))?)
+                    native_from::<_, String>(value, &child_path(path, "value_type"))
                 })
                 .transpose()?,
             wire
                 .selector
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationSelector,
-                        >(value, &child_path(path, "selector"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationSelector,
+                    >(value, &child_path(path, "selector"))
                 })
                 .transpose()?,
         );
@@ -6542,12 +6378,10 @@ impl NativeInto<
                 items(field_0)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -6556,28 +6390,26 @@ impl NativeInto<
                 items(field_1)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
             rule_id: field_2
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "rule_id"))?)
+                    native_into::<_, String>(value, &child_path(path, "rule_id"))
                 })
                 .transpose()?,
             message: field_3
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "message"))?)
+                    native_into::<_, String>(value, &child_path(path, "message"))
                 })
                 .transpose()?,
             for_key: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, bool>(value, &child_path(path, "for_key"))?)
+                    native_into::<_, bool>(value, &child_path(path, "for_key"))
                 })
                 .transpose()?,
             ..Default::default()
@@ -6607,12 +6439,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6624,12 +6454,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6637,19 +6465,19 @@ impl NativeFrom<
             wire
                 .rule_id
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "rule_id"))?)
+                    native_from::<_, String>(value, &child_path(path, "rule_id"))
                 })
                 .transpose()?,
             wire
                 .message
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "message"))?)
+                    native_from::<_, String>(value, &child_path(path, "message"))
                 })
                 .transpose()?,
             wire
                 .for_key
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, bool>(value, &child_path(path, "for_key"))?)
+                    native_from::<_, bool>(value, &child_path(path, "for_key"))
                 })
                 .transpose()?,
         );
@@ -7012,39 +6840,33 @@ impl NativeInto<
             ),
             group: field_3
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, u64>(value, &child_path(path, "group"))?)
+                    native_into::<_, u64>(value, &child_path(path, "group"))
                 })
                 .transpose()?,
             content: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ContentIdentity,
-                        >(value, &child_path(path, "content"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ContentIdentity,
+                    >(value, &child_path(path, "content"))
                 })
                 .transpose()?
                 .into(),
             omission: field_5
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceOmission,
-                        >(value, &child_path(path, "omission"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceOmission,
+                    >(value, &child_path(path, "omission"))
                 })
                 .transpose()?
                 .into(),
             failure: field_6
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
-                        >(value, &child_path(path, "failure"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
+                    >(value, &child_path(path, "failure"))
                 })
                 .transpose()?
                 .into(),
@@ -7094,43 +6916,37 @@ impl NativeFrom<
             wire
                 .group
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, u64>(value, &child_path(path, "group"))?)
+                    native_from::<_, u64>(value, &child_path(path, "group"))
                 })
                 .transpose()?,
             wire
                 .content
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ContentIdentity,
-                        >(value, &child_path(path, "content"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ContentIdentity,
+                    >(value, &child_path(path, "content"))
                 })
                 .transpose()?,
             wire
                 .omission
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceOmission,
-                        >(value, &child_path(path, "omission"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceOmission,
+                    >(value, &child_path(path, "omission"))
                 })
                 .transpose()?,
             wire
                 .failure
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
-                        >(value, &child_path(path, "failure"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
+                    >(value, &child_path(path, "failure"))
                 })
                 .transpose()?,
         );
@@ -8729,17 +8545,12 @@ impl NativeInto<
             ),
             inventory: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "inventory"))?)
+                    native_into::<_, String>(value, &child_path(path, "inventory"))
                 })
                 .transpose()?,
             selected_tests: field_5
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            u64,
-                        >(value, &child_path(path, "selected_tests"))?,
-                    )
+                    native_into::<_, u64>(value, &child_path(path, "selected_tests"))
                 })
                 .transpose()?,
             required_capture_complete: native_into::<
@@ -8751,23 +8562,19 @@ impl NativeInto<
                 items(field_7)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
             inventory_content: field_8
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ContentIdentity,
-                        >(value, &child_path(path, "inventory_content"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ContentIdentity,
+                    >(value, &child_path(path, "inventory_content"))
                 })
                 .transpose()?
                 .into(),
@@ -8779,12 +8586,10 @@ impl NativeInto<
                             items(value)
                                 .enumerate()
                                 .map(|(index, value)| -> Result<_, AdapterError> {
-                                    Ok(
-                                        native_into::<
-                                            _,
-                                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceFile,
-                                        >(value, &format!("{path}[{index}]", path = current_path))?,
-                                    )
+                                    native_into::<
+                                        _,
+                                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceFile,
+                                    >(value, &format!("{path}[{index}]", path = current_path))
                                 })
                                 .collect::<Result<Vec<_>, _>>()?
                         },
@@ -8852,18 +8657,13 @@ impl NativeFrom<
             wire
                 .inventory
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "inventory"))?)
+                    native_from::<_, String>(value, &child_path(path, "inventory"))
                 })
                 .transpose()?,
             wire
                 .selected_tests
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            u64,
-                        >(value, &child_path(path, "selected_tests"))?,
-                    )
+                    native_from::<_, u64>(value, &child_path(path, "selected_tests"))
                 })
                 .transpose()?,
             native_from::<
@@ -8880,12 +8680,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ErrorRecord,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -8894,19 +8692,17 @@ impl NativeFrom<
                 .inventory_content
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ContentIdentity,
-                        >(value, &child_path(path, "inventory_content"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ContentIdentity,
+                    >(value, &child_path(path, "inventory_content"))
                 })
                 .transpose()?,
             wire
                 .evidence
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok({
+                    {
                         let wrapped = value;
                         unknown_fields(
                             &wrapped.__buffa_unknown_fields,
@@ -8919,17 +8715,15 @@ impl NativeFrom<
                                 .into_iter()
                                 .enumerate()
                                 .map(|(index, value)| -> Result<_, AdapterError> {
-                                    Ok(
-                                        native_from::<
-                                            _,
-                                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceFile,
-                                        >(value, &format!("{path}[{index}]", path = current_path))?,
-                                    )
+                                    native_from::<
+                                        _,
+                                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceFile,
+                                    >(value, &format!("{path}[{index}]", path = current_path))
                                 })
                                 .collect::<Result<Vec<_>, _>>()?;
-                            from_items(values, current_path)?
+                            from_items(values, current_path)
                         }
-                    })
+                    }
                 })
                 .transpose()?,
         );

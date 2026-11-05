@@ -182,6 +182,7 @@ mod tests {
         };
         let rendered = native_view_adapters(&graph, &["BorrowedFixture"], target).unwrap();
         syn::parse_file(&rendered).unwrap();
+        assert_direct_conversion_results(&rendered);
         for expected in [
             "BorrowedFixtureView<'buffer>",
             "OutcomeView<'_>",
@@ -415,7 +416,7 @@ impl Borrowed<'_, '_> {
                 } else {
                     format!("required(({value}).as_option(),{path})?")
                 };
-                let view = self.view(&[name.clone()], "'_")?;
+                let view = self.view(std::slice::from_ref(name), "'_")?;
                 format!("native_from::<_,&{view}>({actual},{path})?")
             }
             TypeRef::Optional(inner) => {
@@ -430,9 +431,8 @@ impl Borrowed<'_, '_> {
                 } else {
                     self.wrapper(inner, "value", path, parent, tag)?
                 };
-                format!(
-                    "{input}.map(|value|->Result<_,AdapterError>{{Ok({converted})}}).transpose()?"
-                )
+                let converted = conversion_result(&converted)?;
+                format!("{input}.map(|value|->Result<_,AdapterError>{{{converted}}}).transpose()?")
             }
             TypeRef::Repeated(inner) | TypeRef::Set(inner) => {
                 let indexed = "&format!(\"{current_path}[{index}]\")";
@@ -442,8 +442,9 @@ impl Borrowed<'_, '_> {
                 } else {
                     self.wrapper(inner, "value", indexed, parent, tag)?
                 };
+                let converted = conversion_result(&converted)?;
                 format!(
-                    "{{let current_path={path};let values=({value}).iter().enumerate().map(|(index,value)|->Result<_,AdapterError>{{Ok({converted})}}).collect::<Result<Vec<_>,_>>()?;from_items(values,current_path)?}}"
+                    "{{let current_path={path};let values=({value}).iter().enumerate().map(|(index,value)|->Result<_,AdapterError>{{{converted}}}).collect::<Result<Vec<_>,_>>()?;from_items(values,current_path)?}}"
                 )
             }
             TypeRef::Map(key, item) => {

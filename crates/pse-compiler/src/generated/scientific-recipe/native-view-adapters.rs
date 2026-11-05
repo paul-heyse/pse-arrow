@@ -41,22 +41,18 @@ impl<
             (&wire.id)
                 .as_ref()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
-                            &child_path(path, "id"),
-                        )?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                        *(value),
+                        &child_path(path, "id"),
                     )
                 })
                 .transpose()?,
             (&wire.coverage)
                 .as_ref()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
-                            &child_path(path, "coverage"),
-                        )?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                        *(value),
+                        &child_path(path, "coverage"),
                     )
                 })
                 .transpose()?,
@@ -70,11 +66,9 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                *(value),
-                                &format!("{current_path}[{index}]"),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                            *(value),
+                            &format!("{current_path}[{index}]"),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -83,11 +77,9 @@ impl<
             (&wire.evidence)
                 .as_ref()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                            *(value),
-                            &child_path(path, "evidence"),
-                        )?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                        *(value),
+                        &child_path(path, "evidence"),
                     )
                 })
                 .transpose()?,
@@ -105,11 +97,9 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                *(value),
-                                &format!("{current_path}[{index}]"),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                            *(value),
+                            &format!("{current_path}[{index}]"),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -121,11 +111,9 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                *(value),
-                                &format!("{current_path}[{index}]"),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                            *(value),
+                            &format!("{current_path}[{index}]"),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -143,20 +131,18 @@ impl<
             (&wire.basis)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingApplicabilityBasisView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "basis"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingApplicabilityBasisView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "basis"))
                 })
                 .transpose()?,
             (&wire.reason)
                 .as_ref()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, &str>(*(value), &child_path(path, "reason"))?)
+                    native_from::<_, &str>(*(value), &child_path(path, "reason"))
                 })
                 .transpose()?,
         );
@@ -218,14 +204,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ApplicabilityNodeView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ApplicabilityNodeView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -236,14 +220,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple3OfStringAndUsizeAndSemanticIdView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple3OfStringAndUsizeAndSemanticIdView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -254,14 +236,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ApplicabilityPermissionView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ApplicabilityPermissionView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -328,11 +308,9 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                *(value),
-                                &format!("{current_path}[{index}]"),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                            *(value),
+                            &format!("{current_path}[{index}]"),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -477,14 +455,12 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ApplicabilityNodeView<
-                                            '_,
-                                        >,
-                                    >(value, &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ApplicabilityNodeView<
+                                        '_,
+                                    >,
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -527,14 +503,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -574,14 +548,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalRatioView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalRatioView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -1299,25 +1271,18 @@ impl<
             (&wire.exact_integer)
                 .as_ref()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &[u8],
-                        >(*(value), &child_path(path, "exact_integer"))?,
-                    )
+                    native_from::<_, &[u8]>(*(value), &child_path(path, "exact_integer"))
                 })
                 .transpose()?,
             (&wire.unit)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalUnitProductView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "unit"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalUnitProductView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "unit"))
                 })
                 .transpose()?,
         );
@@ -1535,12 +1500,10 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                u64,
-                            >(*(value), &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            u64,
+                        >(*(value), &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -1556,14 +1519,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractBoundaryRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractBoundaryRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -1631,14 +1592,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfContentHashAndKernelProviderRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfContentHashAndKernelProviderRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -1649,14 +1608,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::CompilerSelectedProviderCallRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::CompilerSelectedProviderCallRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -1667,14 +1624,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::CompilerDirectProviderCallRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::CompilerDirectProviderCallRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2107,11 +2062,9 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                *(value),
-                                &format!("{current_path}[{index}]"),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                            *(value),
+                            &format!("{current_path}[{index}]"),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -2123,7 +2076,7 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok({
+                        {
                             let wrapped = value;
                             unknown_fields_view(
                                 &wrapped.__buffa_unknown_fields,
@@ -2135,17 +2088,15 @@ impl<
                                     .iter()
                                     .enumerate()
                                     .map(|(index, value)| -> Result<_, AdapterError> {
-                                        Ok(
-                                            pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                                *(value),
-                                                &format!("{current_path}[{index}]"),
-                                            )?,
+                                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                                            *(value),
+                                            &format!("{current_path}[{index}]"),
                                         )
                                     })
                                     .collect::<Result<Vec<_>, _>>()?;
-                                from_items(values, current_path)?
+                                from_items(values, current_path)
                             }
-                        })
+                        }
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2156,11 +2107,9 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                *(value),
-                                &format!("{current_path}[{index}]"),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                            *(value),
+                            &format!("{current_path}[{index}]"),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -2201,14 +2150,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::KernelProviderShapeView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::KernelProviderShapeView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2219,14 +2166,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::KernelProviderShapeView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::KernelProviderShapeView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2309,14 +2254,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::KernelProviderPortView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::KernelProviderPortView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2327,14 +2270,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::KernelProviderPortView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::KernelProviderPortView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2468,11 +2409,9 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                *(value),
-                                &format!("{current_path}[{index}]"),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                            *(value),
+                            &format!("{current_path}[{index}]"),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -2541,12 +2480,10 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                u64,
-                            >(*(value), &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            u64,
+                        >(*(value), &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2557,14 +2494,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2575,14 +2510,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalRepresentationConversionRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalRepresentationConversionRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2593,14 +2526,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2611,14 +2542,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalRepresentationConversionRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalRepresentationConversionRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2696,14 +2625,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::MathematicalProofReceiptView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::MathematicalProofReceiptView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -3267,14 +3194,12 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingStaticValueFactsView<
-                                            '_,
-                                        >,
-                                    >(value, &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingStaticValueFactsView<
+                                        '_,
+                                    >,
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -4515,11 +4440,9 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                *(value),
-                                &format!("{current_path}[{index}]"),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                            *(value),
+                            &format!("{current_path}[{index}]"),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -4531,12 +4454,10 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                u32,
-                            >(*(value), &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            u32,
+                        >(*(value), &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -4865,11 +4786,9 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                *(value),
-                                &format!("{current_path}[{index}]"),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                            *(value),
+                            &format!("{current_path}[{index}]"),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -4881,14 +4800,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingOperationAnchorRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingOperationAnchorRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -4960,14 +4877,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalSchemeRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalSchemeRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -4975,14 +4890,12 @@ impl<
             (&wire.resolved)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalInferenceRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "resolved"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalInferenceRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "resolved"))
                 })
                 .transpose()?,
         );
@@ -5343,14 +5256,12 @@ impl<
                     (&wire.source)
                         .as_option()
                         .map(|value| -> Result<_, AdapterError> {
-                            Ok(
-                                native_from::<
-                                    _,
-                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingRefinementFactsView<
-                                        '_,
-                                    >,
-                                >(value, &child_path(path, "source"))?,
-                            )
+                            native_from::<
+                                _,
+                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingRefinementFactsView<
+                                    '_,
+                                >,
+                            >(value, &child_path(path, "source"))
                         })
                         .transpose()?,
                     native_from::<
@@ -5369,14 +5280,12 @@ impl<
                     (&wire.exchange)
                         .as_option()
                         .map(|value| -> Result<_, AdapterError> {
-                            Ok(
-                                native_from::<
-                                    _,
-                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::DeclarationIdView<
-                                        '_,
-                                    >,
-                                >(value, &child_path(path, "exchange"))?,
-                            )
+                            native_from::<
+                                _,
+                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::DeclarationIdView<
+                                    '_,
+                                >,
+                            >(value, &child_path(path, "exchange"))
                         })
                         .transpose()?,
                 );
@@ -5614,14 +5523,12 @@ impl<
                     (&wire.exponent)
                         .as_option()
                         .map(|value| -> Result<_, AdapterError> {
-                            Ok(
-                                native_from::<
-                                    _,
-                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalRatioView<
-                                        '_,
-                                    >,
-                                >(value, &child_path(path, "exponent"))?,
-                            )
+                            native_from::<
+                                _,
+                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalRatioView<
+                                    '_,
+                                >,
+                            >(value, &child_path(path, "exponent"))
                         })
                         .transpose()?,
                 );
@@ -5722,14 +5629,12 @@ impl<
                     (&wire.domain)
                         .as_option()
                         .map(|value| -> Result<_, AdapterError> {
-                            Ok(
-                                native_from::<
-                                    _,
-                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::EntityKindIdView<
-                                        '_,
-                                    >,
-                                >(value, &child_path(path, "domain"))?,
-                            )
+                            native_from::<
+                                _,
+                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::EntityKindIdView<
+                                    '_,
+                                >,
+                            >(value, &child_path(path, "domain"))
                         })
                         .transpose()?,
                 );
@@ -6042,7 +5947,7 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok({
+                        {
                             let wrapped = value;
                             unknown_fields_view(
                                 &wrapped.__buffa_unknown_fields,
@@ -6054,19 +5959,17 @@ impl<
                                     .iter()
                                     .enumerate()
                                     .map(|(index, value)| -> Result<_, AdapterError> {
-                                        Ok(
-                                            native_from::<
-                                                _,
-                                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
-                                                    '_,
-                                                >,
-                                            >(value, &format!("{current_path}[{index}]"))?,
-                                        )
+                                        native_from::<
+                                            _,
+                                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
+                                                '_,
+                                            >,
+                                        >(value, &format!("{current_path}[{index}]"))
                                     })
                                     .collect::<Result<Vec<_>, _>>()?;
-                                from_items(values, current_path)?
+                                from_items(values, current_path)
                             }
-                        })
+                        }
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6077,14 +5980,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple3OfUsizeAndListModelingValueRecordAndModelingResolvedCarrierRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple3OfUsizeAndListModelingValueRecordAndModelingResolvedCarrierRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6092,14 +5993,12 @@ impl<
             (&wire.static_value)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "static_value"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "static_value"))
                 })
                 .transpose()?,
         );
@@ -6360,14 +6259,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6511,14 +6408,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedPredicateIxView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedPredicateIxView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6529,14 +6424,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6615,14 +6508,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedShapeRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedShapeRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6680,14 +6571,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6826,14 +6715,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedSymbolIxView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedSymbolIxView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6844,14 +6731,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingTypeRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingTypeRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6862,14 +6747,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedArgumentRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedArgumentRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6880,14 +6763,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedSelectionRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedSelectionRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6898,14 +6779,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfModelingResolvedNodeIxAndModelingTypeRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfModelingResolvedNodeIxAndModelingTypeRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6922,27 +6801,23 @@ impl<
             (&wire.body)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "body"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "body"))
                 })
                 .transpose()?,
             (&wire.validity)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedPredicateIxView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "validity"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedPredicateIxView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "validity"))
                 })
                 .transpose()?,
             {
@@ -6951,14 +6826,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedEnvelopeRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedEnvelopeRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6969,14 +6842,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedEvidenceRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedEvidenceRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6987,12 +6858,10 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                u64,
-                            >(*(value), &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            u64,
+                        >(*(value), &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7003,14 +6872,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfModelingResolvedNodeIxAndModelingPhysicalAdmissionRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfModelingResolvedNodeIxAndModelingPhysicalAdmissionRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7018,66 +6885,56 @@ impl<
             (&wire.reduction_admission)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingPhysicalAdmissionRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "reduction_admission"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingPhysicalAdmissionRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "reduction_admission"))
                 })
                 .transpose()?,
             (&wire.reduction)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedReductionRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "reduction"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedReductionRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "reduction"))
                 })
                 .transpose()?,
             (&wire.reduction_selection)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedReductionSelectionRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "reduction_selection"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedReductionSelectionRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "reduction_selection"))
                 })
                 .transpose()?,
             (&wire.physical_operation)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingPhysicalOperationRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "physical_operation"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingPhysicalOperationRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "physical_operation"))
                 })
                 .transpose()?,
             (&wire.output_boundary)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalOutputBoundaryRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "output_boundary"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalOutputBoundaryRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "output_boundary"))
                 })
                 .transpose()?,
             {
@@ -7086,7 +6943,7 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok({
+                        {
                             let wrapped = value;
                             unknown_fields_view(
                                 &wrapped.__buffa_unknown_fields,
@@ -7095,17 +6952,15 @@ impl<
                             (&wrapped.value)
                                 .as_option()
                                 .map(|value| -> Result<_, AdapterError> {
-                                    Ok(
-                                        native_from::<
-                                            _,
-                                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingBodyInputRecordView<
-                                                '_,
-                                            >,
-                                        >(value, &format!("{current_path}[{index}]"))?,
-                                    )
+                                    native_from::<
+                                        _,
+                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingBodyInputRecordView<
+                                            '_,
+                                        >,
+                                    >(value, &format!("{current_path}[{index}]"))
                                 })
-                                .transpose()?
-                        })
+                                .transpose()
+                        }
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7125,20 +6980,18 @@ impl<
             (&wire.external)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedExternalRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "external"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedExternalRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "external"))
                 })
                 .transpose()?,
             (&wire.continuity)
                 .as_ref()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, u32>(*(value), &child_path(path, "continuity"))?)
+                    native_from::<_, u32>(*(value), &child_path(path, "continuity"))
                 })
                 .transpose()?,
         );
@@ -7255,14 +7108,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedCarrierIxView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedCarrierIxView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7273,14 +7124,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfListModelingValueRecordAndOptionalModelingResolvedSymbolIxView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfListModelingValueRecordAndOptionalModelingResolvedSymbolIxView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7511,14 +7360,12 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
-                                            '_,
-                                        >,
-                                    >(value, &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
+                                        '_,
+                                    >,
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -7566,14 +7413,12 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
-                                            '_,
-                                        >,
-                                    >(value, &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
+                                        '_,
+                                    >,
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -7621,12 +7466,10 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        u64,
-                                    >(*(value), &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    u64,
+                                >(*(value), &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -7637,14 +7480,12 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
-                                            '_,
-                                        >,
-                                    >(value, &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
+                                        '_,
+                                    >,
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -7692,14 +7533,12 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
-                                            '_,
-                                        >,
-                                    >(value, &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
+                                        '_,
+                                    >,
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -7753,14 +7592,12 @@ impl<
                     (&wire.filter)
                         .as_option()
                         .map(|value| -> Result<_, AdapterError> {
-                            Ok(
-                                native_from::<
-                                    _,
-                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedPredicateIxView<
-                                        '_,
-                                    >,
-                                >(value, &child_path(path, "filter"))?,
-                            )
+                            native_from::<
+                                _,
+                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedPredicateIxView<
+                                    '_,
+                                >,
+                            >(value, &child_path(path, "filter"))
                         })
                         .transpose()?,
                     native_from::<
@@ -7812,14 +7649,12 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
-                                            '_,
-                                        >,
-                                    >(value, &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
+                                        '_,
+                                    >,
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -7917,14 +7752,12 @@ impl<
                     (&wire.filter)
                         .as_option()
                         .map(|value| -> Result<_, AdapterError> {
-                            Ok(
-                                native_from::<
-                                    _,
-                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedPredicateIxView<
-                                        '_,
-                                    >,
-                                >(value, &child_path(path, "filter"))?,
-                            )
+                            native_from::<
+                                _,
+                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedPredicateIxView<
+                                    '_,
+                                >,
+                            >(value, &child_path(path, "filter"))
                         })
                         .transpose()?,
                     native_from::<
@@ -8135,14 +7968,12 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedBinderIxView<
-                                            '_,
-                                        >,
-                                    >(value, &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedBinderIxView<
+                                        '_,
+                                    >,
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -8591,14 +8422,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedFunctionRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedFunctionRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -8644,14 +8473,12 @@ impl<
             (&wire.domain)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::EntityKindIdView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "domain"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::EntityKindIdView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "domain"))
                 })
                 .transpose()?,
             native_from::<
@@ -8707,14 +8534,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -8856,14 +8681,12 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
-                                            '_,
-                                        >,
-                                    >(value, &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
+                                        '_,
+                                    >,
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -8934,14 +8757,12 @@ impl<
             (&wire.definition)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "definition"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "definition"))
                 })
                 .transpose()?,
         );
@@ -8997,14 +8818,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfStringAndModelingValueRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfStringAndModelingValueRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9015,14 +8834,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple3OfStringAndModelingUncertaintyKindAndU64View<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple3OfStringAndModelingUncertaintyKindAndU64View<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9081,14 +8898,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9108,14 +8923,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9126,14 +8939,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfModelingValueRecordAndListModelingValueRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfModelingValueRecordAndListModelingValueRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9144,14 +8955,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedSelectedRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedSelectedRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9195,11 +9004,9 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                *(value),
-                                &format!("{current_path}[{index}]"),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                            *(value),
+                            &format!("{current_path}[{index}]"),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -9211,7 +9018,7 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok({
+                        {
                             let wrapped = value;
                             unknown_fields_view(
                                 &wrapped.__buffa_unknown_fields,
@@ -9223,17 +9030,15 @@ impl<
                                     .iter()
                                     .enumerate()
                                     .map(|(index, value)| -> Result<_, AdapterError> {
-                                        Ok(
-                                            pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                                *(value),
-                                                &format!("{current_path}[{index}]"),
-                                            )?,
+                                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                                            *(value),
+                                            &format!("{current_path}[{index}]"),
                                         )
                                     })
                                     .collect::<Result<Vec<_>, _>>()?;
-                                from_items(values, current_path)?
+                                from_items(values, current_path)
                             }
-                        })
+                        }
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9322,14 +9127,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedScalarRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedScalarRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9340,14 +9143,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9358,14 +9159,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedPredicateView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedPredicateView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9376,14 +9175,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedBindingView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedBindingView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9394,14 +9191,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedFunctionSlotView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedFunctionSlotView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9412,14 +9207,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedEvidenceRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedEvidenceRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9430,14 +9223,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedCarrierRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedCarrierRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9448,14 +9239,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedGroupRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedGroupRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9466,14 +9255,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfModelingResolvedSymbolIxAndModelingMemberRangeView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfModelingResolvedSymbolIxAndModelingMemberRangeView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9484,14 +9271,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedFoldRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedFoldRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9502,14 +9287,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedNodeIxView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9520,14 +9303,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedPredicateIxView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedPredicateIxView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -9966,12 +9747,10 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &str,
-                                    >(*(value), &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &str,
+                                >(*(value), &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -9982,14 +9761,12 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingStaticValueFactsView<
-                                            '_,
-                                        >,
-                                    >(value, &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingStaticValueFactsView<
+                                        '_,
+                                    >,
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -10025,14 +9802,12 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingStaticValueFactsView<
-                                            '_,
-                                        >,
-                                    >(value, &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingStaticValueFactsView<
+                                        '_,
+                                    >,
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -10068,14 +9843,12 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingStaticValueFactsView<
-                                            '_,
-                                        >,
-                                    >(value, &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingStaticValueFactsView<
+                                        '_,
+                                    >,
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -10307,12 +10080,10 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                u64,
-                            >(*(value), &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            u64,
+                        >(*(value), &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -10323,14 +10094,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractBoundaryRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractBoundaryRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -10338,27 +10107,23 @@ impl<
             (&wire.body_result)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingBodyInputRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "body_result"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingBodyInputRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "body_result"))
                 })
                 .transpose()?,
             (&wire.partial)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalInferenceRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "partial"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalInferenceRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "partial"))
                 })
                 .transpose()?,
         );
@@ -10422,79 +10187,67 @@ impl<
             (&wire.operation)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalInferenceRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "operation"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalInferenceRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "operation"))
                 })
                 .transpose()?,
             (&wire.literal)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalCanonicalConversionRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "literal"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalCanonicalConversionRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "literal"))
                 })
                 .transpose()?,
             (&wire.boundary)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractBoundaryRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "boundary"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractBoundaryRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "boundary"))
                 })
                 .transpose()?,
             (&wire.call)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingSupportCallRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "call"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingSupportCallRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "call"))
                 })
                 .transpose()?,
             (&wire.range)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingSupportRangeRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "range"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingSupportRangeRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "range"))
                 })
                 .transpose()?,
             (&wire.exponent)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalRatioView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "exponent"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalRatioView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "exponent"))
                 })
                 .transpose()?,
         );
@@ -10626,14 +10379,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingSupportNodeRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingSupportNodeRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -10644,14 +10395,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractBoundaryRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractBoundaryRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -10662,14 +10411,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfUsizeAndPhysicalContractRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfUsizeAndPhysicalContractRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -10686,40 +10433,34 @@ impl<
             (&wire.boolean)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingSupportBooleanRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "boolean"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingSupportBooleanRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "boolean"))
                 })
                 .transpose()?,
             (&wire.reduction)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalInferenceRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "reduction"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalInferenceRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "reduction"))
                 })
                 .transpose()?,
             (&wire.reduction_output)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractBoundaryRecordView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "reduction_output"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractBoundaryRecordView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "reduction_output"))
                 })
                 .transpose()?,
         );
@@ -11445,14 +11186,12 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingTypeFactsView<
-                                            '_,
-                                        >,
-                                    >(value, &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingTypeFactsView<
+                                        '_,
+                                    >,
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -11636,14 +11375,12 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfStringAndModelingTypeFactsView<
-                                            '_,
-                                        >,
-                                    >(value, &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfStringAndModelingTypeFactsView<
+                                        '_,
+                                    >,
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -11740,14 +11477,12 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::DeclarationIdView<
-                                            '_,
-                                        >,
-                                    >(value, &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::DeclarationIdView<
+                                        '_,
+                                    >,
+                                >(value, &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -12191,14 +11926,12 @@ impl<
             (&wire.named)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::QuantityTypeIdView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "named"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::QuantityTypeIdView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "named"))
                 })
                 .transpose()?,
             {
@@ -12207,14 +11940,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::KindFactorView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::KindFactorView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -12225,14 +11956,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalQualifiedFactorView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalQualifiedFactorView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -12243,14 +11972,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::EntityKindIdView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::EntityKindIdView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -12261,14 +11988,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::BoundIndexReferenceView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::BoundIndexReferenceView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -12279,14 +12004,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::UnitFactorView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::UnitFactorView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -12308,14 +12031,12 @@ impl<
             (&wire.formula)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalFormulaFactsView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "formula"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalFormulaFactsView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "formula"))
                 })
                 .transpose()?,
         );
@@ -12434,14 +12155,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractFactsView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractFactsView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -12452,14 +12171,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalRatioView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalRatioView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -12506,14 +12223,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractFactsView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalContractFactsView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -12542,14 +12257,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalOperandConversionView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalOperandConversionView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -12560,12 +12273,10 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                u64,
-                            >(*(value), &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            u64,
+                        >(*(value), &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -12796,12 +12507,10 @@ impl<
                             .iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        u32,
-                                    >(*(value), &format!("{current_path}[{index}]"))?,
-                                )
+                                native_from::<
+                                    _,
+                                    u32,
+                                >(*(value), &format!("{current_path}[{index}]"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -13069,14 +12778,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalInferenceReceiptView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalInferenceReceiptView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -13087,14 +12794,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalOutputBoundaryReceiptView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::PhysicalOutputBoundaryReceiptView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -13538,14 +13243,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfStringAndPhysicalRatioView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::Tuple2OfStringAndPhysicalRatioView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -13664,27 +13367,23 @@ impl<
             (&wire.basis)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::BasisIdView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "basis"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::BasisIdView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "basis"))
                 })
                 .transpose()?,
             (&wire.reference_state)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ReferenceStateIdView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "reference_state"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ReferenceStateIdView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "reference_state"))
                 })
                 .transpose()?,
             native_from::<
@@ -13705,14 +13404,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::EntityKindIdView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::EntityKindIdView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -13720,14 +13417,12 @@ impl<
             (&wire.subject_kind)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::EntityKindIdView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "subject_kind"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::EntityKindIdView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "subject_kind"))
                 })
                 .transpose()?,
         );
@@ -13863,14 +13558,12 @@ impl<
             (&wire.semantic_identity)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::SemanticBodyHashView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "semantic_identity"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::SemanticBodyHashView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "semantic_identity"))
                 })
                 .transpose()?,
             native_from::<
@@ -13906,14 +13599,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedSymbolIxView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedSymbolIxView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -13937,14 +13628,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::QuantityTypeIdView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::QuantityTypeIdView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -13955,11 +13644,9 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                *(value),
-                                &format!("{current_path}[{index}]"),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                            *(value),
+                            &format!("{current_path}[{index}]"),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -13971,11 +13658,9 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                *(value),
-                                &format!("{current_path}[{index}]"),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                            *(value),
+                            &format!("{current_path}[{index}]"),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -13987,11 +13672,9 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
-                                *(value),
-                                &format!("{current_path}[{index}]"),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_slice(
+                            *(value),
+                            &format!("{current_path}[{index}]"),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -14150,14 +13833,12 @@ for (
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -14165,14 +13846,12 @@ for (
             (&wire.second)
                 .as_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedSymbolIxView<
-                                '_,
-                            >,
-                        >(value, &child_path(path, "second"))?,
-                    )
+                    native_from::<
+                        _,
+                        &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingResolvedSymbolIxView<
+                            '_,
+                        >,
+                    >(value, &child_path(path, "second"))
                 })
                 .transpose()?,
         );
@@ -14388,14 +14067,12 @@ impl<
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -14720,14 +14397,12 @@ for (
                     .iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
-                                    '_,
-                                >,
-                            >(value, &format!("{current_path}[{index}]"))?,
-                        )
+                        native_from::<
+                            _,
+                            &crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::ModelingValueRecordView<
+                                '_,
+                            >,
+                        >(value, &format!("{current_path}[{index}]"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?

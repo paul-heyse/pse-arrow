@@ -644,39 +644,28 @@ impl pse_contract::boundary_projection::ProjectionRecord for ReferenceQuantityTy
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for ReferenceQuantityTypesRow {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::identities::QuantityTypeId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <crate::generated::identities::QuantityTypeId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <Option<
             String,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::identities::QuantityKindId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             crate::generated::identities::BasisId,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             crate::generated::identities::ReferenceStateId,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::enums::ScaleKind as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Vec<
             pse_ids::SemanticId,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             crate::generated::identities::EntityKindId,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <crate::generated::identities::UnitId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <Option<
             f64,
         > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
         || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,

@@ -6,7 +6,7 @@ use buffa_descriptor::DynamicMessage;
 use pse_contract::boundary_projection::Direction;
 use pse_contract_proto::{DescriptorPolicy, FieldContext, MetadataError, NativeSelection};
 
-type DomainCheck =
+pub(super) type DomainCheck =
     fn(&DynamicMessage, FieldContext<'_>) -> Result<Option<Vec<u8>>, ProjectionCodegenError>;
 #[derive(Debug)]
 pub(super) struct SelectionNames {

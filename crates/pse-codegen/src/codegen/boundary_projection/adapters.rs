@@ -633,7 +633,7 @@ impl Generator<'_> {
                 };
                 let converted = format!(
                     "native_into::<_, {}>({value}, {path})?",
-                    self.wire(&[name.clone()])
+                    self.wire(std::slice::from_ref(name))
                 );
                 if raw {
                     converted
@@ -644,20 +644,23 @@ impl Generator<'_> {
             TypeRef::Optional(inner) => match inner.as_ref() {
                 TypeRef::Scalar(_) => {
                     let converted = self.encode(inner, "value", path, parent, tag, true)?;
+                    let converted = conversion_result(&converted)?;
                     format!(
-                        "{value}.map(|value| -> Result<_, AdapterError> {{ Ok({converted}) }}).transpose()?"
+                        "{value}.map(|value| -> Result<_, AdapterError> {{ {converted} }}).transpose()?"
                     )
                 }
                 TypeRef::Named(_) => {
                     let converted = self.encode(inner, "value", path, parent, tag, true)?;
+                    let converted = conversion_result(&converted)?;
                     format!(
-                        "{value}.map(|value| -> Result<_, AdapterError> {{ Ok({converted}) }}).transpose()?.into()"
+                        "{value}.map(|value| -> Result<_, AdapterError> {{ {converted} }}).transpose()?.into()"
                     )
                 }
                 _ => {
                     let wrapped = self.encode_wrapper(inner, "value", path, parent, tag)?;
+                    let wrapped = conversion_result(&wrapped)?;
                     format!(
-                        "{value}.map(|value| -> Result<_, AdapterError> {{ Ok({wrapped}) }}).transpose()?.into()"
+                        "{value}.map(|value| -> Result<_, AdapterError> {{ {wrapped} }}).transpose()?.into()"
                     )
                 }
             },
@@ -691,13 +694,14 @@ impl Generator<'_> {
                         tag,
                     )?
                 };
+                let converted = conversion_result(&converted)?;
                 if !encoding_uses_path(inner) {
                     return Ok(format!(
-                        "items({value}).map(|value| -> Result<_, AdapterError> {{ Ok({converted}) }}).collect::<Result<Vec<_>, _>>()?"
+                        "items({value}).map(|value| -> Result<_, AdapterError> {{ {converted} }}).collect::<Result<Vec<_>, _>>()?"
                     ));
                 }
                 format!(
-                    "{{ let current_path = {path}; items({value}).enumerate().map(|(index, value)| -> Result<_, AdapterError> {{ Ok({converted}) }}).collect::<Result<Vec<_>, _>>()? }}"
+                    "{{ let current_path = {path}; items({value}).enumerate().map(|(index, value)| -> Result<_, AdapterError> {{ {converted} }}).collect::<Result<Vec<_>, _>>()? }}"
                 )
             }
             TypeRef::Map(key, item) => {
@@ -766,7 +770,7 @@ impl Generator<'_> {
                 };
                 format!(
                     "native_from::<_, {}>({actual}, {path})?",
-                    self.wire(&[name.clone()])
+                    self.wire(std::slice::from_ref(name))
                 )
             }
             TypeRef::Optional(inner) => {
@@ -781,8 +785,9 @@ impl Generator<'_> {
                 } else {
                     self.decode_wrapper(inner, "value", path, parent, tag)?
                 };
+                let converted = conversion_result(&converted)?;
                 format!(
-                    "{input}.map(|value| -> Result<_, AdapterError> {{ Ok({converted}) }}).transpose()?"
+                    "{input}.map(|value| -> Result<_, AdapterError> {{ {converted} }}).transpose()?"
                 )
             }
             TypeRef::Repeated(inner) | TypeRef::Set(inner) => {
@@ -793,8 +798,9 @@ impl Generator<'_> {
                 } else {
                     self.decode_wrapper(inner, "value", indexed, parent, tag)?
                 };
+                let converted = conversion_result(&converted)?;
                 format!(
-                    "{{ let current_path = {path}; let values = {value}.into_iter().enumerate().map(|(index, value)| -> Result<_, AdapterError> {{ Ok({converted}) }}).collect::<Result<Vec<_>, _>>()?; from_items(values, current_path)? }}"
+                    "{{ let current_path = {path}; let values = {value}.into_iter().enumerate().map(|(index, value)| -> Result<_, AdapterError> {{ {converted} }}).collect::<Result<Vec<_>, _>>()?; from_items(values, current_path)? }}"
                 )
             }
             TypeRef::Map(key, item) => {
@@ -836,6 +842,59 @@ impl Generator<'_> {
     }
 }
 
+// Conversion values propagate their failures with `?`. A closure returning
+// Result can return that outer result directly; constructors still need Ok,
+// and a wrapper block must keep all guards before its converted tail.
+fn conversion_result(value: &str) -> Result<String, ProjectionCodegenError> {
+    fn result_tokens(value: syn::Expr) -> proc_macro2::TokenStream {
+        match value {
+            syn::Expr::Try(value) => {
+                let value = value.expr;
+                quote::quote!(#value)
+            }
+            syn::Expr::Block(mut block) if block.label.is_none() => match block.block.stmts.pop() {
+                Some(syn::Stmt::Expr(tail, None)) => {
+                    let attributes = block.attrs;
+                    let statements = block.block.stmts;
+                    let tail = result_tokens(tail);
+                    quote::quote!(#(#attributes)* { #(#statements)* #tail })
+                }
+                Some(statement) => {
+                    block.block.stmts.push(statement);
+                    quote::quote!(Ok(#block))
+                }
+                None => quote::quote!(Ok(#block)),
+            },
+            value => quote::quote!(Ok(#value)),
+        }
+    }
+    let parsed = syn::parse_str(value)
+        .map_err(|source| error(format!("invalid adapter conversion expression: {source}")))?;
+    Ok(result_tokens(parsed).to_string())
+}
+
+#[cfg(test)]
+pub(super) fn assert_direct_conversion_results(source: &str) {
+    #[derive(Default)]
+    struct Wrappers(usize);
+    impl<'ast> syn::visit::Visit<'ast> for Wrappers {
+        fn visit_expr_call(&mut self, call: &'ast syn::ExprCall) {
+            if matches!(call.func.as_ref(), syn::Expr::Path(path) if path.path.is_ident("Ok"))
+                && matches!(call.args.first(), Some(syn::Expr::Try(_)))
+            {
+                self.0 += 1;
+            }
+            syn::visit::visit_expr_call(self, call);
+        }
+    }
+    let mut wrappers = Wrappers::default();
+    syn::visit::Visit::visit_file(&mut wrappers, &syn::parse_file(source).unwrap());
+    assert_eq!(
+        wrappers.0, 0,
+        "conversion closures retain a redundant Ok(value?)"
+    );
+}
+
 fn requires_scalar_presence(field: &Field) -> bool {
     field.rules.contains(&LocalRule::Required) && matches!(field.ty, TypeRef::Scalar(_))
 }
@@ -860,5 +919,40 @@ fn scalar_wire(scalar: Scalar) -> &'static str {
         Scalar::I8 | Scalar::I16 | Scalar::I32 => "i32",
         Scalar::I64 => "i64",
         Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash | Scalar::I128Bits => "Vec<u8>",
+    }
+}
+
+#[cfg(test)]
+mod result_conversion_tests {
+    use super::*;
+
+    fn tokens(source: &str) -> String {
+        let expression: syn::Expr = syn::parse_str(source).unwrap();
+        quote::quote!(#expression).to_string()
+    }
+
+    #[test]
+    fn conversion_results_keep_nested_required_checks_and_indexed_paths() {
+        let source = r#"{ let wrapped = value; unknown_fields(&wrapped, path)?; native_from::<_, Wire>(required(wrapped.value.into_option(), path)?, &format!("{path}[{index}]"))? }"#;
+        let expected = r#"{ let wrapped = value; unknown_fields(&wrapped, path)?; native_from::<_, Wire>(required(wrapped.value.into_option(), path)?, &format!("{path}[{index}]")) }"#;
+        assert_eq!(conversion_result(source).unwrap(), tokens(expected));
+    }
+
+    #[test]
+    fn conversion_results_keep_success_wrappers_for_infallible_values_and_constructors() {
+        for source in [
+            "extract_bytes(value)",
+            "Wrapped { value: native_into(value, path)?, ..Default::default() }",
+            "(native_from(key, path)?, native_from(value, path)?)",
+        ] {
+            assert_eq!(
+                conversion_result(source).unwrap(),
+                tokens(&format!("Ok({source})"))
+            );
+        }
+        assert_eq!(
+            conversion_result("native_from(value, path)?").unwrap(),
+            tokens("native_from(value, path)")
+        );
     }
 }

@@ -100,7 +100,7 @@ pub fn lazy_decode_probe(
         for field in &message.field {
             // Oneof variants, maps and groups are eager, including their full
             // descendants. Their maintained decode route checks child capability.
-            if field.r#type != Some(Type::TYPE_MESSAGE.into())
+            if field.r#type != Some(Type::TYPE_MESSAGE)
                 || (field.oneof_index.is_some() && field.proto3_optional != Some(true))
             {
                 continue;
@@ -129,7 +129,7 @@ pub fn lazy_decode_probe(
                 .as_deref()
                 .ok_or_else(|| error("deferred field has no name"))?;
             let ident = buffa_codegen::idents::make_field_ident(field_name);
-            let method = if field.label == Some(Label::LABEL_REPEATED.into()) {
+            let method = if field.label == Some(Label::LABEL_REPEATED) {
                 "probe_repeated"
             } else {
                 "probe_singular"

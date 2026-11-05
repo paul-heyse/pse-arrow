@@ -1018,6 +1018,7 @@ fn native_adapters_follow_source_fields_explicit_tags_and_recursive_presence() {
     let source =
         native_adapters(&graph, &["Request", "Value"], "crate::wire", "pse_codegen").unwrap();
     syn::parse_file(&source).unwrap();
+    adapters::assert_direct_conversion_results(&source);
     let compact = source
         .chars()
         .filter(|ch| !ch.is_whitespace())

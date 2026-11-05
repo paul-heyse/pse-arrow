@@ -109,18 +109,16 @@ impl NativeInto<
             ),
             basis: field_10
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ModelingApplicabilityBasis,
-                        >(value, &child_path(path, "basis"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ModelingApplicabilityBasis,
+                    >(value, &child_path(path, "basis"))
                 })
                 .transpose()?
                 .into(),
             reason: field_11
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "reason"))?)
+                    native_into::<_, String>(value, &child_path(path, "reason"))
                 })
                 .transpose()?,
             ..Default::default()
@@ -159,22 +157,18 @@ impl NativeFrom<
             wire
                 .id
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                            value,
-                            &child_path(path, "id"),
-                        )?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "id"),
                     )
                 })
                 .transpose()?,
             wire
                 .coverage
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                            value,
-                            &child_path(path, "coverage"),
-                        )?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "coverage"),
                     )
                 })
                 .transpose()?,
@@ -189,11 +183,9 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                                value,
-                                &format!("{path}[{index}]", path = current_path),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -202,11 +194,9 @@ impl NativeFrom<
             wire
                 .evidence
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                            value,
-                            &child_path(path, "evidence"),
-                        )?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "evidence"),
                     )
                 })
                 .transpose()?,
@@ -225,11 +215,9 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                                value,
-                                &format!("{path}[{index}]", path = current_path),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -242,11 +230,9 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                                value,
-                                &format!("{path}[{index}]", path = current_path),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -263,18 +249,16 @@ impl NativeFrom<
                 .basis
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ModelingApplicabilityBasis,
-                        >(value, &child_path(path, "basis"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ModelingApplicabilityBasis,
+                    >(value, &child_path(path, "basis"))
                 })
                 .transpose()?,
             wire
                 .reason
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "reason"))?)
+                    native_from::<_, String>(value, &child_path(path, "reason"))
                 })
                 .transpose()?,
         );
@@ -404,12 +388,10 @@ impl NativeInto<
                 items(field_2)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityInput,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityInput,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -425,12 +407,10 @@ impl NativeInto<
                 items(field_5)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityPermission,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityPermission,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -483,11 +463,9 @@ impl NativeFrom<
             wire
                 .instance
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                            value,
-                            &child_path(path, "instance"),
-                        )?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "instance"),
                     )
                 })
                 .transpose()?,
@@ -498,12 +476,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityInput,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityInput,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -523,12 +499,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityPermission,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityPermission,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -654,11 +628,9 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                                value,
-                                &format!("{path}[{index}]", path = current_path),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -757,12 +729,10 @@ for [u64; 2] {
                 items(field_0)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                u64,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -792,12 +762,10 @@ for [u64; 2] {
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                u64,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -835,12 +803,10 @@ impl NativeInto<
                 items(field_0)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::Array16U8,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Array16U8,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -871,12 +837,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::Array16U8,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Array16U8,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -921,12 +885,10 @@ impl NativeInto<
                         Ok(crate::math::native_root_generated::pb::pse::native_root::v2::array8optional_unit_id::Field1Value {
                             value: value
                                 .map(|value| -> Result<_, AdapterError> {
-                                    Ok(
-                                        native_into::<
-                                            _,
-                                            crate::math::native_root_generated::pb::pse::native_root::v2::UnitId,
-                                        >(value, &format!("{path}[{index}]", path = current_path))?,
-                                    )
+                                    native_into::<
+                                        _,
+                                        crate::math::native_root_generated::pb::pse::native_root::v2::UnitId,
+                                    >(value, &format!("{path}[{index}]", path = current_path))
                                 })
                                 .transpose()?
                                 .into(),
@@ -966,7 +928,7 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok({
+                        {
                             let wrapped = value;
                             unknown_fields(
                                 &wrapped.__buffa_unknown_fields,
@@ -976,15 +938,13 @@ impl NativeFrom<
                                 .value
                                 .into_option()
                                 .map(|value| -> Result<_, AdapterError> {
-                                    Ok(
-                                        native_from::<
-                                            _,
-                                            crate::math::native_root_generated::pb::pse::native_root::v2::UnitId,
-                                        >(value, &format!("{path}[{index}]", path = current_path))?,
-                                    )
+                                    native_from::<
+                                        _,
+                                        crate::math::native_root_generated::pb::pse::native_root::v2::UnitId,
+                                    >(value, &format!("{path}[{index}]", path = current_path))
                                 })
-                                .transpose()?
-                        })
+                                .transpose()
+                        }
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -1022,12 +982,10 @@ impl NativeInto<
                 items(field_0)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalRatio,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalRatio,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -1058,12 +1016,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalRatio,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalRatio,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -1450,12 +1406,10 @@ impl NativeInto<
                 items(field_2)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::UnitFactor,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::UnitFactor,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -1494,12 +1448,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::UnitFactor,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::UnitFactor,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -1945,12 +1897,10 @@ impl NativeInto<
                                     items(field_0)
                                         .enumerate()
                                         .map(|(index, value)| -> Result<_, AdapterError> {
-                                            Ok(
-                                                native_into::<
-                                                    _,
-                                                    crate::math::native_root_generated::pb::pse::native_root::v2::DiagnosticOperandContract,
-                                                >(value, &format!("{path}[{index}]", path = current_path))?,
-                                            )
+                                            native_into::<
+                                                _,
+                                                crate::math::native_root_generated::pb::pse::native_root::v2::DiagnosticOperandContract,
+                                            >(value, &format!("{path}[{index}]", path = current_path))
                                         })
                                         .collect::<Result<Vec<_>, _>>()?
                                 },
@@ -2214,12 +2164,10 @@ impl NativeFrom<
                             .into_iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        crate::math::native_root_generated::pb::pse::native_root::v2::DiagnosticOperandContract,
-                                    >(value, &format!("{path}[{index}]", path = current_path))?,
-                                )
+                                native_from::<
+                                    _,
+                                    crate::math::native_root_generated::pb::pse::native_root::v2::DiagnosticOperandContract,
+                                >(value, &format!("{path}[{index}]", path = current_path))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -2266,12 +2214,10 @@ impl NativeInto<
                 items(field_1)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::Array3Array16U8,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Array3Array16U8,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -2309,12 +2255,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::Array3Array16U8,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Array3Array16U8,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2731,12 +2675,10 @@ impl NativeInto<
                 items(field_0)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                u64,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -2745,12 +2687,10 @@ impl NativeInto<
                 items(field_1)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                u64,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -2759,12 +2699,10 @@ impl NativeInto<
                 items(field_2)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                u64,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -2773,12 +2711,10 @@ impl NativeInto<
                 items(field_3)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                u64,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -2828,12 +2764,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                u64,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2845,12 +2779,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                u64,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2862,12 +2794,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                u64,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2879,12 +2809,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                u64,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -3060,12 +2988,10 @@ impl NativeInto<
                 items(field_0)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::KindFactor,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::KindFactor,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -3077,23 +3003,19 @@ impl NativeInto<
             ),
             basis: field_2
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
-                        >(value, &child_path(path, "basis"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
+                    >(value, &child_path(path, "basis"))
                 })
                 .transpose()?
                 .into(),
             reference_state: field_3
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
-                        >(value, &child_path(path, "reference_state"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
+                    >(value, &child_path(path, "reference_state"))
                 })
                 .transpose()?
                 .into(),
@@ -3105,12 +3027,10 @@ impl NativeInto<
             ),
             subject_kind: field_5
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
-                        >(value, &child_path(path, "subject_kind"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
+                    >(value, &child_path(path, "subject_kind"))
                 })
                 .transpose()?
                 .into(),
@@ -3148,12 +3068,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::KindFactor,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::KindFactor,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -3172,24 +3090,20 @@ impl NativeFrom<
                 .basis
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
-                        >(value, &child_path(path, "basis"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
+                    >(value, &child_path(path, "basis"))
                 })
                 .transpose()?,
             wire
                 .reference_state
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
-                        >(value, &child_path(path, "reference_state"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
+                    >(value, &child_path(path, "reference_state"))
                 })
                 .transpose()?,
             native_from::<
@@ -3206,12 +3120,10 @@ impl NativeFrom<
                 .subject_kind
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
-                        >(value, &child_path(path, "subject_kind"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
+                    >(value, &child_path(path, "subject_kind"))
                 })
                 .transpose()?,
         );
@@ -3391,11 +3303,9 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                                value,
-                                &format!("{path}[{index}]", path = current_path),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -3552,12 +3462,10 @@ impl NativeInto<
                 items(field_1)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::ModelBoundaryDiagnostic,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ModelBoundaryDiagnostic,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -3613,23 +3521,19 @@ impl NativeInto<
                 items(field_8)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::ModelSourceLocation,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ModelSourceLocation,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
             validity: field_9
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ModelValidityLineage,
-                        >(value, &child_path(path, "validity"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ModelValidityLineage,
+                    >(value, &child_path(path, "validity"))
                 })
                 .transpose()?
                 .into(),
@@ -3638,12 +3542,10 @@ impl NativeInto<
                 items(field_10)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityObservation,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityObservation,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -3693,12 +3595,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::ModelBoundaryDiagnostic,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ModelBoundaryDiagnostic,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -3731,11 +3631,9 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                                value,
-                                &format!("{path}[{index}]", path = current_path),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -3774,12 +3672,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::ModelSourceLocation,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ModelSourceLocation,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -3788,12 +3684,10 @@ impl NativeFrom<
                 .validity
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ModelValidityLineage,
-                        >(value, &child_path(path, "validity"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ModelValidityLineage,
+                    >(value, &child_path(path, "validity"))
                 })
                 .transpose()?,
             {
@@ -3803,12 +3697,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityObservation,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityObservation,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -3884,38 +3776,31 @@ impl NativeInto<
                 .transpose()?,
             occurrence_role: field_3
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            String,
-                        >(value, &child_path(path, "occurrence_role"))?,
-                    )
+                    native_into::<_, String>(value, &child_path(path, "occurrence_role"))
                 })
                 .transpose()?,
             occurrence_position: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            u32,
-                        >(value, &child_path(path, "occurrence_position"))?,
-                    )
+                    native_into::<
+                        _,
+                        u32,
+                    >(value, &child_path(path, "occurrence_position"))
                 })
                 .transpose()?,
             path: native_into::<_, String>(field_5, &child_path(path, "path"))?,
             name: field_6
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "name"))?)
+                    native_into::<_, String>(value, &child_path(path, "name"))
                 })
                 .transpose()?,
             start: field_7
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, u32>(value, &child_path(path, "start"))?)
+                    native_into::<_, u32>(value, &child_path(path, "start"))
                 })
                 .transpose()?,
             end: field_8
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, u32>(value, &child_path(path, "end"))?)
+                    native_into::<_, u32>(value, &child_path(path, "end"))
                 })
                 .transpose()?,
             ..Default::default()
@@ -3955,64 +3840,53 @@ impl NativeFrom<
             wire
                 .revision
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                            value,
-                            &child_path(path, "revision"),
-                        )?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "revision"),
                     )
                 })
                 .transpose()?,
             wire
                 .document
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                            value,
-                            &child_path(path, "document"),
-                        )?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "document"),
                     )
                 })
                 .transpose()?,
             wire
                 .occurrence_role
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            String,
-                        >(value, &child_path(path, "occurrence_role"))?,
-                    )
+                    native_from::<_, String>(value, &child_path(path, "occurrence_role"))
                 })
                 .transpose()?,
             wire
                 .occurrence_position
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            u32,
-                        >(value, &child_path(path, "occurrence_position"))?,
-                    )
+                    native_from::<
+                        _,
+                        u32,
+                    >(value, &child_path(path, "occurrence_position"))
                 })
                 .transpose()?,
             native_from::<_, String>(wire.path, &child_path(path, "path"))?,
             wire
                 .name
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "name"))?)
+                    native_from::<_, String>(value, &child_path(path, "name"))
                 })
                 .transpose()?,
             wire
                 .start
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, u32>(value, &child_path(path, "start"))?)
+                    native_from::<_, u32>(value, &child_path(path, "start"))
                 })
                 .transpose()?,
             wire
                 .end
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, u32>(value, &child_path(path, "end"))?)
+                    native_from::<_, u32>(value, &child_path(path, "end"))
                 })
                 .transpose()?,
         );
@@ -4078,12 +3952,10 @@ impl NativeInto<
                 items(field_4)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                u32,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            u32,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -4133,11 +4005,9 @@ impl NativeFrom<
             wire
                 .form
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                            value,
-                            &child_path(path, "form"),
-                        )?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "form"),
                     )
                 })
                 .transpose()?,
@@ -4148,11 +4018,9 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                                value,
-                                &format!("{path}[{index}]", path = current_path),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -4165,12 +4033,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                u32,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            u32,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -4182,11 +4048,9 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                                value,
-                                &format!("{path}[{index}]", path = current_path),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -4813,12 +4677,10 @@ impl NativeInto<
                 items(field_4)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::ImplicitUnknown,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ImplicitUnknown,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -4832,12 +4694,10 @@ impl NativeInto<
                 items(field_6)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                u64,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -4862,12 +4722,10 @@ impl NativeInto<
                 items(field_10)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalPrerequisiteDeclaration,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalPrerequisiteDeclaration,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -4935,12 +4793,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::ImplicitUnknown,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ImplicitUnknown,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -4952,11 +4808,9 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                                value,
-                                &format!("{path}[{index}]", path = current_path),
-                            )?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -4969,12 +4823,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                u64,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -5004,12 +4856,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalPrerequisiteDeclaration,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalPrerequisiteDeclaration,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -5058,12 +4908,10 @@ impl NativeInto<
                                     items(field_0)
                                         .enumerate()
                                         .map(|(index, value)| -> Result<_, AdapterError> {
-                                            Ok(
-                                                native_into::<
-                                                    _,
-                                                    u64,
-                                                >(value, &format!("{path}[{index}]", path = current_path))?,
-                                            )
+                                            native_into::<
+                                                _,
+                                                u64,
+                                            >(value, &format!("{path}[{index}]", path = current_path))
                                         })
                                         .collect::<Result<Vec<_>, _>>()?
                                 },
@@ -5164,12 +5012,10 @@ impl NativeFrom<
                             .into_iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        u64,
-                                    >(value, &format!("{path}[{index}]", path = current_path))?,
-                                )
+                                native_from::<
+                                    _,
+                                    u64,
+                                >(value, &format!("{path}[{index}]", path = current_path))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -5247,12 +5093,10 @@ impl NativeInto<
         Ok(crate::math::native_root_generated::pb::pse::native_root::v2::NativeRootRequest {
             diagnostic_parent: field_0
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::DiagnosticOperationId,
-                        >(value, &child_path(path, "diagnostic_parent"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::DiagnosticOperationId,
+                    >(value, &child_path(path, "diagnostic_parent"))
                 })
                 .transpose()?
                 .into(),
@@ -5305,12 +5149,10 @@ impl NativeFrom<
                 .diagnostic_parent
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::DiagnosticOperationId,
-                        >(value, &child_path(path, "diagnostic_parent"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::DiagnosticOperationId,
+                    >(value, &child_path(path, "diagnostic_parent"))
                 })
                 .transpose()?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
@@ -5606,34 +5448,28 @@ impl NativeInto<
             ),
             composition_basis: field_2
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::CompositionBasis,
-                        >(value, &child_path(path, "composition_basis"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::CompositionBasis,
+                    >(value, &child_path(path, "composition_basis"))
                 })
                 .transpose()?
                 .into(),
             rate_basis: field_3
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::RateBasis,
-                        >(value, &child_path(path, "rate_basis"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::RateBasis,
+                    >(value, &child_path(path, "rate_basis"))
                 })
                 .transpose()?
                 .into(),
             reference_conditions: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
-                        >(value, &child_path(path, "reference_conditions"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
+                    >(value, &child_path(path, "reference_conditions"))
                 })
                 .transpose()?
                 .into(),
@@ -5681,36 +5517,30 @@ impl NativeFrom<
                 .composition_basis
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::CompositionBasis,
-                        >(value, &child_path(path, "composition_basis"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::CompositionBasis,
+                    >(value, &child_path(path, "composition_basis"))
                 })
                 .transpose()?,
             wire
                 .rate_basis
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::RateBasis,
-                        >(value, &child_path(path, "rate_basis"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::RateBasis,
+                    >(value, &child_path(path, "rate_basis"))
                 })
                 .transpose()?,
             wire
                 .reference_conditions
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
-                        >(value, &child_path(path, "reference_conditions"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
+                    >(value, &child_path(path, "reference_conditions"))
                 })
                 .transpose()?,
         );
@@ -5788,23 +5618,21 @@ impl NativeInto<
                 items(field_5)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                String,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            String,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
             scale: field_6
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, u64>(value, &child_path(path, "scale"))?)
+                    native_into::<_, u64>(value, &child_path(path, "scale"))
                 })
                 .transpose()?,
             offset: field_7
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, u64>(value, &child_path(path, "offset"))?)
+                    native_into::<_, u64>(value, &child_path(path, "offset"))
                 })
                 .transpose()?,
             ..Default::default()
@@ -5867,11 +5695,9 @@ impl NativeFrom<
             wire
                 .kernel
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                            value,
-                            &child_path(path, "kernel"),
-                        )?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "kernel"),
                     )
                 })
                 .transpose()?,
@@ -5882,12 +5708,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                String,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            String,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -5895,13 +5719,13 @@ impl NativeFrom<
             wire
                 .scale
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, u64>(value, &child_path(path, "scale"))?)
+                    native_from::<_, u64>(value, &child_path(path, "scale"))
                 })
                 .transpose()?,
             wire
                 .offset
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, u64>(value, &child_path(path, "offset"))?)
+                    native_from::<_, u64>(value, &child_path(path, "offset"))
                 })
                 .transpose()?,
         );
@@ -6179,12 +6003,10 @@ impl NativeInto<
                 items(field_2)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::QuantityKindId,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::QuantityKindId,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -6220,27 +6042,22 @@ impl NativeInto<
             ),
             basis_source: field_8
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, u32>(value, &child_path(path, "basis_source"))?)
+                    native_into::<_, u32>(value, &child_path(path, "basis_source"))
                 })
                 .transpose()?,
             reference_source: field_9
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            u32,
-                        >(value, &child_path(path, "reference_source"))?,
-                    )
+                    native_into::<_, u32>(value, &child_path(path, "reference_source"))
                 })
                 .transpose()?,
             scale_source: field_10
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, u32>(value, &child_path(path, "scale_source"))?)
+                    native_into::<_, u32>(value, &child_path(path, "scale_source"))
                 })
                 .transpose()?,
             shape_source: field_11
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, u32>(value, &child_path(path, "shape_source"))?)
+                    native_into::<_, u32>(value, &child_path(path, "shape_source"))
                 })
                 .transpose()?,
             subject_rule: buffa::MessageField::some(
@@ -6251,44 +6068,33 @@ impl NativeInto<
             ),
             subject_source: field_13
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            u32,
-                        >(value, &child_path(path, "subject_source"))?,
-                    )
+                    native_into::<_, u32>(value, &child_path(path, "subject_source"))
                 })
                 .transpose()?,
             result_subject_kind: field_14
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
-                        >(value, &child_path(path, "result_subject_kind"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
+                    >(value, &child_path(path, "result_subject_kind"))
                 })
                 .transpose()?
                 .into(),
             result_basis: field_15
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
-                        >(value, &child_path(path, "result_basis"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
+                    >(value, &child_path(path, "result_basis"))
                 })
                 .transpose()?
                 .into(),
             result_reference_state: field_16
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
-                        >(value, &child_path(path, "result_reference_state"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
+                    >(value, &child_path(path, "result_reference_state"))
                 })
                 .transpose()?
                 .into(),
@@ -6297,12 +6103,10 @@ impl NativeInto<
                 items(field_17)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalInputConversionDeclaration,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalInputConversionDeclaration,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -6311,12 +6115,10 @@ impl NativeInto<
                 items(field_18)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::InvariantId,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::InvariantId,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -6381,12 +6183,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::QuantityKindId,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::QuantityKindId,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6444,30 +6244,25 @@ impl NativeFrom<
             wire
                 .basis_source
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, u32>(value, &child_path(path, "basis_source"))?)
+                    native_from::<_, u32>(value, &child_path(path, "basis_source"))
                 })
                 .transpose()?,
             wire
                 .reference_source
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            u32,
-                        >(value, &child_path(path, "reference_source"))?,
-                    )
+                    native_from::<_, u32>(value, &child_path(path, "reference_source"))
                 })
                 .transpose()?,
             wire
                 .scale_source
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, u32>(value, &child_path(path, "scale_source"))?)
+                    native_from::<_, u32>(value, &child_path(path, "scale_source"))
                 })
                 .transpose()?,
             wire
                 .shape_source
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, u32>(value, &child_path(path, "shape_source"))?)
+                    native_from::<_, u32>(value, &child_path(path, "shape_source"))
                 })
                 .transpose()?,
             native_from::<
@@ -6483,48 +6278,37 @@ impl NativeFrom<
             wire
                 .subject_source
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            u32,
-                        >(value, &child_path(path, "subject_source"))?,
-                    )
+                    native_from::<_, u32>(value, &child_path(path, "subject_source"))
                 })
                 .transpose()?,
             wire
                 .result_subject_kind
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
-                        >(value, &child_path(path, "result_subject_kind"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
+                    >(value, &child_path(path, "result_subject_kind"))
                 })
                 .transpose()?,
             wire
                 .result_basis
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
-                        >(value, &child_path(path, "result_basis"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
+                    >(value, &child_path(path, "result_basis"))
                 })
                 .transpose()?,
             wire
                 .result_reference_state
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
-                        >(value, &child_path(path, "result_reference_state"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
+                    >(value, &child_path(path, "result_reference_state"))
                 })
                 .transpose()?,
             {
@@ -6534,12 +6318,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalInputConversionDeclaration,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalInputConversionDeclaration,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6551,12 +6333,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::InvariantId,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::InvariantId,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6600,12 +6380,10 @@ impl NativeInto<
                 items(field_1)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                u32,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            u32,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -6649,12 +6427,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                u32,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            u32,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -6710,12 +6486,10 @@ impl NativeInto<
                             Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::physical_prerequisite_predicate::Alternative1 {
                                 required: field_0
                                     .map(|value| -> Result<_, AdapterError> {
-                                        Ok(
-                                            native_into::<
-                                                _,
-                                                crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
-                                            >(value, &child_path(path, "required"))?,
-                                        )
+                                        native_into::<
+                                            _,
+                                            crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
+                                        >(value, &child_path(path, "required"))
                                     })
                                     .transpose()?
                                     .into(),
@@ -6857,12 +6631,10 @@ impl NativeFrom<
                         .required
                         .into_option()
                         .map(|value| -> Result<_, AdapterError> {
-                            Ok(
-                                native_from::<
-                                    _,
-                                    crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
-                                >(value, &child_path(path, "required"))?,
-                            )
+                            native_from::<
+                                _,
+                                crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
+                            >(value, &child_path(path, "required"))
                         })
                         .transpose()?,
                 );
@@ -7004,23 +6776,19 @@ impl NativeInto<
             ),
             category: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::QuantityKindCategory,
-                        >(value, &child_path(path, "category"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::QuantityKindCategory,
+                    >(value, &child_path(path, "category"))
                 })
                 .transpose()?
                 .into(),
             definition: field_5
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::KindDefinition,
-                        >(value, &child_path(path, "definition"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::KindDefinition,
+                    >(value, &child_path(path, "definition"))
                 })
                 .transpose()?
                 .into(),
@@ -7080,24 +6848,20 @@ impl NativeFrom<
                 .category
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::QuantityKindCategory,
-                        >(value, &child_path(path, "category"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::QuantityKindCategory,
+                    >(value, &child_path(path, "category"))
                 })
                 .transpose()?,
             wire
                 .definition
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::KindDefinition,
-                        >(value, &child_path(path, "definition"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::KindDefinition,
+                    >(value, &child_path(path, "definition"))
                 })
                 .transpose()?,
         );
@@ -7213,12 +6977,10 @@ impl NativeInto<
                 items(field_0)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalEntityKind,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalEntityKind,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -7227,12 +6989,10 @@ impl NativeInto<
                 items(field_1)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalUnit,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalUnit,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -7241,12 +7001,10 @@ impl NativeInto<
                 items(field_2)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::DeclaredDefinedUnit,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::DeclaredDefinedUnit,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -7255,12 +7013,10 @@ impl NativeInto<
                 items(field_3)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalQuantityKind,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalQuantityKind,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -7269,12 +7025,10 @@ impl NativeInto<
                 items(field_4)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::DeclaredDerivedKind,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::DeclaredDerivedKind,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -7283,12 +7037,10 @@ impl NativeInto<
                 items(field_5)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalBasis,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalBasis,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -7297,12 +7049,10 @@ impl NativeInto<
                 items(field_6)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceState,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceState,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -7311,12 +7061,10 @@ impl NativeInto<
                 items(field_7)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::QuantityType,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::QuantityType,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -7325,12 +7073,10 @@ impl NativeInto<
                 items(field_8)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalConversionDeclaration,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalConversionDeclaration,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -7339,12 +7085,10 @@ impl NativeInto<
                 items(field_9)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalOperationDeclaration,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalOperationDeclaration,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -7353,12 +7097,10 @@ impl NativeInto<
                 items(field_10)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfOperationIdAndEntityKindId,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfOperationIdAndEntityKindId,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -7367,12 +7109,10 @@ impl NativeInto<
                 items(field_11)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalUnitSet,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalUnitSet,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -7381,12 +7121,10 @@ impl NativeInto<
                 items(field_12)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::QuantityTypeId,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::QuantityTypeId,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
@@ -7431,12 +7169,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalEntityKind,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalEntityKind,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7448,12 +7184,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalUnit,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalUnit,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7465,12 +7199,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::DeclaredDefinedUnit,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::DeclaredDefinedUnit,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7482,12 +7214,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalQuantityKind,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalQuantityKind,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7499,12 +7229,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::DeclaredDerivedKind,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::DeclaredDerivedKind,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7516,12 +7244,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalBasis,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalBasis,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7533,12 +7259,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceState,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceState,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7550,12 +7274,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::QuantityType,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::QuantityType,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7567,12 +7289,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalConversionDeclaration,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalConversionDeclaration,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7584,12 +7304,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalOperationDeclaration,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalOperationDeclaration,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7601,12 +7319,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfOperationIdAndEntityKindId,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfOperationIdAndEntityKindId,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7618,12 +7334,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalUnitSet,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::PhysicalUnitSet,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7635,12 +7349,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::QuantityTypeId,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::QuantityTypeId,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -7706,12 +7418,10 @@ impl NativeInto<
             is_affine: native_into::<_, bool>(field_5, &child_path(path, "is_affine"))?,
             reference_state: field_6
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
-                        >(value, &child_path(path, "reference_state"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
+                    >(value, &child_path(path, "reference_state"))
                 })
                 .transpose()?
                 .into(),
@@ -7723,12 +7433,10 @@ impl NativeInto<
                             items(value)
                                 .enumerate()
                                 .map(|(index, value)| -> Result<_, AdapterError> {
-                                    Ok(
-                                        native_into::<
-                                            _,
-                                            crate::math::native_root_generated::pb::pse::native_root::v2::UnitFactor,
-                                        >(value, &format!("{path}[{index}]", path = current_path))?,
-                                    )
+                                    native_into::<
+                                        _,
+                                        crate::math::native_root_generated::pb::pse::native_root::v2::UnitFactor,
+                                    >(value, &format!("{path}[{index}]", path = current_path))
                                 })
                                 .collect::<Result<Vec<_>, _>>()?
                         },
@@ -7794,19 +7502,17 @@ impl NativeFrom<
                 .reference_state
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
-                        >(value, &child_path(path, "reference_state"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
+                    >(value, &child_path(path, "reference_state"))
                 })
                 .transpose()?,
             wire
                 .definition
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok({
+                    {
                         let wrapped = value;
                         unknown_fields(
                             &wrapped.__buffa_unknown_fields,
@@ -7819,17 +7525,15 @@ impl NativeFrom<
                                 .into_iter()
                                 .enumerate()
                                 .map(|(index, value)| -> Result<_, AdapterError> {
-                                    Ok(
-                                        native_from::<
-                                            _,
-                                            crate::math::native_root_generated::pb::pse::native_root::v2::UnitFactor,
-                                        >(value, &format!("{path}[{index}]", path = current_path))?,
-                                    )
+                                    native_from::<
+                                        _,
+                                        crate::math::native_root_generated::pb::pse::native_root::v2::UnitFactor,
+                                    >(value, &format!("{path}[{index}]", path = current_path))
                                 })
                                 .collect::<Result<Vec<_>, _>>()?;
-                            from_items(values, current_path)?
+                            from_items(values, current_path)
                         }
-                    })
+                    }
                 })
                 .transpose()?,
         );
@@ -7981,12 +7685,10 @@ impl NativeInto<
                                     items(field_0)
                                         .enumerate()
                                         .map(|(index, value)| -> Result<_, AdapterError> {
-                                            Ok(
-                                                native_into::<
-                                                    _,
-                                                    u32,
-                                                >(value, &format!("{path}[{index}]", path = current_path))?,
-                                            )
+                                            native_into::<
+                                                _,
+                                                u32,
+                                            >(value, &format!("{path}[{index}]", path = current_path))
                                         })
                                         .collect::<Result<Vec<_>, _>>()?
                                 },
@@ -8081,12 +7783,10 @@ impl NativeFrom<
                             .into_iter()
                             .enumerate()
                             .map(|(index, value)| -> Result<_, AdapterError> {
-                                Ok(
-                                    native_from::<
-                                        _,
-                                        u32,
-                                    >(value, &format!("{path}[{index}]", path = current_path))?,
-                                )
+                                native_from::<
+                                    _,
+                                    u32,
+                                >(value, &format!("{path}[{index}]", path = current_path))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         from_items(values, current_path)?
@@ -8325,7 +8025,7 @@ impl NativeInto<
             ),
             name: field_1
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_into::<_, String>(value, &child_path(path, "name"))?)
+                    native_into::<_, String>(value, &child_path(path, "name"))
                 })
                 .transpose()?,
             key: buffa::MessageField::some(
@@ -8342,12 +8042,7 @@ impl NativeInto<
             ),
             nominal_magnitude: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            u64,
-                        >(value, &child_path(path, "nominal_magnitude"))?,
-                    )
+                    native_into::<_, u64>(value, &child_path(path, "nominal_magnitude"))
                 })
                 .transpose()?,
             ..Default::default()
@@ -8386,7 +8081,7 @@ impl NativeFrom<
             wire
                 .name
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, String>(value, &child_path(path, "name"))?)
+                    native_from::<_, String>(value, &child_path(path, "name"))
                 })
                 .transpose()?,
             native_from::<
@@ -8409,12 +8104,7 @@ impl NativeFrom<
             wire
                 .nominal_magnitude
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            u64,
-                        >(value, &child_path(path, "nominal_magnitude"))?,
-                    )
+                    native_from::<_, u64>(value, &child_path(path, "nominal_magnitude"))
                 })
                 .transpose()?,
         );
@@ -8517,23 +8207,19 @@ impl NativeInto<
             ),
             basis: field_1
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
-                        >(value, &child_path(path, "basis"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
+                    >(value, &child_path(path, "basis"))
                 })
                 .transpose()?
                 .into(),
             reference_state: field_2
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
-                        >(value, &child_path(path, "reference_state"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
+                    >(value, &child_path(path, "reference_state"))
                 })
                 .transpose()?
                 .into(),
@@ -8548,23 +8234,19 @@ impl NativeInto<
                 items(field_4)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_into::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
             subject_kind: field_5
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
-                        >(value, &child_path(path, "subject_kind"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
+                    >(value, &child_path(path, "subject_kind"))
                 })
                 .transpose()?
                 .into(),
@@ -8606,24 +8288,20 @@ impl NativeFrom<
                 .basis
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
-                        >(value, &child_path(path, "basis"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::BasisId,
+                    >(value, &child_path(path, "basis"))
                 })
                 .transpose()?,
             wire
                 .reference_state
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
-                        >(value, &child_path(path, "reference_state"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceStateId,
+                    >(value, &child_path(path, "reference_state"))
                 })
                 .transpose()?,
             native_from::<
@@ -8643,12 +8321,10 @@ impl NativeFrom<
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(
-                            native_from::<
-                                _,
-                                crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
-                            >(value, &format!("{path}[{index}]", path = current_path))?,
-                        )
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
+                        >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -8657,12 +8333,10 @@ impl NativeFrom<
                 .subject_kind
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
-                        >(value, &child_path(path, "subject_kind"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::EntityKindId,
+                    >(value, &child_path(path, "subject_kind"))
                 })
                 .transpose()?,
         );
@@ -8859,23 +8533,19 @@ impl NativeInto<
             ),
             temperature: field_3
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceCondition,
-                        >(value, &child_path(path, "temperature"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceCondition,
+                    >(value, &child_path(path, "temperature"))
                 })
                 .transpose()?
                 .into(),
             pressure: field_4
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_into::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceCondition,
-                        >(value, &child_path(path, "pressure"))?,
-                    )
+                    native_into::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceCondition,
+                    >(value, &child_path(path, "pressure"))
                 })
                 .transpose()?
                 .into(),
@@ -8939,24 +8609,20 @@ impl NativeFrom<
                 .temperature
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceCondition,
-                        >(value, &child_path(path, "temperature"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceCondition,
+                    >(value, &child_path(path, "temperature"))
                 })
                 .transpose()?,
             wire
                 .pressure
                 .into_option()
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        native_from::<
-                            _,
-                            crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceCondition,
-                        >(value, &child_path(path, "pressure"))?,
-                    )
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::ReferenceCondition,
+                    >(value, &child_path(path, "pressure"))
                 })
                 .transpose()?,
             native_from::<
@@ -8969,11 +8635,9 @@ impl NativeFrom<
             wire
                 .subject
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(
-                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                            value,
-                            &child_path(path, "subject"),
-                        )?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "subject"),
                     )
                 })
                 .transpose()?,

@@ -207,11 +207,7 @@ impl pse_contract::boundary_projection::ProjectionRecord for ExtensionQuantityVa
     }
 }
 impl pse_contract::boundary_projection::ValidateProjection for ExtensionQuantityValue {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
+    const NEEDS_RECURSIVE_VALIDATION: bool = <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,

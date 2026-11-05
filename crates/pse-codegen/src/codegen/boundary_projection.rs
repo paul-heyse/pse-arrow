@@ -385,13 +385,7 @@ pub fn descriptors_for_direction(
         file: dependency_order(files)?,
         ..Default::default()
     };
-    let validators: [(
-        &str,
-        fn(
-            &buffa_descriptor::DynamicMessage,
-            pse_contract_proto::FieldContext<'_>,
-        ) -> Result<Option<Vec<u8>>, ProjectionCodegenError>,
-    ); 1] = [(
+    let validators: [(&str, source_metadata::DomainCheck); 1] = [(
         registry_facets::EXTENSION,
         registry_facets::normalize_field_option,
     )];
@@ -1299,18 +1293,18 @@ fn qualify_nested(
                 .collect(),
         ));
         for field in &mut message.field {
-            if let Some(name) = &mut field.type_name {
-                if !name.starts_with('.') {
-                    let first = name.split('.').next().unwrap_or_default();
-                    let declaring = ancestors
-                        .iter()
-                        .rev()
-                        .find(|(_, names)| names.contains(first))
-                        .ok_or_else(|| {
-                            error(format!("{scope}: unresolved relative nested type {name}"))
-                        })?;
-                    *name = format!(".{}.{name}", declaring.0);
-                }
+            if let Some(name) = &mut field.type_name
+                && !name.starts_with('.')
+            {
+                let first = name.split('.').next().unwrap_or_default();
+                let declaring = ancestors
+                    .iter()
+                    .rev()
+                    .find(|(_, names)| names.contains(first))
+                    .ok_or_else(|| {
+                        error(format!("{scope}: unresolved relative nested type {name}"))
+                    })?;
+                *name = format!(".{}.{name}", declaring.0);
             }
         }
         for nested in &mut message.nested_type {
