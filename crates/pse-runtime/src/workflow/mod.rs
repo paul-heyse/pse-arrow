@@ -228,9 +228,10 @@ pub use dynamics::SimulationProfile;
 pub use fitting::{
     Covariance, FitDeclaration, FitDeclarations, FitDerivatives, FitDiagnostic,
     FitExecutionDocument, FitOptimizer, FitPreparationDocument, FitProfile, FitProfileDocument,
-    FitReport, FitResidualReport, FitResidualTermination, FitRoute, FitRule, FitUncertainty,
-    FitWithheld, Interval, IntervalBound, PreparedFit, ProfileChain, ProfileControls,
-    ProfileFailure, ProfilePoint, ProfileWorkerFailure, ResidualLmCriteria, ResidualLmStopping,
+    FitReport, FitResidualReport, FitResidualTermination, FitRoute, FitRule, FitTrajectory,
+    FitUncertainty, FitWithheld, Interval, IntervalBound, PreparedFit, ProfileChain,
+    ProfileControls, ProfileFailure, ProfilePoint, ProfileWorkerFailure, ResidualLmCriteria,
+    ResidualLmStopping,
 };
 #[cfg(feature = "solver-diffsol")]
 pub use shooting::{

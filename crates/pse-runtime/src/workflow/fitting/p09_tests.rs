@@ -803,7 +803,40 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
                 <= parameter_allowance(&frozen, id(3)),
             "mode {mode}: {report:?}"
         );
-        let trajectory = &report.trajectories[&InstanceId::from(id(74))];
+        let selected = result.fit_trajectory(InstanceId::from(id(74))).unwrap();
+        assert!(selected.belongs_to(&result));
+        assert_eq!(selected.run_id(), result.run_id);
+        assert_eq!(selected.experiment_id(), InstanceId::from(id(74)));
+        assert_eq!(selected.canonical_run_key(), result.canonical_run_key());
+        assert_eq!(
+            selected.canonical_attempt_key(),
+            result.canonical_attempt_key()
+        );
+        assert!(std::ptr::eq(
+            selected.report(),
+            report.trajectories[&InstanceId::from(id(74))].as_ref()
+        ));
+        let crate::workflow::RunOutcome::Fit { request, .. } = &result.outcome else {
+            panic!("missing original fit request")
+        };
+        let other = crate::workflow::RunResult::joined(
+            result.run_id,
+            services.clone(),
+            crate::workflow::RunOutcome::Fit {
+                request: request.clone(),
+                result: Err(Arc::new(contract("uncompleted independent fit attempt"))),
+            },
+            None,
+        );
+        assert!(
+            !selected.belongs_to(&other),
+            "equal run keys are insufficient"
+        );
+        assert!(other.fit_trajectory(InstanceId::from(id(74))).is_none());
+        drop(other);
+        assert!(result.fit_trajectory(InstanceId::from(id(75))).is_none());
+        assert!(result.fit_trajectory(InstanceId::from(id(99))).is_none());
+        let trajectory = selected.report();
         assert_eq!(trajectory.completed_time, 161.);
         let candidate = report.candidate.as_ref().unwrap()[0];
         let slope = if mode == 1 { 0.5 } else { 1. };
@@ -849,6 +882,68 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
                 .batch()
                 .num_rows()
                 >= 2
+        );
+        assert!(
+            result
+                .fit_trajectory(InstanceId::from(id(74)))
+                .unwrap()
+                .governing_fit_permission()
+                .unwrap()
+                .permits_result()
+        );
+        // Controlled joined observations borrow the real final trajectory. The
+        // production result remains immutable, including any supervisor aliases.
+        let mut observed = candidate_fit_report(&frozen, vec![candidate]);
+        observed.trajectories = report.trajectories.clone();
+        observed.trajectories.insert(
+            InstanceId::from(id(99)),
+            report.trajectories[&InstanceId::from(id(74))].clone(),
+        );
+        let mut controlled = crate::workflow::RunResult::joined(
+            result.run_id,
+            services.clone(),
+            crate::workflow::RunOutcome::Fit {
+                request: request.clone(),
+                result: Ok(Box::new(observed)),
+            },
+            result._owner.clone(),
+        );
+        controlled.completion = Ok(result.completion().unwrap().clone());
+        let selected = controlled.fit_trajectory(InstanceId::from(id(74))).unwrap();
+        assert!(selected.belongs_to(&controlled));
+        assert!(!selected.belongs_to(&result));
+        assert!(std::ptr::eq(selected.report(), trajectory));
+        // A foreign map entry cannot invent an original transient experiment.
+        assert!(
+            controlled
+                .fit_trajectory(InstanceId::from(id(99)))
+                .is_none()
+        );
+        // Original governing failure and absence withhold use without hiding raw
+        // evidence or rerunning the independently checked first-interval fit.
+        controlled
+            .completion
+            .as_mut()
+            .unwrap()
+            .permission
+            .as_mut()
+            .unwrap()
+            .decision = pse_model::generated::enums::CandidateUse::Unusable;
+        let selected = controlled.fit_trajectory(InstanceId::from(id(74))).unwrap();
+        assert_eq!(selected.report().completed_time, 161.);
+        assert!(
+            !selected
+                .governing_fit_permission()
+                .unwrap()
+                .permits_result()
+        );
+        controlled.completion.as_mut().unwrap().permission = None;
+        let selected = controlled.fit_trajectory(InstanceId::from(id(74))).unwrap();
+        assert_eq!(selected.report().completed_time, 161.);
+        assert!(selected.governing_fit_permission().is_none());
+        assert!(
+            result.usable(),
+            "original joined permission stays unchanged"
         );
     }
 }
