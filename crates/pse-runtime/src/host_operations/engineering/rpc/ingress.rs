@@ -58,6 +58,22 @@ where
     B: http_body::Body<Data = Bytes> + Send + 'static,
     B::Error: std::error::Error + Send + Sync + 'static,
 {
+    let binary_grpc = request.method() == http::Method::POST
+        && request.version() == http::Version::HTTP_2
+        && connectrpc::Protocol::detect(request.headers()).is_some_and(|protocol| {
+            protocol.protocol == connectrpc::Protocol::Grpc
+                && protocol.codec_format == connectrpc::CodecFormat::Proto
+        });
+    if !binary_grpc {
+        return Ok(ConnectError::unimplemented(
+            "local engineering operations require binary gRPC POST over HTTP/2",
+        )
+        .into_http_response(request.headers())
+        .map(|body| ResponseBody {
+            body: Box::pin(body),
+            _owner: None,
+        }));
+    }
     let reservation = MemoryConsumer::new("engineering:rpc-ingress").register(&pool);
     // Refuse without polling the body or constructing the library decode future.
     // The pinned library chooses the protocol's actual error/trailer framing.
@@ -88,25 +104,172 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    struct UnreadBody(Arc<AtomicUsize>);
-    impl http_body::Body for UnreadBody {
+    struct ObservedBody {
+        reads: Arc<AtomicUsize>,
+        frame: Option<Bytes>,
+    }
+    impl http_body::Body for ObservedBody {
         type Data = Bytes;
         type Error = Infallible;
         fn poll_frame(
             self: Pin<&mut Self>,
             _: &mut Context<'_>,
         ) -> Poll<Option<Result<http_body::Frame<Bytes>, Infallible>>> {
-            self.0.fetch_add(1, Ordering::SeqCst);
-            Poll::Ready(None)
+            let body = self.get_mut();
+            body.reads.fetch_add(1, Ordering::SeqCst);
+            Poll::Ready(
+                body.frame
+                    .take()
+                    .map(|bytes| Ok(http_body::Frame::data(bytes))),
+            )
         }
     }
-    fn request(reads: Arc<AtomicUsize>) -> http::Request<UnreadBody> {
+    fn request(reads: Arc<AtomicUsize>) -> http::Request<ObservedBody> {
         http::Request::builder()
             .method("POST")
+            .version(http::Version::HTTP_2)
             .uri("/pse.engineering.v1.EngineeringService/DescribeContract")
-            .header(http::header::CONTENT_TYPE, "application/json")
-            .body(UnreadBody(reads))
+            .header(http::header::CONTENT_TYPE, "application/grpc+proto")
+            .body(ObservedBody {
+                reads,
+                frame: Some(Bytes::from_static(&[0, 0, 0, 0, 0])),
+            })
             .unwrap()
+    }
+
+    fn service(calls: Arc<AtomicUsize>) -> ConnectRpcService<connectrpc::Router> {
+        use super::super::generated::pb::pse::engineering::v1 as pb;
+        let router = connectrpc::Router::new()
+            .route::<_, pb::EngineeringDescribeRequest, pb::EngineeringContract>(
+                "pse.engineering.v1.EngineeringService",
+                "DescribeContract",
+                connectrpc::handler::handler_fn(move |_, _: pb::EngineeringDescribeRequest| {
+                    calls.fetch_add(1, Ordering::SeqCst);
+                    async { Ok(connectrpc::Response::new(pb::EngineeringContract::default())) }
+                }),
+            );
+        ConnectRpcService::new(router).with_limits(limits())
+    }
+
+    #[tokio::test]
+    async fn engineering_ingress_rejects_other_protocols_before_body_allocation_or_dispatch() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let service = service(calls.clone());
+        let pool: Arc<dyn MemoryPool> = Arc::new(
+            datafusion::execution::memory_pool::GreedyMemoryPool::new(REQUEST_EXTENT),
+        );
+        for (method, content_type, version) in [
+            (
+                http::Method::POST,
+                Some("application/json"),
+                http::Version::HTTP_2,
+            ),
+            (
+                http::Method::POST,
+                Some("application/proto"),
+                http::Version::HTTP_2,
+            ),
+            (
+                http::Method::POST,
+                Some("application/connect+proto"),
+                http::Version::HTTP_2,
+            ),
+            (
+                http::Method::POST,
+                Some("application/grpc+json"),
+                http::Version::HTTP_2,
+            ),
+            (
+                http::Method::POST,
+                Some("application/grpc-web+proto"),
+                http::Version::HTTP_2,
+            ),
+            (
+                http::Method::POST,
+                Some("application/grpc-web-text+proto"),
+                http::Version::HTTP_2,
+            ),
+            (http::Method::GET, None, http::Version::HTTP_2),
+            (
+                http::Method::PUT,
+                Some("application/grpc+proto"),
+                http::Version::HTTP_2,
+            ),
+            (
+                http::Method::POST,
+                Some("application/grpc+proto"),
+                http::Version::HTTP_11,
+            ),
+            (http::Method::POST, None, http::Version::HTTP_2),
+            (
+                http::Method::POST,
+                Some("application/octet-stream"),
+                http::Version::HTTP_2,
+            ),
+        ] {
+            let reads = Arc::new(AtomicUsize::new(0));
+            let mut request = request(reads.clone());
+            *request.method_mut() = method;
+            *request.version_mut() = version;
+            request.headers_mut().remove(http::header::CONTENT_TYPE);
+            if let Some(content_type) = content_type {
+                request
+                    .headers_mut()
+                    .insert(http::header::CONTENT_TYPE, content_type.parse().unwrap());
+            }
+            let response = call(service.clone(), pool.clone(), request).await.unwrap();
+            assert_eq!(reads.load(Ordering::SeqCst), 0);
+            assert_eq!(calls.load(Ordering::SeqCst), 0);
+            assert_eq!(
+                pool.reserved(),
+                0,
+                "refused protocol cannot retain an ingress grant"
+            );
+            assert!(response.body()._owner.is_none());
+        }
+        let empty: Arc<dyn MemoryPool> =
+            Arc::new(datafusion::execution::memory_pool::GreedyMemoryPool::new(0));
+        let mut unsupported = request(Arc::new(AtomicUsize::new(0)));
+        unsupported.headers_mut().insert(
+            http::header::CONTENT_TYPE,
+            "application/grpc+json".parse().unwrap(),
+        );
+        let refused = call(service, empty, unsupported).await.unwrap();
+        assert_eq!(
+            refused.headers()["grpc-status"],
+            "12",
+            "protocol refusal precedes pool exhaustion"
+        );
+    }
+
+    #[tokio::test]
+    async fn engineering_ingress_accepts_library_binary_grpc_content_type_forms() {
+        use http_body_util::BodyExt as _;
+        let calls = Arc::new(AtomicUsize::new(0));
+        let service = service(calls.clone());
+        let pool: Arc<dyn MemoryPool> = Arc::new(
+            datafusion::execution::memory_pool::GreedyMemoryPool::new(REQUEST_EXTENT),
+        );
+        for content_type in [
+            "application/grpc",
+            "application/grpc+proto",
+            "application/grpc+proto; charset=utf-8",
+        ] {
+            let reads = Arc::new(AtomicUsize::new(0));
+            let mut request = request(reads.clone());
+            request
+                .headers_mut()
+                .insert(http::header::CONTENT_TYPE, content_type.parse().unwrap());
+            let response = call(service.clone(), pool.clone(), request).await.unwrap();
+            assert_eq!(response.status(), http::StatusCode::OK);
+            assert!(reads.load(Ordering::SeqCst) > 0);
+            assert_eq!(pool.reserved(), REQUEST_EXTENT);
+            let collected = response.into_body().collect().await.unwrap();
+            assert_eq!(collected.trailers().unwrap()["grpc-status"], "0");
+            drop(collected);
+            assert_eq!(pool.reserved(), 0);
+        }
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
     }
 
     #[tokio::test]
@@ -118,7 +281,8 @@ mod tests {
         let first_reads = Arc::new(AtomicUsize::new(0));
         let second_reads = Arc::new(AtomicUsize::new(0));
         let refused_reads = Arc::new(AtomicUsize::new(0));
-        let service = ConnectRpcService::new(connectrpc::Router::new()).with_limits(limits());
+        let calls = Arc::new(AtomicUsize::new(0));
+        let service = service(calls.clone());
         let (first, second, refused) = tokio::join!(
             call(service.clone(), pool.clone(), request(first_reads.clone())),
             call(service.clone(), pool.clone(), request(second_reads.clone())),
@@ -129,9 +293,10 @@ mod tests {
             ),
         );
         let (first, second, refused) = (first.unwrap(), second.unwrap(), refused.unwrap());
-        assert_ne!(first.status(), http::StatusCode::TOO_MANY_REQUESTS);
-        assert_ne!(second.status(), http::StatusCode::TOO_MANY_REQUESTS);
-        assert_eq!(refused.status(), http::StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(first.status(), http::StatusCode::OK);
+        assert_eq!(second.status(), http::StatusCode::OK);
+        assert_eq!(refused.headers()["grpc-status"], "8");
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
         assert_eq!(
             refused_reads.load(Ordering::SeqCst),
             0,
@@ -145,7 +310,8 @@ mod tests {
         let admitted = call(service, pool.clone(), request(first_reads))
             .await
             .unwrap();
-        assert_ne!(admitted.status(), http::StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(admitted.status(), http::StatusCode::OK);
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
         drop(second);
         drop(admitted);
         drop(refused);

@@ -160,6 +160,7 @@ pse-operations.workspace = true
 chrono.workspace = true
 
 [dev-dependencies]
+http-body-util.workspace = true
 base64.workspace = true
 proptest.workspace = true
 uuid.workspace = true
