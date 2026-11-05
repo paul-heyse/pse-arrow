@@ -3475,6 +3475,113 @@ steamcycle/powerplant/controller andarchive scope dispositions remainopen.
 Allreads here were source/AST/gzip inspection;no surrogate,initializer,
 inventory model,propertyfunction orsolver wasexecuted.
 
+## Subcritical steam-cycle and full-plant control closure — 2026-11-05
+
+**Interface-checked, source only:** C `subcritical_power_plant/
+{steam_cycle_flowsheet,subcritical_power_plant}.py`,the shared controller
+owner and `tests/test_subcritical_flowsheets.py` resolve standalone steam,
+connected steady plant,standalone pressure step androlling load-demand ramp.
+They consume the twelve-zone correlated boiler above andIAPWS95 water,
+Helm steam/valve/pump/condenser anddynamic heater/tank owners. No CSV,
+saved model snapshot or trainer isread by these two helpers. Inlinegeometry,
+correlation data,controller initial states androlling state transfer remain
+scientific inputs even without an external file.
+
+The steam turbine isone parallel inlet,HP14/IP9/LP5 plusinlet/outlet stages;
+HP14 isdisconnected forreheat. Extractions occurafterHP14,IP6/IP9 andLP2/4/5;
+IP9 hasthree outlets. Its custom throttle fixesCv1 anduses openingo with
+function .028904o³−.033497o²+.014514o−.0014533. This empirical valvefunction
+isnot thelinear NGCC orcore multistage fixture. Full train also includes
+boiler-feed-pump turbine/front/outlet stages,main/aux condensers,hotwell and
+deaerator tanks,condensate/booster/feedwater/drain pumps,valves,six feedwater
+heater roles andspray attemperation. Selected dynamic heater sections were
+enumerated above;the whole loop must preserve their drain,condensate,spray,
+makeup andsteam-extraction boundaries rather than sum onlymain turbine ports.
+
+Standalone steam fixesmain inlet61958 J/mol,12.5e6 Pa andletsflow bepressure
+driven (11000 mol/s isaguess);reheat inlet63754 J/mol,2.8e6 Pa withflow
+linked toHP exhaust. The initialization startscondenser pressure6000 Pa,
+thenfrees turbine backpressure forcondenser closure;it doesnot retain6000 Pa
+asafinaluniversal boundary. Source standalone steady targetsmainflow
+12473.27146 mol/s andgross power266.8806 MW,relative1e-5. The separate
+connected steady plant targets61634.3740 J/mol,14908.39189 mol/s and320 MW.
+Those aredifferent fixed/free/consumer cases,not rescaling ofone oracle.
+Five arcs connectmainsteam,cold/hotreheat,feedwater andspray;standalone
+reheat-flow/feedwater constraints aredeactivated andallcoupled ports freed.
+Plant slidingpressure is14.4+.02*(grossMW−320) MPa. Gross heatrate and
+efficiency usedrycoal HHV;auxiliarypower isaseparate empirical multi-input
+polynomial withmixed engineering-unit conversions,not native unit-free
+arithmetic orfull equipment-wise electrical accounting.
+
+Dynamic standalone steam uses0..60 s,2 backward elements,initial steady
+state copiedtoalltimes,thenstepsIP1 inletpressure+5% att≥30 s. Seven
+controllers remainactive;full sourceplots/printed outputs arenot terminal
+numerical assertions. Its actual test `test_dynamic_steam_cycle` calls
+get_model(dynamic=True) andchecks0 DOF;it doesnot callmain_dynamic's pressure
+step orassert trajectory physics. Full-plant dynamic construction defaults
+totimepoints[0,20,200] s,nstep2;these pre-existing points formanonuniform
+grid,not anassumed100-second uniform mesh. `init=False` buildtests expect
+157 dynamic or−5 steady DOF undercurrent PIDinitial-equation semantics;
+neither isasolved physicalacceptance case.
+
+| Controller,allcalculate_initial_integral=False | PV→MV,type,gains andfixed setpoint/bias beforesteady-bias reset |
+|---|---|
+| FWH2/FWH3 level | Condenselevel→corresponding outletvalve,PI,Kp−.1/Ki−.02,setpoint .275 m,bias .5. |
+| FWH5/FWH6 level | SamePV/MVrole,PI,Kp−.1/Ki−.1,setpoint .275 m,bias .5. |
+| Deaerator level | Deaerator tanklevel→condensate valve,PI,.1/.1,setpoint2.75 m,bias .5. |
+| Hotwell makeup | Hotwell tanklevel→makeup valve,PI,.01/.001,setpoint .7 m,bias .35;smoothMV bounds .05..1,epsilon1e-4. |
+| Mainsteam spray | Mainsteamtemperature→spray valve,PID,Kp−.05/Ki−1e-4/Kd−1e-4,setpoint810 K,bias .25;smoothMV bounds .05..1,epsilon1e-4. Derivative isonnegativeprocess-variable derivative,not error derivative. |
+| Drum master | Drumlevel→feedwater-demand adjustment,PI,40000/100,setpoint .9 m,bias0. |
+| Drum slave | Feedwater pumpoutlet molarflow→pump-turbine valve,PI,.02/.0002,bias .5;setpoint=drum adjustment+mainsteamflow+blowdown. |
+| Turbine master | GrosspowerMW→throttleopening,PI,.0005/.0005,bias .6;setpoint isdemand profile. |
+| Boiler master | MainsteampressureMPa→coal kg/s,PI,10/.25,bias29;setpoint=sliding-demandpressure+.02*(demandMW−actualMW). |
+
+Onlymakeup/spray selectcontroller MVbounds;the othernine default tounbounded
+controller outputs evenifthecorresponding physical valveisexpected between
+0 and1. Alluse defaultantiwindupNONE,not conditional integration orback
+calculation. Initialintegral components arefixed0 beforesteadystate bias
+reset;spray derivative stateinitial0. Warmstart replaces controllerbiases
+withrealized valve/coal states,initializesbounded integral terms fromtheir
+reference expressions,andfixes initial heater/tank/drum levels andselected
+coal/throttle/spray states. This isacomplete controller/state preparation
+contract,not just forwarding aPIgain pair. Preserve controller-equation
+behavior attime0;current sourcetests explicitlyaccount foritschanged DOF.
+
+The fullplant ramp selects71 consecutive60-second periods usingthesame
+model object withtwo backward intervals (nodes0,30,60 s). Thedeclared
+second120-second modeliscommentedout/None,andnoactive periodselectsit.
+Demand isrelative tosolvedsteady grosspowerx0:holdx0 for0≤t<60;ramp linearly
+tox0/2 over60..660;holdhalf over660..2460;rampback over2460..3060;holdx0
+through4260 s. That is5% ofinitial load perminute,not 5% ofcurrentload or
+netpower. Outputjoining skipsrepeated windowstarts,soacomplete runhas143
+unique30-second nodes,not213 independentstates or71 newphysical plants.
+Allrequesttimes/holds andfinal inventory mustremain explicit.
+
+Eachnew windowcopies theprevious terminaltime's values toinitial/guess
+times withcopy_fixed=True,excepttheunchanged terminalnode ofthereusedmodel.
+Differential inventories,controller integrals/derivative states andalgebraic
+seeds therefore havedistinct carryover/initializationroles. Betweenwindows,
+source manuallylimitsspray integral to.3 whenunboundedMV isbelowitslower
+bound andintegral>.3,or−1 whenaboveupperbound andintegral<−1. This selective
+reset changes thecontrol law;it isnot thecontroller'sbuilt-in antiwindup.
+Native control/evolution mustpreserve orseparately select thatpolicy.
+DynamicdryO2 additionally gets .05*(spraytemperature setpoint−actualT)
+ontop ofthecoal-load polynomial;the steady dryO2 equation isdeactivated.
+
+`run_dynamic` setsdemandateachglobaltime,solves,thenunconditionallyappends
+coal/air/dryO2,power/duty,drum/heater/tanklevels,steam/feedwater/spray flows,
+temperatures/pressures,valve/controller andwall/thermal products. It doesnot
+checkoptimality orstopbeforeappending stale values. Trackevery71-window
+outcome and143-node demand/trajectory completeness;`case_5pct_result.txt`,
+plots andPFD SVGs aregeneratedoutputs,not reference inputtruth. Full-plant
+dynamic sourcetest explicitlydeclines thesimulation becauseofitsruntime;
+construction/checkDOF doesnot establish theramp. Standalone/connectedsteady
+tests checkselectedgross products andsteam massbalance only. Exactnative
+inventory/derivative/controller semantics,ordinary empiricalcoefficients,
+solver/initialization compatibility,fullconservation andindependent complete
+trajectory qualification remainrequired E02/F02/G05/H04. Source/AST reads
+ran nosteady plant,controller,rollingcopy,modelinitialization orsolver.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

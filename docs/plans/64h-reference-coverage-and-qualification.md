@@ -416,6 +416,14 @@ andinspects thearchive'sextra slag cases/snapshot. Literal2.1 W zone9 versus
 native inventories/profiles,fullplant/control closure andindependent
 numerical qualification remain required.
 
+**Update, 2026-11-05 — subcritical plant/control census:** the
+[steam/control closure](64h-required-process-population.md#subcritical-steam-cycle-and-full-plant-control-closure--2026-11-05)
+resolves separate steady steam/plant cases,IPpressure step,elevencontroller
+settings andtheactual71-window/4260-second gross-load rampwithmanual spray
+integral resets. Source dynamicplanttests constructonly androlling output
+appends lackoptimality guards. Native physical/controller carryover,ordinary
+coefficients andcomplete independent numerical trajectories remainrequired.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
