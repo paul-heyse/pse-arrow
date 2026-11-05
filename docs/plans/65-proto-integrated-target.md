@@ -696,14 +696,20 @@ Execution of the entire remaining Plan64/65 scope is authorized. The current rec
 baseline is main `85868b3b4`; the preceding stopped qualification remains historical evidence.
 Complete the final scientific-deadline/retirement verification first, alongside the ready
 contract-generation, reconstruction-prerequisite and finite reference-population work.
-The resumed expanded native workspace Clippy selection passed with zero errors/warnings;
-the recorded targeted native population is rebuilding against the final deadline correction.
-No new functional or whole-series acceptance follows from the static pass.
+The resumed expanded native workspace Clippy selection passed with zero errors/warnings.
+The targeted population then passed 214/217, including the original scientific deadline;
+three actual-child controls exposed a remaining H2 peer-close race. The receiving socket
+custody correction and targeted verification are tracked in
+[65h](65h-integration-and-qualification.md#resumed-joint-receiving-verification).
+No whole-series acceptance follows from these focused results.
 
 Parallel assignments address generated host dispatch from actual supplier identities,
 preadmitted mathematical proof replay with consuming branch storage, and the required
 scientific configuration/input census. Each remains under its companion's existing packet
-owner. Integrate coherent changes on main and retain actual per-packet acceptance limits.
+owner. Mathematical proof replay's backing-admission/consuming-storage prerequisite is now
+merged on main, with its original five passing controls and remaining receiving limits in
+[65k](65k-scientific-artifacts-and-native-reconstruction.md#reconstruction-population-and-native-mathematics-limit).
+Integrate coherent changes on main and retain actual per-packet acceptance limits.
 Plan64e's storage/distributed-physics E02/E03 remain distinct from Plan65k's portability E02/E03.
 
 The next integration milestone is the scientific admission/execution/selected-read journey

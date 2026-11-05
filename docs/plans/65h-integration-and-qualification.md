@@ -309,6 +309,42 @@ descriptor batch. Hyper completion reports only errors its public library owners
 Neither local source integration nor component controls establish full scientific/reference,
 database, four-phase Study, performance, WASI or optional-provider powerset qualification.
 
+## Resumed joint receiving verification
+
+The expanded native workspace/all-target Clippy selection above completed after the
+evaluation-timeout correction: zero errors and warnings against zero. The subsequent
+217-control native selection passed **214 and failed 3** against zero. The original
+ten-second scientific deadline control passed with its unchanged scientific-dispatch and
+no-late-completion assertions. Three actual-child retirement controls exposed a shared
+peer `BrokenPipe` during HTTP/2 shutdown; the exact independent failure counts remain
+binding. Neither the preceding 216/217 result nor this result qualifies the corrected
+shutdown source.
+
+Pinned Hyper 1.11.1's public driver can finish on the first GOAWAY before its
+executor-owned socket task, and locked h2 0.4.19 can close that task before the server
+flushes its final shutdown frames. The correction retains a duplicate of the already
+authenticated socket from startup, without competing reads. After the driver and every
+executor task join, an acknowledged Shutdown half-closes writing and drains that retained
+read side to actual peer EOF. Unacknowledged/startup-failure paths drop it without that
+wait. Shutdown/read failures retain their original `io::Error`; no transport error or
+failure count is discarded.
+
+The [Tokio 1.53.3 UnixStream conversion](https://docs.rs/tokio/1.53.3/tokio/net/struct.UnixStream.html#method.into_std)
+preserves nonblocking mode, standard-library `try_clone` retains the same socket, and
+Tokio re-registration happens only for the final EOF drain. The
+[native transport owner](../../crates/pse-runtime/src/scientific_worker/transport.rs)
+includes a real Hyper/H2 control delaying the peer's final shutdown write until after
+the public driver and all client executor tasks finish. It explicitly polls the EOF
+drain to Pending before releasing that write. This discriminates actual socket custody
+from sender/task retention alone.
+
+Current receiving work runs that control with the unchanged three failing child controls
+and the child-exits-before-parent-I/O-retirement control. Their result, the full selected
+population and shutdown/deadline stress remain to be established. Mathematical proof replay
+has separately integrated through [65k](65k-scientific-artifacts-and-native-reconstruction.md#reconstruction-population-and-native-mathematics-limit);
+its original five focused tests do not qualify the whole Recipe receiver. H01–H04 and both
+series remain open.
+
 ## Completion and enduring meaning
 
 Series completion requires every selected actual consumer, all required failure controls,
