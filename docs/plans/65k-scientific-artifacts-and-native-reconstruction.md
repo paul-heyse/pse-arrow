@@ -552,27 +552,31 @@ restored outcome frames, membership/version refusal, ordered use and cleanup. Th
 packages' all-target compile check passed with no warnings. Receiving tests remain separate;
 removing this copy does not establish the complete native restoration bound.
 
-The resumed joint execution integrates mathematical proof backing admission on main
-(`582585b1d`, receiving merge `3ccd70350`). Replay prices the requested proof slots and
-all recorded branch lengths before copying, then uses fallible exact-capacity reservations.
-Consuming a proof moves its branch allocation instead of cloning it. Original qualified
-receipt authority, version/order checks and complete consumption remain unchanged.
-This prices requested backing, not allocator overhead or RSS; it does not establish the
-whole Recipe construction bound. The native child currently supplies no construction
-admission owner, so this correction alone cannot establish its receiving allowance.
-The standard library's [`Vec::try_reserve_exact`](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.try_reserve_exact)
-provides fallible capacity growth; the existing
-[`construction::additional`](../../crates/pse-math/src/construction.rs) owner supplies the
-prior reservation when a receiving construction scope is present.
+Mathematical replay likewise consumes the original owned `ProofStream` (`509c56fa0`,
+integrated on main). Its entries move into replay and each consumed proof moves its
+branch allocation through standard-library
+[`mem::take`](https://doc.rust-lang.org/std/mem/fn.take.html). The compiler owns and
+passes that stream directly. No production caller clones it and no borrowed fallback
+remains. This supersedes the earlier copy-preadmission correction: the allocation and
+its copy-only charging helper/fixtures are deleted together. Original qualification,
+membership, version/order and complete consumption remain unchanged. Membership scratch,
+native output conversion and downstream mathematical construction retain their independent
+admission obligations. The native child still supplies no construction admission owner;
+neither ownership cutover establishes its whole receiving allowance or RSS.
 
 **Tested, targeted:** `scripts/pse test pse-math pse-compiler --lib -E
-'test(mathematical_receipt_) | test(scientific_recipe_native_authored_proofs_)'`
-passed 5/5 against zero failures with no build warnings in the isolated implementation
-checkout. The authored two-branch cubic controls check independently specified values,
-first/second derivatives, insufficient/sufficient backing admission and missing, extra or
-reordered receipts. The touched packages' all-target compile check also passed. Receiving
-main verification remains separate from these original focused receipts; binary Recipe
-activation, physical receipt preadmission and supplier transfer remain open.
+'test(mathematical_receipt_) | test(scientific_recipe_native_) |
+test(construction::tests::) |
+test(floating_conversion_reserves_excess_before_allocation_and_propagates_refusal) |
+test(scalar_preparation_refusal_and_cancellation_leave_no_cache_product) |
+test(product_preflight_distinguishes_source_ineligibility_from_transient_refusal)'`
+passed 26/26 against zero failures, with no build warnings in the isolated implementation
+checkout. Original entries/branch pointers and capacities survive under a deny-growth
+construction owner; the authored two-proof cubic retains independently specified values
+and first/second derivatives. Membership, missing/extra/reordered receipts, cancellation
+and actual downstream construction-refusal controls remain. The touched packages'
+all-target compile check also passed. Receiving-main verification is separate; binary
+Recipe activation, complete physical-output admission and supplier transfer remain open.
 
 Native mathematical reconstruction remains a consequential unresolved condition.
 `reconstruct_recipe` invokes `Request::admit_inner` and lowers source mathematics again.

@@ -703,11 +703,13 @@ custody correction and targeted verification are tracked in
 [65h](65h-integration-and-qualification.md#resumed-joint-receiving-verification).
 No whole-series acceptance follows from these focused results.
 
-Parallel assignments address generated host dispatch from actual supplier identities,
-preadmitted mathematical proof replay with consuming branch storage, and the required
-scientific configuration/input census. Each remains under its companion's existing packet
-owner. Mathematical proof replay's backing-admission/consuming-storage prerequisite is now
-merged on main, with its original five passing controls and remaining receiving limits in
+Generated host dispatch and both physical/mathematical consuming receipt-replay cutovers
+are now merged on main. Original complete-population and ownership controls pass in their
+implementation checkouts; receiving checks remain separate. Replay deletes the initial
+deep copies and their copy-only pricing rather than allocating another admitted copy.
+The required scientific configuration/input census continues under its existing packet
+owner. See [65a](65a-contract-foundations-and-generation.md#a04-complete-supplier-decision--november-5-revision)
+for the generated facade and
 [65k](65k-scientific-artifacts-and-native-reconstruction.md#reconstruction-population-and-native-mathematics-limit).
 Integrate coherent changes on main and retain actual per-packet acceptance limits.
 Plan64e's storage/distributed-physics E02/E03 remain distinct from Plan65k's portability E02/E03.
