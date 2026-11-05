@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 use std::num::NonZeroU64;
 mod descriptor;
 pub(crate) use descriptor::identity as descriptor_identity;
+pub(crate) use descriptor::read_descriptor_borrowed;
 pub use descriptor::{DescriptorIdentity, DescriptorRead, read_descriptor};
 
 /// Explicit selected byte extent. `None` length requests all bytes from the offset.

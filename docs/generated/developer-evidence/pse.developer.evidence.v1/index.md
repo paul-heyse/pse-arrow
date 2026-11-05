@@ -33,6 +33,17 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `values` | 1 | `Repeated(Named("Array16U8"))` | `Both` | `[Length { min: 3, max: 3 }]` | `{}` |
 
+## `CapturedWorkflowDirectoryManifest`
+
+Rust owner: `pse_host::developer_evidence::directory::DirectoryManifest`. Source: `crates/pse-host/src/developer_evidence/directory.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `report` | 1 | `Named("CapturedWorkflowReport")` | `Output` | `[]` | `{}` |
+| `profile` | 2 | `Named("WorkflowEvidenceDirectoryProfile")` | `Output` | `[]` | `{}` |
+
 ## `CapturedWorkflowEvidence`
 
 Rust owner: `pse_host::test_inventory::CapturedEvidence`. Source: `crates/pse-host/src/test_inventory.rs`. Interpretation version: 1. Direction: `Output`.
@@ -515,6 +526,16 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `dependency` | 1 | `Scalar(U64)` | `Output` | `[]` | `{}` |
 | `original` | 2 | `Scalar(Bytes)` | `Output` | `[]` | `{}` |
+
+## `WorkflowEvidenceDirectoryProfile`
+
+Rust owner: `pse_host::developer_evidence::directory::DirectoryProfile`. Source: `crates/pse-host/src/developer_evidence/directory.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `OriginalFullV1` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
 
 ## `WorkflowEvidenceFile`
 

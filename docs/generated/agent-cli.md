@@ -5173,32 +5173,33 @@ Usage: pse inspect [OPTIONS] <--result <RESULT>|--source <SOURCE>>
        pse inspect <COMMAND>
 
 Commands:
-  dependency-usage    Observe written references to exact Cargo package IDs in a prepared native world
-  comparison          Compare explicitly addressed source, API, retained context or native world evidence
-  schema              Navigate an explicitly supplied complete descriptor set, or compare schema worlds
-  payload             Explain selected binary, JSON or textproto payloads without invoking an RPC
-  developer-evidence  Export source-generated observations from original private workflow evidence
-  outline             Read written declarations or document headings without semantic preparation
-  declaration         Read a known declaration, literal item, position or exact original range
-  origin              Inspect the declared authored owner of an exact generated-source hit
-  entity              Inspect a known Rust position through its explicitly prepared native semantic owner
-  api                 Inspect an exact locked API, original docs/examples, reexports or structural differences
-  dependency          Inspect native exact dependency identity, features and inclusion explanations
-  dependency-units    Inspect planned compiler units without building or listing tests
-  owner               Inspect existing source, generated and document ownership independently
-  diagnostic          Read original compiler failures or one addressed original record
-  artifact            Read exact artifact ranges with native validators; this does not decode a protocol
-  compiler-artifact   Read an original native compiler artifact after its existing whole-file verification
-  compiler-artifacts  Inspect compiler artifacts, or original admitted check/test/compiler contexts with --metadata
-  compiler-source     Read compiler-verified original source bytes from an acquired facts artifact
-  compiler-facts      Explain original typed capture, suspension and cleanup observations without rerunning rustc
-  tests               Read an already captured original test population or its original failures
-  test-selection      Explain real native test selection; no binary listing or test execution occurs
-  check-selection     Explain selected native check declarations or admitted compiler units without compiling
-  invocation          Read the original managed result without waiting, cancellation or resubmission
-  log                 Read original retained stdout/stderr byte ranges
-  affected            Explain conservative affected-test reach through the existing native owner
-  changes             Inspect native Git layers and source/test ownership without compiling
+  dependency-usage           Observe written references to exact Cargo package IDs in a prepared native world
+  comparison                 Compare explicitly addressed source, API, retained context or native world evidence
+  schema                     Navigate an explicitly supplied complete descriptor set, or compare schema worlds
+  payload                    Explain selected binary, JSON or textproto payloads without invoking an RPC
+  developer-evidence         Export source-generated observations from original private workflow evidence
+  developer-evidence-bundle  Verify a portable directory bundle and optionally return a bounded member range
+  outline                    Read written declarations or document headings without semantic preparation
+  declaration                Read a known declaration, literal item, position or exact original range
+  origin                     Inspect the declared authored owner of an exact generated-source hit
+  entity                     Inspect a known Rust position through its explicitly prepared native semantic owner
+  api                        Inspect an exact locked API, original docs/examples, reexports or structural differences
+  dependency                 Inspect native exact dependency identity, features and inclusion explanations
+  dependency-units           Inspect planned compiler units without building or listing tests
+  owner                      Inspect existing source, generated and document ownership independently
+  diagnostic                 Read original compiler failures or one addressed original record
+  artifact                   Read exact artifact ranges with native validators; this does not decode a protocol
+  compiler-artifact          Read an original native compiler artifact after its existing whole-file verification
+  compiler-artifacts         Inspect compiler artifacts, or original admitted check/test/compiler contexts with --metadata
+  compiler-source            Read compiler-verified original source bytes from an acquired facts artifact
+  compiler-facts             Explain original typed capture, suspension and cleanup observations without rerunning rustc
+  tests                      Read an already captured original test population or its original failures
+  test-selection             Explain real native test selection; no binary listing or test execution occurs
+  check-selection            Explain selected native check declarations or admitted compiler units without compiling
+  invocation                 Read the original managed result without waiting, cancellation or resubmission
+  log                        Read original retained stdout/stderr byte ranges
+  affected                   Explain conservative affected-test reach through the existing native owner
+  changes                    Inspect native Git layers and source/test ownership without compiling
 
 Options:
   -C <checkout>
@@ -5614,6 +5615,59 @@ Options:
           - full:      Original dependency account and all originally committed file bytes
 
           [default: full]
+
+      --layout <LAYOUT>
+          Compact bounded protobuf, or an explicit staged external-file directory
+
+          [default: compact]
+          [possible values: compact, directory]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect developer-evidence-bundle`
+
+~~~~text
+Verify a portable directory bundle and optionally return a bounded member range
+
+Usage: pse inspect developer-evidence-bundle [OPTIONS] <INPUT>
+
+Arguments:
+  <INPUT>
+
+
+Options:
+  -C <checkout>
+
+
+      --member <MEMBER>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --offset <OFFSET>
+          [default: 0]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --length <LENGTH>
+          [default: 4096]
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')

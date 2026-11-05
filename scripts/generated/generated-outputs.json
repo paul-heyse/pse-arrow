@@ -112,6 +112,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-host/src/developer_evidence/directory.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-host/src/discovery.rs",
           "kind": "file"
         },
@@ -949,6 +953,10 @@
         },
         {
           "path": "crates/pse-host/src/cli.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/developer_evidence/directory.rs",
           "kind": "file"
         },
         {

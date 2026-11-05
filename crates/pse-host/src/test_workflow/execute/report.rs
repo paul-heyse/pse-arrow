@@ -681,7 +681,14 @@ impl ContentIdentity {
         bytes: &[u8],
         subject: &str,
     ) -> Result<(), WorkflowError> {
-        if &Self::of(bytes) != self {
+        self.validate_identity(&Self::of(bytes), subject)
+    }
+    pub(crate) fn validate_identity(
+        &self,
+        observed: &Self,
+        subject: &str,
+    ) -> Result<(), WorkflowError> {
+        if observed != self {
             return Err(WorkflowError::Invalid(format!(
                 "{subject} bytes differ from the original report commitment"
             )));
@@ -825,6 +832,12 @@ impl ReportObservation {
     }
     /// Reconcile original inventory bytes; legacy path-only reports cannot supply a commitment.
     pub fn validate_inventory(&self, bytes: &[u8]) -> Result<(), WorkflowError> {
+        self.validate_inventory_identity(&ContentIdentity::of(bytes))
+    }
+    pub(crate) fn validate_inventory_identity(
+        &self,
+        content: &ContentIdentity,
+    ) -> Result<(), WorkflowError> {
         self.validate_interpretation()?;
         if self.version == 1 {
             return Err(WorkflowError::Invalid("legacy report interpretation 1 has no original inventory commitment; inventory adoption and exact rerun are unavailable".into()));
@@ -832,7 +845,7 @@ impl ReportObservation {
         let expected = self.inventory_content.as_ref().ok_or_else(|| {
             WorkflowError::Invalid("original report has no inventory commitment".into())
         })?;
-        expected.validate_content(bytes, "original inventory")
+        expected.validate_identity(content, "original inventory")
     }
     /// Reconcile the exact input snapshot with its original performing report. Legacy
     /// interpretations still require the native metadata binding at their owning caller.
@@ -840,6 +853,14 @@ impl ReportObservation {
         self.validate_interpretation()?;
         let input: Input =
             serde_json::from_slice(bytes).map_err(crate::discovery::DiscoveryError::from)?;
+        self.validate_input_identity(input, &ContentIdentity::of(bytes))
+    }
+    pub(crate) fn validate_input_identity(
+        &self,
+        input: Input,
+        content: &ContentIdentity,
+    ) -> Result<Input, WorkflowError> {
+        self.validate_interpretation()?;
         input.validate_original(&self.invocation, self.action.command())?;
         if self.version == 3 {
             let file = self
@@ -856,7 +877,7 @@ impl ReportObservation {
                         "original input dependency was unavailable at the performing cutoff".into(),
                     )
                 })?
-                .validate_content(bytes, "original workflow input")?;
+                .validate_identity(content, "original workflow input")?;
         }
         Ok(input)
     }

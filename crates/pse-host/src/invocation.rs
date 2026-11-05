@@ -279,7 +279,7 @@ pub(crate) fn publish_bytes(
 // Same-directory staging keeps the rename atomic. NOREPLACE preserves any existing
 // destination (including symlinks); a failed writer exposes no destination prefix.
 // rustix 1.1.5: https://docs.rs/rustix/1.1.5/rustix/fs/fn.renameat_with.html
-fn publish_file(
+pub(crate) fn publish_file(
     destination: &Path,
     mode: u32,
     write: impl FnOnce(&mut File) -> Result<(), HostError>,
@@ -289,21 +289,99 @@ fn publish_file(
         .filter(|path| !path.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
     let mut temporary = tempfile::NamedTempFile::new_in(directory)?;
-    write(temporary.as_file_mut())?;
-    temporary
-        .as_file()
-        .set_permissions(fs::Permissions::from_mode(mode))?;
-    temporary.as_file().sync_all()?;
-    rustix::fs::renameat_with(
-        rustix::fs::CWD,
-        temporary.path(),
-        rustix::fs::CWD,
-        destination,
-        rustix::fs::RenameFlags::NOREPLACE,
-    )
-    .map_err(std::io::Error::from)?;
-    File::open(directory)?.sync_all()?;
+    let operation = (|| {
+        write(temporary.as_file_mut())?;
+        temporary
+            .as_file()
+            .set_permissions(fs::Permissions::from_mode(mode))?;
+        temporary.as_file().sync_all()?;
+        rustix::fs::renameat_with(
+            rustix::fs::CWD,
+            temporary.path(),
+            rustix::fs::CWD,
+            destination,
+            rustix::fs::RenameFlags::NOREPLACE,
+        )
+        .map_err(std::io::Error::from)?;
+        Ok::<_, HostError>(())
+    })();
+    if let Err(operation) = operation {
+        return Err(publication_cleanup(operation, temporary.close()));
+    }
+    // The native rename consumed this name; its guard must never remove a later
+    // unrelated file created at the old staging name.
+    temporary.disable_cleanup(true);
+    synchronize_publication_parent(directory, destination)?;
     Ok(())
+}
+
+fn publication_cleanup(operation: HostError, cleanup: std::io::Result<()>) -> HostError {
+    match cleanup {
+        Ok(()) => operation,
+        Err(cleanup) => HostError::Settlement {
+            operation: Box::new(operation),
+            cleanup: Box::new(cleanup.into()),
+        },
+    }
+}
+
+fn synchronize_publication_parent(directory: &Path, destination: &Path) -> Result<(), HostError> {
+    File::open(directory)
+        .and_then(|file| file.sync_all())
+        .map_err(|source| HostError::PublicationDurabilityUnknown {
+            destination: destination.into(),
+            source,
+        })
+}
+
+/// Stage a private complete directory beside its destination, then publish once.
+/// The writer owns member synchronization; this owner syncs the staged directory
+/// and final parent. No operation or cleanup failure is discarded.
+pub(crate) fn publish_directory<T>(
+    destination: &Path,
+    write: impl FnOnce(&Path) -> Result<T, HostError>,
+) -> Result<T, HostError> {
+    publish_directory_with_sync(destination, write, |directory| {
+        File::open(directory)?.sync_all()
+    })
+}
+
+fn publish_directory_with_sync<T>(
+    destination: &Path,
+    write: impl FnOnce(&Path) -> Result<T, HostError>,
+    sync_parent: impl FnOnce(&Path) -> std::io::Result<()>,
+) -> Result<T, HostError> {
+    let directory = destination
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let stage = tempfile::Builder::new()
+        .prefix(".prepare-")
+        .tempdir_in(directory)?;
+    let operation = (|| {
+        fs::set_permissions(stage.path(), fs::Permissions::from_mode(0o700))?;
+        let value = write(stage.path())?;
+        File::open(stage.path())?.sync_all()?;
+        rustix::fs::renameat_with(
+            rustix::fs::CWD,
+            stage.path(),
+            rustix::fs::CWD,
+            destination,
+            rustix::fs::RenameFlags::NOREPLACE,
+        )
+        .map_err(std::io::Error::from)?;
+        Ok::<_, HostError>(value)
+    })();
+    let value = match operation {
+        Ok(value) => value,
+        Err(operation) => return Err(publication_cleanup(operation, stage.close())),
+    };
+    let _consumed_name = stage.keep();
+    sync_parent(directory).map_err(|source| HostError::PublicationDurabilityUnknown {
+        destination: destination.into(),
+        source,
+    })?;
+    Ok(value)
 }
 
 impl InvocationStore {
@@ -374,23 +452,12 @@ impl InvocationStore {
             created_unix_ms,
             selection,
         };
-        // No invocation is visible until its complete metadata exists. Private preparation
-        // directories contain no launched work and are outside the committed ID namespace.
-        let stage = tempfile::Builder::new()
-            .prefix(".prepare-")
-            .tempdir_in(&invocations)?;
-        fs::set_permissions(stage.path(), fs::Permissions::from_mode(0o700))?;
-        publish(stage.path(), "meta.json", &metadata, Some(META_LIMIT))?;
         let path = invocations.join(metadata.selection.invocation_id.as_str());
-        rustix::fs::renameat_with(
-            rustix::fs::CWD,
-            stage.path(),
-            rustix::fs::CWD,
-            &path,
-            rustix::fs::RenameFlags::NOREPLACE,
-        )
-        .map_err(std::io::Error::from)?;
-        File::open(&invocations)?.sync_all()?;
+        // The same directory publisher owns invocation initialization and offline
+        // evidence bundles; neither exposes an incomplete staged prefix.
+        publish_directory(&path, |stage| {
+            publish(stage, "meta.json", &metadata, Some(META_LIMIT))
+        })?;
         Ok(InvocationDirectory {
             path,
             invocation_id: metadata.selection.invocation_id,

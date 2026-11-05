@@ -189,6 +189,49 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::CapturedWorkflowDirectoryManifest,
+> for &crate::developer_evidence::directory::DirectoryManifest {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::CapturedWorkflowDirectoryManifest,
+        AdapterError,
+    > {
+        layout(
+            <crate::developer_evidence::directory::DirectoryManifest as pse_contract::boundary_projection::ProjectionObservationRecord>::VERSION,
+            <crate::developer_evidence::directory::DirectoryManifest as pse_contract::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "report"), (2, "profile")],
+            path,
+        )?;
+        let (field_0, field_1) = pse_contract::boundary_projection::ProjectionObservationRecord::observation_fields(
+                self,
+            )
+            .map_err(|error| error.at(path))?;
+        Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::CapturedWorkflowDirectoryManifest {
+            report: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::CapturedWorkflowReport,
+                >(
+                    ::core::borrow::Borrow::<
+                        crate::test_inventory::CapturedReport,
+                    >::borrow(&field_0),
+                    &child_path(path, "report"),
+                )?,
+            ),
+            profile: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceDirectoryProfile,
+                >(field_1, &child_path(path, "profile"))?,
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeInto<
     crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::CapturedWorkflowEvidence,
 > for &crate::test_inventory::CapturedEvidence {
     fn into_wire(
@@ -6797,6 +6840,99 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceDirectoryProfile,
+> for crate::developer_evidence::directory::DirectoryProfile {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceDirectoryProfile,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <crate::developer_evidence::directory::DirectoryProfile as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <crate::developer_evidence::directory::DirectoryProfile as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::developer_evidence::directory::DirectoryProfile as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceDirectoryProfile {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::workflow_evidence_directory_profile::Alternative1 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceDirectoryProfile,
+> for crate::developer_evidence::directory::DirectoryProfile {
+    fn from_wire(
+        wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceDirectoryProfile,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "OriginalFullV1");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::developer_evidence::directory::DirectoryProfile as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <crate::developer_evidence::directory::DirectoryProfile as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::developer_evidence::directory::DirectoryProfile as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
+    }
+}
+impl NativeInto<
     crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceFile,
 > for crate::test_workflow::execute::EvidenceFile {
     fn into_wire(
@@ -8954,6 +9090,24 @@ pub(crate) fn encode_captured_workflow_evidence(
     let wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::CapturedWorkflowEvidence = native_into(
             native,
             "CapturedWorkflowEvidence",
+        )
+        .map_err(BoundaryProjectionError::OutgoingAdoption)?;
+    protovalidate_buffa::Validate::validate(&wire)
+        .map_err(BoundaryProjectionError::OutgoingWire)?;
+    Ok(wire)
+}
+/// Observe `CapturedWorkflowDirectoryManifest` without consuming native custody or constructing native authority.
+pub(crate) fn encode_captured_workflow_directory_manifest(
+    native: &crate::developer_evidence::directory::DirectoryManifest,
+) -> Result<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::CapturedWorkflowDirectoryManifest,
+    BoundaryProjectionError,
+> {
+    pse_contract::boundary_projection::ValidateProjection::validate_projection(native)
+        .map_err(BoundaryProjectionError::OutgoingNative)?;
+    let wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::CapturedWorkflowDirectoryManifest = native_into(
+            native,
+            "CapturedWorkflowDirectoryManifest",
         )
         .map_err(BoundaryProjectionError::OutgoingAdoption)?;
     protovalidate_buffa::Validate::validate(&wire)
