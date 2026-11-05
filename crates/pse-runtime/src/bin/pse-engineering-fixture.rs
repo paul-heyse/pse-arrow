@@ -53,7 +53,7 @@ fn error_report(error: &(dyn std::error::Error + 'static)) -> String {
 #[command(
     about = "Retain a disposable canonical fixture in a foreground native application scope",
     long_about = "Run through scripts/pse-env from an application scope and retain that foreground lifetime. The original canonical owner launches and drains its bound service; a detached managed payload is not the required scope. This keeper never grants engineering-service peer authentication.",
-    after_help = "For Rust-owned three-phase client coordination, use: pse-engineering-fixture qualify-study --help. That coordination mode runs outside an enclosing native workload."
+    after_help = "For Rust-owned client coordination, use: pse-engineering-fixture qualify-study --help. That coordination mode runs outside an enclosing native workload."
 )]
 struct Args {
     /// Explicit already-built canonical process helper.

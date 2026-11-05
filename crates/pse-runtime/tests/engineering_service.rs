@@ -19,6 +19,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(all(feature = "solver-diffsol", feature = "solver-ipopt"))]
+#[path = "engineering_service/routes.rs"]
+mod routes;
 #[path = "engineering_service/study.rs"]
 mod study;
 

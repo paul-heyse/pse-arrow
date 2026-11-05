@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Compose three original native reports while the existing keeper retains its fixture.
+//! Compose original lifecycle and scientific-route reports under one retained keeper.
 use super::{Error, Failures, FixtureDisposition, WorkerStart, signals, worker_allocation};
 use futures_util::FutureExt as _;
 pub(super) use pse_host::study_qualification::Args;
@@ -27,9 +27,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-const FILTER: &str =
-    "test(/^study::prepared_engineering_study_client_three_phase_original_owner_journey$/)";
 const FEATURES: &str = "engineering-service,native-study-tests,product-operators,solver-kinsol";
+const ROUTE_FEATURES: &str = "engineering-service,native-study-tests,product-operators,solver-kinsol,solver-ipopt,solver-diffsol";
 
 #[derive(Debug)]
 pub(super) struct Failure {
@@ -161,6 +160,7 @@ enum Phase {
     Submit,
     Recover,
     Complete,
+    Routes,
 }
 impl Phase {
     fn name(self) -> &'static str {
@@ -168,7 +168,27 @@ impl Phase {
             Self::Submit => "submit",
             Self::Recover => "recover",
             Self::Complete => "complete",
+            Self::Routes => "routes",
         }
+    }
+    fn test_name(self) -> &'static str {
+        match self {
+            Self::Submit | Self::Recover | Self::Complete => {
+                "study::prepared_engineering_study_client_three_phase_original_owner_journey"
+            }
+            Self::Routes => {
+                "routes::prepared_engineering_study_client_simulation_fit_and_horizon_keep_original_physics"
+            }
+        }
+    }
+    fn features(self) -> &'static str {
+        match self {
+            Self::Submit | Self::Recover | Self::Complete => FEATURES,
+            Self::Routes => ROUTE_FEATURES,
+        }
+    }
+    fn worker_started(self) -> bool {
+        matches!(self, Self::Complete | Self::Routes)
     }
 }
 
@@ -267,7 +287,9 @@ async fn sequence(driver: &mut impl Driver, stop: &CancelSource) -> Result<(), E
     checkpoint(stop)?;
     driver.gate().await?;
     checkpoint(stop)?;
-    driver.phase(Phase::Complete).await
+    driver.phase(Phase::Complete).await?;
+    checkpoint(stop)?;
+    driver.phase(Phase::Routes).await
 }
 async fn execute(driver: &mut impl Driver, stop: &CancelSource) -> Result<(), Error> {
     let action = AssertUnwindSafe(sequence(driver, stop))
@@ -560,7 +582,7 @@ impl Driver for Native {
         let lifetime = self
             .args
             .phase_ms
-            .checked_mul(3)
+            .checked_mul(4)
             .and_then(|n| n.checked_add(self.args.startup_ms.checked_mul(4)?))
             .and_then(|n| n.checked_add(self.args.shutdown_ms.checked_mul(3)?))
             .ok_or("keeper lifetime overflow")?;
@@ -684,7 +706,7 @@ impl Driver for Native {
         Ok(())
     }
     async fn phase(&mut self, phase: Phase) -> Result<(), Error> {
-        self.unchanged_keeper(phase == Phase::Complete)?;
+        self.unchanged_keeper(phase.worker_started())?;
         let index = self.issue()?;
         let session = self.managed[index].session.clone();
         let endpoint = self
@@ -694,6 +716,7 @@ impl Driver for Native {
         // Explicit environment only for this child; no process-global state is mutated.
         let mut command = tokio::process::Command::new(self.args.root.join("scripts/pse"));
         let prefix = format!("{}.start", phase.name());
+        let filter = format!("test(/^{}$/)", phase.test_name());
         command
             .current_dir(&self.args.root)
             .args([
@@ -705,9 +728,11 @@ impl Driver for Native {
                 "--session",
                 &session,
                 "--features",
-                FEATURES,
+                phase.features(),
                 "-E",
-                FILTER,
+                &filter,
+                "--profile",
+                "local",
             ])
             .env("PSE_ENGINEERING_ENDPOINT", endpoint)
             .env("PSE_ENGINEERING_KEEPER_READY", self.path("keeper.json"))
@@ -769,8 +794,7 @@ impl Driver for Native {
         if page.payload.selected_tests != 1
             || page.payload.next.is_some()
             || selected.target != "engineering_service"
-            || selected.identity.test_name
-                != "study::prepared_engineering_study_client_three_phase_original_owner_journey"
+            || selected.identity.test_name != phase.test_name()
         {
             return Err("phase selected another original native test population".into());
         }
@@ -799,8 +823,8 @@ impl Driver for Native {
             return Err("phase lacks the complete single original selected-test inventory".into());
         }
         self.managed[index].settled = true;
-        self.unchanged_keeper(phase == Phase::Complete)?;
-        if phase == Phase::Complete {
+        self.unchanged_keeper(phase.worker_started())?;
+        if phase == Phase::Routes {
             self.completed = true;
         }
         Ok(())
@@ -1001,14 +1025,25 @@ pub(super) async fn run(mut args: Args) -> Result<(), Error> {
         "pse-runtime",
         "pse-engineering",
         "crates/pse-runtime/src/bin/pse-engineering.rs",
-        &["engineering-service", "product-reader", "solver-kinsol"],
+        &[
+            "engineering-service",
+            "product-reader",
+            "solver-kinsol",
+            "solver-ipopt",
+            "solver-diffsol",
+        ],
     )?;
     let worker_image = runtime.require_binary(
         &args.root,
         "pse-runtime",
         "pse-worker",
         "crates/pse-runtime/src/bin/pse-worker.rs",
-        &["product-operators", "solver-kinsol"],
+        &[
+            "product-operators",
+            "solver-kinsol",
+            "solver-ipopt",
+            "solver-diffsol",
+        ],
     )?;
     let canonical_image = canonical.require_binary(
         &args.root,
@@ -1153,6 +1188,7 @@ mod tests {
                 "recover",
                 "gate",
                 "complete",
+                "routes",
                 "retire",
                 "finish"
             ]
@@ -1223,6 +1259,11 @@ mod tests {
                 interrupted
             );
             assert!(driver.calls.iter().any(|call| call == "complete"));
+            assert_eq!(
+                driver.calls.iter().any(|call| call == "routes"),
+                !interrupted,
+                "a stop after completion cannot admit the scientific routes"
+            );
             assert!(driver.calls.ends_with(&["retire".into(), "finish".into()]));
             assert_eq!(driver.dispositions, [FixtureDisposition::Preserve]);
             assert_eq!(
@@ -1395,6 +1436,30 @@ mod tests {
                 .contains("independent keeper release failure")
         );
         assert!(driver.calls.ends_with(&["retire".into(), "finish".into()]));
+    }
+    #[tokio::test]
+    async fn failed_scientific_routes_preserve_the_completed_lifecycle_and_cleanup_causes() {
+        let mut driver = Probe {
+            fail: Some("routes"),
+            cleanup_failure: true,
+            ..Default::default()
+        };
+        let stop = driver.stop.clone();
+        let error = execute(&mut driver, &stop).await.unwrap_err();
+        assert!(
+            driver
+                .calls
+                .windows(2)
+                .any(|calls| calls == ["complete", "routes"])
+        );
+        assert!(error.to_string().contains("original routes failure"));
+        assert!(
+            error
+                .to_string()
+                .contains("independent keeper release failure")
+        );
+        assert!(driver.calls.ends_with(&["retire".into(), "finish".into()]));
+        assert_eq!(driver.dispositions, [FixtureDisposition::Preserve]);
     }
     #[tokio::test]
     async fn interruption_settles_both_owners_before_repropagating_cancellation() {
