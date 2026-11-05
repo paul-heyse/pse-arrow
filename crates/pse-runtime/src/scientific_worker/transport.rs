@@ -56,6 +56,30 @@ async fn authenticated_stream(
     }
     Ok(stream)
 }
+
+fn retain_peer_reader(
+    stream: tokio::net::UnixStream,
+) -> std::io::Result<(tokio::net::UnixStream, std::os::unix::net::UnixStream)> {
+    // Logical H2 completion can precede the peer's final shutdown frames. The
+    // client's public driver and executor-owned socket task also finish separately.
+    // Retain the same authenticated socket's read lifetime, without a competing
+    // reader or another reactor registration while Hyper owns protocol I/O.
+    let stream = stream.into_std()?;
+    let reader = stream.try_clone()?;
+    Ok((tokio::net::UnixStream::from_std(stream)?, reader))
+}
+
+async fn finish_peer_reader(reader: std::os::unix::net::UnixStream) -> std::io::Result<()> {
+    use tokio::io::AsyncReadExt as _;
+    // All Hyper tasks have joined. Explicitly half-close even if their shutdown
+    // path only dropped its descriptor; the retained receive side permits the
+    // peer's final GOAWAY/PING writes until its actual EOF.
+    reader.shutdown(std::net::Shutdown::Write)?;
+    let mut reader = tokio::net::UnixStream::from_std(reader)?;
+    let mut buffer = [0; 8192];
+    while reader.read(&mut buffer).await? != 0 {}
+    Ok(())
+}
 impl connectrpc::client::ClientTransport for OwnedTransport {
     type ResponseBody = hyper::body::Incoming;
     type Error = hyper::Error;
@@ -208,6 +232,8 @@ impl IoOwner {
             let result = runtime.block_on(async move {
                 let executor = OwnedExecutor::default();
                 let mut failures = Vec::new();
+                let mut peer_reader = None;
+                let shutdown_acknowledged = AtomicBool::new(false);
                 let result = async {
                 let config = match "http://localhost".parse::<http::Uri>() {
                     Ok(uri) => connectrpc::client::ClientConfig::new(uri).with_protocol(connectrpc::Protocol::Grpc),
@@ -216,6 +242,11 @@ impl IoOwner {
                 let connection = tokio::select! {
                     result = tokio::time::timeout(timeout, async {
                         let stream = authenticated_stream(&endpoint, pid).await?;
+                        let (stream, reader) = retain_peer_reader(stream).map_err(|source| WorkerError::Process {
+                            action: "retain peer socket",
+                            source,
+                        })?;
+                        peer_reader = Some(reader);
                         hyper::client::conn::http2::Builder::new(executor.clone())
                             .handshake::<_, connectrpc::client::ClientBody>(hyper_util::rt::TokioIo::new(stream))
                             .await.map_err(WorkerError::Connection)
@@ -229,7 +260,6 @@ impl IoOwner {
                 };
                 let driver = tokio::spawn(connection);
                 let client = services::ScientificWorkerClient::new(OwnedTransport(sender), config);
-                let shutdown_acknowledged = AtomicBool::new(false);
                 let active = ready.send(Ok(())).is_ok();
                 use futures_util::{stream::FuturesUnordered, StreamExt as _};
                 let mut pending = FuturesUnordered::new();
@@ -274,7 +304,8 @@ impl IoOwner {
                 drop(pending);
                 if shutdown_acknowledged.load(Ordering::Acquire) {
                     // The peer owns graceful GOAWAY after actual native Shutdown.
-                    // Keep its authenticated sender alive until that driver exits.
+                    // Retain the sender through the public driver; the separate
+                    // socket reader also outlives every executor-owned H2 task.
                     let result = finish_driver(driver).await;
                     drop(client);
                     result
@@ -287,6 +318,12 @@ impl IoOwner {
                 }.await;
                 if let Err(error) = result { failures.push(error); }
                 executor.finish(&mut failures).await;
+                if let Some(reader) = peer_reader
+                    && shutdown_acknowledged.load(Ordering::Acquire)
+                    && let Err(source) = finish_peer_reader(reader).await
+                {
+                    failures.push(WorkerError::Process { action: "finish peer socket", source });
+                }
                 super::retirement_result(failures)
             });
             // Runtime teardown precedes OS-thread completion and admission release.
@@ -944,6 +981,11 @@ pub(super) fn serve_with_preparation(
                 "scientific worker kernel parent peer differs",
             ));
         }
+        let (stream, peer_reader) =
+            retain_peer_reader(stream).map_err(|source| WorkerError::Process {
+                action: "retain parent socket",
+                source,
+            })?;
         let router = Arc::new(Server {
             jobs: jobs.clone(),
             controls: controls.clone(),
@@ -967,14 +1009,27 @@ pub(super) fn serve_with_preparation(
         builder.max_concurrent_streams(2);
         let connection = builder.serve_connection(hyper_util::rt::TokioIo::new(stream), service);
         tokio::pin!(connection);
-        tokio::select! {
+        let result = tokio::select! {
             biased;
             _ = closed.cancelled() => {
                 connection.as_mut().graceful_shutdown();
                 connection.await.map_err(WorkerError::Connection)
             },
             result = connection.as_mut() => result.map_err(WorkerError::Connection),
+        };
+        let mut failures = result.err().into_iter().collect::<Vec<_>>();
+        // Server H2 completion can also precede unread client shutdown frames.
+        // Keep both receive halves alive until each writer has half-closed;
+        // closing the last socket with unread data would reset its peer.
+        if closed.is_cancelled()
+            && let Err(source) = finish_peer_reader(peer_reader).await
+        {
+            failures.push(WorkerError::Process {
+                action: "finish parent socket",
+                source,
+            });
         }
+        super::retirement_result(failures)
     });
     if let Ok(mut controls) = controls_lock(&controls) {
         controls.closed = true;
@@ -1068,6 +1123,121 @@ fn perturb_response_for_test(mut response: p::Response) -> p::Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct GatedShutdownWrites {
+        stream: tokio::net::UnixStream,
+        armed: Arc<AtomicBool>,
+        first_write: bool,
+        blocked: Option<tokio::sync::oneshot::Sender<()>>,
+        release: Option<tokio::sync::oneshot::Receiver<()>>,
+    }
+    impl tokio::io::AsyncRead for GatedShutdownWrites {
+        fn poll_read(
+            mut self: std::pin::Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+            buffer: &mut tokio::io::ReadBuf<'_>,
+        ) -> std::task::Poll<std::io::Result<()>> {
+            std::pin::Pin::new(&mut self.stream).poll_read(cx, buffer)
+        }
+    }
+    impl tokio::io::AsyncWrite for GatedShutdownWrites {
+        fn poll_write(
+            mut self: std::pin::Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+            buffer: &[u8],
+        ) -> std::task::Poll<std::io::Result<usize>> {
+            if self.armed.load(Ordering::Acquire) && self.first_write {
+                if let Some(blocked) = self.blocked.take() {
+                    blocked.send(()).unwrap();
+                }
+                if let Some(release) = &mut self.release {
+                    match std::pin::Pin::new(release).poll(cx) {
+                        std::task::Poll::Pending => return std::task::Poll::Pending,
+                        std::task::Poll::Ready(result) => result.unwrap(),
+                    }
+                    self.release = None;
+                }
+            }
+            let result = std::pin::Pin::new(&mut self.stream).poll_write(cx, buffer);
+            if self.armed.load(Ordering::Acquire)
+                && matches!(&result, std::task::Poll::Ready(Ok(written)) if *written > 0)
+            {
+                self.first_write = true;
+            }
+            result
+        }
+        fn poll_flush(
+            mut self: std::pin::Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<std::io::Result<()>> {
+            std::pin::Pin::new(&mut self.stream).poll_flush(cx)
+        }
+        fn poll_shutdown(
+            mut self: std::pin::Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<std::io::Result<()>> {
+            std::pin::Pin::new(&mut self.stream).poll_shutdown(cx)
+        }
+    }
+
+    #[tokio::test]
+    async fn peer_final_h2_write_survives_public_driver_and_executor_completion() {
+        use http_body_util::BodyExt as _;
+        tokio::time::timeout(Duration::from_secs(5), async {
+            let (client, peer) = tokio::net::UnixStream::pair().unwrap();
+            let (client, retained) = retain_peer_reader(client).unwrap();
+            let executor = OwnedExecutor::default();
+            let (mut sender, connection) = hyper::client::conn::http2::Builder::new(executor.clone())
+                .handshake::<_, http_body_util::Empty<bytes::Bytes>>(hyper_util::rt::TokioIo::new(client))
+                .await.unwrap();
+            let driver = tokio::spawn(connection);
+            let armed = Arc::new(AtomicBool::new(false));
+            let arm = armed.clone();
+            let (blocked, blocked_write) = tokio::sync::oneshot::channel();
+            let (release, released) = tokio::sync::oneshot::channel();
+            let (close, closing) = tokio::sync::oneshot::channel::<()>();
+            let server = tokio::spawn(async move {
+                let service = hyper::service::service_fn(|_| async {
+                    Ok::<_, std::convert::Infallible>(http::Response::new(
+                        http_body_util::Full::new(bytes::Bytes::from_static(b"original response")),
+                    ))
+                });
+                let (peer, retained) = retain_peer_reader(peer).unwrap();
+                let socket = GatedShutdownWrites {
+                    stream: peer, armed, first_write: false,
+                    blocked: Some(blocked), release: Some(released),
+                };
+                let builder = hyper::server::conn::http2::Builder::new(hyper_util::rt::TokioExecutor::new());
+                let connection = builder.serve_connection(hyper_util::rt::TokioIo::new(socket), service);
+                tokio::pin!(connection);
+                tokio::select! {
+                    result = connection.as_mut() => panic!("peer departed before shutdown: {result:?}"),
+                    result = closing => result.unwrap(),
+                }
+                arm.store(true, Ordering::Release);
+                connection.as_mut().graceful_shutdown();
+                connection.await.map_err(WorkerError::Connection)?;
+                finish_peer_reader(retained).await.map_err(infrastructure)
+            });
+            let response = sender.send_request(http::Request::builder()
+                .uri("http://localhost/original")
+                .body(http_body_util::Empty::new()).unwrap()).await.unwrap();
+            assert_eq!(response.into_body().collect().await.unwrap().to_bytes(), "original response");
+            close.send(()).unwrap();
+            finish_driver(driver).await.unwrap();
+            drop(sender);
+            let mut failures = Vec::new();
+            executor.finish(&mut failures).await;
+            assert!(failures.is_empty());
+            blocked_write.await.unwrap();
+            assert!(!server.is_finished(), "peer final write must cross completed Hyper ownership");
+            let mut drain = Box::pin(finish_peer_reader(retained));
+            assert!(futures_util::poll!(drain.as_mut()).is_pending(), "peer EOF has not occurred");
+            release.send(()).unwrap();
+            server.await.unwrap().unwrap();
+            drain.await.unwrap();
+        }).await.expect("real H2 shutdown must settle every owner");
+    }
 
     #[test]
     fn departed_reply_observer_leaves_actual_typed_failure_with_io_owner() {
