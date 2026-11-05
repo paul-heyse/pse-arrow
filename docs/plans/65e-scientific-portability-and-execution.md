@@ -319,6 +319,17 @@ construction/replacement, multiple simultaneous cleanup failures, successful rea
 acknowledgement, unknown reap, pending method guards at runtime shutdown and scratch reuse only
 after explicit retirement. Preserve selected-handle versus whole-process shutdown semantics.
 
+The November 5 retirement source is integrated on main (`386e1557b`, consuming source
+`797d9beb3`). Local original/constant/output/screening and fit/sample assessments now return
+only after evaluator retirement; fallible preparation precedes worker acquisition where
+possible. Partial sample construction and later-bank cleanup retain both scientific refusal
+and keyed cleanup failures. Targeted source controls exercise action panic plus failed finish
+under a live charge, and terminal-bank cleanup after a regular finisher panics. These controls
+still require execution. The full native-feature receiving all-target check completed with zero
+errors and one subsequently corrected qualification warning; the targeted native selection is
+building on main. Previously passing kernel and native-free component controls do not establish
+the new controls' acceptance. E04 remains in progress.
+
 ## Packages and migration
 
 | ID | State | Prerequisite | Delivery and targeted acceptance |

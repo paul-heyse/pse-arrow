@@ -597,7 +597,9 @@ resume from those prerequisites rather than treating discovery or interruption a
 
 The operator authorized execution of the remaining A–K series. Work resumed on clean main
 `b37400610`. Initial changes integrated directly there; the concurrent kernel/backend/worker
-retirement migration now uses an isolated worktree pending receiving-main integration. The operator's Cargo cleanup removed build
+retirement migration was committed as `797d9beb3` and merged onto main as `386e1557b` without
+conflicts. Its clean, fully merged worktree was removed after checking process departure;
+receiving-main integration and functional acceptance continue here. The operator's Cargo cleanup removed build
 outputs, so the native host was explicitly bootstrapped and native compiler/KLU/solver/isolation
 profiles explicitly reselected/prepared before consuming them. Earlier captures retain their
 original scope; neither a fresh build nor preparation establishes scientific qualification.
@@ -649,15 +651,21 @@ finite full-closure body/scratch allowances; its targeted native run passes. The
 selection has not been rerun as a population after those corrections.
 This is component evidence, not H qualification or full-series completion.
 
-The retirement work now covers the kernel bank, math worker, exact retained finisher, native
-oracle callbacks, conditional and dynamic owners, owner-affine fit/shooting teams, remote handles,
-child reap and explicit HTTP/2 task/driver joins. Its eight kernel retirement controls passed;
-cross-crate compilation, remaining constructor migrations and receiving-main acceptance remain
-open. Generic supplier construction must preserve both original refusal and every cleanup
-failure; ordinary Drop cannot close that obligation. Subsequent kernel controls pass ten tests,
-and the native-free math/backend all-target check and 46 selected functional controls pass
-against zero errors, warnings and test failures. Full native-feature/runtime and actual child
-acceptance remain separate; updated worker failure declarations have generated successfully.
+The integrated retirement source covers the kernel bank, math worker, exact retained finisher,
+native oracle callbacks, conditional and dynamic owners, fit/shooting teams, remote handles,
+actual child reap and explicit HTTP/2 task/driver joins. Local constant, original, output,
+screening, fitting and sample assessments consume evaluators before publishing results.
+Partial construction and panic paths retain original refusal plus independent cleanup
+failures; ordinary Drop cannot close that obligation. Independent static review also moved
+startup deadline validation ahead of actual child spawn. Ten kernel controls, the native-free
+math/backend all-target check and 46 selected functional controls passed against zero errors,
+warnings and test failures. Generated worker failure correspondence is published. The receiving-main
+all-target runtime/backend check with engineering, CoolProp and every native solver enabled
+completed with zero errors and one qualification warning; that warning is corrected in source.
+New local/sample controls and actual child/session acceptance remain open; the targeted native
+selection is building from main. This source integration does not complete E04 or H. A04's
+typed composition is being implemented independently in a tooling worktree for subsequent main
+integration; its adopted mechanisms and remaining all-world acceptance stay in 65a.
 
 ## Verification boundary
 
