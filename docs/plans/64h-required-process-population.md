@@ -2266,6 +2266,112 @@ four-wrapper equivalence,actual constants,data cardinalities/imports and
 module-relative missing paths. No sampler,fit,Excel parser,model import,
 pickle load orsolver was executed.
 
+## Moving and bubbling bed configuration closure — 2026-11-05
+
+**Interface-checked, source only:** C
+`gas_solid_contactors/unit_models/{moving_bed,bubbling_fluidized_bed}.py`,
+`tests/{test_MB,test_BFB_methane_oc,test_BFB_oxygen_oc}.py` andthe three
+`flowsheets/ss_{MB_methane_combustion,BFB_methane_combustion,BFB_OC_oxidation}.py`
+select the following distinct experiments. Scaled/unscaled initialization
+wrappers preserve the same physical feeds where shown; constructor/config,
+dynamic-index andfailed-initialization checks do not add solved transients.
+
+| Scientific fixture | Actual geometry,feed andnumerical selection |
+|---|---|
+| Moving bed `TestIronOC` |Countercurrent gas0→1/solid1→0,steady,D6.5 m/H5 m,10 backward spatial elements,full enthalpy balance,simple pressure-drop law. Gas128.20513 mol/s,298.15 K,200000 Pa,CH4 .975/CO2 .02499/H2O1e-5. Solid591.4 kg/s,1183.15 K,porosity .27,Fe2O3 .45/Fe3O4 1e-9/Al2O3 .55. |
+| Moving bed `TestIronOC_EnergyBalanceType` |Same geometry/flow/compositions,energy none,andgas inlet raised to1183.15 K to match the solid feed. Gas/solid temperatures are constrained to the **solid inlet** temperature away from their inlet boundaries. This is an imposed isothermal case,not an energy-conserving hot-feed alternative. |
+| Moving bed `TestIronOC_TransformationMethod` |Same hot1183.15 K gas/solid feeds,full enthalpy balance,10 elements×3 Radau collocation points. It is not the cold-feed baseline with only a mesh change. |
+| Methane BFB `TestIronOC` |Steady,cocurrent,D6.5 m/H5 m,5 backward elements,full enthalpy. Distributor `number_orifice` fixed2500 **m⁻²**,not a dimensionless total hole count. Gas272.81 mol/s,373 K,186000 Pa,CH4 .4582/CO2 .4772/H2O .0646. Solid1422 kg/s,1186 K,porosity .27,.45 Fe2O3/1e-9 Fe3O4/.55 Al2O3. |
+| Methane BFB energy-none |Same flow/composition/geometry,gas inlet changed to1186 K. Bubble/gas-emulsion temperatures equal gas inlet;solid-emulsion temperature equals solid inlet. This model's no-energy closure differs from moving-bed semantics. |
+| Methane BFB collocation |Same cold373 K/hot1186 K feeds as its full-energy baseline,5×3 Radau spatial mesh,full enthalpy. |
+| Oxygen BFB `TestIronOC` |Same geometry/distributor/5-backward mesh,cocurrent,full enthalpy. Gas1567.79 mol/s,373 K,186000 Pa,O2 .2095/N2 .7808/CO2 .0004/H2O .0093. Solid1230.865 kg/s,1173.9 K,porosity .27,Fe2O3 .244162011502/Fe3O4 .201998299487/Al2O3 .553839689011. |
+| Oxygen BFB energy-none |Same feeds including **unequal** gas373 K/solid1173.9 K. Each phase retains its own imposed inlet temperature;no gas-solid sensible heating orreaction heat balance is solved. |
+| Oxygen BFB collocation |Same cold/hot feeds,full enthalpy,5×3 Radau mesh. |
+
+The three standalone steady flowsheets repeat their full-energy baseline
+inputs/configurations; they add operating/reporting/initialization entry roles,
+not a different reaction/bed case. None loads saved state orCSV/trainer data.
+Methane fixtures use the already resolved three inline methane/iron reduction
+property/reaction owners;trace Fe3O4 makes inlet solid fractions sum to
+1.000000001,requiring explicit composition tolerance rather than normalization.
+
+Oxygen fixtures have a **separate** three-module closure under
+`properties/oxygen_iron_OC_oxidation/`: ideal O2/N2/CO2/H2O caloric/transport
+data (4 molecular masses/formation enthalpies,32 Shomate,16 viscosity,
+16 conductivity coefficients,4 diffusion volumes),andthree-solid mass/
+density/caloric data (24 Shomate coefficients). Fixed particle diameter
+.0015 m,minimum-fluidization voidage .45,bed voidage .35,solid conductivity
+12.3 W/(m·K) accompany state-dependent density/porosity. Reaction consumes
+O2+4Fe3O4 andproduces6Fe2O3,heat−469443.2 J/mol reaction;grain radius
+2.6e-7 m,molar solid density22472 mol/m³,available volume .28,activation
+energy14000 J/mol,reaction order1,andpre-exponential3.1e-4 m/s. It cannot
+be deduplicated into methane reduction orNETL adsorption. All coefficients
+are inline reference inputs;original ordinary kinetic/caloric/transport
+provenance andvalidity remain B/D03/F03 obligations.
+
+Moving-bed source configuration permits only countercurrent flow. Simple
+pressure loss defaults to .2/s times gas velocity×solid-minus-gas density;
+Ergun instead uses relative gas-plus-opposing-solid superficial velocity,
+viscosity,particle diameter andbed voidage. These laws are not interchangeable.
+Full-energy gas-solid heat transfer requires its particle Reynolds/Prandtl/
+Nusselt andconductivity closure. No-energy omits those heat-transfer equations
+andimposes the temperature policy above. Material/energy enums expose broader
+generic declarations,but actual participating phase properties/laws still
+bound admissibility;one accepted enthalpy fixture does not qualify every enum.
+
+Spatial defaults are moving10/BFB5 elements,initial normalized domain[0,1],
+finite difference defaulting BACKWARD,orcollocation defaulting Radau3. Both
+owners allow explicit FD FORWARD/BACKWARD andreject a non-Radau collocation
+scheme in their branch checks. Moving-bed independent gas/solid schemes are
+declared only for finite difference andmust be paired,without an explicitly
+shared scheme. Actual guard **order** needs readiness verification: automatic
+scheme defaulting andpair checks share an `if/elif` chain,so a defaulting
+branch can bypass later pair checks. Preserve three explicit test error
+selections (collocation+gas scheme,only gas scheme,shared+both phase schemes)
+without claiming all such inputs were executed/refused. Different upwind
+phase schemes create separate gas/solid spatial domains;their coordinate/
+transport/interpolation correspondence is required native work.
+
+`TestBidirectionalSpatialDiscretization` constructs the same dynamic300 s
+model twice for build/index checks:three100 s time elements×3 Radau points,
+three spatial elements,gas BACKWARD/solid FORWARD,holdupTrue,Ergun pressure
+loss. It checks discretization variables/equations andderivative index
+dependencies,but fixes no feed,geometry orinitial inventories andruns no
+transient solve. It therefore establishes no physical dynamic benchmark.
+Native distributed accumulation/initial-state/time correspondence remains
+required beyond this constructor footprint.
+
+BFB exposes co/countercurrent flow;only cocurrent is selected in its six
+steady fixtures above (the three moving cases are countercurrent). It creates
+bubble gas,emulsion gas andsolid-emulsion control volumes with configured
+dynamic/holdup flags,but only emulsion gas has the selected pressure balance.
+Hydrodynamics closes bubble growth/velocity,bubble/emulsion fractions,
+minimum-fluidization behavior,gas/solid superficial velocities andgravity
+pressure loss;species diffusion/bulk transfer andreaction source terms,
+plus full-energy bubble/emulsion/solid heat exchange,are separate required
+laws. No user pressure-drop correlation enum exists here. Countercurrent,
+no-pressure-change,dynamic holdup andhomogeneous/equilibrium-reaction
+variants remain explicit pending configured-case/admissibility closure.
+Fractional powers/smoothed transfer laws andlargely unbounded Reals variables
+do not by themselves establish physical domains below fluidization orat
+zero/inverted driving forces.
+
+Each steady class has scaled initialization,solution,combined gas-solid
+mass/stoichiometric controls andan overfixed outlet-flow1 mol/s
+`InitializationError` role. Full-energy cases also check energy including
+the selected reaction-heat/datum convention;energy-none cases cannot claim
+adiabatic energy conservation. Methane stoichiometric Fe2O3/CH4 ratio12
+andoxygen Fe3O4/O2 ratio4 are independent required observations. Retain
+all outlet phase/component flows,pressure drop,temperatures,conversion and
+original integrated balances;scalar outlet matches are insufficient for
+native transport/hydrodynamic acceptance. The separate X diagnostic moving
+bed/local property modules remain required diagnostic consumers,not aliases.
+Ephemeral AST/source inspection confirmedthree fixture classes perreaction/
+bed owner,no hidden parameterization,andtwo dynamic structural constructors;
+no model/reference/native solver run was performed. Native gas-solid physics,
+ordinary data,full alternative configuration population andindependent
+numerical/mesh evidence remain open F03/E03 work.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

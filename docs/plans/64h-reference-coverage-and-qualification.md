@@ -301,6 +301,17 @@ required,not discarded. Generated pickles,training-point accuracy andphysical
 process acceptance remain different roles;core parameterization,native mapping
 andreference compatibility/execution remain open.
 
+**Update, 2026-11-05 — moving/bubbling bed census:** the
+[bed-transport closure](64h-required-process-population.md#moving-and-bubbling-bed-configuration-closure--2026-11-05)
+resolves three moving,nine total steady moving/bubbling experiments,oxygen
+reaction/property inputs andtwo dynamic structural constructors. No-energy
+thermal policies differ across bed owners;hot-feed collocation is distinct
+from cold-feed moving-bed science. Phase-scheme guard order andremaining
+co/countercurrent/pressure/dynamic configurations need explicit execution
+dispositions;construction indices do not qualify inventories. Native transport/
+hydrodynamics,ordinary data andcomplete independent numerical evidence remain
+open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
