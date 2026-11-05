@@ -449,6 +449,16 @@ zero-current division and failed-initialization restoration limits remain
 explicit. Ordinary data, native conservation/electrical mapping and complete
 independent numerical qualification remain required.
 
+**Update, 2026-11-05 — methanol synthesis census:** the
+[methanol closure](64h-required-process-population.md#methanol-synthesis-recycle-and-assessment-input-closure--2026-11-05)
+resolves once-through/recycle simulation, assessment and optimization inputs,
+the modular FPhx/reaction dependencies and notebook equivalence. Retained
+flash temperature, nonnormalized feeds, liquid-Cp units, reaction/formation
+energy contributions and actual economic expressions need explicit native
+correspondence or ordinary-science disposition. The legacy custom-unit
+property files remain a separate required consumer closure. No independent
+solve or ordinary coefficient acceptance is claimed.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

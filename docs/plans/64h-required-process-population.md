@@ -3836,6 +3836,106 @@ off-design response, ordinary coefficient provenance and independent
 numerical qualification remain required separately. No model or solver was
 executed for this declaration.
 
+## Methanol synthesis, recycle and assessment input closure — 2026-11-05
+
+**Interface-checked, source only:** X `docs/flowsheets/methanol_synthesis*`
+consumes the adjacent `methanol_flowsheet.py` and
+`methanol_flowsheet_w_recycle.py`, plus `mod/methanol/{methanol_ideal_vapor,
+methanol_ideal_VLE,methanol_reactions}.py`. The base and `_test` notebooks
+have equal executable ASTs; `_doc` and `_usr` also match each other, omitting
+some assertions. These are two physical topologies with simulation,
+cost-augmented simulation and optimization specifications, not four
+independent notebook experiments. Both diagrams are presentation inputs.
+No CSV, fitted artifact, external trainer or saved initialization is read.
+The standalone helpers use 500 solver iterations; notebook initial solves
+use 100 and the recycle optimization increases to 200, all at tolerance 1e-6.
+Those different execution controls must stay attached to the selected entry.
+
+| Case | Topology and actual fixed/free controls |
+|---|---|
+| Once-through simulation | Two feeds → minimum-pressure mixer → isothermal compressor → heater → stoichiometric reactor → isentropic turbine → cooler → two-phase flash → vapor exhaust/liquid product. Compressor outlet 5.1 MPa; heater 488.15 K; reactor CO conversion .75 and outlet 507.15 K, heat duty constrained nonpositive; turbine deltaP −2 MPa and efficiency .9; cooler and flash outlets each 407.15 K; flash deltaP 0. Recovery is calculated, not fixed. |
+| Recycle simulation | Adds a second minimum-pressure mixer upstream of compression and a total-flow splitter on flash vapor. Initial purge .9999 leaves a small recycle, rather than a completely open loop. All other simulation specifications above remain. Sequential decomposition chooses tears heuristically, applies Wegstein with five iterations, then the assembled model is solved. |
+| Once-through optimization | Frees CO conversion within .75..85; replaces reactor temperature equality with 405..505 K; frees turbine deltaP with outlet 1..4.08 MPa; deactivates cooler temperature equality and adds 325.72..480 K bounds; frees flash deltaP and adds equal inlet/outlet flash temperatures. **The flash outlet equality at 407.15 K remains active**, so that equality plus isothermal flash/connecting arc still fixes the upstream cooler temperature. This is not a freely optimized cooling temperature despite that variable's local release. |
+| Recycle optimization | Same specification changes plus free purge in .10..50. First solves with both flash inlet/outlet SmoothVLE epsilon2 values at 2.5 times the captured inlet nominal, then restores that nominal for both and resolves. The continuation pass is not an additional scientific topology or a different ordinary formulation. |
+
+Both feeds are molar enthalpy states at 3 MPa. H2 feed is 637.2 mol/s,
+h = −142.4 J/mol, H2 fraction 1 and each CO/CH3OH/CH4 fraction 1e-6.
+CO feed is 316.8 mol/s, h = −110676.4 J/mol, CO fraction 1 and each
+H2/CH3OH/CH4 fraction 1e-6. Each authored composition therefore sums to
+**1.000003**; do not silently normalize it and call the changed problem
+matched science. The recycle tear guess is 954 mol/s, 3 MPa,
+−36848 J/mol and CH4/CO/H2/CH3OH fractions
+1e-6/.33207/.66792/1e-6 (sum .999992). It is an initializer guess, not a
+third feed or external dataset. Its callback releases destinations for
+every arc after each unit initialization; fixedness restoration is not a
+general state-preserving transaction.
+
+The two modular packages use FPhx, ideal vapor and (for VLE) ideal liquid,
+with CH4/CO/H2 restricted to vapor and CH3OH in both phases: five VLE
+phase-component members. SmoothVLE/IdealBubbleDew applies to methanol;
+the noncondensable species do not acquire dissolved liquid fractions.
+References are 298.15 K/1e5 Pa. Authored temperature bounds are
+198.15..512.75 K; this numerical bound is not a published validity envelope
+for every correlation or the 5.1 MPa ideal-gas process. RPP4 caloric data
+cover all vapor species; methanol liquid uses Perrys density/caloric and
+NIST saturation data. Methanol liquid Cp coefficients are explicitly
+declared in **J/(kmol K)** and corresponding powers, while the gas
+coefficients use J/(mol K). Preserve the declaration and resolve its
+ordinary physical meaning before a corrected coefficient is accepted.
+
+The sole reaction is CO + 2H2 → CH3OH in Vap; methane is inert. The reaction
+declaration supplies mole-fraction orders 1/2, Arrhenius prefactor
+3.77287e19 mol/(m3 s), activation energy 109.2 kJ/mol and constant reaction
+enthalpy −90.640 kJ/mol. The consumer is a conversion-specified
+**stoichiometric reactor**, so this case does not determine kinetic volume,
+residence time or a rate-limited conversion. It explicitly enables heat of
+reaction while the property data also contain formation enthalpies
+(CO −110.53, methanol vapor −205 kJ/mol, H2 zero). Native energy mapping
+must account for both authored contributions; independently deciding whether
+to remove a duplicated formation/reaction contribution changes the reference
+problem and needs an ordinary-science disposition.
+
+The costing extension uses C SSLW reactor/flash vessel correlations, inline
+utility coefficients, 365 days/year and a 5.4/15 capital annualization
+multiplier. Reactor diameter is 2 m and length is constrained to
+13.2×conversion −5.92 m; this sizing surrogate has no training inputs or
+validity evidence. Flash diameter/length are 2/4 m. Heater and cooler
+capital surrogates use slopes .036158/.10230 and intercepts
+63931.475/100421.572 in the actual source expressions, including their W
+unit annotations. No trained exchanger artifact or raw cost dataset ships.
+Sales multiplies methanol molar product by 32.042×1e-6×449×1000 and annual
+seconds. Raw-material terms multiply **CO flow by 16.51×2.016/1000 and
+H2 flow by 62×28.01/1000**, swapping the named feed-price/molecular-mass
+pairing. Electrical cost subtracts .08e-5 times the negative turbine
+isentropic work, so the actual term increases cost rather than supplying
+the described recovery credit. Preserve equations and units separately from
+their narrative interpretation; no currency/year or corrected economic
+claim follows from the reported objective.
+
+Notebook source targets at rel1e-5 are once-through extent 269.2805 mol/s,
+reactor duty −51.3636 MW, turbine isentropic work −1.9905 MW, recovery
+92.8036%, and objective divided by 1e6 equal to 77.7005. Recycle targets are
+311.3070 mol/s, −59.3402 MW, −2.4913 MW, recovery 92.0589%, purge 10%,
+and objective/1e6 = 104.2789; compressor work/MW is zero at absolute1e-5.
+Termination assertions accompany selected solve stages, but these scalar
+targets are not complete species, energy, recycle or economic validation.
+
+Two other shipped files, `methanol_param_VLE.py` and
+`methanol_state_block_VLE.py`, are a separate legacy **custom-unit**
+dependency, not imports of these modular synthesis flowsheets. Their
+constant Cp default .035 MJ/(kmol K), kmol/s/MJ basis, phase choices and
+four-species Antoine flash require the custom compressor/heater consumer
+closure separately. They cannot be treated as duplicate modular methanol
+property declarations or silently substituted for FPhx here.
+
+Native D05/G06 requires both topologies, specification transitions, explicit
+property/datum and reaction-energy mapping, complete products/recycle,
+original atom/energy checks and separately grounded assessment inputs.
+Ordinary coefficient/cost provenance, normalization/units/energy/economic
+dispositions, exact IDAES2.13/Pyomo compatibility and independent numerical
+qualification remain required. AST comparison read source only; no
+flowsheet, optimizer or costing function was executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
