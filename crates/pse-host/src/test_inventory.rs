@@ -650,6 +650,7 @@ pub fn developer_evidence_projection() -> Result<
     >()?;
     graph.register::<CapturedReport>()?;
     graph.register::<CapturedEvidence>()?;
+    graph.register::<crate::developer_evidence::directory::DirectoryManifest>()?;
     Ok(graph)
 }
 /// Read evidence as data, without treating decoded fields as native pass capabilities.
@@ -1002,8 +1003,7 @@ pub fn opened_report(
         session,
         Some(crate::developer_evidence::MAX_INPUT_BYTES),
     )?;
-    let commitments = original.observation.evidence.as_deref().filter(|_| original.observation.version == 3).ok_or_else(|| invalid("opened full dependency acquisition requires original interpretation-three commitments"))?;
-    let files = crate::test_workflow::execute::evidence::acquire(&original.parent, commitments)?;
+    let files = crate::developer_evidence::directory::acquire_original(&original)?;
     Ok(OpenedReport { original, files })
 }
 

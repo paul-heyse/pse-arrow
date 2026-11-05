@@ -49,7 +49,11 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
             basis: "declared".into(),
         });
     }
-    let roots = ["CapturedWorkflowReport", "CapturedWorkflowEvidence"];
+    let roots = [
+        "CapturedWorkflowReport",
+        "CapturedWorkflowEvidence",
+        "CapturedWorkflowDirectoryManifest",
+    ];
     let adapters = boundary_projection::native_adapters_scoped(
         &graph,
         &roots,
@@ -119,10 +123,15 @@ mod tests {
         assert!(policy.contains("CapturedWorkflowEvidence"));
         let adapters =
             std::str::from_utf8(&tree.files[&directory.join("native-adapters.rs")]).unwrap();
-        for root in ["captured_workflow_report", "captured_workflow_evidence"] {
+        for root in [
+            "captured_workflow_report",
+            "captured_workflow_evidence",
+            "captured_workflow_directory_manifest",
+        ] {
             assert!(adapters.contains(&format!("pub(crate) fn encode_{root}")));
             assert!(!adapters.contains(&format!("fn decode_{root}")));
         }
+        assert!(policy.contains("CapturedWorkflowDirectoryManifest"));
         assert!(adapters.contains("NativeFrom<"));
         assert!(adapters.contains("unknown_fields(&wire.__buffa_unknown_fields"));
         assert!(!adapters.contains("fn decode_workflow_report_observation"));

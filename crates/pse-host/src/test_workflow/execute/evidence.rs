@@ -410,7 +410,7 @@ pub(crate) fn capture(
     }
     let mut captured = Vec::new();
     for (dependency, commitment) in files.iter().enumerate() {
-        let Some(mut member) = opened::acquire_member(workflow, dependency, commitment)? else {
+        let Some(mut member) = opened::open_member(workflow, dependency, commitment)? else {
             continue;
         };
         let mut original = Vec::new();
@@ -422,19 +422,6 @@ pub(crate) fn capture(
     }
     Ok(captured)
 }
-/// Same content/omission rules for independent passive readback; no native owner is constructed.
-pub(crate) fn validate_captured(
-    files: &[EvidenceFile],
-    captured: &[CapturedFile],
-) -> Result<(), HostError> {
-    validate_members(
-        files,
-        captured
-            .iter()
-            .map(|file| (file.dependency, ContentIdentity::of(&file.original))),
-    )
-}
-
 /// One original ordinal/content account for inline bytes and physically opened members.
 pub(crate) fn validate_members(
     files: &[EvidenceFile],
@@ -496,14 +483,36 @@ mod tests {
         assert!(causes.is_empty());
         let captured = capture(root.path(), &files, original.len()).unwrap();
         assert_eq!(captured[0].original, original);
-        validate_captured(&files, &captured).unwrap();
-        assert!(validate_captured(&files, &[]).is_err());
+        validate_members(
+            &files,
+            captured
+                .iter()
+                .map(|file| (file.dependency, ContentIdentity::of(&file.original))),
+        )
+        .unwrap();
+        assert!(validate_members(&files, []).is_err());
         let mut changed = captured.clone();
         changed[0].original[2] = b'b';
-        assert!(validate_captured(&files, &changed).is_err());
+        assert!(
+            validate_members(
+                &files,
+                changed
+                    .iter()
+                    .map(|file| (file.dependency, ContentIdentity::of(&file.original)))
+            )
+            .is_err()
+        );
         let mut changed = captured.clone();
         changed.push(captured[0].clone());
-        assert!(validate_captured(&files, &changed).is_err());
+        assert!(
+            validate_members(
+                &files,
+                changed
+                    .iter()
+                    .map(|file| (file.dependency, ContentIdentity::of(&file.original)))
+            )
+            .is_err()
+        );
         assert!(capture(root.path(), &files, original.len() - 1).is_err());
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
         fs::write(&path, [0xff, b'\n', b'b']).unwrap();
@@ -535,7 +544,7 @@ mod tests {
         }
         revalidate(root.path(), &files).unwrap();
         assert!(capture(root.path(), &files, 1024).unwrap().is_empty());
-        validate_captured(&files, &[]).unwrap();
+        validate_members(&files, []).unwrap();
         assert!(files.iter().all(|file| file.content.is_none()));
     }
     #[test]

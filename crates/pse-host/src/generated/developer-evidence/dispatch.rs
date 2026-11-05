@@ -7,6 +7,9 @@ macro_rules! dispatch {
         $crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array32U8
         > $arguments), "pse.developer.evidence.v1.Array3Array16U8" => Some($callback :: <
         $crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array3Array16U8
+        > $arguments), "pse.developer.evidence.v1.CapturedWorkflowDirectoryManifest" =>
+        Some($callback :: <
+        $crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::CapturedWorkflowDirectoryManifest
         > $arguments), "pse.developer.evidence.v1.CapturedWorkflowEvidence" =>
         Some($callback :: <
         $crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::CapturedWorkflowEvidence
@@ -293,6 +296,13 @@ macro_rules! dispatch {
         > $arguments), "pse.developer.evidence.v1.WorkflowCapturedFile" => Some($callback
         :: <
         $crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowCapturedFile
+        > $arguments), "pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile" =>
+        Some($callback :: <
+        $crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceDirectoryProfile
+        > $arguments),
+        "pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile.Alternative1" =>
+        Some($callback :: <
+        $crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::workflow_evidence_directory_profile::Alternative1
         > $arguments), "pse.developer.evidence.v1.WorkflowEvidenceFile" => Some($callback
         :: <
         $crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowEvidenceFile

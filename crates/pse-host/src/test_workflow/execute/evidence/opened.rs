@@ -21,6 +21,21 @@ pub(crate) struct OpenedFile {
 }
 
 impl OpenedFile {
+    pub(crate) fn bind(
+        dependency: usize,
+        file: File,
+        expected: &ContentIdentity,
+    ) -> Result<Self, HostError> {
+        let original = crate::artifacts::descriptor_identity(&file)?;
+        let member = Self {
+            dependency,
+            file,
+            original,
+            expected: expected.clone(),
+        };
+        member.identity()?;
+        Ok(member)
+    }
     pub(crate) fn dependency(&self) -> usize {
         self.dependency
     }
@@ -70,45 +85,66 @@ impl OpenedFile {
         &mut self,
         output: &mut impl Write,
     ) -> Result<ContentIdentity, HostError> {
+        let (_, identity) = self.with_reader(|input| {
+            std::io::copy(input, output)?;
+            Ok(())
+        })?;
+        Ok(identity)
+    }
+
+    /// Adopt meaning from the same bounded bytes whose original identity is checked.
+    pub(crate) fn with_reader<T>(
+        &mut self,
+        read: impl FnOnce(&mut dyn std::io::Read) -> Result<T, HostError>,
+    ) -> Result<(T, ContentIdentity), HostError> {
         let before = self.identity()?;
         let maximum =
             self.expected.byte_length.checked_add(1).ok_or_else(|| {
                 invalid("original dependency extent cannot include growth detection")
             })?;
         self.file.rewind()?;
-        let mut input = (&mut self.file).take(maximum);
-        let mut buffer = [0u8; 64 * 1024];
-        let mut hash = Sha256::new();
-        let mut byte_length = 0u64;
-        loop {
-            let count = input.read(&mut buffer)?;
-            if count == 0 {
-                break;
-            }
-            byte_length += count as u64;
-            if byte_length > self.expected.byte_length {
-                return Err(invalid(
-                    "opened dependency grew beyond its original commitment",
-                ));
-            }
-            hash.update(&buffer[..count]);
-            output.write_all(&buffer[..count])?;
-        }
-        let actual = ContentIdentity {
-            byte_length,
-            sha256: hash
-                .finalize()
-                .iter()
-                .map(|byte| format!("{byte:02x}"))
-                .collect(),
+        let mut input = ContentReader {
+            input: (&mut self.file).take(maximum),
+            hash: Sha256::new(),
+            bytes: 0,
         };
+        let value = read(&mut input)?;
+        std::io::copy(&mut input, &mut std::io::sink())?;
+        let actual = input.finish();
         if self.identity()? != before || actual != self.expected {
             return Err(invalid(format!(
                 "opened dependency {} changed during reading or differs from its original commitment",
                 self.dependency
             )));
         }
-        Ok(actual)
+        Ok((value, actual))
+    }
+}
+
+struct ContentReader<'a> {
+    input: std::io::Take<&'a mut File>,
+    hash: Sha256,
+    bytes: u64,
+}
+impl std::io::Read for ContentReader<'_> {
+    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+        let count = self.input.read(bytes)?;
+        self.bytes += count as u64;
+        self.hash.update(&bytes[..count]);
+        Ok(count)
+    }
+}
+impl ContentReader<'_> {
+    fn finish(self) -> ContentIdentity {
+        ContentIdentity {
+            byte_length: self.bytes,
+            sha256: self
+                .hash
+                .finalize()
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect(),
+        }
     }
 }
 
@@ -117,11 +153,13 @@ impl OpenedFile {
 pub(crate) fn acquire(
     workflow: &Path,
     files: &[EvidenceFile],
+    mut verify: impl FnMut(&mut OpenedFile, &EvidenceFile) -> Result<(), HostError>,
 ) -> Result<Vec<OpenedFile>, HostError> {
     validate(files)?;
     let mut opened = Vec::new();
     for (dependency, commitment) in files.iter().enumerate() {
-        if let Some(member) = acquire_member(workflow, dependency, commitment)? {
+        if let Some(mut member) = open_member(workflow, dependency, commitment)? {
+            verify(&mut member, commitment)?;
             opened.push(member);
         }
     }
@@ -130,7 +168,7 @@ pub(crate) fn acquire(
 
 /// The compact profile materializes one member then releases its fd. It shares
 /// admission with the retained-fd profile without requiring all fds simultaneously.
-pub(super) fn acquire_member(
+pub(super) fn open_member(
     workflow: &Path,
     dependency: usize,
     commitment: &EvidenceFile,
@@ -143,15 +181,7 @@ pub(super) fn acquire_member(
         commitment.root,
         &commitment.path,
     )?)?;
-    let original = crate::artifacts::descriptor_identity(&file)?;
-    let mut member = OpenedFile {
-        dependency,
-        file,
-        original,
-        expected: expected.clone(),
-    };
-    member.copy_verified(&mut std::io::sink())?;
-    Ok(Some(member))
+    Ok(Some(OpenedFile::bind(dependency, file, expected)?))
 }
 
 #[cfg(test)]
@@ -159,6 +189,12 @@ mod tests {
     use super::super::{EvidenceRole, EvidenceRoot, SourceFile, capture, seal, validate_members};
     use super::*;
     use std::{fs, os::unix::fs::PermissionsExt as _};
+
+    fn acquire(workflow: &Path, files: &[EvidenceFile]) -> Result<Vec<OpenedFile>, HostError> {
+        super::acquire(workflow, files, |member, _| {
+            member.copy_verified(&mut std::io::sink()).map(|_| ())
+        })
+    }
 
     fn fixture(names: &[&str]) -> (tempfile::TempDir, Vec<EvidenceFile>) {
         let root = tempfile::tempdir().unwrap();

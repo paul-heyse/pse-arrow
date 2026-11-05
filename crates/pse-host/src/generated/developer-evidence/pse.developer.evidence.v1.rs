@@ -777,6 +777,333 @@ pub const __ARRAY3ARRAY16U8_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::b
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
+pub struct CapturedWorkflowDirectoryManifest {
+    /// Field 1: `report`
+    #[serde(
+        rename = "report",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub report: ::buffa::MessageField<
+        CapturedWorkflowReport,
+        ::buffa::Inline<CapturedWorkflowReport>,
+    >,
+    /// Field 2: `profile`
+    #[serde(
+        rename = "profile",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub profile: ::buffa::MessageField<
+        WorkflowEvidenceDirectoryProfile,
+        ::buffa::Inline<WorkflowEvidenceDirectoryProfile>,
+    >,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for CapturedWorkflowDirectoryManifest {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("CapturedWorkflowDirectoryManifest")
+            .field("report", &self.report)
+            .field("profile", &self.profile)
+            .finish()
+    }
+}
+impl CapturedWorkflowDirectoryManifest {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.developer.evidence.v1.CapturedWorkflowDirectoryManifest";
+}
+::buffa::impl_default_instance!(CapturedWorkflowDirectoryManifest);
+impl ::buffa_descriptor::reflect::ReflectMessage for CapturedWorkflowDirectoryManifest {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.report),
+                )
+            }
+            2u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.profile),
+                )
+            }
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.report.is_set(),
+            2u32 => self.profile.is_set(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for CapturedWorkflowDirectoryManifest {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl CapturedWorkflowDirectoryManifest {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for CapturedWorkflowDirectoryManifest {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for CapturedWorkflowDirectoryManifest {
+    const PACKAGE: &'static str = "pse.developer.evidence.v1";
+    const NAME: &'static str = "CapturedWorkflowDirectoryManifest";
+    const FULL_NAME: &'static str = "pse.developer.evidence.v1.CapturedWorkflowDirectoryManifest";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.developer.evidence.v1.CapturedWorkflowDirectoryManifest";
+}
+impl ::buffa::Message for CapturedWorkflowDirectoryManifest {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.report.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.report.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.profile.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.profile.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.report.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.report.write_to(__cache, buf);
+        }
+        if self.profile.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                2u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.profile.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.report.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.profile.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.report = ::buffa::MessageField::none();
+        self.profile = ::buffa::MessageField::none();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for CapturedWorkflowDirectoryManifest {
+    const PROTO_FQN: &'static str = "pse.developer.evidence.v1.CapturedWorkflowDirectoryManifest";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for CapturedWorkflowDirectoryManifest {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.report.is_set() {
+            enc.write_field_name("report")?;
+            enc.write_message(&*self.report)?;
+        }
+        if self.profile.is_set() {
+            enc.write_field_name("profile")?;
+            enc.write_message(&*self.profile)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "report" => dec.merge_message(self.report.get_or_insert_default())?,
+                "profile" => dec.merge_message(self.profile.get_or_insert_default())?,
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for CapturedWorkflowDirectoryManifest {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __CAPTURED_WORKFLOW_DIRECTORY_MANIFEST_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.developer.evidence.v1.CapturedWorkflowDirectoryManifest",
+    to_json: ::buffa::type_registry::any_to_json::<CapturedWorkflowDirectoryManifest>,
+    from_json: ::buffa::type_registry::any_from_json::<
+        CapturedWorkflowDirectoryManifest,
+    >,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __CAPTURED_WORKFLOW_DIRECTORY_MANIFEST_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.developer.evidence.v1.CapturedWorkflowDirectoryManifest",
+    text_encode: ::buffa::type_registry::any_encode_text::<
+        CapturedWorkflowDirectoryManifest,
+    >,
+    text_merge: ::buffa::type_registry::any_merge_text::<
+        CapturedWorkflowDirectoryManifest,
+    >,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
 pub struct CapturedWorkflowEvidence {
     /// Field 1: `invocation`
     #[serde(
@@ -36759,6 +37086,643 @@ pub const __WORKFLOW_CAPTURED_FILE_TEXT_ANY: ::buffa::type_registry::TextAnyEntr
     text_merge: ::buffa::type_registry::any_merge_text::<WorkflowCapturedFile>,
 };
 #[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize)]
+#[serde(default)]
+pub struct WorkflowEvidenceDirectoryProfile {
+    #[serde(flatten)]
+    pub kind: ::core::option::Option<
+        __buffa::oneof::workflow_evidence_directory_profile::Kind,
+    >,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for WorkflowEvidenceDirectoryProfile {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("WorkflowEvidenceDirectoryProfile")
+            .field("kind", &self.kind)
+            .finish()
+    }
+}
+impl WorkflowEvidenceDirectoryProfile {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile";
+}
+::buffa::impl_default_instance!(WorkflowEvidenceDirectoryProfile);
+impl ::buffa_descriptor::reflect::ReflectMessage for WorkflowEvidenceDirectoryProfile {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                            v,
+                        ),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <workflow_evidence_directory_profile::Alternative1 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(_))
+                )
+            }
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for WorkflowEvidenceDirectoryProfile {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl WorkflowEvidenceDirectoryProfile {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for WorkflowEvidenceDirectoryProfile {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for WorkflowEvidenceDirectoryProfile {
+    const PACKAGE: &'static str = "pse.developer.evidence.v1";
+    const NAME: &'static str = "WorkflowEvidenceDirectoryProfile";
+    const FULL_NAME: &'static str = "pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile";
+}
+impl ::buffa::Message for WorkflowEvidenceDirectoryProfile {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if let ::core::option::Option::Some(ref v) = self.kind {
+            match v {
+                __buffa::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                    x,
+                ) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+            }
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if let ::core::option::Option::Some(ref v) = self.kind {
+            match v {
+                __buffa::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                    x,
+                ) => {
+                    ::buffa::types::put_len_delimited_header(
+                        1u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+            }
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                        ref mut existing,
+                    ),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.kind = ::core::option::Option::None;
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for WorkflowEvidenceDirectoryProfile {
+    const PROTO_FQN: &'static str = "pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for WorkflowEvidenceDirectoryProfile {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if let ::core::option::Option::Some(ref __v) = self.kind {
+            match __v {
+                __buffa::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                    __v,
+                ) => {
+                    enc.write_field_name("original_full_v1")?;
+                    enc.write_message(&**__v)?;
+                }
+            }
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "original_full_v1" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                            ref mut __existing,
+                        ),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for WorkflowEvidenceDirectoryProfile {
+    fn deserialize<D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        struct _V;
+        impl<'de> ::serde::de::Visitor<'de> for _V {
+            type Value = WorkflowEvidenceDirectoryProfile;
+            fn expecting(
+                &self,
+                f: &mut ::core::fmt::Formatter<'_>,
+            ) -> ::core::fmt::Result {
+                f.write_str("struct WorkflowEvidenceDirectoryProfile")
+            }
+            #[allow(clippy::field_reassign_with_default, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn visit_map<A: ::serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> ::core::result::Result<WorkflowEvidenceDirectoryProfile, A::Error> {
+                let mut __oneof_kind: ::core::option::Option<
+                    __buffa::oneof::workflow_evidence_directory_profile::Kind,
+                > = None;
+                while let Some(key) = map.next_key::<::buffa::alloc::string::String>()? {
+                    match key.as_str() {
+                        "original_full_v1" => {
+                            let v: ::core::option::Option<
+                                workflow_evidence_directory_profile::Alternative1,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            workflow_evidence_directory_profile::Alternative1,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        _ => {
+                            map.next_value::<::serde::de::IgnoredAny>()?;
+                        }
+                    }
+                }
+                let mut __r = <WorkflowEvidenceDirectoryProfile as ::core::default::Default>::default();
+                __r.kind = __oneof_kind;
+                Ok(__r)
+            }
+        }
+        d.deserialize_map(_V)
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for WorkflowEvidenceDirectoryProfile {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __WORKFLOW_EVIDENCE_DIRECTORY_PROFILE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile",
+    to_json: ::buffa::type_registry::any_to_json::<WorkflowEvidenceDirectoryProfile>,
+    from_json: ::buffa::type_registry::any_from_json::<WorkflowEvidenceDirectoryProfile>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __WORKFLOW_EVIDENCE_DIRECTORY_PROFILE_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile",
+    text_encode: ::buffa::type_registry::any_encode_text::<
+        WorkflowEvidenceDirectoryProfile,
+    >,
+    text_merge: ::buffa::type_registry::any_merge_text::<
+        WorkflowEvidenceDirectoryProfile,
+    >,
+};
+pub mod workflow_evidence_directory_profile {
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    use super::*;
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative1 {
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative1 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative1").finish()
+        }
+    }
+    impl Alternative1 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile.Alternative1";
+    }
+    ::buffa::impl_default_instance!(Alternative1);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative1 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative1 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative1 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative1 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative1 {
+        const PACKAGE: &'static str = "pse.developer.evidence.v1";
+        const NAME: &'static str = "WorkflowEvidenceDirectoryProfile.Alternative1";
+        const FULL_NAME: &'static str = "pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile.Alternative1";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile.Alternative1";
+    }
+    impl ::buffa::Message for Alternative1 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            _cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative1 {
+        const PROTO_FQN: &'static str = "pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile.Alternative1";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative1 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative1 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE1_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile.Alternative1",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative1>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative1>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE1_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile.Alternative1",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative1>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative1>,
+    };
+    #[doc(inline)]
+    pub use super::__buffa::oneof::workflow_evidence_directory_profile::Kind;
+    #[doc(inline)]
+    pub use super::__buffa::view::workflow_evidence_directory_profile::Alternative1View;
+    #[doc(inline)]
+    pub use super::__buffa::view::workflow_evidence_directory_profile::Alternative1OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::oneof::workflow_evidence_directory_profile::Kind as KindView;
+}
+#[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
 pub struct WorkflowEvidenceFile {
@@ -50119,6 +51083,519 @@ pub mod __buffa {
             }
         }
         impl<'a> Array3Array16U8View<'a> {
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            /// Memoized `MessageIndex` for this view's message type, resolved
+            /// once against the package's embedded descriptor pool. An inherent
+            /// associated fn (not a free fn) so sibling views in the same module
+            /// do not collide.
+            #[doc(hidden)]
+            fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+                *IDX
+                    .get_or_init(|| {
+                        super::super::__buffa::reflect::descriptor_pool()
+                            .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                            .expect(
+                                "generated view type is registered in the embedded descriptor pool",
+                            )
+                    })
+            }
+        }
+        #[derive(Clone, Debug, Default)]
+        pub struct CapturedWorkflowDirectoryManifestView<'a> {
+            /// Field 1: `report`
+            pub report: ::buffa::MessageFieldView<
+                super::super::__buffa::view::CapturedWorkflowReportView<'a>,
+            >,
+            /// Field 2: `profile`
+            pub profile: ::buffa::MessageFieldView<
+                super::super::__buffa::view::WorkflowEvidenceDirectoryProfileView<'a>,
+            >,
+            pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+        }
+        impl<'a> ::buffa::MessageView<'a> for CapturedWorkflowDirectoryManifestView<'a> {
+            type Owned = super::super::CapturedWorkflowDirectoryManifest;
+            fn decode_view(
+                buf: &'a [u8],
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                let __limit = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                );
+                let __elem = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                );
+                <Self as ::buffa::MessageView>::decode_view_ctx(
+                    buf,
+                    ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                        .with_element_memory(&__elem),
+                )
+            }
+            fn decode_view_with_ctx(
+                buf: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+            }
+            #[inline]
+            fn merge_view_field(
+                &mut self,
+                tag: ::buffa::encoding::Tag,
+                cur: &'a [u8],
+                before_tag: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                let _ = ctx;
+                #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                let view = self;
+                let mut cur = cur;
+                match tag.field_number() {
+                    1u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.report.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.report = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::CapturedWorkflowReportView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    2u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.profile.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.profile = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::WorkflowEvidenceDirectoryProfileView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    _ => {
+                        ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                        let span_len = before_tag.len() - cur.len();
+                        view.__buffa_unknown_fields
+                            .push_record(before_tag, span_len, ctx)?;
+                    }
+                }
+                ::core::result::Result::Ok(cur)
+            }
+            fn to_owned_message(
+                &self,
+            ) -> ::core::result::Result<
+                super::super::CapturedWorkflowDirectoryManifest,
+                ::buffa::DecodeError,
+            > {
+                self.to_owned_from_source(None)
+            }
+            #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn to_owned_from_source(
+                &self,
+                __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+            ) -> ::core::result::Result<
+                super::super::CapturedWorkflowDirectoryManifest,
+                ::buffa::DecodeError,
+            > {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::alloc::string::ToString as _;
+                let _ = __buffa_src;
+                ::core::result::Result::Ok(super::super::CapturedWorkflowDirectoryManifest {
+                    report: match self.report.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::CapturedWorkflowReport,
+                                ::buffa::Inline<super::super::CapturedWorkflowReport>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    profile: match self.profile.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::WorkflowEvidenceDirectoryProfile,
+                                ::buffa::Inline<
+                                    super::super::WorkflowEvidenceDirectoryProfile,
+                                >,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    __buffa_unknown_fields: self
+                        .__buffa_unknown_fields
+                        .to_owned()?
+                        .into(),
+                    ..::core::default::Default::default()
+                })
+            }
+        }
+        impl<'a> ::buffa::ViewEncode<'a> for CapturedWorkflowDirectoryManifestView<'a> {
+            #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                let mut size = 0u64;
+                if self.report.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.report.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                if self.profile.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.profile.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                size += self.__buffa_unknown_fields.encoded_len() as u64;
+                ::buffa::saturate_size(size)
+            }
+            #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn write_to(
+                &self,
+                __cache: &mut ::buffa::SizeCache,
+                buf: &mut impl ::buffa::EncodeSink,
+            ) {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                if self.report.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        1u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.report.write_to(__cache, buf);
+                }
+                if self.profile.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        2u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.profile.write_to(__cache, buf);
+                }
+                self.__buffa_unknown_fields.write_to(buf);
+            }
+        }
+        /// Serializes this view as protobuf JSON.
+        ///
+        /// Implicit-presence fields with default values are omitted, `required`
+        /// fields are always emitted, explicit-presence (`optional`) fields are
+        /// emitted only when set, bytes fields are base64-encoded, and enum
+        /// values are their proto name strings.
+        ///
+        /// This impl uses `serialize_map(None)` because the number of emitted
+        /// fields depends on default-omission rules; serializers that require
+        /// known map lengths (e.g. `bincode`) will return a runtime error.
+        /// Use the owned message type for those formats.
+        impl<'__a> ::serde::Serialize for CapturedWorkflowDirectoryManifestView<'__a> {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                use ::serde::ser::SerializeMap as _;
+                let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                {
+                    if let ::core::option::Option::Some(__v) = self.report.as_option() {
+                        __map.serialize_entry("report", __v)?;
+                    }
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self.profile.as_option() {
+                        __map.serialize_entry("profile", __v)?;
+                    }
+                }
+                __map.end()
+            }
+        }
+        impl<'a> ::buffa::MessageName for CapturedWorkflowDirectoryManifestView<'a> {
+            const PACKAGE: &'static str = "pse.developer.evidence.v1";
+            const NAME: &'static str = "CapturedWorkflowDirectoryManifest";
+            const FULL_NAME: &'static str = "pse.developer.evidence.v1.CapturedWorkflowDirectoryManifest";
+            const TYPE_URL: &'static str = "type.googleapis.com/pse.developer.evidence.v1.CapturedWorkflowDirectoryManifest";
+        }
+        ::buffa::impl_default_view_instance!(CapturedWorkflowDirectoryManifestView);
+        ::buffa::impl_view_reborrow!(CapturedWorkflowDirectoryManifestView);
+        /** Self-contained, `'static` owned view of a `CapturedWorkflowDirectoryManifest` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`CapturedWorkflowDirectoryManifestView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`CapturedWorkflowDirectoryManifestView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+        #[derive(Clone, Debug)]
+        pub struct CapturedWorkflowDirectoryManifestOwnedView(
+            ::buffa::OwnedView<CapturedWorkflowDirectoryManifestView<'static>>,
+        );
+        impl CapturedWorkflowDirectoryManifestOwnedView {
+            /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+            ///
+            /// The view borrows directly from the buffer's data; the buffer is
+            /// retained inside the returned handle.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+            /// protobuf data.
+            pub fn decode(
+                bytes: ::buffa::bytes::Bytes,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    CapturedWorkflowDirectoryManifestOwnedView(
+                        ::buffa::OwnedView::decode(bytes)?,
+                    ),
+                )
+            }
+            /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+            /// max message size).
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+            /// exceeds the configured limits.
+            pub fn decode_with_options(
+                bytes: ::buffa::bytes::Bytes,
+                opts: &::buffa::DecodeOptions,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    CapturedWorkflowDirectoryManifestOwnedView(
+                        ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                    ),
+                )
+            }
+            /// Build from an owned message via an encode → decode round-trip.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+            /// message's encoded size exceeds the 2 GiB protobuf limit, or
+            /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+            /// somehow invalid (should not happen for well-formed messages).
+            pub fn from_owned(
+                msg: &super::super::CapturedWorkflowDirectoryManifest,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    CapturedWorkflowDirectoryManifestOwnedView(
+                        ::buffa::OwnedView::from_owned(msg)?,
+                    ),
+                )
+            }
+            /// Borrow the full [`CapturedWorkflowDirectoryManifestView`] with its lifetime tied to `&self`.
+            #[must_use]
+            pub fn view(&self) -> &CapturedWorkflowDirectoryManifestView<'_> {
+                self.0.reborrow()
+            }
+            /// Convert to the owned message type.
+            ///
+            /// Infallible: this type's constructors wire-decode their
+            /// buffer, and a view produced by wire decoding always
+            /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+            /// whose contract also governs handles converted from a raw
+            /// [`::buffa::OwnedView`].
+            #[must_use]
+            pub fn to_owned_message(
+                &self,
+            ) -> super::super::CapturedWorkflowDirectoryManifest {
+                self.0.to_owned_message()
+            }
+            /// The underlying bytes buffer.
+            #[must_use]
+            pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                self.0.bytes()
+            }
+            /// Consume the handle, returning the underlying bytes buffer.
+            #[must_use]
+            pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                self.0.into_bytes()
+            }
+            /// Field 1: `report`
+            #[must_use]
+            pub fn report(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::CapturedWorkflowReportView<'_>,
+            > {
+                &self.0.reborrow().report
+            }
+            /// Field 2: `profile`
+            #[must_use]
+            pub fn profile(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::WorkflowEvidenceDirectoryProfileView<'_>,
+            > {
+                &self.0.reborrow().profile
+            }
+        }
+        impl ::core::convert::From<
+            ::buffa::OwnedView<CapturedWorkflowDirectoryManifestView<'static>>,
+        > for CapturedWorkflowDirectoryManifestOwnedView {
+            fn from(
+                inner: ::buffa::OwnedView<CapturedWorkflowDirectoryManifestView<'static>>,
+            ) -> Self {
+                CapturedWorkflowDirectoryManifestOwnedView(inner)
+            }
+        }
+        impl ::core::convert::From<CapturedWorkflowDirectoryManifestOwnedView>
+        for ::buffa::OwnedView<CapturedWorkflowDirectoryManifestView<'static>> {
+            fn from(wrapper: CapturedWorkflowDirectoryManifestOwnedView) -> Self {
+                wrapper.0
+            }
+        }
+        impl ::core::convert::AsRef<
+            ::buffa::OwnedView<CapturedWorkflowDirectoryManifestView<'static>>,
+        > for CapturedWorkflowDirectoryManifestOwnedView {
+            fn as_ref(
+                &self,
+            ) -> &::buffa::OwnedView<CapturedWorkflowDirectoryManifestView<'static>> {
+                &self.0
+            }
+        }
+        impl ::buffa::HasMessageView
+        for super::super::CapturedWorkflowDirectoryManifest {
+            type View<'a> = CapturedWorkflowDirectoryManifestView<'a>;
+            type ViewHandle = CapturedWorkflowDirectoryManifestOwnedView;
+        }
+        impl ::serde::Serialize for CapturedWorkflowDirectoryManifestOwnedView {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                ::serde::Serialize::serialize(&self.0, __s)
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+        for CapturedWorkflowDirectoryManifestView<'a> {
+            fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                super::super::__buffa::reflect::descriptor_pool()
+                    .message(Self::__buffa_reflect_message_index())
+            }
+            fn pool(
+                &self,
+            ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                super::super::__buffa::reflect::descriptor_pool()
+            }
+            fn get(
+                &self,
+                field: &::buffa_descriptor::FieldDescriptor,
+            ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                match field.number() {
+                    1u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.report,
+                            ),
+                        )
+                    }
+                    2u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.profile,
+                            ),
+                        )
+                    }
+                    _ => {
+                        ::core::debug_assert!(
+                            false,
+                            "field number {} is not a member of this view's reflect get()",
+                            field.number(),
+                        );
+                        ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                    }
+                }
+            }
+            fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                match field.number() {
+                    1u32 => self.report.is_set(),
+                    2u32 => self.profile.is_set(),
+                    _ => false,
+                }
+            }
+            fn for_each_set(
+                &self,
+                f: &mut dyn ::core::ops::FnMut(
+                    &::buffa_descriptor::FieldDescriptor,
+                    ::buffa_descriptor::reflect::ValueRef<'_>,
+                ),
+            ) {
+                let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                    self,
+                );
+                for fd in md.fields() {
+                    if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                        f(
+                            fd,
+                            ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                        );
+                    }
+                }
+            }
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                let options = ::buffa::DecodeOptions::new()
+                    .with_element_memory_limit(
+                        bytes
+                            .len()
+                            .saturating_mul(128)
+                            .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                    )
+                    .with_unknown_field_limit(
+                        bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                    );
+                ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                        ::buffa::alloc::sync::Arc::clone(
+                            super::super::__buffa::reflect::descriptor_pool(),
+                        ),
+                        Self::__buffa_reflect_message_index(),
+                        &bytes,
+                        &options,
+                    )
+                    .expect(
+                        "view re-encodes to bytes decodable against its own descriptor",
+                    )
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectElement
+        for CapturedWorkflowDirectoryManifestView<'a> {
+            fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                )
+            }
+        }
+        impl<'a> CapturedWorkflowDirectoryManifestView<'a> {
             #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
             /// Memoized `MessageIndex` for this view's message type, resolved
             /// once against the package's embedded descriptor pool. An inherent
@@ -97995,6 +99472,853 @@ pub mod __buffa {
             }
         }
         #[derive(Clone, Debug, Default)]
+        pub struct WorkflowEvidenceDirectoryProfileView<'a> {
+            pub kind: ::core::option::Option<
+                super::super::__buffa::view::oneof::workflow_evidence_directory_profile::Kind<
+                    'a,
+                >,
+            >,
+            pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+        }
+        impl<'a> ::buffa::MessageView<'a> for WorkflowEvidenceDirectoryProfileView<'a> {
+            type Owned = super::super::WorkflowEvidenceDirectoryProfile;
+            fn decode_view(
+                buf: &'a [u8],
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                let __limit = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                );
+                let __elem = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                );
+                <Self as ::buffa::MessageView>::decode_view_ctx(
+                    buf,
+                    ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                        .with_element_memory(&__elem),
+                )
+            }
+            fn decode_view_with_ctx(
+                buf: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+            }
+            #[inline]
+            fn merge_view_field(
+                &mut self,
+                tag: ::buffa::encoding::Tag,
+                cur: &'a [u8],
+                before_tag: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                let _ = ctx;
+                #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                let view = self;
+                let mut cur = cur;
+                match tag.field_number() {
+                    1u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::workflow_evidence_directory_profile::Alternative1View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    _ => {
+                        ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                        let span_len = before_tag.len() - cur.len();
+                        view.__buffa_unknown_fields
+                            .push_record(before_tag, span_len, ctx)?;
+                    }
+                }
+                ::core::result::Result::Ok(cur)
+            }
+            fn to_owned_message(
+                &self,
+            ) -> ::core::result::Result<
+                super::super::WorkflowEvidenceDirectoryProfile,
+                ::buffa::DecodeError,
+            > {
+                self.to_owned_from_source(None)
+            }
+            #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn to_owned_from_source(
+                &self,
+                __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+            ) -> ::core::result::Result<
+                super::super::WorkflowEvidenceDirectoryProfile,
+                ::buffa::DecodeError,
+            > {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::alloc::string::ToString as _;
+                let _ = __buffa_src;
+                ::core::result::Result::Ok(super::super::WorkflowEvidenceDirectoryProfile {
+                    kind: match self.kind.as_ref() {
+                        ::core::option::Option::Some(v) => {
+                            ::core::option::Option::Some(
+                                match v {
+                                    super::super::__buffa::view::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                },
+                            )
+                        }
+                        ::core::option::Option::None => ::core::option::Option::None,
+                    },
+                    __buffa_unknown_fields: self
+                        .__buffa_unknown_fields
+                        .to_owned()?
+                        .into(),
+                    ..::core::default::Default::default()
+                })
+            }
+        }
+        impl<'a> ::buffa::ViewEncode<'a> for WorkflowEvidenceDirectoryProfileView<'a> {
+            #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                let mut size = 0u64;
+                if let ::core::option::Option::Some(ref v) = self.kind {
+                    match v {
+                        super::super::__buffa::view::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                    }
+                }
+                size += self.__buffa_unknown_fields.encoded_len() as u64;
+                ::buffa::saturate_size(size)
+            }
+            #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn write_to(
+                &self,
+                __cache: &mut ::buffa::SizeCache,
+                buf: &mut impl ::buffa::EncodeSink,
+            ) {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                if let ::core::option::Option::Some(ref v) = self.kind {
+                    match v {
+                        super::super::__buffa::view::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                1u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                    }
+                }
+                self.__buffa_unknown_fields.write_to(buf);
+            }
+        }
+        /// Serializes this view as protobuf JSON.
+        ///
+        /// Implicit-presence fields with default values are omitted, `required`
+        /// fields are always emitted, explicit-presence (`optional`) fields are
+        /// emitted only when set, bytes fields are base64-encoded, and enum
+        /// values are their proto name strings.
+        ///
+        /// This impl uses `serialize_map(None)` because the number of emitted
+        /// fields depends on default-omission rules; serializers that require
+        /// known map lengths (e.g. `bincode`) will return a runtime error.
+        /// Use the owned message type for those formats.
+        impl<'__a> ::serde::Serialize for WorkflowEvidenceDirectoryProfileView<'__a> {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                use ::serde::ser::SerializeMap as _;
+                let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                if let ::core::option::Option::Some(ref __ov) = self.kind {
+                    match __ov {
+                        super::super::__buffa::view::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                            v,
+                        ) => {
+                            __map.serialize_entry("original_full_v1", v)?;
+                        }
+                    }
+                }
+                __map.end()
+            }
+        }
+        impl<'a> ::buffa::MessageName for WorkflowEvidenceDirectoryProfileView<'a> {
+            const PACKAGE: &'static str = "pse.developer.evidence.v1";
+            const NAME: &'static str = "WorkflowEvidenceDirectoryProfile";
+            const FULL_NAME: &'static str = "pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile";
+            const TYPE_URL: &'static str = "type.googleapis.com/pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile";
+        }
+        ::buffa::impl_default_view_instance!(WorkflowEvidenceDirectoryProfileView);
+        ::buffa::impl_view_reborrow!(WorkflowEvidenceDirectoryProfileView);
+        /** Self-contained, `'static` owned view of a `WorkflowEvidenceDirectoryProfile` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`WorkflowEvidenceDirectoryProfileView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`WorkflowEvidenceDirectoryProfileView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+        #[derive(Clone, Debug)]
+        pub struct WorkflowEvidenceDirectoryProfileOwnedView(
+            ::buffa::OwnedView<WorkflowEvidenceDirectoryProfileView<'static>>,
+        );
+        impl WorkflowEvidenceDirectoryProfileOwnedView {
+            /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+            ///
+            /// The view borrows directly from the buffer's data; the buffer is
+            /// retained inside the returned handle.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+            /// protobuf data.
+            pub fn decode(
+                bytes: ::buffa::bytes::Bytes,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    WorkflowEvidenceDirectoryProfileOwnedView(
+                        ::buffa::OwnedView::decode(bytes)?,
+                    ),
+                )
+            }
+            /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+            /// max message size).
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+            /// exceeds the configured limits.
+            pub fn decode_with_options(
+                bytes: ::buffa::bytes::Bytes,
+                opts: &::buffa::DecodeOptions,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    WorkflowEvidenceDirectoryProfileOwnedView(
+                        ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                    ),
+                )
+            }
+            /// Build from an owned message via an encode → decode round-trip.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+            /// message's encoded size exceeds the 2 GiB protobuf limit, or
+            /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+            /// somehow invalid (should not happen for well-formed messages).
+            pub fn from_owned(
+                msg: &super::super::WorkflowEvidenceDirectoryProfile,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    WorkflowEvidenceDirectoryProfileOwnedView(
+                        ::buffa::OwnedView::from_owned(msg)?,
+                    ),
+                )
+            }
+            /// Borrow the full [`WorkflowEvidenceDirectoryProfileView`] with its lifetime tied to `&self`.
+            #[must_use]
+            pub fn view(&self) -> &WorkflowEvidenceDirectoryProfileView<'_> {
+                self.0.reborrow()
+            }
+            /// Convert to the owned message type.
+            ///
+            /// Infallible: this type's constructors wire-decode their
+            /// buffer, and a view produced by wire decoding always
+            /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+            /// whose contract also governs handles converted from a raw
+            /// [`::buffa::OwnedView`].
+            #[must_use]
+            pub fn to_owned_message(
+                &self,
+            ) -> super::super::WorkflowEvidenceDirectoryProfile {
+                self.0.to_owned_message()
+            }
+            /// The underlying bytes buffer.
+            #[must_use]
+            pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                self.0.bytes()
+            }
+            /// Consume the handle, returning the underlying bytes buffer.
+            #[must_use]
+            pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                self.0.into_bytes()
+            }
+            /// Oneof `kind`.
+            #[must_use]
+            pub fn kind(
+                &self,
+            ) -> ::core::option::Option<
+                &super::super::__buffa::view::oneof::workflow_evidence_directory_profile::Kind<
+                    '_,
+                >,
+            > {
+                self.0.reborrow().kind.as_ref()
+            }
+        }
+        impl ::core::convert::From<
+            ::buffa::OwnedView<WorkflowEvidenceDirectoryProfileView<'static>>,
+        > for WorkflowEvidenceDirectoryProfileOwnedView {
+            fn from(
+                inner: ::buffa::OwnedView<WorkflowEvidenceDirectoryProfileView<'static>>,
+            ) -> Self {
+                WorkflowEvidenceDirectoryProfileOwnedView(inner)
+            }
+        }
+        impl ::core::convert::From<WorkflowEvidenceDirectoryProfileOwnedView>
+        for ::buffa::OwnedView<WorkflowEvidenceDirectoryProfileView<'static>> {
+            fn from(wrapper: WorkflowEvidenceDirectoryProfileOwnedView) -> Self {
+                wrapper.0
+            }
+        }
+        impl ::core::convert::AsRef<
+            ::buffa::OwnedView<WorkflowEvidenceDirectoryProfileView<'static>>,
+        > for WorkflowEvidenceDirectoryProfileOwnedView {
+            fn as_ref(
+                &self,
+            ) -> &::buffa::OwnedView<WorkflowEvidenceDirectoryProfileView<'static>> {
+                &self.0
+            }
+        }
+        impl ::buffa::HasMessageView for super::super::WorkflowEvidenceDirectoryProfile {
+            type View<'a> = WorkflowEvidenceDirectoryProfileView<'a>;
+            type ViewHandle = WorkflowEvidenceDirectoryProfileOwnedView;
+        }
+        impl ::serde::Serialize for WorkflowEvidenceDirectoryProfileOwnedView {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                ::serde::Serialize::serialize(&self.0, __s)
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+        for WorkflowEvidenceDirectoryProfileView<'a> {
+            fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                super::super::__buffa::reflect::descriptor_pool()
+                    .message(Self::__buffa_reflect_message_index())
+            }
+            fn pool(
+                &self,
+            ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                super::super::__buffa::reflect::descriptor_pool()
+            }
+            fn get(
+                &self,
+                field: &::buffa_descriptor::FieldDescriptor,
+            ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                match field.number() {
+                    1u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::workflow_evidence_directory_profile::Alternative1View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    _ => {
+                        ::core::debug_assert!(
+                            false,
+                            "field number {} is not a member of this view's reflect get()",
+                            field.number(),
+                        );
+                        ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                    }
+                }
+            }
+            fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                match field.number() {
+                    1u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::workflow_evidence_directory_profile::Kind::OriginalFullV1(_))
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            fn for_each_set(
+                &self,
+                f: &mut dyn ::core::ops::FnMut(
+                    &::buffa_descriptor::FieldDescriptor,
+                    ::buffa_descriptor::reflect::ValueRef<'_>,
+                ),
+            ) {
+                let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                    self,
+                );
+                for fd in md.fields() {
+                    if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                        f(
+                            fd,
+                            ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                        );
+                    }
+                }
+            }
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                let options = ::buffa::DecodeOptions::new()
+                    .with_element_memory_limit(
+                        bytes
+                            .len()
+                            .saturating_mul(128)
+                            .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                    )
+                    .with_unknown_field_limit(
+                        bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                    );
+                ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                        ::buffa::alloc::sync::Arc::clone(
+                            super::super::__buffa::reflect::descriptor_pool(),
+                        ),
+                        Self::__buffa_reflect_message_index(),
+                        &bytes,
+                        &options,
+                    )
+                    .expect(
+                        "view re-encodes to bytes decodable against its own descriptor",
+                    )
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectElement
+        for WorkflowEvidenceDirectoryProfileView<'a> {
+            fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                )
+            }
+        }
+        impl<'a> WorkflowEvidenceDirectoryProfileView<'a> {
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            /// Memoized `MessageIndex` for this view's message type, resolved
+            /// once against the package's embedded descriptor pool. An inherent
+            /// associated fn (not a free fn) so sibling views in the same module
+            /// do not collide.
+            #[doc(hidden)]
+            fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+                *IDX
+                    .get_or_init(|| {
+                        super::super::__buffa::reflect::descriptor_pool()
+                            .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                            .expect(
+                                "generated view type is registered in the embedded descriptor pool",
+                            )
+                    })
+            }
+        }
+        pub mod workflow_evidence_directory_profile {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use super::*;
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative1View<'a> {
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative1View<'a> {
+                type Owned = super::super::super::workflow_evidence_directory_profile::Alternative1;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::workflow_evidence_directory_profile::Alternative1,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::workflow_evidence_directory_profile::Alternative1,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::workflow_evidence_directory_profile::Alternative1 {
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative1View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    _cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative1View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative1View<'a> {
+                const PACKAGE: &'static str = "pse.developer.evidence.v1";
+                const NAME: &'static str = "WorkflowEvidenceDirectoryProfile.Alternative1";
+                const FULL_NAME: &'static str = "pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile.Alternative1";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.developer.evidence.v1.WorkflowEvidenceDirectoryProfile.Alternative1";
+            }
+            ::buffa::impl_default_view_instance!(Alternative1View);
+            ::buffa::impl_view_reborrow!(Alternative1View);
+            /** Self-contained, `'static` owned view of a `Alternative1` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative1View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative1View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative1OwnedView(
+                ::buffa::OwnedView<Alternative1View<'static>>,
+            );
+            impl Alternative1OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative1OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative1OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::workflow_evidence_directory_profile::Alternative1,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative1OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative1View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative1View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::workflow_evidence_directory_profile::Alternative1 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative1View<'static>>>
+            for Alternative1OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative1View<'static>>) -> Self {
+                    Alternative1OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative1OwnedView>
+            for ::buffa::OwnedView<Alternative1View<'static>> {
+                fn from(wrapper: Alternative1OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative1View<'static>>>
+            for Alternative1OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative1View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::workflow_evidence_directory_profile::Alternative1 {
+                type View<'a> = Alternative1View<'a>;
+                type ViewHandle = Alternative1OwnedView;
+            }
+            impl ::serde::Serialize for Alternative1OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative1View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative1View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative1View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+        }
+        #[derive(Clone, Debug, Default)]
         pub struct WorkflowEvidenceFileView<'a> {
             /// Field 1: `root`
             pub root: ::buffa::MessageFieldView<
@@ -115051,6 +117375,20 @@ pub mod __buffa {
                     ),
                 }
             }
+            pub mod workflow_evidence_directory_profile {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use super::*;
+                #[derive(Clone, Debug)]
+                pub enum Kind<'a> {
+                    OriginalFullV1(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::workflow_evidence_directory_profile::Alternative1View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                }
+            }
             pub mod workflow_evidence_omission {
                 #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
                 use super::*;
@@ -116968,6 +119306,52 @@ pub mod __buffa {
                 }
             }
         }
+        pub mod workflow_evidence_directory_profile {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use super::*;
+            #[derive(Clone, PartialEq, Debug)]
+            pub enum Kind {
+                OriginalFullV1(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::workflow_evidence_directory_profile::Alternative1,
+                    >,
+                ),
+            }
+            impl ::buffa::Oneof for Kind {}
+            impl From<
+                super::super::super::workflow_evidence_directory_profile::Alternative1,
+            > for Kind {
+                fn from(
+                    v: super::super::super::workflow_evidence_directory_profile::Alternative1,
+                ) -> Self {
+                    Self::OriginalFullV1(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<
+                super::super::super::workflow_evidence_directory_profile::Alternative1,
+            > for ::core::option::Option<Kind> {
+                fn from(
+                    v: super::super::super::workflow_evidence_directory_profile::Alternative1,
+                ) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl ::serde::Serialize for Kind {
+                fn serialize<S: ::serde::Serializer>(
+                    &self,
+                    s: S,
+                ) -> ::core::result::Result<S::Ok, S::Error> {
+                    use ::serde::ser::SerializeMap;
+                    let mut map = s.serialize_map(Some(1))?;
+                    match self {
+                        Self::OriginalFullV1(v) => {
+                            map.serialize_entry("original_full_v1", &**v)?;
+                        }
+                    }
+                    map.end()
+                }
+            }
+        }
         pub mod workflow_evidence_omission {
             #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
             use super::*;
@@ -117639,6 +120023,7 @@ pub mod __buffa {
         reg.register_json_any(super::__ARRAY16U8_JSON_ANY);
         reg.register_json_any(super::__ARRAY32U8_JSON_ANY);
         reg.register_json_any(super::__ARRAY3ARRAY16U8_JSON_ANY);
+        reg.register_json_any(super::__CAPTURED_WORKFLOW_DIRECTORY_MANIFEST_JSON_ANY);
         reg.register_json_any(super::__CAPTURED_WORKFLOW_EVIDENCE_JSON_ANY);
         reg.register_json_any(super::__CAPTURED_WORKFLOW_REPORT_JSON_ANY);
         reg.register_json_any(super::__CLI_INVOCATION_ID_JSON_ANY);
@@ -117739,6 +120124,10 @@ pub mod __buffa {
         reg.register_json_any(super::workflow_action::__ALTERNATIVE3_JSON_ANY);
         reg.register_json_any(super::workflow_action::__ALTERNATIVE4_JSON_ANY);
         reg.register_json_any(super::__WORKFLOW_CAPTURED_FILE_JSON_ANY);
+        reg.register_json_any(super::__WORKFLOW_EVIDENCE_DIRECTORY_PROFILE_JSON_ANY);
+        reg.register_json_any(
+            super::workflow_evidence_directory_profile::__ALTERNATIVE1_JSON_ANY,
+        );
         reg.register_json_any(super::__WORKFLOW_EVIDENCE_FILE_JSON_ANY);
         reg.register_json_any(super::__WORKFLOW_EVIDENCE_OMISSION_JSON_ANY);
         reg.register_json_any(
@@ -117787,6 +120176,7 @@ pub mod __buffa {
         reg.register_text_any(super::__ARRAY16U8_TEXT_ANY);
         reg.register_text_any(super::__ARRAY32U8_TEXT_ANY);
         reg.register_text_any(super::__ARRAY3ARRAY16U8_TEXT_ANY);
+        reg.register_text_any(super::__CAPTURED_WORKFLOW_DIRECTORY_MANIFEST_TEXT_ANY);
         reg.register_text_any(super::__CAPTURED_WORKFLOW_EVIDENCE_TEXT_ANY);
         reg.register_text_any(super::__CAPTURED_WORKFLOW_REPORT_TEXT_ANY);
         reg.register_text_any(super::__CLI_INVOCATION_ID_TEXT_ANY);
@@ -117887,6 +120277,10 @@ pub mod __buffa {
         reg.register_text_any(super::workflow_action::__ALTERNATIVE3_TEXT_ANY);
         reg.register_text_any(super::workflow_action::__ALTERNATIVE4_TEXT_ANY);
         reg.register_text_any(super::__WORKFLOW_CAPTURED_FILE_TEXT_ANY);
+        reg.register_text_any(super::__WORKFLOW_EVIDENCE_DIRECTORY_PROFILE_TEXT_ANY);
+        reg.register_text_any(
+            super::workflow_evidence_directory_profile::__ALTERNATIVE1_TEXT_ANY,
+        );
         reg.register_text_any(super::__WORKFLOW_EVIDENCE_FILE_TEXT_ANY);
         reg.register_text_any(super::__WORKFLOW_EVIDENCE_OMISSION_TEXT_ANY);
         reg.register_text_any(
@@ -117977,6 +120371,10 @@ pub use self::__buffa::view::Array32U8OwnedView;
 pub use self::__buffa::view::Array3Array16U8View;
 #[doc(inline)]
 pub use self::__buffa::view::Array3Array16U8OwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::CapturedWorkflowDirectoryManifestView;
+#[doc(inline)]
+pub use self::__buffa::view::CapturedWorkflowDirectoryManifestOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::CapturedWorkflowEvidenceView;
 #[doc(inline)]
@@ -118113,6 +120511,10 @@ pub use self::__buffa::view::WorkflowActionOwnedView;
 pub use self::__buffa::view::WorkflowCapturedFileView;
 #[doc(inline)]
 pub use self::__buffa::view::WorkflowCapturedFileOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::WorkflowEvidenceDirectoryProfileView;
+#[doc(inline)]
+pub use self::__buffa::view::WorkflowEvidenceDirectoryProfileOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::WorkflowEvidenceFileView;
 #[doc(inline)]

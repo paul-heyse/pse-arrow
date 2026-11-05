@@ -18,6 +18,12 @@ mod schema;
 #[path = "source.rs"]
 mod source;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub(super) enum EvidenceLayout {
+    Compact,
+    Directory,
+}
+
 /// Explicit evidence kinds never guess whether an operand is a file or invocation.
 #[derive(Debug, Subcommand)]
 pub(super) enum Action {
@@ -40,6 +46,19 @@ pub(super) enum Action {
         /// Full original dependencies, inventory selection, or report-only facts.
         #[arg(long, value_enum, default_value_t = crate::test_workflow::execute::EvidenceScope::Full)]
         scope: crate::test_workflow::execute::EvidenceScope,
+        /// Compact bounded protobuf, or an explicit staged external-file directory.
+        #[arg(long, value_enum, default_value_t = EvidenceLayout::Compact)]
+        layout: EvidenceLayout,
+    },
+    /// Verify a portable directory bundle and optionally return a bounded member range.
+    DeveloperEvidenceBundle {
+        input: PathBuf,
+        #[arg(long)]
+        member: Option<usize>,
+        #[arg(long, default_value = "0", requires = "member")]
+        offset: u64,
+        #[arg(long, default_value = "4096", requires = "member")]
+        length: NonZeroU64,
     },
     /// Read written declarations or document headings without semantic preparation.
     Outline(source::Outline),
@@ -252,6 +271,7 @@ pub(super) fn inspect(
             | Action::Artifact { .. }
             | Action::Schema(_)
             | Action::Payload(_)
+            | Action::DeveloperEvidenceBundle { .. }
     );
     let root = if plain_source {
         selected.map_or_else(std::env::current_dir, std::path::absolute)?
@@ -277,10 +297,33 @@ pub(super) fn inspect(
             session,
             output: destination,
             scope,
+            layout,
         } => {
+            if layout == EvidenceLayout::Directory
+                && scope != crate::test_workflow::execute::EvidenceScope::Full
+            {
+                return Err(HostError::Ownership(
+                    "directory export requires explicit full dependency scope".into(),
+                ));
+            }
             let store = super::super::invocation_store(selected)?;
             let session =
                 crate::invocation::select_session(session, &std::env::vars_os().collect())?;
+            if layout == EvidenceLayout::Directory {
+                let payload = crate::developer_evidence::export_directory(
+                    &store,
+                    &from_result,
+                    session.as_deref(),
+                    &root.join(destination),
+                )?;
+                return output
+                    .emit(Envelope::response(
+                        "inspect developer-evidence",
+                        "exported original native directory observations",
+                        payload,
+                    ))
+                    .map_err(Into::into);
+            }
             let payload = crate::developer_evidence::export(
                 &store,
                 &from_result,
@@ -292,6 +335,26 @@ pub(super) fn inspect(
                 .emit(Envelope::response(
                     "inspect developer-evidence",
                     "exported original native observations",
+                    payload,
+                ))
+                .map_err(Into::into)
+        }
+        Action::DeveloperEvidenceBundle {
+            input,
+            member,
+            offset,
+            length,
+        } => {
+            let payload = crate::developer_evidence::inspect_directory(
+                &root.join(input),
+                member,
+                offset,
+                length,
+            )?;
+            output
+                .emit(Envelope::response(
+                    "inspect developer-evidence-bundle",
+                    "verified original offline directory observations",
                     payload,
                 ))
                 .map_err(Into::into)
@@ -971,6 +1034,95 @@ mod tests {
         }
         assert!(Parsed::try_parse_from(base.into_iter().chain(["--report-only"])).is_err());
         assert!(Parsed::try_parse_from(base.into_iter().chain(["--scope", "complete"])).is_err());
+    }
+    #[test]
+    fn directory_profile_and_offline_range_are_explicit_without_compact_fallback() {
+        let parsed = Parsed::try_parse_from([
+            "inspect",
+            "developer-evidence",
+            "--from-result",
+            "original",
+            "--output",
+            "portable",
+            "--layout",
+            "directory",
+        ])
+        .unwrap();
+        assert!(matches!(
+            parsed.action,
+            Action::DeveloperEvidence {
+                layout: EvidenceLayout::Directory,
+                scope: crate::test_workflow::execute::EvidenceScope::Full,
+                ..
+            }
+        ));
+        assert!(
+            Parsed::try_parse_from(["inspect", "developer-evidence-bundle", "portable"]).is_ok()
+        );
+        assert!(
+            Parsed::try_parse_from([
+                "inspect",
+                "developer-evidence-bundle",
+                "portable",
+                "--member",
+                "1",
+                "--offset",
+                "8",
+                "--length",
+                "4"
+            ])
+            .is_ok()
+        );
+        assert!(
+            Parsed::try_parse_from([
+                "inspect",
+                "developer-evidence-bundle",
+                "portable",
+                "--offset",
+                "8"
+            ])
+            .is_err()
+        );
+        assert!(
+            Parsed::try_parse_from([
+                "inspect",
+                "developer-evidence-bundle",
+                "portable",
+                "--member",
+                "1",
+                "--length",
+                "0"
+            ])
+            .is_err()
+        );
+    }
+    #[test]
+    fn directory_cli_dispatch_reads_a_moved_bundle_without_a_checkout() {
+        let scratch = tempfile::tempdir().unwrap();
+        let (bundle, _) =
+            crate::developer_evidence::tests::directory::exported(scratch.path(), false);
+        let moved = scratch.path().join("recipient");
+        std::fs::rename(bundle, &moved).unwrap();
+        let action = Parsed::try_parse_from([
+            "inspect",
+            "developer-evidence-bundle",
+            "recipient",
+            "--member",
+            "1",
+            "--offset",
+            "4",
+            "--length",
+            "3",
+        ])
+        .unwrap()
+        .action;
+        let output = OutputOptions {
+            format: crate::envelope::OutputFormat::Json,
+            presentation: Default::default(),
+            invocation_id: crate::envelope::CliInvocationId::new(),
+            artifact_directory: None,
+        };
+        assert_eq!(inspect(action, Some(scratch.path()), &output).unwrap(), 0);
     }
     #[test]
     fn test_intent_preserves_native_selection_and_exact_filter_authority() {

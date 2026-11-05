@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Portable observations preserve original bytes without recreating native authority.
 use crate::test_workflow::execute::{CapturedFile, EvidenceRole, EvidenceScope};
+use crate::test_workflow::execute::{ContentIdentity, Input, ReportObservation, TerminalRecord};
 use crate::{
     HostError, developer_evidence_contracts as contracts, envelope::CliInvocationId,
     invocation::InvocationStore,
@@ -12,9 +13,15 @@ use pse_contract_proto::support::{NativeFrom, decode_root, required, unknown_fie
 use schemars::JsonSchema;
 use serde::Serialize;
 use sha2::{Digest as _, Sha256};
+use std::io::Read;
 use std::path::Path;
 
 pub(crate) const MAX_INPUT_BYTES: usize = 64 * 1024 * 1024;
+pub(crate) mod directory;
+pub use directory::{
+    DirectoryExport, DirectoryProfile, DirectoryReadback, DirectoryReader, export_directory,
+    inspect_directory, open_directory,
+};
 
 /// Source-attributed refusal, retaining the original decoder and native owner causes.
 #[derive(Debug, thiserror::Error)]
@@ -50,6 +57,9 @@ pub enum EvidenceError {
     /// Original passive report/inventory parser refusal.
     #[error("evidence original JSON: {0}")]
     Json(#[from] serde_json::Error),
+    /// Original native I/O or custody refusal during member adoption.
+    #[error("evidence native acquisition: {0}")]
+    Native(#[source] Box<HostError>),
     /// Original workflow association refusal.
     #[error("evidence workflow: {0}")]
     Workflow(#[from] crate::test_workflow::WorkflowError),
@@ -195,6 +205,22 @@ pub fn inspect(
     requested: &buffa::DecodeOptions,
 ) -> Result<Readback, EvidenceError> {
     use contracts::pb::pse::developer::evidence::v1 as pb;
+    let options = admitted_options(descriptors, bytes.len(), requested)?;
+    if message == <pb::CapturedWorkflowReport as buffa::MessageName>::FULL_NAME {
+        let mut verified = adopt_report(options.decode_from_slice(bytes)?)?;
+        if verified.readback.scope == EvidenceScope::Full {
+            adopt_inline_members(&mut verified)?;
+        }
+        return Ok(verified.readback);
+    }
+    inspect_selection(message, bytes, &options)
+}
+
+fn admitted_options(
+    descriptors: &buffa_descriptor::generated::descriptor::FileDescriptorSet,
+    input_bytes: usize,
+    requested: &buffa::DecodeOptions,
+) -> Result<buffa::DecodeOptions, EvidenceError> {
     let family = binary_options();
     let maximum = requested.max_message_size().min(family.max_message_size());
     let options = requested
@@ -211,9 +237,9 @@ pub fn inspect(
                 .unknown_field_limit()
                 .min(family.unknown_field_limit()),
         );
-    if bytes.len() > maximum {
+    if input_bytes > maximum {
         return Err(EvidenceError::InputLimit {
-            observed_at_least: bytes.len(),
+            observed_at_least: input_bytes,
             maximum,
         });
     }
@@ -232,6 +258,15 @@ pub fn inspect(
     if !crate::schema::same_runtime_world(descriptors, &compiled) {
         return Err(EvidenceError::Invalid("developer_evidence.proto: this compiled reader requires the complete compiled descriptor content; acquired wire tags, kinds, nested shapes or options cannot select a different decoder world".into()));
     }
+    Ok(options)
+}
+
+fn inspect_selection(
+    message: &str,
+    bytes: &[u8],
+    options: &buffa::DecodeOptions,
+) -> Result<Readback, EvidenceError> {
+    use contracts::pb::pse::developer::evidence::v1 as pb;
     let (
         invocation,
         original,
@@ -243,40 +278,7 @@ pub fn inspect(
         settlement,
         pending,
         scope,
-        files,
     ) = match message {
-        "pse.developer.evidence.v1.CapturedWorkflowReport" => {
-            let wire: pb::CapturedWorkflowReport = options.decode_from_slice(bytes)?;
-            wire.validate()?;
-            unknown_fields(&wire.__buffa_unknown_fields, "CapturedWorkflowReport")?;
-            let scope: EvidenceScope =
-                decode_root(required(wire.scope.into_option(), "scope")?, "scope")?;
-            let files = wire
-                .files
-                .into_iter()
-                .map(|wire| decode_root(wire, "files"))
-                .collect::<Result<Vec<CapturedFile>, _>>()?;
-            if scope == EvidenceScope::Selection
-                || (scope == EvidenceScope::Report && !files.is_empty())
-            {
-                return Err(EvidenceError::Invalid(
-                    "report-root scope and included files disagree".into(),
-                ));
-            }
-            (
-                wire.invocation,
-                wire.report_original,
-                wire.report_observation,
-                wire.terminal,
-                None,
-                None,
-                None,
-                wire.recorded_manager_settlement,
-                wire.recorded_native_lifetime_pending,
-                scope,
-                files,
-            )
-        }
         "pse.developer.evidence.v1.CapturedWorkflowEvidence" => {
             let wire: pb::CapturedWorkflowEvidence = options.decode_from_slice(bytes)?;
             wire.validate()?;
@@ -293,7 +295,6 @@ pub fn inspect(
                 wire.recorded_manager_settlement,
                 wire.recorded_native_lifetime_pending,
                 EvidenceScope::Selection,
-                vec![],
             )
         }
         _ => {
@@ -306,63 +307,23 @@ pub fn inspect(
         required(invocation.into_option(), "invocation")?,
         "invocation",
     )?;
-    let observation: crate::test_workflow::execute::ReportObservation = decode_root(
+    let observation: ReportObservation = decode_root(
         required(observation.into_option(), "report_observation")?,
         "report_observation",
     )?;
-    let terminal: crate::test_workflow::execute::TerminalRecord =
+    let terminal: TerminalRecord =
         decode_root(required(terminal.into_option(), "terminal")?, "terminal")?;
-    if id != observation.invocation {
-        return Err(EvidenceError::Invalid(
-            "projected invocation differs from original report".into(),
-        ));
-    }
-    terminal
-        .report
-        .validate_content(original.len() as u64, &digest(&original))?;
-    let parsed: crate::test_workflow::execute::ReportObservation =
-        serde_json::from_slice(&original)?;
-    parsed.validate_against(&terminal)?;
-    // Compare complete passive source data, including all failure tree fields. JSON is
-    // the native report format, not a wire carrier or alternative constraint language.
-    if serde_json::to_vec(&parsed)? != serde_json::to_vec(&observation)? {
-        return Err(EvidenceError::Invalid(
-            "projected report facts differ from exact original report".into(),
-        ));
-    }
-    let mut result = Readback { scope, included_files:files.len(), original_dependency_omissions:None, full_original_bytes_available:None, invocation: id, report_sha256: terminal.report.sha256, report_version: parsed.version, inventory_sha256: None, selected_tests: None, selected_population_complete: None,
-        recorded_manager_settlement: settlement.map(|wire| crate::envelope::Settlement::from_wire(wire, "recorded_manager_settlement")).transpose()?, recorded_native_lifetime_pending: pending,
-        limitations: vec!["The included terminal commits report content; matching portable bytes alone does not authenticate an original native producer or grant execution, rerun or current settlement authority.".into(), "Manager facts are source-owner recorded-at-read observations, separate from the helper's original report commitment; no original manager-result bytes are included.".into(), "Full scope includes exact originally committed files and explicit original omissions; executable/provider/live-fixture custody and present readiness remain with native owners.".into()] };
-    if scope == EvidenceScope::Full {
-        let manifest = parsed.evidence.as_deref().ok_or_else(|| {
-            EvidenceError::Invalid(
-                "legacy report has no original full dependency commitment".into(),
-            )
-        })?;
-        crate::test_workflow::execute::evidence::validate_captured(manifest, &files)
-            .map_err(|error| EvidenceError::Workflow(error.into()))?;
-        let omissions = manifest
-            .iter()
-            .filter(|file| file.omission.is_some())
-            .count();
-        result.original_dependency_omissions = Some(omissions);
-        result.full_original_bytes_available = Some(omissions == 0);
-        for file in &files {
-            let commitment = &manifest[file.dependency];
-            if commitment.role == EvidenceRole::Inventory {
-                parsed.validate_inventory(&file.original)?;
-                let inventory: crate::discovery::Inventory =
-                    serde_json::from_slice(&file.original)?;
-                parsed.validate_selected_population(&inventory)?;
-                result.inventory_sha256 = Some(digest(&file.original));
-                result.selected_tests = parsed.selected_tests;
-                result.selected_population_complete = (!parsed.action.is_compiler())
-                    .then(|| inventory.selected_population_complete());
-            } else if commitment.role == EvidenceRole::Input {
-                parsed.validate_input_bytes(&file.original)?;
-            }
-        }
-    }
+    let parsed = verify_original_report(&id, &original, &observation, &terminal)?;
+    let mut result = report_readback(
+        id,
+        terminal,
+        &parsed,
+        scope,
+        settlement
+            .map(|wire| crate::envelope::Settlement::from_wire(wire, "recorded_manager_settlement"))
+            .transpose()?,
+        pending,
+    );
     if let Some((original, sha)) = inventory {
         parsed.validate_inventory(&original)?;
         if digest(&original) != sha {
@@ -401,6 +362,220 @@ pub fn inspect(
     Ok(result)
 }
 
+fn verify_original_report(
+    id: &CliInvocationId,
+    original: &[u8],
+    observation: &ReportObservation,
+    terminal: &TerminalRecord,
+) -> Result<ReportObservation, EvidenceError> {
+    if id != &observation.invocation {
+        return Err(EvidenceError::Invalid(
+            "projected invocation differs from original report".into(),
+        ));
+    }
+    terminal
+        .report
+        .validate_content(original.len() as u64, &digest(&original))?;
+    let parsed: ReportObservation = serde_json::from_slice(original)?;
+    parsed.validate_against(terminal)?;
+    // Compare complete passive source data, including all failure tree fields. JSON is
+    // the native report format, not a wire carrier or alternative constraint language.
+    if serde_json::to_vec(&parsed)? != serde_json::to_vec(&observation)? {
+        return Err(EvidenceError::Invalid(
+            "projected report facts differ from exact original report".into(),
+        ));
+    }
+    Ok(parsed)
+}
+
+fn report_readback(
+    id: CliInvocationId,
+    terminal: TerminalRecord,
+    parsed: &ReportObservation,
+    scope: EvidenceScope,
+    settlement: Option<crate::envelope::Settlement>,
+    pending: Option<bool>,
+) -> Readback {
+    Readback { scope, included_files:0, original_dependency_omissions:None, full_original_bytes_available:None, invocation: id, report_sha256: terminal.report.sha256, report_version: parsed.version, inventory_sha256: None, selected_tests: None, selected_population_complete: None,
+        recorded_manager_settlement: settlement, recorded_native_lifetime_pending: pending,
+        limitations: vec!["The included terminal commits report content; matching portable bytes alone does not authenticate an original native producer or grant execution, rerun or current settlement authority.".into(), "Manager facts are source-owner recorded-at-read observations, separate from the helper's original report commitment; no original manager-result bytes are included.".into(), "Full scope includes exact originally committed files and explicit original omissions; executable/provider/live-fixture custody and present readiness remain with native owners.".into()] }
+}
+
+struct VerifiedReport {
+    observation: ReportObservation,
+    readback: Readback,
+    files: Vec<CapturedFile>,
+}
+
+fn adopt_report(
+    wire: contracts::pb::pse::developer::evidence::v1::CapturedWorkflowReport,
+) -> Result<VerifiedReport, EvidenceError> {
+    wire.validate()?;
+    unknown_fields(&wire.__buffa_unknown_fields, "CapturedWorkflowReport")?;
+    let scope = decode_root(required(wire.scope.into_option(), "scope")?, "scope")?;
+    let files: Vec<CapturedFile> = wire
+        .files
+        .into_iter()
+        .map(|file| decode_root(file, "files"))
+        .collect::<Result<_, _>>()?;
+    if scope == EvidenceScope::Selection || (scope == EvidenceScope::Report && !files.is_empty()) {
+        return Err(EvidenceError::Invalid(
+            "report root scope disagrees with included files".into(),
+        ));
+    }
+    let id = CliInvocationId::from_wire(
+        required(wire.invocation.into_option(), "invocation")?,
+        "invocation",
+    )?;
+    let observation = decode_root(
+        required(wire.report_observation.into_option(), "report_observation")?,
+        "report_observation",
+    )?;
+    let terminal = decode_root(
+        required(wire.terminal.into_option(), "terminal")?,
+        "terminal",
+    )?;
+    let parsed = verify_original_report(&id, &wire.report_original, &observation, &terminal)?;
+    let settlement = wire
+        .recorded_manager_settlement
+        .map(|wire| crate::envelope::Settlement::from_wire(wire, "recorded_manager_settlement"))
+        .transpose()?;
+    Ok(VerifiedReport {
+        readback: report_readback(
+            id,
+            terminal,
+            &parsed,
+            scope,
+            settlement,
+            wire.recorded_native_lifetime_pending,
+        ),
+        observation: parsed,
+        files,
+    })
+}
+
+enum MemberMeaning {
+    Input(Box<Input>),
+    Inventory(Box<crate::discovery::Inventory>),
+    Raw,
+}
+
+fn read_member_meaning(
+    role: EvidenceRole,
+    input: &mut dyn Read,
+) -> Result<MemberMeaning, HostError> {
+    fn parse<T: serde::de::DeserializeOwned>(input: &mut dyn Read) -> Result<T, HostError> {
+        serde_json::from_reader(std::io::BufReader::new(input)).map_err(|error| {
+            match error.io_error_kind() {
+                Some(kind) => HostError::Io(std::io::Error::new(kind, error)),
+                None => EvidenceError::Json(error).into(),
+            }
+        })
+    }
+    Ok(match role {
+        EvidenceRole::Input => MemberMeaning::Input(parse(input)?),
+        EvidenceRole::Inventory => MemberMeaning::Inventory(parse(input)?),
+        _ => {
+            std::io::copy(input, &mut std::io::sink())?;
+            MemberMeaning::Raw
+        }
+    })
+}
+
+fn adopt_member_meaning(
+    verified: &mut VerifiedReport,
+    role: EvidenceRole,
+    content: &ContentIdentity,
+    meaning: MemberMeaning,
+) -> Result<(), EvidenceError> {
+    if let Some(inventory) = validate_member_meaning(&verified.observation, role, content, meaning)?
+    {
+        verified.readback.inventory_sha256 = Some(content.sha256.clone());
+        verified.readback.selected_tests = verified.observation.selected_tests;
+        verified.readback.selected_population_complete =
+            (!verified.observation.action.is_compiler())
+                .then(|| inventory.selected_population_complete());
+    }
+    Ok(())
+}
+
+fn validate_member_meaning(
+    observation: &ReportObservation,
+    role: EvidenceRole,
+    content: &ContentIdentity,
+    meaning: MemberMeaning,
+) -> Result<Option<Box<crate::discovery::Inventory>>, EvidenceError> {
+    match (role, meaning) {
+        (EvidenceRole::Input, MemberMeaning::Input(input)) => {
+            observation.validate_input_identity(*input, content)?;
+        }
+        (EvidenceRole::Inventory, MemberMeaning::Inventory(inventory)) => {
+            observation.validate_inventory_identity(content)?;
+            observation.validate_selected_population(&inventory)?;
+            return Ok(Some(inventory));
+        }
+        (role, MemberMeaning::Raw)
+            if role != EvidenceRole::Input && role != EvidenceRole::Inventory => {}
+        _ => {
+            return Err(EvidenceError::Invalid(
+                "original dependency role differs from consumed meaning".into(),
+            ));
+        }
+    }
+    Ok(None)
+}
+
+fn finish_members(
+    verified: &mut VerifiedReport,
+    identities: &[(usize, ContentIdentity)],
+) -> Result<(), EvidenceError> {
+    let manifest = verified.observation.evidence.as_deref().ok_or_else(|| {
+        EvidenceError::Invalid("legacy report has no original full dependency commitment".into())
+    })?;
+    crate::test_workflow::execute::evidence::validate_members(
+        manifest,
+        identities
+            .iter()
+            .map(|(ordinal, identity)| (*ordinal, identity.clone())),
+    )
+    .map_err(|error| EvidenceError::Workflow(error.into()))?;
+    let omissions = manifest
+        .iter()
+        .filter(|file| file.omission.is_some())
+        .count();
+    verified.readback.scope = EvidenceScope::Full;
+    verified.readback.included_files = identities.len();
+    verified.readback.original_dependency_omissions = Some(omissions);
+    verified.readback.full_original_bytes_available = Some(omissions == 0);
+    Ok(())
+}
+
+fn adopt_inline_members(verified: &mut VerifiedReport) -> Result<(), EvidenceError> {
+    let files = std::mem::take(&mut verified.files);
+    let identities: Vec<_> = files
+        .iter()
+        .map(|file| (file.dependency, ContentIdentity::of(&file.original)))
+        .collect();
+    finish_members(verified, &identities)?;
+    for (file, (_, content)) in files.iter().zip(&identities) {
+        let role = verified
+            .observation
+            .evidence
+            .as_ref()
+            .ok_or_else(|| EvidenceError::Invalid("missing original commitment".into()))?
+            [file.dependency]
+            .role;
+        let meaning = read_member_meaning(role, &mut file.original.as_slice()).map_err(
+            |error| match error {
+                HostError::DeveloperEvidence(error) => *error,
+                other => EvidenceError::Native(Box::new(other)),
+            },
+        )?;
+        adopt_member_meaning(verified, role, content, meaning)?;
+    }
+    Ok(())
+}
+
 fn digest(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
         .iter()
@@ -409,8 +584,9 @@ fn digest(bytes: &[u8]) -> String {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
+    pub(crate) mod directory;
     mod lifecycle;
     use crate::{
         envelope::{Envelope, ErrorRecord, RedactionPolicy},
