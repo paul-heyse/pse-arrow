@@ -118,15 +118,40 @@ impl ProjectionGeneration {
         if targets.is_empty() {
             return Err(error("explicit generation targets are required"));
         }
+        let excludes = config
+            .exclude_packages
+            .iter()
+            .map(|entry| {
+                buffa_codegen::normalize_exclude_package(entry).map_err(|reason| {
+                    buffa_codegen::CodeGenError::Other(format!(
+                        "exclude_package {entry:?}: {reason}"
+                    ))
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         let mut selected = std::collections::BTreeSet::new();
         for target in targets {
             if !selected.insert(target) {
                 return Err(error(format!("duplicate generation target {target}")));
             }
-            if !names.contains(target.as_str()) {
-                return Err(error(format!(
-                    "generation target missing from descriptor: {target}"
-                )));
+            let file = source
+                .file
+                .iter()
+                .find(|file| file.name.as_deref() == Some(target.as_str()))
+                .ok_or_else(|| {
+                    error(format!(
+                        "generation target missing from descriptor: {target}"
+                    ))
+                })?;
+            let package = file.package.as_deref().unwrap_or("");
+            // Buffa alone filters selected excluded packages. Refuse that
+            // divergent request before any supplier runs, keeping the complete
+            // descriptor corpus (including excluded imports) available below.
+            if buffa_codegen::package_is_excluded(package, &excludes) {
+                return Err(ProjectionCodegenError::ExcludedTarget {
+                    file: target.clone(),
+                    package: package.into(),
+                });
             }
         }
         let runtime = effective_runtime_descriptors(source, config)?;

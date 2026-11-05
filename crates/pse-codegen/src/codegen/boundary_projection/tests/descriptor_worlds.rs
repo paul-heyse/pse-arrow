@@ -100,6 +100,63 @@ fn admitted_generation_refuses_missing_duplicate_targets_and_duplicate_source_fi
 }
 
 #[test]
+fn admitted_generation_refuses_selected_target_excluded_by_package_policy() {
+    let source = descriptors_with_imports(
+        &ProjectionGraph::of::<Request>().unwrap(),
+        "sample.v1",
+        "selected.proto",
+        &imports(),
+    )
+    .unwrap();
+    let mut config = default_config("crate::wire::__buffa_fds");
+    for excluded in ["sample.v1", " .sample "] {
+        config.exclude_packages = vec![excluded.into()];
+        // This invalid generator setting would otherwise fail in Buffa. Selected
+        // population admission must refuse first, before any supplier is entered.
+        config.generate_reflection = false;
+        let error =
+            ProjectionGeneration::new(&source, &["selected.proto".into()], &config).unwrap_err();
+        assert!(
+            matches!(error, ProjectionCodegenError::ExcludedTarget { file, package } if file == "selected.proto" && package == "sample.v1")
+        );
+    }
+}
+
+#[test]
+fn admitted_generation_keeps_excluded_imports_and_package_component_boundaries() {
+    let source = descriptors_with_imports(
+        &ProjectionGraph::of::<Request>().unwrap(),
+        "sample.v1",
+        "selected.proto",
+        &imports(),
+    )
+    .unwrap();
+    let mut config = default_config("crate::wire::__buffa_fds");
+    config.exclude_packages = vec![" .buf.validate ".into(), "sample.v".into()];
+    let generated =
+        ProjectionGeneration::new(&source, &["selected.proto".into()], &config).unwrap();
+    assert_eq!(generated.targets(), &["selected.proto"]);
+    assert_eq!(
+        generated.descriptors(),
+        &source,
+        "excluded imports and their original options remain in the complete corpus"
+    );
+    assert!(
+        generated
+            .files
+            .iter()
+            .any(|file| file.package == "sample.v1" && file.kind == GeneratedFileKind::PackageMod)
+    );
+    assert!(
+        generated
+            .descriptors()
+            .file
+            .iter()
+            .any(|file| file.name.as_deref() == Some("buf/validate/validate.proto"))
+    );
+}
+
+#[test]
 fn admitted_generation_context_matches_actual_effective_features_and_original_comments() {
     let source = enum_source();
     let mut config = CodeGenConfig::default();
