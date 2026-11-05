@@ -225,6 +225,77 @@ fn source_body_checks_original_source_and_never_retains_its_owner() {
     drop(paired);
     assert_eq!(Arc::strong_count(&owner), 1);
 }
+
+#[test]
+fn execution_attribution_requires_original_compiled_binding_and_retains_only_maps() {
+    let owner = Arc::new(AtomicBool::new(false));
+    let body = fixture_body(true).with_owner(owner.clone());
+    let original = Arc::downgrade(&body.data);
+    let bindings = bindings(&body, 10);
+    let compiled = compile(&body);
+    let attribution = bindings.execution_attribution(&compiled).unwrap();
+    assert_eq!(attribution.instance(), id(10));
+    assert!(Arc::ptr_eq(
+        &attribution.checked_members,
+        &bindings.attribution.checked_members,
+    ));
+    assert!(Arc::ptr_eq(
+        &attribution.checked_sources,
+        &bindings.attribution.checked_sources,
+    ));
+    assert!(Arc::ptr_eq(
+        &attribution.occurrences,
+        &bindings.attribution.occurrences,
+    ));
+    let mut source_hash = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+    let mut execution_hash = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+    bindings.frame(&mut source_hash);
+    attribution.frame(&mut execution_hash);
+    assert_eq!(source_hash.finish_hash(), execution_hash.finish_hash());
+    assert!(bindings.execution_attribution(&compile(&fixture_body(false))).is_err());
+    drop(body);
+    assert!(original.upgrade().is_none());
+    assert_eq!(Arc::strong_count(&owner), 1);
+    // Allocation identity still permits the original compiled pairing after the
+    // source dies; equal replacement content cannot recreate its source witness.
+    assert!(bindings.execution_attribution(&compiled).is_ok());
+    assert!(bindings.execution_attribution(&compile(&fixture_body(true))).is_err());
+    drop(compiled);
+    drop(bindings);
+    assert_eq!(attribution.checked_members()[&id(1)], id(11));
+    assert_eq!(attribution.checked_sources()[&id(1)], id(12));
+    assert_eq!(attribution.occurrences()[&id(3)], location(13));
+    assert_eq!(Arc::strong_count(&owner), 1);
+}
+
+#[test]
+fn execution_attribution_preserves_direct_refusals_and_original_cause() {
+    let body = fixture_body(false);
+    let bindings = bindings(&body, 10);
+    let attribution = bindings.execution_attribution(&compile(&body)).unwrap();
+    for error in [
+        MathError::Cancelled,
+        MathError::Limit("original limit"),
+        MathError::Scope(ProviderError::Cancelled),
+        MathError::Scope(ProviderError::Deadline),
+    ] {
+        let before = std::mem::discriminant(&error);
+        let result = attribution.evaluation_error(error);
+        assert_eq!(std::mem::discriminant(&result), before);
+        assert!(!matches!(result, MathError::Instance { .. }));
+    }
+    let message = String::from("original owned mathematical failure");
+    let allocation = message.as_ptr();
+    let projected = attribution.evaluation_error(MathError::Contract(message));
+    let MathError::Instance { instance, cause, .. } = projected else {
+        panic!("missing execution attribution")
+    };
+    assert_eq!(instance, id(10));
+    let MathError::Contract(message) = *cause else {
+        panic!("original cause changed")
+    };
+    assert_eq!(message.as_ptr(), allocation, "original payload must move intact");
+}
 #[test]
 fn current_issued_support_rebinds_cached_code_after_original_source_dies() {
     let numeric_owner = Arc::new(AtomicBool::new(false));

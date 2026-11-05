@@ -595,8 +595,13 @@ warnings; selected host directory/role/report/CLI/publisher/descriptor/schema co
 97/97 and generator/dispatch controls 4/4. Controls include a real 65 MiB file, moved offline
 readback, Input/inventory/population counterexamples, mutation/missing/extra/symlink/FIFO members,
 collision/interrupted prefix, durability and cleanup failures. `just codegen` completed fourteen
-targets with the retained Recipe accessor warning. Receiving-main acceptance is pending; these
-checks do not close J03 readiness, J05 full workflow population or H qualification.
+targets with the retained Recipe accessor warning. Receiving-main
+`scripts/pse test pse-host --lib --profile local` with the directory/evidence/report/CLI,
+descriptor/publisher and schema selection also passed **97/97**, zero failures or incomplete
+records, with original capture and settlement complete in the same unbounded/cache-off mode.
+The fully merged, clean implementation worktree was then removed; original invocation evidence
+remains outside it. These checks do not close J03 readiness, J05 full workflow population or H
+qualification.
 
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.
