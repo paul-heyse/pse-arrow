@@ -29,13 +29,13 @@ use super::{
 /// The current export format identifier for atom data.
 const ATOM_EXPORT_FORMAT: u8 = 1;
 
-const NUM_ID: u8 = 1;
-const VAR_ID: u8 = 2;
-const FUN_ID: u8 = 3;
-const MUL_ID: u8 = 4;
-const ADD_ID: u8 = 5;
-const POW_ID: u8 = 6;
-const TYPE_MASK: u8 = 0b00000_111;
+pub(super) const NUM_ID: u8 = 1;
+pub(super) const VAR_ID: u8 = 2;
+pub(super) const FUN_ID: u8 = 3;
+pub(super) const MUL_ID: u8 = 4;
+pub(super) const ADD_ID: u8 = 5;
+pub(super) const POW_ID: u8 = 6;
+pub(super) const TYPE_MASK: u8 = 0b00000_111;
 const NOT_NORMALIZED: u8 = 0b10000_000;
 const SYM_LINEAR_FLAG: u8 = 0b01000_000;
 const SYM_SYMMETRIC_FLAG: u8 = 0b00100_000;
@@ -52,7 +52,7 @@ const SYM_EXTRA_WILDCARD_LEVEL_2: u32 = 0b10_000;
 const SYM_EXTRA_WILDCARD_LEVEL_3: u32 = 0b11_000;
 const SYM_EXTRA_FLAT_FLAG: u32 = 0b1_00_000;
 
-const MUL_HAS_COEFF_FLAG: u8 = 0b01000000;
+pub(super) const MUL_HAS_COEFF_FLAG: u8 = 0b01000000;
 
 const ZERO_DATA: [u8; 3] = [NUM_ID, 1, 0];
 

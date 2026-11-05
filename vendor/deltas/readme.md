@@ -50,7 +50,7 @@ categories describe the diff and do not assert semantic equivalence.
 | `diffsol-nl` | 1 | 0 | 0 | 0 | [diffsol-nl.patch](diffsol-nl.patch) |
 | `faer` | 3 | 0 | 0 | 0 | [faer.patch](faer.patch) |
 | `faer-traits` | 1 | 0 | 0 | 0 | [faer-traits.patch](faer-traits.patch) |
-| `symbolica` | 2 | 0 | 0 | 0 | [symbolica.patch](symbolica.patch) |
+| `symbolica` | 6 | 0 | 2 | 0 | [symbolica.patch](symbolica.patch) |
 
 SuiteSparse adds `.gitattributes` to retain its two published CRLF files. The SUNDIALS release
 replacement adds 138 and deletes 103 paths relative to the published wrapper, including the
