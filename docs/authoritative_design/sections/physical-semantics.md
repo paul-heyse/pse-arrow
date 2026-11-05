@@ -695,3 +695,15 @@ per-point scientific admission. A native global success code cannot establish al
 slots, and no implicit scalar fallback or replay is selected. Existing physical/datum guards
 remain shared native policy; grouping alone supplies no new physics or performance claim.
 
+> Decision: [ADR-0247](../../adr/0247-consuming-native-retirement.md) (proposed; authorized Plan65 target).
+
+The proposed generic retirement contract follows actual provider ownership through binding
+banks, CaseWorker, owned native callbacks, retained adapter/workflow state and dynamic workers.
+Consuming finish attempts independent teardown, preserves keyed typed failures and completes
+only after physical retirement; unknown reap/I/O settlement retains original custody/admission.
+Borrowed callback aliases do not retire the shared evaluator. Normal scratch publication follows
+successful explicit retirement, while Drop is abandonment containment. Existing session/lane
+joins propagate original scientific and cleanup outcomes. This extends the target beyond the
+tested transactional queue/reply controls; generic retirement implementation and assembled
+qualification remain Plan65e/65h obligations.
+
