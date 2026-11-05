@@ -1887,6 +1887,114 @@ native/reference qualification remain open. Ephemeral AST/CSV inspection
 confirmed8760 price rows,the24-value synthetic vector and the23 parameter
 rows; no clustering,market,optimization or scientific reference was run.
 
+## sCO2 surrogate pipeline and input closure — 2026-11-05
+
+**Interface-checked, source only:** X
+`docs/surrogates/sco2/{alamo,pysmo,omlt}` each exposes training,property
+embedding and a file named `flowsheet_optimization`,with local `properties.py`
+and `flowsheet_optimization.py`. These remain three required pipelines with
+three requested stage roles each; actual source gaps below do not remove the
+optimization demand. Full/reduced/ReLU/ONNX and reformer/PySMO-basics families
+are separate scope,not exercised by this smooth sCO2 neural configuration.
+
+All three pipelines read the shared `500_Points_DataSet.csv`: exactly500
+rows,eight columns. Only the first four columns are selected: pressure,
+temperature,`CO2SM.CO2_Enthalpy`,`CO2SM.CO2_Entropy`. Other enthalpy/entropy
+columns are not interchangeable targets; they have different numeric values.
+All status/error fields are zero; source performs no additional filtering.
+Observed input range is7.460891–34.993814 MPa and306.215965–999.971989 K;
+selected H range−403924.714779…−360255.753654 and S−67.269005…20.819994.
+Local packages label outputs kJ/kmol andkJ/(kmol·K),numerically J/mol and
+J/(mol·K); flow iskmol/s andpressure MPa. Data-generating property formulation,
+reference datum and provenance are not established by these labels or the
+zero status column. Admit ordinary data independently from this oracle dataset.
+
+| Training role | Exact selected options and reproducibility boundary |
+|---|---|
+| ALAMO | Shuffle all500 rows with pandas random_state0,then400/100 split with seed500. Fit both H/S on the400 rows using constant/linear functions,two-variable powers1/2,monomials2/3,ratio power1,maximum10 terms per output; write `alamo_run.alm` and `alamo_surrogate.json`. Validation rows feed only plots. Executable availability is queried,but the unavailable branch only prints and later uses an undefined fit; missing trainer remains an execution failure,not excluded training. |
+| PySMO polynomial | Shuffle500 without an explicit initial random_state,then400/100 split with seed500. Maximum degree5,multinomialsTrue,internal training split .8,cross-validations10,and five extra terms: P×T²,P²×T²,P²×T,P/T,T/P. Core's selected default least-squares route is Pyomo; internal cross-validation reseeds NumPy by fold index. The initial unseeded permutation still affects training membership. Save `pysmo_poly_surrogate.json` with declared P7–40,T306–1000 bounds. |
+| Keras/OMLT | Seed NumPy46,Python1342,TensorFlow62; shuffle500,then form400/100 plotting partitions with seed500. However,the neural fit/scalers use **all500 rows**,not just the400-row partition. Min/max normalizers for inputs/outputs therefore use the full dataset; Keras `validation_split=.2` supplies its own100-row holdout. Network2→20→20→20→20→2,tanh hidden/linear output,Adam,MSE loss,MAE/MSE metrics,250 epochs with unspecified batch default. A best-validation checkpoint `.mdl_co2.keras` is written,but not reloaded: exported `sco2_keras_surr/sco2_keras_model.keras` uses the final in-memory model. `PYTHONHASHSEED`/CUDA environment settings occur inside the already running process after TensorFlow import; they do not prove process hash/device/determinism settings. |
+
+ALAMO training saves its fitted object **before** reconstructing an in-memory
+object with wider P7–40/T306–1000 bounds. The shipped JSON therefore actually
+declares P7.460891–34.993814 andT306.215965–999.971989. Plotting the widened
+object does not change that saved artifact. PySMO/neural metadata instead
+declare the wider range. Neural input offsets/factors are(7.460891,306.215965)/
+(27.532923,693.756024),output offsets/factors
+(−403924.714779,−67.269005)/(43668.961125,88.088999). The shipped `.keras`
+archive contains config,weights andmetadata identifying Keras3.4.1 saved
+2024-07-17; this is artifact provenance,not the currently qualified reference
+runtime. Record the actual version/scaler/weights for each retraining run
+without overwriting the immutable shipped oracle.
+
+Each local property package creates one component CO2 and one phase labelled
+Liq,with independent fitted H(P,T)/S(P,T) equations. That label neither supplies
+phase equilibrium nor proves valid liquid/supercritical behavior. The state
+variables are flow,P,T; no density,heat-capacity,potential-derived integrability
+or general transport closure is supplied. Core `SurrogateBlock` intersects
+the state bounds P7.38–40/T304.2–1033.15 with actual artifact input bounds.
+The effective ALAMO domain is thus its narrower saved domain,whereas PySMO/
+neural effective domains areP7.38–40/T306–1000. Evaluation plots and bounded
+embedding are distinct domain controls. A fit to H/S does not establish their
+thermodynamic consistency or derivatives over an enlarged envelope.
+
+Embedding notebooks principally declare classes; their existence is not a
+constructed/solved property probe. Four training wrappers and four flowsheet
+wrappers per family have identical scientific ASTs. Embedding wrapper
+differences include an ALAMO future-division import,an extra unused PySMO os
+import,and a real PySMO user-wrapper typo: default unit key `temperatureo`
+instead of `temperature`. Preserve that readiness defect rather than
+deduplicating it as a proved compatible wrapper. The separate local
+`properties.py` is what the flowsheet imports by bare name,so execution must
+bind the intended family directory; an unrelated module of that name cannot
+satisfy the dependency. ALAMO/PySMO load their matching JSON; neural loads
+both `.keras` and `idaes_info.json` and embeds OMLT **FULL_SPACE smooth**
+equations. No ReLU MIP/complementarity or standalone ONNX evaluation is selected.
+
+The three same-topology flowsheet scripts instantiate fixed-input steady
+rating cases,not a design optimization: seven Heater units (boiler,two
+pseudo-shell/tube recuperator pairs,two coolers),three isentropic pressure
+changers,two splitters andone mixer,with14 arcs. The HTR-tube outlet is **not
+connected back to the boiler inlet**,which remains an independently fixed
+boundary. Thus a closed-cycle material/thermal carryover claim is unsupported.
+Both pseudo recuperator shell/tube pairs impose equal/opposite heat duty;
+they have no area,UA,pinch or exchanger feasibility law. No objective,
+free-design search or constrained optimum is defined despite the filenames.
+
+| Fixed rating inputs | Selected values |
+|---|---|
+| Boiler boundary |121.1 kmol/s,685.15 K,34.51 MPa; outlet893.15 K,deltaP−.21 MPa. The commented760°C alternative is not a second constructed case. |
+| Turbine |Pressure ratio1/3.68,isentropic efficiency .927. |
+| Recuperator pseudo hot sides |HTR outlet489.15 K/LTR354.15 K,eachdeltaP−.07 MPa. LTR cold deltaP0,HTR cold−.07 MPa; paired duties equal/opposite. |
+| Flow/pressure/cooling |Bypass fraction .25; main/bypass compressor efficiencies .85 andpressure ratios3.8; CO2 cooler outlet308.15 K/deltaP−.07 MPa; FG-cooler fraction .046,outlet483.15 K/deltaP−.06 MPa. |
+
+Scripts initialize sequentially,expand arcs,print DOF,call Ipopt once,report
+unit states andnet turbine-minus-compressor work. They do not assert solver
+termination,physical closure,error bounds or an optimal result. Upstream
+notebook outputs are historical reports,not current execution evidence.
+Required optimization therefore needs an explicit bounded case/native mapping,
+fixed/free decisions,objective,feasibility and artifact-domain obligations at
+G04/F02; it cannot be closed by replaying this rating file. Even the rating
+requires all inlet/outlet H/S/P/T/flows,duties/work and original conservation
+checks,not just the printed work scalar.
+
+Runtime input closure is the shared CSV,three local property/flowsheet owners,
+two JSON fits or neural `.keras`+metadata,andcore trainer/surrogate/scaling/
+plotting/embedding APIs. `CO2_flowsheet.png` is presentation input; generated
+PDFs,ALAMO control/trace/checkpoint files andtrainer outputs are not additional
+ordinary physical data. Exact ALAMO executable/version is required only for
+retraining,not separately selected JSON evaluation/embedding; it remains
+required scope. PySMO requires its selected least-squares solver stack; neural
+requires exact TensorFlow/Keras,OMLT andloadable archived weights; all rating
+cases require Ipopt. No external property-EOS provider is consulted by the
+fitted H/S package itself. Remaining installed-version,ordinary dataset/datum,
+independent predictive/derivative/error,closed-cycle and actual optimization
+work remains open. Native fitting is a starting workflow,not evidence of
+these matched trainer/artifact/property/consumer stages. Ephemeral AST/CSV/
+JSON/ZIP reads confirmed500 rows,artifact bounds/scalers/layers,wrapper
+differences,14 arcs andabsence of any objective; no trainer,model,network
+evaluation,reference solver or native scientific case was executed.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

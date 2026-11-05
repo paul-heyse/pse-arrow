@@ -260,6 +260,17 @@ Source names such as full_year,ngcc or battery do not establish corresponding
 physical models or execution. Provider pinning,native period/state mapping,
 ordinary data and independent numerical/scientific acceptance remain open.
 
+**Update, 2026-11-05 — sCO2 surrogate stage/input closure:** the
+[three-pipeline census](64h-required-process-population.md#sco2-surrogate-pipeline-and-input-closure--2026-11-05)
+resolves500-row targets,trainer/split/seeding/scaler choices,actual shipped
+bounds/weights,property embedding and fixed-input rating scripts. Keras fits
+all500 rows despite an outer400/100 plotting split andexports final weights;
+ALAMO widens only an in-memory object after saving. Files named optimization
+define no objective,andtheir14 arcs leave the cycle open at the boiler.
+All requested stages remain required: actual optimization,ordinary data/datum,
+reference/runtime compatibility andnative predictive/physical acceptance are
+still open. No training/evaluation/solve was run by this census.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
