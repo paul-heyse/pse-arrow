@@ -3036,6 +3036,25 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
 }
 
 #[test]
+fn case_retirement_contains_recycler_panic_and_payload_destruction() {
+    struct PanicOnDrop;
+    impl Drop for PanicOnDrop {
+        fn drop(&mut self) {
+            panic!("original recycler payload destruction");
+        }
+    }
+    let (assembly, _) = fixture(false, false);
+    let mut worker = assembly.worker(Default::default(), pse_diagnostics::Cancellation::default());
+    worker.recycle_on_finish(|_| std::panic::panic_any(PanicOnDrop));
+    let Err(crate::MathError::Scope(pse_kernels::ProviderError::RetirementPanic(detail))) =
+        worker.finish()
+    else {
+        panic!("recycler failure must remain a typed retirement result")
+    };
+    assert!(detail.contains("original recycler payload destruction"));
+}
+
+#[test]
 fn case_scratch_publication_requires_successful_explicit_finish() {
     use std::sync::atomic::{AtomicUsize, Ordering};
     #[derive(Debug)]

@@ -623,6 +623,44 @@ fn retirement_cause(error: &ProviderError) -> &ProviderError {
     failures[0].cause.as_ref()
 }
 
+#[test]
+fn provider_bank_attributes_scope_wrappers_once_to_the_actual_key() {
+    let spec = descriptor(1, 1);
+    let key = spec.key();
+    let finished = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let dropped = Arc::new(AtomicUsize::new(0));
+    let inner = ProviderBinding::new(
+        spec.clone(),
+        Box::new(RetirementProbe {
+            ordinal: 1,
+            finished: finished.clone(),
+            dropped: dropped.clone(),
+            failure: Some(ProviderError::Contract("original scoped retirement".into())),
+        }),
+    );
+    let scoped = ProviderBinding::new(
+        spec,
+        Box::new(ScopedProvider {
+            inner,
+            scope: ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+        }),
+    );
+    let error = ProviderBindings::try_from_iter([(key, scoped)])
+        .unwrap()
+        .finish()
+        .unwrap_err();
+    assert!(
+        matches!(retirement_cause(&error), ProviderError::Contract(detail)
+        if detail == "original scoped retirement")
+    );
+    let ProviderError::Retirement { failures } = error else {
+        unreachable!()
+    };
+    assert_eq!(failures[0].key, key);
+    assert_eq!(*finished.lock().unwrap(), [1]);
+    assert_eq!(dropped.load(Ordering::Relaxed), 1);
+}
+
 #[derive(Debug)]
 struct PanickingRetirement(RetirementProbe, bool);
 #[derive(Debug)]

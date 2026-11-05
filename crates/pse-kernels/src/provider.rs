@@ -430,7 +430,7 @@ impl ProviderBinding {
         })
     }
     // The enclosing bank supplies admitted-key attribution and nonrecoverability.
-    fn finish_inner(self) -> Result<(), ProviderError> {
+    pub(crate) fn finish_inner(self) -> Result<(), ProviderError> {
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.worker.finish())) {
             Ok(result) => result,
             Err(payload) => Err(ProviderError::RetirementPanic(

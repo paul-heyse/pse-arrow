@@ -100,6 +100,8 @@ fn serial_scope_inventory_refuses_unqualified_adapter_even_after_registry_owner(
         scopes.enter(adapter(Backend::Idas), 0),
         Err(ProblemError::Unsupported(_))
     ));
+    scopes.enter(adapter(Backend::Kinsol), 1024).unwrap();
+    assert_eq!(scopes.backends, vec![Backend::Idas, Backend::Kinsol]);
 }
 
 #[test]

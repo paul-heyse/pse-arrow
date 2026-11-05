@@ -2181,6 +2181,17 @@ mod admission_tests {
             .unwrap();
     }
 
+    fn original_panic(error: &MathRuntimeError) -> Option<&str> {
+        let mut cause: &(dyn std::error::Error + 'static) = error;
+        loop {
+            if let Some(MathRuntimeError::Panic(message)) = cause.downcast_ref::<MathRuntimeError>()
+            {
+                return Some(message);
+            }
+            cause = cause.source()?;
+        }
+    }
+
     #[tokio::test]
     async fn native_session_close_retains_actual_thread_panic_after_join() {
         let service = super::super::tests::service();
@@ -2190,9 +2201,8 @@ mod admission_tests {
             session.sender.as_ref().unwrap(),
             "original native session exit",
         );
-        assert!(
-            matches!(session.close().await, Err(MathRuntimeError::Panic(message)) if message == "original native session exit")
-        );
+        let error = session.close().await.unwrap_err();
+        assert_eq!(original_panic(&error), Some("original native session exit"));
         assert_eq!(service.pool.reserved(), baseline);
         assert_eq!(service.jobs.available_permits(), service.policy.jobs);
     }
@@ -2232,9 +2242,8 @@ mod admission_tests {
             .unwrap();
         fail_native_thread(&sender, "first failed lane exit");
         drop(sender);
-        assert!(
-            matches!(service.shutdown_native_lanes().await, Err(MathRuntimeError::Panic(message)) if message == "first failed lane exit")
-        );
+        let error = service.shutdown_native_lanes().await.unwrap_err();
+        assert_eq!(original_panic(&error), Some("first failed lane exit"));
         assert!(
             observed.load(Ordering::Acquire),
             "every sender must close before any sibling join blocks"

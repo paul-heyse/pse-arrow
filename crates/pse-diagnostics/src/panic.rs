@@ -21,6 +21,13 @@ pub fn settle_payload(mut payload: Box<dyn std::any::Any + Send>, opaque: &'stat
             Ok(()) => return detail,
             Err(next) => {
                 detail.push_str("; panic payload destruction also panicked");
+                if let Some(message) = next.downcast_ref::<String>() {
+                    detail.push_str(": ");
+                    detail.push_str(message);
+                } else if let Some(message) = next.downcast_ref::<&str>() {
+                    detail.push_str(": ");
+                    detail.push_str(message);
+                }
                 payload = next;
             }
         }

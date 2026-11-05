@@ -790,7 +790,7 @@ pub struct CallbackDemand {
 }
 
 /// The backend-execution adapter. Implementations are unit values in the static table.
-pub trait BackendExecution: Sync + std::fmt::Debug {
+pub trait BackendExecution: Any + Sync + std::fmt::Debug {
     /// Registry identity of this adapter.
     fn backend(&self) -> Backend;
     /// Capabilities of this adapter's default settings, also published in inventory.
@@ -1640,7 +1640,10 @@ impl SerialScopes {
         stack: usize,
     ) -> Result<(), ProblemError> {
         if stack == 0
-            || !std::ptr::eq(selected, adapter(selected.backend()))
+            // Trait-object vtables can be duplicated across codegen units. The
+            // concrete adapter type, rather than its vtable address, qualifies
+            // this stateless registry implementation's owner-thread behavior.
+            || selected.type_id() != adapter(selected.backend()).type_id()
             || selected.scope_threads(1) != 0
         {
             return Err(ProblemError::Unsupported(

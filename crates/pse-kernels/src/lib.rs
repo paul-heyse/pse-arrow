@@ -819,7 +819,7 @@ struct ScopedProvider {
 }
 impl Provider for ScopedProvider {
     fn finish(self: Box<Self>) -> Result<(), ProviderError> {
-        self.inner.finish()
+        self.inner.finish_inner()
     }
     fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
         self.inner.supports_batch(request)
@@ -902,7 +902,7 @@ struct Enveloped {
 }
 impl Provider for Enveloped {
     fn finish(self: Box<Self>) -> Result<(), ProviderError> {
-        self.inner.finish()
+        self.inner.finish_inner()
     }
     fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
         self.inner.supports_batch(request)
@@ -1043,7 +1043,7 @@ impl ProviderObservation {
 }
 impl Provider for ObservedProvider {
     fn finish(self: Box<Self>) -> Result<(), ProviderError> {
-        self.inner.finish()
+        self.inner.finish_inner()
     }
     fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
         self.inner.supports_batch(request)

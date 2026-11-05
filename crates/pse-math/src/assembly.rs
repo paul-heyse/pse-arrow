@@ -3382,31 +3382,45 @@ impl CaseWorker {
     /// Original keyed provider retirement failures; no scratch is recycled on failure.
     pub fn finish(mut self) -> Result<(), MathError> {
         let recycler = self.recycler.take();
-        let result = std::mem::take(&mut self.providers)
-            .finish()
-            .map_err(MathError::Scope);
-        self.invalidate_trial();
-        for worker in &mut self.workers {
-            worker.detach_controls();
+        let result = std::mem::take(&mut self.providers).finish();
+        let cleanup = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.invalidate_trial();
+            for worker in &mut self.workers {
+                worker.detach_controls();
+            }
+            match (result.is_ok(), recycler) {
+                (true, Some(recycler)) => (recycler.0)(CaseScratch {
+                    assembly: self.assembly.clone(),
+                    groups: std::mem::take(&mut self.groups),
+                    workers: std::mem::take(&mut self.workers),
+                    projections: std::mem::take(&mut self.projections),
+                    jacobian: self.jacobian.take(),
+                    hessian: self.hessian.take(),
+                    constraint_values: std::mem::take(&mut self.constraint_values),
+                    gradient_values: std::mem::take(&mut self.gradient_values),
+                    action_values: std::mem::take(&mut self.action_values),
+                    entries: std::mem::take(&mut self.entries),
+                    reset: false,
+                }),
+                (_, recycler) => drop(recycler),
+            }
+        }))
+        .map_err(|payload| {
+            pse_kernels::ProviderError::RetirementPanic(pse_diagnostics::panic::settle_payload(
+                payload,
+                "case scratch retirement panic with opaque payload",
+            ))
+        });
+        match (result, cleanup) {
+            (Ok(()), Ok(())) => Ok(()),
+            (Err(error), Ok(())) | (Ok(()), Err(error)) => Err(MathError::Scope(error)),
+            (Err(operation), Err(cleanup)) => {
+                Err(MathError::Scope(pse_kernels::ProviderError::Settlement {
+                    operation: Box::new(operation),
+                    cleanup: Box::new(cleanup),
+                }))
+            }
         }
-        if result.is_ok()
-            && let Some(recycler) = recycler
-        {
-            (recycler.0)(CaseScratch {
-                assembly: self.assembly.clone(),
-                groups: std::mem::take(&mut self.groups),
-                workers: std::mem::take(&mut self.workers),
-                projections: std::mem::take(&mut self.projections),
-                jacobian: self.jacobian.take(),
-                hessian: self.hessian.take(),
-                constraint_values: std::mem::take(&mut self.constraint_values),
-                gradient_values: std::mem::take(&mut self.gradient_values),
-                action_values: std::mem::take(&mut self.action_values),
-                entries: std::mem::take(&mut self.entries),
-                reset: false,
-            });
-        }
-        result
     }
 }
 /// A library-evaluated source output before signed row aggregation.
