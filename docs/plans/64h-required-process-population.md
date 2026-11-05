@@ -6121,6 +6121,78 @@ source/flux/inventory accounting and each requested dynamic/distributed
 native/reference trajectory remain required. No Cartesian-product count or
 reference construction result is asserted.
 
+## Six fixed robustness populations and historical outcome roles — 2026-11-05
+
+**Interface-checked, source only:** V `robustness/unit_models/
+test_{cstr,flash,hx0d,pressure_changer,requil,rgibbs}.py` and their six JSONs,
+V `robustness/baseline.py`,C `diagnostics_tools/convergence_analysis.py`
+and `parameter_sweep.py` resolve G03/H04's fixed input populations. Each
+JSON stores200 unique realized rows,with no value outside its own declared
+input bounds. This was a stdlib JSON/arithmetic inspection;no sampler,
+model construction,initializer,diagnostic or Ipopt run occurred.
+
+All six are steady models. Builders first initialize one nominal point;
+the convergence owner then clones that initialized model separately for
+every stored sample,sets the sampled inputs and solves with legacy Ipopt.
+It does not rerun the unit initializer at each sampled point or warm-start
+each point from the previous sample. Regenerating unseeded Latin-hypercube
+samples changes the scientific/numerical population;replay the stored
+row identities instead. Baseline files contain success,error,iteration/
+restoration/regularization counts,time and numerical-warning flag,**not
+full physical output vectors or independent conservation assessments**.
+
+| Fixed population | Actual model,nominal point and sampled coordinates(envelope) | Historical JSON outcomes(success/failure;warning flagTrue) |
+|---|---|---|
+| `cstr.json` | Saponification CSTR,rate reactions,heat/reaction heat/pressure change,no equilibrium reactions. Nominal flow.001m3/s,water55388/reactants100/products1e-8mol/m3,Tin/Tout303.15K,P101325Pa,V.0015m3,deltaP0;outletT fixed,duty solved. Nine sampled inputs:flow.001–1m3/s,NaOH/ethyl acetate10–200mol/m3 each,sodium acetate/ethanol1e-8–10 each,P2000–900000Pa,Tin300–320K,V.001–1m3,Tout300–320K. Water stays fixed. |200/0;0 |
+| `flash.json` | IAPWS95 LG,nonideal separator with enthalpy split;nominal100mol/s,h24000J/mol,101325Pa,duty0/deltaP0. Three sampled inputs:flow.1–10000mol/s,P50000–500000Pa,h10–80000J/mol. This spans several water states,not a single fixed phase. |179/21;160 |
+| `hx0d.json` | Legacy liquid BT,Ideal activity model,cocurrent HX;nominal hot5mol/s365K,cold1mol/s300K,both.5/.5 and101325Pa,A1m2,U100W/(m2K). Four sampled inputs:hot flow1–100mol/s,hotT340–380K,A.1–100m2,U10–1000W/(m2K);cold feed stays fixed. No experimental HX dataset is loaded. |148/52;127 |
+| `isothermal_pressure_changer.json` | Mass-coordinate IAPWS95,default compression flag,isothermal generic pressure changer. Nominal27500kg/s,h4000J/kg,P2e6Pa,deltaP−1000Pa;four sampled inputs:flow1–1e6kg/s,P10–2e8Pa,h20000–4.4e6J/kg,deltaP−5e5–5e5Pa. The **nominal** enthalpy lies below the sampled lower bound. No stored row has nonpositive P+deltaP,but the declared continuous rectangle allows it. Negative deltaP with default compression is retained as source behavior,not a pump/turbine equivalence claim. |194/6;199 |
+| `requil.json` | Saponification EquilibriumReactor with equilibrium reactionsFalse;kinetic reaction rate constrainedzero,heat/reaction heat/pressure change. Same nominal inlet as CSTR,duty0/deltaP0,outletT solved. Seven sampled inputs:flow.001–1m3/s,reactants40–120mol/m3 each,products1e-8–30 each,P2000–900000Pa,Tin300–320K. This is not the CSTR's volume/residence-time law or an equilibrium-constant model. |151/49;113 |
+| `rgibbs.json` | Eight-species methane-combustion Gibbs reactor,element balances,heat/pressure change;nominal230mol/s,1500K/101325Pa,Tout2844.38K,deltaP0. H2/CH4/O2 fractions.0435/.1304/.1739;CO2/CO/H2O/NH3 each1e-5;N2 is **free**,solved from inlet sum1. Nine sampled inputs:flow10–1000mol/s,H2/CH4/O2 each1e-5–.2,H2O1e-5–.1,P50000–400000Pa,Tin1000–2000K,Tout2000–3000K,deltaP0–1e5Pa. Other trace fractions stay fixed;N2 remains the dependent remainder. Explicit model scaling and initialized outlet guesses are part of this source realization. |199/1;67 |
+
+Thus the stored aggregate is1071 successes/129 failures,with666 explicit
+True numerical-warning flags. Failed-solve/error rows are not automatically
+included in that warning count. The52 HX failures retain a bad-solver-status
+loading error and−1 metric sentinels;other unsuccessful termination records
+can have errorNone. None is an accepted current failure baseline.
+
+Immutable JSON identities(SHA256) are:
+
+- CSTR `75de996d77212fdeb9d2985b18b3e78b8b35431b091c3362c167dd5bdbae0c68`.
+- Flash `a4f7e588b93559966ab2b3546a2e5a055e341fc93a71d9f9a8a514f94758dea1`.
+- HX `9829d1299bcc43ab783c8de7fd89647346a46ff7ca6d48ad902ed93eb061301e`.
+- Pressure changer `8b2f8e9823e628fa249c0ee916d79705412a75f6d97a09168353ee118f05be5b`.
+- Equilibrium reactor `8ecdd7f208797a7a574de727e81a13c06941d6a803fa9126f6158ee170533338`.
+- Gibbs reactor `50629d661db5262da8d24a41664944f0c72391bef1bcd8a28d1d66cd0b3c7839`.
+
+V's newer `assert_baseline_not_regressed` is used by flash,pressure changer,
+equilibrium and Gibbs;CSTR/HX call the core baseline-comparison method.
+V's comparison tolerates iteration increases within relative.1/absolute1,
+accepts improvement from stored failure to success and fails newly lost
+successful samples/new warnings. This is convergence-regression policy,
+not physical or zero-failure scientific acceptance. Gibbs's generator also
+adds H2 twice with successive upper bounds.1 then.2;the stored specification
+has the final.2 bound. Preserve the saved population rather than treating
+those generator calls as two independent H2 dimensions.
+
+Recursive scientific inputs are the selected saponification thermo/reaction,
+BT liquid property and methane-combustion coefficient tables,IAPWS95
+external water/data closure,and the six exact nominal initialization
+policies(BlockTriangularization tolerance2e-5,HX0D initializer,or scaled
+single-CV Gibbs initializer). No trainer or external observation dataset
+is read. JSON historical metrics remain oracle-only;ordinary chemical/
+caloric/envelope records still need independent admission. Exact Ipopt/
+initializer/core2.13 compatibility and all realized sample outcomes remain
+unexecuted here.
+
+The source denominator is now six fixed models×their actual200 rows,not six
+new samplers or a promise that every point in each rectangle is physical.
+G03/H04 must preserve required rows,declare invalid/infeasible/failed roles
+explicitly,request complete physical outputs and original conservation/
+domain checks,and compare native/reference outcomes without weakening the
+zero-failure target or silently dropping historical failures. H01 scientific
+and executable readiness remains open.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

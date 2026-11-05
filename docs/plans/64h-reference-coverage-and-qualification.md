@@ -738,6 +738,15 @@ reported-basis inconsistency are explicit. Unit-specific physical closure,
 ordinary records and native/reference conservation/trajectory acceptance
 remain required;this is source analysis only.
 
+**Update, 2026-11-05 — fixed robustness population closure:** the
+[six-population handoff](64h-required-process-population.md#six-fixed-robustness-populations-and-historical-outcome-roles--2026-11-05)
+resolves all1200 stored input rows,actual nominal/model/sampled roles,
+artifact identities,clone/init policy and historical1071 successes/129
+failures. Stored solver statistics contain no complete physical outputs;
+upstream regression tolerance is not scientific acceptance. Ordinary valid
+envelopes,exact execution compatibility and complete native/reference
+physical outcomes remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
