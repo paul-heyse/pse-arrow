@@ -1548,6 +1548,127 @@ functions, actual cache readers,20×11 cached rows and44 literature-curve
 points. No model import, reference solve, measured result or compatibility
 claim follows from those source checks.
 
+## Modern SOC controller schedule and initialization closure — 2026-11-05
+
+**Interface-checked, source only:** X
+`docs/power_gen/solid_oxide_cell/soc_pid_control*.ipynb` imports
+`mod/power_gen/soc_dynamic_flowsheet.py::SocStandaloneFlowsheet`. The four
+notebook wrappers share one scientific construction; base/test add zero-DOF
+and terminal assertions omitted by doc/user. No training workflow is called.
+This transient plant/control family is separate from the steady Herring
+replication, including different cell/material data and a condensing recycle.
+
+| Configuration/consumer | Actual selection and boundary |
+|---|---|
+| Notebook physical configuration | Dynamic parent, thin oxygen electrode and electrolyte, resolved fuel electrode, resolved interconnect,10 axial finite volumes. Countercurrent cell,400000 cells,.2345×.2345 m active plane,873 µm channels,1 mm fuel electrode with porosity .326/tortuosity3. Solid holdup present; gas holdup absent. No contact-resistance or heat-loss port selected. |
+| Model dynamics | Cell solid energy, three exchanger wall inventories and two electric-heater wall inventories are dynamic. Exchanger fluids, heater fluids, blower, mixers/splitters and condenser flash are algebraic. Three countercurrent crossflow exchangers use6 Legendre elements×1 collocation point, hot shell; sweep exchanger inline tubes, fuel hot/medium exchangers staggered. Each heater uses2 Radau elements×2 points, inline tubes. These spatial and wall-storage configurations do not establish gas residence/inventory dynamics. |
+| Gas/condensation properties | Air/sweep O2 .2074/H2O .0099/CO2 .0003/N2 .7732/Ar .0092 and fuel H2/H2O/Ar/N2 use ideal gas packages. The condenser uses liquid+vapor PR with Stryjek–Vera alpha, water kappa1−.0665 and H2/N2/Ar kappa1 zero, with custom alpha/first/second temperature derivatives. This is not default PR or ideal condensation. Core cubic-root external functions, natural-gas coefficient tables and IAPWS95 dependencies remain required. |
+| Fixed fresh-feed and hardware inputs | Makeup378.15 K/120000 Pa,Ar .0008/N2 .0002; H2/H2O set by schedule. Blower feed288.15 K/101300 Pa with the sweep composition above, isentropic efficiency .85, discharge120000 Pa. Flash deltaP0. `_set_initial_inputs` supplies inline tube diameters/thicknesses, wall/fouling/heat-transfer parameters and bundle dimensions for all five thermal units; `_define_cell_params` supplies this plant's electrode/electrolyte/interconnect/kinetic parameters. These exact named method bodies plus the selected value overlay below close the fixed parameter inputs; substituting Herring parameters changes the model. |
+| Inherited optional configurations | Helper defaults are resolved oxygen electrode/electrolyte, no interconnect, no heat loss, actual dynamics when parent dynamic and quasi_steady_state=False; grid defaults to11 uniform faces. Notebook overrides thin regions and interconnect. Heat loss requires interconnect, as in C; its helper branch fixes heat loss zero. `quasi_steady_state=True` forces unit algebraic dynamics. These alternative configurations remain required selections/refusals, not variants executed by this notebook. |
+
+Two actual operating scenarios are exposed, with `maximum_production` selected
+in every shipped wrapper and `power_mode` selectable in its explicit branch.
+Both use six knots0,3600,3900,11100,11400,22200 s: hold1 h,ramp5 min,
+hold2 h,ramp5 min,hold3 h. Maximum-production schedule uses rows
+`maximum_H2,maximum_H2,power,power,maximum_H2,maximum_H2`; power-mode schedule
+reverses those two row roles. Unknown scenarios raise. The CSV has three rows
+and24 numeric columns; `minimum_H2` exists but is not selected by either
+schedule. It is not a third executed scenario.
+
+| Selected endpoint quantities from `soec_flowsheet_operating_conditions.csv` | `maximum_H2` | `power` |
+|---|---|---|
+| Net H2 target kg/s; voltage reference V; fuel-outlet H2 target | 2;1.321508935;.748999939 | −.9191892;.885541324;.620805129 |
+| Fresh makeup/sweep flow references mol/s | 1324.539114/2261.014098 | 630.603772/7006.177366 |
+| Fuel/sweep heater duty references W | 1000001.329/1000004.824 | 100000/100000 |
+| Fuel inner/outer temperature references K | 942.2212333/985.3387465 | 952.1497399/963.1956808 |
+| Sweep inner/outer temperature references K | 968.0334026/985.9509337 | 936.9772859/1012.960812 |
+| Stack-core temperature K | 992.9985544 | 992.3074377 |
+| Fuel/sweep/vapor-gas recycle ratios | 1/1/.00010001 | .631647422/.999999718/4.999999555 |
+| Condenser vapor outlet K; fresh H2/H2O fractions; H2 controller proportional gain | 323.15;1e-14/.999;200 | 323.15;.969/.03;−100 |
+
+Recycle **ratio** is recycle fraction/(1−fraction); ratio1 means fraction .5,
+not complete recycle. The19 consumed CSV columns are endpoint policy inputs,
+not measured time series. Five columns are not scheduled: `current`,
+`oxygen_out`, `hydrogen_in`, `condenser_heat_duty` and
+`h2_production_rate_controller_gain_i`. Source constructs derivative-equals-
+fixed-rate equations for ramped references, with backward discretization at
+the six knots and right-endpoint rates. Voltage reference/target, fresh H2/H2O
+fractions, H2 production target and its proportional gain instead **step** to
+the row at each knot (notably3900 and11400 s). Initial ramp equations are
+deactivated, initial ramped values fixed. Preserve that exact mixed ramp/step
+policy and its times, including fresh-composition jumps; interpolation of all
+columns would be a different controller experiment.
+
+Seven controllers are constructed with integral initialization calculation
+disabled. Fuel/sweep inlet temperature use inner PI on heater electric duties:
+Kp100000/200000, integral time900 s, bounds0–10 MW, smoothing1000 W and
+back-calculation gain .5/900 s⁻¹. Outer P controllers on fuel/sweep outlet
+temperature change inner setpoints with Kp .75 and no output bounds. A PI
+controls fuel-outlet H2 with voltage: Kp−2,integral time240 s,bounds .7–1.6 V,
+smoothing .01 V,back-calculation gain .5/240 s⁻¹. Stack-core temperature uses
+P sweep-flow control,Kp−50,bounds1500–10000 mol/s,smoothing10. H2 net
+production uses P makeup-flow control,bounds1–1500 mol/s,smoothing1, and the
+scheduled gain above. Declared but unused integral/derivative time scalars
+do not turn these P/PI controllers into PID. Generic helper performance bounds
+and steady-target constraints are **not called** by this notebook; their lower
+heater-power/voltage limits are not this controller's acceptance envelope.
+
+| Reference artifact | Actual role and unresolved compatibility obligation |
+|---|---|
+| `max_production.json.gz` | Selected maximum-production initial values, serializer format4, dated2025-09-20, metadata reports23011 serialized components. |
+| `power_mode.json.gz` | Selected power-mode initial values, format4, dated2025-09-20, metadata reports23013 components. |
+| `min_production.json.gz`, `neutral.json.gz` | Shipped but not loaded by these two branches. Minimum snapshot is format4 from2025-09-20; neutral is format4 from2024-04-02 and contains an older flowsheet class spelling. Keep their other consumers/disposition open; neither is an implied fallback initializer. |
+| `mod/power_gen/soc_dynamic_template.svg` | Reporting template read by `write_pfd`; generated SVG and PETSc trajectories are outputs. Template is not scientific input data. |
+
+Both selected snapshots contain steady time-zero values and no controllers,
+not complete transient trajectories. Notebook loads `StoreSpec.value()`, which
+overlays variable values without importing fixed/active flags or bounds and
+defaults to ignoring missing entries in the selected core serializer. It then
+fixes initial fuel/interconnect solid energy and mixed-gradient state, heat
+holdup of three exchangers/two heaters, and PI integrals; initial mean-cell
+temperature equations are activated, selected wall-temperature equations
+deactivated. Thus silent component/index mismatches must be detected during
+readiness; a file parse or matching format number does not establish the
+required initial-state coverage. Parameter values in these overlays must also
+be reconciled with authored inline inputs before independent ordinary data
+admission. CSV and saved values are oracle operating/initial-state inputs, not
+ordinary parameter provenance or validation truth.
+
+Direct dynamic `initialize_build` is explicitly unsupported; the notebook uses
+the saved-value route and a subsequent initial solve. `fix_initial_conditions`
+refuses the non-thin oxygen/electrolyte configuration; steady helper
+`make_performance_constraints` refuses multiple time points. The separate
+steady initializer's existing-file `load_from` branch references `init_log`
+before assigning it: resolve that compatibility/readiness defect if selecting
+that route, without claiming it was exercised here.
+
+The actual dynamic solve is ASL PETSc backward Euler, initial dt .1 s,
+rtol .001,step bounds .001–3600 s,trust-region Newton,max25 SNES failures,
+max50 nonlinear iterations,absolute residual1e-6 and relative/step residual
+tolerances zero. It saves visualization trajectories, keeps files and solves
+initial conditions with Ipopt/ma57 (user scaling,tol/constr_viol_tol1e-8,
+max_iter300). Compatible PETSc executable/trajectory reader, ma57, cubic-root
+and water functions, and exact Pyomo/core/examples serializer compatibility
+are prerequisites. No additional trainer/ROM/parameter file is loaded by this
+selected helper/notebook path.
+
+Every solver result must terminate optimally. Base/test terminal assertions
+belong only to the default maximum-production return: current−191441360.747 A
+at .1% relative allowance; fuel inlet/outlet941.622/985.483 K and oxygen
+inlet/outlet968.256/985.767 K at .1 K absolute; heater duties790423.648/
+1078951.237 W at .1% relative. The alternate power-return branch has no matching
+separate endpoint assertions in these wrappers. Full trajectories additionally
+report H2 production/consumption, power, inlet/outlet flows/compositions,
+recycles, temperatures/gradients, wall states, currents, controller states and
+condensation duty. Neither plots nor endpoint agreement alone closes charge,
+element/energy, initial-inventory, ramp/step continuity, actuator saturation
+or antiwindup controls. Native SOC/storage/controller mapping remains absent
+at this matched scope; ordinary domain/data, alternative configurations and
+independent reference/native execution stay required. Ephemeral AST/CSV/gzip
+inspection established wrapper assertion differences, actual files/metadata,
+time-zero snapshot structure and scheduled-column roles without model import
+or a solver run.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

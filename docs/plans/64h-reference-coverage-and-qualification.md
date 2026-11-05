@@ -228,6 +228,17 @@ heat loss fixed zero; no nonzero sweep or independent experimental acceptance
 is inferred. Full submodel/dynamic/SOEC/controller closure, ordinary data,
 native correspondence and independent execution remain open.
 
+**Update, 2026-11-05 — modern SOC controller prerequisites:** the
+[transient census](64h-required-process-population.md#modern-soc-controller-schedule-and-initialization-closure--2026-11-05)
+resolves both22200 s scenario schedules, mixed ramp/step policy, seven actual
+P/PI loops, selected dynamic solid/wall versus algebraic fluid behavior,
+PR-Stryjek–Vera condensation, CSV endpoints and selected format4 initial-value
+files. Snapshots contain only time-zero states and no controllers; missing-key
+coverage and final initial-condition custody remain executable readiness work.
+Unused operating rows/files and unsupported helper routes remain explicit.
+Only default scenario terminal assertions exist; native physical/control/data
+mapping and complete reference/trajectory qualification remain open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
