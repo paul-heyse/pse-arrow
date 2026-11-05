@@ -17,6 +17,22 @@
       "direction": "Both",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[u8; 16]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
@@ -161,6 +177,22 @@
       "direction": "Both",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[u8; 32]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array32U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
@@ -294,6 +326,22 @@
       "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u8; 32]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array3Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[[u8; 16]; 3]"
     },
     {
       "basis": "declared",
@@ -465,6 +513,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_inventory.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::test_inventory::CapturedEvidence"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CapturedWorkflowEvidence",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/test_inventory.rs",
@@ -625,6 +689,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_inventory.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::test_inventory::CapturedReport"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CapturedWorkflowReport",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/test_inventory.rs",
@@ -769,6 +849,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::CliInvocationId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CliInvocationId",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope.rs",
@@ -913,6 +1009,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::test_workflow::execute::report::ContentIdentity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ContentIdentity",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
@@ -1057,6 +1169,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::diagnostic::FactsRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticFacts",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope/diagnostic.rs",
@@ -1201,6 +1329,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::diagnostic::LabelRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticLabel",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope/diagnostic.rs",
@@ -1345,6 +1489,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::diagnostic::LocationRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticLocation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope/diagnostic.rs",
@@ -1489,6 +1649,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::diagnostic::ObservationValue"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope/diagnostic.rs",
@@ -1633,6 +1809,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/lib.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::OperandContract"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticOperandContract",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-diagnostics/src/lib.rs",
@@ -1777,6 +1969,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::diagnostic::RecoveryRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticRecovery",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope/diagnostic.rs",
@@ -1921,6 +2129,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::diagnostic::RecoveryCause"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticRecoveryCause",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope/diagnostic.rs",
@@ -2065,6 +2289,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::diagnostic::ErrorRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ErrorRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope/diagnostic.rs",
@@ -2209,6 +2449,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailurePhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailurePhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/semantic.rs",
@@ -2353,6 +2609,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailureReason"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailureReason",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/semantic.rs",
@@ -2497,6 +2769,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailureState"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailureState",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/semantic.rs",
@@ -2641,6 +2929,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/investigation/config.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::investigation::config::InputOrigin"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InputOrigin",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/investigation/config.rs",
@@ -2785,6 +3089,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::Settlement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ManagerSettlement",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope.rs",
@@ -2929,6 +3249,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/investigation/model.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::investigation::model::NativePath"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NativePath",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/investigation/model.rs",
@@ -3073,6 +3409,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::test_workflow::execute::report::Report"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NativeWorkflowReport",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
@@ -3217,6 +3569,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::NextAction"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NextAction",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope.rs",
@@ -3361,6 +3729,22 @@
       "direction": "Both",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::NonFinite"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NonFinite",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
@@ -3505,6 +3889,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcDisposition"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcDisposition",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
@@ -3649,6 +4049,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
@@ -3793,6 +4209,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/discovery.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::discovery::TestIdentity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "TestIdentity",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/discovery.rs",
@@ -3937,6 +4369,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCorrection"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCorrection",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope/validation.rs",
@@ -4081,6 +4529,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCoverage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCoverage",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope/validation.rs",
@@ -4225,6 +4689,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationDisclosure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationDisclosure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope/validation.rs",
@@ -4369,6 +4849,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationExposure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationExposure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope/validation.rs",
@@ -4513,6 +5009,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope/validation.rs",
@@ -4657,6 +5169,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationPathElement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationPathElement",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope/validation.rs",
@@ -4801,6 +5329,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationSelector"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationSelector",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope/validation.rs",
@@ -4945,6 +5489,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationViolation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationViolation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/envelope/validation.rs",
@@ -5089,6 +5649,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::test_workflow::execute::report::Action"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WorkflowAction",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
@@ -5233,6 +5809,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/evidence.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::test_workflow::execute::evidence::CapturedFile"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WorkflowCapturedFile",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/test_workflow/execute/evidence.rs",
@@ -5377,6 +5969,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/evidence.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::test_workflow::execute::evidence::EvidenceFile"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WorkflowEvidenceFile",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/test_workflow/execute/evidence.rs",
@@ -5521,6 +6129,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/evidence.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::test_workflow::execute::evidence::EvidenceOmission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WorkflowEvidenceOmission",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/test_workflow/execute/evidence.rs",
@@ -5665,6 +6289,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/evidence.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::test_workflow::execute::evidence::EvidenceRole"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WorkflowEvidenceRole",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/test_workflow/execute/evidence.rs",
@@ -5809,6 +6449,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/evidence.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::test_workflow::execute::evidence::EvidenceRoot"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WorkflowEvidenceRoot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/test_workflow/execute/evidence.rs",
@@ -5953,6 +6609,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/evidence.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::test_workflow::execute::evidence::EvidenceScope"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WorkflowEvidenceScope",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/test_workflow/execute/evidence.rs",
@@ -6097,6 +6769,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::test_workflow::execute::report::Outcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WorkflowOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
@@ -6241,6 +6929,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::test_workflow::execute::report::ReportObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WorkflowReportObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
@@ -6385,6 +7089,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
       "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::test_workflow::execute::report::ReportReference"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WorkflowReportReference",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
       "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
@@ -6518,6 +7238,22 @@
       "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
       "source_role": "semantic_owner",
       "source_symbol": "pse_host::test_workflow::execute::report::ReportReference"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WorkflowTerminalRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::test_workflow::execute::report::TerminalRecord"
     },
     {
       "basis": "declared",

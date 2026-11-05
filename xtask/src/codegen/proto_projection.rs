@@ -81,10 +81,18 @@ pub(super) fn publish_projection(
         "native-policy.rs",
         policy.as_bytes(),
     )?;
-    tree.files.insert(
-        destination.join("descriptor.bin"),
-        output.descriptor_bytes.clone(),
-    );
+    insert(
+        &mut tree,
+        &destination,
+        "descriptor.bin",
+        &output.descriptor_bytes,
+    )?;
+    insert(
+        &mut tree,
+        &destination,
+        "descriptor-source.bin",
+        &output.source_descriptor_bytes,
+    )?;
     let descriptor = tempfile::NamedTempFile::new()?;
     std::fs::write(descriptor.path(), &output.descriptor_bytes)?;
     let preflight =

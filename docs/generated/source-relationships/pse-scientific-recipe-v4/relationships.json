@@ -65,6 +65,22 @@
       "direction": "Both",
       "generator_path": "xtask/src/codegen/scientific_recipe.rs",
       "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Claim"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityClaim",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
       "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-model/src/applicability.rs",
@@ -257,6 +273,22 @@
       "direction": "Both",
       "generator_path": "xtask/src/codegen/scientific_recipe.rs",
       "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Node"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityNode",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
       "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor.bin",
       "source_identity": null,
       "source_path": "crates/pse-model/src/applicability.rs",
@@ -437,6 +469,22 @@
       "source_identity": null,
       "source_path": "crates/pse-model/src/applicability.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_model::applicability::Permission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityPermission",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_model::applicability::Permission"
     },
     {
@@ -629,6 +677,22 @@
       "source_identity": null,
       "source_path": "crates/pse-model/src/applicability.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_model::applicability::Region"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityRegion",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_model::applicability::Region"
     },
     {
@@ -821,6 +885,22 @@
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "typed_owner",
+      "source_symbol": "[pse_modeling::resolved::NodeIx; 2]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array2ModelingResolvedNodeIx",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "[pse_modeling::resolved::NodeIx; 2]"
     },
     {
@@ -1013,6 +1093,22 @@
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "typed_owner",
+      "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array8PhysicalRatio",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
     {
@@ -1205,6 +1301,22 @@
       "source_identity": null,
       "source_path": "crates/pse-authoring/src/dsl/ast.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_authoring::dsl::ast::BinaryOp"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AuthoredBinaryOperator",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-authoring/src/dsl/ast.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_authoring::dsl::ast::BinaryOp"
     },
     {
@@ -1397,6 +1509,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/functions.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::functions::Function"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AuthoredBuiltinFunction",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/functions.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::functions::Function"
     },
     {
@@ -1589,6 +1717,22 @@
       "source_identity": null,
       "source_path": "crates/pse-authoring/src/dsl/ast.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_authoring::dsl::ast::CompareOp"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AuthoredComparisonOperator",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-authoring/src/dsl/ast.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_authoring::dsl::ast::CompareOp"
     },
     {
@@ -1781,6 +1925,22 @@
       "source_identity": null,
       "source_path": "crates/pse-authoring/src/dsl/ast.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_authoring::dsl::ast::ReduceKind"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AuthoredReductionKind",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-authoring/src/dsl/ast.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_authoring::dsl::ast::ReduceKind"
     },
     {
@@ -1973,6 +2133,22 @@
       "source_identity": null,
       "source_path": "crates/pse-authoring/src/dsl/ast.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_authoring::dsl::ast::Number"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AuthoredScientificNumber",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-authoring/src/dsl/ast.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_authoring::dsl::ast::Number"
     },
     {
@@ -2165,6 +2341,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/ids.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::ids::BasisId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BasisId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::ids::BasisId"
     },
     {
@@ -2357,6 +2549,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/ids.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::ids::BoundIndexId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BoundIndexId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::ids::BoundIndexId"
     },
     {
@@ -2549,6 +2757,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/index.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::index::BoundIndexRef"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BoundIndexReference",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/index.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::index::BoundIndexRef"
     },
     {
@@ -2741,6 +2965,22 @@
       "source_identity": null,
       "source_path": "crates/pse-compiler/src/typed_math/provider_records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_compiler::typed_math::providers::records::DirectRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CompilerDirectProviderCallRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-compiler/src/typed_math/provider_records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_compiler::typed_math::providers::records::DirectRecord"
     },
     {
@@ -2933,6 +3173,22 @@
       "source_identity": null,
       "source_path": "crates/pse-compiler/src/typed_math/provider_records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_compiler::typed_math::providers::records::CallRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CompilerSelectedProviderCallRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-compiler/src/typed_math/provider_records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_compiler::typed_math::providers::records::CallRecord"
     },
     {
@@ -3125,6 +3381,22 @@
       "source_identity": null,
       "source_path": "crates/pse-compiler/src/typed_math/provider_records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_compiler::typed_math::providers::records::SelectedProvidersRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CompilerSelectedProvidersRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-compiler/src/typed_math/provider_records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_compiler::typed_math::providers::records::SelectedProvidersRecord"
     },
     {
@@ -3317,6 +3589,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/ids.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::ids::ConversionId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ConversionId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::ids::ConversionId"
     },
     {
@@ -3509,6 +3797,22 @@
       "source_identity": null,
       "source_path": "crates/pse-model/src/generated/identities.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_model::generated::identities::DeclarationId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DeclarationId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/identities.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_model::generated::identities::DeclarationId"
     },
     {
@@ -3701,6 +4005,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/ids.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::ids::DomainId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DomainId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::ids::DomainId"
     },
     {
@@ -3893,6 +4213,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/ids.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::ids::EntityKindId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "EntityKindId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::ids::EntityKindId"
     },
     {
@@ -4085,6 +4421,22 @@
       "source_identity": null,
       "source_path": "crates/pse-model/src/generated/enums.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_model::generated::enums::ExternalDerivativeSource"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ExternalDerivativeSource",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_model::generated::enums::ExternalDerivativeSource"
     },
     {
@@ -4277,6 +4629,22 @@
       "source_identity": null,
       "source_path": "crates/pse-model/src/generated/identities.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_model::generated::identities::InstanceId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InstanceId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/identities.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_model::generated::identities::InstanceId"
     },
     {
@@ -4469,6 +4837,22 @@
       "source_identity": null,
       "source_path": "crates/pse-kernels/src/lib.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_kernels::DerivativeOrder"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KernelDerivativeOrder",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-kernels/src/lib.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_kernels::DerivativeOrder"
     },
     {
@@ -4661,6 +5045,22 @@
       "source_identity": null,
       "source_path": "crates/pse-kernels/src/lib.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_kernels::Port"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KernelProviderPort",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-kernels/src/lib.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_kernels::Port"
     },
     {
@@ -4853,6 +5253,22 @@
       "source_identity": null,
       "source_path": "crates/pse-kernels/src/portable.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_kernels::portable::ProviderRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KernelProviderRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-kernels/src/portable.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_kernels::portable::ProviderRecord"
     },
     {
@@ -5045,6 +5461,22 @@
       "source_identity": null,
       "source_path": "crates/pse-kernels/src/shape.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_kernels::shape::ProviderShape"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KernelProviderShape",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-kernels/src/shape.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_kernels::shape::ProviderShape"
     },
     {
@@ -5237,6 +5669,22 @@
       "source_identity": null,
       "source_path": "crates/pse-kernels/src/shape.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_kernels::shape::ProviderShapes"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KernelProviderShapes",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-kernels/src/shape.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_kernels::shape::ProviderShapes"
     },
     {
@@ -5429,6 +5877,22 @@
       "source_identity": null,
       "source_path": "crates/pse-kernels/src/lib.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_kernels::ProviderSpec"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KernelProviderSpec",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-kernels/src/lib.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_kernels::ProviderSpec"
     },
     {
@@ -5621,6 +6085,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/kind.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::kind::KindFactor"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KindFactor",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/kind.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::kind::KindFactor"
     },
     {
@@ -5813,6 +6293,22 @@
       "source_identity": null,
       "source_path": "crates/pse-math/src/binding.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_math::binding::BodySpec"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "MathBodySpec",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-math/src/binding.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_math::binding::BodySpec"
     },
     {
@@ -6005,6 +6501,22 @@
       "source_identity": null,
       "source_path": "crates/pse-math/src/typed_provider.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_math::typed::provider::PreparedProviderCallRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "MathematicalPreparedProviderCallRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-math/src/typed_provider.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_math::typed::provider::PreparedProviderCallRecord"
     },
     {
@@ -6197,6 +6709,22 @@
       "source_identity": null,
       "source_path": "crates/pse-math/src/typed_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_math::typed::receipts::Proof"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "MathematicalProofReceipt",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-math/src/typed_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_math::typed::receipts::Proof"
     },
     {
@@ -6389,6 +6917,22 @@
       "source_identity": null,
       "source_path": "crates/pse-math/src/typed_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_math::typed::receipts::ProofStream"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "MathematicalProofStream",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-math/src/typed_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_math::typed::receipts::ProofStream"
     },
     {
@@ -6581,6 +7125,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/derived.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::derived::AnnotationComponent"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingAnnotationComponent",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/derived.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::derived::AnnotationComponent"
     },
     {
@@ -6773,6 +7333,22 @@
       "source_identity": null,
       "source_path": "crates/pse-model/src/generated/enums.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingAnnotationKind"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingAnnotationKind",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_model::generated::enums::ModelingAnnotationKind"
     },
     {
@@ -6965,6 +7541,22 @@
       "source_identity": null,
       "source_path": "crates/pse-model/src/generated/enums.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityBasis"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityBasis",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_model::generated::enums::ModelingApplicabilityBasis"
     },
     {
@@ -7157,6 +7749,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/support_record.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::support::record::BodyInputRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingBodyInputRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/support_record.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::support::record::BodyInputRecord"
     },
     {
@@ -7349,6 +7957,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/portable.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::portable::BoundaryWire"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingBoundaryFacts",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/portable.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::portable::BoundaryWire"
     },
     {
@@ -7541,6 +8165,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::CarrierKind"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingCarrierKind",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::CarrierKind"
     },
     {
@@ -7733,6 +8373,22 @@
       "source_identity": null,
       "source_path": "crates/pse-model/src/generated/enums.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingDeclarationKind"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingDeclarationKind",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_model::generated::enums::ModelingDeclarationKind"
     },
     {
@@ -7925,6 +8581,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/derived.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::derived::Relationship"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingDerivedRelationship",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/derived.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::derived::Relationship"
     },
     {
@@ -8117,6 +8789,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/portable.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::portable::ReadsWire"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingEnvelopeReadFacts",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/portable.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::portable::ReadsWire"
     },
     {
@@ -8309,6 +8997,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/derived.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::derived::LocalRole"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingLocalRole",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/derived.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::derived::LocalRole"
     },
     {
@@ -8501,6 +9205,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::MemberRange"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingMemberRange",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::MemberRange"
     },
     {
@@ -8693,6 +9413,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/operation_record.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::operation::record::AnchorRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingOperationAnchorRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/operation_record.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::operation::record::AnchorRecord"
     },
     {
@@ -8885,6 +9621,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/operation_record.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::operation::record::TranslationRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingOperationTranslationRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/operation_record.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::operation::record::TranslationRecord"
     },
     {
@@ -9077,6 +9829,22 @@
       "source_identity": null,
       "source_path": "crates/pse-model/src/generated/enums.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingPermissionTarget"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPermissionTarget",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_model::generated::enums::ModelingPermissionTarget"
     },
     {
@@ -9269,6 +10037,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/expression/admission.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::expression::admission::PhysicalAdmissionRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPhysicalAdmissionRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/expression/admission.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::expression::admission::PhysicalAdmissionRecord"
     },
     {
@@ -9461,6 +10245,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/support.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::support::PhysicalEvidenceRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPhysicalEvidenceRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/support.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::support::PhysicalEvidenceRecord"
     },
     {
@@ -9653,6 +10453,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/operation_record.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::operation::record::OperationRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPhysicalOperationRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/operation_record.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::operation::record::OperationRecord"
     },
     {
@@ -9845,6 +10661,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/expression/admission.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::expression::admission::PhysicalRequest"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPhysicalRequestFacts",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/expression/admission.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::expression::admission::PhysicalRequest"
     },
     {
@@ -10037,6 +10869,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::ProviderSelection"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingProviderSelection",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::ProviderSelection"
     },
     {
@@ -10229,6 +11077,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/portable.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::portable::RefinementWire"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingRefinementFacts",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/portable.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::portable::RefinementWire"
     },
     {
@@ -10421,6 +11285,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::ArgumentRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedArgumentRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::ArgumentRecord"
     },
     {
@@ -10613,6 +11493,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::BinderIx"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedBinderIx",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::BinderIx"
     },
     {
@@ -10805,6 +11701,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::Binding"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedBinding",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::Binding"
     },
     {
@@ -10997,6 +11909,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::CarrierIx"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedCarrierIx",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::CarrierIx"
     },
     {
@@ -11189,6 +12117,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::CarrierRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedCarrierRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::CarrierRecord"
     },
     {
@@ -11381,6 +12325,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::EnvelopeRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedEnvelopeRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::EnvelopeRecord"
     },
     {
@@ -11573,6 +12533,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::EvidenceIx"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedEvidenceIx",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::EvidenceIx"
     },
     {
@@ -11765,6 +12741,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::EvidenceRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedEvidenceRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::EvidenceRecord"
     },
     {
@@ -11957,6 +12949,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::ExternalRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedExternalRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::ExternalRecord"
     },
     {
@@ -12149,6 +13157,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::FoldRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedFoldRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::FoldRecord"
     },
     {
@@ -12341,6 +13365,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::FunctionIx"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedFunctionIx",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::FunctionIx"
     },
     {
@@ -12533,6 +13573,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::FunctionRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedFunctionRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::FunctionRecord"
     },
     {
@@ -12725,6 +13781,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::FunctionSlot"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedFunctionSlot",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::FunctionSlot"
     },
     {
@@ -12917,6 +13989,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::GroupIx"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedGroupIx",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::GroupIx"
     },
     {
@@ -13109,6 +14197,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::GroupRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedGroupRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::GroupRecord"
     },
     {
@@ -13301,6 +14405,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::Node"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedNode",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::Node"
     },
     {
@@ -13493,6 +14613,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::NodeIx"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedNodeIx",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::NodeIx"
     },
     {
@@ -13685,6 +14821,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::ResolvedPredicate"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedPredicate",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::ResolvedPredicate"
     },
     {
@@ -13877,6 +15029,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::PredicateIx"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedPredicateIx",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::PredicateIx"
     },
     {
@@ -14069,6 +15237,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::ResolvedRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::ResolvedRecord"
     },
     {
@@ -14261,6 +15445,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::ReductionRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedReductionRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::ReductionRecord"
     },
     {
@@ -14453,6 +15653,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::ReductionSelectionRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedReductionSelectionRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::ReductionSelectionRecord"
     },
     {
@@ -14645,6 +15861,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::Reference"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedReference",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::Reference"
     },
     {
@@ -14837,6 +16069,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::ScalarRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedScalarRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::ScalarRecord"
     },
     {
@@ -15029,6 +16277,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::SelectedRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedSelectedRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::SelectedRecord"
     },
     {
@@ -15221,6 +16485,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::SelectionRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedSelectionRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::SelectionRecord"
     },
     {
@@ -15413,6 +16693,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::ShapeRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedShapeRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::ShapeRecord"
     },
     {
@@ -15605,6 +16901,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::SymbolIx"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedSymbolIx",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::SymbolIx"
     },
     {
@@ -15797,6 +17109,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/records.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::records::SyntaxRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingResolvedSyntaxRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/records.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::records::SyntaxRecord"
     },
     {
@@ -15989,6 +17317,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/portable.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::portable::ValueWire"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingStaticValueFacts",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/portable.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::portable::ValueWire"
     },
     {
@@ -16181,6 +17525,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/support_record.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::support::record::BooleanRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingSupportBooleanRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/support_record.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::support::record::BooleanRecord"
     },
     {
@@ -16373,6 +17733,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/support_record.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::support::record::CallRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingSupportCallRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/support_record.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::support::record::CallRecord"
     },
     {
@@ -16565,6 +17941,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/support_record.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::support::record::NodeRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingSupportNodeRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/support_record.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::support::record::NodeRecord"
     },
     {
@@ -16757,6 +18149,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/support_record.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::support::record::RangeRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingSupportRangeRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/support_record.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::support::record::RangeRecord"
     },
     {
@@ -16949,6 +18357,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved/support_record.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::resolved::support::record::SupportRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingSupportRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/resolved/support_record.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::resolved::support::record::SupportRecord"
     },
     {
@@ -17141,6 +18565,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/derived.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::derived::TestComponent"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingTestComponent",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/derived.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::derived::TestComponent"
     },
     {
@@ -17333,6 +18773,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/portable.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::portable::TypeWire"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingTypeFacts",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/portable.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::portable::TypeWire"
     },
     {
@@ -17525,6 +18981,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/portable.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::portable::TypeRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingTypeRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/portable.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::portable::TypeRecord"
     },
     {
@@ -17717,6 +19189,22 @@
       "source_identity": null,
       "source_path": "crates/pse-model/src/generated/enums.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingUncertaintyKind"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingUncertaintyKind",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_model::generated::enums::ModelingUncertaintyKind"
     },
     {
@@ -17909,6 +19397,22 @@
       "source_identity": null,
       "source_path": "crates/pse-model/src/generated/enums.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingValidityLayer"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingValidityLayer",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_model::generated::enums::ModelingValidityLayer"
     },
     {
@@ -18101,6 +19605,22 @@
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/portable.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_modeling::portable::ValueRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingValueRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/portable.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_modeling::portable::ValueRecord"
     },
     {
@@ -18293,6 +19813,22 @@
       "source_identity": null,
       "source_path": "crates/pse-model/src/generated/enums.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingVariableDomain"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingVariableDomain",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_model::generated::enums::ModelingVariableDomain"
     },
     {
@@ -18485,6 +20021,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/enums.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::enums::Opcode"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Opcode",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/enums.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::enums::Opcode"
     },
     {
@@ -18677,6 +20229,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/ids.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::ids::OperationId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "OperationId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::ids::OperationId"
     },
     {
@@ -18869,6 +20437,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/infer.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::infer::BuiltInRule"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalBuiltInRule",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/infer.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::infer::BuiltInRule"
     },
     {
@@ -19061,6 +20645,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/unit.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::unit::CanonicalConversionRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalCanonicalConversionRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/unit.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::unit::CanonicalConversionRecord"
     },
     {
@@ -19253,6 +20853,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/unit.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::unit::MagnitudeRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalCanonicalMagnitudeRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/unit.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::unit::MagnitudeRecord"
     },
     {
@@ -19445,6 +21061,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::resolved::receipts::ContractBoundaryRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalContractBoundaryRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::resolved::receipts::ContractBoundaryRecord"
     },
     {
@@ -19637,6 +21269,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::resolved::receipts::ContractWire"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalContractFacts",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::resolved::receipts::ContractWire"
     },
     {
@@ -19829,6 +21477,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::resolved::receipts::ContractRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalContractRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::resolved::receipts::ContractRecord"
     },
     {
@@ -20021,6 +21685,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/dimension.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::dimension::DimensionVector"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalDimensionVector",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/dimension.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::dimension::DimensionVector"
     },
     {
@@ -20213,6 +21893,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::resolved::receipts::FormulaWire"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalFormulaFacts",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::resolved::receipts::FormulaWire"
     },
     {
@@ -20405,6 +22101,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::resolved::receipts::InferenceWire"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalInferenceFacts",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::resolved::receipts::InferenceWire"
     },
     {
@@ -20597,6 +22309,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::resolved::receipts::Receipt"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalInferenceReceipt",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::resolved::receipts::Receipt"
     },
     {
@@ -20789,6 +22517,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::resolved::receipts::InferenceRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalInferenceRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::resolved::receipts::InferenceRecord"
     },
     {
@@ -20981,6 +22725,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/infer.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::infer::OperandConversion"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalOperandConversion",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/infer.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::infer::OperandConversion"
     },
     {
@@ -21173,6 +22933,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/infer.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::infer::OperationSelection"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalOperationSelection",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/infer.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::infer::OperationSelection"
     },
     {
@@ -21365,6 +23141,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::resolved::receipts::BoundaryWire"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalOutputBoundaryFacts",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::resolved::receipts::BoundaryWire"
     },
     {
@@ -21557,6 +23349,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::resolved::receipts::BoundaryReceipt"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalOutputBoundaryReceipt",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::resolved::receipts::BoundaryReceipt"
     },
     {
@@ -21749,6 +23557,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::resolved::receipts::OutputBoundaryRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalOutputBoundaryRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::resolved::receipts::OutputBoundaryRecord"
     },
     {
@@ -21941,6 +23765,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::resolved::receipts::QualifiedFactorWire"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalQualifiedFactor",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::resolved::receipts::QualifiedFactorWire"
     },
     {
@@ -22133,6 +23973,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/dimension.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::dimension::Ratio"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalRatio",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/dimension.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::dimension::Ratio"
     },
     {
@@ -22325,6 +24181,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::resolved::receipts::ReceiptStream"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalReceiptStream",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::resolved::receipts::ReceiptStream"
     },
     {
@@ -22517,6 +24389,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/unit.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::unit::RepresentationConversionRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalRepresentationConversionRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/unit.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::unit::RepresentationConversionRecord"
     },
     {
@@ -22709,6 +24597,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::resolved::receipts::SchemeRecord"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalSchemeRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::resolved::receipts::SchemeRecord"
     },
     {
@@ -22901,6 +24805,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::resolved::receipts::SchemeWire"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalSchemeShape",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::resolved::receipts::SchemeWire"
     },
     {
@@ -23093,6 +25013,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/unit_product.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::unit_product::UnitProduct"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "PhysicalUnitProduct",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/unit_product.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::unit_product::UnitProduct"
     },
     {
@@ -23285,6 +25221,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/ids.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::ids::QuantityKindId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "QuantityKindId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::ids::QuantityKindId"
     },
     {
@@ -23477,6 +25429,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/ids.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::ids::QuantityTypeId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "QuantityTypeId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::ids::QuantityTypeId"
     },
     {
@@ -23669,6 +25637,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/quantity_type.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::quantity_type::QuantityTypeKey"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "QuantityTypeKey",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/quantity_type.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::quantity_type::QuantityTypeKey"
     },
     {
@@ -23861,6 +25845,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/enums.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::enums::ReductionKind"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ReductionKind",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/enums.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::enums::ReductionKind"
     },
     {
@@ -24053,6 +26053,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/ids.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::ids::ReferenceStateId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ReferenceStateId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::ids::ReferenceStateId"
     },
     {
@@ -24245,6 +26261,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/enums.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::enums::ScaleKind"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScaleKind",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/enums.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::enums::ScaleKind"
     },
     {
@@ -24437,6 +26469,22 @@
       "source_identity": null,
       "source_path": "crates/pse-compiler/src/typed_math_portable.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_compiler::typed_math::portable::Recipe"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificRecipe",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-compiler/src/typed_math_portable.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_compiler::typed_math::portable::Recipe"
     },
     {
@@ -24629,6 +26677,22 @@
       "source_identity": null,
       "source_path": "crates/pse-ids/src/roles.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_ids::roles::SemanticBodyHash"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticBodyHash",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-ids/src/roles.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_ids::roles::SemanticBodyHash"
     },
     {
@@ -24821,6 +26885,22 @@
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "typed_owner",
+      "source_symbol": "(pse_ids::id::ContentHash, pse_kernels::portable::ProviderRecord)"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Tuple2OfContentHashAndKernelProviderRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "(pse_ids::id::ContentHash, pse_kernels::portable::ProviderRecord)"
     },
     {
@@ -25013,6 +27093,22 @@
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "typed_owner",
+      "source_symbol": "(alloc::vec::Vec<pse_modeling::portable::ValueRecord>, core::option::Option<pse_modeling::resolved::SymbolIx>)"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Tuple2OfListModelingValueRecordAndOptionalModelingResolvedSymbolIx",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "(alloc::vec::Vec<pse_modeling::portable::ValueRecord>, core::option::Option<pse_modeling::resolved::SymbolIx>)"
     },
     {
@@ -25205,6 +27301,22 @@
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "typed_owner",
+      "source_symbol": "(pse_modeling::resolved::NodeIx, pse_modeling::expression::admission::PhysicalAdmissionRecord)"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Tuple2OfModelingResolvedNodeIxAndModelingPhysicalAdmissionRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "(pse_modeling::resolved::NodeIx, pse_modeling::expression::admission::PhysicalAdmissionRecord)"
     },
     {
@@ -25397,6 +27509,22 @@
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "typed_owner",
+      "source_symbol": "(pse_modeling::resolved::NodeIx, pse_modeling::portable::TypeRecord)"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Tuple2OfModelingResolvedNodeIxAndModelingTypeRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "(pse_modeling::resolved::NodeIx, pse_modeling::portable::TypeRecord)"
     },
     {
@@ -25589,6 +27717,22 @@
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "typed_owner",
+      "source_symbol": "(pse_modeling::resolved::SymbolIx, pse_modeling::resolved::MemberRange)"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Tuple2OfModelingResolvedSymbolIxAndModelingMemberRange",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "(pse_modeling::resolved::SymbolIx, pse_modeling::resolved::MemberRange)"
     },
     {
@@ -25781,6 +27925,22 @@
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "typed_owner",
+      "source_symbol": "(pse_modeling::portable::ValueRecord, alloc::vec::Vec<pse_modeling::portable::ValueRecord>)"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Tuple2OfModelingValueRecordAndListModelingValueRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "(pse_modeling::portable::ValueRecord, alloc::vec::Vec<pse_modeling::portable::ValueRecord>)"
     },
     {
@@ -25973,6 +28133,22 @@
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "typed_owner",
+      "source_symbol": "(alloc::string::String, pse_modeling::portable::TypeWire)"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Tuple2OfStringAndModelingTypeFacts",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "(alloc::string::String, pse_modeling::portable::TypeWire)"
     },
     {
@@ -26165,6 +28341,22 @@
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "typed_owner",
+      "source_symbol": "(alloc::string::String, pse_modeling::portable::ValueRecord)"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Tuple2OfStringAndModelingValueRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "(alloc::string::String, pse_modeling::portable::ValueRecord)"
     },
     {
@@ -26357,6 +28549,22 @@
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "typed_owner",
+      "source_symbol": "(alloc::string::String, pse_quantity::dimension::Ratio)"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Tuple2OfStringAndPhysicalRatio",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "(alloc::string::String, pse_quantity::dimension::Ratio)"
     },
     {
@@ -26549,6 +28757,22 @@
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "typed_owner",
+      "source_symbol": "(usize, pse_quantity::resolved::receipts::ContractRecord)"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Tuple2OfUsizeAndPhysicalContractRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "(usize, pse_quantity::resolved::receipts::ContractRecord)"
     },
     {
@@ -26741,6 +28965,22 @@
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/tuple_triple.rs",
       "source_role": "typed_owner",
+      "source_symbol": "(alloc::string::String, pse_model::generated::enums::ModelingUncertaintyKind, u64)"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Tuple3OfStringAndModelingUncertaintyKindAndU64",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_triple.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "(alloc::string::String, pse_model::generated::enums::ModelingUncertaintyKind, u64)"
     },
     {
@@ -26933,6 +29173,22 @@
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/tuple_triple.rs",
       "source_role": "typed_owner",
+      "source_symbol": "(alloc::string::String, usize, pse_ids::id::SemanticId)"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Tuple3OfStringAndUsizeAndSemanticId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_triple.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "(alloc::string::String, usize, pse_ids::id::SemanticId)"
     },
     {
@@ -27125,6 +29381,22 @@
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/tuple_triple.rs",
       "source_role": "typed_owner",
+      "source_symbol": "(usize, alloc::vec::Vec<pse_modeling::portable::ValueRecord>, pse_modeling::resolved::records::CarrierRecord)"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Tuple3OfUsizeAndListModelingValueRecordAndModelingResolvedCarrierRecord",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_triple.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "(usize, alloc::vec::Vec<pse_modeling::portable::ValueRecord>, pse_modeling::resolved::records::CarrierRecord)"
     },
     {
@@ -27317,6 +29589,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/unit.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::unit::UnitFactor"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "UnitFactor",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/unit.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::unit::UnitFactor"
     },
     {
@@ -27509,6 +29797,22 @@
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/ids.rs",
       "source_role": "typed_owner",
+      "source_symbol": "pse_quantity::ids::UnitId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "UnitId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/scientific_recipe.rs",
+      "generator_symbol": "generate",
+      "output_path": "crates/pse-compiler/src/generated/scientific-recipe/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::ids::UnitId"
     },
     {

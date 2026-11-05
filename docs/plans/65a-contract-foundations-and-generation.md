@@ -20,7 +20,8 @@ documentation and applicable database/Arrow projections. Domain behavior remains
 at its owner; a descriptor neither supplies scientific admission nor authorizes effects.
 
 The [coordinator](65-proto-integrated-target.md) owns the combined target and source dispositions.
-This companion owns A01–A07. Execution assumes completed Plan64. Its implementation and every
+This companion owns A01–A07. Joint execution uses the current baseline alongside unfinished
+Plan64; actual consumed capabilities determine readiness. Its implementation and every
 code surface it touches remain eligible for replacement; no concurrent editing partition or
 earlier plan ownership constrains this design. The inspected source is
 `f61286a5fa5894b480efe8584c8b3d9b76d1b1fb`, including the observed dirty projection work.
@@ -480,12 +481,12 @@ or assert that the current Buffa producer loses options. Keep intentional source
 effective feature transformation, logical metadata preservation and archival byte identity
 separate. An independent client must observe required option meaning after the complete route.
 
-The current custom generator encodes the full `FileDescriptorSet` and passes those bytes to
+At the initial A03 baseline, the custom generator encoded the full `FileDescriptorSet` and passed those bytes to
 `buffa_codegen::shared_descriptor_root_module`. Buffa's normal `encode_descriptor_set` applies
 feature overrides and removes `source_code_info`; the root helper merely embeds caller bytes.
 Thus the present custom path is not evidence that its runtime pool is compact, and a nondefault
 override could otherwise disagree with reflected semantics. Default overrides in the inspected
-route do not establish a current runtime mismatch.
+route did not establish a runtime mismatch.
 
 A03 produces two deliberate artifacts from one effective world:
 
@@ -510,12 +511,69 @@ schemas must interpret the same feature settings. Use `encode_descriptor_set` fo
 runtime transformation, with independent checks that relevant custom options survive. Do not
 alter full artifact bytes in place or derive real source coordinates from placeholder spans.
 
+The selected implementation uses Buffa 0.9.2
+[`encode_descriptor_set`](https://docs.rs/buffa-codegen/0.9.2/buffa_codegen/fn.encode_descriptor_set.html)
+with the same `CodeGenConfig::feature_overrides` passed to `generate_with_diagnostics`.
+Rust generation consumes original descriptors plus that configuration, preserving source
+comments and unmatched-override warnings. The effective runtime set supplies reflection,
+CEL preflight, validator and Connect requests, including Recipe view/probe naming. Its
+`descriptor.bin` retains every file/import/option; the helper trims `source_code_info`.
+Because the helper accepts files rather than an outer set, preserve outer-set unknowns by
+replacing only the transformed files in the original set. Decode the build-tool roundtrip
+with Buffa's `tooling_decode_options`, retaining its explicit large-schema selection and
+diagnostic rather than imposing the message decoder's smaller default element allowance.
+
+Publish `descriptor-source.bin` from that same effective world, restoring only each matching
+original file's genuine source information after checking file count/identity. It has the
+same feature semantics as the runtime artifact; it is not an archival claim about another
+producer's original wire ordering. Never fabricate spans for generated feature overrides.
+The existing compiled developer-evidence reader compares complete effective descriptor
+content while ignoring only source information, so either artifact can inspect the same
+payload. Wire shapes, features, options and unknown fields still select the exact compiled
+world. Buffa's field-scoped enum-openness override is runtime-specific; it does not establish
+equivalent interpretation by another Proto runtime. Actual external consumers retain their
+independent conformance obligation.
+
+**Implemented and targeted-tested on main, 2026-11-04:** all six current source-owned worlds
+publish the separate full/effective runtime artifacts. Each full artifact exactly matches its
+prior descriptor bytes under today's default overrides; each runtime artifact removes the
+same 242,857 bytes of imported source information. This is an artifact-extent observation,
+not a runtime memory or throughput measurement. Actual `just codegen` passes all 14 targets.
+The combined codegen/host/runtime/compiler all-targets check passes with engineering, native
+Study, product, KINSOL, Ipopt and Diffsol features, zero compiler errors/warnings. Seventeen
+selected codegen/developer-evidence controls pass after publication, zero failures/pending/
+build warnings, with complete native capture/settlement, configured unbounded/cache-off and
+prepared compiler/KLU/solver. The exact selection is `test(descriptor_world_) |
+test(complete_services_generate_one_shared_root_) | (test(developer_evidence::tests::) &
+!test(lifecycle::))` through `scripts/pse test pse-codegen pse-host --lib --profile local`.
+It includes independently expected native/validation options, a deliberately lossy transform,
+feature/unknown preservation, full-versus-runtime reader agreement and exact wire-world refusal.
+The earlier helper compilation mistakes and stale foreign-family expectation remain in their
+original failed reports; the corrected foreign case specifically retains Unknown interpretation
+when its option schema is unavailable. No production refusal was weakened. A03's remaining
+consumer/feature population and A04 composition work remain open.
+
 Use `generate_with_diagnostics`, preserve consequential warnings, and publish outputs atomically
 through the existing generated-tree/provenance machinery and `just codegen`. Compatible
 `GeneratedFileKind::Companion` files use `apply_companions` once after package/collision checks;
 retain independent plugin outputs where that is simpler. Do not reproduce Buffa module-tree
 assembly in each consumer. Keep `extern_path`, naming, excluded packages, validators and service
 generation consistent. A mapped Rust type must satisfy the contracts of its actual field position.
+
+A04's bounded supplier assessment selects separate plugin output trees for the current route.
+The prepared service generator is **connectrpc-codegen 0.9.0**, distinct from runtime 0.9.1.
+Its `generate_services` emits package stitchers/companions, but the protoc response retains only
+name/content, losing Buffa package/kind metadata. The validator separately emits an import-aware
+`mod.rs` and per-source files with their existing scope. Forcing these through Buffa
+`apply_companions` would require metadata reconstruction, renaming and new orphan/collision
+handling; the helper itself neither deduplicates nor rejects orphan packages. Preserve those
+supplier layouts. Remaining A04 work can generate the consumer facade from actual selected
+descriptors/emitted files and preflight independent-world merge collisions, while keeping
+intentional same-producer provenance refresh explicit. No such migration is implemented in
+this consolidation. Sources: [service generator](https://docs.rs/crate/connectrpc-codegen/0.9.0/source/src/codegen.rs),
+[Buffa composition](../../vendor/buffa-codegen/src/lib.rs),
+[validator layout](../../vendor/protoc-gen-protovalidate-buffa/src/emit/mod.rs) and
+[current orchestration](../../xtask/src/codegen/proto_projection.rs).
 
 Prost consumers can use `prost_build::Config::compile_fds` or a deliberately prepared descriptor
 input with `skip_protoc_run`; they do not need another authored domain schema. Retain the external
@@ -584,7 +642,7 @@ Current source: [graph](../../crates/pse-contract/src/boundary_projection.rs),
 [lowering](../../crates/pse-codegen/src/codegen/boundary_projection.rs),
 [orchestration](../../xtask/src/codegen/engineering.rs), and
 [host wire](../../crates/pse-host/src/semantic/wire.rs). These are implementation leads to
-reconcile against completed Plan64, not immutable target boundaries.
+reconcile against the current joint baseline, not immutable target boundaries.
 
 Selected mechanisms: [Buffa 0.9.2 generation source](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-codegen/src/lib.rs),
 [descriptor embedding](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-codegen/src/reflect.rs),

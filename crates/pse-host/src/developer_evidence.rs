@@ -200,7 +200,7 @@ pub fn inspect(
     let compiled = buffa_descriptor::generated::descriptor::FileDescriptorSet::decode_from_slice(
         contracts::DESCRIPTORS,
     )?;
-    if descriptors != &compiled {
+    if !same_runtime_world(descriptors, &compiled) {
         return Err(EvidenceError::Invalid("developer_evidence.proto: this compiled reader requires the complete compiled descriptor content; acquired wire tags, kinds, nested shapes or options cannot select a different decoder world".into()));
     }
     let options = buffa::DecodeOptions::new()
@@ -374,6 +374,26 @@ pub fn inspect(
         result.selected_population_complete = complete;
     }
     Ok(result)
+}
+
+fn same_runtime_world(
+    acquired: &buffa_descriptor::generated::descriptor::FileDescriptorSet,
+    compiled: &buffa_descriptor::generated::descriptor::FileDescriptorSet,
+) -> bool {
+    if acquired == compiled {
+        return true;
+    }
+    // Full/source-aware and compact runtime artifacts carry the same effective
+    // interpretation. Ignore only genuine source locations/comments; every file,
+    // wire shape, option, feature and unknown field must still match exactly.
+    let compact = |source: &buffa_descriptor::generated::descriptor::FileDescriptorSet| {
+        let mut runtime = source.clone();
+        for file in &mut runtime.file {
+            file.source_code_info = Default::default();
+        }
+        runtime
+    };
+    compact(acquired) == compact(compiled)
 }
 fn digest(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
@@ -708,6 +728,46 @@ mod tests {
         ));
     }
     #[test]
+    fn independent_report_accepts_source_information_without_accepting_another_runtime_world() {
+        use buffa_descriptor::generated::descriptor::{SourceCodeInfo, source_code_info::Location};
+        let wire = original();
+        let mut full = descriptors();
+        full.file
+            .iter_mut()
+            .find(|file| file.name.as_deref() == Some("developer_evidence.proto"))
+            .unwrap()
+            .source_code_info = SourceCodeInfo {
+            location: vec![Location {
+                path: vec![4, 0],
+                span: vec![0, 0, 1],
+                leading_comments: Some("source-aware inspection".into()),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }
+        .into();
+        let retained = full.encode_to_vec();
+        let observed = inspect(
+            &full,
+            "pse.developer.evidence.v1.CapturedWorkflowReport",
+            &wire.encode_to_vec(),
+        )
+        .unwrap();
+        assert_eq!(observed.invocation, read(&wire).unwrap().invocation);
+        assert_eq!(
+            full.encode_to_vec(),
+            retained,
+            "inspection does not replace the acquired source world"
+        );
+        let mut unknown = retained;
+        unknown.extend_from_slice(&[0xa0, 0x06, 0x09]);
+        let changed = FileDescriptorSet::decode_from_slice(&unknown).unwrap();
+        assert!(
+            matches!(inspect(&changed, "pse.developer.evidence.v1.CapturedWorkflowReport", &wire.encode_to_vec()),
+            Err(EvidenceError::Invalid(reason)) if reason.contains("complete compiled descriptor content"))
+        );
+    }
+    #[test]
     fn independent_report_binds_compiled_wire_tags_kinds_and_nested_shapes() {
         use buffa_descriptor::generated::descriptor::field_descriptor_proto::Type;
         let wire = original().encode_to_vec();
@@ -784,14 +844,24 @@ mod tests {
         let foreign =
             FileDescriptorSet::decode_from_slice(crate::code_intelligence_contracts::DESCRIPTORS)
                 .unwrap();
-        assert!(matches!(
-            inspect(
-                &foreign,
-                "pse.developer.evidence.v1.CapturedWorkflowReport",
-                &wire
-            ),
-            Err(EvidenceError::Metadata(_))
-        ));
+        let Err(EvidenceError::Interpretation { assessment }) = inspect(
+            &foreign,
+            "pse.developer.evidence.v1.CapturedWorkflowReport",
+            &wire,
+        ) else {
+            panic!("an unavailable foreign interpretation must retain its typed disposition");
+        };
+        assert_eq!(
+            assessment.disposition,
+            pse_contract::metadata::Disposition::Unknown
+        );
+        assert!(
+            assessment
+                .findings
+                .iter()
+                .any(|finding| finding.file == "developer_evidence.proto"
+                    && finding.reason.contains(pse_contract_proto::CORE_IMPORT))
+        );
     }
     #[test]
     fn independent_report_refuses_oversize_without_partial_readback() {

@@ -33,23 +33,27 @@ pub(crate) const REGISTRY_FIELD_SOURCE: &str = "pse.codegen.native_field";
 
 mod adapters;
 mod float_collections;
+mod lazy_probe;
 mod registry_facets;
 mod source_metadata;
-mod lazy_probe;
-pub use lazy_probe::{LazyProbeTarget, lazy_decode_probe};
 pub use adapters::{
     AdapterVisibility, NativeViewTarget, native_adapters, native_adapters_retaining_wire,
     native_adapters_scoped, native_view_adapters,
 };
+pub use lazy_probe::{LazyProbeTarget, lazy_decode_probe};
 
 /// One complete generation closure. The caller owns publication and generated roots.
 #[derive(Debug)]
 pub struct ProjectionOutput {
-    /// Complete descriptor world, including transitive imports and services.
+    /// Effective runtime world, including imports, options and configured feature overrides.
+    /// Validators, clients and reflection must consume this same interpretation.
     pub descriptor_set: FileDescriptorSet,
-    /// Exact descriptor bytes; publish as `descriptor.bin` beside the Rust sources.
+    /// Effective runtime bytes with source information removed; publish as `descriptor.bin`.
     /// The shared reflection root embeds this sidecar with `include_bytes!`.
     pub descriptor_bytes: Vec<u8>,
+    /// Full effective descriptors with original source information restored.
+    /// Publish separately for source inspection; feature meanings match the runtime artifact.
+    pub source_descriptor_bytes: Vec<u8>,
     /// Buffa-generated filenames and Rust source, plus `shared-root.rs`.
     pub sources: BTreeMap<String, String>,
     /// Original generator warnings; callers must surface them.
@@ -76,17 +80,33 @@ fn local_view_path(
     suffix: &str,
     lifetime: &str,
 ) -> Result<String, ProjectionCodegenError> {
-    let split = naming.rust_type_relative_split(fqn, package, 0)
+    let split = naming
+        .rust_type_relative_split(fqn, package, 0)
         .ok_or_else(|| error(format!("{fqn}: actual Buffa view naming is unavailable")))?;
     if split.is_extern || !split.to_package.is_empty() {
-        return Err(error(format!("{fqn}: view must belong to the explicitly selected generated package")));
+        return Err(error(format!(
+            "{fqn}: view must belong to the explicitly selected generated package"
+        )));
     }
     let mut path = syn::parse_str::<syn::Path>(&split.within_package)
         .map_err(|source| error(format!("actual Buffa view path is invalid: {source}")))?;
-    let terminal = path.segments.last_mut().ok_or_else(|| error("actual Buffa message path is empty"))?;
-    terminal.ident = quote::format_ident!("{}{suffix}", terminal.ident.to_string().trim_start_matches("r#"));
-    let family = if suffix == "LazyView" { "lazy_view" } else { "view" };
-    Ok(format!("{wire_root}::__buffa::{family}::{}<{lifetime}>", quote::quote!(#path)))
+    let terminal = path
+        .segments
+        .last_mut()
+        .ok_or_else(|| error("actual Buffa message path is empty"))?;
+    terminal.ident = quote::format_ident!(
+        "{}{suffix}",
+        terminal.ident.to_string().trim_start_matches("r#")
+    );
+    let family = if suffix == "LazyView" {
+        "lazy_view"
+    } else {
+        "view"
+    };
+    Ok(format!(
+        "{wire_root}::__buffa::{family}::{}<{lifetime}>",
+        quote::quote!(#path)
+    ))
 }
 
 fn validate_package(package: &str) -> Result<(), ProjectionCodegenError> {
@@ -463,11 +483,17 @@ pub fn generate_with_config(
             "owner projections require vtable reflection and one complete shared descriptor pool",
         ));
     }
-    let descriptor_set = descriptors_with_imports(graph, package, file_name, imports)?;
+    let source_descriptors = descriptors_with_imports(graph, package, file_name, imports)?;
+    let descriptor_set = effective_runtime_descriptors(&source_descriptors, config)?;
+    let source_descriptor_bytes =
+        source_aware_descriptors(&source_descriptors, &descriptor_set)?.encode_to_vec();
     let descriptor_bytes = descriptor_set.encode_to_vec();
-    let (generated, warnings) =
-        buffa_codegen::generate_with_diagnostics(&descriptor_set.file, &[file_name.into()], config)
-            .map_err(|e| error(e.to_string()))?;
+    let (generated, warnings) = buffa_codegen::generate_with_diagnostics(
+        &source_descriptors.file,
+        &[file_name.into()],
+        config,
+    )
+    .map_err(|e| error(e.to_string()))?;
     let entries = generated
         .iter()
         .filter(|file| file.kind == GeneratedFileKind::PackageMod)
@@ -495,10 +521,57 @@ pub fn generate_with_config(
     Ok(ProjectionOutput {
         descriptor_set,
         descriptor_bytes,
+        source_descriptor_bytes,
         sources,
         warnings: warnings.iter().map(ToString::to_string).collect(),
         documentation: owner_reference(graph, package),
     })
+}
+
+// The maintained helper performs the same override pass as Rust generation and
+// removes only source_code_info. Preserve outer-set unknowns too: its file-slice
+// API necessarily constructs a fresh outer FileDescriptorSet.
+fn effective_runtime_descriptors(
+    source: &FileDescriptorSet,
+    config: &CodeGenConfig,
+) -> Result<FileDescriptorSet, ProjectionCodegenError> {
+    let options = buffa_codegen::tooling_decode_options().map_err(error)?;
+    let files: FileDescriptorSet = options
+        .decode_from_slice(&buffa_codegen::encode_descriptor_set(
+            &source.file,
+            &config.feature_overrides,
+        ))
+        .map_err(|cause| {
+            error(buffa_codegen::decode_failure(
+                "effective descriptors",
+                &cause,
+                options.element_memory_limit(),
+            ))
+        })?;
+    let mut runtime = source.clone();
+    runtime.file = files.file;
+    Ok(runtime)
+}
+
+fn source_aware_descriptors(
+    source: &FileDescriptorSet,
+    runtime: &FileDescriptorSet,
+) -> Result<FileDescriptorSet, ProjectionCodegenError> {
+    if source.file.len() != runtime.file.len() {
+        return Err(error(
+            "effective descriptor transformation changed the file population",
+        ));
+    }
+    let mut full = runtime.clone();
+    for (file, original) in full.file.iter_mut().zip(&source.file) {
+        if file.name != original.name {
+            return Err(error(
+                "effective descriptor transformation changed a file identity",
+            ));
+        }
+        file.source_code_info = original.source_code_info.clone();
+    }
+    Ok(full)
 }
 
 /// Render stable tags, constraints, interpretation versions and actual source links.
