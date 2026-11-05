@@ -269,6 +269,11 @@ impl std::fmt::Debug for Sequence {
     }
 }
 impl Sequence {
+    /// The shielded C destruction API is synchronous and has no failure result.
+    pub fn finish(self) -> Result<(), ProblemError> {
+        drop(self);
+        Ok(())
+    }
     /// Empty native owner; no foreign allocation until admitted execution.
     pub fn new() -> Self {
         Self::default()
@@ -919,6 +924,9 @@ mod tests {
         factor: f64,
     }
     impl NlpOracle for Scaled {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &crate::OracleContract {
             NlpOracle::contract(&self.inner)
         }
@@ -1502,6 +1510,9 @@ mod tests {
         }
     }
     impl NlpOracle for QuadraticScaling {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &crate::OracleContract {
             &self.contract
         }

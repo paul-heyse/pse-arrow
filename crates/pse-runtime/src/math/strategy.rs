@@ -797,6 +797,23 @@ impl From<Arc<ProblemError>> for EffectFailure {
     }
 }
 impl EffectFailure {
+    /// Keep original scientific evidence while refusing retry after failed retirement.
+    pub(crate) fn with_retirement(mut self, cleanup: Result<(), ProblemError>) -> Self {
+        if let Err(cleanup) = cleanup {
+            self.cause = Arc::new(ProblemError::Retirement {
+                failures: vec![
+                    ProblemError::Math(pse_math::MathError::Typed {
+                        retained: self.cause.retained_bytes(),
+                        cause: pse_model::diagnostic::DiagnosticCause::from_shared(self.cause),
+                    }),
+                    cleanup,
+                ],
+            });
+            self.local_expiry = None;
+            self.local_refinement = false;
+        }
+        self
+    }
     pub(crate) fn component(
         cause: Arc<ProblemError>,
         observed: WorkObservation,
@@ -1970,7 +1987,7 @@ pub(crate) fn runtime_failure(error: &super::MathRuntimeError) -> Observation {
     use super::MathRuntimeError as E;
     match error {
         E::Shared(error) => runtime_failure(error),
-        E::Settlement { operation, .. } => runtime_failure(operation),
+        E::Settlement { .. } => Observation::OperationalFailure,
         E::Strategy { cause, .. } | E::StrategyTraceUnavailable { cause, .. } => {
             runtime_failure(cause)
         }

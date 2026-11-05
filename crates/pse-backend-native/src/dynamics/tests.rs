@@ -45,6 +45,9 @@ impl Toy {
     }
 }
 impl Oracle for Toy {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         &self.c
     }
@@ -772,6 +775,9 @@ fn scheduled_input_sensitivities_cross_changes() {
 #[derive(Debug)]
 struct ResetToy(Toy);
 impl Oracle for ResetToy {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         self.0.contract()
     }
@@ -861,6 +867,9 @@ struct TrialToy {
 }
 #[cfg(feature = "idas")]
 impl Oracle for TrialToy {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         self.toy.contract()
     }
@@ -984,6 +993,9 @@ fn quadratures_coexist_with_consistent_dae_forward_sensitivities() {
 struct Unsolvable(Toy);
 #[cfg(feature = "idas")]
 impl Oracle for Unsolvable {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         self.0.contract()
     }

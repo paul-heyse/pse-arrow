@@ -66,6 +66,9 @@ impl Polynomial {
     }
 }
 impl NlpOracle for Polynomial {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.c
     }
@@ -109,6 +112,9 @@ impl NlpOracle for Polynomial {
     }
 }
 impl NleOracle for Polynomial {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.c
     }

@@ -21,6 +21,8 @@ pub struct GhostCoordinates<'a> {
 /// Actual local evaluator for a prepared block family. Local equation and derivative
 /// order are the family's row/column maps and incidence, never a second equation authority.
 pub trait BlockOracle: std::fmt::Debug {
+    /// Retire the owned local evaluator after native block aliases end.
+    fn finish(self: Box<Self>) -> Result<(), ProblemError>;
     /// Prepared original contract and complete local/external incidence.
     fn family(&self) -> &Arc<DerivedFamily>;
     /// Actual frozen parameter/provider binding served throughout this attempt.

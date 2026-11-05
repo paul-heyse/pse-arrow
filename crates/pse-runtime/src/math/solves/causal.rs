@@ -110,8 +110,8 @@ impl MathService {
         let mut work = WorkEvidence::default();
         let mut failure_cause = None;
         let mut component_observation = None;
-        retained.clear();
         let result = (|| -> Result<Outcome, MathRuntimeError> {
+            retained.clear()?;
             execution.check()?;
             let scope = execution.scope()?;
             if !Arc::ptr_eq(scope.cancellation(), prepared.scope.cancellation())
@@ -245,9 +245,18 @@ impl MathService {
             execution.check()?;
             Ok(Outcome::Constant(evaluated))
         })();
-        retained.clear();
+        let result = result.map_err(|error| {
+            failure_cause.take().map_or(error, |cause| {
+                MathRuntimeError::from(ProblemError::Math(pse_math::MathError::Typed {
+                    retained: cause.retained_bytes(),
+                    cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+                }))
+            })
+        });
+        let result =
+            MathRuntimeError::settle(result, retained.clear().map_err(MathRuntimeError::from));
         result.map_err(|error| {
-            let cause = failure_cause.unwrap_or_else(|| Arc::new(error.into_problem()));
+            let cause = Arc::new(error.into_problem());
             let observed = WorkObservation {
                 attempts: 1,
                 evaluations: work.evaluations,

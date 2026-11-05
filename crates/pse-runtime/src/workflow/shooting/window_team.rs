@@ -109,13 +109,69 @@ struct Request {
 struct Lane {
     windows: Vec<usize>,
     send: Option<SyncSender<Request>>,
-    joined: Option<JoinHandle<()>>,
+    joined: Option<JoinHandle<Result<(), ProblemError>>>,
+}
+fn lane_panic(payload: Box<dyn std::any::Any + Send>) -> ProblemError {
+    let detail = payload
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| {
+            payload
+                .downcast_ref::<&str>()
+                .map(|text| (*text).to_owned())
+        })
+        .unwrap_or_else(|| "shooting lane non-text panic".into());
+    crate::math::MathRuntimeError::Panic(detail).into_problem()
+}
+fn finish_worker(worker: super::super::dynamics::DynamicWorker) -> Result<(), ProblemError> {
+    catch_unwind(AssertUnwindSafe(|| worker.finish()))
+        .unwrap_or_else(|panic| Err(lane_panic(panic)))
+}
+fn finish_workers(
+    workers: &mut [Option<super::super::dynamics::DynamicWorker>],
+) -> Result<(), ProblemError> {
+    let mut failures = Vec::new();
+    for worker in workers {
+        if let Some(worker) = worker.take() {
+            if let Err(error) = finish_worker(worker) {
+                failures.push(error);
+            }
+        }
+    }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(ProblemError::Retirement { failures })
+    }
+}
+impl Lane {
+    fn finish(&mut self) -> Result<(), ProblemError> {
+        self.send.take();
+        self.joined.take().map_or(Ok(()), |joined| {
+            joined.join().unwrap_or_else(|panic| Err(lane_panic(panic)))
+        })
+    }
+}
+fn finish_lanes(lanes: &mut Vec<Lane>) -> Result<(), ProblemError> {
+    for lane in lanes.iter_mut() {
+        lane.send.take();
+    }
+    let mut failures = Vec::new();
+    for mut lane in lanes.drain(..) {
+        if let Err(error) = lane.finish() {
+            failures.push(error);
+        }
+    }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(ProblemError::Retirement { failures })
+    }
 }
 impl Drop for Lane {
     fn drop(&mut self) {
-        self.send.take();
-        if let Some(joined) = self.joined.take() {
-            let _ = joined.join();
+        if let Err(error) = self.finish() {
+            tracing::error!(error = %error, "shooting lane abandonment finish failed");
         }
     }
 }
@@ -152,6 +208,15 @@ impl std::fmt::Debug for WindowTeam {
     }
 }
 impl WindowTeam {
+    pub(super) fn finish(mut self) -> Result<(), ProblemError> {
+        self.settle()
+    }
+    fn settle(&mut self) -> Result<(), ProblemError> {
+        match &mut self.owners {
+            Owners::Inline(worker) => worker.take().map_or(Ok(()), finish_worker),
+            Owners::Parallel { lanes, .. } => finish_lanes(lanes),
+        }
+    }
     pub(super) fn width(&self) -> usize {
         match &self.owners {
             Owners::Inline(_) => 1,
@@ -189,328 +254,354 @@ impl WindowTeam {
         initial: Option<super::super::dynamics::DynamicWorker>,
         forced_width: Option<usize>,
     ) -> Result<Self, ProblemError> {
-        #[cfg(feature = "solver-idas")]
         let mut initial = initial;
-        execution.check()?;
-        let service = math;
-        let program = &problem.experiment.program;
-        let allowances = super::super::dynamics::allowance_bytes(
-            &program.state_allowances,
-            &program.output_allowances,
-        )
-        .ok_or_else(|| ProblemError::memory("shooting lane allowance extent"))?;
-        let worker = super::super::dynamics::DynamicProgram::worker_allocation_bound(
-            &program.contract,
-            &program.programs,
-            &program.coordinates,
-            program.modes.iter(),
-            &program.layout,
-            allowances,
-        )?;
-        // Unknown provider constructors consume an explicit prepaid opaque envelope.
-        // Service cores bound a candidate; only quiescent_phase grants active compute.
-        let mut width = forced_width
-            .unwrap_or(problem.windows.len())
-            .min(problem.windows.len())
-            .min(service.cores())
-            .max(1);
-        #[cfg(feature = "solver-idas")]
-        if width > 1
-            && let Some(initial) = &mut initial
-        {
-            // Initial anchors have completed. Retire their optional native owner
-            // before claiming the original envelope for independent child windows;
-            // keep the mathematical worker available if wider admission falls back.
-            initial.discard_idas_workspace();
-        }
-        let estimate =
-            crate::math::ConstructionEstimate::from_bound(worker, service.policy().worker_bytes);
-        let mut grant = None;
-        while width > 1 {
-            let bytes = service
-                .stack_bytes()
-                .checked_mul(width)
-                .and_then(|bytes| bytes.checked_add(problem.windows.len().checked_mul(512)?))
-                .and_then(|bytes| bytes.checked_add(size_of::<Self>()));
-            let Some(bytes) = bytes else {
-                width -= 1;
-                continue;
-            };
-            let candidate = (|| {
-                let owner = service.reserve("shooting:window-lanes", bytes)?;
-                let constructors = (0..problem.windows.len())
-                    .map(|_| {
-                        service.reserve_constructor("shooting:window-worker", estimate, &execution)
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                let foreign = execution
-                    .memory
-                    .ok_or(crate::math::MathRuntimeError::Limit(
-                        "window foreign allowance absent",
-                    ))?;
-                let identity = Arc::new(());
-                let original = execution
-                    .work_admission
-                    .as_ref()
-                    .map_or(Ok(None), |parent| {
-                        parent.prepaid_storage(&identity, foreign)
-                    })?
-                    .and_then(|owner| Arc::downcast::<pse_columnar::AllocationLease>(owner).ok());
-                let mut coverages = Vec::with_capacity(problem.windows.len());
-                for window in 0..problem.windows.len() {
-                    let lease = if window == 0 { original.clone() } else { None }
-                        .map_or_else(|| service.reserve("shooting:window-foreign", foreign), Ok)?;
-                    coverages.push(Arc::new(WindowCoverage {
-                        parent: execution.work_admission.clone(),
-                        lease,
-                        claimant: std::sync::Mutex::new(std::sync::Weak::new()),
-                        _original_claim: identity.clone(),
-                    }));
-                }
-                Ok::<_, crate::math::MathRuntimeError>((owner, constructors, coverages))
-            })();
-            match candidate {
-                Ok(owner) => {
-                    grant = Some(owner);
-                    break;
-                }
-                Err(crate::math::MathRuntimeError::Pool(
-                    datafusion::common::DataFusionError::ResourcesExhausted(_),
-                ))
-                | Err(crate::math::MathRuntimeError::Limit(_)) => {
-                    width -= 1;
-                }
-                Err(error) => return Err(error.into_problem()),
+        let result = (|| {
+            execution.check()?;
+            let service = math;
+            let program = &problem.experiment.program;
+            let allowances = super::super::dynamics::allowance_bytes(
+                &program.state_allowances,
+                &program.output_allowances,
+            )
+            .ok_or_else(|| ProblemError::memory("shooting lane allowance extent"))?;
+            let worker = super::super::dynamics::DynamicProgram::worker_allocation_bound(
+                &program.contract,
+                &program.programs,
+                &program.coordinates,
+                program.modes.iter(),
+                &program.layout,
+                allowances,
+            )?;
+            // Unknown provider constructors consume an explicit prepaid opaque envelope.
+            // Service cores bound a candidate; only quiescent_phase grants active compute.
+            let mut width = forced_width
+                .unwrap_or(problem.windows.len())
+                .min(problem.windows.len())
+                .min(service.cores())
+                .max(1);
+            #[cfg(feature = "solver-idas")]
+            if width > 1
+                && let Some(initial) = &mut initial
+            {
+                // Initial anchors have completed. Retire their optional native owner
+                // before claiming the original envelope for independent child windows;
+                // keep the mathematical worker available if wider admission falls back.
+                initial.discard_idas_workspace();
             }
-        }
-        #[cfg(test)]
-        let identities = Arc::new(std::sync::Mutex::new(BTreeMap::new()));
-        let owners = if let Some((owner, constructors, coverages)) = grant {
-            // A parent-created !Send worker is destroyed on its actual owner. Child
-            // workers are constructed only after their complete resident admission.
-            drop(initial);
-            let runtime = tokio::runtime::Handle::try_current().map_err(|error| {
-                ProblemError::internal(format!("shooting lane runtime: {error}"))
-            })?;
-            let launch = || {
-                let mut lanes = Vec::with_capacity(width);
-                for lane in 0..width {
-                    let assigned: Vec<_> = (lane..problem.windows.len()).step_by(width).collect();
-                    let windows = assigned.clone();
-                    let (send, requests) = mpsc::sync_channel::<Request>(1);
-                    let (ready, prepared) = mpsc::sync_channel(1);
-                    let source = problem.clone();
-                    let execution = execution.clone();
-                    let runtime = runtime.clone();
-                    let preparation_context = crate::ExecutionContext::capture();
-                    let constructors: Vec<_> =
-                        assigned.iter().map(|&k| constructors[k].clone()).collect();
-                    let coverages: Vec<_> =
-                        assigned.iter().map(|&k| coverages[k].clone()).collect();
-                    #[cfg(test)]
-                    let observed = identities.clone();
-                    let joined = std::thread::Builder::new()
-                        .name(format!("pse-shooting-{lane}"))
-                        .stack_size(service.stack_bytes())
-                        .spawn(move || {
-                            let _runtime = runtime.enter();
-                            let scope = match execution.scope() {
-                                Ok(scope) => {
-                                    scope.with_admitted_threads(std::num::NonZeroUsize::MIN)
-                                }
-                                Err(error) => {
-                                    let _ = ready.send(Err(error));
-                                    return;
-                                }
-                            };
-                            // Each finite worker has its own prepaid constructor owner.
-                            // Keep these locals until every worker has been destroyed.
-                            let worker_owners = constructors;
-                            let prepare = || {
-                                assigned
-                                    .iter()
-                                    .enumerate()
-                                    .map(|(local, _)| {
-                                        pse_math::construction::scoped(
-                                            worker_owners[local].clone(),
-                                            || {
-                                                source
-                                                    .experiment
-                                                    .worker_scoped(scope.clone())
-                                                    .map(Some)
-                                            },
-                                        )
-                                    })
-                                    .collect::<Result<Vec<_>, _>>()
-                            };
-                            let prepared = {
-                                let _context = preparation_context.enter_native();
-                                catch_unwind(AssertUnwindSafe(|| {
-                                    native::execution::original_scoped(&execution, prepare)
-                                }))
-                            }
-                            .unwrap_or_else(|_| {
-                                Err(ProblemError::internal("shooting lane preparation panic"))
-                            });
-                            drop(preparation_context);
-                            let mut workers = match prepared {
-                                Ok(workers) => {
-                                    if ready.send(Ok(())).is_err() {
-                                        return;
-                                    }
-                                    workers
-                                }
-                                Err(error) => {
-                                    let _ = ready.send(Err(error));
-                                    return;
-                                }
-                            };
-                            while let Ok(mut request) = requests.recv() {
-                                #[cfg(test)]
-                                if let Some(gate) = &request.gate {
-                                    gate.wait();
-                                }
-                                match request.execution.scope() {
+            let estimate = crate::math::ConstructionEstimate::from_bound(
+                worker,
+                service.policy().worker_bytes,
+            );
+            let mut grant = None;
+            while width > 1 {
+                let bytes = service
+                    .stack_bytes()
+                    .checked_mul(width)
+                    .and_then(|bytes| bytes.checked_add(problem.windows.len().checked_mul(512)?))
+                    .and_then(|bytes| bytes.checked_add(size_of::<Self>()));
+                let Some(bytes) = bytes else {
+                    width -= 1;
+                    continue;
+                };
+                let candidate = (|| {
+                    let owner = service.reserve("shooting:window-lanes", bytes)?;
+                    let constructors = (0..problem.windows.len())
+                        .map(|_| {
+                            service.reserve_constructor(
+                                "shooting:window-worker",
+                                estimate,
+                                &execution,
+                            )
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let foreign = execution
+                        .memory
+                        .ok_or(crate::math::MathRuntimeError::Limit(
+                            "window foreign allowance absent",
+                        ))?;
+                    let identity = Arc::new(());
+                    let original = execution
+                        .work_admission
+                        .as_ref()
+                        .map_or(Ok(None), |parent| {
+                            parent.prepaid_storage(&identity, foreign)
+                        })?
+                        .and_then(|owner| {
+                            Arc::downcast::<pse_columnar::AllocationLease>(owner).ok()
+                        });
+                    let mut coverages = Vec::with_capacity(problem.windows.len());
+                    for window in 0..problem.windows.len() {
+                        let lease = if window == 0 { original.clone() } else { None }.map_or_else(
+                            || service.reserve("shooting:window-foreign", foreign),
+                            Ok,
+                        )?;
+                        coverages.push(Arc::new(WindowCoverage {
+                            parent: execution.work_admission.clone(),
+                            lease,
+                            claimant: std::sync::Mutex::new(std::sync::Weak::new()),
+                            _original_claim: identity.clone(),
+                        }));
+                    }
+                    Ok::<_, crate::math::MathRuntimeError>((owner, constructors, coverages))
+                })();
+                match candidate {
+                    Ok(owner) => {
+                        grant = Some(owner);
+                        break;
+                    }
+                    Err(crate::math::MathRuntimeError::Pool(
+                        datafusion::common::DataFusionError::ResourcesExhausted(_),
+                    ))
+                    | Err(crate::math::MathRuntimeError::Limit(_)) => {
+                        width -= 1;
+                    }
+                    Err(error) => return Err(error.into_problem()),
+                }
+            }
+            #[cfg(test)]
+            let identities = Arc::new(std::sync::Mutex::new(BTreeMap::new()));
+            let owners = if let Some((owner, constructors, coverages)) = grant {
+                // A parent-created !Send worker is destroyed on its actual owner. Child
+                // workers are constructed only after their complete resident admission.
+                if let Some(initial) = initial.take() {
+                    finish_worker(initial)?;
+                }
+                let runtime = tokio::runtime::Handle::try_current().map_err(|error| {
+                    ProblemError::internal(format!("shooting lane runtime: {error}"))
+                })?;
+                let launch = || {
+                    let mut lanes = Vec::with_capacity(width);
+                    for lane in 0..width {
+                        let assigned: Vec<_> =
+                            (lane..problem.windows.len()).step_by(width).collect();
+                        let windows = assigned.clone();
+                        let (send, requests) = mpsc::sync_channel::<Request>(1);
+                        let (ready, prepared) = mpsc::sync_channel(1);
+                        let source = problem.clone();
+                        let execution = execution.clone();
+                        let runtime = runtime.clone();
+                        let preparation_context = crate::ExecutionContext::capture();
+                        let constructors: Vec<_> =
+                            assigned.iter().map(|&k| constructors[k].clone()).collect();
+                        let coverages: Vec<_> =
+                            assigned.iter().map(|&k| coverages[k].clone()).collect();
+                        #[cfg(test)]
+                        let observed = identities.clone();
+                        let joined = std::thread::Builder::new()
+                            .name(format!("pse-shooting-{lane}"))
+                            .stack_size(service.stack_bytes())
+                            .spawn(move || {
+                                let _runtime = runtime.enter();
+                                let scope = match execution.scope() {
                                     Ok(scope) => {
-                                        request.execution.enclosing_scope = Some(
-                                            scope
-                                                .with_admitted_threads(std::num::NonZeroUsize::MIN),
-                                        )
+                                        scope.with_admitted_threads(std::num::NonZeroUsize::MIN)
                                     }
                                     Err(error) => {
-                                        for &k in &assigned {
-                                            let _ = request.reply.send((
-                                                k,
-                                                Err(ProblemError::internal(format!(
-                                                    "shooting lane scope: {error}"
-                                                ))),
-                                            ));
-                                        }
-                                        continue;
+                                        let _ = ready.send(Err(error));
+                                        return Ok(());
                                     }
-                                }
-                                let _context = request.context.enter_native();
-                                for (local, &k) in assigned.iter().enumerate() {
-                                    let work = || {
-                                        let worker = workers[local].as_mut().ok_or_else(|| {
-                                            ProblemError::internal(
-                                                "shooting lane requires a fresh attempt",
-                                            )
-                                        })?;
-                                        #[cfg(test)]
-                                        if let Ok(mut identities) = observed.lock() {
-                                            identities.insert(
-                                                k,
-                                                worker.buffer_identity(
-                                                    0,
-                                                    native::dynamics::Function::Rhs,
-                                                ),
-                                            );
-                                        }
-                                        #[cfg(test)]
-                                        if request.failure == Some(k) {
-                                            return Err(ProblemError::numerical(
-                                                "forced middle window refusal",
-                                            ));
-                                        }
-                                        let mut execution = request.execution.clone();
-                                        execution.work_admission = Some(coverages[local].clone());
-                                        evaluate_window(
-                                            &source,
-                                            worker,
-                                            k,
-                                            WindowEvaluation {
-                                                x: &request.x,
-                                                demand: request.demand,
-                                                execution: &execution,
-                                                producer: request.producer.clone(),
-                                                purpose: request.purpose,
-                                            },
-                                        )
-                                    };
-                                    let result = catch_unwind(AssertUnwindSafe(|| {
-                                        native::execution::original_scoped(
-                                            &request.execution,
-                                            || {
-                                                pse_math::construction::scoped(
-                                                    worker_owners[local].clone(),
-                                                    work,
-                                                )
-                                            },
-                                        )
+                                };
+                                // Each finite worker has its own prepaid constructor owner.
+                                // Keep these locals until every worker has been destroyed.
+                                let worker_owners = constructors;
+                                let mut workers = Vec::with_capacity(assigned.len());
+                                let mut prepare = || {
+                                    for (local, _) in assigned.iter().enumerate() {
+                                        workers.push(Some(pse_math::construction::scoped(
+                                            worker_owners[local].clone(),
+                                            || source.experiment.worker_scoped(scope.clone()),
+                                        )?));
+                                    }
+                                    Ok(())
+                                };
+                                let prepared = {
+                                    let _context = preparation_context.enter_native();
+                                    catch_unwind(AssertUnwindSafe(|| {
+                                        native::execution::original_scoped(&execution, &mut prepare)
                                     }))
-                                    .unwrap_or_else(|_| {
-                                        Err(ProblemError::internal("shooting lane panic"))
-                                    });
-                                    if let Err(error) = &result {
-                                        if native::callback::classify(error)
-                                            == native::callback::Failure::Trial
-                                        {
-                                            if let Some(worker) = &mut workers[local] {
-                                                worker.invalidate_trial();
-                                            }
-                                        } else {
-                                            workers[local] = None;
+                                }
+                                .unwrap_or_else(|_| {
+                                    Err(ProblemError::internal("shooting lane preparation panic"))
+                                });
+                                drop(preparation_context);
+                                match prepared {
+                                    Ok(()) => {
+                                        if ready.send(Ok(())).is_err() {
+                                            return finish_workers(&mut workers);
                                         }
                                     }
-                                    if request.reply.send((k, result)).is_err() {
-                                        break;
+                                    Err(error) => {
+                                        let _ = ready.send(Err(error));
+                                        return finish_workers(&mut workers);
+                                    }
+                                };
+                                while let Ok(mut request) = requests.recv() {
+                                    #[cfg(test)]
+                                    if let Some(gate) = &request.gate {
+                                        gate.wait();
+                                    }
+                                    match request.execution.scope() {
+                                        Ok(scope) => {
+                                            request.execution.enclosing_scope =
+                                                Some(scope.with_admitted_threads(
+                                                    std::num::NonZeroUsize::MIN,
+                                                ))
+                                        }
+                                        Err(error) => {
+                                            for &k in &assigned {
+                                                let _ = request.reply.send((
+                                                    k,
+                                                    Err(ProblemError::internal(format!(
+                                                        "shooting lane scope: {error}"
+                                                    ))),
+                                                ));
+                                            }
+                                            continue;
+                                        }
+                                    }
+                                    let _context = request.context.enter_native();
+                                    for (local, &k) in assigned.iter().enumerate() {
+                                        let work = || {
+                                            let worker =
+                                                workers[local].as_mut().ok_or_else(|| {
+                                                    ProblemError::internal(
+                                                        "shooting lane requires a fresh attempt",
+                                                    )
+                                                })?;
+                                            #[cfg(test)]
+                                            if let Ok(mut identities) = observed.lock() {
+                                                identities.insert(
+                                                    k,
+                                                    worker.buffer_identity(
+                                                        0,
+                                                        native::dynamics::Function::Rhs,
+                                                    ),
+                                                );
+                                            }
+                                            #[cfg(test)]
+                                            if request.failure == Some(k) {
+                                                return Err(ProblemError::numerical(
+                                                    "forced middle window refusal",
+                                                ));
+                                            }
+                                            let mut execution = request.execution.clone();
+                                            execution.work_admission =
+                                                Some(coverages[local].clone());
+                                            evaluate_window(
+                                                &source,
+                                                worker,
+                                                k,
+                                                WindowEvaluation {
+                                                    x: &request.x,
+                                                    demand: request.demand,
+                                                    execution: &execution,
+                                                    producer: request.producer.clone(),
+                                                    purpose: request.purpose,
+                                                },
+                                            )
+                                        };
+                                        let mut result = catch_unwind(AssertUnwindSafe(|| {
+                                            native::execution::original_scoped(
+                                                &request.execution,
+                                                || {
+                                                    pse_math::construction::scoped(
+                                                        worker_owners[local].clone(),
+                                                        work,
+                                                    )
+                                                },
+                                            )
+                                        }))
+                                        .unwrap_or_else(|_| {
+                                            Err(ProblemError::internal("shooting lane panic"))
+                                        });
+                                        if let Err(error) = &result {
+                                            if native::callback::classify(error)
+                                                == native::callback::Failure::Trial
+                                            {
+                                                if let Some(worker) = &mut workers[local] {
+                                                    worker.invalidate_trial();
+                                                }
+                                            } else {
+                                                if let Some(worker) = workers[local].take() {
+                                                    result = ProblemError::with_retirement(
+                                                        result,
+                                                        finish_worker(worker),
+                                                    );
+                                                }
+                                            }
+                                        }
+                                        if request.reply.send((k, result)).is_err() {
+                                            break;
+                                        }
                                     }
                                 }
+                                // Every retained worker/provider is destroyed here before join.
+                                finish_workers(&mut workers)
+                            });
+                        let joined = match joined {
+                            Ok(joined) => joined,
+                            Err(error) => {
+                                return ProblemError::with_retirement(
+                                    Err(ProblemError::internal(format!(
+                                        "shooting lane creation: {error}"
+                                    ))),
+                                    finish_lanes(&mut lanes),
+                                );
                             }
-                            // Every retained worker/provider is destroyed here before join.
-                        })
-                        .map_err(|error| {
-                            ProblemError::internal(format!("shooting lane creation: {error}"))
-                        })?;
-                    let lane_owner = Lane {
-                        windows,
-                        send: Some(send),
-                        joined: Some(joined),
-                    };
-                    match prepared.recv() {
-                        Ok(Ok(())) => lanes.push(lane_owner),
-                        Ok(Err(error)) => {
-                            drop(lane_owner);
-                            drop(lanes);
-                            return Err(error);
-                        }
-                        Err(_) => {
-                            drop(lane_owner);
-                            drop(lanes);
-                            return Err(ProblemError::internal(
-                                "shooting lane stopped during preparation",
-                            ));
+                        };
+                        let lane_owner = Lane {
+                            windows,
+                            send: Some(send),
+                            joined: Some(joined),
+                        };
+                        match prepared.recv() {
+                            Ok(Ok(())) => lanes.push(lane_owner),
+                            Ok(Err(error)) => {
+                                lanes.push(lane_owner);
+                                let cleanup = finish_lanes(&mut lanes);
+                                return ProblemError::with_retirement(Err(error), cleanup);
+                            }
+                            Err(_) => {
+                                lanes.push(lane_owner);
+                                let cleanup = finish_lanes(&mut lanes);
+                                return ProblemError::with_retirement(
+                                    Err(ProblemError::internal(
+                                        "shooting lane stopped during preparation",
+                                    )),
+                                    cleanup,
+                                );
+                            }
                         }
                     }
+                    Ok::<_, ProblemError>(lanes)
+                };
+                let lanes = service
+                    .quiescent_phase(width, 0, &execution, launch)
+                    .map_err(|error| error.into_problem())??;
+                Owners::Parallel {
+                    lanes,
+                    _owner: owner,
                 }
-                Ok::<_, ProblemError>(lanes)
+            } else {
+                Owners::Inline(Some(match initial.take() {
+                    Some(worker) => worker,
+                    None => problem.experiment.worker(&execution)?,
+                }))
             };
-            let lanes = service
-                .quiescent_phase(width, 0, &execution, launch)
-                .map_err(|error| error.into_problem())??;
-            Owners::Parallel {
-                lanes,
-                _owner: owner,
-            }
-        } else {
-            Owners::Inline(Some(match initial {
-                Some(worker) => worker,
-                None => problem.experiment.worker(&execution)?,
-            }))
-        };
-        Ok(Self {
-            math: service,
-            source: problem,
-            execution,
-            owners,
-            #[cfg(test)]
-            identities,
-            #[cfg(test)]
-            gate: None,
-            #[cfg(test)]
-            failure: None,
-        })
+            Ok(Self {
+                math: service,
+                source: problem,
+                execution,
+                owners,
+                #[cfg(test)]
+                identities,
+                #[cfg(test)]
+                gate: None,
+                #[cfg(test)]
+                failure: None,
+            })
+        })();
+        ProblemError::with_retirement(result, initial.take().map_or(Ok(()), finish_worker))
     }
     pub(super) fn evaluate(
         &mut self,
@@ -668,6 +759,51 @@ impl WindowTeam {
             .ok_or_else(|| {
                 ProblemError::internal("shooting fixture has no completed window buffer")
             })
+    }
+}
+impl Drop for WindowTeam {
+    fn drop(&mut self) {
+        if let Err(error) = self.settle() {
+            tracing::error!(error = %error, "shooting team abandonment finish failed");
+        }
+    }
+}
+#[cfg(test)]
+mod retirement_tests {
+    use super::*;
+    #[test]
+    fn every_lane_closes_before_join_and_all_original_failures_survive() {
+        let barrier = Arc::new(std::sync::Barrier::new(3));
+        let departed = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut lanes = Vec::new();
+        for index in 0..3 {
+            let (send, receive) = mpsc::sync_channel::<Request>(1);
+            let barrier = barrier.clone();
+            let departed = departed.clone();
+            let joined = std::thread::spawn(move || {
+                assert!(receive.recv().is_err());
+                barrier.wait();
+                departed.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                if index == 1 {
+                    panic!("controlled shooting lane panic");
+                }
+                Err(ProblemError::numerical(format!(
+                    "controlled shooting lane {index}"
+                )))
+            });
+            lanes.push(Lane {
+                windows: vec![index],
+                send: Some(send),
+                joined: Some(joined),
+            });
+        }
+        let error = finish_lanes(&mut lanes).unwrap_err();
+        let ProblemError::Retirement { failures } = error else {
+            panic!("all independent failures must survive");
+        };
+        assert_eq!(failures.len(), 3);
+        assert_eq!(departed.load(std::sync::atomic::Ordering::SeqCst), 3);
+        assert!(lanes.is_empty());
     }
 }
 fn evaluate_window(

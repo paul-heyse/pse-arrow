@@ -29,23 +29,40 @@ impl NlpBridge {
         oracle: Box<dyn NlpOracle>,
         original: Arc<OriginalContract>,
     ) -> Result<Self, ProblemError> {
-        inventory(oracle.contract(), &original)?;
-        oracle.contract().validate(original.support().order)?;
-        if oracle
-            .constraint_bounds()
-            .iter()
-            .zip(original.constraints())
-            .any(|((l, u), r)| l.to_bits() != r.lower.to_bits() || u.to_bits() != r.upper.to_bits())
-            || oracle.constraint_bounds().len() != original.constraints().len()
-            || original.support().order > oracle.contract().derivatives
-            || original.support().jacobian_product
-                && oracle.contract().derivatives < DerivativeOrder::First
-        {
-            return Err(ProblemError::Contract(
-                "derived NLP source bounds or actual derivative support".into(),
-            ));
-        }
-        Ok(Self { original, oracle })
+        crate::retiring(
+            oracle,
+            |owner| owner.finish(),
+            |pending| {
+                let oracle = pending
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing derived bridge owner"))?;
+
+                inventory(oracle.contract(), &original)?;
+                oracle.contract().validate(original.support().order)?;
+                if oracle
+                    .constraint_bounds()
+                    .iter()
+                    .zip(original.constraints())
+                    .any(|((l, u), r)| {
+                        l.to_bits() != r.lower.to_bits() || u.to_bits() != r.upper.to_bits()
+                    })
+                    || oracle.constraint_bounds().len() != original.constraints().len()
+                    || original.support().order > oracle.contract().derivatives
+                    || original.support().jacobian_product
+                        && oracle.contract().derivatives < DerivativeOrder::First
+                {
+                    return Err(ProblemError::Contract(
+                        "derived NLP source bounds or actual derivative support".into(),
+                    ));
+                }
+                Ok(Self {
+                    original,
+                    oracle: pending
+                        .take()
+                        .ok_or_else(|| ProblemError::internal("missing NLP bridge transfer"))?,
+                })
+            },
+        )
     }
     /// Return the original supplier for final correction and scientific assessment.
     pub fn into_original(self) -> Box<dyn NlpOracle> {
@@ -53,6 +70,9 @@ impl NlpBridge {
     }
 }
 impl Oracle for NlpBridge {
+    fn finish(self: Box<Self>) -> Result<(), Vec<ProblemError>> {
+        self.oracle.finish().map_err(|cause| vec![cause])
+    }
     type Error = ProblemError;
     fn contract(&self) -> &OriginalContract {
         &self.original
@@ -133,29 +153,42 @@ impl RootBridge {
         original: Arc<OriginalContract>,
         offsets: Vec<f64>,
     ) -> Result<Self, ProblemError> {
-        inventory(oracle.contract(), &original)?;
-        if original.support().jacobian_product {
-            oracle.operations().admit(oracle.contract(), true)?;
-        }
-        if offsets.len() != original.constraints().len()
-            || offsets.iter().zip(original.constraints()).any(|(v, r)| {
-                !v.is_finite()
-                    || v.to_bits() != r.lower.to_bits()
-                    || r.lower.to_bits() != r.upper.to_bits()
-            })
-            || original.support().order > oracle.contract().derivatives
-                && original.support().order > DerivativeOrder::First
-            || original.support().jacobian_product && !oracle.operations().jacobian_product
-        {
-            return Err(ProblemError::Contract(
-                "explicit original equality offsets or actual root operation mismatch".into(),
-            ));
-        }
-        Ok(Self {
-            original,
+        crate::retiring(
             oracle,
-            offsets,
-        })
+            |owner| owner.finish(),
+            |pending| {
+                let oracle = pending
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing derived bridge owner"))?;
+
+                inventory(oracle.contract(), &original)?;
+                if original.support().jacobian_product {
+                    oracle.operations().admit(oracle.contract(), true)?;
+                }
+                if offsets.len() != original.constraints().len()
+                    || offsets.iter().zip(original.constraints()).any(|(v, r)| {
+                        !v.is_finite()
+                            || v.to_bits() != r.lower.to_bits()
+                            || r.lower.to_bits() != r.upper.to_bits()
+                    })
+                    || original.support().order > oracle.contract().derivatives
+                        && original.support().order > DerivativeOrder::First
+                    || original.support().jacobian_product && !oracle.operations().jacobian_product
+                {
+                    return Err(ProblemError::Contract(
+                        "explicit original equality offsets or actual root operation mismatch"
+                            .into(),
+                    ));
+                }
+                Ok(Self {
+                    original,
+                    oracle: pending
+                        .take()
+                        .ok_or_else(|| ProblemError::internal("missing root bridge transfer"))?,
+                    offsets,
+                })
+            },
+        )
     }
     /// Original authored equality offsets, preserved in declared row order.
     pub fn offsets(&self) -> &[f64] {
@@ -164,7 +197,15 @@ impl RootBridge {
     /// Explicitly create a numerical zero-equality view with separately retained
     /// physical source/offset metadata and a distinct consumed numerical identity.
     pub fn zero_residuals(self) -> Result<ZeroResidualBridge, ProblemError> {
-        let numerical = self.original.zero_residual_view()?;
+        let numerical = match self.original.zero_residual_view() {
+            Ok(numerical) => numerical,
+            Err(cause) => {
+                return ProblemError::with_retirement(
+                    Err(cause.into()),
+                    ProblemError::retirement(Box::new(self).finish()),
+                );
+            }
+        };
         Ok(ZeroResidualBridge {
             physical: self,
             numerical,
@@ -176,6 +217,9 @@ impl RootBridge {
     }
 }
 impl Oracle for RootBridge {
+    fn finish(self: Box<Self>) -> Result<(), Vec<ProblemError>> {
+        self.oracle.finish().map_err(|cause| vec![cause])
+    }
     type Error = ProblemError;
     fn contract(&self) -> &OriginalContract {
         &self.original
@@ -227,6 +271,9 @@ impl ZeroResidualBridge {
     }
 }
 impl Oracle for ZeroResidualBridge {
+    fn finish(self: Box<Self>) -> Result<(), Vec<ProblemError>> {
+        Box::new(self.physical).finish()
+    }
     type Error = ProblemError;
     fn contract(&self) -> &OriginalContract {
         &self.numerical
@@ -334,91 +381,113 @@ impl<O: ObjectiveOracle<Error = ProblemError>, R: ReconstructionOracle<Error = P
     /// Admit initial lineage before native layout is frozen. `smoothness` is the
     /// actual original source admission, not inferred from a structural graph.
     pub fn new(
-        mut bound: BoundReduced<O, R>,
+        bound: BoundReduced<O, R>,
         anchor: &[f64],
         accuracy: ReconstructionAccuracy,
         smoothness: DerivativeOrder,
         native_index: usize,
     ) -> Result<Self, ProblemError> {
-        accuracy.refinement.validate()?;
-        bound.prepare_reconstruction(anchor)?;
-        accuracy.demand(bound.point_product(anchor)?, false)?;
-        accuracy.demand(
-            bound.action_product(anchor, &vec![0.0; anchor.len()])?,
-            true,
-        )?;
-        if !bound.family().support().jacobian_product || smoothness < DerivativeOrder::First {
-            return Err(ProblemError::Unsupported(
-                "reduced native First action/smoothness unavailable".into(),
-            ));
-        }
-        let original = bound.family().original();
-        let map = bound.reconstruction_contract();
-        let mut rows = bound
-            .family()
-            .row_map()
-            .ok_or_else(|| ProblemError::Contract("reduced family row map".into()))?
-            .iter()
-            .copied()
-            .map(ReducedRow::Constraint)
-            .collect::<Vec<_>>();
-        let mut row_ids = rows
-            .iter()
-            .map(|r| match r {
-                ReducedRow::Constraint(r) => original.constraints()[r.get()].id,
-                ReducedRow::CoordinateBound(_) => SemanticId::NIL,
-            })
-            .collect::<Vec<_>>();
-        let mut bounds = bound
-            .constraints()
-            .iter()
-            .map(|r| (r.lower, r.upper))
-            .collect::<Vec<_>>();
-        let mut entries = bound.family().incidence().to_vec();
-        for (i, c) in original.coordinates().iter().enumerate() {
-            let column = GlobalCol::new(i);
-            if map.retained().contains(&column) || !c.lower.is_finite() && !c.upper.is_finite() {
-                continue;
-            }
-            let row = rows.len();
-            rows.push(ReducedRow::CoordinateBound(column));
-            row_ids.push(pse_ids::derive::reconstructed_original_bound(c.id));
-            bounds.push((c.lower, c.upper));
-            entries.extend(
-                map.incidence()
-                    .iter()
-                    .filter(|e| e.row == column)
-                    .map(|e| Entry::new(GlobalRow::new(row), e.col)),
-            );
-        }
-        let coordinates = bound.coordinates();
-        let pattern = AssemblyMatrix::new(rows.len(), coordinates.len(), &entries, native_index)?;
-        let contract = OracleContract {
-            identity: bound.key(),
-            variables: coordinates
-                .into_iter()
-                .map(|c| Variable {
-                    id: c.id,
-                    lower: c.lower,
-                    upper: c.upper,
-                })
-                .collect(),
-            rows: row_ids,
-            derivatives: DerivativeOrder::First,
-            smoothness: DerivativeOrder::First,
-        };
-        contract.validate(DerivativeOrder::First)?;
-        Ok(Self {
+        crate::retiring(
             bound,
-            contract,
-            rows,
-            bounds,
-            pattern,
-            accuracy,
-            last_point: None,
-            last_action: None,
-            applied_action: None,
-        })
+            |bound| {
+                let (original, reconstruction) = bound.into_suppliers();
+                ProblemError::with_retirement(
+                    ProblemError::retirement(Box::new(original).finish()),
+                    ProblemError::retirement(reconstruction.finish()),
+                )
+            },
+            |pending| {
+                let bound = pending
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing derived constructor owner"))?;
+
+                accuracy.refinement.validate()?;
+                bound.prepare_reconstruction(anchor)?;
+                accuracy.demand(bound.point_product(anchor)?, false)?;
+                accuracy.demand(
+                    bound.action_product(anchor, &vec![0.0; anchor.len()])?,
+                    true,
+                )?;
+                if !bound.family().support().jacobian_product || smoothness < DerivativeOrder::First
+                {
+                    return Err(ProblemError::Unsupported(
+                        "reduced native First action/smoothness unavailable".into(),
+                    ));
+                }
+                let original = bound.family().original();
+                let map = bound.reconstruction_contract();
+                let mut rows = bound
+                    .family()
+                    .row_map()
+                    .ok_or_else(|| ProblemError::Contract("reduced family row map".into()))?
+                    .iter()
+                    .copied()
+                    .map(ReducedRow::Constraint)
+                    .collect::<Vec<_>>();
+                let mut row_ids = rows
+                    .iter()
+                    .map(|r| match r {
+                        ReducedRow::Constraint(r) => original.constraints()[r.get()].id,
+                        ReducedRow::CoordinateBound(_) => SemanticId::NIL,
+                    })
+                    .collect::<Vec<_>>();
+                let mut bounds = bound
+                    .constraints()
+                    .iter()
+                    .map(|r| (r.lower, r.upper))
+                    .collect::<Vec<_>>();
+                let mut entries = bound.family().incidence().to_vec();
+                for (i, c) in original.coordinates().iter().enumerate() {
+                    let column = GlobalCol::new(i);
+                    if map.retained().contains(&column)
+                        || !c.lower.is_finite() && !c.upper.is_finite()
+                    {
+                        continue;
+                    }
+                    let row = rows.len();
+                    rows.push(ReducedRow::CoordinateBound(column));
+                    row_ids.push(pse_ids::derive::reconstructed_original_bound(c.id));
+                    bounds.push((c.lower, c.upper));
+                    entries.extend(
+                        map.incidence()
+                            .iter()
+                            .filter(|e| e.row == column)
+                            .map(|e| Entry::new(GlobalRow::new(row), e.col)),
+                    );
+                }
+                let coordinates = bound.coordinates();
+                let pattern =
+                    AssemblyMatrix::new(rows.len(), coordinates.len(), &entries, native_index)?;
+                let contract = OracleContract {
+                    identity: bound.key(),
+                    variables: coordinates
+                        .into_iter()
+                        .map(|c| Variable {
+                            id: c.id,
+                            lower: c.lower,
+                            upper: c.upper,
+                        })
+                        .collect(),
+                    rows: row_ids,
+                    derivatives: DerivativeOrder::First,
+                    smoothness: DerivativeOrder::First,
+                };
+                contract.validate(DerivativeOrder::First)?;
+                Ok(Self {
+                    bound: pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing derived constructor transfer")
+                    })?,
+                    contract,
+                    rows,
+                    bounds,
+                    pattern,
+                    accuracy,
+                    last_point: None,
+                    last_action: None,
+                    applied_action: None,
+                })
+            },
+        )
     }
     /// Additional facade allocations; bound suppliers and their existing leases remain
     /// charged separately by preparation. No hidden retained factor is claimed.
@@ -505,6 +574,13 @@ impl<O: ObjectiveOracle<Error = ProblemError>, R: ReconstructionOracle<Error = P
 impl<O: ObjectiveOracle<Error = ProblemError>, R: ReconstructionOracle<Error = ProblemError>>
     NlpOracle for ReducedOracle<O, R>
 {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        let (original, reconstruction) = self.bound.into_suppliers();
+        ProblemError::with_retirement(
+            ProblemError::retirement(Box::new(original).finish()),
+            ProblemError::retirement(reconstruction.finish()),
+        )
+    }
     fn contract(&self) -> &OracleContract {
         &self.contract
     }
@@ -724,6 +800,8 @@ fn finite(values: &[f64]) -> Result<(), ProblemError> {
 /// Mathematical residual binding consumed by a native root view. The mathematical
 /// family owns its transform; this facade performs canonical sparse assembly only.
 pub trait ResidualBinding: std::fmt::Debug {
+    /// Retire the actual bound suppliers.
+    fn finish(self) -> Result<(), ProblemError>;
     /// Immutable enumerated family.
     fn family(&self) -> &Arc<math::DerivedFamily>;
     /// Actual anchor/step/parameter/provider/branch binding identity.
@@ -741,6 +819,9 @@ pub trait ResidualBinding: std::fmt::Debug {
 macro_rules! full_residual_binding {
     ($binding:ident) => {
         impl<O: Oracle<Error = ProblemError>> ResidualBinding for $binding<O> {
+            fn finish(self) -> Result<(), ProblemError> {
+                ProblemError::retirement($binding::finish(self))
+            }
             fn family(&self) -> &Arc<math::DerivedFamily> {
                 self.family()
             }
@@ -768,8 +849,38 @@ macro_rules! full_residual_binding {
     };
 }
 full_residual_binding!(BoundHomotopy);
-full_residual_binding!(BoundPseudoTime);
+impl<O: Oracle<Error = ProblemError>> ResidualBinding for BoundPseudoTime<O> {
+    fn finish(self) -> Result<(), ProblemError> {
+        ProblemError::retirement(BoundPseudoTime::finish(self))
+    }
+    fn family(&self) -> &Arc<math::DerivedFamily> {
+        self.family()
+    }
+    fn binding_key(&self) -> ContentHash {
+        self.key()
+    }
+    fn coordinates(&self) -> Vec<math::Coordinate> {
+        self.family().original().coordinates().to_vec()
+    }
+    fn constraints(&self) -> Vec<math::Constraint> {
+        self.family().original().constraints().to_vec()
+    }
+    fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        self.residual(x, out)
+    }
+    fn action(
+        &mut self,
+        x: &[f64],
+        direction: &[f64],
+        out: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        self.jacobian_product(x, direction, out)
+    }
+}
 impl<O: Oracle<Error = ProblemError>> ResidualBinding for BoundProjection<O> {
+    fn finish(self) -> Result<(), ProblemError> {
+        ProblemError::retirement(Box::new(self.into_original()).finish())
+    }
     fn family(&self) -> &Arc<math::DerivedFamily> {
         self.family()
     }
@@ -810,43 +921,56 @@ impl<F: ResidualBinding> FamilyRoot<F> {
         smoothness: DerivativeOrder,
         native_index: usize,
     ) -> Result<Self, ProblemError> {
-        let coordinates = bound.coordinates();
-        let rows = bound.constraints();
-        if coordinates.len() != rows.len()
-            || rows.iter().any(|r| r.lower != 0.0 || r.upper != 0.0)
-            || !bound.family().support().jacobian_product
-            || smoothness < DerivativeOrder::First
-        {
-            return Err(ProblemError::Unsupported("derived root requires a smooth square zero-residual binding with actual action support".into()));
-        }
-        let entries = bound
-            .family()
-            .incidence()
-            .iter()
-            .copied()
-            .filter(|e| e.col.get() < coordinates.len())
-            .collect::<Vec<_>>();
-        let pattern = AssemblyMatrix::new(rows.len(), coordinates.len(), &entries, native_index)?;
-        let contract = OracleContract {
-            identity: bound.binding_key(),
-            variables: coordinates
-                .into_iter()
-                .map(|c| Variable {
-                    id: c.id,
-                    lower: c.lower,
-                    upper: c.upper,
-                })
-                .collect(),
-            rows: rows.into_iter().map(|r| r.id).collect(),
-            derivatives: DerivativeOrder::First,
-            smoothness: DerivativeOrder::First,
-        };
-        contract.square()?;
-        Ok(Self {
+        crate::retiring(
             bound,
-            contract,
-            pattern,
-        })
+            |bound| bound.finish(),
+            |pending| {
+                let bound = pending
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing derived constructor owner"))?;
+
+                let coordinates = bound.coordinates();
+                let rows = bound.constraints();
+                if coordinates.len() != rows.len()
+                    || rows.iter().any(|r| r.lower != 0.0 || r.upper != 0.0)
+                    || !bound.family().support().jacobian_product
+                    || smoothness < DerivativeOrder::First
+                {
+                    return Err(ProblemError::Unsupported("derived root requires a smooth square zero-residual binding with actual action support".into()));
+                }
+                let entries = bound
+                    .family()
+                    .incidence()
+                    .iter()
+                    .copied()
+                    .filter(|e| e.col.get() < coordinates.len())
+                    .collect::<Vec<_>>();
+                let pattern =
+                    AssemblyMatrix::new(rows.len(), coordinates.len(), &entries, native_index)?;
+                let contract = OracleContract {
+                    identity: bound.binding_key(),
+                    variables: coordinates
+                        .into_iter()
+                        .map(|c| Variable {
+                            id: c.id,
+                            lower: c.lower,
+                            upper: c.upper,
+                        })
+                        .collect(),
+                    rows: rows.into_iter().map(|r| r.id).collect(),
+                    derivatives: DerivativeOrder::First,
+                    smoothness: DerivativeOrder::First,
+                };
+                contract.square()?;
+                Ok(Self {
+                    bound: pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing derived constructor transfer")
+                    })?,
+                    contract,
+                    pattern,
+                })
+            },
+        )
     }
     /// Current actual mathematical binding, including auxiliary correspondence.
     pub fn binding(&self) -> &F {
@@ -865,6 +989,9 @@ impl<F: ResidualBinding> FamilyRoot<F> {
     }
 }
 impl<F: ResidualBinding> NleOracle for FamilyRoot<F> {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        self.bound.finish()
+    }
     fn operations(&self) -> RootOperations {
         RootOperations {
             jacobian: true,
@@ -915,41 +1042,53 @@ impl<O: Oracle<Error = ProblemError>> FeasibilityOracle<O> {
         smoothness: DerivativeOrder,
         native_index: usize,
     ) -> Result<Self, ProblemError> {
-        let original = bound.family().original();
-        let order = bound.family().support().order;
-        let contract = OracleContract {
-            identity: bound.family().key(),
-            variables: original
-                .coordinates()
-                .iter()
-                .map(|c| Variable {
-                    id: c.id,
-                    lower: c.lower,
-                    upper: c.upper,
-                })
-                .collect(),
-            rows: original.constraints().iter().map(|r| r.id).collect(),
-            derivatives: order,
-            smoothness: smoothness.min(DerivativeOrder::First),
-        };
-        let bounds = original
-            .constraints()
-            .iter()
-            .map(|r| (r.lower, r.upper))
-            .collect();
-        let pattern = AssemblyMatrix::new(
-            contract.rows.len(),
-            contract.variables.len(),
-            bound.family().incidence(),
-            native_index,
-        )?;
-        contract.validate(order)?;
-        Ok(Self {
+        crate::retiring(
             bound,
-            contract,
-            bounds,
-            pattern,
-        })
+            |bound| ProblemError::retirement(Box::new(bound.into_original()).finish()),
+            |pending| {
+                let bound = pending
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing derived constructor owner"))?;
+
+                let original = bound.family().original();
+                let order = bound.family().support().order;
+                let contract = OracleContract {
+                    identity: bound.family().key(),
+                    variables: original
+                        .coordinates()
+                        .iter()
+                        .map(|c| Variable {
+                            id: c.id,
+                            lower: c.lower,
+                            upper: c.upper,
+                        })
+                        .collect(),
+                    rows: original.constraints().iter().map(|r| r.id).collect(),
+                    derivatives: order,
+                    smoothness: smoothness.min(DerivativeOrder::First),
+                };
+                let bounds = original
+                    .constraints()
+                    .iter()
+                    .map(|r| (r.lower, r.upper))
+                    .collect();
+                let pattern = AssemblyMatrix::new(
+                    contract.rows.len(),
+                    contract.variables.len(),
+                    bound.family().incidence(),
+                    native_index,
+                )?;
+                contract.validate(order)?;
+                Ok(Self {
+                    bound: pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing derived constructor transfer")
+                    })?,
+                    contract,
+                    bounds,
+                    pattern,
+                })
+            },
+        )
     }
     /// Return the actual original supplier after auxiliary feasibility work.
     pub fn into_bound(self) -> BoundFeasibility<O> {
@@ -957,6 +1096,9 @@ impl<O: Oracle<Error = ProblemError>> FeasibilityOracle<O> {
     }
 }
 impl<O: Oracle<Error = ProblemError>> NlpOracle for FeasibilityOracle<O> {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        ProblemError::retirement(Box::new(self.bound.into_original()).finish())
+    }
     fn contract(&self) -> &OracleContract {
         &self.contract
     }
@@ -1131,6 +1273,9 @@ mod tests {
         }
     }
     impl NleOracle for Source {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn operations(&self) -> RootOperations {
             RootOperations {
                 jacobian: false,
@@ -1163,6 +1308,9 @@ mod tests {
         }
     }
     impl NlpOracle for Source {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &OracleContract {
             &self.contract
         }
@@ -1229,7 +1377,7 @@ mod tests {
         assert_eq!(out, [2.0]);
         native.jacobian(&[1.0], &mut out).unwrap();
         assert_eq!(out, [1.0]);
-        let zero = native.into_binding().into_original();
+        let zero = native.into_binding().into_original().unwrap();
         assert_eq!(zero.offsets(), [2.0]);
         assert_eq!(zero.physical_original().constraints()[0].upper, 2.0);
         assert!(
@@ -1538,6 +1686,9 @@ mod tests {
         }
         impl Oracle for Coupled {
             type Error = ProblemError;
+            fn finish(self: Box<Self>) -> Result<(), Vec<Self::Error>> {
+                Ok(())
+            }
             fn contract(&self) -> &OriginalContract {
                 &self.contract
             }
@@ -1950,6 +2101,9 @@ mod tests {
         }
         impl Oracle for Coupled {
             type Error = ProblemError;
+            fn finish(self: Box<Self>) -> Result<(), Vec<Self::Error>> {
+                Ok(())
+            }
             fn contract(&self) -> &OriginalContract {
                 &self.contract
             }

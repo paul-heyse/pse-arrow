@@ -28,6 +28,9 @@ impl Tank {
     }
 }
 impl Oracle for Tank {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn snapshot_owner(
         &self,
         bytes: usize,
@@ -111,6 +114,9 @@ fn anchored_raw_diagonal_forwards_without_full_wrapper_matrix_and_checks_current
         order: Arc<std::sync::Mutex<Vec<&'static str>>>,
     }
     impl Oracle for Selected {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &Contract {
             self.tank.contract()
         }
@@ -424,6 +430,9 @@ fn anchored_snapshots_retain_distinct_owners_and_refuse_missing_admission() {
         admit: bool,
     }
     impl Oracle for Accounted {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &Contract {
             self.inner.contract()
         }
@@ -532,6 +541,9 @@ fn anchored_layout_is_source_bound_and_retains_its_allocation_without_support_re
         live: Arc<AtomicUsize>,
     }
     impl Oracle for Counted {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &Contract {
             self.inner.contract()
         }
@@ -717,6 +729,9 @@ fn anchored_prepared_functions_refuse_before_effects_and_refill_actual_mode_supp
         outside: Arc<AtomicBool>,
     }
     impl Oracle for Modes {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &Contract {
             self.tank.contract()
         }

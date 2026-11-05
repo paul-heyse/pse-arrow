@@ -17,13 +17,37 @@ struct Factory {
     spec: ProviderSpec,
     calls: Arc<AtomicUsize>,
     linearization: bool,
+    finishes: Arc<AtomicUsize>,
+    fail_finish: bool,
+    panic_finish: bool,
+    prepare_trial: bool,
 }
 #[derive(Debug)]
 struct Native {
     calls: Arc<AtomicUsize>,
     linearization: bool,
+    finishes: Arc<AtomicUsize>,
+    fail_finish: bool,
+    panic_finish: bool,
+    prepare_trial: bool,
 }
 impl Provider for Native {
+    fn prepare_demand(&mut self, _: &PreparedProviderRequest) -> Result<(), ProviderError> {
+        if self.prepare_trial {
+            Err(ProviderError::Trial("controlled preparation trial".into()))
+        } else {
+            Ok(())
+        }
+    }
+    fn finish(self: Box<Self>) -> Result<(), ProviderError> {
+        self.finishes.fetch_add(1, Ordering::SeqCst);
+        assert!(!self.panic_finish, "controlled native finish panic");
+        if self.fail_finish {
+            Err(ProviderError::Contract("controlled finish failure".into()))
+        } else {
+            Ok(())
+        }
+    }
     fn supports_linearization(&self) -> bool {
         self.linearization
     }
@@ -56,6 +80,10 @@ impl ProviderFactory for Factory {
             Box::new(Native {
                 calls: self.calls.clone(),
                 linearization: self.linearization,
+                finishes: self.finishes.clone(),
+                fail_finish: self.fail_finish,
+                panic_finish: self.panic_finish,
+                prepare_trial: self.prepare_trial,
             }),
         ))
     }
@@ -82,6 +110,10 @@ fn factory() -> Factory {
         },
         calls: Arc::new(AtomicUsize::new(0)),
         linearization: false,
+        finishes: Arc::new(AtomicUsize::new(0)),
+        fail_finish: false,
+        panic_finish: false,
+        prepare_trial: false,
     }
 }
 
@@ -121,6 +153,137 @@ fn scope() -> ExecutionScope {
 }
 
 #[test]
+fn failed_native_preparation_preserves_original_and_finish_causes() {
+    let mut factory = factory();
+    factory.linearization = true;
+    factory.fail_finish = true;
+    let error = PreparedSession::prepare(
+        handle(),
+        &factory,
+        factory.spec(),
+        factory.configuration_key(),
+        ProviderRequest::all(factory.spec(), DerivativeOrder::Value),
+        scope(),
+        4096,
+    )
+    .unwrap_err();
+    let WorkerError::Retirement { causes } = error else {
+        panic!("preparation and finish failures must survive");
+    };
+    assert_eq!(causes.len(), 2);
+    assert!(
+        matches!(&causes[0], WorkerError::Provider(ProviderError::Contract(detail)) if detail == "scientific worker has no admitted transferable linearization context")
+    );
+    let WorkerError::Provider(ProviderError::Retirement { failures }) = &causes[1] else {
+        panic!("original keyed finish failure required");
+    };
+    assert_eq!(failures.len(), 1);
+    assert_eq!(failures[0].key, factory.spec.key());
+    assert!(
+        matches!(failures[0].cause.as_ref(), ProviderError::Contract(detail) if detail == "controlled finish failure")
+    );
+    assert_eq!(factory.finishes.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn failed_session_close_is_physically_finished_once() {
+    let mut factory = factory();
+    factory.fail_finish = true;
+    let mut session = PreparedSession::prepare(
+        handle(),
+        &factory,
+        factory.spec(),
+        factory.configuration_key(),
+        ProviderRequest::all(factory.spec(), DerivativeOrder::Value),
+        scope(),
+        4096,
+    )
+    .unwrap();
+    let WorkerError::Provider(ProviderError::Retirement { failures }) =
+        session.close().unwrap_err()
+    else {
+        panic!("original keyed finish failure required");
+    };
+    assert_eq!(failures.len(), 1);
+    assert_eq!(failures[0].key, factory.spec.key());
+    assert!(
+        matches!(failures[0].cause.as_ref(), ProviderError::Contract(detail) if detail == "controlled finish failure")
+    );
+    assert_eq!(session.state(), SessionState::Closed);
+    session.close().unwrap();
+    drop(session);
+    assert_eq!(factory.finishes.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn native_finish_panic_is_typed_and_does_not_escape_or_retry_the_finished_owner() {
+    let mut factory = factory();
+    factory.panic_finish = true;
+    let mut session = PreparedSession::prepare(
+        handle(),
+        &factory,
+        factory.spec(),
+        factory.configuration_key(),
+        ProviderRequest::all(factory.spec(), DerivativeOrder::Value),
+        scope(),
+        4096,
+    )
+    .unwrap();
+    let WorkerError::Provider(ProviderError::Retirement { failures }) = session.stop().unwrap_err()
+    else {
+        panic!("original keyed panic failure required");
+    };
+    assert_eq!(failures.len(), 1);
+    assert_eq!(failures[0].key, factory.spec.key());
+    assert!(
+        matches!(failures[0].cause.as_ref(), ProviderError::RetirementPanic(detail) if detail == "controlled native finish panic")
+    );
+    session.close().unwrap();
+    drop(session);
+    assert_eq!(factory.finishes.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn recoverable_preparation_trial_with_failed_finish_has_nonrecoverable_aggregate() {
+    use pse_model::diagnostic::{BoundaryClass, DiagnosticProjection as _};
+    let mut factory = factory();
+    factory.prepare_trial = true;
+    factory.fail_finish = true;
+    let error = PreparedSession::prepare(
+        handle(),
+        &factory,
+        factory.spec(),
+        factory.configuration_key(),
+        ProviderRequest::all(factory.spec(), DerivativeOrder::Value),
+        scope(),
+        4096,
+    )
+    .unwrap_err();
+    let WorkerError::Retirement { causes } = &error else {
+        panic!("original trial and independent cleanup required");
+    };
+    assert_eq!(causes.len(), 2);
+    assert!(
+        matches!(&causes[0], WorkerError::Provider(ProviderError::Trial(detail)) if detail == "controlled preparation trial")
+    );
+    let WorkerError::Provider(ProviderError::Retirement { failures }) = &causes[1] else {
+        panic!("keyed cleanup required");
+    };
+    assert_eq!(failures.len(), 1);
+    assert_eq!(failures[0].key, factory.spec.key());
+    let diagnostic = error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation);
+    assert_eq!(diagnostic.class, BoundaryClass::Infrastructure);
+    assert_eq!(diagnostic.causes.len(), 2);
+    assert_eq!(diagnostic.causes[0].class, BoundaryClass::TrialRejected);
+    assert!(matches!(
+        &diagnostic.causes[1].causes[0].observations["provider_key"],
+        pse_model::diagnostic::Observation::Text(key) if *key == factory.spec.key().0.to_string()
+    ));
+    #[cfg(feature = "property-coolprop")]
+    assert!(!error.into_provider().recoverable());
+}
+
+#[test]
 fn session_preserves_coherent_jets_and_refuses_stale_or_replayed_invocations() {
     let factory = factory();
     let mut session = PreparedSession::prepare(
@@ -154,7 +317,7 @@ fn session_preserves_coherent_jets_and_refuses_stale_or_replayed_invocations() {
             .is_err()
     );
     assert_eq!(factory.calls.load(Ordering::SeqCst), 3);
-    session.close();
+    session.close().unwrap();
     assert_eq!(session.state(), SessionState::Closed);
     assert!(
         session
@@ -184,7 +347,7 @@ fn stopping_one_prepared_handle_preserves_an_independent_session() {
     };
     let mut first = prepare(handle(), first_scope.clone());
     let mut second = prepare(second_handle, second_scope.clone());
-    first.stop();
+    first.stop().unwrap();
     assert_eq!(first.state(), SessionState::Closed);
     assert!(first_scope.check().is_err());
     assert!(second_scope.check().is_ok());
@@ -197,7 +360,7 @@ fn stopping_one_prepared_handle_preserves_an_independent_session() {
         [9.0]
     );
     // Ordinary retirement destroys this handle without manufacturing a cancellation cause.
-    second.close();
+    second.close().unwrap();
     assert!(second_scope.check().is_ok());
     assert_eq!(second.state(), SessionState::Closed);
 }

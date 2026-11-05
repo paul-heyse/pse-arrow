@@ -605,6 +605,11 @@ fn verify_upload(model: &highs::Model, p: &CoefficientProblem) -> Result<(), Pro
     }
 }
 impl Session {
+    /// Destroy model and join its scheduler release before returning.
+    pub fn finish(self) -> Result<(), ProblemError> {
+        drop(self);
+        Ok(())
+    }
     /// Construct only after runtime CPU/memory admission; one session per owner thread.
     pub fn new(
         p: &CoefficientProblem,

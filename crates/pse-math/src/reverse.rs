@@ -1261,7 +1261,7 @@ mod tests {
                     key: None,
                 }),
             );
-            let mut bank = ProviderBindings::from([(spec.key(), provider)]);
+            let mut bank = ProviderBindings::try_from_iter([(spec.key(), provider)]).unwrap();
             let mut worker = program.worker_scoped(scope.clone());
             worker.prepare_providers(&mut bank).unwrap();
             let mut output = vec![99.; n];
@@ -1336,7 +1336,7 @@ mod tests {
                 key: None,
             }),
         );
-        let mut bank = ProviderBindings::from([(spec.key(), provider)]);
+        let mut bank = ProviderBindings::try_from_iter([(spec.key(), provider)]).unwrap();
         let mut worker = program.worker_scoped(scope);
         let mut output = [91.; 3];
         let mut trial = TrialEvaluation::default();
@@ -1420,7 +1420,7 @@ mod tests {
             key: None,
         };
         let unknown = ProviderBinding::new(spec.clone(), Box::new(Unknown(make())));
-        let mut bank = ProviderBindings::from([(spec.key(), unknown)]);
+        let mut bank = ProviderBindings::try_from_iter([(spec.key(), unknown)]).unwrap();
         let mut worker = program.worker_scoped(scope.clone());
         let mut output = [91.; 3];
         let values = ProductValues::WeightedHessianAction {
@@ -1434,7 +1434,7 @@ mod tests {
         assert_eq!(output, [91.; 3]);
         assert!(calls.iter().all(|count| count.load(Ordering::Relaxed) == 0));
         let known = ProviderBinding::new(spec.clone(), Box::new(make()));
-        let mut bank = ProviderBindings::from([(spec.key(), known)]);
+        let mut bank = ProviderBindings::try_from_iter([(spec.key(), known)]).unwrap();
         assert!(
             matches!(worker.evaluate_product_into(&[2.,3.,-1.],values,&mut bank,&stop,&mut output),
             Err(MathError::Domain{source_id,..}) if source_id==SemanticId::from_bytes([81;16]))
@@ -1488,7 +1488,7 @@ mod tests {
                 key: None,
             }),
         );
-        let mut bank = ProviderBindings::from([(spec.key(), provider)]);
+        let mut bank = ProviderBindings::try_from_iter([(spec.key(), provider)]).unwrap();
         let mut worker = program.worker_scoped(scope);
         let mut trial = TrialEvaluation::default();
         let mut output = [91.; 2];

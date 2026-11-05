@@ -214,41 +214,53 @@ impl ArclengthFamily {
         predictor: Vec<f64>,
         tangent: Vec<f64>,
         source: ContentHash,
-    ) -> Result<BoundArclength<O>, MathError> {
-        if oracle.contract() != self.original.as_ref()
-            || oracle.parameter() != &self.parameter
-            || !self.action_available()
-        {
-            return Err(MathError::Contract(
-                "arclength supplier/support differs from its admitted family".into(),
-            ));
-        }
-        self.validate_point(&predictor)?;
-        if tangent.len() != predictor.len()
-            || tangent.iter().any(|v| !v.is_finite())
-            || (tangent.iter().map(|v| v * v).sum::<f64>() - 1.).abs()
-                > 256. * predictor.len() as f64 * f64::EPSILON
-        {
-            return Err(MathError::Contract(
-                "arclength hyperplane needs a unit oriented normalized tangent".into(),
-            ));
-        }
-        let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
-        h.str("oriented-arclength-hyperplane")
-            .hash(&self.key)
-            .hash(&source)
-            .u64(predictor.len() as u64);
-        for v in predictor.iter().chain(&tangent) {
-            h.f64(*v);
-        }
-        Ok(BoundArclength {
-            family: self.clone(),
+    ) -> Result<BoundArclength<O>, crate::derived::SupplierConstructionFailure<O::Error>> {
+        crate::derived::construct_supplier(
             oracle,
-            predictor,
-            tangent,
-            source,
-            key: h.finish_hash(),
-        })
+            |oracle| oracle.finish(),
+            |pending| -> Result<_, MathError> {
+                let oracle = pending.as_ref().ok_or_else(|| {
+                    MathError::Contract("missing arclength construction owner".into())
+                })?;
+
+                if oracle.contract() != self.original.as_ref()
+                    || oracle.parameter() != &self.parameter
+                    || !self.action_available()
+                {
+                    return Err(MathError::Contract(
+                        "arclength supplier/support differs from its admitted family".into(),
+                    ));
+                }
+                self.validate_point(&predictor)?;
+                if tangent.len() != predictor.len()
+                    || tangent.iter().any(|v| !v.is_finite())
+                    || (tangent.iter().map(|v| v * v).sum::<f64>() - 1.).abs()
+                        > 256. * predictor.len() as f64 * f64::EPSILON
+                {
+                    return Err(MathError::Contract(
+                        "arclength hyperplane needs a unit oriented normalized tangent".into(),
+                    ));
+                }
+                let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+                h.str("oriented-arclength-hyperplane")
+                    .hash(&self.key)
+                    .hash(&source)
+                    .u64(predictor.len() as u64);
+                for v in predictor.iter().chain(&tangent) {
+                    h.f64(*v);
+                }
+                Ok(BoundArclength {
+                    family: self.clone(),
+                    oracle: pending.take().ok_or_else(|| {
+                        MathError::Contract("missing arclength supplier transfer".into())
+                    })?,
+                    predictor,
+                    tangent,
+                    source,
+                    key: h.finish_hash(),
+                })
+            },
+        )
     }
     /// Check the declared physical coordinate intervals; the supplier still owns guards.
     pub fn validate_point(&self, point: &[f64]) -> Result<(), MathError> {
@@ -276,6 +288,8 @@ impl ArclengthFamily {
 /// Actual parameterized original equations. These operations retain supplier errors,
 /// including recoverable domains and terminal scope/provider failures.
 pub trait ParameterizedOracle: std::fmt::Debug {
+    /// Retire this owned parameterized supplier after native callbacks finish.
+    fn finish(self) -> Result<(), Vec<Self::Error>>;
     /// Original owning error universe.
     type Error: From<MathError>;
     /// Complete original state/equation inventory.
@@ -430,6 +444,9 @@ mod tests {
     }
     impl ParameterizedOracle for Quadratic {
         type Error = MathError;
+        fn finish(self) -> Result<(), Vec<Self::Error>> {
+            Ok(())
+        }
         fn contract(&self) -> &OriginalContract {
             &self.original
         }
@@ -558,7 +575,10 @@ mod tests {
         assert!(!f.action_available());
         assert!(matches!(
             f.bind(oracle(&f, false), vec![1., 1.], vec![1., 0.], hash(10)),
-            Err(MathError::Contract(_))
+            Err(crate::derived::SupplierConstructionFailure {
+                operation: MathError::Contract(_),
+                ..
+            })
         ));
         let f = family(true);
         let mut bound = f

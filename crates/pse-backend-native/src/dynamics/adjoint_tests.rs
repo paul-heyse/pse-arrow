@@ -38,6 +38,9 @@ impl Reactor {
     }
 }
 impl Oracle for Reactor {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         &self.c
     }
@@ -1143,6 +1146,9 @@ fn idas_curvature_consumes_the_action_product_directly() {
         actions: usize,
     }
     impl Oracle for ActionOnly {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &Contract {
             self.inner.contract()
         }

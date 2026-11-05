@@ -38,6 +38,9 @@ impl Decay {
     }
 }
 impl Oracle for Decay {
+    fn finish(self: Box<Self>) -> Result<(), pse_backend_native::ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         &self.contract
     }

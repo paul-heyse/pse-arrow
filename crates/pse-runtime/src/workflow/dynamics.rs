@@ -598,7 +598,54 @@ impl DynamicLayout {
             .sum()
     }
 }
+fn retirement_panic(payload: Box<dyn std::any::Any + Send>) -> ProblemError {
+    let detail = pse_diagnostics::panic::settle_payload(payload, "dynamic owner non-text panic");
+    crate::math::MathRuntimeError::Panic(detail).into_problem()
+}
+fn finish_case_worker(worker: CaseWorker) -> Result<(), ProblemError> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        worker.finish().map_err(ProblemError::from)
+    }))
+    .unwrap_or_else(|payload| Err(retirement_panic(payload)))
+}
+fn prepare_case_worker(mut worker: CaseWorker) -> Result<CaseWorker, ProblemError> {
+    let prepared = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        worker.prepare_providers().map_err(ProblemError::from)
+    }))
+    .unwrap_or_else(|payload| Err(retirement_panic(payload)));
+    match prepared {
+        Ok(()) => Ok(worker),
+        Err(error) => ProblemError::with_retirement(Err(error), finish_case_worker(worker)),
+    }
+}
+fn finish_dynamic_population(
+    functions: &mut BTreeMap<(usize, Function), FunctionWorker>,
+    modes: &mut Vec<ModeWorker>,
+) -> Result<(), ProblemError> {
+    let mut failures = Vec::new();
+    for (_, function) in std::mem::take(functions) {
+        if let Err(error) = finish_case_worker(function.worker) {
+            failures.push(error);
+        }
+    }
+    for mode in modes.drain(..) {
+        if let Some(guard) = mode.guard {
+            if let Err(error) = finish_case_worker(guard.worker) {
+                failures.push(error);
+            }
+        }
+    }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(ProblemError::Retirement { failures })
+    }
+}
 impl DynamicWorker {
+    /// Retire every function and guard owner before releasing shared model storage.
+    pub(crate) fn finish(mut self) -> Result<(), ProblemError> {
+        finish_dynamic_population(&mut self.functions, &mut self.modes)
+    }
     #[cfg(test)]
     pub(crate) fn evaluation_count(&self, mode: usize, function: Function) -> usize {
         self.functions[&(mode, function)].evaluations
@@ -657,88 +704,98 @@ impl DynamicWorker {
             .map(|mode| DynamicFrame::new(&mode.values, &coordinates))
             .collect::<Result<Vec<_>, _>>()?;
         let mut functions = BTreeMap::new();
-        for program in programs.iter() {
-            let mode = modes
-                .get(program.mode)
-                .ok_or_else(|| ProblemError::internal("dynamic function mode absent"))?;
-            let function_layout = layout
-                .functions
-                .get(&(program.mode, program.function))
-                .ok_or_else(|| ProblemError::internal("dynamic function layout absent"))?
-                .clone();
-            let worker = if let Some(slot) =
-                scratch.and_then(|scratch| scratch.function(program.mode, program.function))
-            {
-                slot.worker(&program.case.assembly, &mode.providers, scope.clone())?
-            } else {
-                let mut worker = program
-                    .case
-                    .assembly
-                    .worker_scoped(provider_workers(&mode.providers, &scope)?, scope.clone());
-                worker.prepare_providers()?;
-                worker
-            };
-            functions.insert(
-                (program.mode, program.function),
-                FunctionWorker {
-                    program: program.clone(),
-                    worker,
-                    binding: FrameBinding::new(&program.case.assembly, &frames[program.mode])?,
-                    jacobian: None,
-                    layout: function_layout,
-                    values: Vec::with_capacity(program.rows.len()),
-                    diagonal: vec![f64::NAN; program.case.assembly.jacobian_entries().len()],
-                    key: Vec::with_capacity(
-                        1 + coordinates.state.len() + coordinates.parameters.len(),
-                    ),
-                    cache: None,
-                    pure: program
+        let mut prepared_modes = Vec::with_capacity(modes.len());
+        let prepared = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            for program in programs.iter() {
+                let mode = modes
+                    .get(program.mode)
+                    .ok_or_else(|| ProblemError::internal("dynamic function mode absent"))?;
+                let function_layout = layout
+                    .functions
+                    .get(&(program.mode, program.function))
+                    .ok_or_else(|| ProblemError::internal("dynamic function layout absent"))?
+                    .clone();
+                if functions.contains_key(&(program.mode, program.function)) {
+                    return Err(ProblemError::internal("duplicate dynamic worker function"));
+                }
+                let binding = FrameBinding::new(&program.case.assembly, &frames[program.mode])?;
+                let actions = ActionScratch::new(program, &coordinates)?;
+                let worker = if let Some(slot) =
+                    scratch.and_then(|scratch| scratch.function(program.mode, program.function))
+                {
+                    slot.worker(&program.case.assembly, &mode.providers, scope.clone())?
+                } else {
+                    let worker = program
                         .case
                         .assembly
-                        .programs()
-                        .iter()
-                        .all(|p| p.census().all(|c| c.provider_stages == 0)),
-                    actions: ActionScratch::new(program, &coordinates)?,
-                    #[cfg(test)]
-                    evaluations: 0,
-                },
-            );
-        }
-        let modes = modes
-            .iter()
-            .zip(frames)
-            .enumerate()
-            .map(|(mode_index, (mode, frame))| {
+                        .worker_scoped(provider_workers(&mode.providers, &scope)?, scope.clone());
+                    prepare_case_worker(worker)?
+                };
+                functions.insert(
+                    (program.mode, program.function),
+                    FunctionWorker {
+                        program: program.clone(),
+                        worker,
+                        binding,
+                        jacobian: None,
+                        layout: function_layout,
+                        values: Vec::with_capacity(program.rows.len()),
+                        diagonal: vec![f64::NAN; program.case.assembly.jacobian_entries().len()],
+                        key: Vec::with_capacity(
+                            1 + coordinates.state.len() + coordinates.parameters.len(),
+                        ),
+                        cache: None,
+                        pure: program
+                            .case
+                            .assembly
+                            .programs()
+                            .iter()
+                            .all(|p| p.census().all(|c| c.provider_stages == 0)),
+                        actions,
+                        #[cfg(test)]
+                        evaluations: 0,
+                    },
+                );
+            }
+            for (mode_index, (mode, frame)) in modes.iter().zip(frames).enumerate() {
                 let guard = mode
                     .guard
                     .as_ref()
                     .map(|g| {
+                        let binding = FrameBinding::new(&g.case.assembly, &frame)?;
                         let worker = if let Some(slot) =
                             scratch.and_then(|scratch| scratch.guard(mode_index))
                         {
                             slot.worker(&g.case.assembly, &mode.providers, scope.clone())?
                         } else {
-                            let mut worker = g.case.assembly.worker_scoped(
+                            let worker = g.case.assembly.worker_scoped(
                                 provider_workers(&mode.providers, &scope)?,
                                 scope.clone(),
                             );
-                            worker.prepare_providers()?;
-                            worker
+                            prepare_case_worker(worker)?
                         };
                         Ok::<_, ProblemError>(GuardWorker {
                             program: g.clone(),
-                            binding: FrameBinding::new(&g.case.assembly, &frame)?,
+                            binding,
                             worker,
                         })
                     })
                     .transpose()?;
-                Ok::<_, ProblemError>(ModeWorker { frame, guard })
-            })
-            .collect::<Result<_, _>>()?;
+                prepared_modes.push(ModeWorker { frame, guard });
+            }
+            Ok::<_, ProblemError>(())
+        }))
+        .unwrap_or_else(|payload| Err(retirement_panic(payload)));
+        if let Err(error) = prepared {
+            return ProblemError::with_retirement(
+                Err(error),
+                finish_dynamic_population(&mut functions, &mut prepared_modes),
+            );
+        }
         Ok(DynamicWorker {
             #[cfg(feature = "solver-idas")]
             idas_workspace: None,
-            modes,
+            modes: prepared_modes,
             contract,
             coordinates,
             functions,
@@ -1151,6 +1208,9 @@ impl DynamicWorker {
     }
 }
 impl Oracle for DynamicWorker {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        (*self).finish()
+    }
     fn snapshot_owner(
         &self,
         bytes: usize,
@@ -1723,6 +1783,11 @@ impl Oracle for DynamicWorker {
 // An anchored window borrows its lane's mathematical/provider worker. Its native IVP
 // remains fresh, while compiled scratch and provider owners never leave that lane.
 impl Oracle for &mut DynamicWorker {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        // This callback only borrows the lane's owner. Its owner retires after all callbacks.
+        drop(self);
+        Ok(())
+    }
     fn prepared_layout(
         &self,
         allowance: usize,

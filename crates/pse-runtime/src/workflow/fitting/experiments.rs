@@ -50,17 +50,91 @@ struct Request {
 struct Lane {
     experiments: Vec<usize>,
     request: Option<SyncSender<Request>>,
-    joined: Option<JoinHandle<()>>,
+    joined: Option<JoinHandle<Result<(), ProblemError>>>,
     #[cfg(all(test, feature = "solver-diffsol"))]
     constructions: Arc<std::sync::atomic::AtomicUsize>,
     #[cfg(all(test, feature = "solver-diffsol"))]
     elapsed_nanos: Arc<std::sync::atomic::AtomicU64>,
 }
+fn lane_panic(payload: Box<dyn std::any::Any + Send>) -> ProblemError {
+    let detail = payload
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| {
+            payload
+                .downcast_ref::<&str>()
+                .map(|text| (*text).to_owned())
+        })
+        .unwrap_or_else(|| "fit lane non-text panic".into());
+    crate::math::MathRuntimeError::Panic(detail).into_problem()
+}
+fn finish_steady(worker: pse_math::assembly::CaseWorker) -> Result<(), ProblemError> {
+    catch_unwind(AssertUnwindSafe(|| {
+        worker.finish().map_err(ProblemError::from)
+    }))
+    .unwrap_or_else(|panic| Err(lane_panic(panic)))
+}
+#[cfg(feature = "solver-diffsol")]
+fn finish_transient(worker: crate::workflow::dynamics::DynamicWorker) -> Result<(), ProblemError> {
+    catch_unwind(AssertUnwindSafe(|| worker.finish()))
+        .unwrap_or_else(|panic| Err(lane_panic(panic)))
+}
+fn finish_workers(
+    steady: &mut [Option<pse_math::assembly::CaseWorker>],
+    #[cfg(feature = "solver-diffsol")] transient: &mut [Option<
+        crate::workflow::dynamics::DynamicWorker,
+    >],
+) -> Result<(), ProblemError> {
+    let mut failures = Vec::new();
+    for worker in steady {
+        if let Some(worker) = worker.take() {
+            if let Err(error) = finish_steady(worker) {
+                failures.push(error);
+            }
+        }
+    }
+    #[cfg(feature = "solver-diffsol")]
+    for worker in transient {
+        if let Some(worker) = worker.take() {
+            if let Err(error) = finish_transient(worker) {
+                failures.push(error);
+            }
+        }
+    }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(ProblemError::Retirement { failures })
+    }
+}
+impl Lane {
+    fn finish(&mut self) -> Result<(), ProblemError> {
+        self.request.take();
+        self.joined.take().map_or(Ok(()), |joined| {
+            joined.join().unwrap_or_else(|panic| Err(lane_panic(panic)))
+        })
+    }
+}
+fn finish_lanes(lanes: &mut Vec<Lane>) -> Result<(), ProblemError> {
+    for lane in lanes.iter_mut() {
+        lane.request.take();
+    }
+    let mut failures = Vec::new();
+    for mut lane in lanes.drain(..) {
+        if let Err(error) = lane.finish() {
+            failures.push(error);
+        }
+    }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(ProblemError::Retirement { failures })
+    }
+}
 impl Drop for Lane {
     fn drop(&mut self) {
-        self.request.take();
-        if let Some(joined) = self.joined.take() {
-            let _ = joined.join();
+        if let Err(error) = self.finish() {
+            tracing::error!(error = %error, "fit lane abandonment finish failed");
         }
     }
 }
@@ -68,11 +142,14 @@ impl Drop for Lane {
 fn drain_failed_startup(
     peers: &mut Vec<Lane>,
     request: SyncSender<Request>,
-    joined: JoinHandle<()>,
-) {
+    joined: JoinHandle<Result<(), ProblemError>>,
+) -> Result<(), ProblemError> {
     drop(request);
-    let _ = joined.join();
-    peers.clear();
+    for lane in peers.iter_mut() {
+        lane.request.take();
+    }
+    let current = joined.join().unwrap_or_else(|panic| Err(lane_panic(panic)));
+    ProblemError::with_retirement(current, finish_lanes(peers))
 }
 /// Idle threads keep their original evaluator/provider owners and charged resident
 /// memory. They receive at most one bounded wave while the parent lends active compute.
@@ -95,6 +172,9 @@ impl std::fmt::Debug for ExperimentTeam {
     }
 }
 impl ExperimentTeam {
+    pub(super) fn finish(mut self) -> Result<(), ProblemError> {
+        finish_lanes(&mut self.lanes)
+    }
     pub(super) fn new(
         problem: Arc<FitProblem>,
         math: Arc<MathService>,
@@ -251,7 +331,11 @@ impl ExperimentTeam {
                         });
                         let succeeded = prepared.is_ok();
                         if ready.send(prepared).is_err() || !succeeded {
-                            return;
+                            return finish_workers(
+                                &mut steady,
+                                #[cfg(feature = "solver-diffsol")]
+                                &mut transient,
+                            );
                         }
                         while let Ok(request) = rx.recv() {
                             // A retained lane receives the context of each actual wave,
@@ -312,7 +396,7 @@ impl ExperimentTeam {
                                         &request.validity,
                                     )
                                 };
-                                let result = catch_unwind(AssertUnwindSafe(|| {
+                                let mut result = catch_unwind(AssertUnwindSafe(|| {
                                     native::execution::original_scoped(&execution, || {
                                         match &constructor {
                                             Some(owner) => {
@@ -339,11 +423,26 @@ impl ExperimentTeam {
                                     } else {
                                         // Unknown/terminal native validity is not reset by inference.
                                         // A later callback refuses this owner and requires a fresh fit attempt.
-                                        steady[local] = None;
+                                        let mut failures = Vec::new();
+                                        if let Some(worker) = steady[local].take() {
+                                            if let Err(error) = finish_steady(worker) {
+                                                failures.push(error);
+                                            }
+                                        }
                                         #[cfg(feature = "solver-diffsol")]
                                         {
-                                            transient[local] = None;
+                                            if let Some(worker) = transient[local].take() {
+                                                if let Err(error) = finish_transient(worker) {
+                                                    failures.push(error);
+                                                }
+                                            }
                                         }
+                                        let cleanup = if failures.is_empty() {
+                                            Ok(())
+                                        } else {
+                                            Err(ProblemError::Retirement { failures })
+                                        };
+                                        result = ProblemError::with_retirement(result, cleanup);
                                     }
                                 }
                                 #[cfg(all(test, feature = "solver-diffsol"))]
@@ -366,18 +465,31 @@ impl ExperimentTeam {
                         }
                         // All native sessions have already returned; compiled/provider scratch
                         // is destroyed here on its actual owning lane before join completes.
-                    })
-                    .map_err(|e| {
-                        ProblemError::internal(format!("fit experiment lane creation: {e}"))
-                    })?;
+                        finish_workers(
+                            &mut steady,
+                            #[cfg(feature = "solver-diffsol")]
+                            &mut transient,
+                        )
+                    });
+                let joined = match joined {
+                    Ok(joined) => joined,
+                    Err(error) => {
+                        return ProblemError::with_retirement(
+                            Err(ProblemError::internal(format!(
+                                "fit experiment lane creation: {error}"
+                            ))),
+                            finish_lanes(&mut lanes),
+                        );
+                    }
+                };
                 let prepared = preparation.recv().unwrap_or_else(|_| {
                     Err(ProblemError::internal(
                         "fit experiment lane stopped during preparation",
                     ))
                 });
                 if let Err(cause) = prepared {
-                    drain_failed_startup(&mut lanes, tx, joined);
-                    return Err(cause);
+                    let cleanup = drain_failed_startup(&mut lanes, tx, joined);
+                    return ProblemError::with_retirement(Err(cause), cleanup);
                 }
                 lanes.push(Lane {
                     experiments,
@@ -540,6 +652,13 @@ impl ExperimentTeam {
     }
 }
 
+impl Drop for ExperimentTeam {
+    fn drop(&mut self) {
+        if let Err(error) = finish_lanes(&mut self.lanes) {
+            tracing::error!(error = %error, "fit team abandonment finish failed");
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -560,13 +679,18 @@ mod tests {
 mod startup_tests {
     use super::*;
     use std::sync::atomic::{AtomicBool, Ordering};
-    fn waiting_lane() -> (SyncSender<Request>, JoinHandle<()>, Arc<AtomicBool>) {
+    fn waiting_lane() -> (
+        SyncSender<Request>,
+        JoinHandle<Result<(), ProblemError>>,
+        Arc<AtomicBool>,
+    ) {
         let (request, incoming) = mpsc::sync_channel::<Request>(1);
         let drained = Arc::new(AtomicBool::new(false));
         let observed = drained.clone();
         let joined = std::thread::spawn(move || {
             assert!(incoming.recv().is_err());
             observed.store(true, Ordering::Release);
+            Ok(())
         });
         (request, joined, drained)
     }
@@ -589,11 +713,49 @@ mod startup_tests {
         }
         let (request, joined, drained) = waiting_lane();
         completed.push(drained);
-        drain_failed_startup(&mut peers, request, joined);
+        drain_failed_startup(&mut peers, request, joined).unwrap();
         assert!(peers.is_empty());
         assert!(
             completed.iter().all(|lane| lane.load(Ordering::Acquire)),
             "startup failure returns only after every actual thread drains"
         );
+    }
+    #[test]
+    fn fitting_retirement_attempts_all_lanes_and_retains_returned_errors_and_panics() {
+        let barrier = Arc::new(std::sync::Barrier::new(3));
+        let departed = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut lanes = Vec::new();
+        for index in 0..3 {
+            let (request, receive) = mpsc::sync_channel::<Request>(1);
+            let barrier = barrier.clone();
+            let departed = departed.clone();
+            let joined = std::thread::spawn(move || {
+                assert!(receive.recv().is_err());
+                barrier.wait();
+                departed.fetch_add(1, Ordering::SeqCst);
+                if index == 1 {
+                    panic!("controlled experiment lane panic");
+                }
+                Err(ProblemError::numerical(format!(
+                    "controlled experiment lane {index}"
+                )))
+            });
+            lanes.push(Lane {
+                experiments: vec![index],
+                request: Some(request),
+                joined: Some(joined),
+                #[cfg(feature = "solver-diffsol")]
+                constructions: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+                #[cfg(feature = "solver-diffsol")]
+                elapsed_nanos: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            });
+        }
+        let error = finish_lanes(&mut lanes).unwrap_err();
+        let ProblemError::Retirement { failures } = error else {
+            panic!("all independent failures must survive");
+        };
+        assert_eq!(failures.len(), 3);
+        assert_eq!(departed.load(Ordering::SeqCst), 3);
+        assert!(lanes.is_empty());
     }
 }

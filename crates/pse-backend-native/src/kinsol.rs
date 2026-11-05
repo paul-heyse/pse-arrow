@@ -40,6 +40,8 @@ pub fn build() -> Option<pse_ids::ContentHash> {
 
 /// A declared causal map is distinct from an equation residual oracle.
 pub trait FixedPointOracle: std::fmt::Debug {
+    /// Retire the owned causal evaluator on the native thread.
+    fn finish(self: Box<Self>) -> Result<(), ProblemError>;
     /// Exact original source variable/row order.
     fn contract(&self) -> &OracleContract;
     /// Conservative support of the original connection residual, including its identity term.
@@ -60,6 +62,9 @@ pub trait FixedPointOracle: std::fmt::Debug {
 /// Distinct function representations prevent accidental root-to-fixed-point reformulation.
 #[derive(Debug)]
 pub enum Function {
+    /// Inert callback slot after its consuming owner has retired. Never executable.
+    #[doc(hidden)]
+    Retired(OracleContract),
     /// Residual equations with exact local derivatives.
     Equations(Box<dyn NleOracle>),
     /// Explicit Picard splitting F(x)=L*x-N(x), with the declared constant L.
@@ -75,8 +80,17 @@ pub enum Function {
     FixedPoint(Box<dyn FixedPointOracle>),
 }
 impl Function {
+    /// Consume the actual function owner after native aliases have been removed.
+    pub fn finish(self) -> Result<(), ProblemError> {
+        match self {
+            Self::Retired(_) => Ok(()),
+            Self::Equations(oracle) | Self::Picard { oracle, .. } => oracle.finish(),
+            Self::FixedPoint(oracle) => oracle.finish(),
+        }
+    }
     fn pattern(&self) -> Option<faer::sparse::SymbolicSparseColMatRef<'_, usize>> {
         match self {
+            Self::Retired(_) => None,
             Self::Equations(o) => Some(o.jacobian_pattern()),
             Self::Picard { linear, .. } => Some(linear.symbolic()),
             Self::FixedPoint(_) => None,
@@ -85,6 +99,7 @@ impl Function {
     /// Original source contract of this explicitly selected representation.
     pub fn contract(&self) -> &OracleContract {
         match self {
+            Self::Retired(contract) => contract,
             Self::Equations(o) => o.contract(),
             Self::Picard { oracle, .. } => oracle.contract(),
             Self::FixedPoint(o) => o.contract(),
@@ -194,11 +209,13 @@ impl Settings {
                 .admit(c, self.method.consumes_directional_only())?;
         }
         let representation = match function {
+            Function::Retired(_) => return Err(ProblemError::internal("retired KINSOL function")),
             Function::Equations(_) => Strategy::LineSearch,
             Function::Picard { .. } => Strategy::Picard,
             Function::FixedPoint(_) => Strategy::FixedPoint,
         };
         let guards = match function {
+            Function::Retired(_) => return Err(ProblemError::internal("retired KINSOL function")),
             Function::Equations(o) | Function::Picard { oracle: o, .. } => o.guard_signs(),
             Function::FixedPoint(_) => Default::default(),
         };
@@ -213,11 +230,13 @@ impl Settings {
             ));
         }
         let original = match function {
+            Function::Retired(_) => return Err(ProblemError::internal("retired KINSOL function")),
             Function::Equations(o) => o.jacobian_pattern(),
             Function::Picard { oracle, .. } => oracle.jacobian_pattern(),
             Function::FixedPoint(o) => o.original_pattern(),
         };
         let analysis = match function {
+            Function::Retired(_) => return Err(ProblemError::internal("retired KINSOL function")),
             Function::Equations(o) | Function::Picard { oracle: o, .. } => o.structural_analysis(),
             Function::FixedPoint(_) => None,
         };
@@ -418,6 +437,19 @@ impl std::fmt::Debug for Session {
 }
 impl Drop for Session {
     fn drop(&mut self) {
+        let _ = self.destroy_native();
+    }
+}
+impl Session {
+    /// Remove every native callback alias, then consume the actual function owner.
+    pub fn finish(mut self) -> Result<(), ProblemError> {
+        let native = self.destroy_native();
+        let vacant = Function::Retired(self.callback.function.contract().clone());
+        let function = std::mem::replace(&mut self.callback.function, vacant).finish();
+        ProblemError::with_retirement(native, function)
+    }
+    fn destroy_native(&mut self) -> Result<(), ProblemError> {
+        let mut failures = Vec::new();
         linear_work::clear(&mut self.callback);
         // Every object below was created by this session and is freed exactly once, the
         // solver memory first so nothing native refers to the rest afterwards.
@@ -427,11 +459,19 @@ impl Drop for Session {
         }
         if !self.linear.is_null() {
             // SAFETY: the session's linear solver, no longer attached to any memory.
-            unsafe { ffi::SUNLinSolFree(self.linear) };
+            let result = check(
+                unsafe { ffi::SUNLinSolFree(self.linear) },
+                "linear solver free",
+            );
+            if let Err(cause) = result {
+                failures.push(cause);
+            }
+            self.linear = std::ptr::null_mut();
         }
         if !self.matrix.is_null() {
             // SAFETY: the session's matrix, freed after the solver that used it.
             unsafe { ffi::SUNMatDestroy(self.matrix) }
+            self.matrix = std::ptr::null_mut();
         }
         for v in [self.signs, self.fs, self.us, self.x] {
             if !v.is_null() {
@@ -439,9 +479,24 @@ impl Drop for Session {
                 unsafe { ffi::N_VDestroy(v) }
             }
         }
+        self.signs = std::ptr::null_mut();
+        self.fs = std::ptr::null_mut();
+        self.us = std::ptr::null_mut();
+        self.x = std::ptr::null_mut();
         if !self.ctx.is_null() {
             // SAFETY: the session's context, freed last, after every object created in it.
-            unsafe { ffi::SUNContext_Free(&raw mut self.ctx) };
+            let result = check(
+                unsafe { ffi::SUNContext_Free(&raw mut self.ctx) },
+                "context free",
+            );
+            if let Err(cause) = result {
+                failures.push(cause);
+            }
+        }
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(ProblemError::Retirement { failures })
         }
     }
 }
@@ -552,6 +607,7 @@ unsafe extern "C" fn residual(x: ffi::N_Vector, out: ffi::N_Vector, data: *mut c
         let v = &mut c.output[..n];
         v.fill(f64::NAN);
         match &mut c.function {
+            Function::Retired(_) => return Err(ProblemError::internal("retired KINSOL function")),
             Function::Equations(o) => o.residual(x, v)?,
             Function::Picard { oracle, .. } => oracle.residual(x, v)?,
             Function::FixedPoint(o) => {
@@ -629,6 +685,7 @@ unsafe extern "C" fn jacobian(
         let v = &mut c.output[..c.rows.len()];
         v.fill(f64::NAN);
         match &mut c.function {
+            Function::Retired(_) => return Err(ProblemError::internal("retired KINSOL function")),
             Function::Equations(o) => o.jacobian(
                 // SAFETY: KINSOL passes null or a live serial vector for the callback, and `values`
                 // checks it against the `n` coordinates.
@@ -714,6 +771,7 @@ unsafe extern "C" fn jvp(
         let y = &mut c.output[..c.n];
         y.fill(f64::NAN);
         match &mut c.function {
+            Function::Retired(_) => return Err(ProblemError::internal("retired KINSOL function")),
             Function::Equations(o) => o.jacobian_product(
                 {
                     // SAFETY: KINSOL supplies a live serial input (or null), and
@@ -768,6 +826,7 @@ unsafe extern "C" fn precondition_setup(
         let v = &mut c.output[..c.rows.len()];
         v.fill(f64::NAN);
         match &mut c.function {
+            Function::Retired(_) => return Err(ProblemError::internal("retired KINSOL function")),
             Function::Equations(o) => o.jacobian(
                 // SAFETY: KINSOL passes null or a live serial vector for the callback, and `values`
                 // checks it against the `n` coordinates.
@@ -1038,65 +1097,76 @@ impl Session {
         settings: Settings,
         compatibility: Compatibility,
     ) -> Result<(), ProblemError> {
-        self.clear_callback_setup();
-        let constraints = settings.validate(&function)?;
-        if !self.matches_settings(&settings)
-            || !compatibility.same_session(&self.compatibility)
-            || compatibility.backend != Backend::Kinsol
-            || function.contract().rows != self.callback.function.contract().rows
-            || function.contract().variables.iter().map(|v| v.id).ne(self
-                .callback
-                .function
-                .contract()
-                .variables
-                .iter()
-                .map(|v| v.id))
-        {
-            return Err(ProblemError::Unsupported(
-                "KINSOL replacement changes layout".into(),
-            ));
-        }
-        if let Some(p) = function.pattern() {
-            let rows: Vec<_> = (0..p.ncols())
-                .flat_map(|c| p.row_idx_of_col(c))
-                .map(index)
-                .collect::<Result<_, _>>()?;
-            let mut columns = vec![0];
-            let mut count = 0;
-            for c in 0..p.ncols() {
-                count += p.row_idx_of_col(c).len();
-                columns.push(index(count)?);
-            }
-            if rows != self.callback.rows || columns != self.callback.columns {
+        let mut pending = Some(function);
+        let result = (|| {
+            let function = pending
+                .as_ref()
+                .ok_or_else(|| ProblemError::internal("missing KINSOL replacement"))?;
+            self.clear_callback_setup();
+            let constraints = settings.validate(&function)?;
+            if !self.matches_settings(&settings)
+                || !compatibility.same_session(&self.compatibility)
+                || compatibility.backend != Backend::Kinsol
+                || function.contract().rows != self.callback.function.contract().rows
+                || function.contract().variables.iter().map(|v| v.id).ne(self
+                    .callback
+                    .function
+                    .contract()
+                    .variables
+                    .iter()
+                    .map(|v| v.id))
+            {
                 return Err(ProblemError::Unsupported(
-                    "KINSOL replacement changes sparse layout".into(),
+                    "KINSOL replacement changes layout".into(),
                 ));
             }
-        }
-        if constraints.any() {
-            if self.signs.is_null() {
-                // SAFETY: the session's live context; `Drop` frees the vector.
-                self.signs =
-                    unsafe { ffi::N_VNew_Serial(index(constraints.signs.len())?, self.ctx) };
+            if let Some(p) = function.pattern() {
+                let rows: Vec<_> = (0..p.ncols())
+                    .flat_map(|c| p.row_idx_of_col(c))
+                    .map(index)
+                    .collect::<Result<_, _>>()?;
+                let mut columns = vec![0];
+                let mut count = 0;
+                for c in 0..p.ncols() {
+                    count += p.row_idx_of_col(c).len();
+                    columns.push(index(count)?);
+                }
+                if rows != self.callback.rows || columns != self.callback.columns {
+                    return Err(ProblemError::Unsupported(
+                        "KINSOL replacement changes sparse layout".into(),
+                    ));
+                }
             }
-            // SAFETY: null or the session's live sign vector, referenced nowhere else.
-            unsafe { publish(self.signs, &constraints.signs)? };
-            native!(
-                ffi::KINSetConstraints(self.mem, self.signs),
-                "updated sign constraints",
-            )?;
-        } else {
-            native!(
-                ffi::KINSetConstraints(self.mem, std::ptr::null_mut()),
-                "clear sign constraints",
-            )?;
-        }
-        self.callback.function = function;
-        self.callback.offsets = constraints.offsets;
-        self.callback.data = compatibility.data;
-        self.settings = settings;
-        self.compatibility = compatibility;
-        Ok(())
+            if constraints.any() {
+                if self.signs.is_null() {
+                    // SAFETY: the session's live context; `Drop` frees the vector.
+                    self.signs =
+                        unsafe { ffi::N_VNew_Serial(index(constraints.signs.len())?, self.ctx) };
+                }
+                // SAFETY: null or the session's live sign vector, referenced nowhere else.
+                unsafe { publish(self.signs, &constraints.signs)? };
+                native!(
+                    ffi::KINSetConstraints(self.mem, self.signs),
+                    "updated sign constraints",
+                )?;
+            } else {
+                native!(
+                    ffi::KINSetConstraints(self.mem, std::ptr::null_mut()),
+                    "clear sign constraints",
+                )?;
+            }
+            let replacement = pending
+                .take()
+                .ok_or_else(|| ProblemError::internal("KINSOL replacement transferred twice"))?;
+            let previous = std::mem::replace(&mut self.callback.function, replacement);
+            previous.finish()?;
+            self.callback.offsets = constraints.offsets;
+            self.callback.data = compatibility.data;
+            self.settings = settings;
+            self.compatibility = compatibility;
+            Ok(())
+        })();
+        ProblemError::with_retirement(result, pending.map_or(Ok(()), Function::finish))
     }
     /// Construct native context, serial vectors and the selected analytic linear route.
     pub fn new(
@@ -1105,250 +1175,277 @@ impl Session {
         execution: Execution,
         compatibility: Compatibility,
     ) -> Result<Self, ProblemError> {
-        let constraints = settings.validate(&function)?;
-        let n = function.contract().variables.len();
-        let (anderson_peak, _) = anderson_storage(n, settings.method)?;
-        // AA's peak already includes the selected Krylov workspace. Without AA,
-        // every Krylov route must still own its finite workspace before SUN allocation.
-        let native_peak = if anderson_peak > 0 {
-            anderson_peak
-        } else if settings.method.linear.krylov().is_some() {
-            native_krylov_storage(n, settings.method.linear)?
-        } else {
-            0
-        };
-        if native_peak > 0 {
-            execution.check()?;
-            let memory = execution.memory.filter(|bytes| *bytes > 0).ok_or_else(|| {
-                ProblemError::memory("native Krylov/Anderson needs finite admitted storage")
-            })?;
-            if native_peak > memory {
-                return Err(ProblemError::memory(
-                    "native Krylov/Anderson plan exceeds admitted storage",
-                ));
-            }
-        }
-        let blocks = if settings.method.preconditioner == Preconditioner::BlockFactor {
-            Some(block::Blocks::admit(
-                &function,
-                &execution,
-                settings.method.linear,
-            )?)
-        } else {
-            None
-        };
-        let (rows, columns) = match function.pattern() {
-            Some(p) => {
-                if p.nrows() != n || p.ncols() != n {
-                    return Err(ProblemError::Contract("root Jacobian dimensions".into()));
+        let mut pending = Some(function);
+        let mut owned = None;
+        let result = (|| {
+            let function = pending
+                .as_ref()
+                .ok_or_else(|| ProblemError::internal("missing KINSOL function"))?;
+            let constraints = settings.validate(&function)?;
+            let n = function.contract().variables.len();
+            let (anderson_peak, _) = anderson_storage(n, settings.method)?;
+            // AA's peak already includes the selected Krylov workspace. Without AA,
+            // every Krylov route must still own its finite workspace before SUN allocation.
+            let native_peak = if anderson_peak > 0 {
+                anderson_peak
+            } else if settings.method.linear.krylov().is_some() {
+                native_krylov_storage(n, settings.method.linear)?
+            } else {
+                0
+            };
+            if native_peak > 0 {
+                execution.check()?;
+                let memory = execution.memory.filter(|bytes| *bytes > 0).ok_or_else(|| {
+                    ProblemError::memory("native Krylov/Anderson needs finite admitted storage")
+                })?;
+                if native_peak > memory {
+                    return Err(ProblemError::memory(
+                        "native Krylov/Anderson plan exceeds admitted storage",
+                    ));
                 }
-                let mut rows = Vec::new();
-                let mut cols = vec![0];
-                for c in 0..n {
-                    let mut last = None;
-                    for r in p.row_idx_of_col(c) {
-                        if r >= n || last.is_some_and(|p| p >= r) {
-                            return Err(ProblemError::Contract(
-                                "root Jacobian canonical structure".into(),
-                            ));
+            }
+            let blocks = if settings.method.preconditioner == Preconditioner::BlockFactor {
+                Some(block::Blocks::admit(
+                    &function,
+                    &execution,
+                    settings.method.linear,
+                )?)
+            } else {
+                None
+            };
+            let (rows, columns) = match function.pattern() {
+                Some(p) => {
+                    if p.nrows() != n || p.ncols() != n {
+                        return Err(ProblemError::Contract("root Jacobian dimensions".into()));
+                    }
+                    let mut rows = Vec::new();
+                    let mut cols = vec![0];
+                    for c in 0..n {
+                        let mut last = None;
+                        for r in p.row_idx_of_col(c) {
+                            if r >= n || last.is_some_and(|p| p >= r) {
+                                return Err(ProblemError::Contract(
+                                    "root Jacobian canonical structure".into(),
+                                ));
+                            }
+                            last = Some(r);
+                            rows.push(index(r)?);
                         }
-                        last = Some(r);
-                        rows.push(index(r)?);
+                        cols.push(index(rows.len())?);
                     }
-                    cols.push(index(rows.len())?);
+                    (rows, cols)
                 }
-                (rows, cols)
+                None => (vec![], vec![]),
+            };
+            let progress_layout = root_progress_layout(&function, execution.callback_role);
+            let callback = Box::new(Context {
+                progress_layout,
+                function: pending
+                    .take()
+                    .ok_or_else(|| ProblemError::internal("KINSOL function transferred twice"))?,
+                state: CallbackState::new(execution),
+                n,
+                point: vec![0.; n],
+                output: vec![0.; n.max(rows.len())],
+                rows,
+                columns,
+                dense: matches!(settings.method.linear, Linear::Dense { .. }),
+                offsets: constraints.offsets.clone(),
+                inverse_diagonal: vec![1.0; n],
+                blocks,
+                setup: None,
+                setup_calls: 0,
+                data: compatibility.data,
+                raw_map: None,
+                klu: std::ptr::null_mut(),
+                klu_baseline: None,
+                klu_producer: None,
+                klu_phases: std::array::from_fn(|_| None),
+                klu_observer_installed: false,
+            });
+            owned = Some(Self {
+                ctx: std::ptr::null_mut(),
+                mem: std::ptr::null_mut(),
+                x: std::ptr::null_mut(),
+                us: std::ptr::null_mut(),
+                fs: std::ptr::null_mut(),
+                signs: std::ptr::null_mut(),
+                matrix: std::ptr::null_mut(),
+                linear: std::ptr::null_mut(),
+                retention_ready: true,
+                #[cfg(test)]
+                stock_klu: false,
+                callback,
+                settings,
+                compatibility,
+                _local: PhantomData,
+            });
+            let s = owned
+                .as_mut()
+                .ok_or_else(|| ProblemError::internal("missing KINSOL construction owner"))?;
+            native!(ffi::SUNContext_Create(0, &raw mut s.ctx), "context")?;
+            // SAFETY: new context owned by s; Drop frees it after all native objects.
+            unsafe { crate::sundials_errors::install(s.ctx) }?;
+            // SAFETY: the session's live context; `Drop` frees the vector.
+            s.x = unsafe { ffi::N_VNew_Serial(index(n)?, s.ctx) };
+            // SAFETY: as above.
+            s.us = unsafe { ffi::N_VNew_Serial(index(n)?, s.ctx) };
+            // SAFETY: as above.
+            s.fs = unsafe { ffi::N_VNew_Serial(index(n)?, s.ctx) };
+            if s.x.is_null() || s.us.is_null() || s.fs.is_null() {
+                return Err(ProblemError::memory("SUNDIALS vector allocation"));
             }
-            None => (vec![], vec![]),
-        };
-        let progress_layout = root_progress_layout(&function, execution.callback_role);
-        let callback = Box::new(Context {
-            progress_layout,
-            function,
-            state: CallbackState::new(execution),
-            n,
-            point: vec![0.; n],
-            output: vec![0.; n.max(rows.len())],
-            rows,
-            columns,
-            dense: matches!(settings.method.linear, Linear::Dense { .. }),
-            offsets: constraints.offsets.clone(),
-            inverse_diagonal: vec![1.0; n],
-            blocks,
-            setup: None,
-            setup_calls: 0,
-            data: compatibility.data,
-            raw_map: None,
-            klu: std::ptr::null_mut(),
-            klu_baseline: None,
-            klu_producer: None,
-            klu_phases: std::array::from_fn(|_| None),
-            klu_observer_installed: false,
-        });
-        let mut s = Self {
-            ctx: std::ptr::null_mut(),
-            mem: std::ptr::null_mut(),
-            x: std::ptr::null_mut(),
-            us: std::ptr::null_mut(),
-            fs: std::ptr::null_mut(),
-            signs: std::ptr::null_mut(),
-            matrix: std::ptr::null_mut(),
-            linear: std::ptr::null_mut(),
-            retention_ready: true,
-            #[cfg(test)]
-            stock_klu: false,
-            callback,
-            settings,
-            compatibility,
-            _local: PhantomData,
-        };
-        native!(ffi::SUNContext_Create(0, &raw mut s.ctx), "context")?;
-        // SAFETY: new context owned by s; Drop frees it after all native objects.
-        unsafe { crate::sundials_errors::install(s.ctx) }?;
-        // SAFETY: the session's live context; `Drop` frees the vector.
-        s.x = unsafe { ffi::N_VNew_Serial(index(n)?, s.ctx) };
-        // SAFETY: as above.
-        s.us = unsafe { ffi::N_VNew_Serial(index(n)?, s.ctx) };
-        // SAFETY: as above.
-        s.fs = unsafe { ffi::N_VNew_Serial(index(n)?, s.ctx) };
-        if s.x.is_null() || s.us.is_null() || s.fs.is_null() {
-            return Err(ProblemError::memory("SUNDIALS vector allocation"));
-        }
-        // SAFETY: the new session's live scale vector, referenced nowhere else.
-        unsafe { publish(s.us, &s.settings.variable_scales)? };
-        // SAFETY: as above.
-        unsafe { publish(s.fs, &s.settings.residual_scales)? };
-        // SAFETY: the session's live context; `Drop` frees the memory.
-        s.mem = unsafe { ffi::KINCreate(s.ctx) };
-        if s.mem.is_null() {
-            return Err(ProblemError::memory("KINSOL allocation"));
-        }
-        native!(
-            ffi::KINSetMAA(s.mem, s.settings.method.anderson as _),
-            "Anderson history",
-        )?;
-        native!(
-            ffi::KINSetOrthAA(
-                s.mem,
-                orthogonalization_code(s.settings.method.orthogonalization),
-            ),
-            "Anderson orthogonalization",
-        )?;
-        native!(ffi::KINInit(s.mem, Some(residual), s.x), "initialization")?;
-        // The boxed context has a stable address for the session's lifetime.
-        native!(
-            ffi::KINSetUserData(s.mem, (&raw mut *s.callback).cast()),
-            "callback context",
-        )?;
-        let method = s.settings.method;
-        if method.strategy != Strategy::FixedPoint {
-            match method.linear {
-                Linear::Klu => {
-                    // SAFETY: the session's live context; `Drop` frees the matrix.
-                    s.matrix = unsafe {
-                        ffi::SUNSparseMatrix(
-                            index(n)?,
-                            index(n)?,
-                            index(s.callback.rows.len())?,
-                            0,
-                            s.ctx,
-                        )
-                    };
-                    if s.matrix.is_null() {
-                        return Err(ProblemError::memory("sparse matrix allocation"));
-                    }
-                    // SAFETY: a storage query of the new live matrix.
-                    let pointers = unsafe { ffi::SUNSparseMatrix_IndexPointers(s.matrix) };
-                    // SAFETY: the matrix and the canonical pattern both hold `n + 1` index
-                    // pointers, in storage that cannot overlap.
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(s.callback.columns.as_ptr(), pointers, n + 1)
-                    };
-                    if !s.callback.rows.is_empty() {
-                        // SAFETY: as above.
-                        let indices = unsafe { ffi::SUNSparseMatrix_IndexValues(s.matrix) };
-                        // SAFETY: the matrix was created with room for the pattern's rows.
-                        unsafe {
-                            std::ptr::copy_nonoverlapping(
-                                s.callback.rows.as_ptr(),
-                                indices,
-                                s.callback.rows.len(),
-                            )
-                        };
-                    }
-                    // SAFETY: the session's live vector, matrix and context; `Drop` frees
-                    // the solver.
-                    s.linear = unsafe { ffi::SUNLinSol_KLUFixedPattern(s.x, s.matrix, s.ctx) };
-                }
-                Linear::Dense { .. } => {
-                    // SAFETY: the session's live context; `Drop` frees the matrix.
-                    s.matrix = unsafe { ffi::SUNDenseMatrix(index(n)?, index(n)?, s.ctx) };
-                    if s.matrix.is_null() {
-                        return Err(ProblemError::memory("dense matrix allocation"));
-                    }
-                    // SAFETY: the session's live vector, matrix and context; `Drop` frees
-                    // the solver.
-                    s.linear = unsafe { ffi::SUNLinSol_Dense(s.x, s.matrix, s.ctx) };
-                }
-                Linear::Spgmr { dimension }
-                | Linear::Spfgmr { dimension }
-                | Linear::Spbcgs { dimension }
-                | Linear::Sptfqmr { dimension } => {
-                    let maxl = i32::try_from(dimension.into_inner())
-                        .map_err(|_| ProblemError::Contract("KINSOL Krylov dimension".into()))?;
-                    let side = match method.preconditioner {
-                        Preconditioner::None => ffi::SUNPrecType_SUN_PREC_NONE,
-                        Preconditioner::Jacobi | Preconditioner::BlockFactor => {
-                            ffi::SUNPrecType_SUN_PREC_RIGHT
-                        }
-                    } as i32;
-                    let krylov: unsafe extern "C" fn(
-                        ffi::N_Vector,
-                        i32,
-                        i32,
-                        ffi::SUNContext,
-                    ) -> ffi::SUNLinearSolver = match method.linear {
-                        Linear::Spgmr { .. } => ffi::SUNLinSol_SPGMR,
-                        Linear::Spfgmr { .. } => ffi::SUNLinSol_SPFGMR,
-                        Linear::Spbcgs { .. } => ffi::SUNLinSol_SPBCGS,
-                        _ => ffi::SUNLinSol_SPTFQMR,
-                    };
-                    // SAFETY: a SUNDIALS Krylov constructor over the session's live vector
-                    // and context; `Drop` frees the solver.
-                    s.linear = unsafe { krylov(s.x, side, maxl, s.ctx) };
-                }
-            }
-            if s.linear.is_null() {
-                return Err(ProblemError::memory("native linear solver allocation"));
+            // SAFETY: the new session's live scale vector, referenced nowhere else.
+            unsafe { publish(s.us, &s.settings.variable_scales)? };
+            // SAFETY: as above.
+            unsafe { publish(s.fs, &s.settings.residual_scales)? };
+            // SAFETY: the session's live context; `Drop` frees the memory.
+            s.mem = unsafe { ffi::KINCreate(s.ctx) };
+            if s.mem.is_null() {
+                return Err(ProblemError::memory("KINSOL allocation"));
             }
             native!(
-                ffi::KINSetLinearSolver(s.mem, s.linear, s.matrix),
-                "linear solver",
+                ffi::KINSetMAA(s.mem, s.settings.method.anderson as _),
+                "Anderson history",
             )?;
-            if method.linear.krylov().is_some() {
-                native!(ffi::KINSetJacTimesVecFn(s.mem, Some(jvp)), "analytic JVP")?;
-                if method.preconditioner != Preconditioner::None {
-                    native!(
-                        ffi::KINSetPreconditioner(
-                            s.mem,
-                            Some(precondition_setup),
-                            Some(precondition_solve),
-                        ),
-                        "selected analytic preconditioner",
-                    )?;
+            native!(
+                ffi::KINSetOrthAA(
+                    s.mem,
+                    orthogonalization_code(s.settings.method.orthogonalization),
+                ),
+                "Anderson orthogonalization",
+            )?;
+            native!(ffi::KINInit(s.mem, Some(residual), s.x), "initialization")?;
+            // The boxed context has a stable address for the session's lifetime.
+            native!(
+                ffi::KINSetUserData(s.mem, (&raw mut *s.callback).cast()),
+                "callback context",
+            )?;
+            let method = s.settings.method;
+            if method.strategy != Strategy::FixedPoint {
+                match method.linear {
+                    Linear::Klu => {
+                        // SAFETY: the session's live context; `Drop` frees the matrix.
+                        s.matrix = unsafe {
+                            ffi::SUNSparseMatrix(
+                                index(n)?,
+                                index(n)?,
+                                index(s.callback.rows.len())?,
+                                0,
+                                s.ctx,
+                            )
+                        };
+                        if s.matrix.is_null() {
+                            return Err(ProblemError::memory("sparse matrix allocation"));
+                        }
+                        // SAFETY: a storage query of the new live matrix.
+                        let pointers = unsafe { ffi::SUNSparseMatrix_IndexPointers(s.matrix) };
+                        // SAFETY: the matrix and the canonical pattern both hold `n + 1` index
+                        // pointers, in storage that cannot overlap.
+                        unsafe {
+                            std::ptr::copy_nonoverlapping(
+                                s.callback.columns.as_ptr(),
+                                pointers,
+                                n + 1,
+                            )
+                        };
+                        if !s.callback.rows.is_empty() {
+                            // SAFETY: as above.
+                            let indices = unsafe { ffi::SUNSparseMatrix_IndexValues(s.matrix) };
+                            // SAFETY: the matrix was created with room for the pattern's rows.
+                            unsafe {
+                                std::ptr::copy_nonoverlapping(
+                                    s.callback.rows.as_ptr(),
+                                    indices,
+                                    s.callback.rows.len(),
+                                )
+                            };
+                        }
+                        // SAFETY: the session's live vector, matrix and context; `Drop` frees
+                        // the solver.
+                        s.linear = unsafe { ffi::SUNLinSol_KLUFixedPattern(s.x, s.matrix, s.ctx) };
+                    }
+                    Linear::Dense { .. } => {
+                        // SAFETY: the session's live context; `Drop` frees the matrix.
+                        s.matrix = unsafe { ffi::SUNDenseMatrix(index(n)?, index(n)?, s.ctx) };
+                        if s.matrix.is_null() {
+                            return Err(ProblemError::memory("dense matrix allocation"));
+                        }
+                        // SAFETY: the session's live vector, matrix and context; `Drop` frees
+                        // the solver.
+                        s.linear = unsafe { ffi::SUNLinSol_Dense(s.x, s.matrix, s.ctx) };
+                    }
+                    Linear::Spgmr { dimension }
+                    | Linear::Spfgmr { dimension }
+                    | Linear::Spbcgs { dimension }
+                    | Linear::Sptfqmr { dimension } => {
+                        let maxl = i32::try_from(dimension.into_inner()).map_err(|_| {
+                            ProblemError::Contract("KINSOL Krylov dimension".into())
+                        })?;
+                        let side = match method.preconditioner {
+                            Preconditioner::None => ffi::SUNPrecType_SUN_PREC_NONE,
+                            Preconditioner::Jacobi | Preconditioner::BlockFactor => {
+                                ffi::SUNPrecType_SUN_PREC_RIGHT
+                            }
+                        } as i32;
+                        let krylov: unsafe extern "C" fn(
+                            ffi::N_Vector,
+                            i32,
+                            i32,
+                            ffi::SUNContext,
+                        )
+                            -> ffi::SUNLinearSolver = match method.linear {
+                            Linear::Spgmr { .. } => ffi::SUNLinSol_SPGMR,
+                            Linear::Spfgmr { .. } => ffi::SUNLinSol_SPFGMR,
+                            Linear::Spbcgs { .. } => ffi::SUNLinSol_SPBCGS,
+                            _ => ffi::SUNLinSol_SPTFQMR,
+                        };
+                        // SAFETY: a SUNDIALS Krylov constructor over the session's live vector
+                        // and context; `Drop` frees the solver.
+                        s.linear = unsafe { krylov(s.x, side, maxl, s.ctx) };
+                    }
                 }
-            } else {
-                native!(ffi::KINSetJacFn(s.mem, Some(jacobian)), "analytic Jacobian")?;
+                if s.linear.is_null() {
+                    return Err(ProblemError::memory("native linear solver allocation"));
+                }
+                native!(
+                    ffi::KINSetLinearSolver(s.mem, s.linear, s.matrix),
+                    "linear solver",
+                )?;
+                if method.linear.krylov().is_some() {
+                    native!(ffi::KINSetJacTimesVecFn(s.mem, Some(jvp)), "analytic JVP")?;
+                    if method.preconditioner != Preconditioner::None {
+                        native!(
+                            ffi::KINSetPreconditioner(
+                                s.mem,
+                                Some(precondition_setup),
+                                Some(precondition_solve),
+                            ),
+                            "selected analytic preconditioner",
+                        )?;
+                    }
+                } else {
+                    native!(ffi::KINSetJacFn(s.mem, Some(jacobian)), "analytic Jacobian")?;
+                }
             }
+            if constraints.any() {
+                // SAFETY: the session's live context; `Drop` frees the vector.
+                s.signs = unsafe { ffi::N_VNew_Serial(index(n)?, s.ctx) };
+                // SAFETY: null or the new live sign vector, referenced nowhere else.
+                unsafe { publish(s.signs, &constraints.signs)? };
+                native!(ffi::KINSetConstraints(s.mem, s.signs), "sign constraints")?;
+            }
+            Ok(())
+        })();
+        if let Err(cause) = result {
+            let pending = pending.map_or(Ok(()), Function::finish);
+            let allocated = owned.map_or(Ok(()), Session::finish);
+            return ProblemError::with_retirement(
+                Err(cause),
+                ProblemError::with_retirement(pending, allocated),
+            );
         }
-        if constraints.any() {
-            // SAFETY: the session's live context; `Drop` frees the vector.
-            s.signs = unsafe { ffi::N_VNew_Serial(index(n)?, s.ctx) };
-            // SAFETY: null or the new live sign vector, referenced nowhere else.
-            unsafe { publish(s.signs, &constraints.signs)? };
-            native!(ffi::KINSetConstraints(s.mem, s.signs), "sign constraints")?;
-        }
-        Ok(s)
+        owned.ok_or_else(|| ProblemError::internal("missing initialized KINSOL session"))
     }
     fn clear_callback_setup(&mut self) {
         self.callback.setup = None;
@@ -1512,6 +1609,7 @@ impl Session {
             )
         });
         self.callback.raw_map = match &self.callback.function {
+            Function::Retired(_) => return Err(ProblemError::internal("retired KINSOL function")),
             Function::FixedPoint(oracle) => Some(
                 RawMapCapture::new(
                     oracle.contract(),
@@ -1785,6 +1883,9 @@ impl Session {
                     .state
                     .evaluate("native.validation.residual", || {
                         match &mut self.callback.function {
+                            Function::Retired(_) => {
+                                return Err(ProblemError::internal("retired KINSOL function"));
+                            }
                             Function::Equations(o) => o.residual(&x, &mut f),
                             Function::Picard { oracle, .. } => oracle.residual(&x, &mut f),
                             Function::FixedPoint(o) => {
@@ -1848,6 +1949,11 @@ impl Session {
                                     };
                                 report.quality = Some(quality);
                                 let observation = match &self.callback.function {
+                                    Function::Retired(_) => {
+                                        return Err(ProblemError::internal(
+                                            "retired KINSOL function",
+                                        ));
+                                    }
                                     Function::Equations(o) => o.observe(f.clone()),
                                     Function::Picard { oracle, .. } => oracle.observe(f.clone()),
                                     Function::FixedPoint(_) => {
@@ -2017,6 +2123,62 @@ pub fn termination(code: i32) -> NativeTermination {
 mod tests {
     use super::*;
     use pse_model::scalars::{Fraction, PositiveCount};
+    #[derive(Debug)]
+    struct FinishRoot {
+        inner: crate::solver_tests::Polynomial,
+        finished: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    }
+    impl NleOracle for FinishRoot {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            self.finished
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Err(ProblemError::Contract("root retirement control".into()))
+        }
+        fn contract(&self) -> &OracleContract {
+            NleOracle::contract(&self.inner)
+        }
+        fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+            NleOracle::jacobian_pattern(&self.inner)
+        }
+        fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            self.inner.residual(x, out)
+        }
+        fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            NleOracle::jacobian(&mut self.inner, x, out)
+        }
+        fn jacobian_product(
+            &mut self,
+            x: &[f64],
+            direction: &[f64],
+            out: &mut [f64],
+        ) -> Result<(), ProblemError> {
+            self.inner.jacobian_product(x, direction, out)
+        }
+    }
+    #[test]
+    fn failed_construction_consumes_original_root_and_keeps_both_causes() {
+        let finished = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut config = settings();
+        config.variable_scales.clear();
+        let error = Session::new(
+            Function::Equations(Box::new(FinishRoot {
+                inner: crate::solver_tests::Polynomial::new(),
+                finished: finished.clone(),
+            })),
+            config,
+            execution(),
+            crate::solver_tests::stamp(Backend::Kinsol),
+        )
+        .unwrap_err();
+        let ProblemError::Retirement { failures } = error else {
+            panic!("constructor and retirement must both survive")
+        };
+        assert_eq!(failures.len(), 2);
+        assert!(
+            matches!(&failures[1], ProblemError::Contract(detail) if detail == "root retirement control")
+        );
+        assert_eq!(finished.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
     fn positive(n: usize) -> PositiveCount {
         PositiveCount::try_new(n).unwrap()
     }
@@ -2273,6 +2435,9 @@ mod tests {
         setups: std::sync::Arc<std::sync::atomic::AtomicUsize>,
     }
     impl NleOracle for CountedAffineRoot {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &OracleContract {
             &self.inner.c
         }
@@ -2850,6 +3015,9 @@ mod tests {
         }
     }
     impl NleOracle for FaultOracle {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &OracleContract {
             &self.inner.c
         }
@@ -2879,6 +3047,9 @@ mod tests {
         }
     }
     impl FixedPointOracle for FaultOracle {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &OracleContract {
             &self.inner.c
         }
@@ -3085,6 +3256,9 @@ mod tests {
         original_nonfinite: Option<f64>,
     }
     impl FixedPointOracle for ObservedMap {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &OracleContract {
             &self.inner.c
         }
@@ -4317,6 +4491,9 @@ mod tests {
         #[derive(Debug)]
         struct Directional(crate::solver_tests::Polynomial);
         impl NleOracle for Directional {
+            fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+                Ok(())
+            }
             fn contract(&self) -> &OracleContract {
                 &self.0.c
             }

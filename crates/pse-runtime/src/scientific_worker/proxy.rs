@@ -124,6 +124,7 @@ struct Remote {
     _endpoint: tempfile::TempDir,
     session: SemanticId,
     closed: bool,
+    retired: bool,
 }
 impl std::fmt::Debug for Remote {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -146,28 +147,56 @@ impl Remote {
             .exchange(request, scope, invocation_cancel)
     }
     fn fail(mut self, cause: WorkerError) -> WorkerError {
-        // The aggregate reservation also covers parent I/O buffers and its
-        // executor. Reaping the child settles only one of those owners.
-        let admission = self.child.admission_guard();
-        let cause = self.child.settle_failure(cause);
-        self.io.take();
-        drop(admission);
-        cause
+        let mut failures = vec![cause];
+        self.settle(&mut failures);
+        match failures.len() {
+            1 => failures.remove(0),
+            _ => WorkerError::Retirement { causes: failures },
+        }
     }
-}
-impl Drop for Remote {
-    fn drop(&mut self) {
+    fn settle(&mut self, failures: &mut Vec<WorkerError>) {
+        if self.retired {
+            return;
+        }
+        // Child reap and parent buffers/runtime are independent physical owners.
+        // This guard and endpoint stay in this performing operation until both
+        // settle, even when a child wait is temporarily unknowable.
+        let admission = self.child.admission_guard();
         #[cfg(test)]
         self.child.observe_close(self.closed);
-        // Dropping I/O after an unclosed channel causes the helper to terminate
-        // native work. Child custody still retains admission through actual reap.
-        self.io.take();
-        if let Err(error) = self.child.drain(if self.closed {
+        if let Some(io) = self.io.as_mut() {
+            io.request_stop();
+        }
+        match self.child.drain(if self.closed {
             Duration::from_millis(100)
         } else {
             Duration::ZERO
         }) {
-            tracing::error!(error = %error, "scientific worker drop could not establish reap");
+            Ok(status) if self.closed && !status.success() => {
+                failures.push(WorkerError::Exit(status))
+            }
+            Err(error) => failures.push(error),
+            _ => {}
+        }
+        if let Some(io) = self.io.take() {
+            if let Err(error) = io.finish() {
+                failures.push(error);
+            }
+        }
+        self.retired = true;
+        drop(admission);
+    }
+    fn finish(mut self, mut failures: Vec<WorkerError>) -> Result<(), WorkerError> {
+        self.settle(&mut failures);
+        super::retirement_result(failures)
+    }
+}
+impl Drop for Remote {
+    fn drop(&mut self) {
+        let mut failures = Vec::new();
+        self.settle(&mut failures);
+        if let Err(error) = super::retirement_result(failures) {
+            tracing::error!(error = %error, "scientific worker abandonment settlement failed");
         }
     }
 }
@@ -227,13 +256,13 @@ impl Proxy {
             .map_err(infrastructure)?;
         let endpoint = directory.path().join("worker.sock");
         let session = pse_operations::mint_id();
+        let startup = Instant::now()
+            .checked_add(self.scope.remaining(Duration::from_secs(30))?)
+            .ok_or(ProviderError::Limit("scientific worker startup extent"))?;
         let mut child =
             self.factory
                 .executable
                 .launch(&endpoint, session, &self.scope, admission, false)?;
-        let startup = Instant::now()
-            .checked_add(self.scope.remaining(Duration::from_secs(30))?)
-            .ok_or(ProviderError::Limit("scientific worker startup extent"))?;
         let connected = (|| {
             while !endpoint.exists() {
                 self.scope.check()?;
@@ -258,6 +287,7 @@ impl Proxy {
             _endpoint: directory,
             session,
             closed: false,
+            retired: false,
         });
         Ok(())
     }
@@ -352,6 +382,60 @@ fn scientific_remaining_ns(
         .transpose()
 }
 impl Provider for Proxy {
+    fn finish(mut self: Box<Self>) -> Result<(), ProviderError> {
+        let Some(mut remote) = self.remote.take() else {
+            return Ok(());
+        };
+        let mut failures = Vec::new();
+        // Cleanup has its own operational allowance, independent of cancelled
+        // or expired science. A refusal for one handle never skips the others.
+        for (_, handle, _) in self.prepared.drain(..) {
+            let cleanup = ExecutionScope::new(
+                pse_diagnostics::Cancellation::default(),
+                Instant::now().checked_add(Duration::from_millis(100)),
+            );
+            let result = remote.exchange(p::Request::Close(handle.clone()), &cleanup, None);
+            match result {
+                Ok(p::Response::Closed(actual)) if actual == handle => {}
+                Ok(p::Response::Failure(value)) => failures.push(WorkerError::Lifecycle {
+                    action: "Close",
+                    handle: Some(handle),
+                    cause: Box::new(handler::refusal(value)),
+                }),
+                Ok(_) => failures.push(WorkerError::Acknowledgement {
+                    action: "Close",
+                    handle: Some(handle),
+                }),
+                Err(cause) => failures.push(WorkerError::Lifecycle {
+                    action: "Close",
+                    handle: Some(handle),
+                    cause: Box::new(cause),
+                }),
+            }
+        }
+        let cleanup = ExecutionScope::new(
+            pse_diagnostics::Cancellation::default(),
+            Instant::now().checked_add(Duration::from_millis(100)),
+        );
+        match remote.exchange(p::Request::Shutdown, &cleanup, None) {
+            Ok(p::Response::Shutdown) => remote.closed = true,
+            Ok(p::Response::Failure(value)) => failures.push(WorkerError::Lifecycle {
+                action: "Shutdown",
+                handle: None,
+                cause: Box::new(handler::refusal(value)),
+            }),
+            Ok(_) => failures.push(WorkerError::Acknowledgement {
+                action: "Shutdown",
+                handle: None,
+            }),
+            Err(cause) => failures.push(WorkerError::Lifecycle {
+                action: "Shutdown",
+                handle: None,
+                cause: Box::new(cause),
+            }),
+        }
+        remote.finish(failures).map_err(WorkerError::into_provider)
+    }
     fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
         self.prepared
             .iter()

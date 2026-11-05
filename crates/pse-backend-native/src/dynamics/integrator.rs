@@ -1817,6 +1817,9 @@ mod forward_initialization_tests {
         }
     }
     impl Oracle for Affine {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &Contract {
             &self.0
         }
@@ -2027,6 +2030,9 @@ mod action_route_tests {
         fail: Rc<Cell<bool>>,
     }
     impl Oracle for Actions {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &Contract {
             &self.contract
         }

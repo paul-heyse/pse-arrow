@@ -54,10 +54,25 @@ impl Relaxed {
         inner: Box<dyn NlpOracle>,
         domains: Vec<ModelingVariableDomain>,
     ) -> Result<Self, ProblemError> {
-        if domains.len() != inner.contract().variables.len() {
-            return Err(ProblemError::Internal("relaxed column domains".into()));
-        }
-        Ok(Self { inner, domains })
+        crate::retiring(
+            inner,
+            |owner| owner.finish(),
+            |pending| {
+                let inner = pending.as_mut().ok_or_else(|| {
+                    ProblemError::internal("missing native wrapper constructor owner")
+                })?;
+
+                if domains.len() != inner.contract().variables.len() {
+                    return Err(ProblemError::Internal("relaxed column domains".into()));
+                }
+                Ok(Self {
+                    inner: pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing native wrapper ownership transfer")
+                    })?,
+                    domains,
+                })
+            },
+        )
     }
 }
 
@@ -74,26 +89,41 @@ impl Pinned {
     /// A column out of range or repeated, or a value that is not finite or lies outside the
     /// column's declared box: a pin narrows a box, it never widens one.
     pub fn new(inner: Box<dyn NlpOracle>, pins: &[(usize, f64)]) -> Result<Self, ProblemError> {
-        let mut contract = inner.contract().clone();
-        let mut seen = std::collections::BTreeSet::new();
-        for &(column, value) in pins {
-            let variable = contract
-                .variables
-                .get_mut(column)
-                .filter(|_| seen.insert(column))
-                .ok_or_else(|| {
-                    ProblemError::Contract("pinned column out of range or repeated".into())
+        crate::retiring(
+            inner,
+            |owner| owner.finish(),
+            |pending| {
+                let inner = pending.as_mut().ok_or_else(|| {
+                    ProblemError::internal("missing native wrapper constructor owner")
                 })?;
-            if !value.is_finite() || value < variable.lower || value > variable.upper {
-                return Err(ProblemError::Contract(format!(
-                    "pin of {} at {value} lies outside its box [{}, {}]",
-                    variable.id, variable.lower, variable.upper
-                )));
-            }
-            variable.lower = value;
-            variable.upper = value;
-        }
-        Ok(Self { inner, contract })
+
+                let mut contract = inner.contract().clone();
+                let mut seen = std::collections::BTreeSet::new();
+                for &(column, value) in pins {
+                    let variable = contract
+                        .variables
+                        .get_mut(column)
+                        .filter(|_| seen.insert(column))
+                        .ok_or_else(|| {
+                            ProblemError::Contract("pinned column out of range or repeated".into())
+                        })?;
+                    if !value.is_finite() || value < variable.lower || value > variable.upper {
+                        return Err(ProblemError::Contract(format!(
+                            "pin of {} at {value} lies outside its box [{}, {}]",
+                            variable.id, variable.lower, variable.upper
+                        )));
+                    }
+                    variable.lower = value;
+                    variable.upper = value;
+                }
+                Ok(Self {
+                    inner: pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing native wrapper ownership transfer")
+                    })?,
+                    contract,
+                })
+            },
+        )
     }
     /// The continuous problem of a mixed-integer case under `commitment` (ADR-0105 §2,
     /// ADR-0118 item 9): each committed column keeps its coordinate with its committed box.
@@ -110,46 +140,66 @@ impl Pinned {
     pub fn discrete(relaxed: Relaxed, commitment: &Commitment) -> Result<Self, ProblemError> {
         use ModelingVariableDomain as D;
         let Relaxed { inner, domains } = relaxed;
-        let mut contract = inner.contract().clone();
-        let mut committed = std::collections::BTreeMap::new();
-        for (id, bounds) in &commitment.columns {
-            let column = contract
-                .variables
-                .iter()
-                .position(|v| v.id == *id)
-                .filter(|c| !committed.contains_key(c))
-                .ok_or_else(|| {
-                    ProblemError::Contract(format!("committed column {id} absent or repeated"))
-                })?;
-            committed.insert(column, *bounds);
-        }
-        for (column, (variable, domain)) in contract.variables.iter_mut().zip(&domains).enumerate()
-        {
-            let (lower, upper) = (variable.lower, variable.upper);
-            let admitted = match (domain, committed.get(&column)) {
-                (_, Some(&(l, u))) if !(l.is_finite() && u.is_finite() && l <= u) => false,
-                (D::Continuous, Some(&(l, u))) => l >= lower && u <= upper,
-                (D::Semicontinuous, Some(&(l, u))) if l < u => l == lower && u == upper,
-                (d, Some(&(l, u))) => l == u && d.contains(l, lower, upper),
-                (D::Continuous, None) => true,
-                (_, None) => false,
-            };
-            if !admitted {
-                return Err(ProblemError::Unsupported(format!(
-                    "a discrete assignment commits {} ({}) to one value of its domain, or a semicontinuous column to its active interval",
-                    variable.id,
-                    domain.as_str()
-                )));
-            }
-            if let Some(&(l, u)) = committed.get(&column) {
-                variable.lower = l;
-                variable.upper = u;
-            }
-        }
-        Ok(Self { inner, contract })
+        crate::retiring(
+            inner,
+            |owner| owner.finish(),
+            |pending| {
+                let inner = pending
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing discrete source owner"))?;
+                let mut contract = inner.contract().clone();
+                let mut committed = std::collections::BTreeMap::new();
+                for (id, bounds) in &commitment.columns {
+                    let column = contract
+                        .variables
+                        .iter()
+                        .position(|v| v.id == *id)
+                        .filter(|c| !committed.contains_key(c))
+                        .ok_or_else(|| {
+                            ProblemError::Contract(format!(
+                                "committed column {id} absent or repeated"
+                            ))
+                        })?;
+                    committed.insert(column, *bounds);
+                }
+                for (column, (variable, domain)) in
+                    contract.variables.iter_mut().zip(&domains).enumerate()
+                {
+                    let (lower, upper) = (variable.lower, variable.upper);
+                    let admitted = match (domain, committed.get(&column)) {
+                        (_, Some(&(l, u))) if !(l.is_finite() && u.is_finite() && l <= u) => false,
+                        (D::Continuous, Some(&(l, u))) => l >= lower && u <= upper,
+                        (D::Semicontinuous, Some(&(l, u))) if l < u => l == lower && u == upper,
+                        (d, Some(&(l, u))) => l == u && d.contains(l, lower, upper),
+                        (D::Continuous, None) => true,
+                        (_, None) => false,
+                    };
+                    if !admitted {
+                        return Err(ProblemError::Unsupported(format!(
+                            "a discrete assignment commits {} ({}) to one value of its domain, or a semicontinuous column to its active interval",
+                            variable.id,
+                            domain.as_str()
+                        )));
+                    }
+                    if let Some(&(l, u)) = committed.get(&column) {
+                        variable.lower = l;
+                        variable.upper = u;
+                    }
+                }
+                Ok(Self {
+                    inner: pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing discrete source transfer")
+                    })?,
+                    contract,
+                })
+            },
+        )
     }
 }
 impl NlpOracle for Pinned {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        self.inner.finish()
+    }
     fn solve_separator(&self) -> Option<&crate::SolveSeparator> {
         self.inner.solve_separator()
     }
@@ -210,17 +260,34 @@ impl Unconstrained {
     /// # Errors
     /// A row ordinal out of range.
     pub fn new(inner: Box<dyn NlpOracle>, rows: &[usize]) -> Result<Self, ProblemError> {
-        let mut bounds = inner.constraint_bounds().to_vec();
-        for r in rows {
-            *bounds
-                .get_mut(*r)
-                .ok_or_else(|| ProblemError::Internal("unconstrained row ordinal".into()))? =
-                (f64::NEG_INFINITY, f64::INFINITY);
-        }
-        Ok(Self { inner, bounds })
+        crate::retiring(
+            inner,
+            |owner| owner.finish(),
+            |pending| {
+                let inner = pending.as_mut().ok_or_else(|| {
+                    ProblemError::internal("missing native wrapper constructor owner")
+                })?;
+
+                let mut bounds = inner.constraint_bounds().to_vec();
+                for r in rows {
+                    *bounds.get_mut(*r).ok_or_else(|| {
+                        ProblemError::Internal("unconstrained row ordinal".into())
+                    })? = (f64::NEG_INFINITY, f64::INFINITY);
+                }
+                Ok(Self {
+                    inner: pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing native wrapper ownership transfer")
+                    })?,
+                    bounds,
+                })
+            },
+        )
     }
 }
 impl NlpOracle for Unconstrained {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        self.inner.finish()
+    }
     fn solve_separator(&self) -> Option<&crate::SolveSeparator> {
         self.inner.solve_separator()
     }

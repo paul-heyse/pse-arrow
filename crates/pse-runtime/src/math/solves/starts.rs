@@ -285,50 +285,61 @@ impl MathService {
             rows.checked_mul(size_of::<f64>())
                 .ok_or(MathRuntimeError::Limit("original screening rows"))?,
         )?;
+        let original = target.original_identity()?;
+        let values = case.values.as_ref().clone();
+        let execution = Execution::within(
+            scope.cancellation_control().clone(),
+            &Controls::default(),
+            scope.clone(),
+        )?;
         let ExecutionWorker {
             worker,
             _case,
             _charge,
         } = self.worker(executable, &case.providers, scope.clone(), budget)?;
-        let mut oracle =
-            native::assembled::AlgebraicOracle::new(worker, case.values.as_ref().clone())?;
-        let contract = NlpOracle::contract(&oracle).clone();
-        let execution = Execution::within(
-            scope.cancellation_control().clone(),
-            &Controls::default(),
-            scope,
-        )?;
-        Ok(proposal.screen(
-            &contract,
-            target.original_identity()?,
-            branch,
-            &execution,
-            |x| {
-                let objective = budget
-                    .evaluate(|| {
-                        *evaluations = evaluations.checked_add(1).ok_or(
-                            MathRuntimeError::Limit("original screening evaluation counter"),
-                        )?;
-                        oracle.objective(x).map_err(Into::into)
-                    })
-                    .map_err(MathRuntimeError::into_problem)?;
-                let mut values = vec![0.; rows];
-                budget
-                    .evaluate(|| {
-                        *evaluations = evaluations.checked_add(1).ok_or(
-                            MathRuntimeError::Limit("original screening evaluation counter"),
-                        )?;
-                        oracle.constraints(x, &mut values).map_err(Into::into)
-                    })
-                    .map_err(MathRuntimeError::into_problem)?;
-                if !objective.is_finite() || values.iter().any(|v| !v.is_finite()) {
-                    return Err(ProblemError::numerical(
-                        "nonfinite original start evaluation",
-                    ));
-                }
-                Ok(())
-            },
-        )?)
+        let mut oracle = native::assembled::AlgebraicOracle::new(worker, values)?;
+        let action = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let contract = NlpOracle::contract(&oracle).clone();
+            proposal
+                .screen(&contract, original, branch, &execution, |x| {
+                    let objective = budget
+                        .evaluate(|| {
+                            *evaluations = evaluations.checked_add(1).ok_or(
+                                MathRuntimeError::Limit("original screening evaluation counter"),
+                            )?;
+                            oracle.objective(x).map_err(Into::into)
+                        })
+                        .map_err(MathRuntimeError::into_problem)?;
+                    let mut values = vec![0.; rows];
+                    budget
+                        .evaluate(|| {
+                            *evaluations = evaluations.checked_add(1).ok_or(
+                                MathRuntimeError::Limit("original screening evaluation counter"),
+                            )?;
+                            oracle.constraints(x, &mut values).map_err(Into::into)
+                        })
+                        .map_err(MathRuntimeError::into_problem)?;
+                    if !objective.is_finite() || values.iter().any(|v| !v.is_finite()) {
+                        return Err(ProblemError::numerical(
+                            "nonfinite original start evaluation",
+                        ));
+                    }
+                    Ok(())
+                })
+                .map_err(MathRuntimeError::from)
+        }))
+        .unwrap_or_else(|payload| {
+            Err(MathRuntimeError::Panic(
+                pse_diagnostics::panic::settle_payload(
+                    payload,
+                    "original start screening panic with opaque payload",
+                ),
+            ))
+        });
+        MathRuntimeError::settle(
+            action,
+            NlpOracle::finish(Box::new(oracle)).map_err(MathRuntimeError::from),
+        )
     }
 
     /// Screen actual original bounds, guards, objective and rows on one admitted worker.

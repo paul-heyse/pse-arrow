@@ -8,6 +8,16 @@ use pse_kernels::{
     ProviderBatchPoint, ProviderBinding, ProviderBuffer, ProviderError, ProviderFactory,
     ProviderRequest, ProviderRuntime, ProviderSpec, ProviderValues,
 };
+fn finish_binding(binding: ProviderBinding) -> Result<(), WorkerError> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        binding.finish().map_err(WorkerError::from)
+    }))
+    .unwrap_or_else(|payload| {
+        Err(WorkerError::NativePanic(
+            pse_diagnostics::panic::settle_payload(payload, "non-text native panic payload"),
+        ))
+    })
+}
 
 /// Attempt-bound context reference, checked on every invocation; never a proof token.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -79,22 +89,35 @@ impl PreparedSession {
             max_result_bytes: result_limit,
         })?;
         let mut binding = factory.create_scoped(scope.nested())?;
-        if binding.supports_linearization() {
-            return Err(ProviderError::Contract(
-                "scientific worker has no admitted transferable linearization context".into(),
-            )
-            .into());
-        }
-        let request = binding.prepare(request)?;
-        let context = EvaluationContext {
-            cancelled: scope.cancellation(),
-            max_result_bytes: result_limit,
+        let prepared = (|| {
+            if binding.supports_linearization() {
+                return Err(ProviderError::Contract(
+                    "scientific worker has no admitted transferable linearization context".into(),
+                ));
+            }
+            let request = binding.prepare(request)?;
+            let context = EvaluationContext {
+                cancelled: scope.cancellation(),
+                max_result_bytes: result_limit,
+            };
+            request.check_context(&context)?;
+            // The launcher admits request/result/decoder and opaque storage before
+            // this constructor; this check bounds the exact numerical allocation.
+            let buffer = ProviderBuffer::new(&request);
+            scope.check()?;
+            Ok((request, buffer))
+        })();
+        let (request, buffer) = match prepared {
+            Ok(value) => value,
+            Err(error) => {
+                return Err(match finish_binding(binding) {
+                    Ok(()) => WorkerError::Provider(error),
+                    Err(cleanup) => WorkerError::Retirement {
+                        causes: vec![error.into(), cleanup],
+                    },
+                });
+            }
         };
-        request.check_context(&context)?;
-        // The launcher admits request/result/decoder and opaque storage before
-        // this constructor; this check bounds the exact numerical allocation.
-        let buffer = ProviderBuffer::new(&request);
-        scope.check()?;
         Ok(Self {
             handle,
             state: SessionState::Ready,
@@ -132,8 +155,7 @@ impl PreparedSession {
         points: &[ProviderBatchPoint],
     ) -> Result<Vec<ProviderBatchOutcome>, WorkerError> {
         if let Err(error) = self.scope.check() {
-            self.close();
-            return Err(error.into());
+            return Err(self.settle_failure(error.into()));
         }
         if self.state != SessionState::Ready
             || handle != self.handle
@@ -191,8 +213,7 @@ impl PreparedSession {
         runtime: ProviderRuntime<'_>,
     ) -> Result<ProviderValues, WorkerError> {
         if let Err(error) = self.scope.check() {
-            self.close();
-            return Err(error.into());
+            return Err(self.settle_failure(error.into()));
         }
         if self.state != SessionState::Ready
             || handle != self.handle
@@ -235,15 +256,31 @@ impl PreparedSession {
     /// Request cancellation for this handle's scope, then retire its settled native state.
     /// The caller must run this on the same native lane after its invocation has joined;
     /// requesting cancellation alone does not establish physical settlement.
-    pub fn stop(&mut self) {
+    pub fn stop(&mut self) -> Result<(), WorkerError> {
         self.scope.cancellation_control().cancel();
-        self.close();
+        self.close()
     }
     /// Stop admission and destroy settled state without changing the original stop cause.
     /// The caller must run this on the same native lane after its invocation.
-    pub fn close(&mut self) {
+    pub fn close(&mut self) -> Result<(), WorkerError> {
         self.state = SessionState::Stopping;
-        drop(self.binding.take());
+        let result = self.binding.take().map_or(Ok(()), finish_binding);
         self.state = SessionState::Closed;
+        result
+    }
+    fn settle_failure(&mut self, cause: WorkerError) -> WorkerError {
+        match self.close() {
+            Ok(()) => cause,
+            Err(cleanup) => WorkerError::Retirement {
+                causes: vec![cause, cleanup],
+            },
+        }
+    }
+}
+impl Drop for PreparedSession {
+    fn drop(&mut self) {
+        if let Err(error) = self.close() {
+            tracing::error!(error = %error, "scientific worker native session abandonment finish failed");
+        }
     }
 }

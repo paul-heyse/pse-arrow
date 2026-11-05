@@ -3,6 +3,92 @@
 
 Generated from actual typed declarations. Registry and contextual scientific admission retain authority.
 
+## `ApplicabilityClaim`
+
+Rust owner: `pse_model::applicability::Claim`. Source: `crates/pse-model/src/applicability.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `coverage` | 2 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `owner` | 3 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `owner_lineage` | 4 | `Repeated(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `evidence` | 5 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `form` | 6 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `call` | 7 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `records` | 8 | `Repeated(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `dependencies` | 9 | `Repeated(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `layer` | 10 | `Named("ModelingValidityLayer")` | `Both` | `[]` | `{}` |
+| `basis` | 11 | `Optional(Named("ModelingApplicabilityBasis"))` | `Both` | `[]` | `{}` |
+| `reason` | 12 | `Optional(Scalar(String))` | `Both` | `[]` | `{}` |
+
+## `ApplicabilityInput`
+
+Rust owner: `pse_model::applicability::Input`. Source: `crates/pse-model/src/applicability.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `value` | 2 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
+| `quantity_type` | 3 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+
+## `ApplicabilityObservation`
+
+Rust owner: `pse_model::applicability::Observation`. Source: `crates/pse-model/src/applicability.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `claim` | 1 | `Named("ApplicabilityClaim")` | `Both` | `[]` | `{}` |
+| `instance` | 2 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `inputs` | 3 | `Repeated(Named("ApplicabilityInput"))` | `Both` | `[]` | `{}` |
+| `outcome` | 4 | `Named("ModelingApplicabilityOutcome")` | `Both` | `[]` | `{}` |
+| `required` | 5 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `permissions` | 6 | `Repeated(Named("ApplicabilityPermission"))` | `Both` | `[]` | `{}` |
+| `unknown_allowed` | 7 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `extrapolation_allowed` | 8 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `admitted` | 9 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+
+## `ApplicabilityPermission`
+
+Rust owner: `pse_model::applicability::Permission`. Source: `crates/pse-model/src/applicability.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `scope` | 2 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `target_kind` | 3 | `Named("ModelingPermissionTarget")` | `Both` | `[]` | `{}` |
+| `targets` | 4 | `Repeated(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `allow_unknown` | 5 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `allow_extrapolation` | 6 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+
+## `Array16U8`
+
+Rust owner: `[u8; 16]`. Source: `crates/pse-contract/src/boundary_projection/array.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `values` | 1 | `Scalar(Bytes)` | `Both` | `[Length { min: 16, max: 16 }]` | `{}` |
+
+## `Array3Array16U8`
+
+Rust owner: `[[u8; 16]; 3]`. Source: `crates/pse-contract/src/boundary_projection/array.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `values` | 1 | `Repeated(Named("Array16U8"))` | `Both` | `[Length { min: 3, max: 3 }]` | `{}` |
+
 ## `Array8OptionalUnitId`
 
 Rust owner: `[core::option::Option<pse_quantity::ids::UnitId>; 8]`. Source: `crates/pse-contract/src/boundary_projection/array.rs`. Interpretation version: 1. Direction: `Both`.
@@ -190,6 +276,107 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `TransposeAction (alternative tag 4).value` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
 | `WeightedSecondAction (alternative tag 5).value` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
 
+## `DiagnosticCode`
+
+Rust owner: `pse_diagnostics::vocabulary::DiagnosticCode`. Source: `crates/pse-diagnostics/src/vocabulary.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["host.io", "host.manager", "host.ownership", "host.deadline", "host.unknown_launch", "host.settlement", "host.environment", "host.stale_tools", "fixture.unprepared", "correctness.graph", "correctness.admission", "correctness.io", "authoring.parse", "authoring.parse.ambiguous_unary_power", "authoring.parse.budget", "authoring.parse.document_io", "authoring.parse.missing_id", "authoring.parse.nonfinite_number", "authoring.parse.syntax", "authoring.parse.unknown_key", "authoring.parse.unresolved_target", "authoring.pkg.unresolved", "authoring.pkg.version_conflict", "authoring.reference", "authoring.reference.contract", "authoring.reference.derived_write", "authoring.reference.rename_named", "authoring.reference.unknown_row_key", "capability.backend", "compile.discretization", "compile.feature", "compile.law", "compile.math", "compile.math.cyclic_expression", "compile.math.domain_violation_static", "compile.math.quantity_operation_unsupported", "compile.math.unit_inconsistent", "compile.property", "config.invalid", "internal.invariant", "kernel.unbound_parameter", "plan.initialization", "rule.float_key", "rule.head_schema_mismatch", "runtime.cancelled", "runtime.infrastructure", "runtime.resource_limit", "runtime.timeout", "schema.admission", "schema.arrow", "schema.codegen", "schema.contract_mismatch", "schema.duplicate_declaration", "schema.enum_member", "schema.extension_metadata", "schema.extension_type", "schema.fingerprint_mismatch", "schema.invalid_declaration", "schema.invalid_key", "schema.missing_granularity", "schema.missing_snapshot_class", "schema.nullability", "schema.ordinal_range", "schema.rule_float_key", "schema.rule_stratification", "schema.storage", "schema.unknown_metadata", "schema.unknown_reference", "schema.unknown_registry", "schema.unsupported_layout", "schema.version_mismatch", "solve.evaluation_error", "solve.infeasible", "solve.limit", "solve.locally_infeasible", "solve.solver_error", "solve.unbounded", "template.guard_undecidable", "user.model", "validation.invariant", "authoring.budget", "authoring.contract", "authoring.derived_write", "authoring.document_io", "authoring.missing_id", "authoring.package_unresolved", "authoring.package_version_conflict", "authoring.rename_named", "authoring.schema_version", "authoring.syntax", "authoring.unknown_key", "authoring.unknown_row_key", "authoring.unresolved_target", "candidate.evaluation_failed", "compiler.cancelled", "compiler.limit", "compiler.math", "compiler.missing", "compiler.modeling", "compiler.structure", "compiler.syntax", "domain.potential_evaluation_error", "equation.canceling_terms", "equation.large_residual", "equation.mismatched_term", "equation.term_evaluation_failed", "fit.candidate_validation", "fit.final_evaluation", "fit.objective_overflow", "fit.response_rank", "jacobian.analysis_inconclusive", "jacobian.condition_estimate", "jacobian.extreme_column", "jacobian.extreme_entry", "jacobian.extreme_row", "jacobian.numerical_rank_deficiency", "jacobian.parallel_columns", "jacobian.parallel_rows", "math.applicability", "math.cancelled", "math.coefficient_range", "math.contract", "math.domain", "math.evaluation", "math.library", "math.limit", "math.native", "math.provider", "math.quantity", "math.range", "math.validity", "modeling.budget", "modeling.cancelled", "modeling.capability", "modeling.conditional_unit.admission.invalid_model", "modeling.conditional_unit.admission.numerical", "modeling.conditional_unit.admission.trial_rejected", "modeling.contract", "modeling.diagnostic_samples", "modeling.diagnostics", "modeling.domain", "modeling.domain.tightened", "modeling.dynamic.algebraic_reset.unsupported", "modeling.dynamic.inventory_transfer.event.unsupported", "modeling.initialization.attempt_limit", "modeling.initialization.incomplete", "modeling.initialization.minimum_step", "modeling.initialization.outcome", "modeling.initialization.step_precision", "modeling.nonlinear.attempt_limit", "modeling.nonlinear.cancelled", "modeling.nonlinear.initial_inconclusive", "modeling.nonlinear.time_limit", "modeling.objective", "modeling.provenance", "modeling.qualification.infeasibility_contradicted", "modeling.qualification.rejected", "modeling.realization", "modeling.staged.start", "modeling.study.initialization", "modeling.study.predecessor", "modeling.study.procedure", "modeling.trajectory.incomplete", "modeling.trajectory.rejected", "native.cancelled", "native.contract", "native.internal", "native.limit", "native.numerical", "native.reuse", "native.route_refused", "native.structural", "native.unavailable", "native.unsupported", "objective.priority_optimization_incomplete", "shooting.candidate_validation", "shooting.evaluation", "structural.overdetermined", "structural.underdetermined", "variable.fixed_zero", "variable.large_value", "variable.missing_value", "variable.near_lower_bound", "variable.near_upper_bound", "variable.nonfinite", "variable.only_in_inequalities", "variable.outside_lower_bound", "variable.outside_upper_bound", "variable.small_value", "variable.unused", "workflow.contract", "workflow.ephemeral_publication", "workflow.export_expired", "workflow.job_payload_version", "workflow.legacy_workspace", "workflow.operations", "workflow.publication_unresolved", "workflow.unclassified", "quantity.unknown_id", "quantity.contract_mismatch", "quantity.unit_conversion", "quantity.incompatible", "quantity.nonfinite", "workflow.input", "workflow.internal", "workflow.panic", "diagnostic.aggregate", "study.binding.target", "study.binding.duplicate", "study.binding.physical", "study.binding.revision", "study.dependency.unusable", "study.seed.unavailable", "study.seed.incompatible", "study.seed.internal", "study.operation.unsupported", "modeling.conditional_unit.admission.unsupported", "modeling.conditional_unit.admission.cancelled", "modeling.conditional_unit.admission.resource_limit", "modeling.conditional_unit.admission.nonfinite", "modeling.conditional_unit.admission.infrastructure", "modeling.conditional_unit.admission.conflict", "modeling.conditional_unit.admission.incompatible", "modeling.conditional_unit.admission.internal", "modeling.conditional_unit.admission.inconclusive", "study.policy.admission"]`.
+
+## `DiagnosticNonfiniteObservation`
+
+Rust owner: `pse_model::generated::enums::DiagnosticNonfiniteObservation`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["nan", "positive_infinity", "negative_infinity"]`.
+
+## `DiagnosticObservation`
+
+Rust owner: `pse_model::diagnostic::Observation`. Source: `crates/pse-model/src/diagnostic.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Missing` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Real (alternative tag 2).value` | 1 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `Nonfinite (alternative tag 3).value` | 1 | `Named("DiagnosticNonfiniteObservation")` | `Both` | `[]` | `{}` |
+| `Physical (alternative tag 4).value` | 1 | `Named("DiagnosticPhysicalObservation")` | `Both` | `[]` | `{}` |
+| `Integer (alternative tag 5).value` | 1 | `Scalar(I64)` | `Both` | `[]` | `{}` |
+| `Boolean (alternative tag 6).value` | 1 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `Text (alternative tag 7).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `Contracts (alternative tag 8).value` | 1 | `Repeated(Named("DiagnosticOperandContract"))` | `Both` | `[]` | `{}` |
+
+## `DiagnosticOperandContract`
+
+Rust owner: `pse_diagnostics::OperandContract`. Source: `crates/pse-diagnostics/src/lib.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `quantity` | 1 | `Named("Array16U8")` | `Output` | `[]` | `{}` |
+| `indices` | 2 | `Repeated(Named("Array3Array16U8"))` | `Output` | `[]` | `{}` |
+
+## `DiagnosticPhysicalObservation`
+
+Rust owner: `pse_model::diagnostic::PhysicalObservation`. Source: `crates/pse-model/src/diagnostic.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `magnitude` | 1 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `quantity` | 2 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `unit` | 3 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `context` | 4 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+
+## `DiagnosticRule`
+
+Rust owner: `pse_diagnostics::vocabulary::DiagnosticRule`. Source: `crates/pse-diagnostics/src/vocabulary.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["authoring.budget", "authoring.contract", "authoring.derived_write", "authoring.document_io", "authoring.missing_id", "authoring.package_unresolved", "authoring.package_version_conflict", "authoring.rename_named", "authoring.schema_version", "authoring.syntax", "authoring.unknown_key", "authoring.unknown_row_key", "authoring.unresolved_target", "candidate.evaluation_failed", "compiler.cancelled", "compiler.limit", "compiler.math", "compiler.missing", "compiler.modeling", "compiler.structure", "compiler.syntax", "domain.potential_evaluation_error", "equation.canceling_terms", "equation.large_residual", "equation.mismatched_term", "equation.term_evaluation_failed", "fit.candidate_validation", "fit.final_evaluation", "fit.objective_overflow", "fit.response_rank", "jacobian.analysis_inconclusive", "jacobian.condition_estimate", "jacobian.extreme_column", "jacobian.extreme_entry", "jacobian.extreme_row", "jacobian.numerical_rank_deficiency", "jacobian.parallel_columns", "jacobian.parallel_rows", "math.applicability", "math.cancelled", "math.coefficient_range", "math.contract", "math.domain", "math.evaluation", "math.library", "math.limit", "math.native", "math.provider", "math.quantity", "math.range", "math.validity", "modeling.budget", "modeling.cancelled", "modeling.capability", "modeling.conditional_unit.admission.invalid_model", "modeling.conditional_unit.admission.numerical", "modeling.conditional_unit.admission.trial_rejected", "modeling.contract", "modeling.diagnostic_samples", "modeling.diagnostics", "modeling.domain", "modeling.domain.tightened", "modeling.dynamic.algebraic_reset.unsupported", "modeling.dynamic.inventory_transfer.event.unsupported", "modeling.initialization.attempt_limit", "modeling.initialization.incomplete", "modeling.initialization.minimum_step", "modeling.initialization.outcome", "modeling.initialization.step_precision", "modeling.nonlinear.attempt_limit", "modeling.nonlinear.cancelled", "modeling.nonlinear.initial_inconclusive", "modeling.nonlinear.time_limit", "modeling.objective", "modeling.provenance", "modeling.qualification.infeasibility_contradicted", "modeling.qualification.rejected", "modeling.realization", "modeling.staged.start", "modeling.study.initialization", "modeling.study.predecessor", "modeling.study.procedure", "modeling.trajectory.incomplete", "modeling.trajectory.rejected", "native.cancelled", "native.contract", "native.internal", "native.limit", "native.numerical", "native.reuse", "native.route_refused", "native.structural", "native.unavailable", "native.unsupported", "objective.priority_optimization_incomplete", "shooting.candidate_validation", "shooting.evaluation", "structural.overdetermined", "structural.underdetermined", "variable.fixed_zero", "variable.large_value", "variable.missing_value", "variable.near_lower_bound", "variable.near_upper_bound", "variable.nonfinite", "variable.only_in_inequalities", "variable.outside_lower_bound", "variable.outside_upper_bound", "variable.small_value", "variable.unused", "workflow.contract", "workflow.ephemeral_publication", "workflow.export_expired", "workflow.job_payload_version", "workflow.legacy_workspace", "workflow.operations", "workflow.publication_unresolved", "workflow.unclassified", "quantity.unknown_id", "quantity.contract_mismatch", "quantity.unit_conversion", "quantity.incompatible", "quantity.nonfinite", "workflow.input", "workflow.internal", "workflow.panic", "diagnostic.aggregate", "study.binding.target", "study.binding.duplicate", "study.binding.physical", "study.binding.revision", "study.dependency.unusable", "study.seed.unavailable", "study.seed.incompatible", "study.seed.internal", "study.operation.unsupported", "modeling.conditional_unit.admission.unsupported", "modeling.conditional_unit.admission.cancelled", "modeling.conditional_unit.admission.resource_limit", "modeling.conditional_unit.admission.nonfinite", "modeling.conditional_unit.admission.infrastructure", "modeling.conditional_unit.admission.conflict", "modeling.conditional_unit.admission.incompatible", "modeling.conditional_unit.admission.internal", "modeling.conditional_unit.admission.inconclusive", "study.policy.admission"]`.
+
+## `DiagnosticSeverity`
+
+Rust owner: `pse_model::generated::enums::DiagnosticSeverity`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["error", "warning", "info"]`.
+
+## `DiagnosticStage`
+
+Rust owner: `pse_diagnostics::vocabulary::DiagnosticStage`. Source: `crates/pse-diagnostics/src/vocabulary.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["workflow", "modeling", "routing", "native", "implicit", "presolve", "evaluation", "property", "fit", "shooting", "simulation", "initialization", "modeling.admission", "modeling.conditional_unit.admission", "modeling.diagnostics", "modeling.diagnostic_samples", "modeling.nonlinear", "modeling.qualification", "modeling.staged", "modeling.study", "modeling.trajectory", "modeling.dynamic", "dynamic-test", "fitting", "horizon", "compiler", "authoring", "quantity", "diagnostic", "binding", "study", "continuation", "study.admission", "study.policy", "study.binding", "applicability", "modeling-conservation-transfer", "modeling-event-reset", "nonlinear-explanation", "objective-levels", "shooting-trajectory-projection", "test"]`.
+
 ## `EntityKindId`
 
 Rust owner: `pse_quantity::ids::EntityKindId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
@@ -258,6 +445,18 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `OutsideEnvelope (alternative tag 6).upper` | 4 | `Scalar(F64Bits)` | `Output` | `[]` | `{}` |
 | `Terminal (alternative tag 7).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
 | `UnknownCompletion (alternative tag 8).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `ProviderRetirement (alternative tag 9).failures` | 1 | `Repeated(Named("KeyedFailure"))` | `Output` | `[Length { min: 1, max: 64 }]` | `{}` |
+| `ProviderSettlement (alternative tag 10).operation` | 1 | `Named("Failure")` | `Output` | `[Required]` | `{}` |
+| `ProviderSettlement (alternative tag 10).cleanup` | 2 | `Named("Failure")` | `Output` | `[Required]` | `{}` |
+| `ProviderRetirementPanic (alternative tag 11).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `Diagnostic (alternative tag 12).value` | 1 | `Named("ModelBoundaryDiagnostic")` | `Both` | `[]` | `{}` |
+| `Retirement (alternative tag 13).causes` | 1 | `Repeated(Named("Failure"))` | `Output` | `[Length { min: 1, max: 128 }]` | `{}` |
+| `NativePanic (alternative tag 14).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `Singular (alternative tag 15).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `LinearizationChanged` | 16 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `RegimeCrossing (alternative tag 17).selector` | 1 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
+| `RegimeCrossing (alternative tag 17).bound` | 2 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
+| `RegimeCrossing (alternative tag 17).selected` | 3 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
 
 ## `Handle`
 
@@ -359,6 +558,17 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `derivatives` | 8 | `Named("KernelDerivativeOrder")` | `Both` | `[Required]` | `{}` |
 | `smoothness` | 9 | `Named("KernelDerivativeOrder")` | `Both` | `[Required]` | `{}` |
 
+## `KeyedFailure`
+
+Rust owner: `pse_runtime::scientific_worker::protocol::KeyedFailure`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Scalar(ContentHash)` | `Output` | `[]` | `{}` |
+| `cause` | 2 | `Named("Failure")` | `Output` | `[Required]` | `{}` |
+
 ## `KindDefinition`
 
 Rust owner: `pse_quantity::kind::KindDefinition`. Source: `crates/pse-quantity/src/kind.rs`. Interpretation version: 1. Direction: `Both`.
@@ -384,6 +594,119 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `kind` | 1 | `Named("QuantityKindId")` | `Both` | `[]` | `{}` |
 | `exponent` | 2 | `Named("PhysicalRatio")` | `Both` | `[]` | `{}` |
+
+## `ModelBoundaryDiagnostic`
+
+Rust owner: `pse_model::diagnostic::BoundaryDiagnostic`. Source: `crates/pse-model/src/diagnostic.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `code` | 1 | `Named("DiagnosticCode")` | `Both` | `[]` | `{}` |
+| `causes` | 2 | `Repeated(Named("ModelBoundaryDiagnostic"))` | `Both` | `[]` | `{}` |
+| `class` | 3 | `Named("NativeBoundaryClass")` | `Both` | `[]` | `{}` |
+| `severity` | 4 | `Named("DiagnosticSeverity")` | `Both` | `[]` | `{}` |
+| `stage` | 5 | `Named("DiagnosticStage")` | `Both` | `[]` | `{}` |
+| `sources` | 6 | `Repeated(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `rule` | 7 | `Named("DiagnosticRule")` | `Both` | `[]` | `{}` |
+| `observations` | 8 | `Map(Scalar(String), Named("DiagnosticObservation"))` | `Both` | `[]` | `{}` |
+| `locations` | 9 | `Repeated(Named("ModelSourceLocation"))` | `Both` | `[]` | `{}` |
+| `validity` | 10 | `Optional(Named("ModelValidityLineage"))` | `Both` | `[]` | `{}` |
+| `applicability` | 11 | `Repeated(Named("ApplicabilityObservation"))` | `Both` | `[]` | `{}` |
+
+## `ModelSourceLocation`
+
+Rust owner: `pse_model::diagnostic::SourceLocation`. Source: `crates/pse-model/src/diagnostic.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `source` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `revision` | 2 | `Optional(Scalar(ContentHash))` | `Both` | `[]` | `{}` |
+| `document` | 3 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `occurrence_role` | 4 | `Optional(Scalar(String))` | `Both` | `[]` | `{}` |
+| `occurrence_position` | 5 | `Optional(Scalar(U32))` | `Both` | `[]` | `{}` |
+| `path` | 6 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `name` | 7 | `Optional(Scalar(String))` | `Both` | `[]` | `{}` |
+| `start` | 8 | `Optional(Scalar(U32))` | `Both` | `[]` | `{}` |
+| `end` | 9 | `Optional(Scalar(U32))` | `Both` | `[]` | `{}` |
+
+## `ModelValidityLineage`
+
+Rust owner: `pse_model::diagnostic::ValidityLineage`. Source: `crates/pse-model/src/diagnostic.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `layer` | 1 | `Named("ModelingValidityLayer")` | `Both` | `[]` | `{}` |
+| `source` | 2 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `form` | 3 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `sets` | 4 | `Repeated(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `variables` | 5 | `Repeated(Scalar(U32))` | `Both` | `[]` | `{}` |
+| `members` | 6 | `Repeated(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+
+## `ModelingApplicabilityBasis`
+
+Rust owner: `pse_model::generated::enums::ModelingApplicabilityBasis`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["fitted", "recommended", "validated", "reported"]`.
+
+## `ModelingApplicabilityOutcome`
+
+Rust owner: `pse_model::generated::enums::ModelingApplicabilityOutcome`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["applicable", "outside_region", "unknown_evidence"]`.
+
+## `ModelingPermissionTarget`
+
+Rust owner: `pse_model::generated::enums::ModelingPermissionTarget`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["records", "families"]`.
+
+## `ModelingValidityLayer`
+
+Rust owner: `pse_model::generated::enums::ModelingValidityLayer`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["form", "data", "closure"]`.
+
+## `NativeBoundaryClass`
+
+Rust owner: `pse_model::generated::enums::NativeBoundaryClass`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["invalid_model", "unsupported", "resource_limit", "trial_rejected", "nonfinite", "infrastructure", "cancelled", "conflict", "incompatible", "internal", "numerical", "inconclusive"]`.
 
 ## `Opcode`
 

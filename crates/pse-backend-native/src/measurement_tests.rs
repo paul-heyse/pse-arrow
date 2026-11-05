@@ -146,6 +146,9 @@ impl Grid {
     }
 }
 impl NlpOracle for Grid {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn normalization(&self) -> Option<&Normalization> {
         Some(&self.normalization)
     }

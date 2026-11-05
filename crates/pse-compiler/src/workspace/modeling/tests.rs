@@ -2085,23 +2085,25 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
             scalars: BTreeMap::from([(admitted.inputs[0], 4.)]),
         };
         let mut first_worker = first.assembly.worker(
-            pse_kernels::ProviderBindings::from([(
+            pse_kernels::ProviderBindings::try_from_iter([(
                 inner.descriptor.spec().key(),
                 bound
                     .worker_scoped(pse_kernels::ExecutionScope::new(cancel.clone(), None))
                     .unwrap(),
-            )]),
+            )])
+            .unwrap(),
             cancel.clone(),
         );
         first_worker.constraints(&point).unwrap();
         assert!(first_worker.jacobian(&point).is_ok());
         let mut unavailable = f.assembly.worker(
-            pse_kernels::ProviderBindings::from([(
+            pse_kernels::ProviderBindings::try_from_iter([(
                 inner.descriptor.spec().key(),
                 bound
                     .worker_scoped(pse_kernels::ExecutionScope::new(cancel.clone(), None))
                     .unwrap(),
-            )]),
+            )])
+            .unwrap(),
             cancel.clone(),
         );
         let row_count = unavailable.constraints(&point).unwrap().len();
@@ -2113,10 +2115,11 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
                 .contains("bound derivative capability")
         );
         let mut worker = f.assembly.worker(
-            pse_kernels::ProviderBindings::from([(
+            pse_kernels::ProviderBindings::try_from_iter([(
                 inner.descriptor.spec().key(),
                 factory.create().unwrap(),
-            )]),
+            )])
+            .unwrap(),
             cancel.clone(),
         );
         let values = CaseValues {
@@ -2868,10 +2871,11 @@ fn implicit_nested_value_limits_child_derivatives_to_unknown_coordinate_demand()
             limits,
         )
         .unwrap();
-    let mut workers = pse_kernels::ProviderBindings::from([(
+    let mut workers = pse_kernels::ProviderBindings::try_from_iter([(
         child.descriptor.spec().key(),
         child_value.create().unwrap(),
-    )]);
+    )])
+    .unwrap();
     // The actual native Jacobian differentiates only the parent's unknown.
     // Its parameter-only child contributes physical values, not parameter partials.
     let mut native = parent_factory.bodies.unknown.worker();
@@ -2917,10 +2921,11 @@ fn implicit_nested_value_limits_child_derivatives_to_unknown_coordinate_demand()
             limits,
         )
         .unwrap();
-    workers = pse_kernels::ProviderBindings::from([(
+    workers = pse_kernels::ProviderBindings::try_from_iter([(
         child.descriptor.spec().key(),
         child_first.create().unwrap(),
-    )]);
+    )])
+    .unwrap();
     evaluator.prepare_providers(&mut workers).unwrap();
     let evaluated = evaluator
         .evaluate(&[2., 4.], DerivativeOrder::First, &mut workers, &cancel)
@@ -3297,9 +3302,10 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
     )
     .unwrap();
     let provider = ProviderBinding::new(spec.clone(), Box::new(Vector));
-    let mut worker = f
-        .assembly
-        .worker(ProviderBindings::from([(spec.key(), provider)]), cancel);
+    let mut worker = f.assembly.worker(
+        ProviderBindings::try_from_iter([(spec.key(), provider)]).unwrap(),
+        cancel,
+    );
     let point = CaseValues {
         scalars: a.inputs.iter().map(|id| (*id, 2.0)).collect(),
     };
@@ -3340,7 +3346,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
         let f = fixture(&a, w.inputs.quantities.clone(), order, &cancel).unwrap();
         let provider = ProviderBinding::new(spec.clone(), Box::new(Vector));
         let mut worker = f.assembly.worker(
-            ProviderBindings::from([(spec.key(), provider)]),
+            ProviderBindings::try_from_iter([(spec.key(), provider)]).unwrap(),
             cancel.clone(),
         );
         let point = CaseValues {
@@ -7627,7 +7633,7 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
     let first = inners[0].descriptor.spec();
     let provider = pse_kernels::ProviderBinding::new(first.clone(), Box::new(IdentityProvider));
     let mut worker = assembly.worker(
-        pse_kernels::ProviderBindings::from([(first.key(), provider)]),
+        pse_kernels::ProviderBindings::try_from_iter([(first.key(), provider)]).unwrap(),
         cancel.clone(),
     );
     assert_eq!(

@@ -33,6 +33,9 @@ impl Coupled {
     }
 }
 impl Oracle for Coupled {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &Contract {
         &self.contract
     }

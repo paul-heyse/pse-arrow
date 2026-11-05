@@ -71,6 +71,9 @@ impl Simplex {
     }
 }
 impl NlpOracle for Simplex {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn normalization(&self) -> Option<&Normalization> {
         Some(&self.normalization)
     }

@@ -28,42 +28,69 @@ pub struct AlgebraicOracle {
     root_output: Vec<f64>,
 }
 impl AlgebraicOracle {
+    /// Consume the compiled worker, settling every provider before caller custody ends.
+    pub fn finish(self) -> Result<(), ProblemError> {
+        self.worker.finish().map_err(ProblemError::Math)
+    }
     /// Attach an owner-issued original-coordinate separator. Native classification
     /// performs the final fixed-variable/slack/equality map before constructing Schur.
     pub fn with_solve_separator(
-        mut self,
+        self,
         separator: crate::SolveSeparator,
     ) -> Result<Self, ProblemError> {
-        if separator
-            .variables
-            .iter()
-            .any(|index| *index >= self.contract.variables.len())
-            || separator
-                .rows
+        crate::retiring(self, AlgebraicOracle::finish, |pending| {
+            let owner = pending
+                .as_mut()
+                .ok_or_else(|| ProblemError::internal("missing algebraic wrapper owner"))?;
+
+            if separator
+                .variables
                 .iter()
-                .any(|index| *index >= self.contract.rows.len())
-        {
-            return Err(ProblemError::Contract(
-                "original solve separator inventory".into(),
-            ));
-        }
-        self.separator = Some(separator);
-        Ok(self)
+                .any(|index| *index >= owner.contract.variables.len())
+                || separator
+                    .rows
+                    .iter()
+                    .any(|index| *index >= owner.contract.rows.len())
+            {
+                return Err(ProblemError::Contract(
+                    "original solve separator inventory".into(),
+                ));
+            }
+            owner.separator = Some(separator);
+            pending
+                .take()
+                .ok_or_else(|| ProblemError::internal("missing algebraic wrapper transfer"))
+        })
     }
     /// Admit continuous NLP/NLE variables. All-fixed cases stay on constant evaluation.
     pub fn new(worker: CaseWorker, values: CaseValues) -> Result<Self, ProblemError> {
-        if worker
-            .assembly()
-            .structure()
-            .variables()
-            .iter()
-            .any(|v| !v.fixed && v.domain != ModelingVariableDomain::Continuous)
-        {
-            return Err(ProblemError::Unsupported(
-                "continuous oracle cannot admit integer variables".into(),
-            ));
-        }
-        Self::over_columns(worker, values)
+        crate::retiring(
+            worker,
+            |worker| worker.finish().map_err(ProblemError::Math),
+            |pending| {
+                let worker = pending
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing algebraic constructor owner"))?;
+
+                if worker
+                    .assembly()
+                    .structure()
+                    .variables()
+                    .iter()
+                    .any(|v| !v.fixed && v.domain != ModelingVariableDomain::Continuous)
+                {
+                    return Err(ProblemError::Unsupported(
+                        "continuous oracle cannot admit integer variables".into(),
+                    ));
+                }
+                Self::over_columns(
+                    pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing algebraic worker transfer")
+                    })?,
+                    values,
+                )
+            },
+        )
     }
     /// A conditional operation over an admitted shared source universe. Retain the
     /// current frozen assumptions for exact coefficient/presolve checks, while only
@@ -72,41 +99,56 @@ impl AlgebraicOracle {
         worker: CaseWorker,
         values: pse_math::SharedAllocation<CaseValues>,
     ) -> Result<Self, ProblemError> {
-        let assembly = worker.assembly();
-        assembly
-            .structure()
-            .validate_source_frozen_values(&values)?;
-        for id in assembly
-            .columns()
-            .iter()
-            .chain(assembly.input_ids())
-            .copied()
-            .chain(
+        crate::retiring(
+            worker,
+            |worker| worker.finish().map_err(ProblemError::Math),
+            |pending| {
+                let worker = pending
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing algebraic constructor owner"))?;
+
+                let assembly = worker.assembly();
                 assembly
                     .structure()
-                    .instances()
+                    .validate_source_frozen_values(&values)?;
+                for id in assembly
+                    .columns()
                     .iter()
-                    .flat_map(|instance| instance.slots.iter().map(|slot| slot.source())),
-            )
-        {
-            let value =
-                values.scalars.get(&id).copied().ok_or_else(|| {
-                    ProblemError::Contract(format!("missing conditional input {id}"))
-                })?;
-            assembly.structure().validate_scalar(id, value)?;
-        }
-        if assembly
-            .structure()
-            .variables()
-            .iter()
-            .any(|v| !v.fixed && v.domain != ModelingVariableDomain::Continuous)
-        {
-            return Err(ProblemError::Unsupported(
-                "continuous oracle cannot admit integer variables".into(),
-            ));
-        }
-        let bound = assembly.bind_inputs(|id| values.scalars.get(&id).copied())?;
-        Self::over_bound(worker, bound, Some(values))
+                    .chain(assembly.input_ids())
+                    .copied()
+                    .chain(
+                        assembly
+                            .structure()
+                            .instances()
+                            .iter()
+                            .flat_map(|instance| instance.slots.iter().map(|slot| slot.source())),
+                    )
+                {
+                    let value = values.scalars.get(&id).copied().ok_or_else(|| {
+                        ProblemError::Contract(format!("missing conditional input {id}"))
+                    })?;
+                    assembly.structure().validate_scalar(id, value)?;
+                }
+                if assembly
+                    .structure()
+                    .variables()
+                    .iter()
+                    .any(|v| !v.fixed && v.domain != ModelingVariableDomain::Continuous)
+                {
+                    return Err(ProblemError::Unsupported(
+                        "continuous oracle cannot admit integer variables".into(),
+                    ));
+                }
+                let bound = assembly.bind_inputs(|id| values.scalars.get(&id).copied())?;
+                Self::over_bound(
+                    pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing algebraic worker transfer")
+                    })?,
+                    bound,
+                    Some(values),
+                )
+            },
+        )
     }
     /// An operation-owned conditional oracle with compact fixed inputs. No complete
     /// semantic map is retained or reconstructed for native trials.
@@ -114,19 +156,35 @@ impl AlgebraicOracle {
         worker: CaseWorker,
         value: impl Fn(pse_ids::SemanticId) -> Option<f64>,
     ) -> Result<Self, ProblemError> {
-        if worker
-            .assembly()
-            .structure()
-            .variables()
-            .iter()
-            .any(|v| !v.fixed && v.domain != ModelingVariableDomain::Continuous)
-        {
-            return Err(ProblemError::unsupported(
-                "continuous oracle cannot admit integer variables",
-            ));
-        }
-        let bound = worker.assembly().bind_inputs(value)?;
-        Self::over_bound(worker, bound, None)
+        crate::retiring(
+            worker,
+            |worker| worker.finish().map_err(ProblemError::Math),
+            |pending| {
+                let worker = pending
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing algebraic constructor owner"))?;
+
+                if worker
+                    .assembly()
+                    .structure()
+                    .variables()
+                    .iter()
+                    .any(|v| !v.fixed && v.domain != ModelingVariableDomain::Continuous)
+                {
+                    return Err(ProblemError::unsupported(
+                        "continuous oracle cannot admit integer variables",
+                    ));
+                }
+                let bound = worker.assembly().bind_inputs(value)?;
+                Self::over_bound(
+                    pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing algebraic worker transfer")
+                    })?,
+                    bound,
+                    None,
+                )
+            },
+        )
     }
     /// The callbacks of a mixed-integer case over every column, its discrete domains
     /// relaxed to their declared boxes, for [`crate::transform::Pinned::discrete`] to pin
@@ -137,111 +195,163 @@ impl AlgebraicOracle {
         values: CaseValues,
         normalization: pse_math::normalization::Normalization,
     ) -> Result<crate::transform::Relaxed, ProblemError> {
-        let assembly = worker.assembly();
-        let declared: std::collections::BTreeMap<_, _> = assembly
-            .structure()
-            .variables()
-            .iter()
-            .map(|v| (v.port.id, v.domain))
-            .collect();
-        let domains = assembly
-            .columns()
-            .iter()
-            .map(|id| {
-                declared
-                    .get(id)
-                    .copied()
-                    .unwrap_or(ModelingVariableDomain::Continuous)
-            })
-            .collect();
-        let oracle = Self::over_columns(worker, values)?.with_normalization(normalization)?;
-        crate::transform::Relaxed::new(Box::new(oracle), domains)
+        crate::retiring(
+            worker,
+            |worker| worker.finish().map_err(ProblemError::Math),
+            |pending| {
+                let worker = pending
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing algebraic constructor owner"))?;
+
+                let assembly = worker.assembly();
+                let declared: std::collections::BTreeMap<_, _> = assembly
+                    .structure()
+                    .variables()
+                    .iter()
+                    .map(|v| (v.port.id, v.domain))
+                    .collect();
+                let domains = assembly
+                    .columns()
+                    .iter()
+                    .map(|id| {
+                        declared
+                            .get(id)
+                            .copied()
+                            .unwrap_or(ModelingVariableDomain::Continuous)
+                    })
+                    .collect();
+                let oracle = Self::over_columns(
+                    pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing algebraic worker transfer")
+                    })?,
+                    values,
+                )?
+                .with_normalization(normalization)?;
+                crate::transform::Relaxed::new(Box::new(oracle), domains)
+            },
+        )
     }
     fn over_columns(worker: CaseWorker, values: CaseValues) -> Result<Self, ProblemError> {
-        let bound = worker.assembly().bind_values(&values)?;
-        Self::over_bound(worker, bound, Some(std::sync::Arc::new(values).into()))
+        crate::retiring(
+            worker,
+            |worker| worker.finish().map_err(ProblemError::Math),
+            |pending| {
+                let worker = pending
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing algebraic constructor owner"))?;
+
+                let bound = worker.assembly().bind_values(&values)?;
+                Self::over_bound(
+                    pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing algebraic worker transfer")
+                    })?,
+                    bound,
+                    Some(std::sync::Arc::new(values).into()),
+                )
+            },
+        )
     }
     fn over_bound(
-        mut worker: CaseWorker,
+        worker: CaseWorker,
         bound: BoundValues,
         values: Option<pse_math::SharedAllocation<CaseValues>>,
     ) -> Result<Self, ProblemError> {
-        let assembly = worker.assembly();
-        if assembly.structure().lexicographic_levels() {
-            return Err(ProblemError::Unsupported(
-                "NLP callbacks have one objective; select one lexicographic level".into(),
-            ));
-        }
-        let contract = contract(assembly);
-        let root_output = vec![0.; contract.rows.len()];
-        contract.validate(assembly.order())?;
-        let bounds = assembly
-            .structure()
-            .rows()
-            .iter()
-            .map(|r| (r.lower, r.upper))
-            .collect();
-        worker.prepare_providers()?;
-        Ok(Self {
+        crate::retiring(
             worker,
-            values,
-            bound,
-            contract,
-            bounds,
-            facts: Default::default(),
-            normalization: None,
-            presolve: None,
-            structure: None,
-            root_pattern: None,
-            separator: None,
-            root_output,
-        })
+            |worker| worker.finish().map_err(ProblemError::Math),
+            |pending| {
+                let worker = pending
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing algebraic constructor owner"))?;
+
+                let assembly = worker.assembly();
+                if assembly.structure().lexicographic_levels() {
+                    return Err(ProblemError::Unsupported(
+                        "NLP callbacks have one objective; select one lexicographic level".into(),
+                    ));
+                }
+                let contract = contract(assembly);
+                let root_output = vec![0.; contract.rows.len()];
+                contract.validate(assembly.order())?;
+                let bounds = assembly
+                    .structure()
+                    .rows()
+                    .iter()
+                    .map(|r| (r.lower, r.upper))
+                    .collect();
+                worker.prepare_providers()?;
+                Ok(Self {
+                    worker: pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing prepared algebraic worker")
+                    })?,
+                    values,
+                    bound,
+                    contract,
+                    bounds,
+                    facts: Default::default(),
+                    normalization: None,
+                    presolve: None,
+                    structure: None,
+                    root_pattern: None,
+                    separator: None,
+                    root_output,
+                })
+            },
+        )
     }
     /// Attach a compiler analysis. Native admission checks its complete matching
     /// witness against the current IDs, equality classification and sparse edges.
     /// # Errors
     /// Allocation of a directional-only original support projection fails.
     pub fn with_structural_analysis(
-        mut self,
+        self,
         analysis: pse_math::SharedAllocation<pse_structural::incidence::StructuralAnalysis>,
     ) -> Result<Self, ProblemError> {
-        if !self.root_operations().jacobian && self.root_operations().jacobian_product {
-            let rows = self
-                .contract
-                .rows
-                .iter()
-                .enumerate()
-                .map(|(i, id)| (*id, i))
-                .collect::<std::collections::BTreeMap<_, _>>();
-            let columns = self
-                .contract
-                .variables
-                .iter()
-                .enumerate()
-                .map(|(i, v)| (v.id, i))
-                .collect::<std::collections::BTreeMap<_, _>>();
-            let pairs = analysis
-                .contributions
-                .iter()
-                .filter_map(|edge| {
-                    Some(faer::sparse::Pair::new(
-                        *rows.get(&edge.row)?,
-                        *columns.get(&edge.column)?,
-                    ))
-                })
-                .collect::<Vec<_>>();
-            self.root_pattern = Some(
-                faer::sparse::SymbolicSparseColMat::try_new_from_indices(
-                    rows.len(),
-                    columns.len(),
-                    &pairs,
-                )
-                .map_err(|e| ProblemError::memory(e.to_string()))?
-                .0,
-            );
-        }
-        self.structure = Some(analysis);
-        Ok(self)
+        crate::retiring(self, AlgebraicOracle::finish, |pending| {
+            let owner = pending
+                .as_mut()
+                .ok_or_else(|| ProblemError::internal("missing algebraic wrapper owner"))?;
+
+            if !owner.root_operations().jacobian && owner.root_operations().jacobian_product {
+                let rows = owner
+                    .contract
+                    .rows
+                    .iter()
+                    .enumerate()
+                    .map(|(i, id)| (*id, i))
+                    .collect::<std::collections::BTreeMap<_, _>>();
+                let columns = owner
+                    .contract
+                    .variables
+                    .iter()
+                    .enumerate()
+                    .map(|(i, v)| (v.id, i))
+                    .collect::<std::collections::BTreeMap<_, _>>();
+                let pairs = analysis
+                    .contributions
+                    .iter()
+                    .filter_map(|edge| {
+                        Some(faer::sparse::Pair::new(
+                            *rows.get(&edge.row)?,
+                            *columns.get(&edge.column)?,
+                        ))
+                    })
+                    .collect::<Vec<_>>();
+                owner.root_pattern = Some(
+                    faer::sparse::SymbolicSparseColMat::try_new_from_indices(
+                        rows.len(),
+                        columns.len(),
+                        &pairs,
+                    )
+                    .map_err(|e| ProblemError::memory(e.to_string()))?
+                    .0,
+                );
+            }
+            owner.structure = Some(analysis);
+            pending
+                .take()
+                .ok_or_else(|| ProblemError::internal("missing algebraic wrapper transfer"))
+        })
     }
     /// Finite reservation for the directional-only original support projection and its
     /// construction scratch. It is not a measurement of native or allocator overhead.
@@ -271,47 +381,71 @@ impl AlgebraicOracle {
     }
     /// Attach the immutable resolved coordinate projection before native preparation.
     pub fn with_normalization(
-        mut self,
+        self,
         normalization: pse_math::normalization::Normalization,
     ) -> Result<Self, ProblemError> {
-        normalization.validate(self.contract.variables.len(), self.contract.rows.len())?;
-        self.normalization = Some(normalization);
-        Ok(self)
+        crate::retiring(self, AlgebraicOracle::finish, |pending| {
+            let owner = pending
+                .as_mut()
+                .ok_or_else(|| ProblemError::internal("missing algebraic wrapper owner"))?;
+
+            normalization.validate(owner.contract.variables.len(), owner.contract.rows.len())?;
+            owner.normalization = Some(normalization);
+            pending
+                .take()
+                .ok_or_else(|| ProblemError::internal("missing algebraic wrapper transfer"))
+        })
     }
     /// Attach library-proved coefficient facts only for the exact current structure
     /// and fixed/parameter values. Replacing values clears these assumptions.
-    pub fn with_coefficient_facts(mut self, c: &Coefficients) -> Result<Self, ProblemError> {
-        if c.structure() != self.worker.assembly().structure().key()
-            || self
-                .values
-                .as_ref()
-                .is_none_or(|values| !c.matches_values(values))
-        {
-            return Err(ProblemError::Contract(
-                "stale derivative coefficient proof".into(),
-            ));
-        }
-        self.facts = crate::DerivativeFacts {
-            gradient_constant: c.hessian.val().iter().all(|v| *v == 0.0),
-            jacobian_constant: true,
-            hessian_constant: true,
-        };
-        Ok(self)
+    pub fn with_coefficient_facts(self, c: &Coefficients) -> Result<Self, ProblemError> {
+        crate::retiring(self, AlgebraicOracle::finish, |pending| {
+            let owner = pending
+                .as_mut()
+                .ok_or_else(|| ProblemError::internal("missing algebraic wrapper owner"))?;
+
+            if c.structure() != owner.worker.assembly().structure().key()
+                || owner
+                    .values
+                    .as_ref()
+                    .is_none_or(|values| !c.matches_values(values))
+            {
+                return Err(ProblemError::Contract(
+                    "stale derivative coefficient proof".into(),
+                ));
+            }
+            owner.facts = crate::DerivativeFacts {
+                gradient_constant: c.hessian.val().iter().all(|v| *v == 0.0),
+                jacobian_constant: true,
+                hessian_constant: true,
+            };
+            pending
+                .take()
+                .ok_or_else(|| ProblemError::internal("missing algebraic wrapper transfer"))
+        })
     }
     /// Attach compiler facts only when their complete assumptions still match.
     pub fn with_presolve_facts(
-        mut self,
+        self,
         facts: pse_math::SharedAllocation<pse_math::presolve::Facts>,
     ) -> Result<Self, ProblemError> {
-        if self
-            .values
-            .as_ref()
-            .is_none_or(|values| !facts.matches(self.worker.assembly(), values))
-        {
-            return Err(ProblemError::Contract("stale presolve facts".into()));
-        }
-        self.presolve = Some(facts);
-        Ok(self)
+        crate::retiring(self, AlgebraicOracle::finish, |pending| {
+            let owner = pending
+                .as_mut()
+                .ok_or_else(|| ProblemError::internal("missing algebraic wrapper owner"))?;
+
+            if owner
+                .values
+                .as_ref()
+                .is_none_or(|values| !facts.matches(owner.worker.assembly(), values))
+            {
+                return Err(ProblemError::Contract("stale presolve facts".into()));
+            }
+            owner.presolve = Some(facts);
+            pending
+                .take()
+                .ok_or_else(|| ProblemError::internal("missing algebraic wrapper transfer"))
+        })
     }
     /// Root-system view additionally requires equality rows and no optimization objective.
     pub fn admit_nle(&self) -> Result<(), ProblemError> {
@@ -365,11 +499,14 @@ impl AlgebraicOracle {
 /// A private same-thread handle to one operation-owned root evaluator. Clones lend
 /// callbacks to retained native state without constructing another evaluator. Its
 /// enclosing owner retains storage charges through destruction of every callback.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct SharedRootOracle(std::rc::Rc<SharedRootState>);
+/// Borrowed native callback; it cannot consume the operation's actual owner.
+#[derive(Clone, Debug)]
+pub struct SharedRootCallback(std::rc::Rc<SharedRootState>);
 #[derive(Debug)]
 struct SharedRootState {
-    oracle: std::cell::RefCell<AlgebraicOracle>,
+    oracle: std::cell::RefCell<Option<AlgebraicOracle>>,
     contract: OracleContract,
     pattern: faer::sparse::SymbolicSparseColMat<usize>,
     structure: Option<pse_math::SharedAllocation<pse_structural::incidence::StructuralAnalysis>>,
@@ -377,22 +514,47 @@ struct SharedRootState {
     guards: std::collections::BTreeMap<pse_ids::SemanticId, pse_math::presolve::GuardSign>,
 }
 impl SharedRootOracle {
+    /// Lend an alias that carries no consuming ownership authority.
+    pub fn callback(&self) -> SharedRootCallback {
+        SharedRootCallback(self.0.clone())
+    }
+    /// Consume the operation's root owner after retained callback aliases finish.
+    pub fn finish(self) -> Result<(), ProblemError> {
+        let oracle = self
+            .0
+            .oracle
+            .try_borrow_mut()
+            .map_err(|_| {
+                ProblemError::internal("conditional retirement overlaps an active native callback")
+            })?
+            .take()
+            .ok_or_else(|| ProblemError::Contract("conditional owner already retired".into()))?;
+        oracle.finish()
+    }
     /// Construct after the operation owner reserves evaluator and wrapper storage.
     /// # Errors
     /// Nonsquare contract or sparse allocation failure.
     pub fn new(oracle: AlgebraicOracle) -> Result<Self, ProblemError> {
-        oracle.admit_nle()?;
-        let state = SharedRootState {
-            contract: NleOracle::contract(&oracle).clone(),
-            pattern: NleOracle::jacobian_pattern(&oracle)
-                .to_owned()
-                .map_err(|error| ProblemError::memory(error.to_string()))?,
-            structure: oracle.structure.clone(),
-            operations: NleOracle::operations(&oracle),
-            guards: NleOracle::guard_signs(&oracle),
-            oracle: std::cell::RefCell::new(oracle),
-        };
-        Ok(Self(std::rc::Rc::new(state)))
+        crate::retiring(oracle, AlgebraicOracle::finish, |pending| {
+            let oracle = pending
+                .as_ref()
+                .ok_or_else(|| ProblemError::internal("missing shared root constructor owner"))?;
+
+            oracle.admit_nle()?;
+            let state = SharedRootState {
+                contract: NleOracle::contract(oracle).clone(),
+                pattern: NleOracle::jacobian_pattern(oracle)
+                    .to_owned()
+                    .map_err(|error| ProblemError::memory(error.to_string()))?,
+                structure: oracle.structure.clone(),
+                operations: NleOracle::operations(oracle),
+                guards: NleOracle::guard_signs(oracle),
+                oracle: std::cell::RefCell::new(Some(pending.take().ok_or_else(|| {
+                    ProblemError::internal("missing shared root owner transfer")
+                })?)),
+            };
+            Ok(Self(std::rc::Rc::new(state)))
+        })
     }
     /// Refill only between completed synchronous native calls.
     /// # Errors
@@ -401,27 +563,35 @@ impl SharedRootOracle {
         &self,
         updates: &[(pse_ids::SemanticId, f64)],
     ) -> Result<(), ProblemError> {
-        self.0
-            .oracle
-            .try_borrow_mut()
-            .map_err(|_| ProblemError::Internal("overlapping conditional oracle refill".into()))?
-            .refill_inputs(updates)
+        self.0.borrow_mut()?.refill_inputs(updates)
     }
-    /// Exact consumed fixed inputs; layout and profile remain separate identities.
-    /// # Errors
-    /// A callback still has the evaluator borrowed.
+    /// Exact consumed fixed inputs of the still-owned evaluator.
     pub fn input_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
-        Ok(self
-            .0
-            .oracle
-            .try_borrow()
-            .map_err(|_| {
-                ProblemError::Internal("overlapping conditional input observation".into())
-            })?
-            .input_identity())
+        Ok(self.0.borrow()?.input_identity())
     }
 }
-impl NleOracle for SharedRootOracle {
+impl SharedRootState {
+    fn borrow(&self) -> Result<std::cell::Ref<'_, AlgebraicOracle>, ProblemError> {
+        let slot = self
+            .oracle
+            .try_borrow()
+            .map_err(|_| ProblemError::internal("overlapping conditional callback"))?;
+        std::cell::Ref::filter_map(slot, Option::as_ref)
+            .map_err(|_| ProblemError::Contract("conditional evaluator retired".into()))
+    }
+    fn borrow_mut(&self) -> Result<std::cell::RefMut<'_, AlgebraicOracle>, ProblemError> {
+        let slot = self
+            .oracle
+            .try_borrow_mut()
+            .map_err(|_| ProblemError::internal("overlapping conditional callback"))?;
+        std::cell::RefMut::filter_map(slot, Option::as_mut)
+            .map_err(|_| ProblemError::Contract("conditional evaluator retired".into()))
+    }
+}
+impl NleOracle for SharedRootCallback {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn operations(&self) -> crate::RootOperations {
         self.0.operations
     }
@@ -434,12 +604,7 @@ impl NleOracle for SharedRootOracle {
         self.0.guards.clone()
     }
     fn observe(&self, residual: Vec<f64>) -> Result<crate::quality::Observation, ProblemError> {
-        NleOracle::observe(
-            &*self.0.oracle.try_borrow().map_err(|_| {
-                ProblemError::Internal("overlapping conditional observation".into())
-            })?,
-            residual,
-        )
+        NleOracle::observe(&*self.0.borrow()?, residual)
     }
     fn contract(&self) -> &OracleContract {
         &self.0.contract
@@ -448,26 +613,10 @@ impl NleOracle for SharedRootOracle {
         self.0.pattern.as_ref()
     }
     fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        NleOracle::residual(
-            &mut *self
-                .0
-                .oracle
-                .try_borrow_mut()
-                .map_err(|_| ProblemError::Internal("overlapping conditional residual".into()))?,
-            x,
-            out,
-        )
+        NleOracle::residual(&mut *self.0.borrow_mut()?, x, out)
     }
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        NleOracle::jacobian(
-            &mut *self
-                .0
-                .oracle
-                .try_borrow_mut()
-                .map_err(|_| ProblemError::Internal("overlapping conditional Jacobian".into()))?,
-            x,
-            out,
-        )
+        NleOracle::jacobian(&mut *self.0.borrow_mut()?, x, out)
     }
     fn jacobian_product(
         &mut self,
@@ -475,14 +624,7 @@ impl NleOracle for SharedRootOracle {
         direction: &[f64],
         out: &mut [f64],
     ) -> Result<(), ProblemError> {
-        NleOracle::jacobian_product(
-            &mut *self.0.oracle.try_borrow_mut().map_err(|_| {
-                ProblemError::Internal("overlapping conditional Jacobian product".into())
-            })?,
-            x,
-            direction,
-            out,
-        )
+        NleOracle::jacobian_product(&mut *self.0.borrow_mut()?, x, direction, out)
     }
 }
 
@@ -509,6 +651,9 @@ fn copy(source: &[f64], target: &mut [f64]) -> Result<(), ProblemError> {
     Ok(())
 }
 impl NlpOracle for AlgebraicOracle {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        (*self).finish()
+    }
     fn solve_separator(&self) -> Option<&crate::SolveSeparator> {
         self.separator.as_ref()
     }
@@ -573,6 +718,9 @@ impl NlpOracle for AlgebraicOracle {
     }
 }
 impl NleOracle for AlgebraicOracle {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        (*self).finish()
+    }
     fn operations(&self) -> crate::RootOperations {
         self.root_operations()
     }
@@ -779,6 +927,9 @@ impl CoefficientProblem {
 #[derive(Debug)]
 pub struct FeasibilityOracle(pub Box<dyn NlpOracle>);
 impl NlpOracle for FeasibilityOracle {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        self.0.finish()
+    }
     fn solve_separator(&self) -> Option<&crate::SolveSeparator> {
         self.0.solve_separator()
     }

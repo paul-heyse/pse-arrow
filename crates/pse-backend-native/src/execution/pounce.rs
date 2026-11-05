@@ -270,38 +270,49 @@ impl BackendExecution for Pounce {
         };
         #[cfg(feature = "pounce")]
         {
-            let defaults = crate::pounce::Settings::default();
-            let settings = match input.settings {
-                BackendSettings::Default => &defaults,
-                BackendSettings::Pounce(settings) => settings,
-                _ => return Err(super::foreign(Backend::Pounce)),
-            };
-            let (session, _) = retained.session(
-                Backend::Pounce,
-                input.controls.reuse,
-                |_: &mut crate::pounce::Session| Ok(super::SessionUpdate::Compatible),
-                || Ok(crate::pounce::Session::new()),
-            )?;
-            session.solve(
+            crate::retiring(
                 oracle,
-                initial,
-                sense,
-                input.controls,
-                input.accuracy,
-                settings,
-                input.execution,
-                input.tolerances,
-                input.warm,
-                input.compatibility,
+                |oracle| oracle.finish(),
+                |pending| {
+                    let defaults = crate::pounce::Settings::default();
+                    let settings = match input.settings {
+                        BackendSettings::Default => &defaults,
+                        BackendSettings::Pounce(settings) => settings,
+                        _ => return Err(super::foreign(Backend::Pounce)),
+                    };
+                    let (session, _) = retained.session(
+                        Backend::Pounce,
+                        input.controls.reuse,
+                        |_: &mut crate::pounce::Session| Ok(super::SessionUpdate::Compatible),
+                        || Ok(crate::pounce::Session::new()),
+                        crate::pounce::Session::finish,
+                    )?;
+                    session.solve(
+                        pending.take().ok_or_else(|| {
+                            ProblemError::internal("missing POUNCE submission owner")
+                        })?,
+                        initial,
+                        sense,
+                        input.controls,
+                        input.accuracy,
+                        settings,
+                        input.execution,
+                        input.tolerances,
+                        input.warm,
+                        input.compatibility,
+                    )
+                },
             )
         }
         #[cfg(not(feature = "pounce"))]
         {
-            let _ = (retained, oracle, initial, sense);
-            if !matches!(input.settings, BackendSettings::Default) {
-                return Err(super::foreign(Backend::Pounce));
-            }
-            Err(super::unlinked(Backend::Pounce))
+            let _ = (retained, initial, sense);
+            let result = if !matches!(input.settings, BackendSettings::Default) {
+                Err(super::foreign(Backend::Pounce))
+            } else {
+                Err(super::unlinked(Backend::Pounce))
+            };
+            ProblemError::with_retirement(result, oracle.finish())
         }
     }
 }

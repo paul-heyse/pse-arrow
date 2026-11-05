@@ -392,9 +392,11 @@ fn peng_robinson_weighted_property_products_rebind_weights_and_isolate_workers()
         )
         .unwrap();
     let mut worker = compiled.worker_scoped(scope);
-    let mut providers = [(factory.spec.key(), factory.create().unwrap())]
-        .into_iter()
-        .collect();
+    let mut providers = pse_kernels::ProviderBindings::try_from_iter([(
+        factory.spec.key(),
+        factory.create().unwrap(),
+    )])
+    .unwrap();
     let a = 287. / 1200.;
     let b = 0.05;
     let expected = oracle(a, b, 0.8);

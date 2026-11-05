@@ -153,8 +153,11 @@ pub(crate) fn validate_dependencies(
     depth: usize,
     remaining: &mut usize,
 ) -> Result<(), MathError> {
-    if depth > 128 || stages.len() > *remaining {
-        return Err(MathError::Limit("obligation schedule"));
+    if depth > 128 {
+        return Err(MathError::Limit("obligation schedule depth"));
+    }
+    if stages.len() > *remaining {
+        return Err(MathError::Limit("obligation schedule work"));
     }
     *remaining -= stages.len();
     for stage in stages {

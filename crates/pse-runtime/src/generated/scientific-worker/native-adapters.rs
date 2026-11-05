@@ -1,8 +1,786 @@
 use super::{
     AdapterError, AdapterFailure, BoundaryProjectionError, NativeInto, NativeFrom,
     layout, child_path, refused, required, unknown_fields, native_into, native_from,
-    encode_root, decode_root, items, from_items,
+    encode_root, decode_root, items, from_items, unique_pairs, wire_map,
 };
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityClaim,
+> for pse_model::applicability::Claim {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityClaim,
+        AdapterError,
+    > {
+        layout(
+            <pse_model::applicability::Claim as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::applicability::Claim as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "id"),
+                (2, "coverage"),
+                (3, "owner"),
+                (4, "owner_lineage"),
+                (5, "evidence"),
+                (6, "form"),
+                (7, "call"),
+                (8, "records"),
+                (9, "dependencies"),
+                (10, "layer"),
+                (11, "basis"),
+                (12, "reason"),
+            ],
+            path,
+        )?;
+        let (
+            field_0,
+            field_1,
+            field_2,
+            field_3,
+            field_4,
+            field_5,
+            field_6,
+            field_7,
+            field_8,
+            field_9,
+            field_10,
+            field_11,
+        ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityClaim {
+            id: field_0
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
+                    )
+                })
+                .transpose()?,
+            coverage: field_1
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
+                    )
+                })
+                .transpose()?,
+            owner: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
+            owner_lineage: items(field_3)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
+            evidence: field_4
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
+                    )
+                })
+                .transpose()?,
+            form: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_5,
+            ),
+            call: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_6,
+            ),
+            records: items(field_7)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
+            dependencies: items(field_8)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
+            layer: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+                >(field_9, &child_path(path, "layer"))?,
+            ),
+            basis: field_10
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<
+                        _,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityBasis,
+                    >(value, &child_path(path, "basis"))
+                })
+                .transpose()?
+                .into(),
+            reason: field_11
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<_, String>(value, &child_path(path, "reason"))
+                })
+                .transpose()?,
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityClaim,
+> for pse_model::applicability::Claim {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityClaim,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_model::applicability::Claim as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::applicability::Claim as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "id"),
+                (2, "coverage"),
+                (3, "owner"),
+                (4, "owner_lineage"),
+                (5, "evidence"),
+                (6, "form"),
+                (7, "call"),
+                (8, "records"),
+                (9, "dependencies"),
+                (10, "layer"),
+                (11, "basis"),
+                (12, "reason"),
+            ],
+            path,
+        )?;
+        let fields = (
+            wire
+                .id
+                .map(|value| -> Result<_, AdapterError> {
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "id"),
+                    )
+                })
+                .transpose()?,
+            wire
+                .coverage
+                .map(|value| -> Result<_, AdapterError> {
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "coverage"),
+                    )
+                })
+                .transpose()?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.owner,
+                &child_path(path, "owner"),
+            )?,
+            {
+                let current_path = &child_path(path, "owner_lineage");
+                let values = wire
+                    .owner_lineage
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            wire
+                .evidence
+                .map(|value| -> Result<_, AdapterError> {
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "evidence"),
+                    )
+                })
+                .transpose()?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.form,
+                &child_path(path, "form"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.call,
+                &child_path(path, "call"),
+            )?,
+            {
+                let current_path = &child_path(path, "records");
+                let values = wire
+                    .records
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "dependencies");
+                let values = wire
+                    .dependencies
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<
+                _,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+            >(
+                required(wire.layer.into_option(), &child_path(path, "layer"))?,
+                &child_path(path, "layer"),
+            )?,
+            wire
+                .basis
+                .into_option()
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<
+                        _,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityBasis,
+                    >(value, &child_path(path, "basis"))
+                })
+                .transpose()?,
+            wire
+                .reason
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<_, String>(value, &child_path(path, "reason"))
+                })
+                .transpose()?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityInput,
+> for pse_model::applicability::Input {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityInput,
+        AdapterError,
+    > {
+        layout(
+            <pse_model::applicability::Input as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::applicability::Input as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "name"), (2, "value"), (3, "quantity_type")],
+            path,
+        )?;
+        let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityInput {
+            name: native_into::<_, String>(field_0, &child_path(path, "name"))?,
+            value: native_into::<_, u64>(field_1, &child_path(path, "value"))?,
+            quantity_type: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityInput,
+> for pse_model::applicability::Input {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityInput,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_model::applicability::Input as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::applicability::Input as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "name"), (2, "value"), (3, "quantity_type")],
+            path,
+        )?;
+        let fields = (
+            native_from::<_, String>(wire.name, &child_path(path, "name"))?,
+            native_from::<_, u64>(wire.value, &child_path(path, "value"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.quantity_type,
+                &child_path(path, "quantity_type"),
+            )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityObservation,
+> for pse_model::applicability::Observation {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityObservation,
+        AdapterError,
+    > {
+        layout(
+            <pse_model::applicability::Observation as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::applicability::Observation as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "claim"),
+                (2, "instance"),
+                (3, "inputs"),
+                (4, "outcome"),
+                (5, "required"),
+                (6, "permissions"),
+                (7, "unknown_allowed"),
+                (8, "extrapolation_allowed"),
+                (9, "admitted"),
+            ],
+            path,
+        )?;
+        let (
+            field_0,
+            field_1,
+            field_2,
+            field_3,
+            field_4,
+            field_5,
+            field_6,
+            field_7,
+            field_8,
+        ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityObservation {
+            claim: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityClaim,
+                >(field_0, &child_path(path, "claim"))?,
+            ),
+            instance: field_1
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
+                    )
+                })
+                .transpose()?,
+            inputs: {
+                let current_path = &child_path(path, "inputs");
+                items(field_2)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityInput,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            outcome: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityOutcome,
+                >(field_3, &child_path(path, "outcome"))?,
+            ),
+            required: native_into::<_, bool>(field_4, &child_path(path, "required"))?,
+            permissions: {
+                let current_path = &child_path(path, "permissions");
+                items(field_5)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityPermission,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            unknown_allowed: native_into::<
+                _,
+                bool,
+            >(field_6, &child_path(path, "unknown_allowed"))?,
+            extrapolation_allowed: native_into::<
+                _,
+                bool,
+            >(field_7, &child_path(path, "extrapolation_allowed"))?,
+            admitted: native_into::<_, bool>(field_8, &child_path(path, "admitted"))?,
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityObservation,
+> for pse_model::applicability::Observation {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityObservation,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_model::applicability::Observation as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::applicability::Observation as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "claim"),
+                (2, "instance"),
+                (3, "inputs"),
+                (4, "outcome"),
+                (5, "required"),
+                (6, "permissions"),
+                (7, "unknown_allowed"),
+                (8, "extrapolation_allowed"),
+                (9, "admitted"),
+            ],
+            path,
+        )?;
+        let fields = (
+            native_from::<
+                _,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityClaim,
+            >(
+                required(wire.claim.into_option(), &child_path(path, "claim"))?,
+                &child_path(path, "claim"),
+            )?,
+            wire
+                .instance
+                .map(|value| -> Result<_, AdapterError> {
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "instance"),
+                    )
+                })
+                .transpose()?,
+            {
+                let current_path = &child_path(path, "inputs");
+                let values = wire
+                    .inputs
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityInput,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<
+                _,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityOutcome,
+            >(
+                required(wire.outcome.into_option(), &child_path(path, "outcome"))?,
+                &child_path(path, "outcome"),
+            )?,
+            native_from::<_, bool>(wire.required, &child_path(path, "required"))?,
+            {
+                let current_path = &child_path(path, "permissions");
+                let values = wire
+                    .permissions
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityPermission,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<
+                _,
+                bool,
+            >(wire.unknown_allowed, &child_path(path, "unknown_allowed"))?,
+            native_from::<
+                _,
+                bool,
+            >(wire.extrapolation_allowed, &child_path(path, "extrapolation_allowed"))?,
+            native_from::<_, bool>(wire.admitted, &child_path(path, "admitted"))?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityPermission,
+> for pse_model::applicability::Permission {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityPermission,
+        AdapterError,
+    > {
+        layout(
+            <pse_model::applicability::Permission as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::applicability::Permission as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "id"),
+                (2, "scope"),
+                (3, "target_kind"),
+                (4, "targets"),
+                (5, "allow_unknown"),
+                (6, "allow_extrapolation"),
+            ],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityPermission {
+            id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
+            scope: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            target_kind: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingPermissionTarget,
+                >(field_2, &child_path(path, "target_kind"))?,
+            ),
+            targets: items(field_3)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
+            allow_unknown: native_into::<
+                _,
+                bool,
+            >(field_4, &child_path(path, "allow_unknown"))?,
+            allow_extrapolation: native_into::<
+                _,
+                bool,
+            >(field_5, &child_path(path, "allow_extrapolation"))?,
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityPermission,
+> for pse_model::applicability::Permission {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityPermission,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_model::applicability::Permission as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::applicability::Permission as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "id"),
+                (2, "scope"),
+                (3, "target_kind"),
+                (4, "targets"),
+                (5, "allow_unknown"),
+                (6, "allow_extrapolation"),
+            ],
+            path,
+        )?;
+        let fields = (
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.id,
+                &child_path(path, "id"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.scope,
+                &child_path(path, "scope"),
+            )?,
+            native_from::<
+                _,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingPermissionTarget,
+            >(
+                required(
+                    wire.target_kind.into_option(),
+                    &child_path(path, "target_kind"),
+                )?,
+                &child_path(path, "target_kind"),
+            )?,
+            {
+                let current_path = &child_path(path, "targets");
+                let values = wire
+                    .targets
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<
+                _,
+                bool,
+            >(wire.allow_unknown, &child_path(path, "allow_unknown"))?,
+            native_from::<
+                _,
+                bool,
+            >(wire.allow_extrapolation, &child_path(path, "allow_extrapolation"))?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+> for [u8; 16] {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+        AdapterError,
+    > {
+        layout(
+            <[u8; 16] as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <[u8; 16] as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "values")],
+            path,
+        )?;
+        let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8 {
+            values: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+> for [u8; 16] {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <[u8; 16] as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <[u8; 16] as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "values")],
+            path,
+        )?;
+        let fields = (
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.values,
+                &child_path(path, "values"),
+            )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array3Array16U8,
+> for [[u8; 16]; 3] {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array3Array16U8,
+        AdapterError,
+    > {
+        layout(
+            <[[u8; 16]; 3] as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <[[u8; 16]; 3] as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "values")],
+            path,
+        )?;
+        let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array3Array16U8 {
+            values: {
+                let current_path = &child_path(path, "values");
+                items(field_0)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array3Array16U8,
+> for [[u8; 16]; 3] {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array3Array16U8,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <[[u8; 16]; 3] as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <[[u8; 16]; 3] as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "values")],
+            path,
+        )?;
+        let fields = (
+            {
+                let current_path = &child_path(path, "values");
+                let values = wire
+                    .values
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array8OptionalUnitId,
 > for [Option<pse_quantity::ids::UnitId>; 8] {
@@ -1613,6 +2391,888 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticCode,
+> for pse_diagnostics::DiagnosticCode {
+    fn into_wire(
+        self,
+        _: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticCode,
+        AdapterError,
+    > {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticCode {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticCode,
+> for pse_diagnostics::DiagnosticCode {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticCode,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "unknown canonical source vocabulary member",
+            ))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticNonfiniteObservation,
+> for pse_model::generated::enums::DiagnosticNonfiniteObservation {
+    fn into_wire(
+        self,
+        _: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticNonfiniteObservation,
+        AdapterError,
+    > {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticNonfiniteObservation {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticNonfiniteObservation,
+> for pse_model::generated::enums::DiagnosticNonfiniteObservation {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticNonfiniteObservation,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "unknown canonical source vocabulary member",
+            ))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation,
+> for pse_model::diagnostic::Observation {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Missing(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative1 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "value")],
+            path,
+        )?;
+        let value = match <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Real");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Real(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative2 {
+                                value: native_into::<
+                                    _,
+                                    u64,
+                                >(field_0, &child_path(path, "value"))?,
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::VERSION,
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "value")],
+            path,
+        )?;
+        let value = match <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+            3,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Nonfinite");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Nonfinite(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative3 {
+                                value: buffa::MessageField::some(
+                                    native_into::<
+                                        _,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticNonfiniteObservation,
+                                    >(field_0, &child_path(path, "value"))?,
+                                ),
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::VERSION,
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "value")],
+            path,
+        )?;
+        let value = match <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+            4,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Physical");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Physical(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative4 {
+                                value: buffa::MessageField::some(
+                                    native_into::<
+                                        _,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticPhysicalObservation,
+                                    >(field_0, &child_path(path, "value"))?,
+                                ),
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                5,
+            >>::VERSION,
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                5,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "value")],
+            path,
+        )?;
+        let value = match <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+            5,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Integer");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Integer(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative5 {
+                                value: native_into::<
+                                    _,
+                                    i64,
+                                >(field_0, &child_path(path, "value"))?,
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                6,
+            >>::VERSION,
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                6,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "value")],
+            path,
+        )?;
+        let value = match <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+            6,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Boolean");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Boolean(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative6 {
+                                value: native_into::<
+                                    _,
+                                    bool,
+                                >(field_0, &child_path(path, "value"))?,
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                7,
+            >>::VERSION,
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                7,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "value")],
+            path,
+        )?;
+        let value = match <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+            7,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Text");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Text(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative7 {
+                                value: native_into::<
+                                    _,
+                                    String,
+                                >(field_0, &child_path(path, "value"))?,
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                8,
+            >>::VERSION,
+            <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                8,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "value")],
+            path,
+        )?;
+        let value = match <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+            8,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Contracts");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Contracts(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative8 {
+                                value: {
+                                    let current_path = &child_path(path, "value");
+                                    items(field_0)
+                                        .enumerate()
+                                        .map(|(index, value)| -> Result<_, AdapterError> {
+                                            native_into::<
+                                                _,
+                                                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticOperandContract,
+                                            >(value, &format!("{path}[{index}]", path = current_path))
+                                        })
+                                        .collect::<Result<Vec<_>, _>>()?
+                                },
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation,
+> for pse_model::diagnostic::Observation {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Missing(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Missing");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Real(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Real");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "value")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<_, u64>(wire.value, &child_path(path, "value"))?,
+                );
+                Ok(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Nonfinite(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Nonfinite");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::VERSION,
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "value")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<
+                        _,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticNonfiniteObservation,
+                    >(
+                        required(wire.value.into_option(), &child_path(path, "value"))?,
+                        &child_path(path, "value"),
+                    )?,
+                );
+                Ok(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Physical(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Physical");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::VERSION,
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "value")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<
+                        _,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticPhysicalObservation,
+                    >(
+                        required(wire.value.into_option(), &child_path(path, "value"))?,
+                        &child_path(path, "value"),
+                    )?,
+                );
+                Ok(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Integer(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Integer");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::VERSION,
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "value")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<_, i64>(wire.value, &child_path(path, "value"))?,
+                );
+                Ok(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Boolean(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Boolean");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        6,
+                    >>::VERSION,
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        6,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "value")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<_, bool>(wire.value, &child_path(path, "value"))?,
+                );
+                Ok(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        6,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Text(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Text");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        7,
+                    >>::VERSION,
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        7,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "value")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<_, String>(wire.value, &child_path(path, "value"))?,
+                );
+                Ok(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        7,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Contracts(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Contracts");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        8,
+                    >>::VERSION,
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        8,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "value")],
+                    path,
+                )?;
+                let fields = (
+                    {
+                        let current_path = &child_path(path, "value");
+                        let values = wire
+                            .value
+                            .into_iter()
+                            .enumerate()
+                            .map(|(index, value)| -> Result<_, AdapterError> {
+                                native_from::<
+                                    _,
+                                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticOperandContract,
+                                >(value, &format!("{path}[{index}]", path = current_path))
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        from_items(values, current_path)?
+                    },
+                );
+                Ok(
+                    <pse_model::diagnostic::Observation as pse_contract::boundary_projection::ProjectionAlternative<
+                        8,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticOperandContract,
+> for pse_diagnostics::OperandContract {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticOperandContract,
+        AdapterError,
+    > {
+        layout(
+            <pse_diagnostics::OperandContract as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_diagnostics::OperandContract as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "quantity"), (2, "indices")],
+            path,
+        )?;
+        let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticOperandContract {
+            quantity: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+                >(field_0, &child_path(path, "quantity"))?,
+            ),
+            indices: {
+                let current_path = &child_path(path, "indices");
+                items(field_1)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array3Array16U8,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticOperandContract,
+> for pse_diagnostics::OperandContract {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticOperandContract,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_diagnostics::OperandContract as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_diagnostics::OperandContract as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "quantity"), (2, "indices")],
+            path,
+        )?;
+        let fields = (
+            native_from::<
+                _,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+            >(
+                required(wire.quantity.into_option(), &child_path(path, "quantity"))?,
+                &child_path(path, "quantity"),
+            )?,
+            {
+                let current_path = &child_path(path, "indices");
+                let values = wire
+                    .indices
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array3Array16U8,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticPhysicalObservation,
+> for pse_model::diagnostic::PhysicalObservation {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticPhysicalObservation,
+        AdapterError,
+    > {
+        layout(
+            <pse_model::diagnostic::PhysicalObservation as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::diagnostic::PhysicalObservation as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "magnitude"), (2, "quantity"), (3, "unit"), (4, "context")],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticPhysicalObservation {
+            magnitude: native_into::<_, u64>(field_0, &child_path(path, "magnitude"))?,
+            quantity: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            unit: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
+            context: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_3,
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticPhysicalObservation,
+> for pse_model::diagnostic::PhysicalObservation {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticPhysicalObservation,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_model::diagnostic::PhysicalObservation as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::diagnostic::PhysicalObservation as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "magnitude"), (2, "quantity"), (3, "unit"), (4, "context")],
+            path,
+        )?;
+        let fields = (
+            native_from::<_, u64>(wire.magnitude, &child_path(path, "magnitude"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.quantity,
+                &child_path(path, "quantity"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.unit,
+                &child_path(path, "unit"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.context,
+                &child_path(path, "context"),
+            )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticRule,
+> for pse_diagnostics::DiagnosticRule {
+    fn into_wire(
+        self,
+        _: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticRule,
+        AdapterError,
+    > {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticRule {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticRule,
+> for pse_diagnostics::DiagnosticRule {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticRule,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "unknown canonical source vocabulary member",
+            ))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticSeverity,
+> for pse_model::generated::enums::DiagnosticSeverity {
+    fn into_wire(
+        self,
+        _: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticSeverity,
+        AdapterError,
+    > {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticSeverity {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticSeverity,
+> for pse_model::generated::enums::DiagnosticSeverity {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticSeverity,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "unknown canonical source vocabulary member",
+            ))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticStage,
+> for pse_diagnostics::DiagnosticStage {
+    fn into_wire(
+        self,
+        _: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticStage,
+        AdapterError,
+    > {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticStage {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticStage,
+> for pse_diagnostics::DiagnosticStage {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticStage,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "unknown canonical source vocabulary member",
+            ))
+    }
+}
+impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
 > for pse_quantity::ids::EntityKindId {
     fn into_wire(
@@ -2260,6 +3920,335 @@ impl NativeInto<
             }
             Err(value) => value,
         };
+        layout(
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                9,
+            >>::VERSION,
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                9,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "failures")],
+            path,
+        )?;
+        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            9,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "ProviderRetirement");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::ProviderRetirement(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative9 {
+                                failures: {
+                                    let current_path = &child_path(path, "failures");
+                                    items(field_0)
+                                        .enumerate()
+                                        .map(|(index, value)| -> Result<_, AdapterError> {
+                                            native_into::<
+                                                _,
+                                                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure,
+                                            >(value, &format!("{path}[{index}]", path = current_path))
+                                        })
+                                        .collect::<Result<Vec<_>, _>>()?
+                                },
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                10,
+            >>::VERSION,
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                10,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "operation"), (2, "cleanup")],
+            path,
+        )?;
+        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            10,
+        >>::into_projection_alternative(value) {
+            Ok((field_0, field_1)) => {
+                let alternative_path = child_path(path, "ProviderSettlement");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::ProviderSettlement(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative10 {
+                                operation: buffa::MessageField::some(
+                                    native_into::<
+                                        _,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                                    >(field_0, &child_path(path, "operation"))?,
+                                ),
+                                cleanup: buffa::MessageField::some(
+                                    native_into::<
+                                        _,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                                    >(field_1, &child_path(path, "cleanup"))?,
+                                ),
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                11,
+            >>::VERSION,
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                11,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "value")],
+            path,
+        )?;
+        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            11,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "ProviderRetirementPanic");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::ProviderRetirementPanic(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative11 {
+                                value: native_into::<
+                                    _,
+                                    String,
+                                >(field_0, &child_path(path, "value"))?,
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                12,
+            >>::VERSION,
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                12,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "value")],
+            path,
+        )?;
+        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            12,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Diagnostic");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Diagnostic(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative12 {
+                                value: buffa::MessageField::some(
+                                    native_into::<
+                                        _,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+                                    >(field_0, &child_path(path, "value"))?,
+                                ),
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                13,
+            >>::VERSION,
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                13,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "causes")],
+            path,
+        )?;
+        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            13,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Retirement");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Retirement(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative13 {
+                                causes: {
+                                    let current_path = &child_path(path, "causes");
+                                    items(field_0)
+                                        .enumerate()
+                                        .map(|(index, value)| -> Result<_, AdapterError> {
+                                            native_into::<
+                                                _,
+                                                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                                            >(value, &format!("{path}[{index}]", path = current_path))
+                                        })
+                                        .collect::<Result<Vec<_>, _>>()?
+                                },
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                14,
+            >>::VERSION,
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                14,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "value")],
+            path,
+        )?;
+        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            14,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "NativePanic");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::NativePanic(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative14 {
+                                value: native_into::<
+                                    _,
+                                    String,
+                                >(field_0, &child_path(path, "value"))?,
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                15,
+            >>::VERSION,
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                15,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "value")],
+            path,
+        )?;
+        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            15,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Singular");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Singular(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative15 {
+                                value: native_into::<
+                                    _,
+                                    String,
+                                >(field_0, &child_path(path, "value"))?,
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                16,
+            >>::VERSION,
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                16,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            16,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::LinearizationChanged(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative16 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                17,
+            >>::VERSION,
+            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                17,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "selector"), (2, "bound"), (3, "selected")],
+            path,
+        )?;
+        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            17,
+        >>::into_projection_alternative(value) {
+            Ok((field_0, field_1, field_2)) => {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::RegimeCrossing(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative17 {
+                                selector: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_0,
+                                ),
+                                bound: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_1,
+                                ),
+                                selected: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_2,
+                                ),
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
         let _ = value;
         Err(
             refused(
@@ -2498,6 +4487,311 @@ impl NativeFrom<
                 Ok(
                     <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         8,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::ProviderRetirement(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "ProviderRetirement");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        9,
+                    >>::VERSION,
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        9,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "failures")],
+                    path,
+                )?;
+                let fields = (
+                    {
+                        let current_path = &child_path(path, "failures");
+                        let values = wire
+                            .failures
+                            .into_iter()
+                            .enumerate()
+                            .map(|(index, value)| -> Result<_, AdapterError> {
+                                native_from::<
+                                    _,
+                                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure,
+                                >(value, &format!("{path}[{index}]", path = current_path))
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        from_items(values, current_path)?
+                    },
+                );
+                Ok(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        9,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::ProviderSettlement(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "ProviderSettlement");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        10,
+                    >>::VERSION,
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        10,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "operation"), (2, "cleanup")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<
+                        _,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                    >(
+                        required(
+                            wire.operation.into_option(),
+                            &child_path(path, "operation"),
+                        )?,
+                        &child_path(path, "operation"),
+                    )?,
+                    native_from::<
+                        _,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                    >(
+                        required(
+                            wire.cleanup.into_option(),
+                            &child_path(path, "cleanup"),
+                        )?,
+                        &child_path(path, "cleanup"),
+                    )?,
+                );
+                Ok(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        10,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::ProviderRetirementPanic(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "ProviderRetirementPanic");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        11,
+                    >>::VERSION,
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        11,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "value")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<_, String>(wire.value, &child_path(path, "value"))?,
+                );
+                Ok(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        11,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Diagnostic(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Diagnostic");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        12,
+                    >>::VERSION,
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        12,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "value")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<
+                        _,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+                    >(
+                        required(wire.value.into_option(), &child_path(path, "value"))?,
+                        &child_path(path, "value"),
+                    )?,
+                );
+                Ok(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        12,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Retirement(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Retirement");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        13,
+                    >>::VERSION,
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        13,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "causes")],
+                    path,
+                )?;
+                let fields = (
+                    {
+                        let current_path = &child_path(path, "causes");
+                        let values = wire
+                            .causes
+                            .into_iter()
+                            .enumerate()
+                            .map(|(index, value)| -> Result<_, AdapterError> {
+                                native_from::<
+                                    _,
+                                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                                >(value, &format!("{path}[{index}]", path = current_path))
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        from_items(values, current_path)?
+                    },
+                );
+                Ok(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        13,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::NativePanic(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "NativePanic");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        14,
+                    >>::VERSION,
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        14,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "value")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<_, String>(wire.value, &child_path(path, "value"))?,
+                );
+                Ok(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        14,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Singular(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Singular");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        15,
+                    >>::VERSION,
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        15,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "value")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<_, String>(wire.value, &child_path(path, "value"))?,
+                );
+                Ok(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        15,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::LinearizationChanged(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "LinearizationChanged");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        16,
+                    >>::VERSION,
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        16,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        16,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::RegimeCrossing(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "RegimeCrossing");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        17,
+                    >>::VERSION,
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        17,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "selector"), (2, "bound"), (3, "selected")],
+                    path,
+                )?;
+                let fields = (
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.selector,
+                        &child_path(path, "selector"),
+                    )?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.bound,
+                        &child_path(path, "bound"),
+                    )?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.selected,
+                        &child_path(path, "selected"),
+                    )?,
+                );
+                Ok(
+                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                        17,
                     >>::from_projection_alternative(fields),
                 )
             }
@@ -3452,6 +5746,74 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure,
+> for crate::scientific_worker::protocol::KeyedFailure {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure,
+        AdapterError,
+    > {
+        layout(
+            <crate::scientific_worker::protocol::KeyedFailure as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::scientific_worker::protocol::KeyedFailure as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "key"), (2, "cause")],
+            path,
+        )?;
+        let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure {
+            key: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
+            cause: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                >(field_1, &child_path(path, "cause"))?,
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure,
+> for crate::scientific_worker::protocol::KeyedFailure {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <crate::scientific_worker::protocol::KeyedFailure as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::scientific_worker::protocol::KeyedFailure as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "key"), (2, "cause")],
+            path,
+        )?;
+        let fields = (
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.key,
+                &child_path(path, "key"),
+            )?,
+            native_from::<
+                _,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+            >(
+                required(wire.cause.into_option(), &child_path(path, "cause"))?,
+                &child_path(path, "cause"),
+            )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindDefinition,
 > for pse_quantity::kind::KindDefinition {
     fn into_wire(
@@ -3701,6 +6063,828 @@ impl NativeFrom<
                 fields,
             )
             .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+> for pse_model::diagnostic::BoundaryDiagnostic {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+        AdapterError,
+    > {
+        layout(
+            <pse_model::diagnostic::BoundaryDiagnostic as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::diagnostic::BoundaryDiagnostic as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "code"),
+                (2, "causes"),
+                (3, "class"),
+                (4, "severity"),
+                (5, "stage"),
+                (6, "sources"),
+                (7, "rule"),
+                (8, "observations"),
+                (9, "locations"),
+                (10, "validity"),
+                (11, "applicability"),
+            ],
+            path,
+        )?;
+        let (
+            field_0,
+            field_1,
+            field_2,
+            field_3,
+            field_4,
+            field_5,
+            field_6,
+            field_7,
+            field_8,
+            field_9,
+            field_10,
+        ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic {
+            code: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticCode,
+                >(field_0, &child_path(path, "code"))?,
+            ),
+            causes: {
+                let current_path = &child_path(path, "causes");
+                items(field_1)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            class: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::NativeBoundaryClass,
+                >(field_2, &child_path(path, "class"))?,
+            ),
+            severity: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticSeverity,
+                >(field_3, &child_path(path, "severity"))?,
+            ),
+            stage: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticStage,
+                >(field_4, &child_path(path, "stage"))?,
+            ),
+            sources: items(field_5)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
+            rule: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticRule,
+                >(field_6, &child_path(path, "rule"))?,
+            ),
+            observations: wire_map(
+                field_7
+                    .into_iter()
+                    .map(|(key, value)| -> Result<_, AdapterError> {
+                        Ok((
+                            native_into::<
+                                _,
+                                String,
+                            >(key, &child_path(path, "observations"))?,
+                            native_into::<
+                                _,
+                                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation,
+                            >(value, &child_path(path, "observations"))?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter(),
+            ),
+            locations: {
+                let current_path = &child_path(path, "locations");
+                items(field_8)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelSourceLocation,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            validity: field_9
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<
+                        _,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelValidityLineage,
+                    >(value, &child_path(path, "validity"))
+                })
+                .transpose()?
+                .into(),
+            applicability: {
+                let current_path = &child_path(path, "applicability");
+                items(field_10)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityObservation,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+> for pse_model::diagnostic::BoundaryDiagnostic {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_model::diagnostic::BoundaryDiagnostic as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::diagnostic::BoundaryDiagnostic as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "code"),
+                (2, "causes"),
+                (3, "class"),
+                (4, "severity"),
+                (5, "stage"),
+                (6, "sources"),
+                (7, "rule"),
+                (8, "observations"),
+                (9, "locations"),
+                (10, "validity"),
+                (11, "applicability"),
+            ],
+            path,
+        )?;
+        let fields = (
+            native_from::<
+                _,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticCode,
+            >(
+                required(wire.code.into_option(), &child_path(path, "code"))?,
+                &child_path(path, "code"),
+            )?,
+            {
+                let current_path = &child_path(path, "causes");
+                let values = wire
+                    .causes
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<
+                _,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::NativeBoundaryClass,
+            >(
+                required(wire.class.into_option(), &child_path(path, "class"))?,
+                &child_path(path, "class"),
+            )?,
+            native_from::<
+                _,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticSeverity,
+            >(
+                required(wire.severity.into_option(), &child_path(path, "severity"))?,
+                &child_path(path, "severity"),
+            )?,
+            native_from::<
+                _,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticStage,
+            >(
+                required(wire.stage.into_option(), &child_path(path, "stage"))?,
+                &child_path(path, "stage"),
+            )?,
+            {
+                let current_path = &child_path(path, "sources");
+                let values = wire
+                    .sources
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<
+                _,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticRule,
+            >(
+                required(wire.rule.into_option(), &child_path(path, "rule"))?,
+                &child_path(path, "rule"),
+            )?,
+            unique_pairs(
+                wire
+                    .observations
+                    .into_iter()
+                    .map(|(key, value)| -> Result<_, AdapterError> {
+                        Ok((
+                            native_from::<
+                                _,
+                                String,
+                            >(key, &child_path(path, "observations"))?,
+                            native_from::<
+                                _,
+                                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation,
+                            >(value, &child_path(path, "observations"))?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?,
+                &child_path(path, "observations"),
+            )?,
+            {
+                let current_path = &child_path(path, "locations");
+                let values = wire
+                    .locations
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelSourceLocation,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            wire
+                .validity
+                .into_option()
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<
+                        _,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelValidityLineage,
+                    >(value, &child_path(path, "validity"))
+                })
+                .transpose()?,
+            {
+                let current_path = &child_path(path, "applicability");
+                let values = wire
+                    .applicability
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityObservation,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelSourceLocation,
+> for pse_model::diagnostic::SourceLocation {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelSourceLocation,
+        AdapterError,
+    > {
+        layout(
+            <pse_model::diagnostic::SourceLocation as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::diagnostic::SourceLocation as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "source"),
+                (2, "revision"),
+                (3, "document"),
+                (4, "occurrence_role"),
+                (5, "occurrence_position"),
+                (6, "path"),
+                (7, "name"),
+                (8, "start"),
+                (9, "end"),
+            ],
+            path,
+        )?;
+        let (
+            field_0,
+            field_1,
+            field_2,
+            field_3,
+            field_4,
+            field_5,
+            field_6,
+            field_7,
+            field_8,
+        ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelSourceLocation {
+            source: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
+            revision: field_1
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
+                    )
+                })
+                .transpose()?,
+            document: field_2
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
+                    )
+                })
+                .transpose()?,
+            occurrence_role: field_3
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<_, String>(value, &child_path(path, "occurrence_role"))
+                })
+                .transpose()?,
+            occurrence_position: field_4
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<
+                        _,
+                        u32,
+                    >(value, &child_path(path, "occurrence_position"))
+                })
+                .transpose()?,
+            path: native_into::<_, String>(field_5, &child_path(path, "path"))?,
+            name: field_6
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<_, String>(value, &child_path(path, "name"))
+                })
+                .transpose()?,
+            start: field_7
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<_, u32>(value, &child_path(path, "start"))
+                })
+                .transpose()?,
+            end: field_8
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<_, u32>(value, &child_path(path, "end"))
+                })
+                .transpose()?,
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelSourceLocation,
+> for pse_model::diagnostic::SourceLocation {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelSourceLocation,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_model::diagnostic::SourceLocation as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::diagnostic::SourceLocation as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "source"),
+                (2, "revision"),
+                (3, "document"),
+                (4, "occurrence_role"),
+                (5, "occurrence_position"),
+                (6, "path"),
+                (7, "name"),
+                (8, "start"),
+                (9, "end"),
+            ],
+            path,
+        )?;
+        let fields = (
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.source,
+                &child_path(path, "source"),
+            )?,
+            wire
+                .revision
+                .map(|value| -> Result<_, AdapterError> {
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "revision"),
+                    )
+                })
+                .transpose()?,
+            wire
+                .document
+                .map(|value| -> Result<_, AdapterError> {
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "document"),
+                    )
+                })
+                .transpose()?,
+            wire
+                .occurrence_role
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<_, String>(value, &child_path(path, "occurrence_role"))
+                })
+                .transpose()?,
+            wire
+                .occurrence_position
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<
+                        _,
+                        u32,
+                    >(value, &child_path(path, "occurrence_position"))
+                })
+                .transpose()?,
+            native_from::<_, String>(wire.path, &child_path(path, "path"))?,
+            wire
+                .name
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<_, String>(value, &child_path(path, "name"))
+                })
+                .transpose()?,
+            wire
+                .start
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<_, u32>(value, &child_path(path, "start"))
+                })
+                .transpose()?,
+            wire
+                .end
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<_, u32>(value, &child_path(path, "end"))
+                })
+                .transpose()?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelValidityLineage,
+> for pse_model::diagnostic::ValidityLineage {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelValidityLineage,
+        AdapterError,
+    > {
+        layout(
+            <pse_model::diagnostic::ValidityLineage as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::diagnostic::ValidityLineage as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "layer"),
+                (2, "source"),
+                (3, "form"),
+                (4, "sets"),
+                (5, "variables"),
+                (6, "members"),
+            ],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelValidityLineage {
+            layer: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+                >(field_0, &child_path(path, "layer"))?,
+            ),
+            source: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            form: field_2
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
+                    )
+                })
+                .transpose()?,
+            sets: items(field_3)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
+            variables: {
+                let current_path = &child_path(path, "variables");
+                items(field_4)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u32,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            members: items(field_5)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelValidityLineage,
+> for pse_model::diagnostic::ValidityLineage {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelValidityLineage,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_model::diagnostic::ValidityLineage as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::diagnostic::ValidityLineage as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "layer"),
+                (2, "source"),
+                (3, "form"),
+                (4, "sets"),
+                (5, "variables"),
+                (6, "members"),
+            ],
+            path,
+        )?;
+        let fields = (
+            native_from::<
+                _,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+            >(
+                required(wire.layer.into_option(), &child_path(path, "layer"))?,
+                &child_path(path, "layer"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.source,
+                &child_path(path, "source"),
+            )?,
+            wire
+                .form
+                .map(|value| -> Result<_, AdapterError> {
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "form"),
+                    )
+                })
+                .transpose()?,
+            {
+                let current_path = &child_path(path, "sets");
+                let values = wire
+                    .sets
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "variables");
+                let values = wire
+                    .variables
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u32,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "members");
+                let values = wire
+                    .members
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityBasis,
+> for pse_model::generated::enums::ModelingApplicabilityBasis {
+    fn into_wire(
+        self,
+        _: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityBasis,
+        AdapterError,
+    > {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityBasis {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityBasis,
+> for pse_model::generated::enums::ModelingApplicabilityBasis {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityBasis,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "unknown canonical source vocabulary member",
+            ))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityOutcome,
+> for pse_model::generated::enums::ModelingApplicabilityOutcome {
+    fn into_wire(
+        self,
+        _: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityOutcome,
+        AdapterError,
+    > {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityOutcome {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityOutcome,
+> for pse_model::generated::enums::ModelingApplicabilityOutcome {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityOutcome,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "unknown canonical source vocabulary member",
+            ))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingPermissionTarget,
+> for pse_model::generated::enums::ModelingPermissionTarget {
+    fn into_wire(
+        self,
+        _: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingPermissionTarget,
+        AdapterError,
+    > {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingPermissionTarget {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingPermissionTarget,
+> for pse_model::generated::enums::ModelingPermissionTarget {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingPermissionTarget,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "unknown canonical source vocabulary member",
+            ))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+> for pse_model::generated::enums::ModelingValidityLayer {
+    fn into_wire(
+        self,
+        _: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+        AdapterError,
+    > {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+> for pse_model::generated::enums::ModelingValidityLayer {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "unknown canonical source vocabulary member",
+            ))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::NativeBoundaryClass,
+> for pse_model::generated::enums::NativeBoundaryClass {
+    fn into_wire(
+        self,
+        _: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::NativeBoundaryClass,
+        AdapterError,
+    > {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::NativeBoundaryClass {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::NativeBoundaryClass,
+> for pse_model::generated::enums::NativeBoundaryClass {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::NativeBoundaryClass,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "unknown canonical source vocabulary member",
+            ))
     }
 }
 impl NativeInto<

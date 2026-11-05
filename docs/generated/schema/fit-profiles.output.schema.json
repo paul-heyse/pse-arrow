@@ -1765,6 +1765,39 @@
             "detail"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The worker's original failure and its independent retirement failure.",
+          "properties": {
+            "detail": {
+              "additionalProperties": false,
+              "properties": {
+                "cleanup": {
+                  "$ref": "#/$defs/ProfileFailure",
+                  "description": "Actual retirement failure."
+                },
+                "operation": {
+                  "$ref": "#/$defs/ProfileWorkerFailure",
+                  "description": "Original failure, retained without changing its classification."
+                }
+              },
+              "required": [
+                "operation",
+                "cleanup"
+              ],
+              "type": "object"
+            },
+            "kind": {
+              "const": "settlement",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "detail"
+          ],
+          "type": "object"
         }
       ]
     },

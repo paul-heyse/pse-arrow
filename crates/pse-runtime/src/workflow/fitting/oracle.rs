@@ -218,11 +218,62 @@ pub(super) fn prepare_steady_worker(
     s: &Steady,
     execution: &Execution,
 ) -> Result<CaseWorker, ProblemError> {
-    let providers = crate::math::attempt_providers(&s.providers, &execution.scope()?)
-        .map_err(ProblemError::Provider)?;
-    let mut worker = s.case.assembly.worker_scoped(providers, execution.scope()?);
-    worker.prepare_providers()?;
-    Ok(worker)
+    let scope = execution.scope()?;
+    let providers =
+        crate::math::attempt_providers(&s.providers, &scope).map_err(ProblemError::Provider)?;
+    let mut worker = s.case.assembly.worker_scoped(providers, scope);
+    let prepared = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        worker.prepare_providers().map_err(ProblemError::from)
+    }))
+    .unwrap_or_else(|payload| Err(retirement_panic(payload)));
+    match prepared {
+        Ok(()) => Ok(worker),
+        Err(error) => ProblemError::with_retirement(Err(error), finish_steady_worker(worker)),
+    }
+}
+fn retirement_panic(payload: Box<dyn std::any::Any + Send>) -> ProblemError {
+    let detail = pse_diagnostics::panic::settle_payload(payload, "fit owner non-text panic");
+    crate::math::MathRuntimeError::Panic(detail).into_problem()
+}
+fn finish_steady_worker(worker: CaseWorker) -> Result<(), ProblemError> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        worker.finish().map_err(ProblemError::from)
+    }))
+    .unwrap_or_else(|payload| Err(retirement_panic(payload)))
+}
+fn finish_fit_population(
+    team: &mut Option<experiments::ExperimentTeam>,
+    workers: &mut Vec<Option<CaseWorker>>,
+    #[cfg(feature = "solver-diffsol")] transient: &mut Vec<
+        Option<crate::workflow::dynamics::DynamicWorker>,
+    >,
+) -> Result<(), ProblemError> {
+    let mut failures = Vec::new();
+    if let Some(team) = team.take() {
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| team.finish()))
+            .unwrap_or_else(|payload| Err(retirement_panic(payload)));
+        if let Err(error) = result {
+            failures.push(error);
+        }
+    }
+    for worker in workers.drain(..).flatten() {
+        if let Err(error) = finish_steady_worker(worker) {
+            failures.push(error);
+        }
+    }
+    #[cfg(feature = "solver-diffsol")]
+    for worker in transient.drain(..).flatten() {
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| worker.finish()))
+            .unwrap_or_else(|payload| Err(retirement_panic(payload)));
+        if let Err(error) = result {
+            failures.push(error);
+        }
+    }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(ProblemError::Retirement { failures })
+    }
 }
 impl FitOracle {
     #[cfg(test)]
@@ -256,88 +307,107 @@ impl FitOracle {
         let _phase = pse_diagnostics::observation::phase("fit.oracle_construction");
         let mut team =
             experiments::ExperimentTeam::new(p.clone(), math.clone(), execution.clone())?;
-        let transient_execution = match &mut team {
-            Some(team) => team.take_parent_executions(),
-            None => {
-                foreign::Population::prepare(&p, &math, &execution, None)?
-                    .ok_or_else(|| {
-                        ProblemError::internal("serial foreign population unexpectedly unavailable")
-                    })?
-                    .parent
+        let mut workers = Vec::with_capacity(p.experiments.len());
+        #[cfg(feature = "solver-diffsol")]
+        let mut transient_workers = Vec::with_capacity(p.experiments.len());
+        let prepared = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let transient_execution = match &mut team {
+                Some(team) => team.take_parent_executions(),
+                None => {
+                    foreign::Population::prepare(&p, &math, &execution, None)?
+                        .ok_or_else(|| {
+                            ProblemError::internal(
+                                "serial foreign population unexpectedly unavailable",
+                            )
+                        })?
+                        .parent
+                }
+            };
+            for (index, e) in p.experiments.iter().enumerate() {
+                let worker = match e {
+                    Experiment::Steady(s)
+                        if team.is_some()
+                            && (p.layout.hessian.is_none()
+                                || (p.profile.solver.controls.hessian != HessianMode::Exact
+                                    && s.constraints.is_empty())) =>
+                    {
+                        Ok(None)
+                    }
+                    Experiment::Steady(s) => {
+                        if let Some(context) = pse_diagnostics::observation::current() {
+                            context.count("fit.experiment_worker_constructions", "count", 1);
+                        }
+                        if let Some(slot) = scratch.as_ref().and_then(|bank| {
+                            bank.steady(
+                                p.declaration.experiments[index].experiment_id,
+                                &s.case.assembly,
+                            )
+                        }) {
+                            slot.worker(&s.case.assembly, &s.providers, execution.scope()?)
+                                .map(Some)
+                        } else {
+                            prepare_steady_worker(s, &execution).map(Some)
+                        }
+                    }
+                    Experiment::Transient(_) => Ok(None),
+                };
+                workers.push(worker?);
+            }
+            #[cfg(feature = "solver-diffsol")]
+            for (index, experiment) in p.experiments.iter().enumerate() {
+                let worker = match experiment {
+                    Experiment::Steady(_) => Ok(None),
+                    Experiment::Transient(_)
+                        if team.is_some()
+                            && p.profile.solver.controls.hessian != HessianMode::Exact =>
+                    {
+                        Ok(None)
+                    }
+                    Experiment::Transient(s) => {
+                        if let Some(context) = pse_diagnostics::observation::current() {
+                            context.count("fit.experiment_worker_constructions", "count", 1);
+                        }
+                        if let Some(slots) = scratch.as_ref().and_then(|bank| {
+                            bank.transient(p.declaration.experiments[index].experiment_id)
+                        }) {
+                            s.program
+                                .worker_with_scratch(
+                                    execution.scope()?,
+                                    s.snapshots.clone(),
+                                    Some(slots),
+                                )
+                                .map(Some)
+                        } else {
+                            s.worker(&execution).map(Some)
+                        }
+                    }
+                };
+                transient_workers.push(worker?);
+            }
+            let hessian = p.layout.hessian.clone();
+            let gram = p
+                .layout
+                .gram
+                .as_ref()
+                .map(|g| sparse::GramWorker::new(g.clone(), &p.layout.responses, p.bytes))
+                .transpose()?;
+            Ok::<_, ProblemError>((transient_execution, hessian, gram))
+        }))
+        .unwrap_or_else(|payload| Err(retirement_panic(payload)));
+        let (transient_execution, hessian, gram) = match prepared {
+            Ok(value) => value,
+            Err(error) => {
+                return ProblemError::with_retirement(
+                    Err(error),
+                    finish_fit_population(
+                        &mut team,
+                        &mut workers,
+                        #[cfg(feature = "solver-diffsol")]
+                        &mut transient_workers,
+                    ),
+                );
             }
         };
-        let workers = p
-            .experiments
-            .iter()
-            .enumerate()
-            .map(|(index, e)| match e {
-                Experiment::Steady(s)
-                    if team.is_some()
-                        && (p.layout.hessian.is_none()
-                            || (p.profile.solver.controls.hessian != HessianMode::Exact
-                                && s.constraints.is_empty())) =>
-                {
-                    Ok(None)
-                }
-                Experiment::Steady(s) => {
-                    if let Some(context) = pse_diagnostics::observation::current() {
-                        context.count("fit.experiment_worker_constructions", "count", 1);
-                    }
-                    if let Some(slot) = scratch.as_ref().and_then(|bank| {
-                        bank.steady(
-                            p.declaration.experiments[index].experiment_id,
-                            &s.case.assembly,
-                        )
-                    }) {
-                        slot.worker(&s.case.assembly, &s.providers, execution.scope()?)
-                            .map(Some)
-                    } else {
-                        prepare_steady_worker(s, &execution).map(Some)
-                    }
-                }
-                Experiment::Transient(_) => Ok(None),
-            })
-            .collect::<Result<Vec<_>, ProblemError>>()?;
-        #[cfg(feature = "solver-diffsol")]
-        let transient_workers = p
-            .experiments
-            .iter()
-            .enumerate()
-            .map(|(index, experiment)| match experiment {
-                Experiment::Steady(_) => Ok(None),
-                Experiment::Transient(_)
-                    if team.is_some()
-                        && p.profile.solver.controls.hessian != HessianMode::Exact =>
-                {
-                    Ok(None)
-                }
-                Experiment::Transient(s) => {
-                    if let Some(context) = pse_diagnostics::observation::current() {
-                        context.count("fit.experiment_worker_constructions", "count", 1);
-                    }
-                    if let Some(slots) = scratch.as_ref().and_then(|bank| {
-                        bank.transient(p.declaration.experiments[index].experiment_id)
-                    }) {
-                        s.program
-                            .worker_with_scratch(
-                                execution.scope()?,
-                                s.snapshots.clone(),
-                                Some(slots),
-                            )
-                            .map(Some)
-                    } else {
-                        s.worker(&execution).map(Some)
-                    }
-                }
-            })
-            .collect::<Result<Vec<_>, ProblemError>>()?;
-        let hessian = p.layout.hessian.clone();
-        let gram = p
-            .layout
-            .gram
-            .as_ref()
-            .map(|g| sparse::GramWorker::new(g.clone(), &p.layout.responses, p.bytes))
-            .transpose()?;
         Ok(Self {
             observation: pse_diagnostics::observation::current().map(|context| {
                 context.producer(
@@ -842,6 +912,14 @@ impl FitOracle {
     }
 }
 impl NlpOracle for FitOracle {
+    fn finish(mut self: Box<Self>) -> Result<(), ProblemError> {
+        finish_fit_population(
+            &mut self.team,
+            &mut self.workers,
+            #[cfg(feature = "solver-diffsol")]
+            &mut self.transient_workers,
+        )
+    }
     fn normalization(&self) -> Option<&Normalization> {
         Some(&self.prepared.normalization)
     }
@@ -2381,6 +2459,60 @@ mod tests {
             experiment_workers: pse_model::scalar!(PositiveCount(1)),
             uncertainty: None,
         }
+    }
+    #[tokio::test]
+    async fn fit_finish_retires_later_workers_after_an_independent_finisher_panics() {
+        let runtime = runtime();
+        let package = source(&runtime, false).await;
+        let (prepared, _) = package
+            .prepare_fit_problem(
+                &runtime.preparation_services(),
+                id(32).into(),
+                profile(false),
+                compiler_profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &prepared.profile.solver.controls,
+        );
+        let mut oracle = FitOracle::new(
+            prepared,
+            runtime.preparation_services().math().clone(),
+            execution.clone(),
+        )
+        .unwrap();
+        let mut first = oracle.workers[0].take().unwrap();
+        let mut second = first
+            .assembly()
+            .worker_scoped(Default::default(), execution.scope().unwrap());
+        let finished = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let signal = finished.clone();
+        first.recycle_on_finish(move |_| {
+            signal.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            panic!("controlled first fit worker finisher panic");
+        });
+        let signal = finished.clone();
+        second.recycle_on_finish(move |_| {
+            signal.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        });
+        oracle.workers = vec![Some(first), Some(second)];
+        let error = Box::new(oracle).finish().unwrap_err();
+        assert_eq!(finished.load(std::sync::atomic::Ordering::SeqCst), 2);
+        let ProblemError::Retirement { failures } = error else {
+            panic!("typed independent retirement failures required");
+        };
+        assert_eq!(failures.len(), 1);
+        use pse_model::diagnostic::DiagnosticProjection as _;
+        assert_eq!(
+            failures[0]
+                .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation)
+                .code,
+            pse_diagnostics::DiagnosticCode::WorkflowPanic
+        );
     }
     #[tokio::test]
     async fn fitting_value_demand_omits_steady_jacobian_and_upgrades_coherently() {

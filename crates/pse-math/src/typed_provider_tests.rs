@@ -150,10 +150,11 @@ fn evaluate(
         crate::jets::EvaluationLimits::default(),
         &pse_kernels::ExecutionScope::new(operation, None),
     )?;
-    let mut providers = ProviderBindings::from([(
+    let mut providers = ProviderBindings::try_from_iter([(
         descriptor.spec().key(),
         ProviderBinding::new(descriptor.spec().clone(), Box::new(Identity { calls })),
-    )]);
+    )])
+    .unwrap();
     compiled
         .worker()
         .evaluate(&[input], DerivativeOrder::Value, &mut providers, &cancel)

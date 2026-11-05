@@ -261,7 +261,8 @@ fn regional_products_provider_barrier_preserves_actual_provider_calls_and_refusa
                 calls: calls.clone(),
             }),
         );
-        let mut providers: ProviderBindings = ProviderBindings::from([(spec.key(), provider)]);
+        let mut providers: ProviderBindings =
+            ProviderBindings::try_from_iter([(spec.key(), provider)]).unwrap();
         let binding = if kind == ProductKind::WeightedHessian {
             ProductValues::WeightedHessian { weights: &[2.] }
         } else {
@@ -303,7 +304,7 @@ fn regional_products_provider_barrier_preserves_actual_provider_calls_and_refusa
     let providers = || {
         let calls = Arc::new(AtomicUsize::new(0));
         (
-            ProviderBindings::from([(
+            ProviderBindings::try_from_iter([(
                 spec.key(),
                 pse_kernels::ProviderBinding::new(
                     spec.clone(),
@@ -312,7 +313,8 @@ fn regional_products_provider_barrier_preserves_actual_provider_calls_and_refusa
                         calls: calls.clone(),
                     }),
                 ),
-            )]),
+            )])
+            .unwrap(),
             calls,
         )
     };
@@ -515,7 +517,7 @@ fn composed_provider_branch_definition_products(optimization: Optimization) {
     let providers = || {
         let calls = Arc::new(AtomicUsize::new(0));
         (
-            ProviderBindings::from([(
+            ProviderBindings::try_from_iter([(
                 spec.key(),
                 pse_kernels::ProviderBinding::new(
                     spec.clone(),
@@ -524,7 +526,8 @@ fn composed_provider_branch_definition_products(optimization: Optimization) {
                         calls: calls.clone(),
                     }),
                 ),
-            )]),
+            )])
+            .unwrap(),
             calls,
         )
     };

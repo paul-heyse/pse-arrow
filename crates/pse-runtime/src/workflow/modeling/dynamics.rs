@@ -95,6 +95,32 @@ struct LiveSampleAdapter<'a> {
     last_original_point: Option<(f64, usize, usize)>,
 }
 #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+impl LiveSampleAdapter<'_> {
+    fn finish_original(&mut self) -> Result<(), ProblemError> {
+        self.original.take().map_or(Ok(()), |worker| {
+            worker.finish().map_err(original_check_failure)
+        })
+    }
+}
+#[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+fn finish_sample_dynamic_worker(worker: DynamicWorker) -> Result<(), ProblemError> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| worker.finish()))
+        .unwrap_or_else(|payload| Err(checks::check_panic(payload).into_problem()))
+}
+#[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+fn settle_sample_integration(
+    result: Result<native::Report, ProblemError>,
+    cleanup: Result<(), ProblemError>,
+) -> Result<native::Report, ProblemError> {
+    match (result, cleanup) {
+        (Ok(mut report), Err(cleanup)) => {
+            let primary = report.error.take().map_or(Ok(()), Err);
+            ProblemError::with_retirement(primary, Err(cleanup)).map(|()| report)
+        }
+        (result, cleanup) => ProblemError::with_retirement(result, cleanup),
+    }
+}
+#[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
 impl native::SampleObserver for LiveSampleAdapter<'_> {
     fn sample(&mut self, ordinal: usize, sample: &native::Sample) -> Result<(), ProblemError> {
         self.execution.check()?;
@@ -1023,25 +1049,37 @@ impl ModelingSimulation {
                     Ok(())
                 }
             }
-            let report = native::integrate_with_samples_current_observed(
-                &mut worker,
-                profile,
-                &self.parameters,
-                execution,
-                &self.snapshot,
-                native::SampleRetention::Full,
-                &mut IgnoreNativeSamples,
-            )?;
-            drop(worker);
+            let integrated = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                native::integrate_with_samples_current_observed(
+                    &mut worker,
+                    profile,
+                    &self.parameters,
+                    execution,
+                    &self.snapshot,
+                    native::SampleRetention::Full,
+                    &mut IgnoreNativeSamples,
+                )
+            }))
+            .unwrap_or_else(|payload| Err(checks::check_panic(payload).into_problem()));
+            let report =
+                settle_sample_integration(integrated, finish_sample_dynamic_worker(worker))?;
             let checks = self.check_samples(run_id, &report, &self.parameters, scope);
             return Ok((report, checks));
         };
         let compact = retention == native::SampleRetention::Compact;
         let original = if compact {
-            Some(
-                self.sample_check_worker(run_id, &self.parameters, scope)
-                    .map_err(original_check_failure)?,
-            )
+            match self
+                .sample_check_worker(run_id, &self.parameters, scope)
+                .map_err(original_check_failure)
+            {
+                Ok(original) => Some(original),
+                Err(error) => {
+                    return ProblemError::with_retirement(
+                        Err(error),
+                        finish_sample_dynamic_worker(worker),
+                    );
+                }
+            }
         } else {
             None
         };
@@ -1070,17 +1108,23 @@ impl ModelingSimulation {
             diagnostics: Vec::with_capacity(self.accuracy_sample_count()),
             last_original_point: None,
         };
-        let mut report = native::integrate_with_samples_current_observed(
-            &mut worker,
-            profile,
-            &self.parameters,
-            execution,
-            &self.snapshot,
-            retention,
-            &mut adapter,
-        )?;
-        drop(worker);
-        adapter.original.take();
+        let integrated = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            native::integrate_with_samples_current_observed(
+                &mut worker,
+                profile,
+                &self.parameters,
+                execution,
+                &self.snapshot,
+                retention,
+                &mut adapter,
+            )
+        }))
+        .unwrap_or_else(|payload| Err(checks::check_panic(payload).into_problem()));
+        let cleanup = ProblemError::with_retirement(
+            finish_sample_dynamic_worker(worker),
+            adapter.finish_original(),
+        );
+        let mut report = settle_sample_integration(integrated, cleanup)?;
         // The endpoint owns its actual input columns, including a terminal event
         // coincident with a scheduled change. Replace its grid check with that exact
         // context, matching Full assessment rather than retaining duplicate premises.

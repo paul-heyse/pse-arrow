@@ -865,6 +865,9 @@ mod tests {
         }
     }
     impl NlpOracle for Bounded {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &crate::OracleContract {
             &self.contract
         }

@@ -16,6 +16,13 @@ pub const EXCHANGE_EFFECTS: pse_contract::operation_effects::EffectFacts =
         destructive: false,
     };
 
+#[cfg(any(test, feature = "property-coolprop"))]
+pub(super) const FAILURE_DEPTH: usize = 32;
+#[cfg(any(test, feature = "property-coolprop"))]
+pub(super) const FAILURE_NODES: usize = 1024;
+#[cfg(any(test, feature = "property-coolprop"))]
+const FAILURE_RETAINED_TEXT: usize = 64 << 10;
+
 pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, Eq)]
     /// Exact attempt and child generation; this carries no owner-sealed proof.
@@ -251,6 +258,127 @@ pse_contract::projection_enum! {
         Terminal(String) => 7;
         /// Dispatched effects have no authenticated complete response.
         UnknownCompletion(String) => 8;
+        /// Every failed provider retirement, with original admitted keys.
+        ProviderRetirement {
+            /// Independent failures in attempted order, never deduplicated.
+            failures: Vec<KeyedFailure> => { tag: 1, direction: Direction::Output, rules: [LocalRule::Length { min: 1, max: 64 }] };
+        } => 9;
+        /// Original provider operation and independently failed cleanup.
+        ProviderSettlement {
+            /// Original scientific operation failure.
+            operation: Box<Failure> => { tag: 1, direction: Direction::Output, rules: [LocalRule::Required] };
+            /// Independently attempted retirement failure.
+            cleanup: Box<Failure> => { tag: 2, direction: Direction::Output, rules: [LocalRule::Required] };
+        } => 10;
+        /// A caught arbitrary provider finisher panic.
+        ProviderRetirementPanic(String) => 11;
+        /// An opaque source observation; it never reconstructs a native owner or error.
+        Diagnostic(Box<pse_model::diagnostic::BoundaryDiagnostic>) => 12;
+        /// Original worker action and all independently failed physical teardowns.
+        Retirement {
+            /// Complete ordered child failures under a nonrecoverable aggregate.
+            causes: Vec<Failure> => { tag: 1, direction: Direction::Output, rules: [LocalRule::Length { min: 1, max: 128 }] };
+        } => 13;
+        /// A child-native lane or original provider finish boundary panicked.
+        NativePanic(String) => 14;
+        /// A known recoverable singular scientific trial.
+        Singular(String) => 15;
+        /// An owner-certified derivative context changed.
+        LinearizationChanged => 16;
+        /// Known recoverable crossing of an owner-bound regime.
+        RegimeCrossing {
+            /// Original regime selector identity.
+            selector: SemanticId => { tag: 1, direction: Direction::Output, rules: [] };
+            /// Regime bound by the original derivative request.
+            bound: SemanticId => { tag: 2, direction: Direction::Output, rules: [] };
+            /// Regime selected by the refused trial.
+            selected: SemanticId => { tag: 3, direction: Direction::Output, rules: [] };
+        } => 17;
+    }
+}
+pse_contract::projection_struct! {
+    #[derive(Clone, Debug)]
+    /// One original provider-bank retirement occurrence.
+    pub struct KeyedFailure {
+        projection: { name: "KeyedFailure", version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
+        /// Exact admitted bank membership key, never recomputed from a descriptor.
+        pub key: ContentHash => { tag: 1, direction: Direction::Output, rules: [] };
+        /// Original known failure shape or its explicitly opaque source observation.
+        pub cause: Box<Failure> => { tag: 2, direction: Direction::Output, rules: [LocalRule::Required] };
+    }
+}
+impl Failure {
+    /// Semantic restoration has its own finite tree/retention allowance, after
+    /// the generated codec's independent frame, nesting and allocation limits.
+    #[cfg(any(test, feature = "property-coolprop"))]
+    pub(super) fn within_limits(&self) -> bool {
+        use pse_model::HeapUsage as _;
+        let mut pending = vec![(self, 0usize)];
+        let mut nodes = FAILURE_NODES;
+        let mut text = FAILURE_RETAINED_TEXT;
+        while let Some((failure, depth)) = pending.pop() {
+            if depth > FAILURE_DEPTH || nodes == 0 {
+                return false;
+            }
+            nodes -= 1;
+            let bytes = match failure {
+                Self::ProviderRetirement { failures } => {
+                    if failures.is_empty() || failures.len() > 64 {
+                        return false;
+                    }
+                    pending.extend(
+                        failures
+                            .iter()
+                            .map(|failure| (failure.cause.as_ref(), depth + 1)),
+                    );
+                    0
+                }
+                Self::ProviderSettlement { operation, cleanup } => {
+                    pending.push((operation, depth + 1));
+                    pending.push((cleanup, depth + 1));
+                    0
+                }
+                Self::Retirement { causes } => {
+                    if causes.is_empty() || causes.len() > 128 {
+                        return false;
+                    }
+                    pending.extend(causes.iter().map(|cause| (cause, depth + 1)));
+                    0
+                }
+                Self::Diagnostic(diagnostic) => {
+                    let mut observed = vec![(diagnostic.as_ref(), depth + 1)];
+                    while let Some((diagnostic, depth)) = observed.pop() {
+                        if depth > FAILURE_DEPTH || nodes == 0 {
+                            return false;
+                        }
+                        nodes -= 1;
+                        if diagnostic.causes.len() > 128 {
+                            return false;
+                        }
+                        observed.extend(diagnostic.causes.iter().map(|cause| (cause, depth + 1)));
+                    }
+                    diagnostic.heap_bytes()
+                }
+                Self::Resource(value)
+                | Self::Contract(value)
+                | Self::Trial(value)
+                | Self::Terminal(value)
+                | Self::UnknownCompletion(value)
+                | Self::ProviderRetirementPanic(value)
+                | Self::NativePanic(value)
+                | Self::Singular(value) => value.len(),
+                Self::OutsideEnvelope { axis, .. } => axis.len(),
+                Self::Cancelled
+                | Self::Deadline
+                | Self::LinearizationChanged
+                | Self::RegimeCrossing { .. } => 0,
+            };
+            let Some(remaining) = text.checked_sub(bytes) else {
+                return false;
+            };
+            text = remaining;
+        }
+        true
     }
 }
 pse_contract::projection_enum! {

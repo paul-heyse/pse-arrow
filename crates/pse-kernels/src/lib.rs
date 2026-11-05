@@ -20,7 +20,8 @@ mod shape;
 pub use batch::{ProviderBatchOutcome, ProviderBatchPoint, ProviderBatchResults};
 pub use provider::{
     PreparedProviderRequest, ProviderBinding, ProviderBindings, ProviderBuffer, ProviderCompletion,
-    ProviderDemand, ProviderExtents, ProviderLinearizationToken, ProviderOutput, ProviderRuntime,
+    ProviderDemand, ProviderExtents, ProviderLinearizationToken, ProviderOutput,
+    ProviderRetirementFailure, ProviderRuntime,
 };
 pub use pse_model::generated::enums::ExternalDerivativeSource as DerivativeSource;
 pub use shape::{ProviderShape, ProviderShapes};
@@ -490,6 +491,17 @@ impl ProviderValues {
 }
 /// Evaluation-local provider; native scratch and scalar types stay private.
 pub trait Provider: std::fmt::Debug + Send {
+    /// Consume this owner and physically retire its resources before returning,
+    /// including when retirement reports an error. Unknown physical settlement
+    /// stays with the performing owner; it must not be reported as completed.
+    ///
+    /// The default is only for in-process providers whose synchronous Drop
+    /// completes all cleanup without fallible work. Owners of workers or other
+    /// providers must override this method and forward their finish obligation.
+    fn finish(self: Box<Self>) -> Result<(), ProviderError> {
+        drop(self);
+        Ok(())
+    }
     /// Genuine grouped execution for this exact prepared demand; never inferred from scalar support.
     fn supports_batch(&self, _request: &PreparedProviderRequest) -> bool {
         false
@@ -541,6 +553,24 @@ pub trait Provider: std::fmt::Debug + Send {
 /// Failure classes retained across the math and native boundaries.
 #[derive(Debug, thiserror::Error)]
 pub enum ProviderError {
+    /// An arbitrary consuming provider panicked while retiring its owned state.
+    #[error("provider retirement panicked: {0}")]
+    RetirementPanic(String),
+    /// Every failed retirement, after all independent owned slots were attempted.
+    #[error("{} provider retirements failed", .failures.len())]
+    Retirement {
+        /// Original typed failures, attributed to the admitted provider keys.
+        failures: Vec<ProviderRetirementFailure>,
+    },
+    /// An operation failed and its independently attempted retirement also failed.
+    #[error("{operation}; provider retirement also failed: {cleanup}")]
+    Settlement {
+        /// Original operation failure.
+        #[source]
+        operation: Box<ProviderError>,
+        /// Original physical-retirement failure.
+        cleanup: Box<ProviderError>,
+    },
     /// Original native membership query failure while restoring a provider record.
     #[error("{0}")]
     RecordMembership(#[source] pse_ids::IdError),
@@ -617,10 +647,21 @@ impl ProviderError {
     /// Owned failure extent for retaining the original typed witness.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>().saturating_add(match self {
+            Self::Retirement { failures } => failures.iter().fold(
+                failures
+                    .capacity()
+                    .saturating_mul(size_of::<ProviderRetirementFailure>()),
+                |bytes, failure| bytes.saturating_add(failure.cause.retained_bytes()),
+            ),
+            Self::Settlement { operation, cleanup } => operation
+                .retained_bytes()
+                .saturating_add(cleanup.retained_bytes()),
             Self::RecordMembership(error) => error.retained_heap_bytes(),
-            Self::Contract(s) | Self::Trial(s) | Self::Singular(s) | Self::Terminal(s) => {
-                s.capacity()
-            }
+            Self::RetirementPanic(s)
+            | Self::Contract(s)
+            | Self::Trial(s)
+            | Self::Singular(s)
+            | Self::Terminal(s) => s.capacity(),
             Self::Nested { cause, retained } => {
                 retained.saturating_add(cause.allocation_overhead())
             }
@@ -660,19 +701,29 @@ pse_diagnostics::impl_diagnostic! {
         Self::Nested {..} | Self::RecordMembership(_) => None,
         Self::Cancelled => Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),
         Self::Deadline => Some(pse_diagnostics::DiagnosticCode::RuntimeTimeout),
+        Self::RetirementPanic(_) => Some(pse_diagnostics::DiagnosticCode::WorkflowPanic),
         Self::Limit(_) => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
         Self::Contract(_) => Some(pse_diagnostics::DiagnosticCode::KernelUnboundParameter),
         Self::DerivativeUnavailable { .. } => Some(pse_diagnostics::DiagnosticCode::CapabilityBackend),
-        Self::Terminal(_) => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
+        Self::Terminal(_) | Self::Retirement {..} | Self::Settlement {..} => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::LinearizationChanged | Self::Trial(_) | Self::OutsideEnvelope {..} | Self::Singular(_) | Self::RegimeCrossing {..} => Some(pse_diagnostics::DiagnosticCode::MathProvider),
     } },
-    forward(this) { match this { Self::Nested {cause,..} => Some(cause.as_ref()), Self::RecordMembership(error) => Some(error), _ => None } }, help(_this) { None }, related(_this) { None }, source(_this) { None },
+    forward(this) { match this { Self::Nested {cause,..} => Some(cause.as_ref()), Self::RecordMembership(error) => Some(error), _ => None } }, help(_this) { None },
+    related(this) { match this {
+        Self::Retirement { failures } => Some(Box::new(failures.iter().map(|failure| -> &dyn pse_diagnostics::TypedDiagnostic { failure }))),
+        Self::Settlement { operation, cleanup } => {
+            let causes: [&dyn pse_diagnostics::TypedDiagnostic; 2] = [operation.as_ref(), cleanup.as_ref()];
+            Some(Box::new(causes.into_iter()))
+        }
+        _ => None,
+    } }, source(_this) { None },
     facts(this) {
         use pse_diagnostics::{DiagnosticFacts, DiagnosticObservation as O, DiagnosticRule as R};
         if matches!(this, Self::Nested {..}) {return DiagnosticFacts::default();}
         let mut facts = DiagnosticFacts { rule: Some(R::MathProvider), ..Default::default() };
         facts.observe("provider_recoverable", O::Boolean(this.recoverable()));
         match this {
+            Self::RetirementPanic(_) => facts.rule = Some(R::WorkflowPanic),
             Self::OutsideEnvelope {axis,value,lower,upper} => {
                 facts.observe("provider_axis",O::Text(axis.clone()));
                 for (key,value) in [("provider_value",value),("provider_lower",lower),("provider_upper",upper)] {facts.observe(key,O::Number(*value));}
@@ -685,7 +736,7 @@ pse_diagnostics::impl_diagnostic! {
                 facts.observe("requested_derivative_order", O::Integer(order(*requested)));
                 facts.observe("available_derivative_order", O::Integer(order(*available)));
             }
-            Self::RecordMembership(_) | Self::LinearizationChanged | Self::Nested {..} | Self::Cancelled | Self::Deadline | Self::Limit(_) | Self::Contract(_) | Self::Trial(_) | Self::Singular(_) | Self::Terminal(_) => {}
+            Self::Retirement {..} | Self::Settlement {..} | Self::RecordMembership(_) | Self::LinearizationChanged | Self::Nested {..} | Self::Cancelled | Self::Deadline | Self::Limit(_) | Self::Contract(_) | Self::Trial(_) | Self::Singular(_) | Self::Terminal(_) => {}
         }
         facts
     }
@@ -737,7 +788,15 @@ pub trait ProviderFactory: std::fmt::Debug + Send + Sync {
     fn create_scoped(&self, scope: ExecutionScope) -> Result<ProviderBinding, ProviderError> {
         scope.check()?;
         let inner = self.create()?;
-        scope.check()?;
+        if let Err(operation) = scope.check() {
+            return match inner.finish() {
+                Ok(()) => Err(operation),
+                Err(cleanup) => Err(ProviderError::Settlement {
+                    operation: Box::new(operation),
+                    cleanup: Box::new(cleanup),
+                }),
+            };
+        }
         Ok(ProviderBinding::new(
             inner.spec().clone(),
             Box::new(ScopedProvider { inner, scope }),
@@ -759,6 +818,9 @@ struct ScopedProvider {
     scope: ExecutionScope,
 }
 impl Provider for ScopedProvider {
+    fn finish(self: Box<Self>) -> Result<(), ProviderError> {
+        self.inner.finish()
+    }
     fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
         self.inner.supports_batch(request)
     }
@@ -839,6 +901,9 @@ struct Enveloped {
     envelope: Envelope,
 }
 impl Provider for Enveloped {
+    fn finish(self: Box<Self>) -> Result<(), ProviderError> {
+        self.inner.finish()
+    }
     fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
         self.inner.supports_batch(request)
     }
@@ -977,6 +1042,9 @@ impl ProviderObservation {
     }
 }
 impl Provider for ObservedProvider {
+    fn finish(self: Box<Self>) -> Result<(), ProviderError> {
+        self.inner.finish()
+    }
     fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
         self.inner.supports_batch(request)
     }
@@ -1162,7 +1230,7 @@ impl Registration {
             descriptor,
             envelope,
         };
-        value.worker()?;
+        value.worker()?.finish()?;
         Ok(value)
     }
     /// Admitted descriptor.
@@ -1217,11 +1285,23 @@ impl Registration {
                 observation.count("kernel.provider.constructions", "workers", 1);
             }
             let worker = self.factory.create_scoped(scope.clone())?;
-            scope.check()?;
-            if worker.spec() != self.spec() {
-                return Err(ProviderError::Contract(
-                    "factory returned a different provider contract".into(),
-                ));
+            let admission = scope.check().and_then(|()| {
+                if worker.spec() != self.spec() {
+                    Err(ProviderError::Contract(
+                        "factory returned a different provider contract".into(),
+                    ))
+                } else {
+                    Ok(())
+                }
+            });
+            if let Err(operation) = admission {
+                return match worker.finish() {
+                    Ok(()) => Err(operation),
+                    Err(cleanup) => Err(ProviderError::Settlement {
+                        operation: Box::new(operation),
+                        cleanup: Box::new(cleanup),
+                    }),
+                };
             }
             let inner = match &self.envelope {
                 Some(envelope) => ProviderBinding::new(

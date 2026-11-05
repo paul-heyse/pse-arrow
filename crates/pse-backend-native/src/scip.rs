@@ -1130,31 +1130,37 @@ impl Instance {
             shutdown_error: None,
             concurrent_may_be_active: false,
         };
-        let s = instance.scip.as_ptr();
-        native!(
-            "SCIPincludeDefaultPlugins",
-            ffi::SCIPincludeDefaultPlugins(s)
-        )?;
-        // SAFETY: silences the instance's own message handler.
-        unsafe { ffi::SCIPsetMessagehdlrQuiet(s, 1) };
-        include_watch(s, Some(watch_exec), instance.watch.as_ptr().cast())?;
-        // Exact solving is admitted only in stage INIT, before the problem exists.
-        if modes.exact {
-            native!("SCIPenableExactSolving", ffi::SCIPenableExactSolving(s, 1))?;
-        }
-        let problem = cstring("pse_factorable")?;
-        native!(
-            "SCIPcreateProbBasic",
-            ffi::SCIPcreateProbBasic(s, problem.as_ptr())
-        )?;
-        if modes.reoptimize {
+        let result = (|| {
+            let s = instance.scip.as_ptr();
             native!(
-                "SCIPenableReoptimization",
-                ffi::SCIPenableReoptimization(s, 1)
+                "SCIPincludeDefaultPlugins",
+                ffi::SCIPincludeDefaultPlugins(s)
             )?;
+            // SAFETY: silences the instance's own message handler.
+            unsafe { ffi::SCIPsetMessagehdlrQuiet(s, 1) };
+            include_watch(s, Some(watch_exec), instance.watch.as_ptr().cast())?;
+            // Exact solving is admitted only in stage INIT, before the problem exists.
+            if modes.exact {
+                native!("SCIPenableExactSolving", ffi::SCIPenableExactSolving(s, 1))?;
+            }
+            let problem = cstring("pse_factorable")?;
+            native!(
+                "SCIPcreateProbBasic",
+                ffi::SCIPcreateProbBasic(s, problem.as_ptr())
+            )?;
+            if modes.reoptimize {
+                native!(
+                    "SCIPenableReoptimization",
+                    ffi::SCIPenableReoptimization(s, 1)
+                )?;
+            }
+            // SAFETY: a value query on the live instance.
+            instance.infinity = unsafe { ffi::SCIPinfinity(s) };
+            Ok(())
+        })();
+        if let Err(cause) = result {
+            return ProblemError::with_retirement(Err(cause), instance.shutdown());
         }
-        // SAFETY: a value query on the live instance.
-        instance.infinity = unsafe { ffi::SCIPinfinity(s) };
         Ok(instance)
     }
     fn ptr(&self) -> *mut ffi::SCIP {
@@ -2875,6 +2881,10 @@ pub(crate) struct Session {
     options: Options,
 }
 impl Session {
+    /// Surface the actual SCIP destruction status through consuming ownership.
+    pub(crate) fn finish(mut self) -> Result<(), ProblemError> {
+        self.shutdown()
+    }
     /// Explicit destruction makes a native cleanup failure visible to independent
     /// application reset; Drop is a conservative fallback for earlier error paths.
     pub(crate) fn shutdown(&mut self) -> Result<(), ProblemError> {
@@ -2933,34 +2943,45 @@ impl Session {
 }
 /// Build an instance, configure it and export the plan.
 fn build(r: &Request<'_>, plan: &Plan<'_>, gap_absolute: f64) -> Result<Session, ProblemError> {
-    let mut instance = Instance::new(
+    let instance = Instance::new(
         r.execution,
         Modes {
             exact: r.settings.exact,
             reoptimize: r.settings.reoptimize,
         },
     )?;
-    let options = configure(
-        &instance,
-        r.settings,
-        r.controls,
-        r.accuracy,
-        r.execution,
-        gap_absolute,
-        r.snapshot,
-    )?;
-    let export = export(&mut instance, plan, r.normalization)?;
-    let system = if r.settings.reoptimize {
-        system(plan)?
-    } else {
-        ContentHash::from_bytes([0; 32])
-    };
-    Ok(Session {
+    crate::retiring(
         instance,
-        export,
-        system,
-        options,
-    })
+        |mut instance| instance.shutdown(),
+        |pending| {
+            let instance = pending
+                .as_mut()
+                .ok_or_else(|| ProblemError::internal("missing SCIP construction owner"))?;
+            let options = configure(
+                &instance,
+                r.settings,
+                r.controls,
+                r.accuracy,
+                r.execution,
+                gap_absolute,
+                r.snapshot,
+            )?;
+            let export = export(instance, plan, r.normalization)?;
+            let system = if r.settings.reoptimize {
+                system(plan)?
+            } else {
+                ContentHash::from_bytes([0; 32])
+            };
+            Ok(Session {
+                instance: pending.take().ok_or_else(|| {
+                    ProblemError::internal("missing SCIP constructed owner transfer")
+                })?,
+                export,
+                system,
+                options,
+            })
+        },
+    )
 }
 /// The infeasible subsystem SCIP's IIS finders leave in their sub-problem, attributed to
 /// exported functions, native forms and declared bounds by native name. Constraints are
@@ -3352,410 +3373,416 @@ pub(crate) fn solve(
     // Normalized absolute gap budgets convert to original objective units.
     let gap_absolute = r.accuracy.mip_absolute_gap * r.normalization.objective;
     let mut local = None;
-    let (session, reoptimized) = if r.settings.reoptimize {
-        let system = system(&plan)?;
-        retained.session(
-            Backend::Scip,
-            r.controls.reuse,
-            |held: &mut Session| {
-                if held.system != system {
-                    return Ok(crate::execution::SessionUpdate::Incompatible);
-                }
-                held.reoptimize(&plan, r.execution)?;
-                Ok(crate::execution::SessionUpdate::Compatible)
-            },
-            || build(r, &plan, gap_absolute),
-        )?
-    } else {
-        // Nothing native is retained across attempts.
-        retained.clear();
-        (local.insert(build(r, &plan, gap_absolute)?), false)
-    };
-    // The instance itself owns the gate, including early-return and unwind cleanup.
-    session.instance._concurrent = concurrent.take();
-    // Readback at the start, clamped into the box, with auxiliaries inside theirs.
-    let clamp = |x: f64, (l, u): (f64, f64)| {
-        let x = if x.is_finite() { x } else { 0.0 };
-        x.max(l).min(u)
-    };
-    let start: Vec<f64> = r
-        .initial
-        .iter()
-        .zip(&plan.boxes)
-        .map(|(x, b)| clamp(*x, *b))
-        .collect();
-    let auxiliary: Vec<f64> = plan.boxes[columns..plan.indicator(0)]
-        .iter()
-        .map(|b| clamp(0.5 * (b.0 + b.1), *b))
-        .collect();
-    let deviation = readback(
-        &session.instance,
-        &session.export,
-        &plan,
-        &start,
-        &auxiliary,
-    )?;
-    let submitted = match r.warm {
-        // Exact solving certifies its own solutions; a floating-point seed is not given.
-        Some(_) if r.settings.exact => None,
-        Some(seed) => {
-            seed.validate(r.compatibility)?;
-            let WarmPayload::Nlp { primal, .. } = &seed.payload else {
-                return Err(ProblemError::Unsupported(
-                    "SCIP consumes a primal incumbent only".into(),
-                ));
-            };
-            Some(inject(&session.instance, &session.export, program, primal)?)
-        }
-        None => None,
-    };
-    // Under concurrent solving the solvers' incumbents are read back by transformed name.
-    let concurrent = match plan.objective {
-        Some((objective, sense)) if r.controls.threads > 1 => Some(Concurrent {
-            names: (0..columns)
-                .map(|i| format!("t_x{i}"))
-                .chain((0..program.auxiliaries.len()).map(|k| format!("t_a{k}")))
-                .map(|name| cstring(&name))
-                .collect::<Result<_, _>>()?,
+    let result = (|| {
+        let (session, reoptimized) = if r.settings.reoptimize {
+            let system = system(&plan)?;
+            retained.session(
+                Backend::Scip,
+                r.controls.reuse,
+                |held: &mut Session| {
+                    if held.system != system {
+                        return Ok(crate::execution::SessionUpdate::Incompatible);
+                    }
+                    held.reoptimize(&plan, r.execution)?;
+                    Ok(crate::execution::SessionUpdate::Compatible)
+                },
+                || build(r, &plan, gap_absolute),
+                Session::finish,
+            )?
+        } else {
+            // Nothing native is retained across attempts.
+            retained.clear()?;
+            (local.insert(build(r, &plan, gap_absolute)?), false)
+        };
+        // The instance itself owns the gate, including early-return and unwind cleanup.
+        session.instance._concurrent = concurrent.take();
+        // Readback at the start, clamped into the box, with auxiliaries inside theirs.
+        let clamp = |x: f64, (l, u): (f64, f64)| {
+            let x = if x.is_finite() { x } else { 0.0 };
+            x.max(l).min(u)
+        };
+        let start: Vec<f64> = r
+            .initial
+            .iter()
+            .zip(&plan.boxes)
+            .map(|(x, b)| clamp(*x, *b))
+            .collect();
+        let auxiliary: Vec<f64> = plan.boxes[columns..plan.indicator(0)]
+            .iter()
+            .map(|b| clamp(0.5 * (b.0 + b.1), *b))
+            .collect();
+        let deviation = readback(
+            &session.instance,
+            &session.export,
+            &plan,
+            &start,
+            &auxiliary,
+        )?;
+        let submitted = match r.warm {
+            // Exact solving certifies its own solutions; a floating-point seed is not given.
+            Some(_) if r.settings.exact => None,
+            Some(seed) => {
+                seed.validate(r.compatibility)?;
+                let WarmPayload::Nlp { primal, .. } = &seed.payload else {
+                    return Err(ProblemError::Unsupported(
+                        "SCIP consumes a primal incumbent only".into(),
+                    ));
+                };
+                Some(inject(&session.instance, &session.export, program, primal)?)
+            }
+            None => None,
+        };
+        // Under concurrent solving the solvers' incumbents are read back by transformed name.
+        let concurrent = match plan.objective {
+            Some((objective, sense)) if r.controls.threads > 1 => Some(Concurrent {
+                names: (0..columns)
+                    .map(|i| format!("t_x{i}"))
+                    .chain((0..program.auxiliaries.len()).map(|k| format!("t_a{k}")))
+                    .map(|name| cstring(&name))
+                    .collect::<Result<_, _>>()?,
+                columns,
+                program: program.clone(),
+                objective,
+                sense,
+                best: Mutex::new(None),
+            }),
+            _ => None,
+        };
+        session.instance.report_incumbents(
+            &session.export,
             columns,
-            program: program.clone(),
-            objective,
-            sense,
-            best: Mutex::new(None),
-        }),
-        _ => None,
-    };
-    session.instance.report_incumbents(
-        &session.export,
-        columns,
-        plan.objective.is_some(),
-        concurrent,
-    );
-    let s = session.instance.ptr();
-    let solved = if r.controls.threads > 1 {
-        session.instance.concurrent_may_be_active = true;
-        let result = crate::observation::scoped("scip.solve_concurrent", || {
-            native!("SCIPsolveConcurrent", ffi::SCIPsolveConcurrent(s))
-        });
-        if result.is_ok() {
-            session.instance.concurrent_may_be_active = false;
+            plan.objective.is_some(),
+            concurrent,
+        );
+        let s = session.instance.ptr();
+        let solved = if r.controls.threads > 1 {
+            session.instance.concurrent_may_be_active = true;
+            let result = crate::observation::scoped("scip.solve_concurrent", || {
+                native!("SCIPsolveConcurrent", ffi::SCIPsolveConcurrent(s))
+            });
+            if result.is_ok() {
+                session.instance.concurrent_may_be_active = false;
+            }
+            result
+        } else {
+            crate::observation::scoped("scip.solve", || native!("SCIPsolve", ffi::SCIPsolve(s)))
+        };
+        if let Err(cause) = solved {
+            // Cleanup failure carries its original typed native cause and cannot be
+            // mistaken for a healthy drained attempt or structural incompatibility.
+            session.shutdown()?;
+            return Err(cause);
         }
-        result
-    } else {
-        crate::observation::scoped("scip.solve", || native!("SCIPsolve", ffi::SCIPsolve(s)))
-    };
-    if let Err(cause) = solved {
-        // Cleanup failure carries its original typed native cause and cannot be
-        // mistaken for a healthy drained attempt or structural incompatibility.
-        session.shutdown()?;
-        return Err(cause);
-    }
-    session.instance.flush_incumbent();
-    // SAFETY: a status query after the solve returned.
-    let raw = unsafe { ffi::SCIPgetStatus(s) };
-    let status = Status::from_raw(raw).ok_or_else(|| {
-        ProblemError::Internal(format!("SCIP status {raw} outside the 10.0.2 ABI"))
-    })?;
-    let instance = &session.instance;
-    let export = &session.export;
-    let offset = export.offset;
-    // SAFETY: bound and statistic queries after the solve returned.
-    let primal_bound = instance
-        .finite(unsafe { ffi::SCIPgetPrimalbound(s) })
-        .map(|v| v + offset);
-    // SAFETY: as above.
-    let dual_bound = instance
-        .finite(unsafe { ffi::SCIPgetDualbound(s) })
-        .map(|v| v + offset);
-    // SAFETY: as above.
-    let gap = instance.finite(unsafe { ffi::SCIPgetGap(s) });
-    // SAFETY: as above.
-    let nodes = unsafe { ffi::SCIPgetNTotalNodes(s) };
-    // SAFETY: as above.
-    let best = unsafe { ffi::SCIPgetBestSol(s) };
-    let values = |sol: *mut ffi::SCIP_SOL| -> Vec<f64> {
-        export.coordinates[..columns]
+        session.instance.flush_incumbent();
+        // SAFETY: a status query after the solve returned.
+        let raw = unsafe { ffi::SCIPgetStatus(s) };
+        let status = Status::from_raw(raw).ok_or_else(|| {
+            ProblemError::Internal(format!("SCIP status {raw} outside the 10.0.2 ABI"))
+        })?;
+        let instance = &session.instance;
+        let export = &session.export;
+        let offset = export.offset;
+        // SAFETY: bound and statistic queries after the solve returned.
+        let primal_bound = instance
+            .finite(unsafe { ffi::SCIPgetPrimalbound(s) })
+            .map(|v| v + offset);
+        // SAFETY: as above.
+        let dual_bound = instance
+            .finite(unsafe { ffi::SCIPgetDualbound(s) })
+            .map(|v| v + offset);
+        // SAFETY: as above.
+        let gap = instance.finite(unsafe { ffi::SCIPgetGap(s) });
+        // SAFETY: as above.
+        let nodes = unsafe { ffi::SCIPgetNTotalNodes(s) };
+        // SAFETY: as above.
+        let best = unsafe { ffi::SCIPgetBestSol(s) };
+        let values = |sol: *mut ffi::SCIP_SOL| -> Vec<f64> {
+            export.coordinates[..columns]
             .iter()
             // SAFETY: value queries of held variables in a stored solution of this instance.
             .map(|var| unsafe { ffi::SCIPgetSolVal(s, sol, *var) })
             .collect()
-    };
-    let objective_of = |sol| objective_value(s, sol, export.function, offset, instance.infinity);
-    let candidate = (!best.is_null()).then(|| Candidate {
-        kind: CandidateKind::FeasiblePoint,
-        primal: values(best),
-        objective: plan.objective.and(objective_of(best)),
-        row_dual: None,
-        bound_dual: None,
-        reduced_costs: None,
-        slacks: None,
-        commitment: None,
-    });
-    // SAFETY: a mode query of the live instance.
-    let exact = r.settings.exact
-        && unsafe { ffi::SCIPisExact(s) } != 0
-        && matches!(status, Status::Optimal | Status::Infeasible);
-    let exact_objective = if exact && !best.is_null() && plan.objective.is_some() {
-        let rational = Rational::new(0.0)?;
-        // SAFETY: the exact original objective of SCIP's best solution.
-        unsafe { ffi::SCIPgetSolOrigObjExact(s, best, rational.0) };
-        Some(rational.text())
-    } else {
-        None
-    };
-    let pool = if r.settings.pool > 0 {
-        // SAFETY: a count query of the live instance's stored solutions.
-        let n = usize::try_from(unsafe { ffi::SCIPgetNSols(s) }).unwrap_or(0);
-        // SAFETY: as above; best first.
-        let sols = unsafe { ffi::SCIPgetSols(s) };
-        let stored = if n == 0 || sols.is_null() {
-            &[][..]
-        } else {
-            // SAFETY: SCIP's array of the `n` stored solutions, unchanged while the
-            // solved instance is only queried here.
-            unsafe { std::slice::from_raw_parts(sols, n) }
         };
-        stored
-            .iter()
-            .take(usize::from(r.settings.pool))
-            .enumerate()
-            .map(|(rank, sol)| PoolSolution {
-                rank,
-                primal: values(*sol),
-                objective: plan.objective.and(objective_of(*sol)),
-                feasible: None,
-            })
-            .collect()
-    } else {
-        vec![]
-    };
-    let subsystem = if r.settings.iis && status == Status::Infeasible {
-        iis(session, &plan, r.execution)?
-    } else {
-        None
-    };
-    let watch = instance.observed();
-    let contract = OracleContract {
-        identity: program.structure,
-        variables: program
-            .variables
-            .iter()
-            .zip(&plan.boxes)
-            .map(|(v, (lower, upper))| Variable {
-                id: v.id,
-                lower: *lower,
-                upper: *upper,
-            })
-            .collect(),
-        rows: program.rows.iter().map(|r| r.id).collect(),
-        derivatives: pse_kernels::DerivativeOrder::Value,
-        smoothness: pse_kernels::DerivativeOrder::Value,
-    };
-    let mut report = SolveReport::new(Backend::Scip, &contract, termination(status), r.execution);
-    let readback = deviation <= READBACK_TOLERANCE;
-    let exact_objective_transport = if exact && readback && status == Status::Optimal {
-        exact_objective
-            .as_deref()
-            .zip(candidate.as_ref())
-            .and_then(|(optimum, candidate)| {
-                crate::solve::ExactObjectiveTransport::issue(
-                    &plan,
-                    &candidate.primal,
-                    optimum,
-                    offset,
-                )
-            })
-    } else {
-        None
-    };
-    report.evidence.start_submitted = submitted.is_some();
-    report.evidence.reused_native_state = reoptimized;
-    report.evidence.global = Some(GlobalEvidence {
-        fidelity: plan.fidelity,
-        domain: plan.domain,
-        sense: plan
-            .objective
-            .map_or(ObjectiveSense::Minimize, |(_, sense)| sense),
-        feasibility: feasibility(r.accuracy),
-        gap_relative: r.accuracy.mip_relative_gap,
-        gap_absolute,
-        dual_bound: plan.objective.and(dual_bound),
-        primal_bound: plan.objective.and(primal_bound),
-        gap: plan.objective.and(gap),
-        nodes,
-        readback,
-        dual: if plan.fidelity == Fidelity::Exact {
-            BoundSource::ExactExport
+        let objective_of =
+            |sol| objective_value(s, sol, export.function, offset, instance.infinity);
+        let candidate = (!best.is_null()).then(|| Candidate {
+            kind: CandidateKind::FeasiblePoint,
+            primal: values(best),
+            objective: plan.objective.and(objective_of(best)),
+            row_dual: None,
+            bound_dual: None,
+            reduced_costs: None,
+            slacks: None,
+            commitment: None,
+        });
+        // SAFETY: a mode query of the live instance.
+        let exact = r.settings.exact
+            && unsafe { ffi::SCIPisExact(s) } != 0
+            && matches!(status, Status::Optimal | Status::Infeasible);
+        let exact_objective = if exact && !best.is_null() && plan.objective.is_some() {
+            let rational = Rational::new(0.0)?;
+            // SAFETY: the exact original objective of SCIP's best solution.
+            unsafe { ffi::SCIPgetSolOrigObjExact(s, best, rational.0) };
+            Some(rational.text())
         } else {
-            BoundSource::RelaxedExport
-        },
-        primal: PrimalSource::Backend,
-        infeasible: status == Status::Infeasible,
-        exact,
-    });
-    report.global = Some(Arc::new(GlobalRecord {
-        boxes: plan.boxes[..plan.indicator(0)].to_vec(),
-        pool,
-        iis: subsystem,
-        exact_objective,
-        exact_objective_transport,
-        reoptimized,
-        // The runner records the plan's named transformations.
-        transformations: Vec::new(),
-    }));
-    let metrics = &mut report.metrics;
-    // Pinned SCIP 10.0.2 statistics allow these queries only after presolve or
-    // during/after solving. Never infer eligibility from a retained handle alone.
-    // SAFETY: the owning instance has returned from SCIPsolve; no concurrent copy
-    // is accessed here and the stage query itself is always admitted.
-    let stage = unsafe { ffi::SCIPgetStage(s) };
-    if matches!(
-        stage,
-        ffi::SCIP_Stage_SCIP_STAGE_PRESOLVED
-            | ffi::SCIP_Stage_SCIP_STAGE_SOLVING
-            | ffi::SCIP_Stage_SCIP_STAGE_SOLVED
-    ) {
-        let getters: [(&str, unsafe extern "C" fn(*mut ffi::SCIP) -> i64); 6] = [
-            ("scip.nodes.current_run", ffi::SCIPgetNNodes),
-            ("scip.nodes.all_runs", ffi::SCIPgetNTotalNodes),
-            ("scip.lp.solves", ffi::SCIPgetNLPs),
-            ("scip.lp.iterations", ffi::SCIPgetNLPIterations),
-            ("scip.strong_branch.calls", ffi::SCIPgetNStrongbranchs),
-            (
-                "scip.strong_branch.lp_iterations",
-                ffi::SCIPgetNStrongbranchLPIterations,
-            ),
-        ];
-        for (name, getter) in getters {
-            // SAFETY: the exact getter's documented eligible stage was checked above.
-            metrics.insert(name.into(), Metric::Integer(unsafe { getter(s) }));
-        }
-        // SAFETY: same eligible owning stage; these are supplied census values,
-        // not an inference from configured plugins or their printed summaries.
-        metrics.insert(
-            "scip.presolve.rounds_current_or_last".into(),
-            Metric::Integer(i64::from(unsafe { ffi::SCIPgetNPresolRounds(s) })),
-        );
-        // SAFETY: SCIPgetNCutsApplied admits the same three stages checked above.
-        metrics.insert(
-            "scip.separation.cuts_applied".into(),
-            Metric::Integer(i64::from(unsafe { ffi::SCIPgetNCutsApplied(s) })),
-        );
-    } else {
-        metrics.insert(
-            "scip.lp.iterations".into(),
-            Metric::Unavailable(UnavailableReason::NotApplicable),
-        );
-    }
-    selected_plugin_statistics(&session.instance, metrics);
-    metrics.insert("scip.status".into(), Metric::Integer(i64::from(raw)));
-    metrics.insert("scip.nodes".into(), Metric::Integer(nodes));
-    for (key, value) in [
-        ("scip.primal_bound", primal_bound),
-        ("scip.dual_bound", dual_bound),
-        ("scip.gap", gap),
-    ] {
-        metrics.insert(
-            key.into(),
-            value.map_or(
+            None
+        };
+        let pool = if r.settings.pool > 0 {
+            // SAFETY: a count query of the live instance's stored solutions.
+            let n = usize::try_from(unsafe { ffi::SCIPgetNSols(s) }).unwrap_or(0);
+            // SAFETY: as above; best first.
+            let sols = unsafe { ffi::SCIPgetSols(s) };
+            let stored = if n == 0 || sols.is_null() {
+                &[][..]
+            } else {
+                // SAFETY: SCIP's array of the `n` stored solutions, unchanged while the
+                // solved instance is only queried here.
+                unsafe { std::slice::from_raw_parts(sols, n) }
+            };
+            stored
+                .iter()
+                .take(usize::from(r.settings.pool))
+                .enumerate()
+                .map(|(rank, sol)| PoolSolution {
+                    rank,
+                    primal: values(*sol),
+                    objective: plan.objective.and(objective_of(*sol)),
+                    feasible: None,
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+        let subsystem = if r.settings.iis && status == Status::Infeasible {
+            iis(session, &plan, r.execution)?
+        } else {
+            None
+        };
+        let watch = instance.observed();
+        let contract = OracleContract {
+            identity: program.structure,
+            variables: program
+                .variables
+                .iter()
+                .zip(&plan.boxes)
+                .map(|(v, (lower, upper))| Variable {
+                    id: v.id,
+                    lower: *lower,
+                    upper: *upper,
+                })
+                .collect(),
+            rows: program.rows.iter().map(|r| r.id).collect(),
+            derivatives: pse_kernels::DerivativeOrder::Value,
+            smoothness: pse_kernels::DerivativeOrder::Value,
+        };
+        let mut report =
+            SolveReport::new(Backend::Scip, &contract, termination(status), r.execution);
+        let readback = deviation <= READBACK_TOLERANCE;
+        let exact_objective_transport = if exact && readback && status == Status::Optimal {
+            exact_objective
+                .as_deref()
+                .zip(candidate.as_ref())
+                .and_then(|(optimum, candidate)| {
+                    crate::solve::ExactObjectiveTransport::issue(
+                        &plan,
+                        &candidate.primal,
+                        optimum,
+                        offset,
+                    )
+                })
+        } else {
+            None
+        };
+        report.evidence.start_submitted = submitted.is_some();
+        report.evidence.reused_native_state = reoptimized;
+        report.evidence.global = Some(GlobalEvidence {
+            fidelity: plan.fidelity,
+            domain: plan.domain,
+            sense: plan
+                .objective
+                .map_or(ObjectiveSense::Minimize, |(_, sense)| sense),
+            feasibility: feasibility(r.accuracy),
+            gap_relative: r.accuracy.mip_relative_gap,
+            gap_absolute,
+            dual_bound: plan.objective.and(dual_bound),
+            primal_bound: plan.objective.and(primal_bound),
+            gap: plan.objective.and(gap),
+            nodes,
+            readback,
+            dual: if plan.fidelity == Fidelity::Exact {
+                BoundSource::ExactExport
+            } else {
+                BoundSource::RelaxedExport
+            },
+            primal: PrimalSource::Backend,
+            infeasible: status == Status::Infeasible,
+            exact,
+        });
+        report.global = Some(Arc::new(GlobalRecord {
+            boxes: plan.boxes[..plan.indicator(0)].to_vec(),
+            pool,
+            iis: subsystem,
+            exact_objective,
+            exact_objective_transport,
+            reoptimized,
+            // The runner records the plan's named transformations.
+            transformations: Vec::new(),
+        }));
+        let metrics = &mut report.metrics;
+        // Pinned SCIP 10.0.2 statistics allow these queries only after presolve or
+        // during/after solving. Never infer eligibility from a retained handle alone.
+        // SAFETY: the owning instance has returned from SCIPsolve; no concurrent copy
+        // is accessed here and the stage query itself is always admitted.
+        let stage = unsafe { ffi::SCIPgetStage(s) };
+        if matches!(
+            stage,
+            ffi::SCIP_Stage_SCIP_STAGE_PRESOLVED
+                | ffi::SCIP_Stage_SCIP_STAGE_SOLVING
+                | ffi::SCIP_Stage_SCIP_STAGE_SOLVED
+        ) {
+            let getters: [(&str, unsafe extern "C" fn(*mut ffi::SCIP) -> i64); 6] = [
+                ("scip.nodes.current_run", ffi::SCIPgetNNodes),
+                ("scip.nodes.all_runs", ffi::SCIPgetNTotalNodes),
+                ("scip.lp.solves", ffi::SCIPgetNLPs),
+                ("scip.lp.iterations", ffi::SCIPgetNLPIterations),
+                ("scip.strong_branch.calls", ffi::SCIPgetNStrongbranchs),
+                (
+                    "scip.strong_branch.lp_iterations",
+                    ffi::SCIPgetNStrongbranchLPIterations,
+                ),
+            ];
+            for (name, getter) in getters {
+                // SAFETY: the exact getter's documented eligible stage was checked above.
+                metrics.insert(name.into(), Metric::Integer(unsafe { getter(s) }));
+            }
+            // SAFETY: same eligible owning stage; these are supplied census values,
+            // not an inference from configured plugins or their printed summaries.
+            metrics.insert(
+                "scip.presolve.rounds_current_or_last".into(),
+                Metric::Integer(i64::from(unsafe { ffi::SCIPgetNPresolRounds(s) })),
+            );
+            // SAFETY: SCIPgetNCutsApplied admits the same three stages checked above.
+            metrics.insert(
+                "scip.separation.cuts_applied".into(),
+                Metric::Integer(i64::from(unsafe { ffi::SCIPgetNCutsApplied(s) })),
+            );
+        } else {
+            metrics.insert(
+                "scip.lp.iterations".into(),
                 Metric::Unavailable(UnavailableReason::NotApplicable),
-                Metric::Real,
-            ),
-        );
-    }
-    metrics.insert(
-        "scip.events".into(),
-        Metric::Integer(i64::try_from(watch.events.load(Ordering::Acquire)).unwrap_or(i64::MAX)),
-    );
-    metrics.insert(
-        "scip.interrupted".into(),
-        Metric::Bool(watch.interrupted.load(Ordering::Acquire)),
-    );
-    metrics.insert(
-        "scip.callback_failed".into(),
-        Metric::Bool(watch.failed.load(Ordering::Acquire)),
-    );
-    metrics.insert(
-        "scip.threads".into(),
-        Metric::Integer(i64::try_from(r.controls.threads).unwrap_or(i64::MAX)),
-    );
-    metrics.insert("scip.tpi.exclusive".into(), Metric::Bool(nested.is_some()));
-    if let Some(observation) = &nested {
-        let defaults = observation.defaults;
-        for (name, value) in [
-            ("omp", defaults.omp),
-            ("mkl", defaults.mkl),
-            ("all", defaults.all),
-            ("blas", defaults.blas),
-            ("lapack", defaults.lapack),
-            ("pardiso", defaults.pardiso),
-            ("omp_proc_bind", defaults.proc_bind),
+            );
+        }
+        selected_plugin_statistics(&session.instance, metrics);
+        metrics.insert("scip.status".into(), Metric::Integer(i64::from(raw)));
+        metrics.insert("scip.nodes".into(), Metric::Integer(nodes));
+        for (key, value) in [
+            ("scip.primal_bound", primal_bound),
+            ("scip.dual_bound", dual_bound),
+            ("scip.gap", gap),
         ] {
             metrics.insert(
-                format!("scip.nested.{name}"),
-                Metric::Integer(i64::from(value)),
+                key.into(),
+                value.map_or(
+                    Metric::Unavailable(UnavailableReason::NotApplicable),
+                    Metric::Real,
+                ),
             );
         }
         metrics.insert(
-            "scip.nested.omp_cancellation".into(),
-            Metric::Bool(defaults.cancellation),
-        );
-        metrics.insert(
-            "scip.nested.omp_num_threads".into(),
-            Metric::Text(
-                observation
-                    .omp_list
-                    .clone()
-                    .unwrap_or_else(|| "unset".into()),
+            "scip.events".into(),
+            Metric::Integer(
+                i64::try_from(watch.events.load(Ordering::Acquire)).unwrap_or(i64::MAX),
             ),
         );
         metrics.insert(
-            "scip.nested.probe_stack_bytes".into(),
-            Metric::Integer(DEFAULT_PROBE_STACK as i64),
+            "scip.interrupted".into(),
+            Metric::Bool(watch.interrupted.load(Ordering::Acquire)),
         );
-    }
-    metrics.insert("scip.exact".into(), Metric::Bool(exact));
-    // The conditions every global claim holds under (ADR-0106 §9-§10): tolerances, the
-    // identity of the declared box and the export fidelity below.
-    for (key, value) in [
-        ("global.feasibility", feasibility(r.accuracy)),
-        ("global.gap_relative", r.accuracy.mip_relative_gap),
-        ("global.gap_absolute", gap_absolute),
-    ] {
-        metrics.insert(key.into(), Metric::Real(value));
-    }
-    metrics.insert(
-        "global.domain".into(),
-        Metric::Text(plan.domain.to_string()),
-    );
-    metrics.insert("scip.reoptimized".into(), Metric::Bool(reoptimized));
-    metrics.insert(
-        "export.fidelity".into(),
-        Metric::Text(
-            match plan.fidelity {
-                Fidelity::Exact => "exact",
-                Fidelity::Relaxed => "relaxed",
-                Fidelity::Unavailable => "unavailable",
-            }
-            .into(),
-        ),
-    );
-    for (key, count) in [
-        ("export.constraints.linear", export.linear),
-        ("export.constraints.nonlinear", export.nonlinear),
-        ("export.constraints.native", export.native),
-    ] {
         metrics.insert(
-            key.into(),
-            Metric::Integer(i64::try_from(count).unwrap_or(i64::MAX)),
+            "scip.callback_failed".into(),
+            Metric::Bool(watch.failed.load(Ordering::Acquire)),
         );
-    }
-    metrics.insert("export.readback.deviation".into(), Metric::Real(deviation));
-    if let Some(stored) = submitted {
-        metrics.insert("scip.incumbent.stored".into(), Metric::Bool(stored));
-    }
-    report.options = session.options.clone();
-    report.provenance.extend([
+        metrics.insert(
+            "scip.threads".into(),
+            Metric::Integer(i64::try_from(r.controls.threads).unwrap_or(i64::MAX)),
+        );
+        metrics.insert("scip.tpi.exclusive".into(), Metric::Bool(nested.is_some()));
+        if let Some(observation) = &nested {
+            let defaults = observation.defaults;
+            for (name, value) in [
+                ("omp", defaults.omp),
+                ("mkl", defaults.mkl),
+                ("all", defaults.all),
+                ("blas", defaults.blas),
+                ("lapack", defaults.lapack),
+                ("pardiso", defaults.pardiso),
+                ("omp_proc_bind", defaults.proc_bind),
+            ] {
+                metrics.insert(
+                    format!("scip.nested.{name}"),
+                    Metric::Integer(i64::from(value)),
+                );
+            }
+            metrics.insert(
+                "scip.nested.omp_cancellation".into(),
+                Metric::Bool(defaults.cancellation),
+            );
+            metrics.insert(
+                "scip.nested.omp_num_threads".into(),
+                Metric::Text(
+                    observation
+                        .omp_list
+                        .clone()
+                        .unwrap_or_else(|| "unset".into()),
+                ),
+            );
+            metrics.insert(
+                "scip.nested.probe_stack_bytes".into(),
+                Metric::Integer(DEFAULT_PROBE_STACK as i64),
+            );
+        }
+        metrics.insert("scip.exact".into(), Metric::Bool(exact));
+        // The conditions every global claim holds under (ADR-0106 §9-§10): tolerances, the
+        // identity of the declared box and the export fidelity below.
+        for (key, value) in [
+            ("global.feasibility", feasibility(r.accuracy)),
+            ("global.gap_relative", r.accuracy.mip_relative_gap),
+            ("global.gap_absolute", gap_absolute),
+        ] {
+            metrics.insert(key.into(), Metric::Real(value));
+        }
+        metrics.insert(
+            "global.domain".into(),
+            Metric::Text(plan.domain.to_string()),
+        );
+        metrics.insert("scip.reoptimized".into(), Metric::Bool(reoptimized));
+        metrics.insert(
+            "export.fidelity".into(),
+            Metric::Text(
+                match plan.fidelity {
+                    Fidelity::Exact => "exact",
+                    Fidelity::Relaxed => "relaxed",
+                    Fidelity::Unavailable => "unavailable",
+                }
+                .into(),
+            ),
+        );
+        for (key, count) in [
+            ("export.constraints.linear", export.linear),
+            ("export.constraints.nonlinear", export.nonlinear),
+            ("export.constraints.native", export.native),
+        ] {
+            metrics.insert(
+                key.into(),
+                Metric::Integer(i64::try_from(count).unwrap_or(i64::MAX)),
+            );
+        }
+        metrics.insert("export.readback.deviation".into(), Metric::Real(deviation));
+        if let Some(stored) = submitted {
+            metrics.insert("scip.incumbent.stored".into(), Metric::Bool(stored));
+        }
+        report.options = session.options.clone();
+        report.provenance.extend([
         (
             "scip.version".into(),
             format!("{}.{}.{}", abi.library.0, abi.library.1, abi.library.2),
@@ -3766,17 +3793,16 @@ pub(crate) fn solve(
             "authored sense; nonlinear objectives through an epigraph variable, reported at the objective function's value".into(),
         ),
     ]);
-    report.warm_start = candidate.as_ref().map(|c| WarmStart {
-        origin: None,
-        compatibility: r.compatibility.clone(),
-        payload: WarmPayload::primal(c.primal.clone()),
-    });
-    report.candidate = candidate;
-    if let Some(mut local) = local.take() {
-        local.shutdown()?;
-    }
-    crate::observation::report(&mut report, r.execution, None);
-    Ok(report)
+        report.warm_start = candidate.as_ref().map(|c| WarmStart {
+            origin: None,
+            compatibility: r.compatibility.clone(),
+            payload: WarmPayload::primal(c.primal.clone()),
+        });
+        report.candidate = candidate;
+        crate::observation::report(&mut report, r.execution, None);
+        Ok(report)
+    })();
+    ProblemError::after_solve(result, local.map_or(Ok(()), Session::finish))
 }
 
 #[cfg(test)]

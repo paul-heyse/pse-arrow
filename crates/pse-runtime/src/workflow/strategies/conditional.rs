@@ -133,6 +133,20 @@ impl UnitWorker {
         execution: &Execution,
         budget: Arc<crate::math::WorkerBudget>,
     ) -> Result<Self, native::ProblemError> {
+        let bound = program
+            .program
+            .assembly
+            .bind_inputs(|id| program.values.scalars.get(&id).copied())?;
+        let capacity = program
+            .inputs
+            .len()
+            .checked_add(
+                program
+                    .conditional
+                    .as_ref()
+                    .map_or(0, |prepared| prepared.view.boundary.members.columns.len()),
+            )
+            .ok_or_else(|| native::ProblemError::memory("causal compact trial extent"))?;
         let worker = service
             .worker(
                 program.program.clone(),
@@ -141,10 +155,6 @@ impl UnitWorker {
                 &budget,
             )
             .map_err(MathRuntimeError::into_problem)?;
-        let bound = program
-            .program
-            .assembly
-            .bind_inputs(|id| program.values.scalars.get(&id).copied())?;
         let conditional = program
             .conditional
             .as_ref()
@@ -164,17 +174,16 @@ impl UnitWorker {
                     &budget,
                 )
             })
-            .transpose()?;
-        let capacity = program
-            .inputs
-            .len()
-            .checked_add(
-                program
-                    .conditional
-                    .as_ref()
-                    .map_or(0, |prepared| prepared.view.boundary.members.columns.len()),
-            )
-            .ok_or_else(|| native::ProblemError::memory("causal compact trial extent"))?;
+            .transpose();
+        let conditional = match conditional {
+            Ok(owner) => owner,
+            Err(error) => {
+                return native::ProblemError::with_retirement(
+                    Err(error),
+                    worker.finish().map_err(MathRuntimeError::into_problem),
+                );
+            }
+        };
         Ok(Self {
             input_ids: program.inputs.iter().map(|x| x.0).collect(),
             output_ids: program.outputs.iter().map(|x| x.0).collect(),
@@ -190,6 +199,11 @@ impl UnitWorker {
     }
 }
 impl CausalUnit for UnitWorker {
+    fn finish(self: Box<Self>) -> Result<(), native::ProblemError> {
+        let conditional = self.conditional.map_or(Ok(()), |owner| owner.finish());
+        let worker = self.worker.finish().map_err(MathRuntimeError::into_problem);
+        native::ProblemError::with_retirement(conditional, worker)
+    }
     fn id(&self) -> SemanticId {
         self.program.declaration.node
     }
@@ -778,25 +792,7 @@ impl PreparedRecycle {
         observed: Arc<std::sync::Mutex<Option<CaseValues>>>,
     ) -> Result<kinsol::Function, native::ProblemError> {
         let inner_context = self.inner_context()?;
-        let mut units: BTreeMap<SemanticId, Box<dyn CausalUnit>> = BTreeMap::new();
-        for program in self.programs {
-            let unit = UnitWorker::new(
-                program,
-                service,
-                &self.providers,
-                &execution,
-                budget.clone(),
-            )?;
-            units.insert(unit.id(), Box::new(unit));
-        }
-        let mut original_worker = service
-            .worker(
-                self.original.clone(),
-                &self.providers,
-                execution.scope()?,
-                &budget,
-            )
-            .map_err(MathRuntimeError::into_problem)?;
+        let scope = execution.scope()?;
         let original = self._source.values.clone();
         let structure = self.original.assembly.structure().clone();
         let row_ids: Vec<_> = structure.rows().iter().map(|r| r.id).collect();
@@ -805,6 +801,29 @@ impl PreparedRecycle {
             self._source.case.compiled().plan.columns(),
             &row_ids,
         )?;
+        let mut units: BTreeMap<SemanticId, Box<dyn CausalUnit>> = BTreeMap::new();
+        for program in self.programs {
+            let unit = match UnitWorker::new(
+                program,
+                service,
+                &self.providers,
+                &execution,
+                budget.clone(),
+            ) {
+                Ok(unit) => unit,
+                Err(error) => return finish_causal_units(Err(error), units),
+            };
+            if let Some(previous) = units.insert(unit.id(), Box::new(unit)) {
+                let failure = native::ProblemError::with_retirement::<()>(
+                    Err(native::ProblemError::Contract(
+                        "duplicate causal unit owner".into(),
+                    )),
+                    previous.finish(),
+                )
+                .unwrap_err();
+                return finish_causal_units(Err(failure), units);
+            }
+        }
         let map = CausalMap::new(
             self.graph,
             self.request.tears,
@@ -813,105 +832,162 @@ impl PreparedRecycle {
             self.fixed,
             execution,
         )?
-        .with_inner_context(inner_context)
-        .with_original_observer(Box::new(move |overlay, execution| {
-            // A failed later validation may retain raw last-successful G evidence,
-            // but cannot publish an earlier attempt as this terminal original candidate.
-            let Some(overlay) = overlay else {
-                *observed.lock().map_err(|_| {
-                    native::ProblemError::Internal("recycle candidate lock poisoned".into())
-                })? = None;
-                return Ok(());
+        .with_inner_context(inner_context);
+        let original_worker =
+            match service.worker(self.original.clone(), &self.providers, scope, &budget) {
+                Ok(worker) => worker,
+                Err(error) => {
+                    return native::ProblemError::with_retirement(
+                        Err(error.into_problem()),
+                        kinsol::FixedPointOracle::finish(Box::new(map)),
+                    );
+                }
             };
-            let mut candidate = original.clone();
-            candidate
-                .scalars
-                .extend(overlay.scalars.iter().map(|(id, value)| (*id, *value)));
-            execution.check()?;
-            let evaluation = WorkEvidence {
-                evaluations: Some(1),
-                iterations: Some(0),
-                factorizations: Some(0),
-                proof_steps: Some(0),
-            };
-            let rows = execution.counted(evaluation, || {
-                Ok(original_worker.worker().constraints(&candidate)?.to_owned())
-            })?;
-            execution.check()?;
-            let objective = execution.counted(evaluation, || {
-                Ok(original_worker.worker().objective(&candidate)?)
-            })?;
-            if !objective.is_finite() {
-                return Err(native::ProblemError::numerical(
-                    "nonfinite original recycle objective",
-                ));
-            }
-            if rows.len() != structure.rows().len() {
-                return Err(native::ProblemError::Contract(
-                    "incomplete original recycle rows".into(),
-                ));
-            }
-            for ((value, row), tolerance) in rows
-                .iter()
-                .zip(structure.rows())
-                .zip(&original_tolerances.rows)
-            {
-                if !value.is_finite() {
-                    return Err(native::ProblemError::numerical(
-                        "nonfinite original recycle row",
-                    ));
-                }
-                if *value < row.lower - tolerance || *value > row.upper + tolerance {
-                    return Err(pse_math::MathError::OutsideRange {
-                        source_id: row.id,
-                        target: row.id,
-                        value: *value,
-                        lower: row.lower.is_finite().then_some(row.lower - tolerance),
-                        upper: row.upper.is_finite().then_some(row.upper + tolerance),
-                    }
-                    .into());
-                }
-            }
-            let mut free_tolerances = original_tolerances.variables.iter();
-            for variable in structure.variables() {
-                let tolerance = if variable.fixed {
-                    0.0
-                } else {
-                    *free_tolerances.next().ok_or_else(|| {
-                        native::ProblemError::Contract(
-                            "original recycle variable tolerance absent".into(),
-                        )
-                    })?
-                };
-                let value = candidate.scalars.get(&variable.port.id).ok_or_else(|| {
-                    native::ProblemError::Contract("incomplete original recycle coordinates".into())
-                })?;
-                if !value.is_finite() {
-                    return Err(native::ProblemError::numerical(
-                        "nonfinite original recycle coordinate",
-                    ));
-                }
-                if !crate::math::initialization::original_bound_accepts(variable, *value, tolerance)
-                {
-                    return Err(pse_math::MathError::OutsideRange {
-                        source_id: variable.port.id,
-                        target: variable.port.id,
-                        value: *value,
-                        lower: variable.lower,
-                        upper: variable.upper,
-                    }
-                    .into());
-                }
-            }
-            execution.check()?;
-            *observed.lock().map_err(|_| {
-                native::ProblemError::Internal("recycle candidate lock poisoned".into())
-            })? = Some(candidate);
-            Ok(())
+        let map = map.with_original_observer(Box::new(OriginalRecycleAssessment {
+            observed,
+            original_worker,
+            original,
+            structure,
+            original_tolerances,
         }));
         Ok(kinsol::Function::FixedPoint(Box::new(map)))
     }
 }
+fn finish_causal_units<T>(
+    operation: Result<T, native::ProblemError>,
+    units: BTreeMap<SemanticId, Box<dyn CausalUnit>>,
+) -> Result<T, native::ProblemError> {
+    let failures: Vec<_> = units
+        .into_values()
+        .filter_map(|unit| unit.finish().err())
+        .collect();
+    native::ProblemError::with_retirement(
+        operation,
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(native::ProblemError::Retirement { failures })
+        },
+    )
+}
+#[derive(Debug)]
+struct OriginalRecycleAssessment {
+    observed: Arc<std::sync::Mutex<Option<CaseValues>>>,
+    original_worker: crate::math::ExecutionWorker,
+    original: CaseValues,
+    structure: pse_math::binding::CaseStructure,
+    original_tolerances: Tolerances,
+}
+impl native::recycle::OriginalObserver for OriginalRecycleAssessment {
+    fn finish(self: Box<Self>) -> Result<(), native::ProblemError> {
+        self.original_worker
+            .finish()
+            .map_err(MathRuntimeError::into_problem)
+    }
+    fn observe(
+        &mut self,
+        overlay: Option<&CaseValues>,
+        execution: &Execution,
+    ) -> Result<(), native::ProblemError> {
+        // A failed later validation may retain raw last-successful G evidence,
+        // but cannot publish an earlier attempt as this terminal original candidate.
+        let Some(overlay) = overlay else {
+            *self.observed.lock().map_err(|_| {
+                native::ProblemError::Internal("recycle candidate lock poisoned".into())
+            })? = None;
+            return Ok(());
+        };
+        let mut candidate = self.original.clone();
+        candidate
+            .scalars
+            .extend(overlay.scalars.iter().map(|(id, value)| (*id, *value)));
+        execution.check()?;
+        let evaluation = WorkEvidence {
+            evaluations: Some(1),
+            iterations: Some(0),
+            factorizations: Some(0),
+            proof_steps: Some(0),
+        };
+        let rows = execution.counted(evaluation, || {
+            Ok(self
+                .original_worker
+                .worker()
+                .constraints(&candidate)?
+                .to_owned())
+        })?;
+        execution.check()?;
+        let objective = execution.counted(evaluation, || {
+            Ok(self.original_worker.worker().objective(&candidate)?)
+        })?;
+        if !objective.is_finite() {
+            return Err(native::ProblemError::numerical(
+                "nonfinite original recycle objective",
+            ));
+        }
+        if rows.len() != self.structure.rows().len() {
+            return Err(native::ProblemError::Contract(
+                "incomplete original recycle rows".into(),
+            ));
+        }
+        for ((value, row), tolerance) in rows
+            .iter()
+            .zip(self.structure.rows())
+            .zip(&self.original_tolerances.rows)
+        {
+            if !value.is_finite() {
+                return Err(native::ProblemError::numerical(
+                    "nonfinite original recycle row",
+                ));
+            }
+            if *value < row.lower - tolerance || *value > row.upper + tolerance {
+                return Err(pse_math::MathError::OutsideRange {
+                    source_id: row.id,
+                    target: row.id,
+                    value: *value,
+                    lower: row.lower.is_finite().then_some(row.lower - tolerance),
+                    upper: row.upper.is_finite().then_some(row.upper + tolerance),
+                }
+                .into());
+            }
+        }
+        let mut free_tolerances = self.original_tolerances.variables.iter();
+        for variable in self.structure.variables() {
+            let tolerance = if variable.fixed {
+                0.0
+            } else {
+                *free_tolerances.next().ok_or_else(|| {
+                    native::ProblemError::Contract(
+                        "original recycle variable tolerance absent".into(),
+                    )
+                })?
+            };
+            let value = candidate.scalars.get(&variable.port.id).ok_or_else(|| {
+                native::ProblemError::Contract("incomplete original recycle coordinates".into())
+            })?;
+            if !value.is_finite() {
+                return Err(native::ProblemError::numerical(
+                    "nonfinite original recycle coordinate",
+                ));
+            }
+            if !crate::math::initialization::original_bound_accepts(variable, *value, tolerance) {
+                return Err(pse_math::MathError::OutsideRange {
+                    source_id: variable.port.id,
+                    target: variable.port.id,
+                    value: *value,
+                    lower: variable.lower,
+                    upper: variable.upper,
+                }
+                .into());
+            }
+        }
+        execution.check()?;
+        *self.observed.lock().map_err(|_| {
+            native::ProblemError::Internal("recycle candidate lock poisoned".into())
+        })? = Some(candidate);
+        Ok(())
+    }
+}
+
 impl crate::math::solves::causal::CausalExecution for PreparedRecycle {
     fn backends(&self) -> &[Backend] {
         &self.native_backends
@@ -1277,12 +1353,12 @@ impl ModelingPackage {
             let initial_values = resolved.model.values.clone();
             let initial_inputs = services
                 .math()
-                .with_owned_worker(
+                .with_borrowed_worker(
                     input_program.clone(),
                     resolved.providers.clone(),
                     cancel,
                     None,
-                    move |mut worker| Ok(worker.constraints(&initial_values)?.to_owned()),
+                    move |worker| Ok(worker.constraints(&initial_values)?.to_owned()),
                 )
                 .await
                 .map_err(|cause| unit_preparation_error(unit, &request, cause))?;

@@ -110,7 +110,7 @@ impl ModelingPackage {
         let retained = owner.clone();
         let assembly = crate::math::MathService::within_task(operation.scope(), operation.driver(), service.assemble(prepared.model.case)).await?;
         let (attempt, evidence, owner) = service
-            .with_owned_worker(assembly, prepared.providers, operation.driver(), Some((operation.scope().clone(), operation.scope().cancellation_control().clone())), move |worker| {
+            .with_borrowed_worker(assembly, prepared.providers, operation.driver(), Some((operation.scope().clone(), operation.scope().cancellation_control().clone())), move |worker| {
                 let original = CoefficientProblem::from_plan(&plan, coefficients.as_ref().clone())?;
                 let (problem, _) = transport::coefficients(&original, &normalization, None)?;
                 let request = transport::diagnostic_request(&request, &normalization)?;

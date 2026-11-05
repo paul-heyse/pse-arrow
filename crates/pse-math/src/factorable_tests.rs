@@ -609,10 +609,11 @@ impl Provider for Root {
     }
 }
 fn registered(spec: &ProviderSpec, provider: Box<dyn Provider>) -> pse_kernels::ProviderBindings {
-    pse_kernels::ProviderBindings::from([(
+    pse_kernels::ProviderBindings::try_from_iter([(
         spec.key(),
         pse_kernels::ProviderBinding::new(spec.clone(), provider),
     )])
+    .unwrap()
 }
 fn spec(registry: &QuantityRegistry, n: u8) -> ProviderSpec {
     ProviderSpec {

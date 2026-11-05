@@ -1128,6 +1128,9 @@ mod tests {
         }
     }
     impl NleOracle for LogOracle {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &crate::OracleContract {
             &self.inner.c
         }

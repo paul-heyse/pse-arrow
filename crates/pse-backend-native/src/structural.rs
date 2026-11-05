@@ -353,6 +353,9 @@ pub(crate) fn retain_nlp(
     Box::new(NlpWitness { inner, witness })
 }
 impl crate::NlpOracle for NlpWitness {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        self.inner.finish()
+    }
     fn solve_separator(&self) -> Option<&crate::SolveSeparator> {
         self.inner.solve_separator()
     }
@@ -417,6 +420,9 @@ pub(crate) fn retain_roots(
     Box::new(RootsWitness { inner, witness })
 }
 impl crate::NleOracle for RootsWitness {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        self.inner.finish()
+    }
     fn operations(&self) -> crate::RootOperations {
         self.inner.operations()
     }

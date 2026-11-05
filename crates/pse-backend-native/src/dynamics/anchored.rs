@@ -498,6 +498,9 @@ impl<O: Oracle> Anchored<O> {
     }
 }
 impl<O: Oracle> Oracle for Anchored<O> {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Box::new(self.inner).finish()
+    }
     fn prepared_layout(&self, allowance: usize) -> Result<Arc<PreparedLayout>, ProblemError> {
         if let Some(prepared) = &self.prepared {
             if prepared.layout.retained_bytes() > allowance {

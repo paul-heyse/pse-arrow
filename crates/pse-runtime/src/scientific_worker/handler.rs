@@ -79,7 +79,70 @@ impl p::Demand {
 
 /// Typed selected-water failure, retaining envelope coordinates as exact bits.
 pub(super) fn failure(error: WorkerError) -> p::Failure {
-    match error {
+    let mut remaining = p::FAILURE_NODES;
+    match capture_failure(error, 0, &mut remaining) {
+        Ok(failure) if failure.within_limits() => failure,
+        _ => p::Failure::UnknownCompletion("scientific worker could not transfer the complete failure within its declared failure allowance".into()),
+    }
+}
+fn capture_failure(
+    error: WorkerError,
+    depth: usize,
+    remaining: &mut usize,
+) -> Result<p::Failure, ()> {
+    use pse_model::diagnostic::DiagnosticProjection as _;
+    if depth > p::FAILURE_DEPTH || *remaining == 0 {
+        return Err(());
+    }
+    *remaining -= 1;
+    Ok(match error {
+        WorkerError::Provider(ProviderError::Retirement { failures }) => {
+            p::Failure::ProviderRetirement {
+                failures: failures
+                    .into_iter()
+                    .map(|failure| {
+                        Ok(p::KeyedFailure {
+                            key: failure.key.0,
+                            cause: Box::new(capture_failure(
+                                (*failure.cause).into(),
+                                depth + 1,
+                                remaining,
+                            )?),
+                        })
+                    })
+                    .collect::<Result<_, ()>>()?,
+            }
+        }
+        WorkerError::Provider(ProviderError::Settlement { operation, cleanup }) => {
+            p::Failure::ProviderSettlement {
+                operation: Box::new(capture_failure((*operation).into(), depth + 1, remaining)?),
+                cleanup: Box::new(capture_failure((*cleanup).into(), depth + 1, remaining)?),
+            }
+        }
+        WorkerError::Retirement { causes } => p::Failure::Retirement {
+            causes: causes
+                .into_iter()
+                .map(|cause| capture_failure(cause, depth + 1, remaining))
+                .collect::<Result<_, _>>()?,
+        },
+        WorkerError::Provider(ProviderError::RetirementPanic(detail)) => {
+            p::Failure::ProviderRetirementPanic(detail)
+        }
+        WorkerError::NativePanic(detail) => p::Failure::NativePanic(detail),
+        WorkerError::Provider(ProviderError::Singular(detail)) => p::Failure::Singular(detail),
+        WorkerError::Provider(ProviderError::LinearizationChanged) => {
+            p::Failure::LinearizationChanged
+        }
+        WorkerError::Provider(ProviderError::RegimeCrossing {
+            selector,
+            bound,
+            selected,
+        }) => p::Failure::RegimeCrossing {
+            selector,
+            bound,
+            selected,
+        },
+        WorkerError::RemoteDiagnostic(diagnostic) => p::Failure::Diagnostic(diagnostic),
         WorkerError::Provider(ProviderError::Cancelled) => p::Failure::Cancelled,
         WorkerError::Provider(ProviderError::Deadline) => p::Failure::Deadline,
         WorkerError::Provider(ProviderError::Limit(reason)) => p::Failure::Resource(reason.into()),
@@ -98,11 +161,57 @@ pub(super) fn failure(error: WorkerError) -> p::Failure {
             upper,
         },
         WorkerError::UnknownCompletion(reason) => p::Failure::UnknownCompletion(reason),
-        error => p::Failure::Terminal(error.to_string()),
-    }
+        WorkerError::Provider(ProviderError::Terminal(detail)) => p::Failure::Terminal(detail),
+        error => p::Failure::Diagnostic(Box::new(
+            error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation),
+        )),
+    })
 }
 pub(super) fn refusal(value: p::Failure) -> WorkerError {
+    if !value.within_limits() {
+        return WorkerError::UnknownCompletion(
+            "scientific worker failure exceeds its declared restoration allowance".into(),
+        );
+    }
+    restore_failure(value)
+}
+fn restore_failure(value: p::Failure) -> WorkerError {
     match value {
+        p::Failure::ProviderRetirement { failures } => ProviderError::Retirement {
+            failures: failures
+                .into_iter()
+                .map(|failure| pse_kernels::ProviderRetirementFailure {
+                    key: pse_kernels::ProviderKey(failure.key),
+                    cause: Box::new(restore_failure(*failure.cause).into_provider()),
+                })
+                .collect(),
+        }
+        .into(),
+        p::Failure::ProviderSettlement { operation, cleanup } => ProviderError::Settlement {
+            operation: Box::new(restore_failure(*operation).into_provider()),
+            cleanup: Box::new(restore_failure(*cleanup).into_provider()),
+        }
+        .into(),
+        p::Failure::Retirement { causes } => WorkerError::Retirement {
+            causes: causes.into_iter().map(restore_failure).collect(),
+        },
+        p::Failure::ProviderRetirementPanic(detail) => {
+            ProviderError::RetirementPanic(detail).into()
+        }
+        p::Failure::NativePanic(detail) => WorkerError::NativePanic(detail),
+        p::Failure::Singular(detail) => ProviderError::Singular(detail).into(),
+        p::Failure::LinearizationChanged => ProviderError::LinearizationChanged.into(),
+        p::Failure::RegimeCrossing {
+            selector,
+            bound,
+            selected,
+        } => ProviderError::RegimeCrossing {
+            selector,
+            bound,
+            selected,
+        }
+        .into(),
+        p::Failure::Diagnostic(diagnostic) => WorkerError::RemoteDiagnostic(diagnostic),
         p::Failure::Cancelled => ProviderError::Cancelled.into(),
         p::Failure::Deadline => ProviderError::Deadline.into(),
         p::Failure::Resource(reason) => WorkerError::RemoteResource(reason),

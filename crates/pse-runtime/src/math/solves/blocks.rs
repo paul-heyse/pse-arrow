@@ -808,7 +808,7 @@ impl MathService {
             let mut components = Vec::with_capacity(prepared.blocks.len());
             // Conditional data has a different compatibility stamp; the optional schedule
             // cannot reuse a state whose source/seed belongs to another block.
-            retained.clear();
+            retained.clear()?;
             let width = prepared
                 .workers
                 .min(self.policy.jobs.saturating_sub(1).max(1));
@@ -1125,9 +1125,18 @@ impl MathService {
             execution.check()?;
             Ok(Outcome::Constant(report))
         })();
-        retained.clear();
+        let result = result.map_err(|error| {
+            failure_cause.take().map_or(error, |cause| {
+                MathRuntimeError::from(ProblemError::Math(pse_math::MathError::Typed {
+                    retained: cause.retained_bytes(),
+                    cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+                }))
+            })
+        });
+        let result =
+            MathRuntimeError::settle(result, retained.clear().map_err(MathRuntimeError::from));
         result.map_err(|error| {
-            let cause = failure_cause.unwrap_or_else(|| Arc::new(error.into_problem()));
+            let cause = Arc::new(error.into_problem());
             let observed = WorkObservation {
                 attempts: 1,
                 evaluations: work.evaluations,

@@ -56,6 +56,23 @@ pub struct NumericalInputs {
 }
 use std::{collections::BTreeMap, future::Future, sync::Arc};
 
+/// Borrow a synchronous evaluator and retire its providers before releasing its charges.
+pub(super) fn with_local_worker<T>(
+    mut worker: ExecutionWorker,
+    work: impl FnOnce(&mut pse_math::assembly::CaseWorker) -> Result<T, MathRuntimeError>,
+) -> Result<T, MathRuntimeError> {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| work(worker.worker())))
+        .unwrap_or_else(|payload| {
+            Err(MathRuntimeError::Panic(
+                pse_diagnostics::panic::settle_payload(
+                    payload,
+                    "local worker callback panic with opaque payload",
+                ),
+            ))
+        });
+    MathRuntimeError::settle(result, worker.finish())
+}
+
 /// Unified solver request policy; physical tolerances are never inferred from trial magnitudes.
 #[derive(Clone, Debug)]
 pub struct SolverProfile {
@@ -4566,7 +4583,9 @@ impl MathService {
         }
         let controls = step.profile.controls.clone();
         if controls.reuse == ReusePolicy::Fresh {
-            retained.clear();
+            retained
+                .clear()
+                .map_err(|error| Outcome::Rejected(Arc::new(error.into())))?;
         }
         let (chosen, previous_attempt) = if step.proposal_start.is_some() {
             (
@@ -4605,8 +4624,9 @@ impl MathService {
                 })
                 .and_then(|target| seed.validate(target));
             if let Err(error) = validation {
-                retained.clear();
-                return Err(Outcome::Rejected(Arc::new(error.into())));
+                let result: Result<(), ProblemError> =
+                    ProblemError::with_retirement(Err(error), retained.clear());
+                return Err(Outcome::Rejected(Arc::new(result.unwrap_err().into())));
             }
         }
         let mut execution = match scope {
@@ -5278,16 +5298,6 @@ impl MathService {
         };
         // Optional Root analysis must not consume the base solver's resource allowance.
         // Construct its worker only after the original root is solved and qualified.
-        let parametric = if profile.intent == SolveIntent::Root {
-            None
-        } else {
-            available.map(&build_parametric)
-        };
-        let ExecutionWorker {
-            worker,
-            _case,
-            _charge,
-        } = self.case_worker(case, providers.clone(), &scope, budget)?;
         let plan = &prepared.prepared.plan;
         let initial: Vec<_> = plan.columns().iter().map(|id| values.scalars[id]).collect();
         let _root_support =
@@ -5295,14 +5305,7 @@ impl MathService {
                 plan,
                 &prepared.prepared.structure,
             )?)?;
-        let mut oracle = native::assembled::AlgebraicOracle::conditional(worker, values.clone())?
-            .with_structural_analysis(prepared.prepared.structure.clone())?
-            .with_presolve_facts(prepared.prepared.presolve.clone())?
-            .with_normalization(run.normalization.clone())?;
-        if let Some(c) = &prepared.prepared.coefficients {
-            oracle = oracle.with_coefficient_facts(c)?;
-        }
-        if run.adapter.consumes_separator(&profile.backend)
+        let separator = if run.adapter.consumes_separator(&profile.backend)
             && profile.composition.policy == pse_model::strategy::CompositionPolicy::Auto
             && let Some(separator) = prepared
                 .compiled()
@@ -5323,7 +5326,7 @@ impl MathService {
                 .iter()
                 .map(|row| row.id)
                 .collect::<Vec<_>>();
-            oracle = oracle.with_solve_separator(native::SolveSeparator {
+            Some(native::SolveSeparator {
                 variables: separator
                     .columns
                     .iter()
@@ -5334,18 +5337,15 @@ impl MathService {
                     .iter()
                     .map(|id| ordinal(id, &row_ids))
                     .collect::<Result<_, _>>()?,
-            })?;
-        }
+            })
+        } else {
+            None
+        };
 
         let sense = plan
             .structure()
             .objective()
             .map_or(ObjectiveSense::Minimize, |o| o.sense);
-        let (request, unbuilt, parametric_owner) = match (parametric, available) {
-            (Some(Ok((request, owner))), _) => (Some(request), None, Some(owner)),
-            (Some(Err(cause)), Some(program)) => (None, Some(program.withheld(cause)), None),
-            _ => (None, None, None),
-        };
         let normalization = run.normalization.clone();
         let tolerance = run.tolerances.clone();
         let root_primal = if kind == execution::Representation::Roots
@@ -5360,10 +5360,40 @@ impl MathService {
         } else {
             None
         };
+        let ExecutionWorker {
+            worker,
+            _case,
+            _charge,
+        } = self.case_worker(case, providers.clone(), &scope, budget)?;
+        let mut oracle = native::assembled::AlgebraicOracle::conditional(worker, values.clone())?
+            .with_structural_analysis(prepared.prepared.structure.clone())?
+            .with_presolve_facts(prepared.prepared.presolve.clone())?
+            .with_normalization(run.normalization.clone())?;
+        if let Some(c) = &prepared.prepared.coefficients {
+            oracle = oracle.with_coefficient_facts(c)?;
+        }
+        if let Some(separator) = separator {
+            oracle = oracle.with_solve_separator(separator)?;
+        }
+        if kind == execution::Representation::Roots {
+            if let Err(error) = oracle.admit_nle() {
+                return ProblemError::with_retirement(Err(error), oracle.finish())
+                    .map_err(MathRuntimeError::from);
+            }
+        }
+        let parametric = if profile.intent == SolveIntent::Root {
+            None
+        } else {
+            available.map(&build_parametric)
+        };
+        let (request, unbuilt, parametric_owner) = match (parametric, available) {
+            (Some(Ok((request, owner))), _) => (Some(request), None, Some(owner)),
+            (Some(Err(cause)), Some(program)) => (None, Some(program.withheld(cause)), None),
+            _ => (None, None, None),
+        };
         // Retained native callbacks keep evaluator support and primal projection leases.
         let mut base_owner = Some((_case, _charge, _root_support, root_primal));
         let mut report = if kind == execution::Representation::Roots {
-            oracle.admit_nle()?;
             let root_bounds = native::NlpOracle::constraint_bounds(&oracle).to_vec();
             native::presolve::roots::execute(
                 run,
@@ -5748,20 +5778,40 @@ impl MathService {
             .worker(program.program.clone(), providers, scope.clone(), budget)
             .map_err(|e| cause(e.into_problem()))?;
         let mut request = program.request(worker, values).map_err(cause)?;
-        request.admit(&contract).map_err(cause)?;
-        let mut point = primal.to_vec();
-        point.extend(program.parameters.iter().map(|(_, v)| *v));
-        let mut jacobian = vec![0.; request.oracle.jacobian_pattern().compute_nnz()];
-        budget
-            .evaluate(|| {
-                request
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+            || -> Result<_, MathRuntimeError> {
+                request.admit(&contract)?;
+                let mut point = primal.to_vec();
+                point.extend(program.parameters.iter().map(|(_, v)| *v));
+                let pattern = request
                     .oracle
-                    .jacobian(&point, &mut jacobian)
-                    .map_err(Into::into)
-            })
-            .map_err(|error| cause(error.into_problem()))?;
-        scope.check().map_err(ProblemError::from).map_err(cause)?;
-        let pattern = request.oracle.jacobian_pattern();
+                    .jacobian_pattern()
+                    .to_owned()
+                    .map_err(|_| MathRuntimeError::Limit("fresh root Jacobian pattern"))?;
+                let mut jacobian = vec![0.; pattern.compute_nnz()];
+                budget.evaluate(|| {
+                    request
+                        .oracle
+                        .jacobian(&point, &mut jacobian)
+                        .map_err(Into::into)
+                })?;
+                scope.check().map_err(ProblemError::from)?;
+                Ok((pattern, jacobian))
+            },
+        ))
+        .unwrap_or_else(|payload| {
+            Err(MathRuntimeError::Panic(
+                pse_diagnostics::panic::settle_payload(
+                    payload,
+                    "fresh root partial callback panic with opaque payload",
+                ),
+            ))
+        });
+        let (pattern, jacobian) = MathRuntimeError::settle(
+            result,
+            request.oracle.finish().map_err(MathRuntimeError::from),
+        )
+        .map_err(|error| cause(error.into_problem()))?;
         let mut state_entries = Vec::new();
         let mut parameter_entries = Vec::new();
         for column in 0..n + np {
@@ -5945,70 +5995,68 @@ impl MathService {
             );
         };
         let complete_work = providers.is_empty();
-        let ExecutionWorker {
-            mut worker,
-            _case,
-            _charge,
-        } = self.case_worker(case, providers, scope, budget)?;
-        let structure = prepared.prepared.plan.structure();
-        let objective = structure
-            .objective()
-            .map(|o| {
-                budget.evaluate(|| {
-                    worker
-                        .objective(values.as_ref())
-                        .map(|v| v * o.sense.sign())
-                        .map_err(Into::into)
+        let worker = self.case_worker(case, providers, scope, budget)?;
+        with_local_worker(worker, |worker| {
+            let structure = prepared.prepared.plan.structure();
+            let objective = structure
+                .objective()
+                .map(|o| {
+                    budget.evaluate(|| {
+                        worker
+                            .objective(values.as_ref())
+                            .map(|v| v * o.sense.sign())
+                            .map_err(Into::into)
+                    })
                 })
-            })
-            .transpose()?;
-        let constraints = budget.evaluate(|| {
-            worker
-                .constraints(values.as_ref())
-                .map(<[f64]>::to_vec)
-                .map_err(Into::into)
-        })?;
-        let rows = structure
-            .rows()
-            .iter()
-            .zip(&constraints)
-            .zip(&tolerances.rows)
-            .map(|((r, v), t)| Violation {
-                id: r.id,
-                physical: quality::interval(*v, r.lower, r.upper),
-                tolerance: *t,
-            })
-            .collect();
-        let sources = worker.constraint_sources()?;
-        let mut observation = quality::Observation::from_values(
-            objective,
-            constraints,
-            structure
+                .transpose()?;
+            let constraints = budget.evaluate(|| {
+                worker
+                    .constraints(values.as_ref())
+                    .map(<[f64]>::to_vec)
+                    .map_err(Into::into)
+            })?;
+            let rows = structure
                 .rows()
                 .iter()
-                .map(|r| (r.lower, r.upper))
-                .collect(),
-        )?;
-        observation.sources = sources;
-        Ok(Outcome::Constant(Box::new(ConstantReport {
-            owner: None,
-            components: Vec::new(),
-            objective,
-            observation,
-            quality: Quality::new(rows, vec![], vec![])?,
-            coordinates: vec![],
-            certified_reconstruction: None,
-            work: if complete_work {
-                WorkEvidence {
-                    evaluations: Some(1 + u64::from(objective.is_some())),
-                    iterations: Some(0),
-                    factorizations: Some(0),
-                    proof_steps: Some(0),
-                }
-            } else {
-                WorkEvidence::default()
-            },
-        })))
+                .zip(&constraints)
+                .zip(&tolerances.rows)
+                .map(|((r, v), t)| Violation {
+                    id: r.id,
+                    physical: quality::interval(*v, r.lower, r.upper),
+                    tolerance: *t,
+                })
+                .collect();
+            let sources = worker.constraint_sources()?;
+            let mut observation = quality::Observation::from_values(
+                objective,
+                constraints,
+                structure
+                    .rows()
+                    .iter()
+                    .map(|r| (r.lower, r.upper))
+                    .collect(),
+            )?;
+            observation.sources = sources;
+            Ok(Outcome::Constant(Box::new(ConstantReport {
+                owner: None,
+                components: Vec::new(),
+                objective,
+                observation,
+                quality: Quality::new(rows, vec![], vec![])?,
+                coordinates: vec![],
+                certified_reconstruction: None,
+                work: if complete_work {
+                    WorkEvidence {
+                        evaluations: Some(1 + u64::from(objective.is_some())),
+                        iterations: Some(0),
+                        factorizations: Some(0),
+                        proof_steps: Some(0),
+                    }
+                } else {
+                    WorkEvidence::default()
+                },
+            })))
+        })
     }
 }
 /// Outcome with its original admitted execution, absent for a pre-attempt refusal.
@@ -6059,30 +6107,27 @@ impl execution::OriginalModel for OriginalCase<'_> {
             let case = self.case.clone().ok_or_else(|| {
                 ProblemError::Internal("missing original coefficient evaluator".into())
             })?;
-            let mut original =
+            let original =
                 self.service
                     .worker(case, self.providers, self.scope.clone(), self.budget)?;
-            let mut trial = self.values.clone();
-            for (id, value) in self.plan.columns().iter().zip(primal) {
-                trial.scalars.insert(*id, *value);
-            }
-            let constraints = original.worker.constraints(&trial)?.to_vec();
-            let objective = self
-                .plan
-                .structure()
-                .objective()
-                .map(|o| {
-                    original
-                        .worker
-                        .objective(&trial)
-                        .map(|v| v * o.sense.sign())
+            with_local_worker(original, |original| {
+                let mut trial = self.values.clone();
+                for (id, value) in self.plan.columns().iter().zip(primal) {
+                    trial.scalars.insert(*id, *value);
+                }
+                let constraints = original.constraints(&trial)?.to_vec();
+                let objective = self
+                    .plan
+                    .structure()
+                    .objective()
+                    .map(|o| original.objective(&trial).map(|v| v * o.sense.sign()))
+                    .transpose()?;
+                let sources = original.constraint_sources()?;
+                Ok(execution::Evaluation {
+                    constraints,
+                    objective,
+                    sources,
                 })
-                .transpose()?;
-            let sources = original.worker.constraint_sources()?;
-            Ok(execution::Evaluation {
-                constraints,
-                objective,
-                sources,
             })
         })()
         .map_err(MathRuntimeError::into_problem)
@@ -6146,6 +6191,104 @@ pub(crate) fn profile_key(p: &SolverProfile) -> Result<pse_ids::roles::ProfileHa
 
 #[cfg(test)]
 mod preparation_tests;
+
+#[cfg(test)]
+mod worker_retirement_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[derive(Debug)]
+    struct RetirementWitness {
+        budget: Arc<WorkerBudget>,
+        bytes: usize,
+        retired: Arc<AtomicUsize>,
+        fail: bool,
+    }
+    impl pse_kernels::Provider for RetirementWitness {
+        fn finish(self: Box<Self>) -> Result<(), pse_kernels::ProviderError> {
+            assert_eq!(self.budget.used(), self.bytes, "charge survives retirement");
+            self.retired.fetch_add(1, Ordering::SeqCst);
+            if self.fail {
+                Err(pse_kernels::ProviderError::Trial(
+                    "retirement witness".into(),
+                ))
+            } else {
+                Ok(())
+            }
+        }
+        fn fill(
+            &mut self,
+            _: &[f64],
+            _: &pse_kernels::PreparedProviderRequest,
+            _: pse_kernels::ProviderRuntime<'_>,
+            _: pse_kernels::ProviderOutput<'_>,
+            _: &pse_kernels::EvaluationContext<'_>,
+        ) -> Result<(), pse_kernels::ProviderError> {
+            panic!("retirement-only provider must never evaluate")
+        }
+    }
+
+    #[tokio::test]
+    async fn local_worker_preserves_action_panic_and_retirement_failure_under_live_charge() {
+        let service = crate::math::tests::service();
+        let (prepared, _, _) = crate::math::tests::component_fixture(&service);
+        let case = service.assemble(prepared).await.unwrap();
+        let bytes = case.assembly.numeric_worker_bytes();
+        let budget = WorkerBudget::new(bytes);
+        let retired = Arc::new(AtomicUsize::new(0));
+        let providers = pse_kernels::ProviderBindings::try_from_iter((1..=2).map(|id| {
+            let spec = pse_kernels::ProviderSpec {
+                shapes: Default::default(),
+                derivative_source: pse_kernels::DerivativeSource::Analytic,
+                id: pse_ids::SemanticId::from_bytes([id; 16]),
+                revision: pse_ids::ContentHash::from_bytes([1; 32]),
+                data: pse_ids::ContentHash::from_bytes([2; 32]),
+                inputs: Vec::new(),
+                outputs: Vec::new(),
+                derivatives: pse_kernels::DerivativeOrder::Value,
+                smoothness: pse_kernels::DerivativeOrder::Value,
+            };
+            (
+                spec.key(),
+                pse_kernels::ProviderBinding::new(
+                    spec,
+                    Box::new(RetirementWitness {
+                        budget: budget.clone(),
+                        bytes,
+                        retired: retired.clone(),
+                        fail: id == 1,
+                    }),
+                ),
+            )
+        }))
+        .unwrap();
+        let worker = ExecutionWorker {
+            worker: case.assembly.worker(providers, Cancellation::default()),
+            _case: case,
+            _charge: budget.charge(bytes).unwrap(),
+        };
+        let error =
+            with_local_worker::<()>(worker, |_| panic!("original action panic")).unwrap_err();
+        assert_eq!(retired.load(Ordering::SeqCst), 2);
+        assert_eq!(budget.used(), 0);
+        let MathRuntimeError::Settlement { operation, cleanup } = error else {
+            panic!("original and cleanup failures must both survive")
+        };
+        assert!(
+            matches!(*operation, MathRuntimeError::Panic(ref detail) if detail == "original action panic")
+        );
+        let MathRuntimeError::Math(pse_math::MathError::Scope(
+            pse_kernels::ProviderError::Retirement { failures },
+        )) = *cleanup
+        else {
+            panic!("typed provider retirement failure must survive")
+        };
+        assert_eq!(failures.len(), 1);
+        assert!(
+            matches!(failures[0].cause.as_ref(), pse_kernels::ProviderError::Trial(detail) if detail == "retirement witness")
+        );
+    }
+}
 
 #[cfg(all(test, feature = "solver-pounce"))]
 mod native_recovery_tests;

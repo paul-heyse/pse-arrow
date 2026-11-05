@@ -1247,14 +1247,15 @@ impl<D: Dispatch> StepDriver<'_, D> {
                             let mut value=match service.derived_step(&prepared,execution.clone(),retained,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::Internal("original source point absent".into())))?) {
                                 Ok(value)=>value,
                                 Err(error)=>{
-                                    retained.clear();
-                                    return Err(error.effect(&prepared,&enclosing));
+                                    return Err(error.effect(&prepared,&enclosing).with_retirement(retained.clear()));
                                 }
                             };
                             if let math::solves::Outcome::Native(report)=&value.outcome {
                                 actual_products.borrow_mut()[index].native_attempt=Some(math::strategy::retain_native_attempt(&service,report).map_err(Arc::new)?);
                             }
-                            if let Some(failed)=prepared.local_attempt_failure(&value,&enclosing) {retained.clear();return Err(failed);}
+                            if let Some(failed)=prepared.local_attempt_failure(&value,&enclosing) {
+                                return Err(failed.with_retirement(retained.clear()));
+                            }
                             if !original_completion && let Some(proposal)=&value.proposal {
                                     let mut evaluations=0;
                                     match service.screen_auxiliary_start_worker_observed(prepared.original(),proposal,declaration.branch,enclosing.clone(),budget,&mut evaluations) {
@@ -1426,13 +1427,26 @@ impl<D: Dispatch> StepDriver<'_, D> {
             match (result.value, assessed, result.terminal) {
                 (Some(RungOutcome::Original(value)), Some(product), None) => {
                     let (outcome,_)=*value;
-                    if let Some(assessment) = result.assessment { assessment.retention.apply(retained); }
+                    if let Some(assessment) = result.assessment {
+                        if let Err(cleanup) = assessment.retention.apply(retained) {
+                            let error = match math::strategy::cause(&outcome) {
+                                Some(cause) => ProblemError::Retirement { failures: vec![
+                                    ProblemError::Math(pse_math::MathError::Typed { retained: cause.retained_bytes(), cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause) }), cleanup,
+                                ] },
+                                None => cleanup,
+                            };
+                            return Err(MathRuntimeError::Strategy { cause: Arc::new(error.into()), trace });
+                        }
+                    }
                     retained.charge_session(Box::new(_allowance.clone()));
                     Ok((outcome,product,trace))
                 }
                 (_, _, terminal) => {
-                    retained.clear();
                     let error = terminal.map_or_else(|| ProblemError::Internal("strategy ended without an assessed original".into()), |error| ProblemError::Math(pse_math::MathError::Typed {retained:error.retained_bytes(),cause:pse_model::diagnostic::DiagnosticCause::from_shared(error)}));
+                    let error = match retained.clear() {
+                        Ok(()) => error,
+                        Err(cleanup) => ProblemError::Retirement { failures: vec![error, cleanup] },
+                    };
                     let outcome = math::solves::Outcome::Rejected(Arc::new(error.into()));
                     let product = assess(&outcome,Some(&enclosing),budget).product;
                     Ok((outcome,product,trace))
@@ -1457,6 +1471,12 @@ pub(crate) struct LocalOperation<'a> {
 }
 #[cfg(any(test, feature = "solver-kinsol"))]
 impl<'a> LocalOperation<'a> {
+    pub(super) fn finish(mut self) -> Result<(), MathRuntimeError> {
+        // Consume callback owners while SerialScopes and the operation admissions are live.
+        std::mem::take(*self.retained.get_mut())
+            .finish()
+            .map_err(MathRuntimeError::from)
+    }
     pub(super) fn new(
         service: Arc<MathService>,
         retained: &'a mut Retained,
@@ -1591,15 +1611,6 @@ impl<'a> LocalOperation<'a> {
         }
         .step(step, previous, attempt, progress, owner, cancel, assess)
         .await
-    }
-}
-#[cfg(any(test, feature = "solver-kinsol"))]
-impl Drop for LocalOperation<'_> {
-    fn drop(&mut self) {
-        let retained = self.retained.get_mut();
-        retained.clear();
-        retained.release();
-        // `scopes` drop after native callbacks and their storage owners.
     }
 }
 #[cfg(any(test, feature = "solver-kinsol"))]

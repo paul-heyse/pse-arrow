@@ -637,7 +637,7 @@ mod tests {
                     drift,
                     missing,
                     calls: Arc<std::sync::atomic::AtomicUsize>| {
-            pse_kernels::ProviderBindings::from([(
+            pse_kernels::ProviderBindings::try_from_iter([(
                 spec.key(),
                 pse_kernels::ProviderBinding::new(
                     spec.clone(),
@@ -650,6 +650,7 @@ mod tests {
                     }),
                 ),
             )])
+            .unwrap()
         };
         for (qualified, selected_support, drift, missing) in [
             (true, true, false, false),

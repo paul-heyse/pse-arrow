@@ -144,7 +144,8 @@ pub(super) fn plan(
 }
 #[derive(Debug)]
 struct Reduced {
-    original: Rc<RefCell<Box<dyn NleOracle>>>,
+    original: Rc<RefCell<Option<Box<dyn NleOracle>>>>,
+    operations: crate::RootOperations,
     plan: Rc<EliminationPlan>,
     contract: OracleContract,
     pattern: faer::sparse::SymbolicSparseColMat<usize>,
@@ -177,11 +178,11 @@ impl Reduced {
         contract
     }
     fn new(
-        original: Rc<RefCell<Box<dyn NleOracle>>>,
+        original: Rc<RefCell<Option<Box<dyn NleOracle>>>>,
         plan: Rc<EliminationPlan>,
         identity: pse_ids::ContentHash,
     ) -> Result<Self, ProblemError> {
-        let source = original.borrow();
+        let source = borrow_original(&original)?;
         let contract = Self::contract(source.contract(), &plan, identity);
         let mut coordinates = vec![None; plan.n_full];
         for (j, recovery) in plan.recovery.iter().enumerate() {
@@ -235,9 +236,11 @@ impl Reduced {
             })
             .collect::<Result<Vec<_>, ProblemError>>()?;
         let nnz = source_pattern.compute_nnz();
+        let operations = source.operations();
         drop(source);
         Ok(Self {
             original,
+            operations,
             contract,
             pattern,
             gather,
@@ -262,20 +265,21 @@ impl Reduced {
     }
 }
 impl NleOracle for Reduced {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.contract
     }
     fn operations(&self) -> crate::RootOperations {
-        self.original.borrow().operations()
+        self.operations
     }
     fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
         self.pattern.as_ref()
     }
     fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         self.lift(x)?;
-        self.original
-            .borrow_mut()
-            .residual(&self.point, &mut self.residual)?;
+        borrow_original_mut(&self.original)?.residual(&self.point, &mut self.residual)?;
         for (value, row) in out.iter_mut().zip(&self.plan.rows_kept) {
             *value = self.residual[*row];
         }
@@ -283,9 +287,7 @@ impl NleOracle for Reduced {
     }
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         self.lift(x)?;
-        self.original
-            .borrow_mut()
-            .jacobian(&self.point, &mut self.jacobian)?;
+        borrow_original_mut(&self.original)?.jacobian(&self.point, &mut self.jacobian)?;
         out.fill(0.);
         for (target, source, scale) in &self.gather {
             out[*target] += scale * self.jacobian[*source];
@@ -313,7 +315,7 @@ impl NleOracle for Reduced {
                 },
             };
         }
-        self.original.borrow_mut().jacobian_product(
+        borrow_original_mut(&self.original)?.jacobian_product(
             &self.point,
             &self.direction,
             &mut self.residual,
@@ -341,296 +343,356 @@ pub fn execute(
     run: Roots<'_>,
     input: Primal<'_>,
 ) -> Result<crate::solve::SolveReport, ProblemError> {
-    step.execution.check()?;
-    if matches!(input.policy, Policy::Off)
-        || matches!(input.policy,Policy::Explicit {options,required} if required.is_empty() && (!options.enabled || !options.linear_eq_reduction))
-    {
-        return execution::roots(step, retained, run);
-    }
-    step.preflight()?;
-    let n = run.oracle.contract().variables.len();
-    if run.initial.len() != n || run.initial.iter().any(|value| !value.is_finite()) {
-        return Err(ProblemError::Contract(
-            "root affine original start inventory".into(),
-        ));
-    }
-    run.oracle
-        .operations()
-        .admit(run.oracle.contract(), !run.oracle.operations().jacobian)?;
-    let extent = allowance(n, run.oracle.jacobian_pattern().compute_nnz())
-        .ok_or_else(|| ProblemError::memory("root affine projection extent"))?;
-    if step.execution.memory.is_some_and(|bytes| extent > bytes) {
-        return Err(ProblemError::memory("root affine projection allowance"));
-    }
-    crate::structural::check(
-        run.oracle.contract(),
-        run.oracle.jacobian_pattern(),
-        &vec![(0., 0.); n],
-        crate::structural::Mode::Roots,
-        step.structure.map(|structure| &*structure.witness),
-    )?;
-    step.adapter.admit_contract(
-        run.oracle.contract(),
-        &std::collections::BTreeMap::new(),
-        step.settings,
-        execution::Budgets {
-            accuracy: step.accuracy,
-            tolerances: step.tolerances,
-            normalization: step.normalization,
-        },
-    )?;
-    let Some(plan) = plan(run.oracle.contract(), &input)? else {
-        return execution::roots(step, retained, run);
-    };
-    // Root warm payloads are primal-only and are projected through the same library map.
-    let original_contract = run.oracle.contract().clone();
-    let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::ImplicitNumericalProductV1);
-    h.str("primal-root-affine-native-layout")
-        .hash(&original_contract.identity)
-        .hash(&step.compatibility.layout)
-        .hash(&step.compatibility.profile)
-        .hash(&step.normalization.key())
-        .hash(&pse_math::sparse::pattern_key(
-            run.oracle.jacobian_pattern(),
-        ));
-    for value in &plan.recovery {
-        match value {
-            VarRecovery::Kept(k) => {
-                h.u64(0).u64(*k as u64);
+    crate::retiring(
+        run,
+        |run| run.oracle.finish(),
+        |pending| {
+            let run = pending
+                .as_ref()
+                .ok_or_else(|| ProblemError::internal("missing root reduction source owner"))?;
+            step.execution.check()?;
+            if matches!(input.policy, Policy::Off)
+                || matches!(input.policy,Policy::Explicit {options,required} if required.is_empty() && (!options.enabled || !options.linear_eq_reduction))
+            {
+                return execution::roots(
+                    step,
+                    retained,
+                    pending
+                        .take()
+                        .ok_or_else(|| ProblemError::internal("missing direct root transfer"))?,
+                );
             }
-            VarRecovery::Constant(c) => {
-                h.u64(1).f64(*c);
+            step.preflight()?;
+            let n = run.oracle.contract().variables.len();
+            if run.initial.len() != n || run.initial.iter().any(|value| !value.is_finite()) {
+                return Err(ProblemError::Contract(
+                    "root affine original start inventory".into(),
+                ));
             }
-            VarRecovery::Affine { rep, coeff, offset } => {
-                h.u64(2).u64(*rep as u64).f64(*coeff).f64(*offset);
+            run.oracle
+                .operations()
+                .admit(run.oracle.contract(), !run.oracle.operations().jacobian)?;
+            let extent = allowance(n, run.oracle.jacobian_pattern().compute_nnz())
+                .ok_or_else(|| ProblemError::memory("root affine projection extent"))?;
+            if step.execution.memory.is_some_and(|bytes| extent > bytes) {
+                return Err(ProblemError::memory("root affine projection allowance"));
             }
-        }
-    }
-    for row in &plan.rows_kept {
-        h.u64(*row as u64);
-    }
-    let layout_identity = h.finish_hash();
-    let mut context = pse_ids::FramedHasher::new(pse_ids::Frame::ImplicitNumericalProductV1);
-    context
-        .str("primal-root-affine-current-source")
-        .hash(&layout_identity)
-        .hash(&input.facts.key)
-        .hash(&step.compatibility.data);
-    let identity = context.finish_hash();
-    let plan = Rc::new(plan);
-    let mut initial = vec![0.; plan.n_reduced_vars()];
-    plan.project_x(run.initial, &mut initial);
-    let normalization = pse_math::normalization::Normalization {
-        variables: plan
-            .vars_kept
-            .iter()
-            .map(|j| step.normalization.variables[*j])
-            .collect(),
-        rows: plan
-            .rows_kept
-            .iter()
-            .map(|r| step.normalization.rows[*r])
-            .collect(),
-        objective: step.normalization.objective,
-    };
-    let tolerances = quality::Tolerances {
-        variables: plan
-            .vars_kept
-            .iter()
-            .map(|j| step.tolerances.variables[*j])
-            .collect(),
-        rows: plan
-            .rows_kept
-            .iter()
-            .map(|r| step.tolerances.rows[*r])
-            .collect(),
-        integrality: step.tolerances.integrality,
-    };
-    // An algebraically valid map may transfer one-sided native bounds into a box.
-    // Keep the original admitted route unless this selected adapter admits the actual
-    // reduced contract and its physical budgets. A required pass reports the refusal.
-    if !initial.is_empty()
-        && let Err(cause) = step.adapter.admit_contract(
-            &Reduced::contract(&original_contract, &plan, layout_identity),
-            &std::collections::BTreeMap::new(),
-            step.settings,
-            execution::Budgets {
-                accuracy: step.accuracy,
-                tolerances: &tolerances,
-                normalization: &normalization,
-            },
-        )
-    {
-        if matches!(input.policy,Policy::Explicit {required,..} if required.contains(&Pass::AffineElimination))
-        {
-            return Err(ProblemError::unsupported(format!(
-                "required root affine reduced native contract: {cause}"
-            )));
-        }
-        return execution::roots(step, retained, run);
-    }
-    let original = Rc::new(RefCell::new(run.oracle));
-    let reduced = Reduced::new(original.clone(), plan.clone(), layout_identity)?;
-    let mut compatibility = step.compatibility.clone();
-    compatibility.layout = layout_identity;
-    compatibility.data = identity;
-    let mut warm = step.warm.cloned();
-    if let Some(w) = warm.as_mut() {
-        w.validate(&step.compatibility)?;
-        if let WarmPayload::Root(primal) = &mut w.payload {
-            let mut projected = vec![0.; plan.n_reduced_vars()];
-            plan.project_x(primal, &mut projected);
-            *primal = projected;
-        } else {
-            return Err(ProblemError::unsupported(
-                "root affine transform requires a root primal warm payload",
-            ));
-        }
-        w.compatibility = compatibility.clone();
-    }
-    // A zero-dimensional reduction is a library primal result, never a native convergence.
-    let mut report = if initial.is_empty() {
-        let mut report = crate::solve::SolveReport::new(
-            step.adapter.backend(),
-            &reduced.contract,
-            crate::solve::NativeTermination {
-                code: 0,
-                name: "RootAffineZeroDimensional".into(),
-                message: None,
-                category: crate::solve::Termination::FeasibleOnly,
-                assurance: crate::solve::Assurance::None,
-            },
-            &step.execution,
-        );
-        report
-            .metrics
-            .insert("native.attempted".into(), Metric::Bool(false));
-        report.evidence.work = crate::solve::WorkEvidence {
-            evaluations: Some(0),
-            iterations: Some(0),
-            factorizations: Some(0),
-            proof_steps: Some(0),
-        };
-        report.candidate = Some(crate::solve::Candidate {
-            kind: crate::solve::CandidateKind::FinalIterate,
-            primal: vec![],
-            objective: None,
-            row_dual: None,
-            bound_dual: None,
-            reduced_costs: None,
-            slacks: None,
-            commitment: None,
-        });
-        report
-    } else {
-        execution::roots(
-            Step {
-                adapter: step.adapter,
-                settings: step.settings,
-                snapshot: step.snapshot,
-                structure: None,
-                controls: step.controls,
-                accuracy: step.accuracy,
-                execution: step.execution.clone(),
-                tolerances: &tolerances,
-                normalization: &normalization,
-                compatibility,
-                warm: warm.as_ref(),
-            },
-            retained,
-            Roots {
-                oracle: Box::new(reduced),
-                initial: &initial,
-                owner: run.owner,
-            },
-        )?
-    };
-    report.variables = original_contract.variables.iter().map(|v| v.id).collect();
-    report.rows = original_contract.rows.clone();
-    let mut original_rechecked = 0;
-    if let Some(candidate) = report.candidate.as_mut() {
-        let mut full = vec![0.; plan.n_full];
-        plan.lift_x(&candidate.primal, &mut full);
-        candidate.primal = full;
-        step.execution.check()?;
-        let mut values = vec![0.; plan.m_full];
-        let observation = step.execution.counted(
-            crate::solve::WorkEvidence {
-                evaluations: Some(1),
-                iterations: Some(0),
-                factorizations: Some(0),
-                proof_steps: Some(0),
-            },
-            || {
-                original
-                    .borrow_mut()
-                    .residual(&candidate.primal, &mut values)?;
-                original.borrow().observe(values)
-            },
-        )?;
-        report.evidence.work.evaluations = report
-            .evidence
-            .work
-            .evaluations
-            .map(|count| {
-                count.checked_add(1).ok_or_else(|| {
-                    ProblemError::internal("root original evaluation count overflow")
-                })
-            })
-            .transpose()?;
-        report.quality = Some(quality::observed(
-            &original_contract,
-            &observation.bounds,
-            &candidate.primal,
-            &observation.values,
-            step.tolerances,
-        )?);
-        report.observation = Some(observation);
-        original_rechecked = plan.m_full;
-    }
-    // The full-space seed remains authoritative at the boundary.
-    if let Some(w) = report.warm_start.as_mut() {
-        if let WarmPayload::Root(primal) = &mut w.payload {
-            let mut full = vec![0.; plan.n_full];
-            plan.lift_x(primal, &mut full);
-            *primal = full;
-        }
-        w.compatibility = step.compatibility.clone();
-    }
-    let mut effective = pounce_presolve::PresolveOptions::defaults();
-    effective.enabled = true;
-    effective.linear_eq_reduction = true;
-    effective.bound_tightening = false;
-    effective.redundant_constraint_removal = false;
-    effective.fbbt = false;
-    effective.licq_check = false;
-    effective.auxiliary = false;
-    effective.warm_z_bounds = false;
-    let requested = input.policy.options();
-    let passes=[(Pass::AffineElimination,requested.linear_eq_reduction),(Pass::LinearBounds,requested.bound_tightening),(Pass::RedundantRows,requested.redundant_constraint_removal),(Pass::Fbbt,requested.fbbt),(Pass::RankDiagnostics,requested.licq_check),(Pass::Auxiliary,requested.auxiliary)].into_iter().map(|(pass,wanted)| {
+            crate::structural::check(
+                run.oracle.contract(),
+                run.oracle.jacobian_pattern(),
+                &vec![(0., 0.); n],
+                crate::structural::Mode::Roots,
+                step.structure.map(|structure| &*structure.witness),
+            )?;
+            step.adapter.admit_contract(
+                run.oracle.contract(),
+                &std::collections::BTreeMap::new(),
+                step.settings,
+                execution::Budgets {
+                    accuracy: step.accuracy,
+                    tolerances: step.tolerances,
+                    normalization: step.normalization,
+                },
+            )?;
+            let Some(plan) = plan(run.oracle.contract(), &input)? else {
+                return execution::roots(
+                    step,
+                    retained,
+                    pending
+                        .take()
+                        .ok_or_else(|| ProblemError::internal("missing direct root transfer"))?,
+                );
+            };
+            // Root warm payloads are primal-only and are projected through the same library map.
+            let original_contract = run.oracle.contract().clone();
+            let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::ImplicitNumericalProductV1);
+            h.str("primal-root-affine-native-layout")
+                .hash(&original_contract.identity)
+                .hash(&step.compatibility.layout)
+                .hash(&step.compatibility.profile)
+                .hash(&step.normalization.key())
+                .hash(&pse_math::sparse::pattern_key(
+                    run.oracle.jacobian_pattern(),
+                ));
+            for value in &plan.recovery {
+                match value {
+                    VarRecovery::Kept(k) => {
+                        h.u64(0).u64(*k as u64);
+                    }
+                    VarRecovery::Constant(c) => {
+                        h.u64(1).f64(*c);
+                    }
+                    VarRecovery::Affine { rep, coeff, offset } => {
+                        h.u64(2).u64(*rep as u64).f64(*coeff).f64(*offset);
+                    }
+                }
+            }
+            for row in &plan.rows_kept {
+                h.u64(*row as u64);
+            }
+            let layout_identity = h.finish_hash();
+            let mut context =
+                pse_ids::FramedHasher::new(pse_ids::Frame::ImplicitNumericalProductV1);
+            context
+                .str("primal-root-affine-current-source")
+                .hash(&layout_identity)
+                .hash(&input.facts.key)
+                .hash(&step.compatibility.data);
+            let identity = context.finish_hash();
+            let plan = Rc::new(plan);
+            let mut initial = vec![0.; plan.n_reduced_vars()];
+            plan.project_x(run.initial, &mut initial);
+            let normalization = pse_math::normalization::Normalization {
+                variables: plan
+                    .vars_kept
+                    .iter()
+                    .map(|j| step.normalization.variables[*j])
+                    .collect(),
+                rows: plan
+                    .rows_kept
+                    .iter()
+                    .map(|r| step.normalization.rows[*r])
+                    .collect(),
+                objective: step.normalization.objective,
+            };
+            let tolerances = quality::Tolerances {
+                variables: plan
+                    .vars_kept
+                    .iter()
+                    .map(|j| step.tolerances.variables[*j])
+                    .collect(),
+                rows: plan
+                    .rows_kept
+                    .iter()
+                    .map(|r| step.tolerances.rows[*r])
+                    .collect(),
+                integrality: step.tolerances.integrality,
+            };
+            // An algebraically valid map may transfer one-sided native bounds into a box.
+            // Keep the original admitted route unless this selected adapter admits the actual
+            // reduced contract and its physical budgets. A required pass reports the refusal.
+            if !initial.is_empty()
+                && let Err(cause) = step.adapter.admit_contract(
+                    &Reduced::contract(&original_contract, &plan, layout_identity),
+                    &std::collections::BTreeMap::new(),
+                    step.settings,
+                    execution::Budgets {
+                        accuracy: step.accuracy,
+                        tolerances: &tolerances,
+                        normalization: &normalization,
+                    },
+                )
+            {
+                if matches!(input.policy,Policy::Explicit {required,..} if required.contains(&Pass::AffineElimination))
+                {
+                    return Err(ProblemError::unsupported(format!(
+                        "required root affine reduced native contract: {cause}"
+                    )));
+                }
+                return execution::roots(
+                    step,
+                    retained,
+                    pending
+                        .take()
+                        .ok_or_else(|| ProblemError::internal("missing direct root transfer"))?,
+                );
+            }
+            let run = pending
+                .take()
+                .ok_or_else(|| ProblemError::internal("missing reduced root transfer"))?;
+            let original = Rc::new(RefCell::new(Some(run.oracle)));
+            let result = (|| {
+                let reduced = Reduced::new(original.clone(), plan.clone(), layout_identity)?;
+                let mut compatibility = step.compatibility.clone();
+                compatibility.layout = layout_identity;
+                compatibility.data = identity;
+                let mut warm = step.warm.cloned();
+                if let Some(w) = warm.as_mut() {
+                    w.validate(&step.compatibility)?;
+                    if let WarmPayload::Root(primal) = &mut w.payload {
+                        let mut projected = vec![0.; plan.n_reduced_vars()];
+                        plan.project_x(primal, &mut projected);
+                        *primal = projected;
+                    } else {
+                        return Err(ProblemError::unsupported(
+                            "root affine transform requires a root primal warm payload",
+                        ));
+                    }
+                    w.compatibility = compatibility.clone();
+                }
+                // A zero-dimensional reduction is a library primal result, never a native convergence.
+                let mut report = if initial.is_empty() {
+                    let mut report = crate::solve::SolveReport::new(
+                        step.adapter.backend(),
+                        &reduced.contract,
+                        crate::solve::NativeTermination {
+                            code: 0,
+                            name: "RootAffineZeroDimensional".into(),
+                            message: None,
+                            category: crate::solve::Termination::FeasibleOnly,
+                            assurance: crate::solve::Assurance::None,
+                        },
+                        &step.execution,
+                    );
+                    report
+                        .metrics
+                        .insert("native.attempted".into(), Metric::Bool(false));
+                    report.evidence.work = crate::solve::WorkEvidence {
+                        evaluations: Some(0),
+                        iterations: Some(0),
+                        factorizations: Some(0),
+                        proof_steps: Some(0),
+                    };
+                    report.candidate = Some(crate::solve::Candidate {
+                        kind: crate::solve::CandidateKind::FinalIterate,
+                        primal: vec![],
+                        objective: None,
+                        row_dual: None,
+                        bound_dual: None,
+                        reduced_costs: None,
+                        slacks: None,
+                        commitment: None,
+                    });
+                    report
+                } else {
+                    execution::roots(
+                        Step {
+                            adapter: step.adapter,
+                            settings: step.settings,
+                            snapshot: step.snapshot,
+                            structure: None,
+                            controls: step.controls,
+                            accuracy: step.accuracy,
+                            execution: step.execution.clone(),
+                            tolerances: &tolerances,
+                            normalization: &normalization,
+                            compatibility,
+                            warm: warm.as_ref(),
+                        },
+                        retained,
+                        Roots {
+                            oracle: Box::new(reduced),
+                            initial: &initial,
+                            owner: run.owner,
+                        },
+                    )?
+                };
+                report.variables = original_contract.variables.iter().map(|v| v.id).collect();
+                report.rows = original_contract.rows.clone();
+                let mut original_rechecked = 0;
+                if let Some(candidate) = report.candidate.as_mut() {
+                    let mut full = vec![0.; plan.n_full];
+                    plan.lift_x(&candidate.primal, &mut full);
+                    candidate.primal = full;
+                    step.execution.check()?;
+                    let mut values = vec![0.; plan.m_full];
+                    let observation = step.execution.counted(
+                        crate::solve::WorkEvidence {
+                            evaluations: Some(1),
+                            iterations: Some(0),
+                            factorizations: Some(0),
+                            proof_steps: Some(0),
+                        },
+                        || {
+                            borrow_original_mut(&original)?
+                                .residual(&candidate.primal, &mut values)?;
+                            borrow_original(&original)?.observe(values)
+                        },
+                    )?;
+                    report.evidence.work.evaluations = report
+                        .evidence
+                        .work
+                        .evaluations
+                        .map(|count| {
+                            count.checked_add(1).ok_or_else(|| {
+                                ProblemError::internal("root original evaluation count overflow")
+                            })
+                        })
+                        .transpose()?;
+                    report.quality = Some(quality::observed(
+                        &original_contract,
+                        &observation.bounds,
+                        &candidate.primal,
+                        &observation.values,
+                        step.tolerances,
+                    )?);
+                    report.observation = Some(observation);
+                    original_rechecked = plan.m_full;
+                }
+                // The full-space seed remains authoritative at the boundary.
+                if let Some(w) = report.warm_start.as_mut() {
+                    if let WarmPayload::Root(primal) = &mut w.payload {
+                        let mut full = vec![0.; plan.n_full];
+                        plan.lift_x(primal, &mut full);
+                        *primal = full;
+                    }
+                    w.compatibility = step.compatibility.clone();
+                }
+                let mut effective = pounce_presolve::PresolveOptions::defaults();
+                effective.enabled = true;
+                effective.linear_eq_reduction = true;
+                effective.bound_tightening = false;
+                effective.redundant_constraint_removal = false;
+                effective.fbbt = false;
+                effective.licq_check = false;
+                effective.auxiliary = false;
+                effective.warm_z_bounds = false;
+                let requested = input.policy.options();
+                let passes=[(Pass::AffineElimination,requested.linear_eq_reduction),(Pass::LinearBounds,requested.bound_tightening),(Pass::RedundantRows,requested.redundant_constraint_removal),(Pass::Fbbt,requested.fbbt),(Pass::RankDiagnostics,requested.licq_check),(Pass::Auxiliary,requested.auxiliary)].into_iter().map(|(pass,wanted)| {
         let affine=pass==Pass::AffineElimination;
         (pass,super::PassReport {requested:requested.enabled&&wanted,eligible:affine,applied:affine,reason:(!affine).then(||"root primal consumer qualifies only the independent affine reconstruction pass".into())})
     }).collect();
-    report.preprocessing=Some(super::Report {requested:input.policy.clone(),effective,passes,facts:Some(input.facts.key),transformation:identity,dimensions:super::Dimensions {original_columns:plan.n_full,original_rows:plan.m_full,presolved_columns:plan.n_reduced_vars(),presolved_rows:plan.n_reduced_rows()},diagnostics:std::collections::BTreeMap::from([("native.qualification".into(),"pounce-presolve 0.12.0 exact represented affine primal map; zero coefficient/equality/clamp thresholds; every original row/bound rechecked; no optimizer KKT recovery claim".into())]),columns:plan.vars_kept.iter().map(|j|pse_math::index::OriginalCol::new(*j)).collect(),rows:plan.rows_kept.iter().map(|r|pse_math::index::OriginalRow::new(*r)).collect(),proof:None,working_set:None,resolution:None});
-    report.metrics.insert(
-        "root.affine.original_columns".into(),
-        Metric::Integer(plan.n_full as i64),
-    );
-    report.metrics.insert(
-        "root.affine.native_columns".into(),
-        Metric::Integer(plan.n_reduced_vars() as i64),
-    );
-    report.metrics.insert(
-        "root.affine.original_rows_rechecked".into(),
-        Metric::Integer(original_rechecked as i64),
-    );
-    if report
-        .quality
-        .as_ref()
-        .is_none_or(|quality| !quality.feasible())
-    {
-        report.termination.assurance = crate::solve::Assurance::None;
-    }
-    quality::qualify(&mut report, step.accuracy);
-    Ok(report)
+                report.preprocessing=Some(super::Report {requested:input.policy.clone(),effective,passes,facts:Some(input.facts.key),transformation:identity,dimensions:super::Dimensions {original_columns:plan.n_full,original_rows:plan.m_full,presolved_columns:plan.n_reduced_vars(),presolved_rows:plan.n_reduced_rows()},diagnostics:std::collections::BTreeMap::from([("native.qualification".into(),"pounce-presolve 0.12.0 exact represented affine primal map; zero coefficient/equality/clamp thresholds; every original row/bound rechecked; no optimizer KKT recovery claim".into())]),columns:plan.vars_kept.iter().map(|j|pse_math::index::OriginalCol::new(*j)).collect(),rows:plan.rows_kept.iter().map(|r|pse_math::index::OriginalRow::new(*r)).collect(),proof:None,working_set:None,resolution:None});
+                report.metrics.insert(
+                    "root.affine.original_columns".into(),
+                    Metric::Integer(plan.n_full as i64),
+                );
+                report.metrics.insert(
+                    "root.affine.native_columns".into(),
+                    Metric::Integer(plan.n_reduced_vars() as i64),
+                );
+                report.metrics.insert(
+                    "root.affine.original_rows_rechecked".into(),
+                    Metric::Integer(original_rechecked as i64),
+                );
+                if report
+                    .quality
+                    .as_ref()
+                    .is_none_or(|quality| !quality.feasible())
+                {
+                    report.termination.assurance = crate::solve::Assurance::None;
+                }
+                quality::qualify(&mut report, step.accuracy);
+                Ok(report)
+            })();
+            ProblemError::with_retirement(result, finish_original(original))
+        },
+    )
+}
+
+fn borrow_original(
+    original: &Rc<RefCell<Option<Box<dyn NleOracle>>>>,
+) -> Result<std::cell::Ref<'_, Box<dyn NleOracle>>, ProblemError> {
+    let slot = original
+        .try_borrow()
+        .map_err(|_| ProblemError::internal("overlapping reduced root callback"))?;
+    std::cell::Ref::filter_map(slot, Option::as_ref)
+        .map_err(|_| ProblemError::Contract("reduced root source retired".into()))
+}
+fn borrow_original_mut(
+    original: &Rc<RefCell<Option<Box<dyn NleOracle>>>>,
+) -> Result<std::cell::RefMut<'_, Box<dyn NleOracle>>, ProblemError> {
+    let slot = original
+        .try_borrow_mut()
+        .map_err(|_| ProblemError::internal("overlapping reduced root callback"))?;
+    std::cell::RefMut::filter_map(slot, Option::as_mut)
+        .map_err(|_| ProblemError::Contract("reduced root source retired".into()))
+}
+fn finish_original(original: Rc<RefCell<Option<Box<dyn NleOracle>>>>) -> Result<(), ProblemError> {
+    let owner = original
+        .try_borrow_mut()
+        .map_err(|_| ProblemError::internal("reduced root retirement overlaps a callback"))?
+        .take()
+        .ok_or_else(|| ProblemError::Contract("reduced root source already retired".into()))?;
+    crate::finish_owner(|| owner.finish())
 }

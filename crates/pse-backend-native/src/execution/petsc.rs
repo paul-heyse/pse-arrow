@@ -133,31 +133,37 @@ impl BackendExecution for Petsc {
             else {
                 return Err(super::representation(Backend::Petsc));
             };
-            let defaults = crate::settings::petsc::DirectSettings::default();
-            let settings = match input.settings {
-                BackendSettings::Default => &defaults,
-                BackendSettings::Petsc(s) => s,
-                _ => return Err(super::foreign(Backend::Petsc)),
-            };
-            retained.clear();
-            crate::petsc::solve(
-                oracle.as_mut(),
-                initial,
-                &settings.execution(),
-                crate::petsc::SolveRequest {
-                    controls: input.controls,
-                    accuracy: input.accuracy,
-                    execution: input.execution,
-                    tolerances: input.tolerances,
-                    warm: input.warm,
-                    compatibility: &input.compatibility,
-                },
-            )
+            let result = (|| {
+                let defaults = crate::settings::petsc::DirectSettings::default();
+                let settings = match input.settings {
+                    BackendSettings::Default => &defaults,
+                    BackendSettings::Petsc(s) => s,
+                    _ => return Err(super::foreign(Backend::Petsc)),
+                };
+                retained.clear()?;
+                crate::petsc::solve(
+                    oracle.as_mut(),
+                    initial,
+                    &settings.execution(),
+                    crate::petsc::SolveRequest {
+                        controls: input.controls,
+                        accuracy: input.accuracy,
+                        execution: input.execution,
+                        tolerances: input.tolerances,
+                        warm: input.warm,
+                        compatibility: &input.compatibility,
+                    },
+                )
+            })();
+            ProblemError::after_solve(result, oracle.finish())
         }
         #[cfg(not(feature = "petsc"))]
         {
-            let _ = (retained, input);
-            Err(super::unlinked(Backend::Petsc))
+            let _ = retained;
+            ProblemError::with_retirement(
+                Err(super::unlinked(Backend::Petsc)),
+                input.problem.finish(),
+            )
         }
     }
 }

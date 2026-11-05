@@ -5357,6 +5357,9 @@ mod initialization_tests {
         }
     }
     impl Oracle for IcOracle {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &Contract {
             &self.contract
         }
@@ -5775,6 +5778,9 @@ mod initialization_tests {
         full_calls: Arc<std::sync::atomic::AtomicUsize>,
     }
     impl Oracle for SelectedDiagonal {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &Contract {
             self.inner.contract()
         }

@@ -443,8 +443,8 @@ fn pool_diagnostic_code(
 }
 pse_diagnostics::impl_diagnostic! {
     MathRuntimeError,
-    code(this) { match this {Self::WorkerJoin {source,..}=>Some(if source.is_cancelled() {pse_diagnostics::DiagnosticCode::RuntimeCancelled} else {pse_diagnostics::DiagnosticCode::WorkflowPanic}),Self::Allocation {..}=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Retiring|Self::PreparationExpired|Self::Limit(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Pool(error)=>Some(pool_diagnostic_code(error)),Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::Internal(_)=>Some(pse_diagnostics::DiagnosticCode::InternalInvariant),Self::Panic(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowPanic),_=>None} },
-    forward(this) { match this {Self::Solve(e)=>Some(e),Self::Compile(e)=>Some(e),Self::Math(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Settlement {operation,..}=>Some(operation.as_ref()),Self::Strategy {cause,..}|Self::StrategyTraceUnavailable {cause,..}=>Some(cause.as_ref()),_=>None} },
+    code(this) { match this {Self::Settlement {..}=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::WorkerJoin {source,..}=>Some(if source.is_cancelled() {pse_diagnostics::DiagnosticCode::RuntimeCancelled} else {pse_diagnostics::DiagnosticCode::WorkflowPanic}),Self::Allocation {..}=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Retiring|Self::PreparationExpired|Self::Limit(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Pool(error)=>Some(pool_diagnostic_code(error)),Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::Internal(_)=>Some(pse_diagnostics::DiagnosticCode::InternalInvariant),Self::Panic(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowPanic),_=>None} },
+    forward(this) { match this {Self::Solve(e)=>Some(e),Self::Compile(e)=>Some(e),Self::Math(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Strategy {cause,..}|Self::StrategyTraceUnavailable {cause,..}=>Some(cause.as_ref()),_=>None} },
     help(_this) { None },
     related(this) {
         match this {
@@ -908,14 +908,24 @@ pub(crate) fn attempt_providers(
     registrations: &BTreeMap<ProviderKey, pse_kernels::Registration>,
     scope: &pse_kernels::ExecutionScope,
 ) -> Result<pse_kernels::ProviderBindings, pse_kernels::ProviderError> {
-    registrations
-        .iter()
-        .map(|(key, registration)| {
-            registration
-                .worker_scoped(scope.nested())
-                .map(|worker| (*key, worker))
-        })
-        .collect()
+    let mut workers = Vec::with_capacity(registrations.len());
+    for (key, registration) in registrations {
+        match registration.worker_scoped(scope.nested()) {
+            Ok(worker) => workers.push((*key, worker)),
+            Err(operation) => {
+                let cleanup = pse_kernels::ProviderBindings::try_from_iter(workers)
+                    .and_then(pse_kernels::ProviderBindings::finish);
+                return Err(match cleanup {
+                    Ok(()) => operation,
+                    Err(cleanup) => pse_kernels::ProviderError::Settlement {
+                        operation: Box::new(operation),
+                        cleanup: Box::new(cleanup),
+                    },
+                });
+            }
+        }
+    }
+    pse_kernels::ProviderBindings::try_from_iter(workers)
 }
 /// Attempt-local mutable state and its reservation. An opted-in native session may
 /// reclaim exclusively drained/reset numeric storage; never retained in Salsa.
@@ -926,6 +936,10 @@ pub struct ExecutionWorker {
     _charge: WorkerCharge,
 }
 impl ExecutionWorker {
+    /// Explicitly settle evaluator/provider owners while the attempt charges remain held.
+    pub(crate) fn finish(self) -> Result<(), MathRuntimeError> {
+        self.worker.finish().map_err(MathRuntimeError::from)
+    }
     /// Access attempt-local numeric operations.
     pub fn worker(&mut self) -> &mut CaseWorker {
         &mut self.worker
@@ -1118,8 +1132,30 @@ impl MathService {
         driver: &crate::CancelSource,
         work: impl FnOnce(&mut CaseWorker) -> Result<T, MathRuntimeError> + Send + 'static,
     ) -> Result<T, MathRuntimeError> {
-        self.with_owned_worker(case, providers, driver, None, move |mut worker| {
-            work(&mut worker)
+        self.with_borrowed_worker(case, providers, driver, None, work)
+            .await
+    }
+    /// Borrow an evaluator under its original optional task, then explicitly retire it
+    /// on the admitted thread on success, error, or callback panic.
+    pub(crate) async fn with_borrowed_worker<T: Send + 'static>(
+        self: &Arc<Self>,
+        case: Arc<ExecutableCase>,
+        providers: BTreeMap<ProviderKey, pse_kernels::Registration>,
+        driver: &crate::CancelSource,
+        task: Option<(pse_kernels::ExecutionScope, Cancellation)>,
+        work: impl FnOnce(&mut CaseWorker) -> Result<T, MathRuntimeError> + Send + 'static,
+    ) -> Result<T, MathRuntimeError> {
+        self.with_owned_worker(case, providers, driver, task, move |mut worker| {
+            let result =
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| work(&mut worker)))
+                    .unwrap_or_else(|payload| {
+                        let message = pse_diagnostics::panic::settle_payload(
+                            payload,
+                            "worker callback panic with opaque payload",
+                        );
+                        Err(MathRuntimeError::Panic(message))
+                    });
+            MathRuntimeError::settle(result, worker.finish().map_err(MathRuntimeError::from))
         })
         .await
     }
@@ -1184,7 +1220,10 @@ impl MathService {
             Ok(value)
         });
         tokio::pin!(operation);
-        tokio::select! {result=&mut operation=>result,()=driver.cancelled()=>{control.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}}
+        tokio::select! {result=&mut operation=>result,()=driver.cancelled()=>{
+            control.cancel();
+            MathRuntimeError::settle(Err(MathRuntimeError::Cancelled), operation.await.map(|_| ()))
+        }}
     }
     /// Opt into exclusive reuse only on the actual native session owner thread.
     /// Ordinary workers (including independent original assessments) remain cold.
@@ -1231,7 +1270,7 @@ impl MathService {
         };
         let returned = charge.share();
         let owner = case.clone();
-        worker.recycle_on_drop(move |scratch| {
+        worker.recycle_on_finish(move |scratch| {
             staged::return_scratch(origin, owner, scratch, returned)
         });
         Ok(ExecutionWorker {
@@ -1301,8 +1340,12 @@ impl pse_model::diagnostic::DiagnosticProjection for MathRuntimeError {
                 diagnostic
             }
             Self::Settlement { operation, cleanup } => {
-                let mut diagnostic = operation.boundary_diagnostic(stage);
-                diagnostic.causes.push(cleanup.boundary_diagnostic(stage));
+                let mut diagnostic =
+                    project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage);
+                diagnostic.causes.extend([
+                    operation.boundary_diagnostic(stage),
+                    cleanup.boundary_diagnostic(stage),
+                ]);
                 diagnostic
             }
             Self::Allocation { .. }

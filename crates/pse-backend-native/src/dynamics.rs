@@ -2849,6 +2849,8 @@ pub(crate) fn entries(pairs: impl IntoIterator<Item = (usize, usize)>) -> Vec<Su
 
 /// Worker-local compiled mathematical operations. No library state enters compiler queries.
 pub trait Oracle: std::fmt::Debug {
+    /// Retire this owned dynamic evaluator on its execution thread.
+    fn finish(self: Box<Self>) -> Result<(), ProblemError>;
     /// Immutable source layout.
     fn contract(&self) -> &Contract;
     /// Complete all-branch sparse support for the selected function and mode.

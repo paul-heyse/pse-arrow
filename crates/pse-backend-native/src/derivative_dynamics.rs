@@ -149,6 +149,9 @@ impl DynamicFunction {
     }
 }
 impl NlpOracle for DynamicFunction {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        self.oracle.finish()
+    }
     fn contract(&self) -> &OracleContract {
         &self.contract
     }
@@ -218,6 +221,9 @@ mod tests {
         domain: (f64, f64),
     }
     impl dynamics::Oracle for Polynomial {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &dynamics::Contract {
             &self.contract
         }

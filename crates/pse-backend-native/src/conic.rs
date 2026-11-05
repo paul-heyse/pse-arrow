@@ -500,6 +500,11 @@ pub(crate) fn settings(
     Ok(settings)
 }
 impl Session {
+    /// Clarabel's owned solver destruction has no fallible native cleanup API.
+    pub fn finish(self) -> Result<(), ProblemError> {
+        drop(self);
+        Ok(())
+    }
     /// Validate explicit cones and current convexity evidence before constructing native data.
     pub fn new(
         p: &ConicProblem,
@@ -1199,6 +1204,7 @@ mod tests {
                         stamp.clone(),
                     )
                 },
+                |_| Ok(()),
             )
             .unwrap();
         assert!(!reused);
@@ -1240,6 +1246,7 @@ mod tests {
                     Ok(outcome)
                 },
                 || panic!("RequireReuse must not rebuild an equilibrated retained model"),
+                |_| Ok(()),
             )
             .unwrap_err();
         assert!(matches!(
@@ -1265,6 +1272,7 @@ mod tests {
                         stamp.clone(),
                     )
                 },
+                |_| Ok(()),
             )
             .unwrap();
         assert!(!reused);

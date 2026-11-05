@@ -12,6 +12,1158 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "ApplicabilityClaim",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Claim"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityClaim",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Claim"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityClaim",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Claim"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityClaim",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Claim"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityClaim",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Claim"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityClaim",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Claim"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityClaim",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Claim"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityClaim",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Claim"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityClaim",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Claim"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityClaim",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Claim"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityClaim",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Claim"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityClaim",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Claim"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityInput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Input"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityInput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Input"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityInput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Input"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityInput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Input"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityInput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Input"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityInput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Input"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityInput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Input"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityInput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Input"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityInput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Input"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityInput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Input"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityInput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Input"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityInput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Input"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityPermission",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Permission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityPermission",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Permission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityPermission",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Permission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityPermission",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Permission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityPermission",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Permission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityPermission",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Permission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityPermission",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Permission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityPermission",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Permission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityPermission",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Permission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityPermission",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Permission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityPermission",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Permission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ApplicabilityPermission",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/applicability.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::applicability::Permission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[u8; 16]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[u8; 16]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[u8; 16]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[u8; 16]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[u8; 16]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[u8; 16]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[u8; 16]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[u8; 16]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[u8; 16]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[u8; 16]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[u8; 16]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[u8; 16]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array3Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[[u8; 16]; 3]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array3Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[[u8; 16]; 3]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array3Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[[u8; 16]; 3]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array3Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[[u8; 16]; 3]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array3Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[[u8; 16]; 3]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array3Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[[u8; 16]; 3]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array3Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[[u8; 16]; 3]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array3Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[[u8; 16]; 3]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array3Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[[u8; 16]; 3]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array3Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[[u8; 16]; 3]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array3Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[[u8; 16]; 3]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Array3Array16U8",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "[[u8; 16]; 3]"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "Array8OptionalUnitId",
       "declaration_kind": "rust_projection",
       "direction": "Both",
@@ -3084,6 +4236,1542 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "DiagnosticCode",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticCode"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticCode",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticCode"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticCode",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticCode"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticCode",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticCode"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticCode",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticCode"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticCode",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticCode"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticCode",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticCode"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticCode",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticCode"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticCode",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticCode"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticCode",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticCode"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticCode",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticCode"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticCode",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticCode"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticNonfiniteObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticNonfiniteObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticNonfiniteObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticNonfiniteObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticNonfiniteObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticNonfiniteObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticNonfiniteObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticNonfiniteObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticNonfiniteObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticNonfiniteObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticNonfiniteObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticNonfiniteObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticNonfiniteObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticNonfiniteObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticNonfiniteObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticNonfiniteObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticNonfiniteObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticNonfiniteObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticNonfiniteObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticNonfiniteObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticNonfiniteObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticNonfiniteObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticNonfiniteObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticNonfiniteObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::Observation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticOperandContract",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/lib.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::OperandContract"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticOperandContract",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/lib.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::OperandContract"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticOperandContract",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/lib.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::OperandContract"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticOperandContract",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/lib.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::OperandContract"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticOperandContract",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/lib.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::OperandContract"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticOperandContract",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/lib.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::OperandContract"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticOperandContract",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/lib.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::OperandContract"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticOperandContract",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/lib.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::OperandContract"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticOperandContract",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/lib.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::OperandContract"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticOperandContract",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/lib.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::OperandContract"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticOperandContract",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/lib.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::OperandContract"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticOperandContract",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/lib.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::OperandContract"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticPhysicalObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::PhysicalObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticPhysicalObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::PhysicalObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticPhysicalObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::PhysicalObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticPhysicalObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::PhysicalObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticPhysicalObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::PhysicalObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticPhysicalObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::PhysicalObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticPhysicalObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::PhysicalObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticPhysicalObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::PhysicalObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticPhysicalObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::PhysicalObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticPhysicalObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::PhysicalObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticPhysicalObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::PhysicalObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticPhysicalObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::PhysicalObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticRule",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticRule"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticRule",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticRule"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticRule",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticRule"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticRule",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticRule"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticRule",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticRule"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticRule",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticRule"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticRule",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticRule"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticRule",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticRule"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticRule",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticRule"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticRule",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticRule"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticRule",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticRule"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticRule",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticRule"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticSeverity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticSeverity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticSeverity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticSeverity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticSeverity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticSeverity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticSeverity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticSeverity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticSeverity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticSeverity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticSeverity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticSeverity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticSeverity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticSeverity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticSeverity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticSeverity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticSeverity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticSeverity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticSeverity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticSeverity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticSeverity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticSeverity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticSeverity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DiagnosticSeverity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticStage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticStage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticStage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticStage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticStage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticStage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticStage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticStage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticStage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticStage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticStage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticStage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticStage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticStage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticStage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticStage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticStage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticStage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticStage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticStage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticStage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticStage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DiagnosticStage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-diagnostics/src/vocabulary.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_diagnostics::vocabulary::DiagnosticStage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "EntityKindId",
       "declaration_kind": "rust_projection",
       "direction": "Both",
@@ -5580,6 +8268,198 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "KeyedFailure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::KeyedFailure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KeyedFailure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::KeyedFailure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KeyedFailure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::KeyedFailure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KeyedFailure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::KeyedFailure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KeyedFailure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::KeyedFailure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KeyedFailure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::KeyedFailure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KeyedFailure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::KeyedFailure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KeyedFailure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::KeyedFailure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KeyedFailure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::KeyedFailure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KeyedFailure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::KeyedFailure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KeyedFailure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::KeyedFailure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "KeyedFailure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::KeyedFailure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "KindDefinition",
       "declaration_kind": "rust_projection",
       "direction": "Both",
@@ -5958,6 +8838,1542 @@
       "source_path": "crates/pse-quantity/src/kind.rs",
       "source_role": "semantic_owner",
       "source_symbol": "pse_quantity::kind::KindFactor"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelBoundaryDiagnostic",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::BoundaryDiagnostic"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelBoundaryDiagnostic",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::BoundaryDiagnostic"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelBoundaryDiagnostic",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::BoundaryDiagnostic"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelBoundaryDiagnostic",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::BoundaryDiagnostic"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelBoundaryDiagnostic",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::BoundaryDiagnostic"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelBoundaryDiagnostic",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::BoundaryDiagnostic"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelBoundaryDiagnostic",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::BoundaryDiagnostic"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelBoundaryDiagnostic",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::BoundaryDiagnostic"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelBoundaryDiagnostic",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::BoundaryDiagnostic"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelBoundaryDiagnostic",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::BoundaryDiagnostic"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelBoundaryDiagnostic",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::BoundaryDiagnostic"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelBoundaryDiagnostic",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::BoundaryDiagnostic"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelSourceLocation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::SourceLocation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelSourceLocation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::SourceLocation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelSourceLocation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::SourceLocation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelSourceLocation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::SourceLocation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelSourceLocation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::SourceLocation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelSourceLocation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::SourceLocation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelSourceLocation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::SourceLocation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelSourceLocation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::SourceLocation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelSourceLocation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::SourceLocation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelSourceLocation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::SourceLocation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelSourceLocation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::SourceLocation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelSourceLocation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::SourceLocation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelValidityLineage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::ValidityLineage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelValidityLineage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::ValidityLineage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelValidityLineage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::ValidityLineage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelValidityLineage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::ValidityLineage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelValidityLineage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::ValidityLineage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelValidityLineage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::ValidityLineage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelValidityLineage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::ValidityLineage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelValidityLineage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::ValidityLineage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelValidityLineage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::ValidityLineage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelValidityLineage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::ValidityLineage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelValidityLineage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::ValidityLineage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelValidityLineage",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/diagnostic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::diagnostic::ValidityLineage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityBasis",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityBasis"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityBasis",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityBasis"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityBasis",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityBasis"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityBasis",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityBasis"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityBasis",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityBasis"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityBasis",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityBasis"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityBasis",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityBasis"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityBasis",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityBasis"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityBasis",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityBasis"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityBasis",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityBasis"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityBasis",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityBasis"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityBasis",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityBasis"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingApplicabilityOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingApplicabilityOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPermissionTarget",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingPermissionTarget"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPermissionTarget",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingPermissionTarget"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPermissionTarget",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingPermissionTarget"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPermissionTarget",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingPermissionTarget"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPermissionTarget",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingPermissionTarget"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPermissionTarget",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingPermissionTarget"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPermissionTarget",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingPermissionTarget"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPermissionTarget",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingPermissionTarget"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPermissionTarget",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingPermissionTarget"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPermissionTarget",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingPermissionTarget"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPermissionTarget",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingPermissionTarget"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingPermissionTarget",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingPermissionTarget"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingValidityLayer",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingValidityLayer"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingValidityLayer",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingValidityLayer"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingValidityLayer",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingValidityLayer"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingValidityLayer",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingValidityLayer"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingValidityLayer",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingValidityLayer"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingValidityLayer",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingValidityLayer"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingValidityLayer",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingValidityLayer"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingValidityLayer",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingValidityLayer"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingValidityLayer",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingValidityLayer"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingValidityLayer",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingValidityLayer"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingValidityLayer",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingValidityLayer"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingValidityLayer",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::ModelingValidityLayer"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NativeBoundaryClass",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::NativeBoundaryClass"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NativeBoundaryClass",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::NativeBoundaryClass"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NativeBoundaryClass",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::NativeBoundaryClass"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NativeBoundaryClass",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::NativeBoundaryClass"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NativeBoundaryClass",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::NativeBoundaryClass"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NativeBoundaryClass",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::NativeBoundaryClass"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NativeBoundaryClass",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::NativeBoundaryClass"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NativeBoundaryClass",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::NativeBoundaryClass"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NativeBoundaryClass",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::NativeBoundaryClass"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NativeBoundaryClass",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::NativeBoundaryClass"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NativeBoundaryClass",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::NativeBoundaryClass"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NativeBoundaryClass",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::NativeBoundaryClass"
     },
     {
       "basis": "declared",

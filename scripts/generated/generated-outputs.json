@@ -368,6 +368,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-model/src/applicability.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-model/src/diagnostic.rs",
           "kind": "file"
         },

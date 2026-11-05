@@ -51,120 +51,142 @@ impl LeastDeviationOracle {
         scope: ExecutionScope,
         max_entries: usize,
     ) -> Result<Self, ProblemError> {
-        scope.check().map_err(ProblemError::Provider)?;
-        let original = family.original();
-        if binding.original != original.identity()
-            || binding.source != source.contract().identity
-            || source
-                .normalization()
-                .is_some_and(|n| n.key() != original.normalization())
-        {
-            return Err(ProblemError::Contract(
-                "least-deviation frozen original/source binding or normalization mismatch".into(),
-            ));
-        }
-        if original.support().order < DerivativeOrder::First {
-            return Err(ProblemError::Unsupported(
-                "least-deviation constraints require actual First support".into(),
-            ));
-        }
-        let normalization = source.normalization().cloned().map(|mut n| {
-            n.objective = 1.0;
-            n
-        });
-        let source = NlpBridge::new(source, original.clone())?.into_original();
-        crate::validate_nlp(source.as_ref(), DerivativeOrder::First)?;
-        let n = original.coordinates().len();
-        let m = original.constraints().len();
-        if n > max_entries
-            || m > max_entries
-            || source.jacobian_pattern().compute_nnz() > max_entries
-        {
-            return Err(ProblemError::memory(
-                "least-deviation native sparse layout allowance",
-            ));
-        }
-        let mut edges = Vec::new();
-        let jac = source.jacobian_pattern();
-        for col in 0..n {
-            for row in jac.row_idx_of_col(col) {
-                edges.push(Entry::new(GlobalRow::new(row), GlobalCol::new(col)));
-            }
-        }
-        edges.sort_unstable();
-        if edges != original.incidence() {
-            return Err(ProblemError::Contract(
+        crate::retiring(
+            source,
+            |owner| owner.finish(),
+            |pending| {
+                let source = pending.as_mut().ok_or_else(|| {
+                    ProblemError::internal("missing native wrapper constructor owner")
+                })?;
+
+                scope.check().map_err(ProblemError::Provider)?;
+                let original = family.original();
+                if binding.original != original.identity()
+                    || binding.source != source.contract().identity
+                    || source
+                        .normalization()
+                        .is_some_and(|n| n.key() != original.normalization())
+                {
+                    return Err(ProblemError::Contract(
+                        "least-deviation frozen original/source binding or normalization mismatch"
+                            .into(),
+                    ));
+                }
+                if original.support().order < DerivativeOrder::First {
+                    return Err(ProblemError::Unsupported(
+                        "least-deviation constraints require actual First support".into(),
+                    ));
+                }
+                let normalization = source.normalization().cloned().map(|mut n| {
+                    n.objective = 1.0;
+                    n
+                });
+                let bridge = NlpBridge::new(
+                    pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing least-deviation source transfer")
+                    })?,
+                    original.clone(),
+                )?;
+                *pending = Some(bridge.into_original());
+                let source = pending.as_mut().ok_or_else(|| {
+                    ProblemError::internal("missing least-deviation validated source")
+                })?;
+                crate::validate_nlp(source.as_ref(), DerivativeOrder::First)?;
+                let n = original.coordinates().len();
+                let m = original.constraints().len();
+                if n > max_entries
+                    || m > max_entries
+                    || source.jacobian_pattern().compute_nnz() > max_entries
+                {
+                    return Err(ProblemError::memory(
+                        "least-deviation native sparse layout allowance",
+                    ));
+                }
+                let mut edges = Vec::new();
+                let jac = source.jacobian_pattern();
+                for col in 0..n {
+                    for row in jac.row_idx_of_col(col) {
+                        edges.push(Entry::new(GlobalRow::new(row), GlobalCol::new(col)));
+                    }
+                }
+                edges.sort_unstable();
+                if edges != original.incidence() {
+                    return Err(ProblemError::Contract(
                 "least-deviation actual Jacobian differs from original all-branch incidence".into(),
             ));
-        }
-        let exact = original.support().order >= DerivativeOrder::Second
-            && source.contract().derivatives >= DerivativeOrder::Second
-            && source.contract().smoothness >= DerivativeOrder::Second
-            && source.hessian_pattern().is_some();
-        let (hessian, source_hessian_entries) = if exact {
-            crate::validate_nlp(source.as_ref(), DerivativeOrder::Second)?;
-            let pattern = source.hessian_pattern().ok_or_else(|| {
-                ProblemError::Contract("least-deviation source Hessian vanished".into())
-            })?;
-            let mut entries = Vec::new();
-            for col in 0..n {
-                for row in pattern.row_idx_of_col(col) {
-                    if row < col {
-                        return Err(ProblemError::Contract(
+                }
+                let exact = original.support().order >= DerivativeOrder::Second
+                    && source.contract().derivatives >= DerivativeOrder::Second
+                    && source.contract().smoothness >= DerivativeOrder::Second
+                    && source.hessian_pattern().is_some();
+                let (hessian, source_hessian_entries) = if exact {
+                    crate::validate_nlp(source.as_ref(), DerivativeOrder::Second)?;
+                    let pattern = source.hessian_pattern().ok_or_else(|| {
+                        ProblemError::Contract("least-deviation source Hessian vanished".into())
+                    })?;
+                    let mut entries = Vec::new();
+                    for col in 0..n {
+                        for row in pattern.row_idx_of_col(col) {
+                            if row < col {
+                                return Err(ProblemError::Contract(
                             "least-deviation source Hessian must use the canonical lower triangle"
                                 .into(),
                         ));
+                            }
+                            entries.push(Entry::new(GlobalRow::new(row), GlobalCol::new(col)));
+                        }
                     }
-                    entries.push(Entry::new(GlobalRow::new(row), GlobalCol::new(col)));
-                }
-            }
-            let count = entries.len();
-            for col in family.free() {
-                entries.push(Entry::new(GlobalRow::new(col.get()), *col));
-            }
-            (
-                Some(AssemblyMatrix::new(n, n, &entries, max_entries)?),
-                count,
-            )
-        } else {
-            (None, 0)
-        };
-        let bounds = family.coordinate_bounds();
-        let contract = OracleContract {
-            identity: Self::contract_identity(&family, binding),
-            variables: original
-                .coordinates()
-                .iter()
-                .zip(bounds)
-                .map(|(c, (lower, upper))| Variable {
-                    id: c.id,
-                    lower,
-                    upper,
+                    let count = entries.len();
+                    for col in family.free() {
+                        entries.push(Entry::new(GlobalRow::new(col.get()), *col));
+                    }
+                    (
+                        Some(AssemblyMatrix::new(n, n, &entries, max_entries)?),
+                        count,
+                    )
+                } else {
+                    (None, 0)
+                };
+                let bounds = family.coordinate_bounds();
+                let contract = OracleContract {
+                    identity: Self::contract_identity(&family, binding),
+                    variables: original
+                        .coordinates()
+                        .iter()
+                        .zip(bounds)
+                        .map(|(c, (lower, upper))| Variable {
+                            id: c.id,
+                            lower,
+                            upper,
+                        })
+                        .collect(),
+                    rows: original.constraints().iter().map(|r| r.id).collect(),
+                    derivatives: if exact {
+                        DerivativeOrder::Second
+                    } else {
+                        DerivativeOrder::First
+                    },
+                    smoothness: source.contract().smoothness.min(if exact {
+                        DerivativeOrder::Second
+                    } else {
+                        DerivativeOrder::First
+                    }),
+                };
+                scope.check().map_err(ProblemError::Provider)?;
+                Ok(Self {
+                    family,
+                    source: pending.take().ok_or_else(|| {
+                        ProblemError::internal("missing native wrapper ownership transfer")
+                    })?,
+                    contract,
+                    scope,
+                    hessian,
+                    source_hessian_entries,
+                    binding,
+                    normalization,
                 })
-                .collect(),
-            rows: original.constraints().iter().map(|r| r.id).collect(),
-            derivatives: if exact {
-                DerivativeOrder::Second
-            } else {
-                DerivativeOrder::First
             },
-            smoothness: source.contract().smoothness.min(if exact {
-                DerivativeOrder::Second
-            } else {
-                DerivativeOrder::First
-            }),
-        };
-        scope.check().map_err(ProblemError::Provider)?;
-        Ok(Self {
-            family,
-            source,
-            contract,
-            scope,
-            hessian,
-            source_hessian_entries,
-            binding,
-            normalization,
-        })
+        )
     }
     /// Identity of the actual auxiliary oracle consumed by structural preparation.
     /// This frames its mathematical family and frozen source binding once.
@@ -225,6 +247,9 @@ impl LeastDeviationOracle {
     }
 }
 impl NlpOracle for LeastDeviationOracle {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        self.source.finish()
+    }
     fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
         self.source.structural_analysis()
     }
@@ -488,6 +513,9 @@ mod tests {
         }
     }
     impl NlpOracle for Source {
+        fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+            Ok(())
+        }
         fn contract(&self) -> &OracleContract {
             &self.contract
         }

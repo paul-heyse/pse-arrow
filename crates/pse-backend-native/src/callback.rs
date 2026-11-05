@@ -92,7 +92,9 @@ pub fn classify(error: &ProblemError) -> Failure {
             ..
         } => Failure::Stopped(Termination::ResourceExhausted),
         ProblemError::Linear { .. } => Failure::Fatal,
-        ProblemError::DynamicRouteRefused(_)
+        ProblemError::RetirementPanic { .. }
+        | ProblemError::Retirement { .. }
+        | ProblemError::DynamicRouteRefused(_)
         | ProblemError::RouteRefused(_)
         | ProblemError::Unavailable { .. }
         | ProblemError::Contract(_)
@@ -112,6 +114,9 @@ pub(crate) struct CountedNlp<'a> {
     pub(crate) execution: &'a Execution,
 }
 impl crate::NlpOracle for CountedNlp<'_> {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        Ok(())
+    }
     fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
         self.oracle.structural_analysis()
     }

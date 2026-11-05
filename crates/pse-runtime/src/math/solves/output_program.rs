@@ -99,7 +99,7 @@ impl PreparedSolve {
             .ok_or_else(|| {
                 ProblemError::Contract("selected output point coordinate missing".into())
             })?;
-        let mut worker = service
+        let worker = service
             .case_worker(
                 Some(selected.executable.clone()),
                 BTreeMap::new(),
@@ -107,24 +107,22 @@ impl PreparedSolve {
                 budget,
             )
             .map_err(MathRuntimeError::into_problem)?;
-        let output_values = budget
-            .evaluate(|| {
+        let (output_values, jacobian) = with_local_worker(worker, |worker| {
+            let output_values = budget.evaluate(|| {
                 worker
-                    .worker()
                     .constraints(values)
                     .map(<[f64]>::to_vec)
                     .map_err(MathRuntimeError::from)
-            })
-            .map_err(MathRuntimeError::into_problem)?;
-        let jacobian = budget
-            .evaluate(|| {
+            })?;
+            let jacobian = budget.evaluate(|| {
                 worker
-                    .worker()
                     .jacobian(values)
                     .cloned()
                     .map_err(MathRuntimeError::from)
-            })
-            .map_err(MathRuntimeError::into_problem)?;
+            })?;
+            Ok((output_values, jacobian))
+        })
+        .map_err(MathRuntimeError::into_problem)?;
         let Some(arithmetic) = engineering_accuracy::arithmetic::selected_point(
             plan,
             values,
