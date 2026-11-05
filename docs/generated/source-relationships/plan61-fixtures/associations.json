@@ -1,7 +1,7 @@
 {
   "descriptor_sha256": "31abfbd674c7515afad90db7b97abe3439f0dc978873ad6306eeb7521cb057fe",
   "inputs": {
-    "Cargo.lock": "4b518a16dd8eb56421b7c5ddf81b721f68232df9621010919dc1d904d344d1ed",
+    "Cargo.lock": "a9b5aa5424b972d8d1bc440916cb52a286d4d123abb54fae5dc0b973e66005fb",
     "Cargo.toml": "4af49ecb0f115363b25f15979088b0455758e0de89e5399173b4e5e3b5f2492f",
     "crates/pse-host/tests/fixtures/plan61/buf.gen.yaml": "6b6c96c3d6fd02006e7594ed052acf7562d4140fdb7f875f2bae017dc08b79d8",
     "crates/pse-host/tests/fixtures/plan61/buf.lock": "f167aece00cd881df9e57b220d5edeff1343c5020a6caed6b425a213f75991ee",
