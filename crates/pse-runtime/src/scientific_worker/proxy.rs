@@ -178,10 +178,10 @@ impl Remote {
             Err(error) => failures.push(error),
             _ => {}
         }
-        if let Some(io) = self.io.take() {
-            if let Err(error) = io.finish() {
-                failures.push(error);
-            }
+        if let Some(io) = self.io.take()
+            && let Err(error) = io.finish()
+        {
+            failures.push(error);
         }
         self.retired = true;
         drop(admission);

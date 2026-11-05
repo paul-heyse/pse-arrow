@@ -1344,23 +1344,33 @@ pub struct Retained {
 /// The consuming function is bound to the exact type at construction, never inferred
 /// from a backend tag or a downcast search during retirement.
 struct RetainedOwner {
-    value: Box<dyn Any>,
-    finish: Box<dyn FnOnce(Box<dyn Any>) -> Result<(), ProblemError>>,
+    value: Box<dyn RetainedValue>,
+}
+trait RetainedValue {
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+    fn finish(self: Box<Self>) -> Result<(), ProblemError>;
+}
+struct TypedRetainedValue<T> {
+    value: T,
+    finish: fn(T) -> Result<(), ProblemError>,
+}
+impl<T: Any> RetainedValue for TypedRetainedValue<T> {
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        &mut self.value
+    }
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        let Self { value, finish } = *self;
+        finish(value)
+    }
 }
 impl RetainedOwner {
     fn new<T: Any>(value: T, finish: fn(T) -> Result<(), ProblemError>) -> Self {
         Self {
-            value: Box::new(value),
-            finish: Box::new(move |value| {
-                let value = value
-                    .downcast::<T>()
-                    .map_err(|_| ProblemError::internal("retained finisher type invariant"))?;
-                finish(*value)
-            }),
+            value: Box::new(TypedRetainedValue { value, finish }),
         }
     }
     fn finish(self) -> Result<(), ProblemError> {
-        crate::finish_owner(|| (self.finish)(self.value))
+        crate::finish_owner(|| self.value.finish())
     }
 }
 impl std::fmt::Debug for Retained {
@@ -1422,7 +1432,10 @@ impl Retained {
     fn reset_adapter(&mut self) -> Result<(), ProblemError> {
         #[cfg(feature = "highs")]
         if let Some((Backend::Highs, state)) = &mut self.session
-            && let Some(session) = state.value.downcast_mut::<crate::highs::Session>()
+            && let Some(session) = state
+                .value
+                .as_any_mut()
+                .downcast_mut::<crate::highs::Session>()
         {
             if let Err(cause) = session.reset_for_new_application() {
                 return ProblemError::with_retirement(Err(cause), self.clear());
@@ -1431,7 +1444,10 @@ impl Retained {
         }
         #[cfg(feature = "pounce")]
         if let Some((Backend::Pounce, state)) = &mut self.session
-            && let Some(session) = state.value.downcast_mut::<crate::pounce::Session>()
+            && let Some(session) = state
+                .value
+                .as_any_mut()
+                .downcast_mut::<crate::pounce::Session>()
         {
             if let Err(cause) = session.reset_for_new_application() {
                 return ProblemError::with_retirement(Err(cause), self.clear());
@@ -1468,7 +1484,7 @@ impl Retained {
         let owner = self
             .workflow
             .as_mut()
-            .and_then(|owner| owner.value.downcast_mut::<T>())
+            .and_then(|owner| owner.value.as_any_mut().downcast_mut::<T>())
             .ok_or_else(|| ProblemError::Contract("native workflow owner type differs".into()))?;
         Ok((owner, reused))
     }
@@ -1549,18 +1565,20 @@ impl Retained {
             });
         }
         let refusal = match &mut self.session {
-            Some((held, state)) if *held == backend => match state.value.downcast_mut::<S>() {
-                Some(session) => match reuse(session) {
-                    Ok(SessionUpdate::Compatible) => None,
-                    Ok(SessionUpdate::Incompatible) => Some(crate::ReuseRefusal::Structure),
-                    Err(cause) => {
-                        // A partial update is neither a layout refusal nor healthy state.
-                        // Destruction and charge release precede returning the original cause.
-                        return ProblemError::with_retirement(Err(cause), self.clear());
-                    }
-                },
-                None => Some(crate::ReuseRefusal::Structure),
-            },
+            Some((held, state)) if *held == backend => {
+                match state.value.as_any_mut().downcast_mut::<S>() {
+                    Some(session) => match reuse(session) {
+                        Ok(SessionUpdate::Compatible) => None,
+                        Ok(SessionUpdate::Incompatible) => Some(crate::ReuseRefusal::Structure),
+                        Err(cause) => {
+                            // A partial update is neither a layout refusal nor healthy state.
+                            // Destruction and charge release precede returning the original cause.
+                            return ProblemError::with_retirement(Err(cause), self.clear());
+                        }
+                    },
+                    None => Some(crate::ReuseRefusal::Structure),
+                }
+            }
             Some((held, _)) => Some(crate::ReuseRefusal::Foreign(*held)),
             None => Some(crate::ReuseRefusal::Structure),
         };
@@ -1578,7 +1596,7 @@ impl Retained {
         let session = self
             .session
             .as_mut()
-            .and_then(|(_, state)| state.value.downcast_mut::<S>())
+            .and_then(|(_, state)| state.value.as_any_mut().downcast_mut::<S>())
             .ok_or_else(|| ProblemError::Internal("lost retained native session".into()))?;
         Ok((session, reused))
     }

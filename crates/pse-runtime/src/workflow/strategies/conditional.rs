@@ -814,13 +814,10 @@ impl PreparedRecycle {
                 Err(error) => return finish_causal_units(Err(error), units),
             };
             if let Some(previous) = units.insert(unit.id(), Box::new(unit)) {
-                let failure = native::ProblemError::with_retirement::<()>(
-                    Err(native::ProblemError::Contract(
-                        "duplicate causal unit owner".into(),
-                    )),
+                let failure = native::ProblemError::settle_failure(
+                    native::ProblemError::Contract("duplicate causal unit owner".into()),
                     previous.finish(),
-                )
-                .unwrap_err();
+                );
                 return finish_causal_units(Err(failure), units);
             }
         }

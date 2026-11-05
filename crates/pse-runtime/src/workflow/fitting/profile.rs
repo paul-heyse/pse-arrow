@@ -809,7 +809,7 @@ impl Chains<'_> {
                     &p.numerics.policy,
                 );
             }
-            let assessed = (|| {
+            (|| {
                 let original = if let Some(candidate) = &report.candidate {
                     let observed = oracle::observe_pin(
                         p,
@@ -848,8 +848,7 @@ impl Chains<'_> {
                     ),
                     &p.numerics.policy,
                 )
-            })();
-            assessed
+            })()
         })();
         if result.is_err() {
             PinFailure::retire(result, retained.clear())

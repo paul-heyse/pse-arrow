@@ -2623,7 +2623,7 @@ impl MathService {
                     context.count("derived.constant_attempts_completed", "count", 1);
                     context.boolean("derived.original_proposal_available", true);
                 }
-                return Ok(DerivedAttempt {
+                Ok(DerivedAttempt {
                     outcome: Outcome::Constant(Box::new(ConstantReport {
                         owner: Some(result_owner),
                         components: Vec::new(),
@@ -2639,7 +2639,7 @@ impl MathService {
                     screening_failure: None,
                     refinement_product: None,
                     applied_action: None,
-                });
+                })
             })();
             let original = oracle.finish();
             let reconstruction = reconstruction_owner.map_or(Ok(()), |owner| {

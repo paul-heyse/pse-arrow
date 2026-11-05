@@ -432,45 +432,6 @@ fn capture_worker_groups(
     Ok(workers)
 }
 
-#[cfg(test)]
-mod capture_tests {
-    use super::*;
-
-    #[test]
-    fn equivalent_helper_requests_share_capture_with_distinct_group_associations() {
-        let groups = BTreeMap::from([
-            (1, BTreeSet::from(["base".into()])),
-            (2, BTreeSet::from(["base".into()])),
-            (3, BTreeSet::from(["base".into(), "extra".into()])),
-        ]);
-        let mut calls = Vec::new();
-        let workers = capture_worker_groups(groups, |group, features| {
-            calls.push(features.to_vec());
-            Ok(Executable {
-                original: format!("original-{group}").into(),
-                captured: format!("captured-{group}").into(),
-                sha256: group.to_string(),
-                bytes: 1,
-            })
-        })
-        .unwrap();
-        assert_eq!(calls.len(), 2);
-        assert_eq!(workers.len(), 3);
-        assert_eq!(workers[&1], workers[&2]);
-        assert_ne!(workers[&1], workers[&3]);
-        let mut empty_calls = 0;
-        assert!(
-            capture_worker_groups(BTreeMap::new(), |_, _| {
-                empty_calls += 1;
-                Err(invalid("empty selection must not capture"))
-            })
-            .unwrap()
-            .is_empty()
-        );
-        assert_eq!(empty_calls, 0);
-    }
-}
-
 fn recorded_module_selected(environment: &Environment) -> bool {
     // The target's existing NativeModuleSource owner interprets this opaque state selector.
     // Preserve its original explicit-receipt precedence, including an explicitly empty value.
@@ -608,4 +569,43 @@ pub(super) fn build_capture_with<T>(
         discovery::BuildCapture::read(&destination.join("build.json"))?,
         observation,
     ))
+}
+
+#[cfg(test)]
+mod capture_tests {
+    use super::*;
+
+    #[test]
+    fn equivalent_helper_requests_share_capture_with_distinct_group_associations() {
+        let groups = BTreeMap::from([
+            (1, BTreeSet::from(["base".into()])),
+            (2, BTreeSet::from(["base".into()])),
+            (3, BTreeSet::from(["base".into(), "extra".into()])),
+        ]);
+        let mut calls = Vec::new();
+        let workers = capture_worker_groups(groups, |group, features| {
+            calls.push(features.to_vec());
+            Ok(Executable {
+                original: format!("original-{group}").into(),
+                captured: format!("captured-{group}").into(),
+                sha256: group.to_string(),
+                bytes: 1,
+            })
+        })
+        .unwrap();
+        assert_eq!(calls.len(), 2);
+        assert_eq!(workers.len(), 3);
+        assert_eq!(workers[&1], workers[&2]);
+        assert_ne!(workers[&1], workers[&3]);
+        let mut empty_calls = 0;
+        assert!(
+            capture_worker_groups(BTreeMap::new(), |_, _| {
+                empty_calls += 1;
+                Err(invalid("empty selection must not capture"))
+            })
+            .unwrap()
+            .is_empty()
+        );
+        assert_eq!(empty_calls, 0);
+    }
 }

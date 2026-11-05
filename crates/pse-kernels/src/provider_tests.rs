@@ -654,7 +654,7 @@ fn provider_bank_attributes_scope_wrappers_once_to_the_actual_key() {
         if detail == "original scoped retirement")
     );
     let ProviderError::Retirement { failures } = error else {
-        unreachable!()
+        panic!("keyed retirement failures required")
     };
     assert_eq!(failures[0].key, key);
     assert_eq!(*finished.lock().unwrap(), [1]);

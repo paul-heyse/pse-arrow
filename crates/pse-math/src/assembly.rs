@@ -3379,7 +3379,8 @@ impl Drop for CaseWorker {
 impl CaseWorker {
     /// Retire every provider before publishing detached reusable storage.
     /// # Errors
-    /// Original keyed provider retirement failures; no scratch is recycled on failure.
+    /// Provider retirement failures prevent scratch publication; recycler failures
+    /// are returned with any independent retirement cause.
     pub fn finish(mut self) -> Result<(), MathError> {
         let recycler = self.recycler.take();
         let result = std::mem::take(&mut self.providers).finish();

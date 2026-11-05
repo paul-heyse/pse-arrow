@@ -61,7 +61,7 @@ impl<'a> ArtificialFlow<'a> {
                 ));
             }
             owner::original(family.original(), original)?;
-            validate_mass(&family, &mass)?;
+            validate_mass(&family, mass)?;
             let mass_realization = match &mass {
                 MassBinding::Frozen(_) => None,
                 MassBinding::StateDependent(m) => Some(m.realization()),

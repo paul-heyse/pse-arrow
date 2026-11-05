@@ -120,7 +120,7 @@ pub(super) fn execute(input: MapInput<'_>) -> Result<SolveReport, ProblemError> 
                 "declared map physical start dimensions/values".into(),
             ));
         }
-        settings.validate(&function)?;
+        settings.validate(function)?;
         input
             .tolerances
             .validate(initial.len(), function.contract().rows.len())?;

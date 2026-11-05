@@ -4624,9 +4624,8 @@ impl MathService {
                 })
                 .and_then(|target| seed.validate(target));
             if let Err(error) = validation {
-                let result: Result<(), ProblemError> =
-                    ProblemError::with_retirement(Err(error), retained.clear());
-                return Err(Outcome::Rejected(Arc::new(result.unwrap_err().into())));
+                let error = ProblemError::settle_failure(error, retained.clear());
+                return Err(Outcome::Rejected(Arc::new(error.into())));
             }
         }
         let mut execution = match scope {
@@ -5375,11 +5374,11 @@ impl MathService {
         if let Some(separator) = separator {
             oracle = oracle.with_solve_separator(separator)?;
         }
-        if kind == execution::Representation::Roots {
-            if let Err(error) = oracle.admit_nle() {
-                return ProblemError::with_retirement(Err(error), oracle.finish())
-                    .map_err(MathRuntimeError::from);
-            }
+        if kind == execution::Representation::Roots
+            && let Err(error) = oracle.admit_nle()
+        {
+            return ProblemError::with_retirement(Err(error), oracle.finish())
+                .map_err(MathRuntimeError::from);
         }
         let parametric = if profile.intent == SolveIntent::Root {
             None

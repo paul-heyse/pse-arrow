@@ -1037,11 +1037,10 @@ impl Pipeline {
     }
 }
 fn retire_original(original: Rc<RefCell<Adapter>>) -> Result<(), ProblemError> {
-    let result = original
+    original
         .try_borrow_mut()
         .map_err(|_| ProblemError::internal("presolve retirement overlaps an active callback"))?
-        .finish();
-    result
+        .finish()
 }
 /// A dropped, non-executable library analysis; only its proof/diagnostic escape.
 struct BoundAnalysis {

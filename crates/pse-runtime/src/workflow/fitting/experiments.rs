@@ -79,18 +79,18 @@ fn finish_workers(
 ) -> Result<(), ProblemError> {
     let mut failures = Vec::new();
     for worker in steady {
-        if let Some(worker) = worker.take() {
-            if let Err(error) = finish_steady(worker) {
-                failures.push(error);
-            }
+        if let Some(worker) = worker.take()
+            && let Err(error) = finish_steady(worker)
+        {
+            failures.push(error);
         }
     }
     #[cfg(feature = "solver-diffsol")]
     for worker in transient {
-        if let Some(worker) = worker.take() {
-            if let Err(error) = finish_transient(worker) {
-                failures.push(error);
-            }
+        if let Some(worker) = worker.take()
+            && let Err(error) = finish_transient(worker)
+        {
+            failures.push(error);
         }
     }
     if failures.is_empty() {
@@ -416,17 +416,17 @@ impl ExperimentTeam {
                                         // Unknown/terminal native validity is not reset by inference.
                                         // A later callback refuses this owner and requires a fresh fit attempt.
                                         let mut failures = Vec::new();
-                                        if let Some(worker) = steady[local].take() {
-                                            if let Err(error) = finish_steady(worker) {
-                                                failures.push(error);
-                                            }
+                                        if let Some(worker) = steady[local].take()
+                                            && let Err(error) = finish_steady(worker)
+                                        {
+                                            failures.push(error);
                                         }
                                         #[cfg(feature = "solver-diffsol")]
                                         {
-                                            if let Some(worker) = transient[local].take() {
-                                                if let Err(error) = finish_transient(worker) {
-                                                    failures.push(error);
-                                                }
+                                            if let Some(worker) = transient[local].take()
+                                                && let Err(error) = finish_transient(worker)
+                                            {
+                                                failures.push(error);
                                             }
                                         }
                                         let cleanup = if failures.is_empty() {

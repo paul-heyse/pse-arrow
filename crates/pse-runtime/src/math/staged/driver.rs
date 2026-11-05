@@ -1427,8 +1427,9 @@ impl<D: Dispatch> StepDriver<'_, D> {
             match (result.value, assessed, result.terminal) {
                 (Some(RungOutcome::Original(value)), Some(product), None) => {
                     let (outcome,_)=*value;
-                    if let Some(assessment) = result.assessment {
-                        if let Err(cleanup) = assessment.retention.apply(retained) {
+                    if let Some(assessment) = result.assessment
+                        && let Err(cleanup) = assessment.retention.apply(retained)
+                    {
                             let error = match math::strategy::cause(&outcome) {
                                 Some(cause) => ProblemError::Retirement { failures: vec![
                                     ProblemError::Math(pse_math::MathError::Typed { retained: cause.retained_bytes(), cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause) }), cleanup,
@@ -1436,7 +1437,6 @@ impl<D: Dispatch> StepDriver<'_, D> {
                                 None => cleanup,
                             };
                             return Err(MathRuntimeError::Strategy { cause: Arc::new(error.into()), trace });
-                        }
                     }
                     retained.charge_session(Box::new(_allowance.clone()));
                     Ok((outcome,product,trace))

@@ -335,12 +335,7 @@ fn inspect_bundle(args: &Args, bundle: &Bundle) -> Result<Report, SchemaError> {
         }
     }
     let (wire, parser_diagnostics) = if matches!(args.encoding, Encoding::Textproto) {
-        text_wire(
-            &bundle,
-            &args.message,
-            &input,
-            admission.max_converted_bytes,
-        )?
+        text_wire(bundle, &args.message, &input, admission.max_converted_bytes)?
     } else {
         (input.clone(), String::new())
     };

@@ -629,10 +629,10 @@ fn finish_dynamic_population(
         }
     }
     for mode in modes.drain(..) {
-        if let Some(guard) = mode.guard {
-            if let Err(error) = finish_case_worker(guard.worker) {
-                failures.push(error);
-            }
+        if let Some(guard) = mode.guard
+            && let Err(error) = finish_case_worker(guard.worker)
+        {
+            failures.push(error);
         }
     }
     if failures.is_empty() {

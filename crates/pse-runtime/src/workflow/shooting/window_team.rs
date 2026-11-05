@@ -124,10 +124,10 @@ fn finish_workers(
 ) -> Result<(), ProblemError> {
     let mut failures = Vec::new();
     for worker in workers {
-        if let Some(worker) = worker.take() {
-            if let Err(error) = finish_worker(worker) {
-                failures.push(error);
-            }
+        if let Some(worker) = worker.take()
+            && let Err(error) = finish_worker(worker)
+        {
+            failures.push(error);
         }
     }
     if failures.is_empty() {
@@ -760,44 +760,6 @@ impl Drop for WindowTeam {
         }
     }
 }
-#[cfg(test)]
-mod retirement_tests {
-    use super::*;
-    #[test]
-    fn every_lane_closes_before_join_and_all_original_failures_survive() {
-        let barrier = Arc::new(std::sync::Barrier::new(3));
-        let departed = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-        let mut lanes = Vec::new();
-        for index in 0..3 {
-            let (send, receive) = mpsc::sync_channel::<Request>(1);
-            let barrier = barrier.clone();
-            let departed = departed.clone();
-            let joined = std::thread::spawn(move || {
-                assert!(receive.recv().is_err());
-                barrier.wait();
-                departed.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                if index == 1 {
-                    panic!("controlled shooting lane panic");
-                }
-                Err(ProblemError::numerical(format!(
-                    "controlled shooting lane {index}"
-                )))
-            });
-            lanes.push(Lane {
-                windows: vec![index],
-                send: Some(send),
-                joined: Some(joined),
-            });
-        }
-        let error = finish_lanes(&mut lanes).unwrap_err();
-        let ProblemError::Retirement { failures } = error else {
-            panic!("all independent failures must survive");
-        };
-        assert_eq!(failures.len(), 3);
-        assert_eq!(departed.load(std::sync::atomic::Ordering::SeqCst), 3);
-        assert!(lanes.is_empty());
-    }
-}
 fn evaluate_window(
     problem: &ShootingProblem,
     worker: &mut super::super::dynamics::DynamicWorker,
@@ -938,4 +900,42 @@ fn evaluate_window(
     };
     observation.finish(result.is_ok());
     result
+}
+#[cfg(test)]
+mod retirement_tests {
+    use super::*;
+    #[test]
+    fn every_lane_closes_before_join_and_all_original_failures_survive() {
+        let barrier = Arc::new(std::sync::Barrier::new(3));
+        let departed = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut lanes = Vec::new();
+        for index in 0..3 {
+            let (send, receive) = mpsc::sync_channel::<Request>(1);
+            let barrier = barrier.clone();
+            let departed = departed.clone();
+            let joined = std::thread::spawn(move || {
+                assert!(receive.recv().is_err());
+                barrier.wait();
+                departed.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                if index == 1 {
+                    panic!("controlled shooting lane panic");
+                }
+                Err(ProblemError::numerical(format!(
+                    "controlled shooting lane {index}"
+                )))
+            });
+            lanes.push(Lane {
+                windows: vec![index],
+                send: Some(send),
+                joined: Some(joined),
+            });
+        }
+        let error = finish_lanes(&mut lanes).unwrap_err();
+        let ProblemError::Retirement { failures } = error else {
+            panic!("all independent failures must survive");
+        };
+        assert_eq!(failures.len(), 3);
+        assert_eq!(departed.load(std::sync::atomic::Ordering::SeqCst), 3);
+        assert!(lanes.is_empty());
+    }
 }

@@ -598,7 +598,7 @@ mod retirement_tests {
         }
     }
 
-    async fn simulation() -> (Runtime, ModelingSimulation) {
+    async fn simulation() -> Result<(Runtime, ModelingSimulation), Box<dyn std::error::Error>> {
         let runtime = crate::workflow::tests::runtime();
         let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == 2; eq initial: x[0{s}] == 1{s}; annotation check x(x[i] <= 6{s}); } }";
         let rows = pse_authoring::language::parse(
@@ -606,17 +606,15 @@ mod retirement_tests {
             SemanticId::from_bytes([231; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
-        )
-        .unwrap();
+        )?;
         let root = rows
             .iter()
             .find(|row| row.name == "Root")
-            .unwrap()
+            .ok_or_else(|| std::io::Error::other("sample retirement fixture has no Root"))?
             .declaration_id;
         let package = runtime
             .modeling_package(rows, crate::workflow::tests::physical())
-            .await
-            .unwrap();
+            .await?;
         let prepared = package
             .prepare_simulation(
                 &runtime.preparation_services(),
@@ -634,14 +632,13 @@ mod retirement_tests {
                 DerivativeOrder::First,
                 &crate::CancelSource::new(),
             )
-            .await
-            .unwrap();
-        (runtime, prepared)
+            .await?;
+        Ok((runtime, prepared))
     }
 
     #[tokio::test]
     async fn partial_sample_construction_preserves_original_trial_and_keyed_finish_failure() {
-        let (_runtime, mut simulation) = simulation().await;
+        let (_runtime, mut simulation) = simulation().await.unwrap();
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let quantity = pse_quantity::standard::ids::quantity("neutral");
         let factory = Arc::new(Factory {
@@ -721,7 +718,7 @@ mod retirement_tests {
                 panic!("sample panic payload destructor");
             }
         }
-        let (_runtime, simulation) = simulation().await;
+        let (_runtime, simulation) = simulation().await.unwrap();
         let scope =
             pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
         let mut worker = simulation

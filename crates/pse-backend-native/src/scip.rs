@@ -2958,7 +2958,7 @@ fn build(r: &Request<'_>, plan: &Plan<'_>, gap_absolute: f64) -> Result<Session,
                 .as_mut()
                 .ok_or_else(|| ProblemError::internal("missing SCIP construction owner"))?;
             let options = configure(
-                &instance,
+                instance,
                 r.settings,
                 r.controls,
                 r.accuracy,

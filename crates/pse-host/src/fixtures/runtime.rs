@@ -500,7 +500,7 @@ fn open_directory(
     selection: &str,
     demand: &BTreeSet<Input>,
 ) -> Result<SelectedRuntime, FixtureError> {
-    private_directory(&directory, false)?;
+    private_directory(directory, false)?;
     let record: Record =
         serde_json::from_slice(&read(&directory.join("receipt.json"), MAX_RECEIPT, 0o400)?)?;
     if record.version != 1

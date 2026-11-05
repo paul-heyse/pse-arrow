@@ -1103,7 +1103,7 @@ impl Session {
                 .as_ref()
                 .ok_or_else(|| ProblemError::internal("missing KINSOL replacement"))?;
             self.clear_callback_setup();
-            let constraints = settings.validate(&function)?;
+            let constraints = settings.validate(function)?;
             if !self.matches_settings(&settings)
                 || !compatibility.same_session(&self.compatibility)
                 || compatibility.backend != Backend::Kinsol
@@ -1181,7 +1181,7 @@ impl Session {
             let function = pending
                 .as_ref()
                 .ok_or_else(|| ProblemError::internal("missing KINSOL function"))?;
-            let constraints = settings.validate(&function)?;
+            let constraints = settings.validate(function)?;
             let n = function.contract().variables.len();
             let (anderson_peak, _) = anderson_storage(n, settings.method)?;
             // AA's peak already includes the selected Krylov workspace. Without AA,
@@ -1206,7 +1206,7 @@ impl Session {
             }
             let blocks = if settings.method.preconditioner == Preconditioner::BlockFactor {
                 Some(block::Blocks::admit(
-                    &function,
+                    function,
                     &execution,
                     settings.method.linear,
                 )?)
@@ -1237,7 +1237,7 @@ impl Session {
                 }
                 None => (vec![], vec![]),
             };
-            let progress_layout = root_progress_layout(&function, execution.callback_role);
+            let progress_layout = root_progress_layout(function, execution.callback_role);
             let callback = Box::new(Context {
                 progress_layout,
                 function: pending
@@ -1884,7 +1884,7 @@ impl Session {
                     .evaluate("native.validation.residual", || {
                         match &mut self.callback.function {
                             Function::Retired(_) => {
-                                return Err(ProblemError::internal("retired KINSOL function"));
+                                Err(ProblemError::internal("retired KINSOL function"))
                             }
                             Function::Equations(o) => o.residual(&x, &mut f),
                             Function::Picard { oracle, .. } => oracle.residual(&x, &mut f),

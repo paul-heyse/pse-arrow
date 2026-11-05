@@ -2727,19 +2727,17 @@ pub(crate) fn run_path(
                         if let Some(context) = &context {
                             context.count("path.subdivisions", "count", 1);
                         }
-                        if path.profile().controls.reuse != ReusePolicy::RequireReuse {
-                            if let Err(cleanup) = retained.clear() {
-                                let original = ProblemError::Math(pse_math::MathError::Typed {
-                                    retained: cause.retained_bytes(),
-                                    cause: pse_model::diagnostic::DiagnosticCause::from_shared(
-                                        cause,
-                                    ),
-                                });
-                                outcome.terminal = Some(Arc::new(ProblemError::Retirement {
-                                    failures: vec![original, cleanup],
-                                }));
-                                return Ok(());
-                            }
+                        if path.profile().controls.reuse != ReusePolicy::RequireReuse
+                            && let Err(cleanup) = retained.clear()
+                        {
+                            let original = ProblemError::Math(pse_math::MathError::Typed {
+                                retained: cause.retained_bytes(),
+                                cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+                            });
+                            outcome.terminal = Some(Arc::new(ProblemError::Retirement {
+                                failures: vec![original, cleanup],
+                            }));
+                            return Ok(());
                         }
                         continue;
                     }

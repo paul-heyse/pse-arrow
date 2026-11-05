@@ -1468,10 +1468,10 @@ impl DerivedFamily {
                 let mut failures = finish_supplier(|| Box::new(oracle).finish())
                     .err()
                     .unwrap_or_default();
-                if let MassBinding::StateDependent(mass) = mass {
-                    if let Err(errors) = finish_supplier(|| mass.finish()) {
-                        failures.extend(errors);
-                    }
+                if let MassBinding::StateDependent(mass) = mass
+                    && let Err(errors) = finish_supplier(|| mass.finish())
+                {
+                    failures.extend(errors);
                 }
                 if failures.is_empty() {
                     Ok(())
@@ -1513,7 +1513,7 @@ impl DerivedFamily {
                         ));
                     }
                 }
-                let key = binding_key(self.key, &anchor, step, &mass);
+                let key = binding_key(self.key, &anchor, step, mass);
                 let (oracle, mass) = pending.take().ok_or_else(|| {
                     MathError::Contract("missing mathematical supplier transfer".into())
                 })?;

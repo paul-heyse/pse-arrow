@@ -16,11 +16,11 @@ pub const EXCHANGE_EFFECTS: pse_contract::operation_effects::EffectFacts =
         destructive: false,
     };
 
-#[cfg(any(test, feature = "property-coolprop"))]
+#[cfg(feature = "property-coolprop")]
 pub(super) const FAILURE_DEPTH: usize = 32;
-#[cfg(any(test, feature = "property-coolprop"))]
+#[cfg(feature = "property-coolprop")]
 pub(super) const FAILURE_NODES: usize = 1024;
-#[cfg(any(test, feature = "property-coolprop"))]
+#[cfg(feature = "property-coolprop")]
 const FAILURE_RETAINED_TEXT: usize = 64 << 10;
 
 pse_contract::projection_struct! {
@@ -310,7 +310,7 @@ pse_contract::projection_struct! {
 impl Failure {
     /// Semantic restoration has its own finite tree/retention allowance, after
     /// the generated codec's independent frame, nesting and allocation limits.
-    #[cfg(any(test, feature = "property-coolprop"))]
+    #[cfg(feature = "property-coolprop")]
     pub(super) fn within_limits(&self) -> bool {
         use pse_model::HeapUsage as _;
         let mut pending = vec![(self, 0usize)];

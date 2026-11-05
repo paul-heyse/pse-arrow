@@ -378,12 +378,19 @@ impl ProblemError {
         result: Result<T, Self>,
         retirement: Result<(), Self>,
     ) -> Result<T, Self> {
-        match (result, retirement) {
-            (result, Ok(())) => result,
-            (Ok(_), Err(cause)) => Err(cause),
-            (Err(action), Err(retirement)) => Err(Self::Retirement {
+        match result {
+            Ok(value) => retirement.map(|()| value),
+            Err(action) => Err(Self::settle_failure(action, retirement)),
+        }
+    }
+    /// Retain an already failed operation together with independent retirement,
+    /// without converting a known failure into a fallible result to extract it again.
+    pub fn settle_failure(action: Self, retirement: Result<(), Self>) -> Self {
+        match retirement {
+            Ok(()) => action,
+            Err(retirement) => Self::Retirement {
                 failures: vec![action, retirement],
-            }),
+            },
         }
     }
     /// No eligible route, or an adapter that cannot represent the request.

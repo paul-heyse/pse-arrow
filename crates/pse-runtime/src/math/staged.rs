@@ -761,11 +761,11 @@ fn serve(
                         }
                         // A ready next request must not indefinitely retain the previous
                         // step's idle reader ahead of an already waiting Uno owner.
-                        if execution::scheduler_waiting() {
-                            if let Err(error) = retained.relinquish_scheduler() {
-                                pending = Some(request);
-                                return Err(error);
-                            }
+                        if execution::scheduler_waiting()
+                            && let Err(error) = retained.relinquish_scheduler()
+                        {
+                            pending = Some(request);
+                            return Err(error);
                         }
                         drop(request.scope_owner.take());
                         SCRATCH_LANE.with(|slot| {

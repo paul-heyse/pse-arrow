@@ -1884,7 +1884,7 @@ impl ShootingProblem {
             let original = crate::invocation::stage(
                 "shooting.original_assessment_and_trajectory_materialization",
             );
-            let assessed: Result<(), crate::math::MathRuntimeError> = (|| {
+            let assessed: Result<(), crate::math::MathRuntimeError> = {
                 // A fresh evaluation, independent of the native callbacks' cache.
                 let mut oracle = ShootingOracle {
                     math: services.preparation().math().clone(),
@@ -2061,7 +2061,7 @@ impl ShootingProblem {
                         .finish()
                         .map_err(crate::math::MathRuntimeError::from),
                 )
-            })();
+            };
             original.finish(
                 if assessed.is_ok() && report.checks_complete && report.validation_error.is_none() {
                     crate::invocation::InvocationOutcome::Completed

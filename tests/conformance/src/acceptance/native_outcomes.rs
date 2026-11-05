@@ -54,6 +54,10 @@ impl Quadratic {
     }
 }
 impl NlpOracle for Quadratic {
+    fn finish(self: Box<Self>) -> Result<(), ProblemError> {
+        // This analytic owner holds only Rust matrices and shared observation state.
+        Ok(())
+    }
     fn contract(&self) -> &OracleContract {
         &self.contract
     }
@@ -140,18 +144,21 @@ fn solve(backend: Backend, fault: Fault, controls: &Controls) -> (SolveReport, b
     )
     .unwrap();
     let mut report = match backend {
-        Backend::Ipopt => ipopt::Session::new().solve(
-            &mut oracle,
-            &[10.],
-            ObjectiveSense::Minimize,
-            controls,
-            &accuracy,
-            &Default::default(),
-            execution,
-            &tolerances,
-            None,
-            compatibility,
-        ),
+        Backend::Ipopt => {
+            let result = ipopt::Session::new().solve(
+                &mut oracle,
+                &[10.],
+                ObjectiveSense::Minimize,
+                controls,
+                &accuracy,
+                &Default::default(),
+                execution,
+                &tolerances,
+                None,
+                compatibility,
+            );
+            ProblemError::with_retirement(result, Box::new(oracle).finish())
+        }
         Backend::Pounce => pounce::Session::new().solve(
             Box::new(oracle),
             &[10.],
@@ -179,6 +186,7 @@ fn solve(backend: Backend, fault: Fault, controls: &Controls) -> (SolveReport, b
             &tolerances,
             ObjectiveSense::Minimize,
         );
+        Box::new(original).finish().unwrap();
         pse_backend_native::quality::record_kkt(
             &mut report,
             &pse_math::normalization::Normalization::identity(1, 0),
