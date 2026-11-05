@@ -593,6 +593,67 @@ Further qualification stopped. H's bounded checkpoint owns the exact source limi
 runtime/reader/service/scientific checks, fresh four-phase Study composition and readiness work;
 resume from those prerequisites rather than treating discovery or interruption as a pass.
 
+## Resumed execution — 2026-11-05
+
+The operator authorized execution of the remaining A–K series. Work resumed on clean main
+`b37400610`. Initial changes integrated directly there; the concurrent kernel/backend/worker
+retirement migration now uses an isolated worktree pending receiving-main integration. The operator's Cargo cleanup removed build
+outputs, so the native host was explicitly bootstrapped and native compiler/KLU/solver/isolation
+profiles explicitly reselected/prepared before consuming them. Earlier captures retain their
+original scope; neither a fresh build nor preparation establishes scientific qualification.
+
+The first integrated source changes address J01/J03's complete missing **explicit-selector**
+preflight and invocation-local immutable worker capture sharing, G02's typed world binding and
+deferred presentation, A03's actual code-intelligence runtime descriptor publication, E04's
+transactional native queue handoff and definite method-departure handling, and I01/I03's borrowed
+original fit-trajectory observation. Source-aware code-intelligence `descriptor.bin` remains
+unchanged; the generated shared-pool artifact is published separately as `descriptor-runtime.bin`,
+with exact non-source descriptor agreement checked at generation. Required broader populations
+and original-policy obligations remain in their companions.
+
+Independent static review corrected two worker races: a successful local channel send could
+precede observer departure, and pending Hyper method tasks could retain reply custody while
+native join waited. Guarded local consumption and transport-runtime destruction before native
+join now express those boundaries. Their targeted controls and actual process qualification
+remain distinct. E04 still requires result-bearing provider finish through the actual CaseWorker,
+retained adapter and process/I/O owners; normal session close alone cannot discharge it.
+
+Generation completed all fourteen targets. The resumed host selection passed 61 controls,
+the descriptor-publication selection passed its one control, and the worker/proxy/fitting/
+completion selection passed 15 controls, all against zero failures with complete native
+settlement. The initial host test build exposed the missing compact code-intelligence artifact
+and prompted the generator correction rather than a hand-edited output. The initial runtime
+test build caught attempted mutation through an Arc; controlled owned observations now preserve
+the original joined result. These component results do not establish H02–H04 or full-series
+completion. Next work follows complete consumer migrations and the separate K receiving-admission
+and supplier-transfer prerequisites.
+
+A04's admitted validator preparation now shares its scan/schema between admission and emission
+within each process. All 161 standalone controls pass, the plugin was explicitly rebuilt and
+receiving generation completed all fourteen targets without changing validators. The new test
+retains both original missing-field diagnostic causes. This preserves current plugin composition;
+final supplier selection and complete facade migration remain open.
+
+Proposed ADR-0247 records the consuming kernel/native retirement target before interface
+activation, including actual retained callbacks and scratch ownership. Formal ADR acceptance
+remains separate. J03's explicit `fixture prepare runtime` now composes captured capsule and
+native-lane builders, checks the complete current scientific-source closure and normalized
+compiler context, and atomically publishes a fully checked selection. Explicit environment
+selectors retain precedence; passive `fixture show runtime` prepares nothing. The expanded
+host selection passed 68 controls and the scientific-input check passed its targeted control.
+Actual managed preparation and passive readback succeeded. Those prepared inputs then allowed
+the previously blocked 87-test runtime selection to execute: 85 passed and two failed against
+zero. The original drain-error source correction subsequently passed both project/drain controls;
+conditional reference preparation remains under diagnosis for its obligation-schedule limit.
+This is component evidence, not H qualification or full-series completion.
+
+The retirement work now covers the kernel bank, math worker, exact retained finisher, native
+oracle callbacks, conditional and dynamic owners, owner-affine fit/shooting teams, remote handles,
+child reap and explicit HTTP/2 task/driver joins. Its eight kernel retirement controls passed;
+cross-crate compilation, remaining constructor migrations and receiving-main acceptance remain
+open. Generic supplier construction must preserve both original refusal and every cleanup
+failure; ordinary Drop cannot close that obligation.
+
 ## Verification boundary
 
 **Proposed verification:** package-local compile/targeted tests during implementation, explicit

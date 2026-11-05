@@ -124,9 +124,13 @@ The November 5 review [I03](../plan_improvement_reviews/plan65-proto-capabilitie
 and [I12](../plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md#I12)
 extend J01–J05's remaining behavior, not its prior evidence. Existing fixture declarations,
 readiness, source-build/capture, invocation publication and report/rerun owners remain the
-foundations. The current runner discovers and matches exact selected identities before
-preparation; `PreparedExecution::prepare` then returns on its first missing original
-environment input. Replace that single-failure experience with a complete selected account.
+foundations. The runner discovers and matches exact selected identities before preparation.
+At the planning baseline, `PreparedExecution::prepare` returned on its first missing original
+environment input. Resumed execution now reports every missing explicit selector before
+helper/service effects, and shares equivalent immutable worker captures within the fixed
+invocation context while retaining each group's association. The host controls pass. Complete
+the broader missing/refused/owner-required account below; selector presence alone does not
+establish input admission or fixture readiness.
 
 Before listing, display narrower declarations as conditional requirements. After the original
 inventory is available, return all exact missing, refused and owner-required inputs together,
@@ -144,6 +148,19 @@ eligible low-level input. Sources:
 [`fixtures.rs`](../../crates/pse-host/src/fixtures.rs),
 [`PreparedExecution`](../../crates/pse-host/src/fixtures/execution.rs),
 [`runner`](../../crates/pse-host/src/test_workflow/execute/runner.rs).
+
+**Implemented and targeted Tested, resumed November 5:** `fixture prepare runtime` now
+performs this composition through original `BuildCapture` identities, the capsule builder and
+the quiet `scientific-inputs-check` owner. Automatic lending checks normalized compiler/native
+context and the complete original scientific-source closure, including membership/substitution
+changes; an explicitly supplied selector, including an empty one, takes precedence. Validate
+the complete candidate before pointer publication so failed preparation preserves the earlier
+selection. `fixture show runtime` reads only its original prepared observation. Host controls
+cover stale context, source drift, failed publication and selector precedence. Real managed
+preparation/readback succeeded, enabling the earlier 87-test runtime selection to execute;
+its two assertion/preparation failures remain scientific/runtime findings, not fixture success
+or whole-plan acceptance. Broader readiness accounting and all selected consumer/rerun
+populations remain in J01/J03/J05.
 
 Within one invocation, coalesce equivalent immutable helper preparation using the complete
 relevant source/compiler/native/feature context. Reuse the existing `BuildCapture` and
@@ -209,7 +226,7 @@ performance benefit is established by these plan amendments.
 | --- | --- | --- | --- |
 | J01 | in-progress | P01; current test and scientific evidence owners | Shared passive report-observation contract and original terminal matching are implemented in source; remaining population/construction/closure agreement and working generated delivery remain. Extend native fixture/readiness owners with conditional pre-list and exact post-list complete missing/refused/owner-required inputs and explicit preparation routes. Compare list/check/test/rustdoc, expected refusal, setup failure, zero match and incomplete capture before A/B interfaces freeze; passive inspection prepares nothing. |
 | J02 | in-progress | J01; working narrow A/B records/options/decode policy; narrow G02 inspector | Current report interpretation three seals original dependency commitments/omissions; source-generated one-way roots support explicit report, selection and full scopes. Independent binary readback and foreign/malformed/oversized/missing-import controls are narrowly tested. Define bounded manifest/member acquisition using that same commitment/adoption owner rather than a second verdict representation; keep compact input/output at 64 MiB. Full lifecycle/population delivery and retained raw-artifact protection remain; Buffa metadata decode grants no performing authority. |
-| J03 | in-progress | J02; native failed-test rerun and current listing; J01 exact prerequisite agreement | Native rerun consumes authenticated original input and report/inventory commitments. The representative controlled failure/export/readback/exact-rerun journey passed for the earlier selection family; interpretation-three full dependency delivery and its new journey are recorded below. Add explicit owner-composed capsule/native-lane/helper preparation and invocation-local equivalent BuildCapture reuse with distinct group attribution; keep mutable fixtures independent. Complete changed package/features/identity, absent-evidence, stale-binary and all-missing-prerequisite controls, and every selected consumer/deletion. Historical outcomes never become present evidence. |
+| J03 | in-progress | J02; native failed-test rerun and current listing; J01 exact prerequisite agreement | Native rerun consumes authenticated original input and report/inventory commitments. The representative controlled failure/export/readback/exact-rerun journey passed for the earlier selection family; interpretation-three full dependency delivery and its new journey are recorded below. Runtime capsule/native-lane preparation and invocation-local equivalent BuildCapture reuse are implemented with distinct group attribution; mutable fixtures remain independent. Complete the broader changed package/features/identity, absent-evidence, stale-binary and all-missing-prerequisite populations, and every selected consumer/deletion. Historical outcomes never become present evidence. |
 | J04 | planned | J02/J03; identified actual original-file acquisition/protection owner, not an assumed prune API | Deliver offline protected original-file reading and staged bundle export above the compact 64 MiB profile under one interpretation-three ordinal/role/extent/digest/omission commitment. Use the [existing invocation publisher](../../crates/pse-host/src/invocation.rs) staging/sync/no-replace behavior; [Tokio-util 0.7.19 ReaderStream/StreamReader](https://docs.rs/tokio-util/0.7.19/tokio_util/io/index.html) supply consumed I/O, not attribution or atomicity. Establish opened-file protection/support limits before active-reader retirement claims; design additional disposal ownership only if required. Test missing/corrupt later members, old policy, original omission, slow/escaped reader, collision, interrupted/failed publication and release. Preserve fixture/native/capture settlement separately; remove replaced full-closure copies and reference/cleanup translations only with complete consumers. |
 | J05 | planned | J02–J04 full population; narrow F02 presentation and G02 reading | Complete conditional/exact readiness → explicit preparation → list/check/rustdoc/test → compact or staged original evidence → independent read → exact rerun. Include assertion failure, passing expected-refusal test, zero match with no preparation, setup failure, incomplete capture, interruption and independent cleanup failures. Migrate every selected reader/exporter and remove replaced maps/fixtures/preparation recipes; supply actual limits and population to H. No service chunk transport or automatic pruning is a prerequisite of the offline consumer. |
 

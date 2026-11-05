@@ -245,12 +245,55 @@ operation and product-use rules. Precise conditions are in
 validator source linked below. Interpretation/validation/mapping changes affect their actual
 consumers; the whole descriptor world must not become a blanket mathematical preparation key.
 
+### Production finish ownership — execution refinement
+
+Source investigation during resumed execution establishes that `NativeSession::close` does
+not directly own every provider. `pse_math::assembly::CaseWorker` owns the provider bank;
+retained KINSOL/POUNCE callbacks, conditional-unit shared evaluators and Horizon dynamic
+workers can own or borrow those workers. Complete E04 through these actual owners, including
+replacement, reset, scratch recycling and final scope departure. The transactional transport
+slice does not implement this remaining contract.
+
+Proposed [ADR-0247](../adr/0247-consuming-native-retirement.md), linked to ADR-0240/0242,
+records the kernel contract before activation; formal acceptance remains separate. The
+proposed realization uses consuming `Provider::finish`, binding/bank
+finish and `CaseWorker::finish`, with explicit forwarding through owning wrappers. Borrowed
+oracle aliases release their borrow; the actual evaluator owner finishes only after native
+callbacks are destroyed. Attempt every independent provider retirement and retain its key
+and original typed cause. A returned error reports settled failure; unreaped native work
+remains owned by the original performing finish/supervisor operation, with admission retained.
+Do not release custody merely because a Shutdown, kill, wait or I/O-join attempt failed.
+
+Extend `execution::Retained`'s existing type-erased session/workflow storage with the
+monomorphized consuming finisher supplied at actual construction. Make clear, incompatible
+replacement, independent reset and final finish result-bearing; clear retains its existing
+adapter-only meaning. Retire provider banks before successful scratch publication, replacing
+normal recycle-on-Drop with explicit recycle-on-finish. Propagate outcomes from the owner-affine
+native scope through existing native-thread/session joins and `MathRuntimeError::settle`;
+retain original scientific failure and independent teardown failures together. Drop remains
+abandonment containment, not positive retirement evidence.
+
+The pinned [ConnectRPC 0.9.1 HTTP/2 source](https://github.com/connectrpc/connect-rust/blob/v0.9.1/src/client/http2.rs)
+detaches its shared-client worker and connection driver; an I/O-thread join alone cannot
+recover their inner connection and outer task results. Preserve generated clients and codecs
+while comparing a released public `ClientTransport` adapter over explicitly owned Hyper H2
+`SendRequest`/handshake. Keep the driver `JoinHandle<Result<_, hyper::Error>>` with the existing
+I/O owner, collect inner/outer failures, destroy pending transport tasks and explicitly join
+the I/O thread. Sources: [ClientTransport](https://github.com/connectrpc/connect-rust/blob/v0.9.1/src/client/mod.rs)
+and [Hyper 1.11.1 HTTP/2 ownership](https://docs.rs/hyper/1.11.1/hyper/client/conn/http2/index.html).
+This is connection ownership glue, not a second protocol implementation or request registry.
+
+Acceptance covers every concrete owner above, shared versus borrowed callbacks, failed session
+construction/replacement, multiple simultaneous cleanup failures, successful reap after failed
+acknowledgement, unknown reap, pending method guards at runtime shutdown and scratch reuse only
+after explicit retirement. Preserve selected-handle versus whole-process shutdown semantics.
+
 ## Packages and migration
 
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
 | E01 | in-progress | Actual native capabilities; agreed scientific contract from 65i I01; co-designed 65a metadata | Initial concrete portable consumers are reconciled above; complete source/spec/context/receipt classification and bind each operation's inputs, support/refusal and product-use semantics before selecting projections. Preserve physical/configuration versus value-only change controls; no universal catalogue. |
-| E04 | in-progress | Existing provider slice; 65d custody behavior; 65i dependency policy; ADR-0242 | Preserve delivered per-handle Stop/Close versus Shutdown. Add transactional reservation/handoff and definite lost-waiter disposition, explicit typed placement finish with custody through reap/I/O join, and every cancellation/late-result/independent-handle control in the November 5 design. Tokio reserve_owned/OwnedPermit::send supply queue transfer, not native settlement. Complete generated publication and process acceptance; delete replaced submission/shutdown and ignored-cleanup branches with migrated clients/server/fixtures. |
+| E04 | in-progress | Existing provider slice; 65d custody behavior; 65i dependency policy; ADR-0242; proposed ADR-0247 before generic finish activation | Preserve delivered per-handle Stop/Close versus Shutdown. Transactional reservation/handoff and guarded definite method-departure disposition are implemented and included in the passing resumed runtime controls. Complete result-bearing provider/bank/retained-owner finish above, custody through reap/I/O join and every cancellation/late-result/independent-handle control. Tokio reserve_owned/OwnedPermit::send supply queue transfer, not native settlement. Complete generated publication and process acceptance; delete replaced submission/shutdown and ignored-cleanup branches with migrated clients/server/fixtures. |
 | E05 | in progress | E04; ADR-0243 precedes kernel and binding activation | Deliver capability-declared coherent batching with exact point identities and per-point outcomes. Integrate the current water implementation where it can reuse preparation across independent states and the action-capable provider control for demand fidelity. Mixed valid/invalid states, branch changes, nonfinite/truncated responses and failure after partial completion discriminate behavior. Remove redundant per-point RPC orchestration from migrated consumers. |
 | E06 | planned | E02–E05 functional population; 65i product-use contract; 65f outcome and 65g readers | Integrate generated capability/outcome inspection and independent exchange across supported post-64 modes; `DynamicMessage::from_options` exposes metadata while native selectors govern use. Prove raw versus scientific access, original task/step/point coverage and final-attempt interpretation. Record matched direct/isolated complete-operation measurements without presumed speedup. Supply actual population/limits to 65h and remove superseded selected paths. |
 
