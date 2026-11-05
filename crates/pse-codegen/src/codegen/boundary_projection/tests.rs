@@ -943,9 +943,16 @@ fn complete_services_generate_one_shared_root_and_reproducible_rust() {
         &config,
     )
     .unwrap();
-    assert_eq!(first.sources, second.sources);
+    assert_eq!(
+        first.sources().collect::<Vec<_>>(),
+        second.sources().collect::<Vec<_>>()
+    );
     assert_eq!(first.descriptor_bytes, second.descriptor_bytes);
-    assert!(first.warnings.is_empty(), "{:?}", first.warnings);
+    assert!(
+        first.generation.warnings.is_empty(),
+        "{:?}",
+        first.generation.warnings
+    );
     let file = first
         .descriptor_set
         .file
@@ -956,14 +963,24 @@ fn complete_services_generate_one_shared_root_and_reproducible_rust() {
         file.service[0].method[0].input_type.as_deref(),
         Some(".pse.boundary.v1.Request")
     );
-    assert!(first.sources["mod.rs"].contains("shared-root.rs"));
-    assert!(first.sources["shared-root.rs"].contains("pub mod __buffa_fds"));
-    assert!(first.sources["shared-root.rs"].contains("include_bytes!(\"descriptor.bin\")"));
+    assert!(first.source("mod.rs").unwrap().contains("shared-root.rs"));
     assert!(
-        first.sources["shared-root.rs"].len() < first.descriptor_bytes.len(),
+        first
+            .source("shared-root.rs")
+            .unwrap()
+            .contains("pub mod __buffa_fds")
+    );
+    assert!(
+        first
+            .source("shared-root.rs")
+            .unwrap()
+            .contains("include_bytes!(\"descriptor.bin\")")
+    );
+    assert!(
+        first.source("shared-root.rs").unwrap().len() < first.descriptor_bytes.len(),
         "the root references the published descriptor instead of spelling its bytes as Rust"
     );
-    for source in first.sources.values() {
+    for (_, source) in first.sources() {
         syn::parse_file(source).expect("generated Rust parses");
     }
     let decoded = FileDescriptorSet::decode_from_slice(&first.descriptor_bytes).unwrap();

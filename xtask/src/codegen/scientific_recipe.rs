@@ -13,7 +13,6 @@ const RUST_MODULE: &str = "crate::typed_math::portable::generated::pb";
 const WIRE_ROOT: &str = "crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4";
 
 pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
-    super::code_intelligence::prepared_plugins(root, &root.join(".local/plan61-tools/bin"))?;
     let graph = pse_compiler::typed_math::scientific_recipe_projection()?;
     let imports = super::contract_metadata::imports(root)?;
     let mut config = boundary_projection::default_config(&format!("{RUST_MODULE}::__buffa_fds"));
@@ -37,9 +36,9 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         &graph,
         &roots,
         boundary_projection::NativeViewTarget {
-            descriptors: &output.descriptor_set,
+            descriptors: output.generation.descriptors(),
             selected_file: FILE,
-            config: &config,
+            config: output.generation.config(),
             wire_root: WIRE_ROOT,
             owner_crate: "pse_compiler",
             visibility: boundary_projection::AdapterVisibility::Parent,
@@ -48,15 +47,14 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     let lazy_probe = boundary_projection::lazy_decode_probe(
         &roots,
         boundary_projection::LazyProbeTarget {
-            descriptors: &output.descriptor_set,
+            descriptors: output.generation.descriptors(),
             selected_file: FILE,
-            config: &config,
+            config: output.generation.config(),
             wire_root: WIRE_ROOT,
             visibility: boundary_projection::AdapterVisibility::Parent,
         },
     )?;
     let mut tree = super::proto_projection::publish_projection(
-        root,
         &graph,
         super::proto_projection::ProjectionTarget {
             package: PACKAGE,

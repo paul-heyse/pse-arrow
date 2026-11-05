@@ -5,6 +5,19 @@
 /// A generator refusal retaining its registry or metadata source and diagnostic.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum ProjectionCodegenError {
+    /// Original Buffa generation or shared-corpus admission refusal.
+    #[error("Buffa generation: {0}")]
+    #[diagnostic(code("schema.invalid_declaration"))]
+    Buffa(#[from] buffa_codegen::CodeGenError),
+    /// An explicitly selected file would be dropped by the message supplier's policy.
+    #[error("selected generation target {file} belongs to excluded package {package}")]
+    #[diagnostic(code("schema.invalid_declaration"))]
+    ExcludedTarget {
+        /// Original selected logical source filename.
+        file: String,
+        /// Original declared package matched by the normalized exclusion policy.
+        package: String,
+    },
     /// Actual source registry refusal.
     #[error(transparent)]
     #[diagnostic(transparent)]

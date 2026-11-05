@@ -12,12 +12,10 @@ use pse_contract::boundary_projection::{ProjectionGraph, Service, TypeRef};
 use std::{collections::BTreeSet, path::Path};
 
 pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
-    super::code_intelligence::prepared_plugins(root, &root.join(".local/plan61-tools/bin"))?;
     // These are pinned upstream option definitions, not the host service's meanings.
     let imports = imports(root)?;
     let graph = scientific_graph()?;
     let mut tree = projection(
-        root,
         &graph,
         ProjectionTarget {
             package: "pse.scientific_worker.v1",
@@ -70,7 +68,6 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     );
     let graph = engineering_graph()?;
     let mut engineering = projection(
-        root,
         &graph,
         ProjectionTarget {
             package: "pse.engineering.v1",
@@ -155,12 +152,9 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     engineering.files.extend(
         provenance::sidecar(&producer("pse.engineering.v1"), &engineering.relationships)?.files,
     );
-    tree.roots.extend(engineering.roots);
-    tree.files.extend(engineering.files);
-    tree.relationships.extend(engineering.relationships);
+    super::proto_projection::merge_independent(&mut tree, engineering)?;
     let reference_graph = reference_graph()?;
     let mut reference = projection(
-        root,
         &reference_graph,
         ProjectionTarget {
             package: "pse.reference.v1",
@@ -213,9 +207,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     reference.files.extend(
         provenance::sidecar(&producer("pse.reference.v1"), &reference.relationships)?.files,
     );
-    tree.roots.extend(reference.roots);
-    tree.files.extend(reference.files);
-    tree.relationships.extend(reference.relationships);
+    super::proto_projection::merge_independent(&mut tree, reference)?;
     Ok(tree)
 }
 fn scientific_graph() -> Result<ProjectionGraph> {

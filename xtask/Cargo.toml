@@ -119,7 +119,10 @@ pse-host = { workspace = true, optional = true }
 pse-kernels = { workspace = true, optional = true }
 pse-contract.workspace = true
 buffa.workspace = true
+buffa-codegen.workspace = true
 buffa-descriptor.workspace = true
+connectrpc-codegen.workspace = true
+protoc-gen-protovalidate-buffa.workspace = true
 bytes.workspace = true
 globset.workspace = true
 percent-encoding.workspace = true
@@ -185,6 +188,7 @@ tree-sitter-proto.workspace = true
 miette.workspace = true
 
 [dev-dependencies]
+protovalidate-buffa-protos.workspace = true
 futures-util.workspace = true
 pse-quantity = { workspace = true, features = ["fixtures"] }
 

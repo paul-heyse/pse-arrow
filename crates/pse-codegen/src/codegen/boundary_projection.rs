@@ -7,7 +7,8 @@ use std::collections::BTreeMap;
 
 use buffa::{ExtensionSet, Message};
 use buffa_codegen::{
-    CodeGenConfig, FdsEmbedding, GeneratedFileKind, IncludeMode,
+    CodeGenConfig, CodeGenWarning, FdsEmbedding, GeneratedFile, GeneratedFileKind, IncludeMode,
+    SharedCorpusContext,
     generated::descriptor::{
         self, DescriptorProto, FieldDescriptorProto, FieldOptions, FileDescriptorProto,
         FileDescriptorSet, MethodDescriptorProto, OneofDescriptorProto, OneofOptions,
@@ -45,6 +46,8 @@ pub use lazy_probe::{LazyProbeTarget, lazy_decode_probe};
 /// One complete generation closure. The caller owns publication and generated roots.
 #[derive(Debug)]
 pub struct ProjectionOutput {
+    /// Admitted source-aware generation, including typed supplier outputs and warnings.
+    pub generation: ProjectionGeneration,
     /// Effective runtime world, including imports, options and configured feature overrides.
     /// Validators, clients and reflection must consume this same interpretation.
     pub descriptor_set: FileDescriptorSet,
@@ -54,12 +57,186 @@ pub struct ProjectionOutput {
     /// Full effective descriptors with original source information restored.
     /// Publish separately for source inspection; feature meanings match the runtime artifact.
     pub source_descriptor_bytes: Vec<u8>,
-    /// Buffa-generated filenames and Rust source, plus `shared-root.rs`.
-    pub sources: BTreeMap<String, String>,
-    /// Original generator warnings; callers must surface them.
-    pub warnings: Vec<String>,
+    /// Reflection and module-tree support files, separate from typed Buffa output.
+    pub support_sources: BTreeMap<String, String>,
     /// Inspectable field/tag/constraint and source-owner reference from this same graph.
     pub documentation: String,
+}
+
+impl ProjectionOutput {
+    /// All message and support sources without discarding supplier metadata.
+    pub fn sources(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.generation
+            .files
+            .iter()
+            .map(|file| (file.name.as_str(), file.content.as_str()))
+            .chain(
+                self.support_sources
+                    .iter()
+                    .map(|(name, content)| (name.as_str(), content.as_str())),
+            )
+    }
+
+    /// Inspect one generated source without creating a second filename map.
+    pub fn source(&self, name: &str) -> Option<&str> {
+        self.sources()
+            .find_map(|(actual, content)| (actual == name).then_some(content))
+    }
+}
+
+/// One effective source-aware corpus and the configuration admitted by Buffa.
+/// Downstream suppliers borrow these exact inputs rather than rebuilding a world.
+#[derive(Debug)]
+pub struct ProjectionGeneration {
+    descriptors: FileDescriptorSet,
+    targets: Vec<String>,
+    config: CodeGenConfig,
+    /// Original package and output-kind metadata, before publication flattening.
+    pub files: Vec<GeneratedFile>,
+    /// Original typed diagnostics, including unmatched feature overrides.
+    pub warnings: Vec<CodeGenWarning>,
+}
+
+impl ProjectionGeneration {
+    /// Apply effective features while preserving original source information, then
+    /// perform Buffa's fallible post-override shared-context check and generation.
+    pub fn new(
+        source: &FileDescriptorSet,
+        targets: &[String],
+        config: &CodeGenConfig,
+    ) -> Result<Self, ProjectionCodegenError> {
+        let mut names = std::collections::BTreeSet::new();
+        for file in &source.file {
+            let name = file
+                .name
+                .as_deref()
+                .ok_or_else(|| error("descriptor has no logical filename"))?;
+            if !names.insert(name) {
+                return Err(error(format!("duplicate descriptor filename {name}")));
+            }
+        }
+        if targets.is_empty() {
+            return Err(error("explicit generation targets are required"));
+        }
+        let excludes = config
+            .exclude_packages
+            .iter()
+            .map(|entry| {
+                buffa_codegen::normalize_exclude_package(entry).map_err(|reason| {
+                    buffa_codegen::CodeGenError::Other(format!(
+                        "exclude_package {entry:?}: {reason}"
+                    ))
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut selected = std::collections::BTreeSet::new();
+        for target in targets {
+            if !selected.insert(target) {
+                return Err(error(format!("duplicate generation target {target}")));
+            }
+            let file = source
+                .file
+                .iter()
+                .find(|file| file.name.as_deref() == Some(target.as_str()))
+                .ok_or_else(|| {
+                    error(format!(
+                        "generation target missing from descriptor: {target}"
+                    ))
+                })?;
+            let package = file.package.as_deref().unwrap_or("");
+            // Buffa alone filters selected excluded packages. Refuse that
+            // divergent request before any supplier runs, keeping the complete
+            // descriptor corpus (including excluded imports) available below.
+            if buffa_codegen::package_is_excluded(package, &excludes) {
+                return Err(ProjectionCodegenError::ExcludedTarget {
+                    file: target.clone(),
+                    package: package.into(),
+                });
+            }
+        }
+        let runtime = effective_runtime_descriptors(source, config)?;
+        let descriptors = source_aware_descriptors(source, &runtime)?;
+        let mut config = config.clone();
+        if config.shared_corpus_context.is_none() {
+            config.shared_corpus_context =
+                Some(SharedCorpusContext::new(&descriptors.file, &config));
+        }
+        // Generate from the original source so unmatched override diagnostics are
+        // preserved. Buffa checks the shared corpus after applying those overrides.
+        let (files, warnings) =
+            buffa_codegen::generate_with_diagnostics(&source.file, targets, &config)?;
+        check_generated_files(&files)?;
+        Ok(Self {
+            descriptors,
+            targets: targets.to_vec(),
+            config,
+            files,
+            warnings,
+        })
+    }
+
+    /// Full effective descriptors, retaining genuine available source information.
+    pub fn descriptors(&self) -> &FileDescriptorSet {
+        &self.descriptors
+    }
+    /// Explicit target population admitted before any supplier executes.
+    pub fn targets(&self) -> &[String] {
+        &self.targets
+    }
+    /// Actual admitted configuration, including the shared corpus context.
+    pub fn config(&self) -> &CodeGenConfig {
+        &self.config
+    }
+}
+
+fn check_generated_files(files: &[GeneratedFile]) -> Result<(), ProjectionCodegenError> {
+    let mut names = std::collections::BTreeSet::new();
+    for file in files {
+        if !names.insert(&file.name) || matches!(file.name.as_str(), "mod.rs" | "shared-root.rs") {
+            return Err(error(format!("duplicate generated output {}", file.name)));
+        }
+    }
+    check_package_mounts(
+        files
+            .iter()
+            .filter(|file| file.kind == GeneratedFileKind::PackageMod)
+            .map(|file| file.package.as_str()),
+    )
+}
+
+/// Admit actual package mounts using the same identifier escaping as Buffa's
+/// module-tree renderer, including collisions at intermediate module segments.
+pub fn check_package_mounts<'a>(
+    packages: impl IntoIterator<Item = &'a str>,
+) -> Result<(), ProjectionCodegenError> {
+    let mut selected = std::collections::BTreeSet::new();
+    let mut mounts = BTreeMap::new();
+    for package in packages {
+        if !selected.insert(package) {
+            return Err(error(format!(
+                "duplicate generated package mount {package}"
+            )));
+        }
+        if package.is_empty() {
+            continue;
+        }
+        let mut path = Vec::new();
+        let mut original = Vec::new();
+        for segment in package.split('.') {
+            path.push(buffa_codegen::idents::escape_mod_ident(segment));
+            original.push(segment);
+            let prefix = original.join(".");
+            if let Some(previous) = mounts.get(&path)
+                && previous != &prefix
+            {
+                return Err(error(format!(
+                    "generated package module collision: {previous} and {prefix}"
+                )));
+            }
+            mounts.insert(path.clone(), prefix);
+        }
+    }
+    Ok(())
 }
 
 fn error(reason: impl Into<String>) -> ProjectionCodegenError {
@@ -478,17 +655,15 @@ pub fn generate_with_config(
         ));
     }
     let source_descriptors = descriptors_with_imports(graph, package, file_name, imports)?;
-    let descriptor_set = effective_runtime_descriptors(&source_descriptors, config)?;
-    let source_descriptor_bytes =
-        source_aware_descriptors(&source_descriptors, &descriptor_set)?.encode_to_vec();
+    let generation = ProjectionGeneration::new(&source_descriptors, &[file_name.into()], config)?;
+    let source_descriptor_bytes = generation.descriptors().encode_to_vec();
+    let mut descriptor_set = generation.descriptors().clone();
+    for file in &mut descriptor_set.file {
+        file.source_code_info = Default::default();
+    }
     let descriptor_bytes = descriptor_set.encode_to_vec();
-    let (generated, warnings) = buffa_codegen::generate_with_diagnostics(
-        &source_descriptors.file,
-        &[file_name.into()],
-        config,
-    )
-    .map_err(|e| error(e.to_string()))?;
-    let entries = generated
+    let entries = generation
+        .files
         .iter()
         .filter(|file| file.kind == GeneratedFileKind::PackageMod)
         .map(|file| (file.name.clone(), file.package.clone()))
@@ -496,11 +671,8 @@ pub fn generate_with_config(
     let mut module_tree =
         buffa_codegen::generate_module_tree(&entries, IncludeMode::Relative(""), false);
     module_tree.push_str("\ninclude!(\"shared-root.rs\");\n");
-    let mut sources = generated
-        .into_iter()
-        .map(|file| (file.name, file.content))
-        .collect::<BTreeMap<_, _>>();
-    sources.insert(
+    let mut support_sources = BTreeMap::new();
+    support_sources.insert(
         "shared-root.rs".into(),
         buffa_codegen::shared_descriptor_root_module(
             &descriptor_bytes,
@@ -511,13 +683,13 @@ pub fn generate_with_config(
             None,
         ),
     );
-    sources.insert("mod.rs".into(), module_tree);
+    support_sources.insert("mod.rs".into(), module_tree);
     Ok(ProjectionOutput {
+        generation,
         descriptor_set,
         descriptor_bytes,
         source_descriptor_bytes,
-        sources,
-        warnings: warnings.iter().map(ToString::to_string).collect(),
+        support_sources,
         documentation: owner_reference(graph, package),
     })
 }

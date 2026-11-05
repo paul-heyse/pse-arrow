@@ -55,7 +55,7 @@ fn collection_map_values_live_outside_synthetic_entries_and_use_actual_buffa_mod
             .iter()
             .any(|nested| nested.name.as_deref() == Some("Field1Value"))
     );
-    let source = &output.sources["pse.nested.v1.rs"];
+    let source = output.source("pse.nested.v1.rs").unwrap();
     assert!(source.contains("pub mod http2case"));
     assert!(source.contains("pub mod field2value"));
     assert!(!source.contains("field1entry::Field2Value"));
