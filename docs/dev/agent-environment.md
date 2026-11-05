@@ -195,7 +195,13 @@ The retired `--store` and `--bind-allocation` protocols refuse; a Rust applicati
 its actual `NativeCanonicalService` or a private test fixture explicitly.
 
 Manager-launched siblings use typed literal argv and private payload handoff; credentials are
-not placed in argv or the manager environment. Finite reservations remain charged until the
+not placed in argv or the manager environment. Owned transient services preserve their launch
+caller's actual soft and hard open-file limits. The launch owner reads them with Rustix
+`getrlimit(Resource::Nofile)` and supplies systemd's `LimitNOFILESoft`/`LimitNOFILE` execution
+properties, including infinity. Otherwise a user manager's smaller default can cause a
+detached Cargo build to fail while the same command succeeds in its caller. This inheritance
+does not change host limits, CPU/memory placement or explicit scientific allocation.
+Finite reservations remain charged until the
 original kernel group is empty. A stop job or direct child exit is insufficient. Cleanup uses
 one drain deadline, attempts independent settlements and retains every failure. Existing
 borrowed services remain observation-only. Private installed telemetry units have a separate

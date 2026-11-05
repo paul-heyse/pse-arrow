@@ -1688,6 +1688,10 @@ impl HostManager {
         submitted: impl FnOnce(),
     ) -> Result<OwnedUnit, HostError> {
         self.validate_view()?;
+        // A transient service is forked by the user manager, not by its caller.
+        // Preserve the caller's actual descriptor limits rather than silently
+        // replacing them with the manager's (often much smaller) defaults.
+        let nofile = rustix::process::getrlimit(rustix::process::Resource::Nofile);
         let command = service_command(&spec.executable, &spec.arguments)?;
         let finalizer = match &launch {
             ServiceLaunch::Exec => None,
@@ -1719,6 +1723,8 @@ impl HostManager {
             // manager's execution-time dollar expansion, as systemd-run does.
             property("ExecStartEx", vec![command])?,
             property("Environment", spec.environment.clone())?,
+            property("LimitNOFILE", nofile.maximum.unwrap_or(u64::MAX))?,
+            property("LimitNOFILESoft", nofile.current.unwrap_or(u64::MAX))?,
         ];
         if let Some(finalizer) = finalizer {
             properties.push(property("NotifyAccess", "main".to_owned())?);
@@ -4112,6 +4118,52 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+    }
+
+    #[tokio::test]
+    async fn real_user_manager_service_preserves_caller_file_limits() {
+        let expected = rustix::process::getrlimit(rustix::process::Resource::Nofile);
+        let manager = HostManager::connect_user(None).await.unwrap();
+        let spec = ServiceSpec {
+            intent: LaunchIntent::fresh().unwrap(),
+            executable: "/bin/sleep".into(),
+            arguments: vec!["30".into()],
+            environment: vec![],
+        };
+        let mut owned = manager
+            .start_service(&spec, Instant::now() + Duration::from_secs(10))
+            .await
+            .unwrap();
+        let checked: Result<(), HostError> = async {
+            let before = owned.observe().await?;
+            let limits = std::fs::read_to_string(format!("/proc/{}/limits", before.main_pid))?;
+            let actual = limits
+                .lines()
+                .find_map(|line| line.strip_prefix("Max open files"))
+                .ok_or_else(|| HostError::Ownership("service file limits absent".into()))?
+                .split_whitespace()
+                .take(2)
+                .collect::<Vec<_>>();
+            let display = |limit: Option<u64>| {
+                limit.map_or_else(|| "unlimited".to_owned(), |value| value.to_string())
+            };
+            if actual != [display(expected.current), display(expected.maximum)] {
+                return Err(HostError::Ownership(format!(
+                    "service file limits {actual:?} differ from caller {expected:?}"
+                )));
+            }
+            let after = owned.observe().await?;
+            if after.main_pid != before.main_pid {
+                return Err(HostError::Ownership("service process changed".into()));
+            }
+            Ok(())
+        }
+        .await;
+        let cleanup = owned
+            .stop_and_drain(Instant::now() + Duration::from_secs(10))
+            .await;
+        assert!(checked.is_ok(), "{checked:?}");
+        assert!(cleanup.is_ok(), "{cleanup:?}");
     }
 
     #[tokio::test]
