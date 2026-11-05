@@ -172,6 +172,10 @@
           "kind": "file"
         },
         {
+          "path": "xtask/src/codegen/proto_dispatch.rs",
+          "kind": "file"
+        },
+        {
           "path": "xtask/src/codegen/proto_projection.rs",
           "kind": "file"
         }
@@ -1501,6 +1505,10 @@
         },
         {
           "path": "xtask/src/codegen/private_store.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen/proto_dispatch.rs",
           "kind": "file"
         },
         {

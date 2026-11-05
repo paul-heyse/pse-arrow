@@ -5489,8 +5489,10 @@ Options:
   -C <checkout>
 
 
-      --descriptor <DESCRIPTOR>
-          Complete descriptor-set artifact
+      --max-descriptor-bytes <MAX_DESCRIPTOR_BYTES>
+          Maximum complete original descriptor artifact bytes
+
+          [default: 67108864]
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -5504,17 +5506,40 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
-      --message <MESSAGE>
-          Fully qualified message within that artifact
+      --max-input-bytes <MAX_INPUT_BYTES>
+          Maximum complete original payload bytes, in the selected input grammar
+
+          [default: 67108864]
 
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
-      --input <INPUT>
-          Original payload artifact
+      --max-converted-bytes <MAX_CONVERTED_BYTES>
+          Maximum binary output bytes collected from textproto conversion
+
+          [default: 67108864]
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --max-binary-element-bytes <MAX_BINARY_ELEMENT_BYTES>
+          Maximum element bytes per acquired-descriptor or payload-root binary decode
+
+          [default: 33554432]
+
+      --binary-recursion-limit <BINARY_RECURSION_LIMIT>
+          Maximum nested messages per acquired-descriptor or payload-root binary decode
+
+          [default: 100]
+
+      --descriptor <DESCRIPTOR>
+          Complete descriptor-set artifact
+
+      --message <MESSAGE>
+          Fully qualified message within that artifact
+
+      --input <INPUT>
+          Original payload artifact
 
       --encoding <ENCODING>
           Explicit input grammar

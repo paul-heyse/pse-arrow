@@ -24,6 +24,31 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         },
         &imports,
     )?;
+    let dispatch = super::proto_dispatch::generate(
+        &tree,
+        destination,
+        "crate::developer_evidence_contracts::pb",
+    )?;
+    super::proto_projection::insert(&mut tree, destination, "dispatch.rs", &dispatch)?;
+    for owner in graph.definitions().values() {
+        tree.relationships.push(provenance::SourceRelationship {
+            declaration_key: owner.name.clone(),
+            declaration_kind: "compiled_message_dispatch".into(),
+            source_path: Some(owner.source.into()),
+            source_symbol: Some(owner.rust_type.into()),
+            source_role: "semantic_owner".into(),
+            source_identity: None,
+            generator_path: "xtask/src/codegen/proto_dispatch.rs".into(),
+            generator_symbol: "generate".into(),
+            output_path: destination
+                .join("dispatch.rs")
+                .to_string_lossy()
+                .into_owned(),
+            direction: Some(owner.direction.as_str().into()),
+            contract_sections: vec!["blueprint §4.7".into()],
+            basis: "declared".into(),
+        });
+    }
     let roots = ["CapturedWorkflowReport", "CapturedWorkflowEvidence"];
     let adapters = boundary_projection::native_adapters_scoped(
         &graph,

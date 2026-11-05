@@ -11,6 +11,10 @@ pub mod pb;
 #[rustfmt::skip]
 #[allow(unused_qualifications, elided_lifetimes_in_paths, trivial_numeric_casts, unreachable_pub, missing_docs, reason = "Pinned validator generator surface")]
 mod validation;
+#[path = "generated/developer-evidence/dispatch.rs"]
+#[rustfmt::skip]
+mod dispatch;
+pub(crate) use dispatch::dispatch;
 
 use pse_contract::boundary_projection::{AdapterError, AdapterFailure};
 use pse_contract_proto::support::*;
