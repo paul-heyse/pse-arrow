@@ -381,6 +381,15 @@ conversion controls,andtheCO2-excluded-from-liquid waterdefinition withits
 form/phase mapping andindependent numerical qualification remainrequired;
 thecondenser case doesnot qualifydissolved CO2 science.
 
+**Update, 2026-11-05 — steam-turbine configured census:** the
+[stage/train closure](64h-required-process-population.md#helmholtz-steam-turbine-configured-population--2026-11-05)
+resolves regular/inlet/outlet andmultistage/reheater fixtures,coefficient
+calibration versusrating,defaults/topology,steamguard andpseudo-steady time
+indexing. Thetrain'sfinal outletpressure isinitialized ratherthan explicitly
+authored;that remainsanexecution freeze requirement. Native empiricaldata,
+plant-topology/product correspondence andindependentnumerical qualification
+remainrequired;noinventory orplantacceptance followsfromthetimegrid.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

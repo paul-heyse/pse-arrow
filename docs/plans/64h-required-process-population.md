@@ -3065,6 +3065,86 @@ permissions andinvalid-combination refusals. Independentpinned-environment
 initialization/solve/derivative evidence remainsopen;AST listinspection
 confirmed targetlistsizes only andexecuted noEOS,Henry expression orsolver.
 
+## Helmholtz steam-turbine configured population — 2026-11-05
+
+**Interface-checked, source only:** C `power_generation/unit_models/helm/
+{turbine,turbine_stage,turbine_inlet,turbine_outlet,turbine_multistage}.py`,
+their four dedicated test modules and`turbine` in`tests/test_compare_to_generic.py`
+resolve the steam-turbine stage/train cases. Recursive owners include
+`balance.py`,Helm splitter/mixer/steam valve,generic Heater,model serializer
+andIAPWS95/Helmholtz external functions. The multistage fixture hasno saved
+file;its in-memory specification snapshots arenot shipped initialization
+data. Integrated NGCC/SCPC/subcritical/steam-cycle plant inputs remain separate.
+
+All stages force dynamic=False,has_holdup=False,pressure/work transfer on,
+heat transfer off. Time indexing under a dynamic parent is**pseudo-steady**,
+not turbine fluid/metal/shaft inventory. The property guard requires an actual
+Helmholtz parameter block,PH state andphase presentation MIX,L orG;LG
+presentation andother state coordinates fail assertions. Selected tests use
+defaultIAPWS95 water,PH/MIX,molar basis. Permitting L/G atconstruction isnot
+an independent liquid-turbine/gas-turbine scientific qualification. Enthalpy
+atconstant inletentropy/outletpressure definesisentropic work;actual outlet
+enthalpy follows efficiency. Work/shaftpower use the energy-balance signed
+work,negativeforgeneration;native positive-generation reporting needsan
+explicit signmapping. Base efficiency isfixed .9 unlessa specializedstage
+replaces it;mechanical efficiency defaults1.
+
+| Actual fixture/role | Inputs andfixed/free/acceptance meaning |
+|---|---|
+| Regular stage | Inletinitial values15000 mol/s,70000 J/mol,8e6 Pa;ratio .7 andisentropic efficiency .8 fixed. Initialization mustleave3 inletDOF free andsatisfy everyactive equality toabsolute1e-4. It isnot a fullyfixed operating-point solve. Shaftspeed60 s⁻¹/mechanicalefficiency1 arefixed defaults;speed feeds a specific-speed expression,not a shaftdynamic law. |
+| Inlet stage,rating | Inletinitial values6500 mol/s,24.233e6 Pa,h from880 K atthatpressure. Fixed defaultflowcoefficient1.053/3600 kg K½/(Pa s),blade reaction .9,velocity110 m/s,nozzle efficiency .95,mechanical efficiency1;isentropic efficiency andratio solved fromvelocity/flow correlations. Initializer restores3 inletDOF. |
+| Inlet stage,coefficient calculation | Sameinlet;ratioinitial .6,initialize(calculate_cf=True) temporarilyfixes ratio andfrees coefficient,thenretains thecalculated coefficient while restoring originalspecification. Subsequentfixed-inlet solvechecks ratio .6/zeroDOF. This iscoefficient calibration,not independent validation ofthedefault coefficient. |
+| Inlet time-indexed cases | Parenttime0..4 s,4 backwardfinite elements;constantinlet asabove atall5 points,coefficientfixed. Defaultcoefficient andcalculate_cf=True/.6 ratio variants check residual/DOF restoration. Nochangingboundary,carryover orinitial inventory. |
+| Outlet stage,coefficient calculation | Inletinitial15000 mol/s,47115 J/mol,80000 Pa;outlet40000 Pa fixed. Both theordinary initialization test andexplicitcalculate_cf test **fitcoefficient**,because its initializer defaultsTrue. Firstretains2 DOF;second fixesinleth/P andchecks solvedflow15000/zeroDOF. |
+| Outlet time-indexed calibration | Dynamicparent'sdefault timehorizon,4 backwardelements;constantinleth47115/P80000 andoutlet40000 fixed,flow guesses15000,coefficientfixed beforecalculate_cf=True initialization. Residual andflow/DOF checks remainpseudo-steady coefficient behavior. Explicitcalculate_cf=False default-coefficient rating isanother requiredrole. |
+| Base turbine/generic comparison | BothgenericTurbine andHelmIsentropicTurbine get1000 mol/s,h from500 K/1e6 Pa,outlet700000 Pa,efficiency .9. Sourcecompares outletT andsignedwork relative1e-7 afterinitialization. SharedIAPWS95 means this isformulation correspondence,not an independent propertyoracle. |
+| Multistage,reheater rating andcoefficient-calibration routes | Both use4 parallelthrottle/inletstages,HP7/IP14/LP11 regularstages plus1 outletstage. HPsplitafter4/7,IPafter5/14,LPafter4/7/9/11;IP14 has3 outlets,otherextractions2. HP7 disconnectinsertsone genericreheater beforeIP1 withoutletT880 K. Two routes sharetopology/steam butdifferent coefficient/initialization specifications below. |
+
+Outlet science addsStodola flow,exhaust-volume fifth-order loss andwetness
+efficiency. Defaultcoefficient .0333 kg K½/(s Pa),dry efficiency .87,
+design exhaust6000 m³/s andmechanicalefficiency1 arefixed;losscoefficients
+c0..c5=[6400,−32800,63800,−54200,22000,−3500] J/mol arefixed. Wetnessuses
+outletvaporfractionx andfactor x*(1−.65*(1−x)),withloss/isentropic-enthalpy
+correction. Theseinline empirical inputs andtheir domainmustbe admitted
+ordinarily before usingthem asnative plantphysics. A waterproperty witness
+doesnot qualify anexhaust-loss/partial-admission correlation.
+
+The multistage inlet isinitiallyfixed26000 mol/s,24.233e6 Pa,h from880 K.
+RegularHP/IP/LP stage ratios arefixed .88/.85/.82 andefficiencies .9.
+Extractionfractions .03 atbothHPsplits,.04 atIP5/IP14 outlet2,.15 atIP14
+outlet3,and.04 ateachLPsplit arefixed. Defaultlinear vapor throttlevalves
+haveCv .1 mol/(s Pa)/opening1,subsequentlyfixed;inletmixer uses equalpressure.
+Totalinletflow isthenfreed,so26000 isnot a persistentflow boundary intherating
+route. Ratinginitializes disconnectedIP1 at7.802e6 Pa/880 K/25220 mol/s,
+temporarilyfixes thatinlet,thenreconnects viareheater andadds880 K outlet
+constraint. Calibration insteadstartsIP enthalpyfrom1.4e6 Pa/880 K,setsinlet
+stage ratio .6 andrequests calculate_inlet_cf/calculate_outlet_cf pluscopy
+disconnectedflow/pressure. It asserts recoveredtotalinletflow26000 aftersolve.
+Bothfinallyfix outletstage pressure **atitsinitialized value**,not anexplicit
+user-supplied condenserpressure inthisfixture. Freeze thatrealizedvalue in
+anexecution record before claiming anexactrating reference;do notinvent one.
+
+The multistage defaults aredifferent:4 parallel,HP2/IP10/LP5,noextractions/
+disconnections,twooutlets whenasplit isselected. Number/split/disconnection
+fields areinteger/list/dict domains,not a validatedall-integer catalog.
+Sourceindexes first/laststages directly;zero/negativecounts,out-of-range or
+duplicate splitindices,mismatched outletmaps andunconnectedexternal ports
+needexplicit admissibility/refusal controls. Otherfinite planttopologies,
+liquid/vapor valvephase,linear/quick-opening/equal-percentage andcustom
+callback selections remainrequired. A customvalve selection withoutcallback
+refuses;noncustom callbackwarns andusesselectedbuilt-in law. The authored
+train selectslinear/Vap only. Thermodynamicpower sumsallstages;extraction
+streams andreheater dutybelong inwholetrain component/energy accounting.
+
+Source tests emphasizeequality residuals1e-4 andDOF restoration;multistage
+doesnot supplyanindependent outputpower/efficiency oracle merely bysolving.
+Ipopt with20-iteration multistage limit,externalIAPWS/Helmholtz andexact
+serializer behavior remainreference prerequisites. Missingexternal functions
+cannot becomea localparityskip. Ordinary empirical/data provenance,native
+stage/train topology/fixed-free/products,remainingcategorical controls and
+independent numerical acceptance remainopen F02/D02/D04 obligations. Source
+andAST readsran noenthalpy evaluation,initializer,turbine orsolver.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
