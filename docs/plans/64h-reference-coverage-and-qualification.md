@@ -432,6 +432,14 @@ seed mismatch,weakstandalonetemperatureguard andfinalboundstripping remain
 explicit. Ordinary data/nativefeasibility andfullindependent scientific
 qualification remainrequired;optimalityalone doesnotcloseSCPC physics.
 
+**Update, 2026-11-05 — carbon purification census:** the
+[CPU closure](64h-required-process-population.md#carbon-purification-surrogate-configurationinput-closure--2026-11-05)
+resolves18 active fit relations versus8 unused helpers,thefive-species
+argumentorder,balanced vent products andsole1260 mol/s experiment. That
+test isbelow thestatedtraining range;inletT/P areunused anddomain bounds
+absent. Ordinary provenance/training,native admissibility/conservation and
+independent numerical qualification remainrequired.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

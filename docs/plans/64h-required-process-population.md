@@ -3686,6 +3686,79 @@ profile/conservation andproperdomain products. Archivedsupercritical wrapper
 comparison andremainingunitcategorical cases stillremainrequiredcensuswork.
 Source/AST readsran noenthalpyfunction,network,serializer,initializer orsolver.
 
+## Carbon purification surrogate configuration/input closure — 2026-11-05
+
+**Interface-checked, source only:** C `power_generation/unit_models/cpu.py`
+and `tests/test_cpu.py` resolve one CarbonProcessingUnit experiment. It is
+an empirical cryogenic-purification surrogate with one inlet and three
+outlets named pureco2,water,vent. It does not construct a cryogenic column,
+compressor train,property package or energy balance. Five component identities
+are fixed:Ar,CO2,O2,H2O,N2; arbitrary species subsets/orderings are not a
+configuration family in this owner.
+
+The actual function argument order is flow mol/s,Ar,CO2,O2,H2O,N2 fractions.
+Eighteen active surrogate relations specify cooling duty,compressor work,
+pure-product totalflow/T/P/four componentflows,water totalflow/T/P/four
+componentflows,andventT/P. Product/water N2 flows close from their totalflow
+andfraction normalization;vent componentflows close from five unit component
+balances,then vent totalflow/fractions close. Eight other fitted helper
+functions (productN2,waterN2,venttotal andfive ventcomponents) exist but are
+**not called by the model**. Do not compare native balanced vent products
+against those unused fits or assume ventH2O=0 because its unused helper
+returns zero. Pure-product H2O is actively fixed to0 by its fit.
+
+The coefficient functions are inline affine combinations/constants;there is
+no fitted JSON,CSV,trainer executable,saved initialization or external EOS
+input. Work,cooling,totalproduct andproductCO2 depend on flow andCO2 fraction;
+waterflow/H2O fits depend on **O2** fraction (argument4),not inletH2O
+(argument5). Remaining component/T fits consume their actual selected
+arguments. Preserve that mapping;substituting a scientifically more plausible
+water-input coefficient would be changed science. The source describes
+ALAMO fitting from300 Latin-hypercube samples of a rigorous model,but ships
+no sample population,bounds for each composition,split,seed,trainer options
+or rigorous-process input/model. Those remain held required training/
+provenance obligations,not established by direct evaluation of shipped fits.
+
+Source stated flow range10850..11850 lbmol/h (expected11350) converts to
+1367.077..1493.075 mol/s (expected1430.076),using453.59237 mol/lbmol. The
+only test fixes **1260 mol/s**,below that stated training range,with
+Ar .005,CO2 .900,H2O .05,N2 .025,O2 .02 (sum1). It initializes withIpopt
+tol1e-7,ma27,max_iter40,release_state=False,then solves. Source targets
+pure/water/vent flows1103.3/37.1/119.6 mol/s (absolute .1),CO2 purity>.99,
+cooling35262510 W andwork21402861.6 W (absolute1). Both duty andwork are
+positive reported empirical products;there is no enthalpy-based energy
+equation establishing their sign/boundary relation.
+
+Source training assumptions specify inlet100°F/14.7 psia,about310.928 K/
+101353 Pa,but actual inletT/P variables are unused by the equations and
+unfixed by the test (initial values110 K/17 Pa). Their port presence does
+not grant thermal/pressure response. The DOF statistic excludes unused
+variables;zero DOF after fixing flow/five fractions does not resolve those
+physical inlet states. There is no inlet-fraction-sum equation;component
+balances imply totaloutflow=Fin*sum(inletfractions),so the physical totalflow
+closure requires normalized admitted inlet fractions. Flow/fraction variables
+have no positivity/simplex bounds. Negative residual species/outputs outside
+the fit domain therefore need native admissibility and failure controls,
+not acceptance solely from optimal termination.
+
+The build method bypasses the parent UnitModel build and creates algebraic
+variables/constraints at parent times;no storage or dynamic accumulation is
+present. Its initializer always usesIpopt despite its solver argument,
+fixes onlytime0 flow/fractions,andwith defaultrelease_state=True unfixes all
+six afterward rather than restoring their original fixedness. The selected
+test deliberately usesFalse. Other release/time/invalid-input configurations
+retain explicit execution/refusal work;this isnot an inventory controller
+or general multi-time initialization witness.
+
+Native F02/G04 requires selected artifact mathematics andargument mapping,
+three complete outlet products,component/element closure,fit/training domain,
+andseparate ordinary provenance for an empirical process replacement.
+Reference evaluator/embedding evidence must not become ordinary rigorous
+cryogenic/separation/energy science. ExactIpopt compatibility,source-domain
+extrapolation permission,training closure andindependent numerical
+qualification remain open. Source/AST andunit-conversion arithmetic here
+executed no fitted helper,model initializer or solver.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
