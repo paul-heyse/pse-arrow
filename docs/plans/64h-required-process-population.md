@@ -4914,6 +4914,68 @@ original ordinary-source admission and complete component/grid/dynamic/
 derivative qualification remain required. Only source inspection ran; no
 property, exchanger, initializer, external function or solver was executed.
 
+## Lumped-capacitance exchanger and wall-only dynamics — 2026-11-05
+
+**Interface-checked, source only:** C `models/unit_models/heat_exchanger_lc.py`,
+its test, `power_generation/properties/tests/test_flue_gas_integration.py`
+and V `apis/v2_0_0/examples/unit_models/test_heat_exchanger_lc.py` define
+four scientific specifications. Their property/correlation prerequisites are
+the saponification liquid, IAPWS95, modular BT_ideal, SWCO2 and FlueGas
+owners; no data file, serialized state or trainer is read. V's historical API
+example still needs execution against the pinned2.13 environment.
+
+The specialized switch `dynamic_heat_balance` defaults to the flowsheet's
+dynamic setting, independently of the fluid CV setting. Unit dynamic
+defaults to that heat switch, and holdup defaults to unit dynamic. A dynamic
+heat balance in a steady flowsheet is refused; dynamic fluid with the heat
+switchFalse is refused; dynamic fluid with holdupFalse is refused. A dynamic
+flowsheet can therefore select wall-only storage with steady/no-holdup
+fluid CVs, both wall/fluid dynamics with holdup, or a fully steady unit.
+Steady holdupTrue remains a storage-definition option without derivatives.
+Base exchanger per-side balances, phase/pressure selections, flow pattern
+and driving-force callback still apply. Activating wall dynamics when the
+switchFalse is refused; initialization temporarily substitutes the base
+steady heat balance, then restores the dynamic heat balance.
+
+Wall capacity is a **total J/K**, hot/cold conductances are **W/K** and
+wall/fouling resistances are **K/W**. Default capacity1 J/K and all three
+resistances0 are explicit source defaults, not identified material data.
+Overall UA combines both film resistances and all wall/fouling resistances;
+the hot-film-to-wall path uses half the wall resistance. Mean wall
+temperature uses the mean hot inlet/outlet and hot-side heat; it is not a
+separate distributed wall profile. The dynamic heat account includes total
+capacity×wall-temperature derivative; the initial derivative is fixed0.
+
+| Scientific selection | Actual fixed/free roles and source products |
+|---|---|
+| C saponification-liquid crossflow | Steady,wall switchFalse; both feeds .001 m3/s at101325 Pa,hot320/cold300 K,concentrations H2O55388,NaOH100,ethyl acetate100,sodium acetate/ethanol0 mol/m3. Area1000 m2,hot/cold UA200000 W/K,crossflow factor .6,zero resistances. No reaction package is selected. Targets hot301.3/cold318.7 K(abs.1 K),unchanged flows/composition/pressure. A separate initializer test supplies inlet values without fixing them,sets driving differences lower bounds1e-8,and disables writer linear presolve; this is an initialization-role selection, not another fluid model. |
+| C two-time IAPWS structural/dynamic case | Dynamic flowsheet0..1 s,one BACKWARD finite-difference element; unit dynamicFalse,wall dynamics inheritedTrue,fluids no holdup. Both feeds100 mol/s/101325 Pa,hot h4000/cold h3000 J/mol,area1000 m2,both UA100 W/K. Assignment `heat_capacity=100` does not target `heat_capacity_wall`,so actual capacity remains1 J/K. Source asserts optimal solve/numerical controls but supplies no independently expected transient trajectory. Structural checks explicitly suppress evaluation errors and DAE unit-consistency warnings; the unconstrained model has a separate unit check. |
+| V water/BT_ideal crossflow | Steady wall switchFalse,hot water100 mol/s/101325 Pa with h from400 K; cold BT250 mol/s,benzene/toluene .4/.6,380 K/101325 Pa. Area50 m2,both UA200000 W/K,crossflow factor .6,default zero resistances. Despite nearby comments, the fixed quantities are conductances, not film coefficients per area. Targets hot380.00/cold382.38 K(abs.01 K),optimal solve/zero DOF. |
+| C sCO2/air wall-transient case | Dynamic flowsheet0..1500 s with initial knots every300 s,49 BACKWARD elements/50 total time points; fluid dynamicFalse,wall switch inheritedTrue. Hot tube SWCO2,13896.84163 mol/s,384.35 K/7.653 MPa enthalpy inlet,outlet pressure fixed7.5 MPa; hot pressure-changeTrue. Cold shell FlueGas,nominal44004.14222 mol/s,288.15 K/101325 Pa,no pressure change. Component factors H2O .01027,CO2 .000411592,N2 .780066026,O2 .209252382,NO/SO2 zero(sum1). Cold/hot UA=690073.9153×22 and19542.2771×1000 W/K; area1 m2,crossflow factor .8,capacity1160×322×466=174060320 J/K. Hot outlet h upper bound is inlet h;cold outlet T lower bound288.15 K. |
+
+The sCO2 case's undisturbed targets are hot305.2,cold370.4,wall339.7 K
+at all50 time points(rel.001). The disturbed cold-inlet schedule is278.15 K
+over[300,600),288.15 over[600,900),298.15 over[900,1200),then288.15.
+At times[0,300,600,900,1200,1500] s, source targets hot
+[305.2,304.9,305.1,306.5,305.7,305.2],cold
+[370.4,373.1,370.3,365.9,370.7,370.4],wall
+[339.4,338.7,339.1,340.7,339.9,339.4] K(rel.001).
+The initial disturbed wall target339.4 differs from the undisturbed339.7;
+preserve these source assertions and establish a consistent independent
+initial state rather than silently changing one. The solve calls in that
+test do not themselves assert solver termination. Temperature samples do
+not establish energy accumulation, complete trajectory or derivative accuracy.
+
+Native D02/E03/F02 requires total capacity/resistance/conductance semantics,
+independent fluid/wall storage switches, consistent initialization and staged
+activation, actual property packages/phase products, physical outputs and
+energy/derivative/grid controls. Nonzero film conductances/area, admissible
+resistances/capacity and LMTD temperature domains need explicit guards.
+Finite fouling/resistance and coupled fluid/wall dynamics remain unexercised
+source alternatives; original material/property provenance, reference
+compatibility and full independent physical/dynamic qualification remain
+required. No thermal or solver execution ran for this census.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

@@ -586,6 +586,15 @@ explicit. Legendre pressure-change and gas-phase guards are retained;
 ordinary coefficient provenance, unselected branches and full independent
 fluid/wall/header/grid/dynamic qualification remain required.
 
+**Update, 2026-11-05 — lumped-capacitance census:** the
+[wall-dynamics closure](64h-required-process-population.md#lumped-capacitance-exchanger-and-wall-only-dynamics--2026-11-05)
+resolves four physical specifications, including a fifty-time-point
+sCO2/air disturbance and distinct wall-only/fluid dynamics guards. Total
+capacity/conductance units, an ineffective capacity assignment and differing
+initial wall assertions remain explicit. Ordinary material provenance,
+consistent independent initialization, grid/energy/derivative products and
+full qualification remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
