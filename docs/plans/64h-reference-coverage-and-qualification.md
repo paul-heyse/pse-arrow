@@ -195,6 +195,17 @@ Ordinary data, native distributed/solid physics, remaining configurations and
 independent execution remain open; moving/fluidized/NETL-32D cases are separate
 required families and the existing native spatial dynamic refusal remains intact.
 
+**Update, 2026-11-05 — held NETL-32D source closure:** the crosswalk's
+[two-stage census](64h-required-process-population.md#held-netl-32d-adsorptiondesorption-closure--2026-11-05)
+resolves the actual adsorption/desorption meshes, constant feeds, solid inventory
+transfer and imposed thermal reset, inherited forward/isothermal configuration,
+four helper inputs and PETSc/ma27 prerequisites. It also retains source metric,
+unit and composition issues requiring explicit disposition; no corrected metric
+or normalization has been silently adopted. Wrapper horizon edits do not alter
+the constructed time set. This family remains required, held execution, separate
+from TSA0D and methane/iron beds. Ordinary data, native physics/state mapping,
+current reference compatibility and independent execution remain open.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

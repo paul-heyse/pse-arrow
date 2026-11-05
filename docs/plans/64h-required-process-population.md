@@ -1235,6 +1235,103 @@ configurations; missing ordinary records, nondefault categorical closure,
 continuous validity, matched execution and all moving/fluidized/adsorption
 families remain required and open.
 
+## Held NETL-32D adsorption/desorption closure — 2026-11-05
+
+**Interface-checked, source only:** X's held
+`flowsheets/CO2_adsorption_desorption/CO2_Adsorption_Desorption_1DFixedBed*.ipynb`
+selects one coupled two-stage experiment, with four wrapper entry points. The
+source closure is X's `mod/co2_adsorption_desorption/` gas and solid property
+modules, adsorption reaction module and `simulation_utilities.py`, C's
+`gas_solid_contactors/unit_models/fixed_bed_1D.py`, and
+`core/solvers/petsc.py`. Required, held execution remains its disposition. This
+material is neither the zeolite TSA0D model nor the methane/iron reactive bed.
+
+| Stage/role | Actual fixed inputs and transferred state |
+|---|---|
+| Adsorption | Dynamic bed, diameter9 m, height1 m, 50 backward finite-difference spatial elements. Time set is fixed at0,27000,54000,81000,108000 s: four time elements. Inlet3.544 mol/s,303.15 K,124520 Pa, gas fractions CO2 .0408/H2O .0875/N2 .7517/O2 .12, fixed throughout the stage. Initial gas flow, temperature and composition match that inlet at every spatial point; interior initial pressure is not prescribed by this helper. Initial solids are442 kg/m³,303.15 K, fractions H2O_s1e-8/Car1e-8/SiO1 at every spatial point. |
+| Desorption | New dynamic bed of identical geometry/spatial mesh, time set0,7200 s, one time element. Inlet10 mol/s,470 K,106525 Pa, H2O1 and CO2/N2/O2 each1e-8, fixed throughout. Initial gas flow/temperature/composition are replaced by that feed. Every spatial solid density and component fraction is populated from the adsorption trajectory's last stored time; solid temperature is reset to470 K. These values seed all desorption time points, then the initial-time values are fixed. Gas inventory is not transferred. |
+| Initial-state/domain guards | Degrees of freedom must be zero. At each stage's initial inlet the helper requires ideal-gas inlet velocity no greater than the fixed minimum-fluidization velocity .0091 m/s, using solid temperature, R8.314 and pi3.14. This is a fixed-bed admissibility check, not a fluidized-bed capability. |
+
+Both stages inherit forward gas flow, component-total material and total-pressure
+balances with Ergun pressure loss; no reverse-flow selection is supplied.
+`energy_balance_type=none` constructs gas temperatures tied to the local initial
+solid temperature away from inlet/initial points and solids tied to their own
+initial temperatures. Thus each stage is isothermal at its imposed temperature;
+neither heating/cooling dynamics nor an energy-conserving temperature jump is
+solved. The wrapper's helper `ntfe`/`nxfe` are mesh inputs, not an enumerated
+scientific parameter sweep. The base/test wrappers divide the scalar `horizon`
+by10 **after** constructing the adsorption time set and never use that changed
+scalar before redefining it for desorption. Doc/user wrappers omit that statement;
+all four therefore retain the same actual108000 s adsorption experiment.
+
+The gas helper is an ideal-gas N2/O2/CO2/H2O package with inline molecular masses
+and formation enthalpies,32 Shomate coefficients,16 viscosity coefficients,
+16 conductivity coefficients and4 diffusion volumes. These named tables in the
+fixed source are the coefficient closure; there is no runtime NIST/Perry query.
+Their source attributions are leads for ordinary-data provenance, not an admitted
+temperature envelope: a single Shomate range per component is used, without
+piecewise range switching. The solid helper's fixed parameters are particle
+diameter1.5e-4 m, minimum-fluidization voidage .5, bed voidage .45, nominal
+density442 kg/m³, heat capacity1.13 **J/(kg·K)**, conductivity1.36 W/(m·K), and
+reference temperature298.15 K. Solid molecular masses are .018/.044/.06 kg/mol
+for H2O_s/Car/SiO; SiO is a surrogate material with a placeholder molecular mass.
+The declared heat-capacity unit/value must be resolved scientifically rather
+than silently interpreted as kJ/(kg·K). Actual density is a state inventory,
+not merely a constant-density parameter.
+
+Two heterogeneous molar reactions transfer one gas H2O to H2O_s and one gas
+CO2 to Car. Respectively their fixed reaction enthalpies are−52100/−64700 J/mol,
+entropies−78.5/−174.6 J/(mol·K), activation energies28200/57700 J/mol, and
+pre-exponential parameters56234.13/100 in the source's declared mol/(m³·s)
+units. The rate-constant law also multiplies by smoothed temperature, floored
+at298.15 K; dimensional treatment of that extra temperature factor belongs to
+ordinary formulation/data resolution. Equilibrium depends on pressure and
+temperature. CO2 uptake includes squared amine-site availability with fixed
+amine loading1900.46 mol/m³; water uptake and both reverse terms depend on
+solid loading/density. This is a kinetic two-sorbate model, not a pure CO2
+equilibrium isotherm. Initial solid fractions sum to1.00000002 and desorption
+feed fractions to1.00000003; adsorption feed sums to one. Preserve these exact
+reference inputs and establish an explicit composition allowance/native
+admissibility disposition rather than normalizing them implicitly.
+
+Initialization uses block triangularization, Ipopt with ma27, maximum100
+iterations, user scaling and variable-calculation epsilon1e-5. Each stage then
+uses C's ASL PETSc executable interface with backward Euler, initial step200 s,
+time relative tolerance20, Krylov relative tolerance1e-10, trust-region Newton,
+up to1000 SNES failures, and saved trajectory. Initial conditions are solved
+again (`skip_initial=False`, default `petsc_snes`). The executable and compatible
+PETSc trajectory reader (`PetscBinaryIOTrajectory`, directly importable or in a
+`petscpy` directory alongside PETSc/IDAES binaries) are prerequisites in addition
+to Ipopt/ma27 and the pinned Pyomo/core environment. Generated solver/trajectory
+files are outputs, not preexisting saved initialization or scientific input
+artifacts. The four helpers load no CSV, external parameter file, trainer or
+serialized model; pandas/matplotlib/NumPy serve trajectory reporting/plots.
+
+`simulation_utilities.py` derives spatial/time integrals of reaction heat,
+adsorbed-water/carbamate inventories, inlet/outlet CO2, recovery, purity,
+productivity, annual capture and thermal duties. Its actual metric definitions
+need separate disposition before comparison: water desorbed subtracts the same
+final inventory from itself; preheating and precooling both multiply by
+303.15−470 K; productivity uses1e-6 times kg for an adsorbent quantity labelled
+tonnes; annualization assumes8760 hours and omits heating/cooling time. Both
+stages still flow forward despite a helper's interpretation of desorption heat
+sign as flow reversal. The final spatial plotting call also repeats adsorption
+instead of selecting desorption. These are source limitations, not permission
+to adopt corrected outputs without a documented reference distinction. Require
+independent component/gas-solid inventory and thermal/sign/unit controls, with
+chosen reported metrics and allowances stated explicitly.
+
+Bounded inspection of native reference declarations, modeling and horizon/dynamic
+owners found no NETL-32D case. E04/F02/F05 still require native solid uptake,
+distributed gas storage/transport, explicit stage transfer and matched outputs;
+the existing spatial dynamics refusal remains. Ordinary coefficient/provenance
+and physical-domain admission belong to B; these fixed external dictionaries
+are oracle inputs only until that work closes. PETSc availability, exact
+examples/core compatibility, metric repairs/dispositions and numerical/native
+qualification remain open. An ephemeral AST comparison established the wrapper
+difference and the inline table cardinalities without importing models or
+executing any solver; this supplies source census evidence only.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
