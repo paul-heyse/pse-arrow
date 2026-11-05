@@ -114,6 +114,180 @@ fn scientific_recipe_native_projection_keeps_current_json_and_qualified_restorat
     assert_eq!(recipe.interpretation, INTERPRETATION);
     assert!(recipe.syntax.restore(recipe.occurrences).is_err());
 }
+
+#[cfg(test)]
+mod proof_reconstruction_tests {
+    use super::*;
+    use pse_contract::boundary_projection::ProjectionRecord;
+    use pse_kernels::DerivativeOrder;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[derive(Debug)]
+    struct Admission {
+        refuse: bool,
+        first: AtomicUsize,
+        calls: AtomicUsize,
+    }
+    impl Admission {
+        fn new(refuse: bool) -> Arc<Self> {
+            Arc::new(Self {
+                refuse,
+                first: AtomicUsize::new(0),
+                calls: AtomicUsize::new(0),
+            })
+        }
+    }
+    impl pse_math::construction::ConstructionAdmission for Admission {
+        fn try_grow(&self, bytes: usize) -> Result<(), MathError> {
+            if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                self.first.store(bytes, Ordering::SeqCst);
+            }
+            if self.refuse {
+                Err(MathError::ByteLimit {
+                    resource: "test mathematical receipt reconstruction",
+                    required: bytes,
+                    available: 0,
+                })
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    #[test]
+    fn scientific_recipe_native_authored_proofs_preadmit_replay_and_preserve_execution() {
+        let owner = direct_tests::fixture(
+            crate::authored_transfer_tests::context(),
+            "package direct { fn left(x:Scalar)->Scalar piecewise 2 = if x<0 then 0 else x*x*x; fn right(x:Scalar)->Scalar piecewise 2 = if x<1 then 0 else (x-1)*(x-1)*(x-1); def Root { var x:Scalar; let out:Scalar=left(x)+right(x); } }",
+            &["out"],
+        ).unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let original = owner.admit(&cancel).unwrap();
+        let payload = original.portable_payload().unwrap();
+        let recipe = Recipe::decode(&payload).unwrap();
+        let (version, entries) = recipe.proofs.clone().into_projection_fields();
+        assert_eq!(
+            entries.len(),
+            2,
+            "both authored piecewise proofs must survive"
+        );
+        let branch_bytes = entries
+            .iter()
+            .map(|entry| {
+                let (_, branches) = entry.clone().into_projection_fields();
+                assert!(!branches.is_empty());
+                branches.len()
+            })
+            .sum::<usize>();
+        let requested = 2 * size_of::<pse_math::typed::receipts::Proof>() + branch_bytes;
+        let restore = |payload: &[u8]| {
+            reconstruct_fixture(
+                payload,
+                portable_payload_hash(payload),
+                original.spec(),
+                &owner.context.quantities,
+                &cancel,
+            )
+        };
+        let refused = Admission::new(true);
+        let error = pse_math::construction::scoped(refused.clone(), || restore(&payload))
+            .err()
+            .unwrap();
+        assert!(
+            matches!(error, MathError::ByteLimit {
+            resource: "test mathematical receipt reconstruction", required, available: 0,
+        } if required == requested),
+            "{error}"
+        );
+        assert_eq!(refused.calls.load(Ordering::SeqCst), 1);
+        assert_eq!(refused.first.load(Ordering::SeqCst), requested);
+
+        let admitted = Admission::new(false);
+        let restored =
+            pse_math::construction::scoped(admitted.clone(), || restore(&payload)).unwrap();
+        assert_eq!(admitted.first.load(Ordering::SeqCst), requested);
+        assert_eq!(restored.portable_payload().unwrap(), payload);
+        assert_eq!(
+            restored.math().checked_members(),
+            original.math().checked_members()
+        );
+        assert_eq!(
+            restored.math().checked_sources(),
+            original.math().checked_sources()
+        );
+        assert_eq!(
+            restored.math().occurrence_tokens(),
+            original.math().occurrence_tokens()
+        );
+
+        for body in [&original, &restored] {
+            let compiled = body
+                .math()
+                .compile(
+                    &[0],
+                    &[0],
+                    DerivativeOrder::Second,
+                    pse_math::library::Optimization::default(),
+                    pse_math::jets::EvaluationLimits::default(),
+                    &pse_kernels::ExecutionScope::new(
+                        pse_diagnostics::Cancellation::default(),
+                        None,
+                    ),
+                )
+                .unwrap();
+            let mut worker = compiled.worker();
+            for (x, value, first, second) in [
+                (-2.0, 0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0, 0.0),
+                (0.5, 0.125, 0.75, 3.0),
+                (2.0, 9.0, 15.0, 18.0),
+            ] {
+                let jet = worker
+                    .evaluate(
+                        &[x],
+                        DerivativeOrder::Second,
+                        &mut pse_kernels::ProviderBindings::new(),
+                        &cancel,
+                    )
+                    .unwrap();
+                for (actual, expected) in [
+                    (jet.values[0], value),
+                    (jet.jacobian[0], first),
+                    (jet.hessians[0], second),
+                ] {
+                    assert!(
+                        (actual - expected).abs() < 1e-12,
+                        "x={x}: {actual} != {expected}"
+                    );
+                }
+            }
+        }
+
+        for (changed, expected) in [
+            (
+                entries.iter().rev().cloned().collect::<Vec<_>>(),
+                "mathematical proof request differs",
+            ),
+            (entries[..1].to_vec(), "missing mathematical proof receipt"),
+            (
+                {
+                    let mut extra = entries.clone();
+                    extra.push(entries[0].clone());
+                    extra
+                },
+                "unconsumed mathematical proof receipts",
+            ),
+        ] {
+            let mut changed_recipe = recipe.clone();
+            changed_recipe.proofs =
+                pse_math::typed::receipts::ProofStream::from_projection_fields((version, changed))
+                    .unwrap();
+            let changed = changed_recipe.encode().unwrap();
+            let error = restore(&changed).err().unwrap();
+            assert!(error.to_string().contains(expected), "{error:?}");
+        }
+    }
+}
 fn contract(error: impl std::fmt::Display) -> MathError {
     MathError::Contract(error.to_string())
 }
