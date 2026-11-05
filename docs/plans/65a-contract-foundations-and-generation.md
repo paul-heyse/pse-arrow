@@ -560,17 +560,16 @@ retain independent plugin outputs where that is simpler. Do not reproduce Buffa 
 assembly in each consumer. Keep `extern_path`, naming, excluded packages, validators and service
 generation consistent. A mapped Rust type must satisfy the contracts of its actual field position.
 
-A04's bounded supplier assessment retained separate plugin output trees for the current route.
+A04's earlier bounded supplier assessment retained separate supplier output trees.
 The prepared service generator is **connectrpc-codegen 0.9.0**, distinct from runtime 0.9.1.
 Its `generate_services` emits package stitchers/companions, but the protoc response retains only
 name/content, losing Buffa package/kind metadata. The validator separately emits an import-aware
 `mod.rs` and per-source files with their existing scope. Forcing these through Buffa
 `apply_companions` would require metadata reconstruction, renaming and new orphan/collision
 handling; the helper itself neither deduplicates nor rejects orphan packages. Preserve those
-supplier layouts. Remaining A04 work can generate the consumer facade from actual selected
-descriptors/emitted files and preflight independent-world merge collisions, while keeping
-intentional same-producer provenance refresh explicit. No such migration is implemented in
-this consolidation. Sources: [service generator](https://docs.rs/crate/connectrpc-codegen/0.9.0/source/src/codegen.rs),
+supplier layouts. The November 5 source-projection cutover below retains that separation while
+preserving typed service output metadata. Consumer facade generation from actual selected
+descriptors/emitted files remains open. Sources: [service generator](https://docs.rs/crate/connectrpc-codegen/0.9.0/source/src/codegen.rs),
 [Buffa composition](../../vendor/buffa-codegen/src/lib.rs),
 [validator layout](../../vendor/protoc-gen-protovalidate-buffa/src/emit/mod.rs) and
 [current orchestration](../../xtask/src/codegen/proto_projection.rs).
@@ -615,8 +614,9 @@ The maintained [validator entrypoint](../../vendor/protoc-gen-protovalidate-buff
 options described by newer upstream references.
 
 **Execution target, Interface-checked on November 5:** select typed in-process split composition,
-retaining the current admitted plugin route until the complete equivalence population below
-passes. The generators already belong to tooling; removing request serialization, duplicate
+migrating complete consumer worlds with their equivalence controls. The authored Buf worlds
+retain their admitted plugin route until their own migration; no second source-projection route
+is retained. The generators already belong to tooling; removing request serialization, duplicate
 external preflight preparation and subprocess warning loss improves the ownership structure.
 The tradeoff is a larger xtask linkage and loss of per-plugin process isolation. No generation
 speedup is established. Buffa and Connect retain their actual typed `GeneratedFile` metadata;
@@ -640,7 +640,36 @@ absolute `extern_paths`, with longest-prefix WKT mappings, until consumers migra
 Check complete paths and package mounts before any map collection or cross-world tree extension;
 the final insertion check cannot recover overwritten entries. Current plugin success and
 response-error paths discard stderr, so warning attribution is a required migration control.
-These are concrete input/output contracts for the selected target, not completed adoption.
+These are concrete input/output contracts for the selected target; the implementation boundary follows.
+
+**Implemented on main, November 5:** `ProjectionGeneration` retains the full effective
+source-aware corpus, admitted `CodeGenConfig`/shared context and original typed Buffa
+`GeneratedFile`/`CodeGenWarning` vectors. Source-owned worker, engineering, reference, native-root,
+developer-evidence and Recipe worlds use Connect's service-only generator and one validator
+`prepare`/`render` preparation. Their per-projection plugin subprocesses and duplicate preflight
+are removed. Message/support, service and validation trees retain their actual layouts;
+independent-world merges check paths and escaped package mounts before map extension.
+Same-producer provenance refresh remains explicit.
+
+Selected files excluded by package policy refuse before supplier entry, using Buffa's own
+`normalize_exclude_package` and `package_is_excluded`; excluded imports remain available for
+option interpretation. Sources: [Buffa admission helpers](../../vendor/buffa-codegen/src/lib.rs)
+and [typed projection admission](../../crates/pse-codegen/src/codegen/boundary_projection.rs).
+This closes the supplier-population divergence found in independent implementation review.
+
+The focused composition suite passed 67 controls without warnings; the subsequent exclusion
+and import-retention suite passed 63. Receiving-main `just codegen` completed all 14 targets.
+Generated-consumer compilation and validation, authored Buf cutover, generated facades and
+the remaining option/feature population still own A04 acceptance. No performance benefit
+has been measured.
+
+Imported-message CEL is narrower than complete import visibility: the maintained scanner
+admits selected messages into its CEL schema index. Traversing an unselected imported message
+returns structured `Unsupported` before rendering; it is not a rule skip or runtime fallback.
+Sources: [selected scanner](../../vendor/protoc-gen-protovalidate-buffa/src/scan.rs) and
+[CEL type admission and its imported-message control](../../vendor/protoc-gen-protovalidate-buffa/src/emit/cel_compile.rs).
+B03 retains any justified extension separating complete imported type visibility from the
+selected validator emission population.
 
 `apply_companions` remains optional: it does not reject every orphan or deduplicate outputs.
 `SharedCorpusContext` may be reused only for equal complete corpora and relevant representation

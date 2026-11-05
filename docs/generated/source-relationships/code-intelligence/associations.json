@@ -1,15 +1,15 @@
 {
   "descriptor_sha256": "4894a2c4f56301628f0a8627553aad28d58c5b711da4780739b31dc22c179ca1",
   "inputs": {
-    "Cargo.lock": "d5611e53a1ab95b7f5d792348f8822b01e3b6ee99b00156dbb9525a08579ab4a",
-    "Cargo.toml": "9657b875f9436e6c7a1543a9d6f6da2ed66e57a019d727570f3e9ff4289f70d4",
+    "Cargo.lock": "4b518a16dd8eb56421b7c5ddf81b721f68232df9621010919dc1d904d344d1ed",
+    "Cargo.toml": "4af49ecb0f115363b25f15979088b0455758e0de89e5399173b4e5e3b5f2492f",
     "crates/pse-host/proto/buf.gen.yaml": "a2c12699e9c7eb24cba739e18b2c777abb75734612894eb882834a6b80a26be3",
     "crates/pse-host/proto/buf.lock": "f167aece00cd881df9e57b220d5edeff1343c5020a6caed6b425a213f75991ee",
     "crates/pse-host/proto/buf.yaml": "647235719a93a58593b90d87641e03656ddcae35971f822322dc0e30eac528e0",
     "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto": "263fafafa9b53cffb155042cf87a2349d2508e2c4320b5d817e0eef588e0db7a",
     "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto": "a4ca9080f9e7b823960a1d5bfd2382b8f93ee9cd2635e45c8003213596e180bb",
     "scripts/protobuf-associations.rs": "9612092ad4a1424d391ad3843e1aa74f1d2257b2370f975422f8498fbc7c9a35",
-    "xtask/Cargo.toml": "37c53b06029bd8d0639a00b193a0818f17b6e73be3fc4b3c10714d15c8b7b3b8",
+    "xtask/Cargo.toml": "05556fe07c9a198dc09b27679aefd14895661be76e661acab998e12a022b18fd",
     "xtask/src/codegen/code_intelligence.rs": "7c74c378c8f65fc35b3724a5b448224876679ce230f141969b84d3d25cad683a",
     "xtask/src/codegen/code_intelligence/associations.rs": "75b8f68ae52e489a443ae03d720f8c78a52ff47774720446224f7771bef1e534"
   },

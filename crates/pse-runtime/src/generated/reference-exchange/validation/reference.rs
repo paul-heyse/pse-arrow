@@ -18,32 +18,42 @@ impl ::protovalidate_buffa::Validate for Array8PhysicalRatio {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("values")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("values")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.min_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at least {} items (got {})", 8usize, self
-                            .values.len()
+                            "list must contain at least {} items (got {})",
+                            8usize,
+                            self.values.len(),
                         ),
                     ),
                     for_key: false,
@@ -54,32 +64,42 @@ impl ::protovalidate_buffa::Validate for Array8PhysicalRatio {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("values")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("values")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.max_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at most {} items (got {})", 8usize, self
-                            .values.len()
+                            "list must contain at most {} items (got {})",
+                            8usize,
+                            self.values.len(),
                         ),
                     ),
                     for_key: false,
@@ -152,32 +172,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::Array8PhysicalRatioView<
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("values")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("values")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.min_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at least {} items (got {})", 8usize, self
-                            .values.len()
+                            "list must contain at least {} items (got {})",
+                            8usize,
+                            self.values.len(),
                         ),
                     ),
                     for_key: false,
@@ -188,32 +218,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::Array8PhysicalRatioView<
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("values")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("values")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.max_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at most {} items (got {})", 8usize, self
-                            .values.len()
+                            "list must contain at most {} items (got {})",
+                            8usize,
+                            self.values.len(),
                         ),
                     ),
                     for_key: false,
@@ -286,20 +326,26 @@ impl ::protovalidate_buffa::Validate for BasisId {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -314,31 +360,42 @@ impl ::protovalidate_buffa::Validate for BasisId {
                         .push(::protovalidate_buffa::Violation {
                             field: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(1i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(1i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(15i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                    None, value_type : None, subscript : None, },
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(13i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(15i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(13i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                             message: ::std::borrow::Cow::Owned(
                                 ::std::format!(
-                                    "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                    "value must be exactly {} bytes (got {})",
+                                    16usize,
+                                    v.len(),
                                 ),
                             ),
                             for_key: false,
@@ -385,20 +442,26 @@ impl ::protovalidate_buffa::Validate for __buffa::view::BasisIdView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -413,31 +476,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::BasisIdView<'_> {
                         .push(::protovalidate_buffa::Violation {
                             field: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(1i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(1i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(15i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                    None, value_type : None, subscript : None, },
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(13i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(15i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(13i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                             message: ::std::borrow::Cow::Owned(
                                 ::std::format!(
-                                    "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                    "value must be exactly {} bytes (got {})",
+                                    16usize,
+                                    v.len(),
                                 ),
                             ),
                             for_key: false,
@@ -498,31 +572,41 @@ impl ::protovalidate_buffa::Validate for BasisKind {
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(1i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(1i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(14i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(10i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("in")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(14i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(10i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("in")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("string.in"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be one of [{}]", ALLOWED.join(", ")
+                                "value must be one of [{}]",
+                                ALLOWED.join(", "),
                             ),
                         ),
                         for_key: false,
@@ -582,31 +666,41 @@ impl ::protovalidate_buffa::Validate for __buffa::view::BasisKindView<'_> {
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(1i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(1i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(14i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(10i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("in")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(14i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(10i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("in")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("string.in"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be one of [{}]", ALLOWED.join(", ")
+                                "value must be one of [{}]",
+                                ALLOWED.join(", "),
                             ),
                         ),
                         for_key: false,
@@ -665,31 +759,41 @@ impl ::protovalidate_buffa::Validate for CompositionBasis {
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(1i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(1i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(14i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(10i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("in")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(14i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(10i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("in")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("string.in"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be one of [{}]", ALLOWED.join(", ")
+                                "value must be one of [{}]",
+                                ALLOWED.join(", "),
                             ),
                         ),
                         for_key: false,
@@ -748,31 +852,41 @@ impl ::protovalidate_buffa::Validate for __buffa::view::CompositionBasisView<'_>
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(1i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(1i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(14i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(10i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("in")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(14i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(10i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("in")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("string.in"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be one of [{}]", ALLOWED.join(", ")
+                                "value must be one of [{}]",
+                                ALLOWED.join(", "),
                             ),
                         ),
                         for_key: false,
@@ -818,25 +932,34 @@ impl ::protovalidate_buffa::Validate for DocumentVersion1 {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("uint32")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("gte")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("uint32")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("gte")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("uint32.gte_lte"),
@@ -885,25 +1008,34 @@ impl ::protovalidate_buffa::Validate for __buffa::view::DocumentVersion1View<'_>
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("uint32")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("gte")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("uint32")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("gte")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("uint32.gte_lte"),
@@ -952,20 +1084,26 @@ impl ::protovalidate_buffa::Validate for EntityKindId {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -980,31 +1118,42 @@ impl ::protovalidate_buffa::Validate for EntityKindId {
                         .push(::protovalidate_buffa::Violation {
                             field: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(1i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(1i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(15i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                    None, value_type : None, subscript : None, },
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(13i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(15i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(13i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                             message: ::std::borrow::Cow::Owned(
                                 ::std::format!(
-                                    "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                    "value must be exactly {} bytes (got {})",
+                                    16usize,
+                                    v.len(),
                                 ),
                             ),
                             for_key: false,
@@ -1051,20 +1200,26 @@ impl ::protovalidate_buffa::Validate for __buffa::view::EntityKindIdView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -1079,31 +1234,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::EntityKindIdView<'_> {
                         .push(::protovalidate_buffa::Violation {
                             field: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(1i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(1i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(15i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                    None, value_type : None, subscript : None, },
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(13i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(15i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(13i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                             message: ::std::borrow::Cow::Owned(
                                 ::std::format!(
-                                    "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                    "value must be exactly {} bytes (got {})",
+                                    16usize,
+                                    v.len(),
                                 ),
                             ),
                             for_key: false,
@@ -2302,20 +2468,26 @@ impl ::protovalidate_buffa::Validate for PhysicalQuantityDescription {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("quantity")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("quantity")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -2356,20 +2528,28 @@ impl ::protovalidate_buffa::Validate for PhysicalQuantityDescription {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("quantity_kind")),
-                            field_type : Some(::protovalidate_buffa::FieldType::Message),
-                            key_type : None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("quantity_kind"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -2412,20 +2592,28 @@ impl ::protovalidate_buffa::Validate for PhysicalQuantityDescription {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("canonical_unit")),
-                            field_type : Some(::protovalidate_buffa::FieldType::Message),
-                            key_type : None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("canonical_unit"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -2468,20 +2656,28 @@ impl ::protovalidate_buffa::Validate for PhysicalQuantityDescription {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("representation_unit")),
-                            field_type : Some(::protovalidate_buffa::FieldType::Message),
-                            key_type : None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("representation_unit"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -2695,20 +2891,26 @@ for __buffa::view::PhysicalQuantityDescriptionView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("quantity")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("quantity")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -2749,20 +2951,28 @@ for __buffa::view::PhysicalQuantityDescriptionView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("quantity_kind")),
-                            field_type : Some(::protovalidate_buffa::FieldType::Message),
-                            key_type : None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("quantity_kind"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -2805,20 +3015,28 @@ for __buffa::view::PhysicalQuantityDescriptionView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("canonical_unit")),
-                            field_type : Some(::protovalidate_buffa::FieldType::Message),
-                            key_type : None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("canonical_unit"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -2861,20 +3079,28 @@ for __buffa::view::PhysicalQuantityDescriptionView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("representation_unit")),
-                            field_type : Some(::protovalidate_buffa::FieldType::Message),
-                            key_type : None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("representation_unit"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -3423,25 +3649,34 @@ impl ::protovalidate_buffa::Validate for PhysicalRatio {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("num")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Sint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("num")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Sint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(7i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("sint32")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("gte")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Sint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(7i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("sint32")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("gte")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Sint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("sint32.gte_lte"),
@@ -3456,25 +3691,34 @@ impl ::protovalidate_buffa::Validate for PhysicalRatio {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("den")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Sint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("den")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Sint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(7i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("sint32")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("gte")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Sint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(7i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("sint32")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("gte")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Sint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("sint32.gte_lte"),
@@ -3523,25 +3767,34 @@ impl ::protovalidate_buffa::Validate for __buffa::view::PhysicalRatioView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("num")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Sint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("num")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Sint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(7i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("sint32")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("gte")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Sint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(7i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("sint32")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("gte")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Sint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("sint32.gte_lte"),
@@ -3556,25 +3809,34 @@ impl ::protovalidate_buffa::Validate for __buffa::view::PhysicalRatioView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("den")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Sint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("den")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Sint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(7i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("sint32")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("gte")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Sint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(7i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("sint32")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("gte")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Sint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("sint32.gte_lte"),
@@ -4039,31 +4301,41 @@ impl ::protovalidate_buffa::Validate for QuantityAdditionKind {
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(1i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(1i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(14i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(10i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("in")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(14i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(10i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("in")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("string.in"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be one of [{}]", ALLOWED.join(", ")
+                                "value must be one of [{}]",
+                                ALLOWED.join(", "),
                             ),
                         ),
                         for_key: false,
@@ -4116,31 +4388,41 @@ impl ::protovalidate_buffa::Validate for __buffa::view::QuantityAdditionKindView
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(1i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(1i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(14i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(10i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("in")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(14i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(10i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("in")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("string.in"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be one of [{}]", ALLOWED.join(", ")
+                                "value must be one of [{}]",
+                                ALLOWED.join(", "),
                             ),
                         ),
                         for_key: false,
@@ -4193,31 +4475,41 @@ impl ::protovalidate_buffa::Validate for QuantityKindCategory {
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(1i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(1i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(14i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(10i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("in")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(14i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(10i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("in")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("string.in"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be one of [{}]", ALLOWED.join(", ")
+                                "value must be one of [{}]",
+                                ALLOWED.join(", "),
                             ),
                         ),
                         for_key: false,
@@ -4270,31 +4562,41 @@ impl ::protovalidate_buffa::Validate for __buffa::view::QuantityKindCategoryView
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(1i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(1i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(14i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(10i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("in")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(14i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(10i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("in")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("string.in"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be one of [{}]", ALLOWED.join(", ")
+                                "value must be one of [{}]",
+                                ALLOWED.join(", "),
                             ),
                         ),
                         for_key: false,
@@ -4340,20 +4642,26 @@ impl ::protovalidate_buffa::Validate for QuantityKindId {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -4368,31 +4676,42 @@ impl ::protovalidate_buffa::Validate for QuantityKindId {
                         .push(::protovalidate_buffa::Violation {
                             field: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(1i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(1i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(15i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                    None, value_type : None, subscript : None, },
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(13i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(15i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(13i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                             message: ::std::borrow::Cow::Owned(
                                 ::std::format!(
-                                    "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                    "value must be exactly {} bytes (got {})",
+                                    16usize,
+                                    v.len(),
                                 ),
                             ),
                             for_key: false,
@@ -4439,20 +4758,26 @@ impl ::protovalidate_buffa::Validate for __buffa::view::QuantityKindIdView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -4467,31 +4792,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::QuantityKindIdView<'_> {
                         .push(::protovalidate_buffa::Violation {
                             field: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(1i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(1i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(15i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                    None, value_type : None, subscript : None, },
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(13i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(15i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(13i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                             message: ::std::borrow::Cow::Owned(
                                 ::std::format!(
-                                    "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                    "value must be exactly {} bytes (got {})",
+                                    16usize,
+                                    v.len(),
                                 ),
                             ),
                             for_key: false,
@@ -4766,20 +5102,26 @@ impl ::protovalidate_buffa::Validate for QuantityTypeId {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -4794,31 +5136,42 @@ impl ::protovalidate_buffa::Validate for QuantityTypeId {
                         .push(::protovalidate_buffa::Violation {
                             field: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(1i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(1i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(15i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                    None, value_type : None, subscript : None, },
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(13i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(15i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(13i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                             message: ::std::borrow::Cow::Owned(
                                 ::std::format!(
-                                    "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                    "value must be exactly {} bytes (got {})",
+                                    16usize,
+                                    v.len(),
                                 ),
                             ),
                             for_key: false,
@@ -4865,20 +5218,26 @@ impl ::protovalidate_buffa::Validate for __buffa::view::QuantityTypeIdView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -4893,31 +5252,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::QuantityTypeIdView<'_> {
                         .push(::protovalidate_buffa::Violation {
                             field: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(1i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(1i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(15i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                    None, value_type : None, subscript : None, },
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(13i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(15i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(13i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                             message: ::std::borrow::Cow::Owned(
                                 ::std::format!(
-                                    "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                    "value must be exactly {} bytes (got {})",
+                                    16usize,
+                                    v.len(),
                                 ),
                             ),
                             for_key: false,
@@ -5367,31 +5737,41 @@ impl ::protovalidate_buffa::Validate for RateBasis {
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(1i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(1i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(14i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(10i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("in")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(14i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(10i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("in")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("string.in"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be one of [{}]", ALLOWED.join(", ")
+                                "value must be one of [{}]",
+                                ALLOWED.join(", "),
                             ),
                         ),
                         for_key: false,
@@ -5444,31 +5824,41 @@ impl ::protovalidate_buffa::Validate for __buffa::view::RateBasisView<'_> {
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(1i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(1i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(14i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(10i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("in")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(14i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(10i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("in")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("string.in"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be one of [{}]", ALLOWED.join(", ")
+                                "value must be one of [{}]",
+                                ALLOWED.join(", "),
                             ),
                         ),
                         for_key: false,
@@ -5514,32 +5904,42 @@ impl ::protovalidate_buffa::Validate for ReferenceBlock {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("content")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("content")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 32usize, self
-                            .content.len()
+                            "value must be exactly {} bytes (got {})",
+                            32usize,
+                            self.content.len(),
                         ),
                     ),
                     for_key: false,
@@ -5550,32 +5950,42 @@ impl ::protovalidate_buffa::Validate for ReferenceBlock {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("schema")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("schema")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 32usize, self
-                            .schema.len()
+                            "value must be exactly {} bytes (got {})",
+                            32usize,
+                            self.schema.len(),
                         ),
                     ),
                     for_key: false,
@@ -5620,32 +6030,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceBlockView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("content")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("content")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 32usize, self
-                            .content.len()
+                            "value must be exactly {} bytes (got {})",
+                            32usize,
+                            self.content.len(),
                         ),
                     ),
                     for_key: false,
@@ -5656,32 +6076,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceBlockView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("schema")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("schema")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 32usize, self
-                            .schema.len()
+                            "value must be exactly {} bytes (got {})",
+                            32usize,
+                            self.schema.len(),
                         ),
                     ),
                     for_key: false,
@@ -5726,20 +6156,26 @@ impl ::protovalidate_buffa::Validate for ReferenceCaseContract {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("version")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("version")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -5780,25 +6216,34 @@ impl ::protovalidate_buffa::Validate for ReferenceCaseContract {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("case_name")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("case_name")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.min_bytes"),
@@ -5813,25 +6258,34 @@ impl ::protovalidate_buffa::Validate for ReferenceCaseContract {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("case_name")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("case_name")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.max_bytes"),
@@ -5846,20 +6300,26 @@ impl ::protovalidate_buffa::Validate for ReferenceCaseContract {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("meaning")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("meaning")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -5900,32 +6360,44 @@ impl ::protovalidate_buffa::Validate for ReferenceCaseContract {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("observables")), field_type
-                            : Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("observables"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.min_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at least {} items (got {})", 1usize, self
-                            .observables.len()
+                            "list must contain at least {} items (got {})",
+                            1usize,
+                            self.observables.len(),
                         ),
                     ),
                     for_key: false,
@@ -5936,32 +6408,44 @@ impl ::protovalidate_buffa::Validate for ReferenceCaseContract {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("observables")), field_type
-                            : Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("observables"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.max_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at most {} items (got {})", 65536usize,
-                            self.observables.len()
+                            "list must contain at most {} items (got {})",
+                            65536usize,
+                            self.observables.len(),
                         ),
                     ),
                     for_key: false,
@@ -6002,32 +6486,44 @@ impl ::protovalidate_buffa::Validate for ReferenceCaseContract {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("specification")),
-                            field_type : Some(::protovalidate_buffa::FieldType::Message),
-                            key_type : None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("specification"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.max_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at most {} items (got {})", 65536usize,
-                            self.specification.len()
+                            "list must contain at most {} items (got {})",
+                            65536usize,
+                            self.specification.len(),
                         ),
                     ),
                     for_key: false,
@@ -6068,32 +6564,42 @@ impl ::protovalidate_buffa::Validate for ReferenceCaseContract {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(6i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("artifacts")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(6i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("artifacts")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.min_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at least {} items (got {})", 1usize, self
-                            .artifacts.len()
+                            "list must contain at least {} items (got {})",
+                            1usize,
+                            self.artifacts.len(),
                         ),
                     ),
                     for_key: false,
@@ -6104,32 +6610,42 @@ impl ::protovalidate_buffa::Validate for ReferenceCaseContract {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(6i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("artifacts")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(6i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("artifacts")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.max_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at most {} items (got {})", 1024usize,
-                            self.artifacts.len()
+                            "list must contain at most {} items (got {})",
+                            1024usize,
+                            self.artifacts.len(),
                         ),
                     ),
                     for_key: false,
@@ -6202,20 +6718,26 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceCaseContractVie
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("version")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("version")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -6256,25 +6778,34 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceCaseContractVie
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("case_name")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("case_name")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.min_bytes"),
@@ -6289,25 +6820,34 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceCaseContractVie
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("case_name")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("case_name")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.max_bytes"),
@@ -6322,20 +6862,26 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceCaseContractVie
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("meaning")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("meaning")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -6376,32 +6922,44 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceCaseContractVie
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("observables")), field_type
-                            : Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("observables"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.min_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at least {} items (got {})", 1usize, self
-                            .observables.len()
+                            "list must contain at least {} items (got {})",
+                            1usize,
+                            self.observables.len(),
                         ),
                     ),
                     for_key: false,
@@ -6412,32 +6970,44 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceCaseContractVie
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("observables")), field_type
-                            : Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("observables"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.max_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at most {} items (got {})", 65536usize,
-                            self.observables.len()
+                            "list must contain at most {} items (got {})",
+                            65536usize,
+                            self.observables.len(),
                         ),
                     ),
                     for_key: false,
@@ -6478,32 +7048,44 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceCaseContractVie
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("specification")),
-                            field_type : Some(::protovalidate_buffa::FieldType::Message),
-                            key_type : None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("specification"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.max_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at most {} items (got {})", 65536usize,
-                            self.specification.len()
+                            "list must contain at most {} items (got {})",
+                            65536usize,
+                            self.specification.len(),
                         ),
                     ),
                     for_key: false,
@@ -6544,32 +7126,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceCaseContractVie
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(6i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("artifacts")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(6i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("artifacts")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.min_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at least {} items (got {})", 1usize, self
-                            .artifacts.len()
+                            "list must contain at least {} items (got {})",
+                            1usize,
+                            self.artifacts.len(),
                         ),
                     ),
                     for_key: false,
@@ -6580,32 +7172,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceCaseContractVie
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(6i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("artifacts")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(6i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("artifacts")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.max_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at most {} items (got {})", 1024usize,
-                            self.artifacts.len()
+                            "list must contain at most {} items (got {})",
+                            1024usize,
+                            self.artifacts.len(),
                         ),
                     ),
                     for_key: false,
@@ -6854,25 +7456,34 @@ impl ::protovalidate_buffa::Validate for ReferenceEnvelope {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("version")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("version")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("uint32")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("gte")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("uint32")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("gte")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("uint32.gte_lte"),
@@ -6887,20 +7498,26 @@ impl ::protovalidate_buffa::Validate for ReferenceEnvelope {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("meaning")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("meaning")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -6941,32 +7558,42 @@ impl ::protovalidate_buffa::Validate for ReferenceEnvelope {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.min_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at least {} items (got {})", 1usize, self
-                            .required.len()
+                            "list must contain at least {} items (got {})",
+                            1usize,
+                            self.required.len(),
                         ),
                     ),
                     for_key: false,
@@ -6977,32 +7604,42 @@ impl ::protovalidate_buffa::Validate for ReferenceEnvelope {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.max_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at most {} items (got {})", 65536usize,
-                            self.required.len()
+                            "list must contain at most {} items (got {})",
+                            65536usize,
+                            self.required.len(),
                         ),
                     ),
                     for_key: false,
@@ -7013,20 +7650,26 @@ impl ::protovalidate_buffa::Validate for ReferenceEnvelope {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("outcome")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("outcome")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -7101,25 +7744,34 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceEnvelopeView<'_
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("version")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("version")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("uint32")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("gte")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint32), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("uint32")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("gte")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint32),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("uint32.gte_lte"),
@@ -7134,20 +7786,26 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceEnvelopeView<'_
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("meaning")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("meaning")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -7188,32 +7846,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceEnvelopeView<'_
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.min_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at least {} items (got {})", 1usize, self
-                            .required.len()
+                            "list must contain at least {} items (got {})",
+                            1usize,
+                            self.required.len(),
                         ),
                     ),
                     for_key: false,
@@ -7224,32 +7892,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceEnvelopeView<'_
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.max_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at most {} items (got {})", 65536usize,
-                            self.required.len()
+                            "list must contain at most {} items (got {})",
+                            65536usize,
+                            self.required.len(),
                         ),
                     ),
                     for_key: false,
@@ -7260,20 +7938,26 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceEnvelopeView<'_
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("outcome")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("outcome")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -7348,25 +8032,34 @@ impl ::protovalidate_buffa::Validate for ReferenceFixedInput {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("key")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("key")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.min_bytes"),
@@ -7381,25 +8074,34 @@ impl ::protovalidate_buffa::Validate for ReferenceFixedInput {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("key")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("key")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.max_bytes"),
@@ -7414,20 +8116,26 @@ impl ::protovalidate_buffa::Validate for ReferenceFixedInput {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("physical")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("physical")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -7502,25 +8210,34 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceFixedInputView<
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("key")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("key")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.min_bytes"),
@@ -7535,25 +8252,34 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceFixedInputView<
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("key")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("key")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.max_bytes"),
@@ -7568,20 +8294,26 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceFixedInputView<
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("physical")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("physical")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -7656,25 +8388,34 @@ impl ::protovalidate_buffa::Validate for ReferenceInputArtifact {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("path")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("path")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.min_bytes"),
@@ -7689,25 +8430,34 @@ impl ::protovalidate_buffa::Validate for ReferenceInputArtifact {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("path")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("path")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.max_bytes"),
@@ -7722,32 +8472,42 @@ impl ::protovalidate_buffa::Validate for ReferenceInputArtifact {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("sha256")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("sha256")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.min_len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value length must be at least {} bytes (got {})", 32usize,
-                            self.sha256.len()
+                            "value length must be at least {} bytes (got {})",
+                            32usize,
+                            self.sha256.len(),
                         ),
                     ),
                     for_key: false,
@@ -7758,32 +8518,42 @@ impl ::protovalidate_buffa::Validate for ReferenceInputArtifact {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("sha256")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("sha256")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.max_len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value length must be at most {} bytes (got {})", 32usize,
-                            self.sha256.len()
+                            "value length must be at most {} bytes (got {})",
+                            32usize,
+                            self.sha256.len(),
                         ),
                     ),
                     for_key: false,
@@ -7828,25 +8598,34 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceInputArtifactVi
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("path")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("path")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.min_bytes"),
@@ -7861,25 +8640,34 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceInputArtifactVi
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("path")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("path")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.max_bytes"),
@@ -7894,32 +8682,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceInputArtifactVi
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("sha256")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("sha256")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.min_len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value length must be at least {} bytes (got {})", 32usize,
-                            self.sha256.len()
+                            "value length must be at least {} bytes (got {})",
+                            32usize,
+                            self.sha256.len(),
                         ),
                     ),
                     for_key: false,
@@ -7930,32 +8728,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceInputArtifactVi
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("sha256")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("sha256")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.max_len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value length must be at most {} bytes (got {})", 32usize,
-                            self.sha256.len()
+                            "value length must be at most {} bytes (got {})",
+                            32usize,
+                            self.sha256.len(),
                         ),
                     ),
                     for_key: false,
@@ -8000,32 +8808,42 @@ impl ::protovalidate_buffa::Validate for ReferenceMeaning {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("case")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("case")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 16usize, self.case
-                            .len()
+                            "value must be exactly {} bytes (got {})",
+                            16usize,
+                            self.case.len(),
                         ),
                     ),
                     for_key: false,
@@ -8036,32 +8854,42 @@ impl ::protovalidate_buffa::Validate for ReferenceMeaning {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("source")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("source")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 32usize, self
-                            .source.len()
+                            "value must be exactly {} bytes (got {})",
+                            32usize,
+                            self.source.len(),
                         ),
                     ),
                     for_key: false,
@@ -8072,32 +8900,44 @@ impl ::protovalidate_buffa::Validate for ReferenceMeaning {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("formulation")), field_type
-                            : Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("formulation"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 32usize, self
-                            .formulation.len()
+                            "value must be exactly {} bytes (got {})",
+                            32usize,
+                            self.formulation.len(),
                         ),
                     ),
                     for_key: false,
@@ -8108,32 +8948,42 @@ impl ::protovalidate_buffa::Validate for ReferenceMeaning {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("physical")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("physical")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 32usize, self
-                            .physical.len()
+                            "value must be exactly {} bytes (got {})",
+                            32usize,
+                            self.physical.len(),
                         ),
                     ),
                     for_key: false,
@@ -8144,32 +8994,44 @@ impl ::protovalidate_buffa::Validate for ReferenceMeaning {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("configuration")),
-                            field_type : Some(::protovalidate_buffa::FieldType::Bytes),
-                            key_type : None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("configuration"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 32usize, self
-                            .configuration.len()
+                            "value must be exactly {} bytes (got {})",
+                            32usize,
+                            self.configuration.len(),
                         ),
                     ),
                     for_key: false,
@@ -8214,32 +9076,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceMeaningView<'_>
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("case")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("case")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 16usize, self.case
-                            .len()
+                            "value must be exactly {} bytes (got {})",
+                            16usize,
+                            self.case.len(),
                         ),
                     ),
                     for_key: false,
@@ -8250,32 +9122,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceMeaningView<'_>
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("source")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("source")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 32usize, self
-                            .source.len()
+                            "value must be exactly {} bytes (got {})",
+                            32usize,
+                            self.source.len(),
                         ),
                     ),
                     for_key: false,
@@ -8286,32 +9168,44 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceMeaningView<'_>
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("formulation")), field_type
-                            : Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("formulation"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 32usize, self
-                            .formulation.len()
+                            "value must be exactly {} bytes (got {})",
+                            32usize,
+                            self.formulation.len(),
                         ),
                     ),
                     for_key: false,
@@ -8322,32 +9216,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceMeaningView<'_>
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("physical")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("physical")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 32usize, self
-                            .physical.len()
+                            "value must be exactly {} bytes (got {})",
+                            32usize,
+                            self.physical.len(),
                         ),
                     ),
                     for_key: false,
@@ -8358,32 +9262,44 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceMeaningView<'_>
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("configuration")),
-                            field_type : Some(::protovalidate_buffa::FieldType::Bytes),
-                            key_type : None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(
+                                    ::std::borrow::Cow::Borrowed("configuration"),
+                                ),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 32usize, self
-                            .configuration.len()
+                            "value must be exactly {} bytes (got {})",
+                            32usize,
+                            self.configuration.len(),
                         ),
                     ),
                     for_key: false,
@@ -8428,32 +9344,42 @@ impl ::protovalidate_buffa::Validate for ReferenceObservable {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 16usize, self.id
-                            .len()
+                            "value must be exactly {} bytes (got {})",
+                            16usize,
+                            self.id.len(),
                         ),
                     ),
                     for_key: false,
@@ -8464,32 +9390,42 @@ impl ::protovalidate_buffa::Validate for ReferenceObservable {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("quantity")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("quantity")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 16usize, self
-                            .quantity.len()
+                            "value must be exactly {} bytes (got {})",
+                            16usize,
+                            self.quantity.len(),
                         ),
                     ),
                     for_key: false,
@@ -8500,32 +9436,42 @@ impl ::protovalidate_buffa::Validate for ReferenceObservable {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("unit")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("unit")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 16usize, self.unit
-                            .len()
+                            "value must be exactly {} bytes (got {})",
+                            16usize,
+                            self.unit.len(),
                         ),
                     ),
                     for_key: false,
@@ -8537,31 +9483,42 @@ impl ::protovalidate_buffa::Validate for ReferenceObservable {
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(4i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("basis")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(4i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("basis")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(15i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(13i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(15i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(13i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                "value must be exactly {} bytes (got {})",
+                                16usize,
+                                v.len(),
                             ),
                         ),
                         for_key: false,
@@ -8574,31 +9531,42 @@ impl ::protovalidate_buffa::Validate for ReferenceObservable {
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(5i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("datum")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(5i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("datum")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(15i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(13i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(15i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(13i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                "value must be exactly {} bytes (got {})",
+                                16usize,
+                                v.len(),
                             ),
                         ),
                         for_key: false,
@@ -8644,32 +9612,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceObservableView<
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 16usize, self.id
-                            .len()
+                            "value must be exactly {} bytes (got {})",
+                            16usize,
+                            self.id.len(),
                         ),
                     ),
                     for_key: false,
@@ -8680,32 +9658,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceObservableView<
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("quantity")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("quantity")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 16usize, self
-                            .quantity.len()
+                            "value must be exactly {} bytes (got {})",
+                            16usize,
+                            self.quantity.len(),
                         ),
                     ),
                     for_key: false,
@@ -8716,32 +9704,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceObservableView<
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("unit")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("unit")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 16usize, self.unit
-                            .len()
+                            "value must be exactly {} bytes (got {})",
+                            16usize,
+                            self.unit.len(),
                         ),
                     ),
                     for_key: false,
@@ -8753,31 +9751,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceObservableView<
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(4i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("basis")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(4i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("basis")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(15i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(13i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(15i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(13i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                "value must be exactly {} bytes (got {})",
+                                16usize,
+                                v.len(),
                             ),
                         ),
                         for_key: false,
@@ -8790,31 +9799,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceObservableView<
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(5i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("datum")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(5i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("datum")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(15i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(13i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(15i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(13i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                "value must be exactly {} bytes (got {})",
+                                16usize,
+                                v.len(),
                             ),
                         ),
                         for_key: false,
@@ -8860,32 +9880,42 @@ impl ::protovalidate_buffa::Validate for ReferenceObservableContract {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("output")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("output")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 16usize, self
-                            .output.len()
+                            "value must be exactly {} bytes (got {})",
+                            16usize,
+                            self.output.len(),
                         ),
                     ),
                     for_key: false,
@@ -8896,25 +9926,34 @@ impl ::protovalidate_buffa::Validate for ReferenceObservableContract {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("key")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("key")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.min_bytes"),
@@ -8929,25 +9968,34 @@ impl ::protovalidate_buffa::Validate for ReferenceObservableContract {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("key")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("key")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.max_bytes"),
@@ -8962,20 +10010,26 @@ impl ::protovalidate_buffa::Validate for ReferenceObservableContract {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("physical")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("physical")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -9051,32 +10105,42 @@ for __buffa::view::ReferenceObservableContractView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("output")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("output")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(15i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(13i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(15i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(13i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value must be exactly {} bytes (got {})", 16usize, self
-                            .output.len()
+                            "value must be exactly {} bytes (got {})",
+                            16usize,
+                            self.output.len(),
                         ),
                     ),
                     for_key: false,
@@ -9087,25 +10151,34 @@ for __buffa::view::ReferenceObservableContractView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("key")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("key")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(4i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(4i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.min_bytes"),
@@ -9120,25 +10193,34 @@ for __buffa::view::ReferenceObservableContractView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("key")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("key")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(5i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_bytes")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(5i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_bytes")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.max_bytes"),
@@ -9153,20 +10235,26 @@ for __buffa::view::ReferenceObservableContractView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("physical")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("physical")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -9348,10 +10436,13 @@ impl ::protovalidate_buffa::Validate for ReferenceOutcome {
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                None, field_name :
-                                Some(::std::borrow::Cow::Borrowed("kind")), field_type :
-                                None, key_type : None, value_type : None, subscript : None,
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: None,
+                                    field_name: Some(::std::borrow::Cow::Borrowed("kind")),
+                                    field_type: None,
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
                                 },
                             ],
                         },
@@ -9510,10 +10601,13 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceOutcomeView<'_>
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                None, field_name :
-                                Some(::std::borrow::Cow::Borrowed("kind")), field_type :
-                                None, key_type : None, value_type : None, subscript : None,
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: None,
+                                    field_name: Some(::std::borrow::Cow::Borrowed("kind")),
+                                    field_type: None,
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
                                 },
                             ],
                         },
@@ -9565,32 +10659,42 @@ impl ::protovalidate_buffa::Validate for reference_outcome::Alternative1 {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("outputs")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("outputs")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.min_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at least {} items (got {})", 1usize, self
-                            .outputs.len()
+                            "list must contain at least {} items (got {})",
+                            1usize,
+                            self.outputs.len(),
                         ),
                     ),
                     for_key: false,
@@ -9601,32 +10705,42 @@ impl ::protovalidate_buffa::Validate for reference_outcome::Alternative1 {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("outputs")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("outputs")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.max_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at most {} items (got {})", 65536usize,
-                            self.outputs.len()
+                            "list must contain at most {} items (got {})",
+                            65536usize,
+                            self.outputs.len(),
                         ),
                     ),
                     for_key: false,
@@ -9728,32 +10842,42 @@ for __buffa::view::reference_outcome::Alternative1View<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("outputs")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("outputs")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.min_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at least {} items (got {})", 1usize, self
-                            .outputs.len()
+                            "list must contain at least {} items (got {})",
+                            1usize,
+                            self.outputs.len(),
                         ),
                     ),
                     for_key: false,
@@ -9764,32 +10888,42 @@ for __buffa::view::reference_outcome::Alternative1View<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("outputs")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("outputs")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(18i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("repeated")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_items")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(18i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("repeated")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_items")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("repeated.max_items"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "list must contain at most {} items (got {})", 65536usize,
-                            self.outputs.len()
+                            "list must contain at most {} items (got {})",
+                            65536usize,
+                            self.outputs.len(),
                         ),
                     ),
                     for_key: false,
@@ -9890,31 +11024,41 @@ impl ::protovalidate_buffa::Validate for reference_outcome::Alternative2 {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("code")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("code")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.min_len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value length must be at least {} characters", 1usize
+                            "value length must be at least {} characters",
+                            1usize,
                         ),
                     ),
                     for_key: false,
@@ -9925,31 +11069,41 @@ impl ::protovalidate_buffa::Validate for reference_outcome::Alternative2 {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("code")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("code")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.max_len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value length must be at most {} characters", 256usize
+                            "value length must be at most {} characters",
+                            256usize,
                         ),
                     ),
                     for_key: false,
@@ -9960,31 +11114,41 @@ impl ::protovalidate_buffa::Validate for reference_outcome::Alternative2 {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("stage")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("stage")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.min_len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value length must be at least {} characters", 1usize
+                            "value length must be at least {} characters",
+                            1usize,
                         ),
                     ),
                     for_key: false,
@@ -9995,31 +11159,41 @@ impl ::protovalidate_buffa::Validate for reference_outcome::Alternative2 {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("stage")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("stage")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.max_len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value length must be at most {} characters", 256usize
+                            "value length must be at most {} characters",
+                            256usize,
                         ),
                     ),
                     for_key: false,
@@ -10065,31 +11239,41 @@ for __buffa::view::reference_outcome::Alternative2View<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("code")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("code")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.min_len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value length must be at least {} characters", 1usize
+                            "value length must be at least {} characters",
+                            1usize,
                         ),
                     ),
                     for_key: false,
@@ -10100,31 +11284,41 @@ for __buffa::view::reference_outcome::Alternative2View<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("code")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("code")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.max_len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value length must be at most {} characters", 256usize
+                            "value length must be at most {} characters",
+                            256usize,
                         ),
                     ),
                     for_key: false,
@@ -10135,31 +11329,41 @@ for __buffa::view::reference_outcome::Alternative2View<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("stage")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("stage")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("min_len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("min_len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.min_len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value length must be at least {} characters", 1usize
+                            "value length must be at least {} characters",
+                            1usize,
                         ),
                     ),
                     for_key: false,
@@ -10170,31 +11374,41 @@ for __buffa::view::reference_outcome::Alternative2View<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(2i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("stage")), field_type :
-                            Some(::protovalidate_buffa::FieldType::String), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(2i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("stage")),
+                                field_type: Some(::protovalidate_buffa::FieldType::String),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(14i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Message), key_type :
-                            None, value_type : None, subscript : None, },
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(3i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("max_len")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(14i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(3i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("max_len")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("string.max_len"),
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
-                            "value length must be at most {} characters", 256usize
+                            "value length must be at most {} characters",
+                            256usize,
                         ),
                     ),
                     for_key: false,
@@ -10484,31 +11698,42 @@ impl ::protovalidate_buffa::Validate for ReferenceState {
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(7i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("subject")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(7i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("subject")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(15i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(13i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(15i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(13i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                "value must be exactly {} bytes (got {})",
+                                16usize,
+                                v.len(),
                             ),
                         ),
                         for_key: false,
@@ -10661,31 +11886,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceStateView<'_> {
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(7i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("subject")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(7i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("subject")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(15i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(13i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(15i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(13i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                "value must be exactly {} bytes (got {})",
+                                16usize,
+                                v.len(),
                             ),
                         ),
                         for_key: false,
@@ -10731,20 +11967,26 @@ impl ::protovalidate_buffa::Validate for ReferenceStateId {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -10759,31 +12001,42 @@ impl ::protovalidate_buffa::Validate for ReferenceStateId {
                         .push(::protovalidate_buffa::Violation {
                             field: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(1i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(1i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(15i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                    None, value_type : None, subscript : None, },
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(13i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(15i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(13i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                             message: ::std::borrow::Cow::Owned(
                                 ::std::format!(
-                                    "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                    "value must be exactly {} bytes (got {})",
+                                    16usize,
+                                    v.len(),
                                 ),
                             ),
                             for_key: false,
@@ -10830,20 +12083,26 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceStateIdView<'_>
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -10858,31 +12117,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceStateIdView<'_>
                         .push(::protovalidate_buffa::Violation {
                             field: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(1i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(1i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(15i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                    None, value_type : None, subscript : None, },
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(13i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(15i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(13i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                             message: ::std::borrow::Cow::Owned(
                                 ::std::format!(
-                                    "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                    "value must be exactly {} bytes (got {})",
+                                    16usize,
+                                    v.len(),
                                 ),
                             ),
                             for_key: false,
@@ -10941,31 +12211,41 @@ impl ::protovalidate_buffa::Validate for ReferenceStateKind {
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(1i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(1i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(14i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(10i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("in")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(14i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(10i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("in")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("string.in"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be one of [{}]", ALLOWED.join(", ")
+                                "value must be one of [{}]",
+                                ALLOWED.join(", "),
                             ),
                         ),
                         for_key: false,
@@ -11023,31 +12303,41 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ReferenceStateKindView<'
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(1i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(1i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(14i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(10i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("in")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(14i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(10i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("in")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("string.in"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be one of [{}]", ALLOWED.join(", ")
+                                "value must be one of [{}]",
+                                ALLOWED.join(", "),
                             ),
                         ),
                         for_key: false,
@@ -11100,31 +12390,41 @@ impl ::protovalidate_buffa::Validate for ScaleKind {
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(1i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(1i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(14i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(10i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("in")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(14i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(10i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("in")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("string.in"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be one of [{}]", ALLOWED.join(", ")
+                                "value must be one of [{}]",
+                                ALLOWED.join(", "),
                             ),
                         ),
                         for_key: false,
@@ -11177,31 +12477,41 @@ impl ::protovalidate_buffa::Validate for __buffa::view::ScaleKindView<'_> {
                     .push(::protovalidate_buffa::Violation {
                         field: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(1i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("value")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(1i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("value")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule: ::protovalidate_buffa::FieldPath {
                             elements: ::std::vec![
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(14i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("string")), field_type :
-                                Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                None, value_type : None, subscript : None, },
-                                ::protovalidate_buffa::FieldPathElement { field_number :
-                                Some(10i32), field_name :
-                                Some(::std::borrow::Cow::Borrowed("in")), field_type :
-                                Some(::protovalidate_buffa::FieldType::String), key_type :
-                                None, value_type : None, subscript : None, },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(14i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("string")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
+                                ::protovalidate_buffa::FieldPathElement {
+                                    field_number: Some(10i32),
+                                    field_name: Some(::std::borrow::Cow::Borrowed("in")),
+                                    field_type: Some(::protovalidate_buffa::FieldType::String),
+                                    key_type: None,
+                                    value_type: None,
+                                    subscript: None,
+                                },
                             ],
                         },
                         rule_id: ::std::borrow::Cow::Borrowed("string.in"),
                         message: ::std::borrow::Cow::Owned(
                             ::std::format!(
-                                "value must be one of [{}]", ALLOWED.join(", ")
+                                "value must be one of [{}]",
+                                ALLOWED.join(", "),
                             ),
                         ),
                         for_key: false,
@@ -11419,20 +12729,26 @@ impl ::protovalidate_buffa::Validate for UnitId {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -11447,31 +12763,42 @@ impl ::protovalidate_buffa::Validate for UnitId {
                         .push(::protovalidate_buffa::Violation {
                             field: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(1i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(1i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(15i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                    None, value_type : None, subscript : None, },
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(13i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(15i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(13i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                             message: ::std::borrow::Cow::Owned(
                                 ::std::format!(
-                                    "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                    "value must be exactly {} bytes (got {})",
+                                    16usize,
+                                    v.len(),
                                 ),
                             ),
                             for_key: false,
@@ -11518,20 +12845,26 @@ impl ::protovalidate_buffa::Validate for __buffa::view::UnitIdView<'_> {
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(1i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(1i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule: ::protovalidate_buffa::FieldPath {
                         elements: ::std::vec![
-                            ::protovalidate_buffa::FieldPathElement { field_number :
-                            Some(25i32), field_name :
-                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
-                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
-                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
                         ],
                     },
                     rule_id: ::std::borrow::Cow::Borrowed("required"),
@@ -11546,31 +12879,42 @@ impl ::protovalidate_buffa::Validate for __buffa::view::UnitIdView<'_> {
                         .push(::protovalidate_buffa::Violation {
                             field: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(1i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("id")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Bytes), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(1i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("id")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Bytes),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule: ::protovalidate_buffa::FieldPath {
                                 elements: ::std::vec![
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(15i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Message), key_type :
-                                    None, value_type : None, subscript : None, },
-                                    ::protovalidate_buffa::FieldPathElement { field_number :
-                                    Some(13i32), field_name :
-                                    Some(::std::borrow::Cow::Borrowed("len")), field_type :
-                                    Some(::protovalidate_buffa::FieldType::Uint64), key_type :
-                                    None, value_type : None, subscript : None, },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(15i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("bytes")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
+                                    ::protovalidate_buffa::FieldPathElement {
+                                        field_number: Some(13i32),
+                                        field_name: Some(::std::borrow::Cow::Borrowed("len")),
+                                        field_type: Some(::protovalidate_buffa::FieldType::Uint64),
+                                        key_type: None,
+                                        value_type: None,
+                                        subscript: None,
+                                    },
                                 ],
                             },
                             rule_id: ::std::borrow::Cow::Borrowed("bytes.len"),
                             message: ::std::borrow::Cow::Owned(
                                 ::std::format!(
-                                    "value must be exactly {} bytes (got {})", 16usize, v.len()
+                                    "value must be exactly {} bytes (got {})",
+                                    16usize,
+                                    v.len(),
                                 ),
                             ),
                             for_key: false,
