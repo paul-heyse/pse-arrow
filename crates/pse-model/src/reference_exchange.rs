@@ -307,23 +307,23 @@ mod tests {
     fn dimensional_allowances_handle_zero_and_refuse_nonfinite_duplicate_and_unacquired_blocks() {
         let mut reference = envelope();
         let ReferenceOutcome::Completed { outputs, .. } = &mut reference.outcome else {
-            unreachable!()
+            panic!("reference fixture must have completed outputs")
         };
         outputs[0].value = 0.;
         let mut candidate = reference.clone();
         let ReferenceOutcome::Completed { outputs, .. } = &mut candidate.outcome else {
-            unreachable!()
+            panic!("candidate cloned from reference must have completed outputs")
         };
         outputs[0].value = 0.5e-9;
         assert!(compare(&candidate, &reference, &allowances()).is_ok());
         let ReferenceOutcome::Completed { outputs, .. } = &mut candidate.outcome else {
-            unreachable!()
+            panic!("candidate must retain completed outputs after value mutation")
         };
         outputs[0].value = f64::NAN;
         assert!(compare(&candidate, &reference, &allowances()).is_err());
         let mut block = envelope();
         let ReferenceOutcome::Completed { blocks, .. } = &mut block.outcome else {
-            unreachable!()
+            panic!("block fixture must have a completed outcome")
         };
         blocks.push(ReferenceBlock {
             content: hash(1),

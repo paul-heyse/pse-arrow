@@ -1512,7 +1512,7 @@ macro_rules! projection_struct {
             const VERSION: u32 = $version;
             const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[$(($tag, stringify!($field))),*];
             type Fields = ($($crate::projection_struct!(@ty $ty $(, $adapter)?),)*);
-            fn into_projection_fields(self) -> Self::Fields { ($($crate::projection_struct!(@into self.$field $(, $adapter)?),)*) }
+            $crate::projection_struct!(@into_fields $($field $(, $adapter)?;)*);
             fn from_projection_fields(fields: Self::Fields) -> ::core::result::Result<Self, $crate::boundary_projection::AdapterError> {
                 let ($($field,)*) = fields;
                 Ok(Self { $($field: $crate::projection_struct!(@from $field $(, $adapter)?),)* $($local: $local_default,)* })
@@ -1533,6 +1533,12 @@ macro_rules! projection_struct {
     };
     (@ty $ty:ty, $adapter:ty) => { $crate::boundary_projection::Adapted<$ty, $adapter> };
     (@ty $ty:ty) => { $ty };
+    (@into_fields) => { fn into_projection_fields(self) -> Self::Fields {} };
+    (@into_fields $($field:ident $(, $adapter:ty)?;)+) => {
+        fn into_projection_fields(self) -> Self::Fields {
+            ($($crate::projection_struct!(@into self.$field $(, $adapter)?),)+)
+        }
+    };
     (@into $value:expr, $adapter:ty) => { $crate::boundary_projection::Adapted::<_, $adapter>::new($value) };
     (@into $value:expr) => { $value };
     (@from $value:expr, $adapter:ty) => { $value.into_inner() };

@@ -87,12 +87,12 @@ pub(crate) fn launch(
 ) -> Result<i32, HostError> {
     let mut args = launch.input;
     args.root = args.root.canonicalize()?;
-    if let Some(selected) = selected_root {
-        if selected.canonicalize()? != args.root {
-            return Err(HostError::Ownership(
-                "qualification checkout differs from selected checkout".into(),
-            ));
-        }
+    if let Some(selected) = selected_root
+        && selected.canonicalize()? != args.root
+    {
+        return Err(HostError::Ownership(
+            "qualification checkout differs from selected checkout".into(),
+        ));
     }
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()

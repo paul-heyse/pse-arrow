@@ -370,9 +370,7 @@ impl ErrorRecord {
                 current = error.as_ref();
                 continue;
             }
-            let Some(source) = current.source() else {
-                return None;
-            };
+            let source = current.source()?;
             current = source;
         }
     }

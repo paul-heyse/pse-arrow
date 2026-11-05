@@ -14,46 +14,6 @@ use crate::{
 };
 use arrow_schema::DataType as D;
 
-#[cfg(test)]
-mod boundary_tests {
-    #[test]
-    fn local_validity_wire_presentation_preserves_native_scientific_and_encoding_identity() {
-        use crate::model::{
-            FieldContract,
-            field_facets::{BOUNDARY_SHAPE, BOUNDARY_TAG},
-        };
-        let registry = crate::catalog::assemble().unwrap();
-        let relation = registry.relation("runtime.local_validity").unwrap();
-        let mut native = relation.clone();
-        let mut presentation_fields = 0;
-        for column in &mut native.columns {
-            let field =
-                pse_columnar::native_field::map(&column.clone().into_field(), &mut |field| {
-                    let mut field = field.clone();
-                    for key in [BOUNDARY_SHAPE, BOUNDARY_TAG] {
-                        presentation_fields +=
-                            usize::from(field.metadata_mut().remove(key).is_some());
-                    }
-                    field
-                })
-                .unwrap();
-            *column = FieldContract::from_field(field);
-        }
-        assert!(
-            presentation_fields >= 17,
-            "the shared record and all sixteen fields carry source presentation"
-        );
-        assert_eq!(
-            crate::fingerprint::semantic_relation(&registry, relation).unwrap(),
-            crate::fingerprint::semantic_relation(&registry, &native).unwrap(),
-        );
-        assert_eq!(
-            crate::fingerprint::encoding_relation(&registry, relation).unwrap(),
-            crate::fingerprint::encoding_relation(&registry, &native).unwrap(),
-        );
-    }
-}
-
 fn text() -> T {
     T::native(D::Utf8)
 }
@@ -2485,4 +2445,44 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder, local_validity: T) {
         ],
         "A parameter covariance propagated to outputs, Σ_y = J·Σ_θ·Jᵀ (ADR-0118 items 1 and 11; the counterpart of IDAES sens.py): J is a modeling step's parametric sensitivities over the covariance's parameters, matched by identity, or a fit's response derivatives. A first-order statement valid while both its inputs are; its validity, the conjunction of theirs, is in local_validity.",
     );
+}
+
+#[cfg(test)]
+mod boundary_tests {
+    #[test]
+    fn local_validity_wire_presentation_preserves_native_scientific_and_encoding_identity() {
+        use crate::model::{
+            FieldContract,
+            field_facets::{BOUNDARY_SHAPE, BOUNDARY_TAG},
+        };
+        let registry = crate::catalog::assemble().unwrap();
+        let relation = registry.relation("runtime.local_validity").unwrap();
+        let mut native = relation.clone();
+        let mut presentation_fields = 0;
+        for column in &mut native.columns {
+            let field =
+                pse_columnar::native_field::map(&column.clone().into_field(), &mut |field| {
+                    let mut field = field.clone();
+                    for key in [BOUNDARY_SHAPE, BOUNDARY_TAG] {
+                        presentation_fields +=
+                            usize::from(field.metadata_mut().remove(key).is_some());
+                    }
+                    field
+                })
+                .unwrap();
+            *column = FieldContract::from_field(field);
+        }
+        assert!(
+            presentation_fields >= 17,
+            "the shared record and all sixteen fields carry source presentation"
+        );
+        assert_eq!(
+            crate::fingerprint::semantic_relation(&registry, relation).unwrap(),
+            crate::fingerprint::semantic_relation(&registry, &native).unwrap(),
+        );
+        assert_eq!(
+            crate::fingerprint::encoding_relation(&registry, relation).unwrap(),
+            crate::fingerprint::encoding_relation(&registry, &native).unwrap(),
+        );
+    }
 }

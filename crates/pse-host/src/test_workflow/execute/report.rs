@@ -519,43 +519,43 @@ impl Report {
                     settled: phase.capture_complete,
                 });
             }
-            if matches!(phase.kind, PhaseKind::Discovery) {
-                if let Some(group) = phase.group {
-                    if phase.native_stage.as_deref() == Some("build") {
-                        add(SourceFile {
-                            root: EvidenceRoot::Workflow,
-                            path: format!("inventory/group-{group}/build/build.json"),
-                            role: EvidenceRole::CompilerContext,
-                            group: Some(group),
-                            settled: phase.child_exit.is_some() && phase.capture_complete,
-                        });
-                        if phase.child_exit == Some(0) {
-                            add(SourceFile {
-                                root: EvidenceRoot::Workflow,
-                                path: format!("inventory/group-{group}/cargo-metadata.json"),
-                                role: EvidenceRole::DiscoveryContext,
-                                group: Some(group),
-                                settled: phase.capture_complete,
-                            });
-                        }
-                    }
-                    if phase.native_stage.as_deref() == Some("list") {
-                        add(SourceFile {
-                            root: EvidenceRoot::Workflow,
-                            path: format!("inventory/group-{group}/binaries.json"),
-                            role: EvidenceRole::DiscoveryContext,
-                            group: Some(group),
-                            settled: true,
-                        });
-                    }
+            if matches!(phase.kind, PhaseKind::Discovery)
+                && let Some(group) = phase.group
+            {
+                if phase.native_stage.as_deref() == Some("build") {
                     add(SourceFile {
                         root: EvidenceRoot::Workflow,
-                        path: "inventory/nextest.toml".into(),
-                        role: EvidenceRole::RunnerConfiguration,
-                        group: None,
+                        path: format!("inventory/group-{group}/build/build.json"),
+                        role: EvidenceRole::CompilerContext,
+                        group: Some(group),
+                        settled: phase.child_exit.is_some() && phase.capture_complete,
+                    });
+                    if phase.child_exit == Some(0) {
+                        add(SourceFile {
+                            root: EvidenceRoot::Workflow,
+                            path: format!("inventory/group-{group}/cargo-metadata.json"),
+                            role: EvidenceRole::DiscoveryContext,
+                            group: Some(group),
+                            settled: phase.capture_complete,
+                        });
+                    }
+                }
+                if phase.native_stage.as_deref() == Some("list") {
+                    add(SourceFile {
+                        root: EvidenceRoot::Workflow,
+                        path: format!("inventory/group-{group}/binaries.json"),
+                        role: EvidenceRole::DiscoveryContext,
+                        group: Some(group),
                         settled: true,
                     });
                 }
+                add(SourceFile {
+                    root: EvidenceRoot::Workflow,
+                    path: "inventory/nextest.toml".into(),
+                    role: EvidenceRole::RunnerConfiguration,
+                    group: None,
+                    settled: true,
+                });
             }
         }
         sources.into_values().collect()

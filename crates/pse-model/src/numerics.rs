@@ -531,9 +531,11 @@ mod policy_identity_tests {
         use pse_contract::boundary_projection::{
             ProjectionGraph, ProjectionRecord, ValidateProjection,
         };
-        let mut policy = NumericalPolicy::default();
-        policy.engineering_relative_fraction = -0.0;
-        policy.mip_absolute_gap = -0.0;
+        let policy = NumericalPolicy {
+            engineering_relative_fraction: -0.0,
+            mip_absolute_gap: -0.0,
+            ..NumericalPolicy::default()
+        };
         let bytes = serde_json::to_vec(&policy).unwrap();
         let key = policy.key();
         policy.validate_projection().unwrap();

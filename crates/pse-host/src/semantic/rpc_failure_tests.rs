@@ -611,7 +611,7 @@ fn semantic_rpc_default_policy_never_renders_local_only_causes_through_diagnosti
             "diagnostic relationship survives"
         );
         let crate::HostError::Semantic(error) = host else {
-            unreachable!()
+            panic!("semantic error ownership must survive host diagnostic projection")
         };
         let investigation = crate::investigation::Error::Semantic(error);
         let host = crate::HostError::Investigation(investigation);

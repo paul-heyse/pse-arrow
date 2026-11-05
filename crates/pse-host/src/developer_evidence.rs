@@ -796,7 +796,7 @@ mod tests {
                         .iter_mut()
                         .find(|field| field.name.as_deref() == Some("report_original"))
                         .unwrap()
-                        .r#type = Some(Type::TYPE_INT32.into())
+                        .r#type = Some(Type::TYPE_INT32)
                 }
                 _ => {
                     root.field

@@ -90,3 +90,21 @@ fn explicit_data_role_retains_actual_reconstruction_independently_of_direction()
     let native = PassiveData::from_projection_fields((42,)).unwrap();
     assert_eq!(native.into_projection_fields(), (42,));
 }
+
+#[test]
+fn empty_data_record_projects_and_reconstructs_without_fields() {
+    crate::projection_struct! {
+        struct EmptyData {
+            projection: { name: "EmptyData", version: 1, direction: Direction::Input,
+                reserved_tags: [], reserved_names: [] };
+        }
+    }
+    let graph = ProjectionGraph::of::<EmptyData>().unwrap();
+    assert!(
+        matches!(&graph.definitions()["EmptyData"].shape, Shape::Record(fields) if fields.is_empty())
+    );
+    assert!(EmptyData::FIELD_LAYOUT.is_empty());
+    EmptyData {}.into_projection_fields();
+    let restored = EmptyData::from_projection_fields(()).unwrap();
+    restored.validate_projection().unwrap();
+}
