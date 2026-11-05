@@ -755,6 +755,15 @@ requests and781 caloric gas/T points. The helper's ignored dynamic argument,
 projection remain explicit. Ordinary electrochemical/material inputs,
 nonzero/dynamic acceptance and native numerical correspondence remain open.
 
+**Update, 2026-11-05 — residual EOS/property source closure:** the
+[algebra/ragged/parameter consumer census](64h-required-process-population.md#residual-eos-algebra-ragged-phases-and-parameter-consumers--2026-11-05)
+resolves eight ragged-phase states,synthetic critical/inherent/ENRTL/Ideal
+controls and CoolProp-backed benzene expression/residual sweeps. Toluene-
+like coefficients under N2 labels,negative syntheticCp andthe absence of a
+solved SRK witness are explicit. Installed data-dependent sweep cardinality,
+ordinary scientific inputs,native phase/chemistry and full acceptance remain
+required;no property or solver executed.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

@@ -6270,6 +6270,86 @@ cases remain required authored acceptance,with no shipped transient
 fixture inferred from this source population. This closes the six-file
 source census,not SOC scientific or native execution acceptance.
 
+## Residual EOS algebra, ragged phases and parameter consumers — 2026-11-05
+
+**Interface-checked, source only:** C `modular_properties/eos/tests/
+test_{ceos_PR,ideal,enrtl}.py`,`base/tests/test_{generic_property_integration,
+nonvap,nonvap_PR,noncondense,noncondense_PR}.py` and
+`coolprop/{coolprop_wrapper.py,tests/test_coolprop_wrapper.py}` resolve
+the residual D02/D03 source group. These add the following finite scientific
+or synthetic roles to the previously recorded BT/ASU/HC/electrolyte/Henry
+population. No property,external library,model or solver was executed.
+
+| Exact source population | Selected model/input and demanded behavior |
+|---|---|
+| PR EOS algebra | Synthetica/b/c,criticalT100/200/300K,P1/2/3bar,omega.1/.2/.3,all9 kappas0;state300K/101325Pa,liquid composition.6/.3/.1,vapor.1/.2/.7,distinct equilibrium-temperature100K. Dummy caloric/phase-equilibrium callbacks isolate compressibility,volume/density,enthalpy/internal energy,entropy/Gibbs,fugacity/log/equilibrium expressions and derivatives. These independently assigned phase compositions are **not** a solved ternary flash. Wrong phase,unknown option,mixing rule and inconsistent configuration are refusal controls. |
+| PR critical-mixture solve | Same synthetic critical inputs,one liquid phase,FTPx,1mol/s,300K/1bar,compositiona/b/c=.4/.6/1e-8. Critical-property initialization and ipopt_v2 solve targetZc.321379,Pc158138Pa,Tc158.138K,rhoc374.238mol/m3 atrelative1e-5. Nominal component criticalZ/density inputs1 are synthetic. This is critical-point equation support,not a measured fluid datum or stable phase envelope. |
+| Ideal EOS algebra | Dummy three-component vapor/liquid orsolid/liquid blocks at300K/101325Pa;constant caloric callbacks42/7 andsynthetic saturation11×T. Finite methods include cp/cv/ratio,phase density/volume,formation-enthalpy on/off,internal energy,enthalpy/entropy/Gibbs,fugacity/log fugacity atstate/equilibrium/bubble/dew coordinates,osmotic pressure and missing-method/invalid-phase refusals. The initially.5-per-component fractions need not normalize;these are equation controls,not admissible physical feeds. |
+| Ideal Henry/nonvolatile controls | Four-component CO2/H2O/N2/O2 at1mol/s,300K/1bar,.4/.6/1e-8/1e-8 with dummy Henry/saturation methods;separate NaCl/H2O.4/.6 atsame state with liquid-only NaCl. State,equilibrium and bubble/dew fugacity/log branches preserve actual phase membership. Independent Henry-form/real-fluid checks remain in their earlier section. |
+| ENRTL algebra/parameters | One aqueous phase,FTPx,300K;H2O/C6H12,apparent NaCl/HCl/NaOH andtrue Na+/H+/Cl−/OH−. Dummy liquid densities andrelative permittivity101/102 isolate symmetric-reference fractions,charge-weighted fractions,alpha/G/tau andosmotic pressure. Seven parameter controls:defaults,explicit overrides,asymmetric-alpha refusal,duplicate symmetric-alpha warning,invalid alpha pair,allowed asymmetric tau,invalid tau pair. Explicit water–NaCl-pair alpha.6 andtau.1 versusreverse−.1 are synthetic overrides,not independently admitted electrolyte interactions. |
+| Inherent reaction integration | Four synthetic vapor speciesa/b/c/d,Ideal FTPx,identical **negativeCp−40J/(molK)** andzero formation enthalpy. Inherent a↔b hasconstant reaction heat−20000J/mol,van'tHoff referenceK2 at350K,mole-fraction mass action. Four consumers:Heater and2-element backward1D CV,each component-phase/component-total. Feed100mol/s,350K/101325Pa,each fraction.25;heater duty0,1D area1m2/length1m. Targets outleta/b/c/d=1/6,1/3,1/4,1/4,T350K,flow100. This tests inherent-reaction ownership/transport,not physical heat-capacity validity. |
+| Nonvolatile/noncondensable phase membership | Four exact configs below×two fixedT states each. Unknown orabsent phase members must remain absent,not tiny invented flows. Demand all phase flows/fractions/compositions andbulk reconstruction,not only the vapor-fraction sentinel. |
+
+The four ragged-membership configs all use receiving FTPx,SmoothVLE,
+reference300K/1bar,1mol/s/101325Pa,
+benzene/toluene/special fractions.4/.4/.2 at360K and380K. Ideal variants
+use fugacity equality/IdealBubbleDew andPerrys/RPP4 liquid/gas methods;
+PR uses log-fugacity equality/LogBubbleDew,all nine kappa entries0 and
+PR liquid/vapor roots with RPP4 ideal-gas caloric data. Actual source targets
+at absolute1e-4 are:
+
+| Special species / EOS |360K vapor fraction |380K vapor fraction | Source identity limits |
+|---|---|---|---|
+| Liquid-only `l_only`,Ideal |0 |.3104 | Special species hasN2 elemental label but toluene-like MW.0921405kg/mol,Tc591.8K/Pc41bar and liquidCp/enthalpy. It is a synthetic nonvolatile component,not validated nitrogen. |
+| Liquid-only `l_only`,PR |0 |.2896 | Same critical/MW convention,omega.263 andtoluene-like ideal-gasCp/formation enthalpy;no chemical identity is inferred. |
+| Vapor-only `N2`,Ideal |.7553 |1 | Named N2 has the same toluene-like MW/critical/caloric inputs;it is a noncondensable **structural surrogate**,not physical nitrogen thermochemistry. |
+| Vapor-only `N2`,PR |.7782 |1 | Same synthetic substitution plusomega.263. Liquid phase contains onlybenzene/toluene. The PR/Ideal difference is not an independent nitrogen-data validation. |
+
+At single-phase limits,the disappearing phase's intensives remain
+formulation outputs rather than evidence of a nonzero phase inventory.
+The Ideal noncondensable tests carry an unnecessary cubic-library skip;
+that metadata cannot remove their required behavior. All eight fixed
+states and their complete ragged membership remain in the denominator.
+
+CoolProp's modular wrapper is a separate data/expression consumer from
+the native water provider. It reads selected component JSON/ancillary
+coefficient forms from the installed CoolProp library,validates expression
+form/tau convention,andconstructs supported saturation/liquid-density/
+caloric/entropy expressions. Missing property,unrecognized form,unsupported
+tau convention andunknown component fail;aliases/cache behavior do not add
+scientific fluids. The wrapper test disables superancillaries globally.
+
+Its fixed pure-benzene consumer is PR liquid,FTPx,flow1mol/s,101325Pa,
+composition1,reference298.15K/101325Pa;11 points300–400K by10K compare
+six property roles against CoolProp's selected backend. Two additional
+one-phase PR benzene consumers set idealCp/formationh/s to0 to isolate
+residual properties. Liquid sweeps useP1–10bar andT from installed
+benzeneTMIN to PR saturation atthatP in10K steps;vapor starts1K above
+PR saturation andsteps to installedTMAX. Entropy sweeps compare pressure
+changes from101325Pa:liquidT grid ends atatmospheric saturation,vaporT
+grid starts1K above10bar saturation. Vapor fixture also selects CoolProp
+NBP reference anduses PR atmospheric saturationT as its native reference.
+Z,density,residualh andentropy differences are distinct outputs. These
+comparisons target **PR::benzene**,not HEOS-benzene equivalence or phase
+stability. Exact TMIN/TMAX/saturation values,andtherefore realized sweep
+cardinalities,depend on the frozen installed data/library andmust be
+retained before execution;this census did not query them.
+
+No CSV,trainer orsaved initializer is read by this group. Recursive inputs
+are inline synthetic/correlation/interaction tables,property/reaction
+methods,cubic_roots andthe selected CoolProp library's exact JSON/ancillary
+data. Full SRK support remains required but no solved SRK case is supplied
+by these selected tests;the PR/SRK mismatch test in SmoothVLE2 explicitly
+refuses it. D02 must author a supported SRK scientific case with original
+ordinary inputs rather than borrow the refused mismatch as positive
+evidence. Similarly,native ragged membership,inherent chemistry,critical
+products and demanded derivative/datum/phase behavior need actual cases
+and independent physical checks. Synthetic source parameters stayoracle
+or explicitly authored analytic controls;they cannot become ordinary
+nitrogen/electrolyte records by their labels. This closes this finite source
+group while ordinary science,loaded-library readiness and native/reference
+acceptance remain open.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
