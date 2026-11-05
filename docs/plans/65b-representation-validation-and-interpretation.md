@@ -1,6 +1,6 @@
 ---
 title: "Plan65b: Representation, validation and interpretation"
-status: proposed
+status: in-progress
 date: 2026-11-03
 adrs: []
 review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
