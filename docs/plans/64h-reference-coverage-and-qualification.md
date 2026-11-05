@@ -478,6 +478,16 @@ units/flow targets and unexecuted pytest definitions remain explicit.
 Ordinary data, native physical/refusal correspondence and independent
 qualification remain required.
 
+**Update, 2026-11-05 — HDA census:** the
+[HDA closure](64h-required-process-population.md#hda-property-recycle-distillation-and-costing-closure--2026-11-05)
+resolves modular two-flash, legacy two-flash costing and legacy kinetic
+CSTR/distillation routes, including actual feeds, optimization constraints,
+property/reaction differences and assessment scopes. Translator light-gas/
+energy loss and modular tear-guess exchange remain explicit. No blanket
+wrapper/property equivalence or ordinary coefficient/cost adoption follows;
+native physical correspondence and independent numerical qualification
+remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

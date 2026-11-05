@@ -4072,6 +4072,114 @@ of embedded tests, inherited configuration refusals, original data admission
 and independent numerical qualification remain required; no reference model
 or diagnostic solver was executed here.
 
+## HDA property, recycle, distillation and costing closure — 2026-11-05
+
+**Interface-checked, source only:** X `docs/tut/core/hda_flowsheet*`,
+`docs/flowsheets/hda_flowsheet_with_{costing,distillation}*`, adjacent
+`hda_flowsheets_for_costing_notebook.py` and `mod/hda/*.py` resolve three
+scientific routes below. Tutorial base/`_test` ASTs match; `_doc`/`_usr`/
+`_solution` form another matching group. Distillation wrappers have the same
+grouping. Exercise ASTs differ and retain teaching omissions. All four costing
+wrappers match. Wrapper identities do not multiply the scientific population.
+No experimental CSV, saved state, fitted trainer artifact or external data
+file is read. `hda_solver.txt` is shipped solver output, not input science.
+
+| Route | Actual property/reaction and physical specification |
+|---|---|
+| Modular two-flash tutorial | `hda_ideal_VLE_modular.thermo_config` uses FpTPxpc with ideal Liq/Vap; benzene/toluene in both phases, hydrogen/methane vapor-only: six phase-component members. Two Feed objects, three-inlet mixer, equilibrium heater, conversion-specified stoichiometric reactor, flash, purge/recycle splitter, isothermal compressor and second flash/product ports. Reaction is toluene + hydrogen → benzene + methane with explicit reaction heat. Simulation fixes heater600 K, conversion .75, reactor heat0, first flash325 K/deltaP0, second flash375 K/deltaP−200 kPa, purge .2 and compressor outlet350 kPa. |
+| Legacy two-flash costing case | `hda_with_flash()` imports `hda_ideal_VLE.HDAParameterBlock` and `hda_reaction.HDAReactionParameterBlock`, not the modular pair. Both phases contain all four components, including liquid light-gas traces: eight members. Same main unit topology/specifications, but fresh feeds enter mixer ports directly. The reaction extent is specified by conversion; a kinetic volume is not determined. Adds SSLW heater and three vessel costs, then compares against the separate legacy distillation model. |
+| Legacy CSTR/distillation | Standalone distillation notebook and `hda_with_distillation()` use legacy four-component HDA properties/reaction upstream, then a Translator to C `BTXParameterBlock` with Ideal activity and two phases. CSTR volume follows reaction rate/conversion .75 with adiabatic heat0. First-flash/recycle controls match above; translator → equilibrium heater375 K/deltaP−200 kPa →10 trays, feed tray5, total bubble-point condenser, reflux .5, boilup .5, condenser150 kPa. This is a kinetic reactor plus equilibrium column, not the two-flash conversion-only case. |
+
+Fresh feeds are303.2 K/350 kPa, with .30 mol/s liquid toluene in one and
+.30 mol/s vapor hydrogen plus .02 mol/s vapor methane in the other. Every
+other represented phase-component feed is1e-5 mol/s. Modular feed fixing
+converts those six component flows into phase totals and normalized
+within-phase fractions; legacy feeds retain eight independent component
+flows. The extra liquid light-gas traces and differing caloric models mean
+these routes cannot be declared numerically equivalent by their common
+flowsheet drawing. The modular helper's tear guess accidentally exchanges
+hydrogen and methane vapor fractions; preserve this initial-guess behavior
+separately from actual feed specifications. Its manual propagation fixes a
+tear, deactivates the arc, initializes/propagates units, then releases the
+tear and reconnects. An alternative five-iteration Wegstein function is
+defined but commented out at the tutorial call site.
+
+The modular property reference is298.15 K/101325 Pa, with temperature
+273.15..1500 K, pressure100 kPa..1 MPa and phase-flow0..100 mol/s numerical
+bounds. RPP5 vapor heat capacities use the inline legacy polynomial values
+divided by R, and include formation enthalpies. Benzene/toluene liquid
+density uses local `PerrysSafe`: its fractional-temperature expression is
+smoothed above critical temperature instead of taking an invalid fractional
+power. This mathematical continuation is not measured liquid validity.
+SmoothVLE/IdealBubbleDew and RPP5 saturation complete this declared closure;
+the shipped vapor-only dictionary is another unselected package branch.
+Ordinary datum/correlation provenance and formation/reaction energy
+accounting must be declared independently of this reference continuation.
+
+The modular reaction has partial-pressure orders1 in toluene and .5 in
+hydrogen, prefactor6.3e10 mol/(m3 s Pa^1.5), activation217.6 kJ/mol and
+reaction enthalpy−108 kJ/mol. The legacy reaction instead uses
+rate = Arrhenius(T) × total pressure × vapor toluene fraction, with prefactor
+6.3e10 mol/(m3 s Pa), same activation/heat and **no hydrogen rate factor**.
+That difference matters for the kinetic CSTR even when a conversion-specified
+stoichiometric reactor does not consume its rate law. The legacy caloric
+owner integrates its own phase Cp/phase offsets from its reference rather
+than making modular coefficient/formation declarations interchangeable.
+
+The distillation translator equates temperature and pressure, but sends
+only inlet liquid benzene+toluene molar flow to the BT package and
+renormalizes their fractions. It drops liquid hydrogen/methane; it does not
+carry their material or enthalpy into an explicit rejected stream and does
+not impose total enthalpy equality. Native correspondence must retain this
+approximation boundary or explicitly adopt different ordinary science.
+Do not close global atom/energy balance using only its surviving BT stream.
+
+The modular tutorial minimizes annual utility cost after freeing heater
+temperature500..600 K, reactor heat while **fixing reactor outlet600 K**,
+first/second flash temperatures298..450 K, and second-flash pressure
+105..110 kPa. Conversion .75 and purge .2 remain fixed. First-flash vapor
+benzene loss is≤20% of reactor vapor benzene; second-flash vapor benzene
+flow≥.15 mol/s and benzene/(benzene+toluene) product purity≥.80.
+Ipopt_v2 uses max_iter1000/tol1e-8 with the authored ma57 automatic-scaling
+option. Source simulation targets at rel1e-4 are annual cost419008.28189,
+purity .82429, second-flash heat7346.67441 W and pressure150 kPa.
+Optimization targets are312674.236, purity .818827, heater500 K,
+reactor heat−13766.243 W, flashes301.881/362.935 K and final105 kPa.
+Cost coefficients are inline: cooling2.12e-8 times negative first-flash/
+reactor heat, heating2.2e-7/1.9e-7 times heater/second-flash heat,
+multiplied by365-day annual seconds. Currency/year source remains separate.
+
+The distillation notebook instead minimizes annual utility plus an inline
+reactor capital proxy1e5×volume. It releases heater temperature500..600 K,
+conversion0..1, first flash298..450 K, intermediate heater350..400 K,
+column pressure101325..150000 Pa and reflux/boilup .1..5. Reactor outlet
+temperature is bounded600..900 K and volume nonnegative; heat remains0.
+Overhead loss≤20%, distillate flow≥.18 mol/s and benzene purity≥.99.
+Source operating/capital targets are427596.731/14704.740 before and
+408883.531/29956.367 after optimization, each absolute100. These proxy
+capital products are distinct from the SSLW comparison notebook.
+
+The SSLW comparison uses carbon-steel fuel-fired heaters, carbon-steel
+vessels with1.25-inch shell, L/D3 and fixed diameter .2214 m where no
+physical volume exists. The CSTR geometry derives from kinetic volume.
+Its column is .1715 m diameter/.8575 m length, carbon-steel sieve trays,
+platforms/ladders and ten trays. Compressor purchase cost is omitted from
+both comparison totals. The distillation helper uses utility coefficients
+2.5e-8/2e-8 for first-flash/condenser cooling and
+2.2e-7/1.2e-7/1.9e-7 for heaters/reboiler. These actual scope/basis choices
+and C SSLW correlations need ordinary cost provenance; common plotting
+columns do not establish complete installed-plant cost.
+
+Native D05/F04/G06 requires all three routes, exact phase/component and
+reaction law, fixed/free transitions, translator disposition, complete
+products/recycle/column outputs, original physical checks and separate
+assessment bases. Legacy helper initialization limits Wegstein to three
+iterations and may fall back to an unchecked unit solve; subsequent
+assembled optimality does not establish complete conservation or ordinary
+data acceptance. Exact selected package/solver compatibility, wider
+configuration controls, physical/cost provenance and independent numerical
+qualification remain required. Source/AST reads executed no HDA model.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
