@@ -4256,6 +4256,73 @@ science or qualify transient performance. Exact SCIP/Ipopt/SVD/derivative
 prerequisites, invalid configuration controls and independent numerical/
 diagnostic execution remain required; only source/AST inspection ran here.
 
+## Gas transport method and heat-transfer consumer closure — 2026-11-05
+
+**Interface-checked, source only:** C `modular_properties/pure/{ChapmanEnskog,
+ChungPure,Eucken}.py`, their corresponding tests, and
+`transport_properties/{viscosity_wilke,thermal_conductivity_wms,no_method}.py`
+with their tests resolve the following finite method selections. These are
+inline reference tables/expression evaluations on dummy state objects,
+separate from the assembled exchanger consumer below. No data file, fitted
+artifact, external-function binary or trainer is read by these methods.
+
+| Selection | Actual parameterized scientific inputs |
+|---|---|
+| Chapman–Enskog viscosity | SO2 at10/100/300/700°C, methanol67/127/277°C, ethane47/117/247°C: ten method requests, converting °C with273.15. Molar masses .064065/.032042/.030070 kg/mol; Lennard-Jones sigma4.112/3.626/4.443 Å and epsilon/k335.4/481.8/215.7 K. Source viscosity targets are[120,163,246,376], [112,132,181], [100,120,156] **micropoise**, each rel3%. Nearby comments call them millipoise, but the actual conversion is micropoise (1e-7 Pa s each). |
+| Chung viscosity | Same ten tabulated temperatures/viscosities but converts with273 exactly, so these are offset scientific conditions, not duplicate CE evaluations. Critical T430.8/512.46/305.32 K, molar volumes122/118/145.5 cm3/mol, omega .257/.565/.099, dipoles1.6/1.69/0 debye, association0/.215/0. It checks reported percent-error tables, not zero error: SO2[2.8,.3,−.2,1.5] at absolute .2 percentage points; methanol[−.4,−.3,−.3] and ethane[1.1,1.2,0] at .5. |
+| Eucken conductivity | Acetone T353/393/457 K, CO2 T200/300/473/598/1273 K, ammonia213/273 K, each with internal-energy transport factor1/1.32/1.15: thirty method requests. Source supplies viscosity and Cv tables independently, setting Cp=Cv+8.314 rather than computing either from another correlation. It compares three nonzero percent-error rows per species at absolute .3/.5/.6 percentage points, not conductivity agreement at those small relative errors. Missing ideal-gas Cp is an explicit configuration refusal. |
+| Wilke and alternative mixing callback | Three binary tables, each with both Wilke and the source's `herring_zimmer_phi_ij_callback` (Herning–Zipperer mass-root rule). N2/CO2 first-component fractions[0,.213,.495,.767,1]; NH3/H2[0,.195,.399,.536,.677,1]; N2O/SO2[0,.325,.625,.817,1]:32 method requests including repeated endpoints. Pure viscosities175.8/146.6,105.9/90.6,173/152.3 micropoise; molar masses28.014/44.009,17.031/2.016,44.013/64.066 g/mol. Actual percent-error tables and diagonal/off-diagonal interaction checks are retained in their named test functions. Hydrogen-mixture errors reach about12% Wilke and19% alternative; the source does not assert universal5% accuracy. |
+| WMS conductivity | One benzene/Ar constant-viscosity point at xbenzene=.25 with target .0184 W/(m K), rel.002; three five-point mixture curves with CE viscosities: benzene/n-hexane398.15 K (rel.01), methanol/n-hexane371.55 K (rel.08), benzene/Ar373.75 K (rel.05). Their exact five composition and conductivity arrays, masses and LJ data are inline in each named test. Sixteen requests; those curve allowances are distinct from the interaction-factor assertions. Pure conductivity is table-supplied constant for each curve, not calculated by Eucken. |
+| Explicit no-method | Separate viscosity and conductivity controls return an unavailable/omitted expression and emit one construction log. This means no property was supplied; it is not a zero coefficient or a silently usable transport model. |
+
+CE and Chung default to the Neufeld collision-integral callback; a Kim–Ross
+callback and user-provided callback path exist but are not selected by those
+ten-point tests. Chung consumes critical density, acentricity, dipole and
+association instead of the CE sigma/epsilon pair. Eucken requires viscosity,
+ideal Cp, molar mass and its declared internal factor; a factor parameter's
+initial1.61 is overwritten for the three tested selections. Wilke defaults
+its callback when none is given, and WMS reuses that viscosity interaction
+construction. Phase membership must be the actual components in the selected
+phase. The cached interaction object is state-wide, so these vapor-only
+tests do not establish independent caches for differing phase memberships.
+Positive temperatures, masses, collision/critical parameters and viscosities,
+normalized compositions and nonzero denominators require native domain
+controls; parser acceptance alone establishes none of those envelopes.
+
+`transport_properties/tests/test_shell_and_tube_1D_transport.py` supplies
+three complete **consumer selections**: natural-gas-helper ideal/default
+viscosity, ideal/Chung viscosity, and PR/default viscosity. All use single
+vapor N2/O2/Ar/H2O/CO2, helper caloric/transport data and countercurrent
+ShellAndTube1D. Default viscosity includes the helper's selected water
+method; do not relabel it as a uniformly CE mixture. The Chung override
+supplies critical mass densities313.3/436.1/535.6/322/467.6 kg/m3 by species,
+converted using each molar mass; dipoles/association are zero except water
+1.8546 debye/.076. These input provenance leads remain reference declarations,
+not an ordinary fitted air package.
+
+Geometry is length4.85 m, shell diameter .4 m,100 tubes,
+outer/inner diameter .01167/.01067 m. Both feeds are101325 Pa with
+O2/H2O/CO2/N2/Ar=.2074/.0099/.0003/.7732/.0092; hot5 mol/s at365 K,
+cold10 mol/s at300 K. Tube/shell Reynolds numbers and heat coefficients
+are solved from authored transport-dependent correlations, with coefficients
+.027 and .6×.254, Re exponents .8/.632 and Pr exponent1/3. Initialization
+temporarily replaces these by cold/hot coefficients51000/2000 W/(m2 K),
+then releases them, reactivates their equations and solves with Ipopt_v2.
+Source hot/cold outlet temperature targets are313.390/325.767 K (ideal),
+313.338/325.793 K (ideal Chung),313.405/325.752 K (PR), rel1e-5;
+flow/pressure and separate material/enthalpy conservation assertions accompany
+these targets. Temporary constants are initializer aids, not final inputs.
+
+Native D02/D03/D04 requires selected pure/mixing method, phase membership,
+parameter units/domain and declared empirical allowances, then independently
+the consumer's Reynolds/Prandtl/heat-transfer/energy products. Digitized
+tables, callback alternatives and original literature provenance require
+separate ordinary admission; no library method name supplies its coefficients
+or validates every composition/pressure. Exact external solver/EOS closure,
+unselected callback/invalid-domain controls and independent numerical
+qualification remain required. The census ran AST/source reads only, not
+transport expressions or the assembled exchanger.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

@@ -497,6 +497,15 @@ control schedule and exact rank/failure guards remain distinct from current
 core bed qualification. SCIP and derivative/rank execution, ordinary data
 and complete independent physical/diagnostic evidence remain required.
 
+**Update, 2026-11-05 — gas transport census:** the
+[transport closure](64h-required-process-population.md#gas-transport-method-and-heat-transfer-consumer-closure--2026-11-05)
+resolves CE/Chung temperature and parameter differences, Eucken factor
+selections, Wilke/alternative and WMS binary inputs, explicit no-method,
+and three assembled shell/tube transport consumers. Percent-error allowances,
+micropoise conversion, initialization-only constants and ordinary provenance
+remain separate from method and consumer qualification. No transport model
+or exchanger was executed for this declaration.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
