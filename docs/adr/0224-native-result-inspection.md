@@ -7,12 +7,12 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-04, AP-07, DP-21, PS-10, PS-12]
 blueprint: [§19.2, §21.1, §21.5, §23.2]
-review: "not-required: scoped native inspection/diagnostic binding within existing Rust-authoritative boundaries; Plan52l and usability RC01 selected by maintainer"
-evidence: Tested
+review: "not-required: scoped observational inspection binding within existing Rust-authoritative boundaries; maintainer-authorized Plans52l/55/65; Plan65 F04 source-backed assessment preserves full native admission"
+evidence: Interface-checked
 supersedes: []
 superseded-by: null
 revisit: A concrete inspection needs another scientific query authority or decoding loses native interpretation or protection.
-verification: Wide protected result schema and selected readable values match independently expected original Arrow fields; stale/released selections refuse; decode paths preserve version-first, duplicate-header and trailing-input admission without exposing input values.
+verification: Selected roots and full/projected/full decoder reuse preserve complete file/schema/layout protection, all original scalar keys and retained relation predicates; omitted-field local validation is explicitly unavailable; native inspection selection/context/cursor/cancellation and unchanged full-admission controls retain independent expectations.
 standard: {core: "3.4", process-simulator: "1.5"}
 scenarios: [docs/plans/52l-typed-requests-results-and-diagnostics.md#CON03, docs/plans/52l-typed-requests-results-and-diagnostics.md#CON04]
 ---
@@ -74,14 +74,54 @@ elements and null elements distinctly. Exact scalar widths, IEEE class/bits and 
 remain native meanings. Shallow descriptors and bounded schema/context detail pages avoid repeating
 entire nested datatype trees. Continuations bind issuer, original result selection, manifest,
 schema, complete row window and selected paths; each request reopens/protects that exact result.
-Schema/context pages consume no data batches. Selected readable materialization retains required
-original full-batch decoding and validation; no decode-speed improvement is claimed.
+Schema/context pages consume no data batches. At the Plan55 cutover, selected readable
+materialization retained original full-batch decoding and validation; no decode-speed improvement
+was claimed.
 
 Keep decision-critical units/basis/identity/quality/usability inline and supplementary exact
 context linked with explicit completeness. Indivisible unsupported extent refuses honestly;
 exact IPC remains available for bulk/programmatic access. Plan55 C02 must make a representative
 real nested value readable with independently checked meaning; a more precise refusal alone is
 insufficient. The existing reader/lifetime authority is unchanged.
+
+### Plan65 selected-hydration amendment — 2026-11-04
+
+**Proposed; Interface-checked:** selected readable inspection decodes the requested complete
+Arrow roots, existing context roots, all scalar primary-key roots and every bound relation-check
+dependency. Preserve whole-file schema/footer/block extent, complete-message layout, original
+protection and allocation grants before decoding. Validate every retained root with the existing
+immutable native `ValidationContext::column` / `PreparedLocalContract::evaluate` contracts,
+evaluate all original relation predicates, and check scalar-key uniqueness across the entire
+original batch before slicing the requested row window.
+
+This is a narrower observational guarantee: omitted roots' local values are not validated.
+Hashes establish original-byte integrity, not omitted-field semantic validity. Expose the actual
+inspection-check coverage in the result; readable completeness does not become full-relation
+admission, scientific permission or publication eligibility. Advance only the affected native
+inspection request/response roots to version three and migrate their active consumers together;
+reject superseded roots before body decoding. Other document owners retain their versions.
+The full IPC/scientific path still requires its complete `FieldCheckedBatch` and native checks.
+Do not create a synthetic relation, arbitrary-subset `FieldCheckedBatch`, new store or admission
+certificate from an inspection observation.
+
+Arrow 59.3 [`FileDecoder::with_projection`](https://docs.rs/arrow-ipc/59.3.0/arrow_ipc/reader/struct.FileDecoder.html#method.with_projection)
+skips unselected top-level array hydration. Construct its projection per read from the retained
+full admitted schema so selected state cannot leak into a later full read. The existing
+[admitted-file owner](../../crates/pse-columnar/src/ipc_file.rs) retains complete schema/layout
+preflight; no bespoke IPC decoder or second footer authority is needed. Native
+[column validation](../../crates/pse-relations/src/validate/prepared.rs) supplies the retained-root
+checks. Bind original relation predicates with the existing
+[row-check owner](../../crates/pse-relations/src/validate/row_checks.rs), derive their dependencies
+with DataFusion 55.1 [`Expr::column_refs`](https://docs.rs/datafusion-expr/55.1.0/datafusion_expr/enum.Expr.html#method.column_refs),
+and preserve all predicate evaluation rather than silently dropping checks after projection.
+Missing or unsupported dependency binding refuses before access.
+
+The native snapshot owner retains source acquisition, cached original bytes, cancellation,
+failure, close and escaped-buffer accounting. The complete selected IPC block is still read;
+selected arrays can retain its full backing buffer, and nested selection hydrates the complete
+root. Existing decoded-byte observations keep that meaning. No memory, latency or throughput
+benefit is claimed without complete-path measurements. A union requiring all fields naturally
+uses the complete root population.
 
 ### Compensating controls
 
@@ -126,7 +166,14 @@ scientific fields or serializing entire results merely to answer a small questio
 [the coordinator](../plans/52-agent-effectiveness-and-engineering-workflows.md#usability-rule-decisions)
 records accepted RC01 and the separate conditional mechanisms. The usability review's O04/O07
 supply functional motivation. Enduring publication follows the existing design-edit/revision route.
+[Plan65f F04](../plans/65f-diagnostics-and-result-delivery.md#selected-hydration-and-inspection-assurance--2026-11-04)
+owns the selected-hydration implementation, coverage changes and targeted acceptance. Earlier
+Plan52/55 test evidence above does not establish the new projected path.
 
 ## Status history
 
 - 2026-10-24: Proposed before native changes under maintainer-authorized Plan52l execution.
+- 2026-11-04: Amend the proposed target before Plan65 F04 implementation: selected-root hydration
+  with explicit observational check coverage, preserved whole-source/predicate/key protection and
+  unchanged full native admission. New mechanism support is Interface-checked; earlier tested
+  scopes remain attributed above. Formal status remains proposed.

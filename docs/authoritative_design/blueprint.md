@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 351
+revision: 352
 date: 2026-11-04
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 352 | 2026-11-04 | Propose selected-root result-inspection hydration with explicit observational validation coverage, complete source/key/predicate protection and unchanged full native admission (§19.2/§21.1). | Proposed ADR-0224 amendment before Plan65 F04 implementation; exact Arrow/DataFusion/native interfaces assessed, production implementation and qualification remain with Plan65f. Formal status unchanged. |
 | 351 | 2026-11-04 | Propose exact-byte/same-native-root recipe qualification, DOM-free surviving structural membership V1 and phased receiving workspace admission (§5.3/§14.3). | Proposed ADR-0245 after independent Accept-scoped prerequisite assessment; existing JSON v3 stays authoritative until complete protobuf v4 implementation and targeted activation evidence. Formal acceptance and assembled qualification remain separate. |
 | 350 | 2026-11-04 | Propose one shared lossless Proto adapter for generation and independent host inspection (§4.7/§21.7), preserving the pure declaration and native authority boundaries. | Proposed ADR-0244 before crate addition; bounded dependency assessment and Plan65 A/G/J consumer tests remain separate from formal acceptance and assembled qualification. |
 | 349 | 2026-11-04 | Record the pure source-owned contract foundation, borrowed observation construction (§4.7/§21.7), handle-scoped worker lifecycle and proposed genuine batching (§9.11). | Proposed ADR-0241–0243 under authorized concurrent Plan65 execution; targeted component/process evidence stays with Plan65, not assembled qualification or formal ADR acceptance. |

@@ -2,7 +2,7 @@
 title: "Plan65f: Diagnostics and result delivery"
 status: proposed
 date: 2026-11-03
-adrs: []
+adrs: [ADR-0224]
 review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
@@ -134,6 +134,48 @@ implement full reads as repeated public pages that each reparse/reconstruct the 
 Result metadata identifies axes/time/layout, physical quantities, completeness, qualification
 and Arrow payload protection. Do not replace columnar arrays with repeated generic values.
 
+### Selected hydration and inspection assurance — 2026-11-04
+
+**Selected target; Interface-checked:** F04's readable-value inspection uses the existing
+protected snapshot owner with Arrow 59.3
+[`FileDecoder::with_projection`](https://docs.rs/arrow-ipc/59.3.0/arrow_ipc/reader/struct.FileDecoder.html#method.with_projection)
+before native array hydration. Derive one retained-root set from requested paths, existing
+context behavior, all scalar primary keys and all bound relation-check dependencies. A nested
+selection retains its complete root and current composite-context behavior. Do not route through
+DataFusion's current snapshot scan merely to obtain projection: that path already hydrates and
+exports a full checked batch before projecting.
+
+Reuse `AdmittedFile`'s complete source schema/footer/block/layout checks, original snapshot
+protection, cancellation/close/failure machinery and pre-allocation grants. Construct each native
+decoder's projection per read; a projected decoder must not contaminate a later full read.
+The existing `ValidationContext::column` and `PreparedLocalContract::evaluate` validate every
+retained complete root. The original `row_checks::bind` predicates retain all dependencies via
+DataFusion 55.1 [`Expr::column_refs`](https://docs.rs/datafusion-expr/55.1.0/datafusion_expr/enum.Expr.html#method.column_refs)
+and all predicate evaluation. Bind/refuse before reading if that closure cannot be determined.
+The existing scalar-key algorithm checks declaration-bound keys over the entire original batch
+before slicing returned rows. Reuse these owners; no handwritten IPC parser, synthetic relation
+or arbitrary-subset `FieldCheckedBatch` is introduced.
+
+Expose the actual inspected check coverage on the native observation. Omitted roots' local
+values are unchecked; original-byte hashes alone do not establish their semantic validity.
+Only the affected inspection request/response roots move to version three, with active callers
+migrated and superseded versions refused before body decoding. Full IPC/scientific reads keep
+their full-relation admission and permission boundaries. Protected values can still be useful
+observations without granting scientific use. The proposed
+[ADR-0224 amendment](../adr/0224-native-result-inspection.md#plan65-selected-hydration-amendment--2026-11-04)
+records this assurance change before implementation; formal decision status remains proposed.
+
+The complete selected IPC block is still read and selected arrays may retain its backing buffer.
+Keep decoded-byte accounting honest; there is no measured memory/throughput benefit claim.
+Targeted acceptance extends admitted-file and canonical inspection controls for selected roots,
+full/projected/full reuse, selected malformed data, omitted-field assurance, predicates/keys
+outside the returned window, nested/context/cursor semantics, refusal before read and unchanged
+full/scientific admission. Source contracts are in
+[IPC admission](../../crates/pse-columnar/src/ipc_file.rs),
+[column validation](../../crates/pse-relations/src/validate/prepared.rs),
+[row-check binding](../../crates/pse-relations/src/validate/row_checks.rs) and
+[scalar-key validation](../../crates/pse-relations/src/result_batch.rs).
+
 Use Buffa eager views/`OwnedView`/`ViewEncode` and segmented output only where end-to-end
 ownership removes materialization. Lazy views lack some owned/reflection/text capabilities
 and may repeat decoding; they are not the default page representation. A compact copy can
@@ -159,14 +201,62 @@ explicit payload inspection therefore requires its own authorization and display
 Optional Tokio-console remains an explicitly prepared local task/runtime diagnostic route,
 using the required Tokio tracing configuration. It is not a completion or cancellation owner.
 
+### Semantic RPC failure delivery — 2026-11-04
+
+Main `0e36b4863` integrates the semantic service/client failure population. The native
+`semantic::Error::Rpc` retains the actual `connectrpc::ConnectError` and its local source;
+an output-only `RpcObservation` records interpreted details without granting native refusal
+or settlement authority. Absent, unrecognized, malformed, conversion-refused, ambiguous,
+oversized and recognized native details remain distinct. A transport `InvalidArgument`
+alone cannot become a native validation refusal. Native diagnostic identity, canonical
+validation correction/selectors and failure state/phase survive the CLI and investigation
+projections; the duplicate JSON RPC-detail shadow is removed.
+
+The selected [ConnectRPC 0.9.1 error functionality](https://github.com/connectrpc/connect-rust/blob/v0.9.1/src/error.rs)
+provides original status/details and `with_source` for a local cause. The producer constructs
+a fresh public error from an owned native error and explicit transport code/message; it does
+not reuse arbitrary inherited details. Buffa decoding and canonical violation conversion
+remain fallible interpretations, separately inspectable from that original cause. Explicit
+caller redaction covers native codes and canonical validation strings. Public recursive
+diagnostic-source/related/aggregate traversal omits raw RPC causes while preserving independently
+captured sibling facts and causes. Generated developer-evidence output carries the same passive
+`ErrorRecord.semantic_rpc` meaning; no wire observation reconstructs a native error capability.
+
+Twenty-one selected controls passed before main integration, including real HTTP/2 transport,
+literal independent wire inputs, dynamic descriptor readback, malformed/unknown/oversized
+details, canonical corrections and recursive privacy. The host all-targets check passed with
+zero warnings; original capture and settlement completed. Full main receiving `just codegen`
+passed all fourteen targets; the CLI catalogue and generated source provenance changed,
+while the already integrated developer-evidence output stayed current. The known Buffa
+reserved `into` accessor notice is distinct from Rust compiler warnings.
+
+Main `4c8130da1` fixes a further routine-disclosure gap in the copied semantic failure:
+opaque backend JSON strings and keys now obey the same explicit caller redaction policy,
+including nested cancellation failures. Unchanged public keys are reserved before redacted
+keys; visibly generated collision suffixes preserve every value. Native errors, original RPC
+details/local causes and raw wire-codec round trips remain exact. This applies to ordinary LSP
+refusals as well as recognized native RPC details, without changing explicit payload/source
+inspection. Main `0c8f48b4c` also removes the dependency-usage consumer's conversion of a
+typed semantic error into ownership text. Its terminal projection can now retain the selected
+RPC observation and original diagnostic category.
+
+Sixteen targeted host controls passed on main with zero failures/build warnings, configured
+unbounded/cache-off mode and complete original capture/settlement. The selection includes the
+full-envelope opaque-disclosure regression, existing RPC/failure controls and dependency-usage
+delivery. Two initial unscoped launches refused manager attachment before building; the actual
+user-application-scope route supplied the passing evidence. Main
+`scripts/pse check pse-host --all-targets` also passes with zero errors/build warnings and
+complete original capture/settlement in cache-off, unbounded mode. These results cover this semantic family, not every F02 producer,
+scientific result or F06 assembled journey.
+
 ## Packages
 
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
 | F01 | in-progress | Actual native consumer readiness; I01/J01 semantic design; 65a metadata and 65b policy identities | Completion-owned permission/local-validity and developer evidence observation slices are delivered; complete diagnostic/observation/outcome/result-description products across native diagnostics, runtime documents, producer facts, scientific product-use scope/coverage/selection and developer action/inventory/fixture/assertion/capture/settlement. Preserve every selected distinction with exhaustive mappings and independent records. |
-| F02 | planned | F01; 65a generated adapters and 65b violations | Migrate native-to-CLI and local error projections to typed details and category-preserving sources. Recognized malformed, unknown, absent, multi-cause, rule/compiler/evaluator failures and oversized details must differ. Delete replaced string classification and duplicate field maps; keep native rendering where consumed. |
+| F02 | in-progress | F01; 65a generated adapters and 65b violations | Semantic RPC family is integrated with typed detail dispositions, original causes, canonical corrections and recursive redaction. Complete the remaining native-to-CLI/local error populations with the same category fidelity. Recognized malformed, unknown, absent, multi-cause, rule/compiler/evaluator failures and oversized details must differ. Delete replaced string classification and duplicate field maps; keep native rendering where consumed. |
 | F03 | planned | F01/F02; narrow C scientific or J developer retention contract according to family | Deliver full evidence with bounded details and protected readback. Exercise omitted selectors, unknown counts, missing spans, expired locators, failed publication, report without inventory and forbidden verdict reconstruction. No summary implies complete retained evidence. Remove replaced inline blobs/readers together. |
-| F04 | planned | F01 selected metadata; 65d original-operation streaming/custody | Migrate existing post-64 progress and result-inspection producers/clients. Selection reaches producer; selected/full/empty output, continuation, partial final failure and backing-buffer release retain original semantics. Compare useful native/Arrow products rather than force a single format. Delete duplicate projection/extent passes only when equivalent protection moves. |
+| F04 | in-progress | F01 selected metadata; 65d original-operation streaming/custody | Selected readable-root hydration/explicit narrower check coverage is designed under the proposed ADR-0224 amendment; implementation/acceptance remains. Migrate remaining post-64 progress and result-inspection producers/clients. Selection reaches producer; selected/full/empty output, continuation, partial final failure and backing-buffer release retain original semantics. Compare useful native/Arrow products rather than force a single format. Delete duplicate projection/extent passes only when equivalent protection moves. |
 | F05 | planned | F01 fact vocabulary; working F02/F04 consumers | Generate shared observation/sink projections and correlate CLI, OTLP, Perfetto and optional task observations through existing identities. Test unknown/disabled/stale/lost coverage, precise timestamps and Debug-versus-explicit-export redaction. Retire replaced string-unit/classification mirrors, retaining externally required wire schemas. |
 | F06 | planned | F02–F05; I scientific products and J05 developer population; 65g reader | Complete produce→summarize→publish→readback across validation/preparation/solve/provider/store/host failures plus list/check/rustdoc/test and exact rerun. Preserve native verdict ownership, raw versus scientific selection, disconnect and retained reads. Measure complete paths for materialization claims; hand evidence to H. |
 

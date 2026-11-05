@@ -548,6 +548,14 @@ encoded-response limits refuse without substituting facts. Original-batch valida
 allocation and cancellation/drain remain native; exact Arrow IPC remains the complete data path.
 Inspection grants no scientific usability or publication authority.
 
+> Proposed Plan65 F04 amendment under ADR-0224: readable inspection may hydrate only requested
+> roots, existing context, scalar keys and all bound relation-predicate dependencies. Full
+> source/schema/block protection and complete-batch key/predicate checks remain; retained roots
+> receive native column checks, while omitted roots' local values are explicitly unchecked.
+> Version-three inspection roots expose this narrower observational coverage. This does not
+> construct a full-relation `FieldCheckedBatch`; full IPC/scientific readers retain full admission.
+> Implementation and targeted qualification remain with Plan65f.
+
 Result inspection copies the exact producer Completion's governing scientific permission and,
 for statistical products, its recorded product permission. Product-local mathematical validity
 remains independent of original permission. Missing permission supplies an explicit unavailable
@@ -1678,8 +1686,11 @@ struct/list paths preserve null parents/elements, absent indexes, numeric widths
 Continuation binds issuer, protected selection, manifest, original window/paths and schema contract.
 Recursive metadata may be deferred by original key/byte extent with ancestor attribution; omission
 never becomes complete context. Exact metadata or original IPC retains the detail with finite intact
-refusal. Physical-context admission reads retained physical sources. Value transport admits original
-full batches and retains physical context within its document allowance. Readability establishes
+refusal. Physical-context admission reads retained physical sources. Current version-two value
+transport admits original full batches and retains physical context within its document allowance.
+The proposed Plan65 F04/ADR-0224 version-three path moves selected-root hydration before value
+materialization with explicit narrower check coverage as specified in §19.2; full IPC admission
+is unchanged. Readability establishes
 neither scientific usability, complete IPC fidelity, terminal settlement nor speed. Complete local
 IPC export follows §19.2.
 

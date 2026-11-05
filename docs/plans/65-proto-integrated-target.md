@@ -2,7 +2,7 @@
 title: "Plan65: Integrated Proto target alongside Plan64"
 status: in-progress
 date: 2026-11-03
-adrs: [ADR-0241, ADR-0242, ADR-0243, ADR-0244, ADR-0245]
+adrs: [ADR-0224, ADR-0241, ADR-0242, ADR-0243, ADR-0244, ADR-0245]
 review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
@@ -378,7 +378,7 @@ Recipe decode probe is integrated as `d1e597de1`; actual physical-context prepar
 native SelectedColumns and authored steam-source corrections are integrated as
 `165faf093`. All required owned content was reconciled before removing their quiescent
 checkouts. The generated ownership manifest preserves the union of both generators.
-Only the main checkout remains; integration and final acceptance continue there.
+At that consolidation only main remained; integration and final acceptance continue there.
 
 Main `c9cfe6a8d` bounds shared native clock/settlement composition. The current
 [G08 checkpoint](64g-analyses-studies-and-applications.md#g08--atomic-capture-and-unrelated-liveness)
@@ -393,8 +393,57 @@ published outputs unchanged. An earlier storage exhaustion interrupted pending m
 keeper/predecessor and worker scientific tests; those interrupted builds establish no
 test result. Removing only the reviewed, integrated and quiescent worker checkouts
 recovered approximately 137 GiB. Retained invocation stores and main build output were
-preserved. Post-recovery `just ready` passed; fresh main tests and original source-built
-Study image captures are in progress. Their acceptance remains with 64j/64k/64g and 65e.
+preserved. Post-recovery `just ready` passed. Main's 44 runtime controls, three actual-process
+worker controls, 19 Study keeper/coordinator controls, 15 compiler Recipe controls and the
+feature-selected bundle control now pass in their native owners' recorded scope. The two
+remaining predecessor controls and corrected fixture preflight also pass; 64g owns their
+historical receipt/current-readiness distinctions. These are targeted results, not assembled
+series qualification.
+
+The retained-evidence/action-population package is integrated as `86c566810`; its three source
+files matched main before quiescent checkout removal, with original evidence preserved.
+Semantic RPC failure fidelity/redaction is integrated as `0e36b4863`; all nineteen files
+matched main before its clean, quiescent checkout removal. Only the main checkout remains.
+F02 owns the selected native-detail dispositions, original causes, canonical corrections
+and recursive privacy. Its twenty-one focused controls and host all-targets check passed
+before integration. Full main generation now passes all fourteen targets, and the later
+sixteen-control receiving selection covers the additional opaque-data disclosure repair and
+typed dependency-usage consumer. The main host all-targets check also passes; F02 retains those
+bounded scopes. The original Study
+images and reference allocation are explicitly prepared. Main
+`b8018039a` adds the fixed application launcher after native shell exports were correctly
+refused: shared protected capture checks and typed arguments, completed SDK selection, and
+`exec` in the original application scope, retaining coordinator cleanup and detachment guards.
+The first launcher selection then refused a compiler-cache context mismatch before fixture
+creation. With matching `--cache off`, the real keeper/database/worker/frontend started;
+Submit's client build then failed because the detached service inherited the user manager's
+smaller open-file default. Shared transient-service caller-limit inheritance and the typed
+cancelled-original drain repair address the two observed mismatches. The failed fixture and
+original reports remain preserved. 64j owns that attempt and the fresh-image/live-journey
+obligations; no three-phase pass is claimed. A subsequent fresh protected four-image capture
+completed, and all nineteen final keeper/coordinator controls pass. The next live attempt
+expired before keeper readiness while its native boundary refreshed the cold host; it did
+not submit a Study. Separate readiness investigation exposed a compiler-provider reuse bug:
+an old derived CMake cache bridge could be copied into an explicitly cache-off preparation.
+Main `dfc98ee02` checks effective caller context before copying selections and uses the same
+full compatibility result for reuse. Nineteen provider controls pass, and explicit preparation
+now produced matching compiler/isolation receipts without changing KLU/solver selections.
+Main `178ddaa2a` now attributes scientific step failures only to the performing owner's recorded
+target, retaining completed results, unattempted absence and aggregate task/cleanup failure.
+The native three-step regression passes after its non-capacity fixture pool was sized for its
+actual preparations; mathematical limits and assertions are unchanged. The default runtime
+all-targets closure and the kinsol/root-isolation receiving closure both check without warnings
+or errors. The original regression build's unused-helper warning is retained in its evidence;
+`27eb44d1e` fixes that helper's exact Ipopt/POUNCE availability, followed by the clean receiving
+check. F/I/J populations and full scientific qualification remain separate.
+
+F04's next selected slice is protected readable-value hydration before array construction.
+The proposed ADR-0224 amendment and blueprint revision 352 preserve complete source/schema/block
+protection, all scalar keys and relation predicates while explicitly narrowing local-value
+checking to retained roots. Full IPC/scientific admission is unchanged. Version-three inspection
+roots expose that observational coverage; no synthetic relation or arbitrary-subset
+`FieldCheckedBatch` is minted. 65f owns precise Arrow/DataFusion/native mechanisms and targeted
+acceptance. This is a proposed design before implementation, not a projected-reader test claim.
 
 Continue with actual canonical/private receiving integration and original workspace
 admission/restoration before activating the protobuf Recipe. A05/E02/E03,
