@@ -211,6 +211,104 @@ Study pass and fourth-phase source controls. Fresh final-source four-phase compo
 quantitative benefits, broader scientific/reference/performance campaigns, WASI, the optional
 provider powerset, H01–H04 completion and both series' completion remain unestablished.
 
+## Source integration wrap-up — 2026-11-05
+
+The operator requested closure of current assignments, main-branch integration, removal of
+merged worktrees, all observed Clippy findings repaired and failing targeted controls resolved.
+All three source worktrees were merged without conflicts and removed only after their changes
+were committed and their processes departed. Only main remains. The earlier consolidation
+checkpoint above retains its historical scope; this section records subsequent receiving work.
+H01–H04 and the full Plan64/65 series remain open.
+
+**Implemented:** source-owned generation now composes typed Buffa/Connect outputs and one
+validator preparation in process; passive inspection carries request-owned admission through
+generated/dynamic decoding, developer-evidence readback and supervised text conversion;
+native evaluation/adapter/workflow owners use consuming retirement and preserve independent
+failures. Targeted failures prompted concrete-type native-scope admission, single bank-owned
+failure attribution, original panic-payload disposal, explicit fixture retirement and current
+compiler-issued support/descriptor-lease binding for cached arithmetic. Source authority,
+scientific assertions, force-validation, deadlines and the zero baseline remain intact.
+
+The first receiving native selection ran 216 controls: 215 passed and one real-child
+retirement control failed. All previously failing fitting/support controls passed. Repeating
+the exact child control reproduced a typed Hyper I/O `BrokenPipe` after the server's error
+conversion was corrected; its former string conversion had hidden that cause. The 40-iteration
+diagnostic stress run had 39 passes and one failure. Its runner exit code was zero despite
+that failed iteration, so the reported test summary governs this evidence. This is a transport
+drain defect, not grounds to weaken cleanup assertions or disregard the child exit.
+
+The correction starts Hyper graceful shutdown from the actual native Shutdown owner and
+keeps polling the server connection. The parent keeps its sender through driver completion
+only after a matching requested/decoded Shutdown, recording that state before reply delivery.
+Other departure paths retain drop-first cancellation. The new actual-child control
+`shutdown_peer_exits_with_client_sender_live_before_parent_io_retirement` distinguishes this
+from waiting for sender destruction, then uses the existing I/O cleanup gate to challenge
+endpoint/admission retention through final reap and join. It observes unreaped leader exit
+only as an intermediate condition, never as whole-process settlement or a release grant.
+
+The subsequent 217-control population passed 216, including that regression and the original
+shutdown/fault controls, but failed the original ten-second scientific deadline assertion.
+Source review identified ConnectRPC's independently normalized RPC deadline as a competing
+expiry owner. Evaluation calls now leave `CallOptions` timeout absent and retain the original
+parent checkpoints/native `remaining_ns`; controls keep their thirty-second allowance.
+The existing ten-second deadline/native-dispatch/no-late-completion assertions remain unchanged,
+with the original error now included in any future failed assertion. This is removal of a
+duplicate timer, not transport-error reclassification. [65e](65e-scientific-portability-and-execution.md#transactional-handoff-and-explicit-placement-finish--november-5-amendment)
+owns the precise library APIs and source characterization.
+
+**Tested:** receiving-main `just codegen` completed all fourteen targets. The supplier's
+structured warning for Recipe `Alternative3OwnedView.into` is retained: its colliding owned
+accessor is suppressed and `.view().into` remains available. This is a generator API limitation,
+not a Rust compiler warning or discarded supplier diagnostic.
+
+The final receiving `just clippy` rerun passed both default and no-default workspace/all-target
+modes with `-D warnings`, zero errors/warnings against zero. The native-feature paths have
+their additional expanded selection below.
+
+Before the final evaluation-timeout correction, the expanded native Clippy command passed
+with `-D warnings`, zero errors/warnings against
+zero, all workspace targets, prepared compiler/KLU/solver/isolation/Uno/PETSc, configured
+unbounded mode, cache off and `CARGO_INCREMENTAL=0`:
+
+```sh
+scripts/cargo-bin/cargo-pse-correctness clippy --keep-going --no-deps \
+  --workspace --all-targets --locked \
+  --features xtask/full-codegen,pse-runtime/engineering-service,pse-runtime/property-coolprop,pse-runtime/native-solvers,pse-runtime/native-study-tests,pse-tests-conformance/native-acceptance,pse-benches/native-process \
+  -- -D warnings
+```
+
+This includes receiving generated consumers and the qualification binary's changed evidence
+reader call. It does not claim the optional-provider feature powerset.
+
+**Operator-requested stop:** verification stopped after the evaluation-timeout correction.
+Its expanded native Clippy rerun received SIGINT and exited 130; its compiler processes
+departed. No completed Clippy or functional pass is claimed for that final correction.
+`just turn-end` completed ADR indexing and formatting successfully; it establishes no
+additional functional qualification.
+The last completed targeted population remains **216 passed, 1 failed against zero**;
+post-correction shutdown/deadline stress has not run. The passing peer-drain regression and
+all fitting/support/native NLP controls retain their actual preceding source scope.
+
+That population used `scripts/pse test pse-runtime pse-backend-native pse-math pse-kernels
+pse-compiler pse-tests-conformance --lib --profile local`, with runtime
+`engineering-service,property-coolprop,native-solvers` and conformance `native-acceptance`,
+prepared native profiles, configured unbounded placement, cache off and explicit Arrow
+validation. Its retirement/worker/fitting/source-binding/projection/Recipe/reference/native NLP
+filter and original identities remain in invocation `01a1ad59-f07d-7723-9770-0575cf4628cc`.
+
+**Next verification when resumed:** complete the expanded native Clippy command above, rerun
+that 217-control selection, and stress the actual normal-shutdown, peer-drain, exact-three
+acknowledgement failures, exact-two native-close failures and original ten-second deadline
+controls. Inspect stress summaries rather than relying on exit status. Then return to the
+companions' remaining functional packages; this checkpoint closes no H package or series.
+
+**Deliberate limits:** each input/binary decode has bounded admission, not a proven total
+JSON/linker/process heap bound. Imported-message CEL outside the selected generator schema
+returns structured unsupported. Cached arithmetic conservatively retains the whole current
+descriptor batch. Hyper completion reports only errors its public library owners expose.
+Neither local source integration nor component controls establish full scientific/reference,
+database, four-phase Study, performance, WASI or optional-provider powerset qualification.
+
 ## Completion and enduring meaning
 
 Series completion requires every selected actual consumer, all required failure controls,

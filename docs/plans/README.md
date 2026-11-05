@@ -8,14 +8,14 @@ Plan64 and Plan65 now execute under one coordinator, with Proto delivery first a
 input fixes/census progressing where needed for its acceptance. Native package tables own current status and remaining decisions. Index inclusion does not
 resume stopped work or establish implementation, qualification or measured benefit.
 
-The November 5 review-driven **planning revision** integrates twelve recommendations and
+The November 5 review-driven planning revision integrates twelve recommendations and
 four bounded opportunity decisions. E02/E03 now have one owner in 65k; existing 65e anchors
-redirect there. This documentation revision does not resume production execution or the
-stopped qualification campaign.
+redirect there. Subsequent execution and the operator-requested wrap-up are recorded in the
+coordinator; the earlier stopped qualification campaign remains a separate evidence boundary.
 
 | Plan | Work and status owner |
 | --- | --- |
-| [65: Integrated Proto target](65-proto-integrated-target.md#resumed-execution--2026-11-05) | Execution resumed for the full A–K series on main. Initial work covers exact fixture preflight/helper capture, descriptor acquisition/binding/publication, worker handoff and native fit-trajectory observation. The coordinator owns the current checkpoint; companion tables retain remaining delivery and H owns qualification. Earlier interrupted runtime qualification remains unestablished. |
+| [65: Integrated Proto target](65-proto-integrated-target.md#resumed-execution--2026-11-05) | Source integrated on main for descriptor publication, typed supplier composition, passive payload admission and consuming native retirement. Verification stopped at the operator's request; the final evaluation-timeout correction remains unverified. The coordinator and 65h own the checkpoint and next acceptance work; companion tables retain remaining delivery. |
 | [64: Process-simulator target](64-process-simulator-target.md) | Authorized Proto delivery followed by remaining P0–P7 scope, subject to the same 2026-11-05 operator-requested stopping point. The [current completion checkpoint](64-process-simulator-target.md#current-completion-and-remaining-scope--2026-11-04) distinguishes completed B/C native delivery, partial Proto/scientific implementation and remaining integration/qualification; companions own package state. |
 | [64i: Engineering contracts](64i-engineering-contracts-and-validation.md), [64j: Services and clients](64j-engineering-services-and-clients.md), [64k: Scientific workers](64k-prepared-scientific-workers.md) | Active Proto implementation. Owning checkpoints distinguish tested source foundations/generated delivery, the narrow client and actual worker process controls from open full Study integration and remaining scientific journeys. Coordinator owns review dispositions. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |

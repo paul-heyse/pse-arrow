@@ -281,6 +281,14 @@ handles; callbacks cannot perform owning retirement. Extract actual shared evalu
 after callback execution has departed, so idle aliases cannot retain provider custody.
 Independent retirement also contains panic-payload destruction before visiting siblings.
 
+Owner-thread serial-scope admission now identifies the registry's concrete adapter with
+`Any::type_id`, retaining its actual thread-scope checks. This is local type qualification;
+it supplies no scientific identity. Rust documents that trait-object pointer equality can
+change with duplicated or deduplicated vtables across codegen units. Sources:
+[`ptr::eq`](https://doc.rust-lang.org/stable/std/ptr/fn.eq.html),
+[`Any::type_id`](https://doc.rust-lang.org/stable/std/any/trait.Any.html#tymethod.type_id), and
+[actual serial-scope owner](../../crates/pse-backend-native/src/execution.rs).
+
 The pinned [ConnectRPC 0.9.1 HTTP/2 source](https://github.com/connectrpc/connect-rust/blob/v0.9.1/src/client/http2.rs)
 detaches its shared-client worker and connection driver; an I/O-thread join alone cannot
 recover their inner connection and outer task results. Preserve generated clients and codecs
@@ -303,6 +311,30 @@ characterize that boundary; a future requirement for those hidden causes needs a
 justified library change. Local and wire retirement still retain every cause their owners
 actually observe, including late undeliverable RPC failures.
 
+The receiving stress control exposed a concrete `BrokenPipe`: dropping the last client sender
+after native Shutdown acknowledgement can race the server's remaining HTTP/2 writes. The
+transport must explicitly initiate peer-led graceful shutdown from the completed native
+Shutdown owner, keep polling Hyper's pinned server connection, and retain the parent sender
+through driver completion only after the actual requested/decoded Shutdown. Publish that
+I/O-owner state before synchronously delivering the acknowledgement. Startup, failed exchange
+and cancellation without an acknowledgement retain the abrupt drop-first path; they cannot
+wait indefinitely for a peer that has not agreed to stop. Preserve server errors as typed
+`WorkerError::Connection` rather than flattening their original Hyper cause. Hyper's
+[server Connection contract](https://github.com/hyperium/hyper/blob/v1.11.1/src/server/conn/http2.rs)
+requires continued polling after `graceful_shutdown`; no broken-pipe exemption is introduced.
+
+Evaluation and grouped-evaluation calls use no second `CallOptions::with_timeout` deadline.
+ConnectRPC 0.9.1's `encoded_timeout` floors the wire unit and `client_deadline` constructs a
+separate clock from that duration; it can win before the original scientific scope and expose
+a protocol timeout instead of the original scientific expiry. Keep the default absent timeout
+for these two calls, original parent pre-dispatch/wait/receipt/post-copy `ExecutionScope`
+checks and native `Prepare.remaining_ns`. Already expired original scopes still refuse before
+dispatch. Administrative calls retain their original `scope.remaining(30s)` transport allowance.
+This removes a competing deadline owner without extending the scientific allowance or
+reclassifying genuine transport failures. Characterization: pinned
+[client timeout encoding and enforcement](https://github.com/connectrpc/connect-rust/blob/v0.9.1/src/client/mod.rs)
+and the [native transport policy](../../crates/pse-runtime/src/scientific_worker/transport.rs).
+
 Local library causes without a complete allocation contract report unknown retained extent.
 The existing `usize::MAX` retention sentinel conservatively refuses finite retention; it is
 not a measured allocation. Preserve the original local typed cause. The worker wire restores
@@ -323,12 +355,24 @@ The November 5 retirement source is integrated on main (`386e1557b`, consuming s
 `797d9beb3`). Local original/constant/output/screening and fit/sample assessments now return
 only after evaluator retirement; fallible preparation precedes worker acquisition where
 possible. Partial sample construction and later-bank cleanup retain both scientific refusal
-and keyed cleanup failures. Targeted source controls exercise action panic plus failed finish
-under a live charge, and terminal-bank cleanup after a regular finisher panics. These controls
-still require execution. The full native-feature receiving all-target check completed with zero
-errors and one subsequently corrected qualification warning; the targeted native selection is
-building on main. Previously passing kernel and native-free component controls do not establish
-the new controls' acceptance. E04 remains in progress.
+and keyed cleanup failures. Retained native values carry their consuming finisher through one
+typed erased owner, eliminating the retirement-time downcast and separate closure allocation.
+Known action failures compose directly with independent retirement failures. E04 remains in
+progress for its complete consumer and lifecycle population; final targeted acceptance is
+recorded in the coordinator's wrap-up checkpoint.
+
+Expanded fitting controls also exposed stale prepared-support retention in the executable
+cache. The receiving request now rebinds shared compiled code only after full compiler-issued
+`PreparedSupport` equality, retaining the current descriptor-batch lease. Original source/issuer
+checks remain strict; an identical hash grants no source authority. The implementation owners
+are [`CompiledBody::with_receiving_support`](../../crates/pse-math/src/execution.rs),
+[`ImplicitPrograms::bind`](../../crates/pse-compiler/src/workspace/modeling/executable/implicit.rs)
+and the runtime's [modeling bind loop](../../crates/pse-runtime/src/math/modeling.rs).
+This deliberately retains and charges the finite whole descriptor batch until its last factory
+departs, rather than adding another ownership registry or guessing a smaller retained extent.
+The fitting fixture now creates contextual packages with their actual runtime and injects
+memory refusal into the execution context that owns transient work. Explicit consuming finish
+replaces the former test assumption that Drop could make scratch reusable.
 
 ## Packages and migration
 

@@ -111,6 +111,35 @@ selected local rules. None constructs sealed native permission. See the
 [dynamic reflection](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/dynamic.rs)
 and [maintained validator contract](../../vendor/protoc-gen-protovalidate-buffa/README.md).
 
+**Implemented on main, November 5 — passive inspection slice:** `pse inspect payload`
+now carries descriptor, original-input and textproto-conversion byte allowances, binary element
+allowance and recursion limit separately from preview depth/member limits. Complete bounded
+reads precede even depth-zero inspection. Descriptor/original/converted inputs default to
+64 MiB each, binary elements to 32 MiB and recursion to 100; caller selections retain separate
+meanings. Generated and dynamic binary decoders consume the
+same explicit Buffa 0.9.2 [`DecodeOptions`](https://docs.rs/buffa/0.9.2/buffa/struct.DecodeOptions.html),
+using `with_max_message_size`, `with_element_memory_limit`, `with_recursion_limit` and
+`decode_from_slice`/`DynamicMessage::decode_with_options`. Original Buffa errors remain typed;
+the existing [resource-refusal classifier](../../crates/pse-contract-proto/src/support.rs)
+distinguishes resource exhaustion from malformed input.
+
+Captured developer evidence is selected by the actual compiled world plus root message.
+Its existing reader requires caller options and min-composes them with its single family
+profile, including unknown-field count; the family 64 MiB/recursion-64 ceilings remain in
+force. An unknown lookalike stays generic inspection. Trusted built-in descriptor matching
+and original opaque JSON parsing retain their separately disclosed scope.
+Sources: [payload admission](../../crates/pse-host/src/schema/payload.rs) and
+[family readback](../../crates/pse-host/src/developer_evidence.rs).
+
+Textproto conversion retains its `SupervisedChild`, bounded stdout reader and original
+snapshots through cancellation, physical process drain/reap and reader join. Read/deadline,
+cleanup and panic-payload destruction failures remain typed. Parser diagnostics describe
+a bounded stderr prefix, with completeness unavailable from the current supervisor API.
+Strict duplicate/alias checks remain; trailing JSON is explicitly refused. The receiving-main
+schema/evidence/help selection passed 47 tests against zero failures. These are per-input and
+per-binary-decode controls, not complete JSON, linker, cumulative heap or process-memory
+accounting. Broader boundary adoption and the release-gated JSON decision remain open.
+
 Use Buffa owned messages for ordinary first-party exchange and eager generated views for
 read-heavy borrowed payloads. `OwnedView` may retain backing `Bytes` across awaits. Read
 generated values through vtable `ReflectMessage::for_each_set` without dynamic materialization
@@ -244,8 +273,8 @@ their common discrimination controls without pretending a codec benchmark qualif
 
 | Package | Status | Inputs → deliverable | Migration/deletion and targeted acceptance |
 | --- | --- | --- | --- |
-| B01 | planned | Actual selected population, 65i I01/65j J01 design products and A01/A02 semantics → executable operation policies and historical interpretation | Classify every boundary as forwarding/archive/adoption/transformation/inspection, including non-reconstructible native authority. Bind grammar/world, presence/unknown behavior, feature and rule coverage, native interpretation and contextual admission to their actual enforcement owners. Remove inherited implicit format assumptions and duplicate policy tables. Test original-policy versus current adoption, unavailable old policy, unevaluated/unsupported rules and observations unable to issue current grants. |
-| B02 | planned | B01 policies, A03 artifacts and G02 typed world binding → faithful binary/JSON/text decode and fallible native adoption | Migrate host, engineering, worker, reference and selected durable consumers. Runtime/source-aware forms must select the same compiled validator only under the SourceCodeInfo-only relation. Settle the released strict-JSON select/narrow/retain decision before deleting checks. Test exact numbers, aliases, unknowns, trailing data, fresh-decode merge, altered feature/option/import/unknown-field binding refusal and preserved typed failures. |
+| B01 | in-progress | Actual selected population, 65i I01/65j J01 design products and A01/A02 semantics → executable operation policies and historical interpretation | Passive inspection now consumes request-owned input/decode admission and matched-world family policy, with complete reads, typed resource refusals and disclosed enforcement scope. Classify remaining forwarding/archive/adoption/transformation boundaries and bind presence/unknown behavior, feature/rule coverage, native interpretation and contextual admission to their actual owners. Remove implicit assumptions and duplicate policy tables; historical policy and observations must not issue current grants. |
+| B02 | in-progress | B01 policies, A03 artifacts and G02 typed world binding → faithful binary/JSON/text decode and fallible native adoption | Host generated/dynamic binary inspection shares explicit options; evidence readback composes caller/family limits; textproto output is bounded and physically settled. Runtime/source-aware forms retain SourceCodeInfo-only compiled-validator matching and strict JSON/trailing-data checks. Complete remaining engineering, worker, reference and durable adoption, exact-number/alias/unknown populations and the release-gated JSON select/narrow/retain decision. |
 | B03 | planned | Actual selected local-rule needs plus A02 options → complete native/generated rule parity | Extend the narrow rule vocabulary where useful, update maintained preflight and owned/view generated validators, and delete duplicate local scalar checks. Test unsupported combinations, mixed arithmetic, error masking, codepoint/byte differences, outgoing violations and category-preserving failures. |
 | B04 | planned | Approved dynamic schema inspection/import consumer, B01 policy and closed descriptors → choose whether dynamic execution is warranted | Compare eager closed-world runtime validation with generated support and explicit unsupported refusal. A selected runtime must pass logical-clock, filtered/FailFast scope, unknown-constraint, initialization and retained-world controls. Check the exact compiler/normalization/generator/runtime Edition chain rather than infer support from linking. If no consumer benefits, record non-selection and remove prototype-only code; no fallback is installed. |
 | B05 | planned | B02/B03 and selected external protocol population → exact WKT/Any/Proto2/alias conversion contracts | Configure only actual external mappings; migrate affected ProtoJSON readers/writers together. Delete redundant JSON conversion routes. Independently test Timestamp limits/offsets, signed Duration, FieldMask intent, nonfinite Value, required/default fields and unknown enum/extension behavior. |

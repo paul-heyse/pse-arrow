@@ -659,13 +659,36 @@ Partial construction and panic paths retain original refusal plus independent cl
 failures; ordinary Drop cannot close that obligation. Independent static review also moved
 startup deadline validation ahead of actual child spawn. Ten kernel controls, the native-free
 math/backend all-target check and 46 selected functional controls passed against zero errors,
-warnings and test failures. Generated worker failure correspondence is published. The receiving-main
-all-target runtime/backend check with engineering, CoolProp and every native solver enabled
-completed with zero errors and one qualification warning; that warning is corrected in source.
-New local/sample controls and actual child/session acceptance remain open; the targeted native
-selection is building from main. This source integration does not complete E04 or H. A04's
-typed composition is being implemented independently in a tooling worktree for subsequent main
-integration; its adopted mechanisms and remaining all-world acceptance stay in 65a.
+warnings and test failures. Generated worker failure correspondence is published. Subsequent
+native controls caught duplicated trait-object vtable assumptions, repeated keyed attribution,
+panic-payload disposal and a scratch fixture relying on Drop. Concrete-type admission, single
+bank-owned attribution and explicit consuming fixture finish correct those causes. Expanded
+fitting controls then identified stale support retention in executable reuse; shared arithmetic
+now binds only to equal current compiler-issued support and its original descriptor lease.
+The exact mechanism and conservative batch retention are recorded in 65e.
+
+**Operator-requested wrap-up:** A04's typed source-world supplier composition and B01/B02's
+request-owned passive payload admission are merged on main. Receiving generation completed
+all fourteen targets; the schema/evidence/help selection passed 47 controls against zero
+failures. Their adopted library APIs, references and remaining boundary/feature obligations
+stay in 65a/65b. All three source worktrees were committed, merged without conflicts and
+removed after process departure; only main remains. All agent assignments are concluded.
+
+Clippy repairs preserve typed action/retirement failures, replace the retained finisher's
+erased downcast/closure pair with one typed owner and migrate the missed analytic conformance
+oracle to explicit finish. No blanket lint exemption or quality baseline is introduced.
+An actual-child stress failure exposed a Hyper `BrokenPipe` during sender-led shutdown;
+the completed native Shutdown now initiates peer-led graceful drain, with typed original
+connection errors and parent sender custody through driver completion. Startup and unacknowledged
+cancellation retain their abrupt path. The dedicated real-child control challenges that ordering.
+The [receiving wrap-up qualification](65h-integration-and-qualification.md#source-integration-wrap-up--2026-11-05)
+owns command scopes and results. At the operator's latest request, verification stopped after
+removing the competing evaluation RPC timer: that final correction remains functionally and
+statically unverified. The preceding peer-drain regression passed; the original scientific
+deadline control drives the remaining acceptance work. All source assignments are concluded,
+with the final native corrections committed on main as `8c41b0e11` and `3041e2fb4`,
+but E04, A04, B01/B02, H and the full series remain open. Resume with that targeted verification,
+then companion package tables and K's receiving/supplier prerequisites when requested.
 
 ## Verification boundary
 

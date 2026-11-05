@@ -8,7 +8,7 @@ level: decision
 principles: [AP-04, DP-01, DP-24, PS-13]
 blueprint: [§9.11]
 review: "not-required: consuming kernel retirement contract within the authorized Plan65 E04/D05/F02 target; no D1-D14 change"
-evidence: Proposed
+evidence: Implemented
 supersedes: []
 superseded-by: null
 revisit: A required provider or native adapter cannot expose physical retirement through its actual owner without a separate custody owner.
@@ -83,6 +83,10 @@ where this hides required results, use public ClientTransport over explicitly ow
 SendRequest/driver state in the existing I/O owner. Retain library-exposed inner connection
 errors and outer join results. Hyper 1.11.1 internally logs/erases some HTTP/2 connection
 errors; executor completion cannot reconstruct an error the library does not expose.
+After actual native Shutdown, the server initiates Hyper's graceful connection drain. The
+parent retains its sender through driver completion only for that requested and decoded
+Shutdown; other cancellation/startup paths retain abrupt departure. This avoids making
+last-sender drop race the server's final writes. Original server connection errors remain typed.
 Shutdown acknowledgement, child reap and I/O completion remain distinct;
 failed attempts do not skip independent teardown or release uncertain custody.
 
@@ -91,7 +95,9 @@ failed attempts do not skip independent teardown or release uncertain custody.
 Targeted tests challenge multiple provider failures, shared versus owned callbacks, failed
 construction/replacement, reset, pending method guards, absent acknowledgements, reap/I/O
 failures and scratch reuse. Assembled real-process qualification and support claims stay in
-Plan65h. This Proposed record establishes no implemented generic finish or tested support.
+Plan65h. The consuming interfaces and migrated owners are integrated on main; Plan65e owns
+targeted acceptance and its remaining scope. This record remains Proposed; source integration
+and component controls do not establish formal acceptance or assembled support.
 
 ## Pros and cons
 

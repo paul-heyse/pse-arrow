@@ -249,6 +249,12 @@ must be reconciled against these owners rather than creating another worker/batc
 Those controls do not discharge the equipment, independent-science or matched-measurement
 obligations below.
 
+The November 5 shared lifecycle also consumes provider/bank/native owners explicitly,
+preserves independent action and retirement failures, and initiates peer-led HTTP/2 drain
+after actual native Shutdown. [Plan65e](65e-scientific-portability-and-execution.md#transactional-handoff-and-explicit-placement-finish--november-5-amendment)
+owns that contract; [65h's receiving checkpoint](65h-integration-and-qualification.md#source-integration-wrap-up--2026-11-05)
+owns its current targeted acceptance and limits. This handoff adds no equipment qualification.
+
 Main `165faf093` now integrates the physical-context and authored-operation correction.
 Generated Prepare v2 transports the actual passive registry builder and provider declaration;
 the child uses native builders, reconstructs its original context and compares the descriptor

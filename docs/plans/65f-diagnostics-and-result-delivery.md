@@ -64,6 +64,16 @@ Developer full-evidence delivery and its remaining lifecycle population are owne
 [65j](65j-workflow-lifecycle-and-developer-evidence.md); protected scientific reads by
 [65c](65c-storage-projections-and-history.md).
 
+The November 5 retirement integration adds source-owned keyed multi-cause outcomes through
+kernel banks, mathematical suppliers, retained adapters and worker protocol projections.
+Original action failure and independent cleanup/panic-payload destruction failures survive
+composition; wrapper attribution occurs once at its owning bank. Unknown local retained
+extent remains conservative, and opaque wire observations cannot restore native authority.
+[65e's retirement contract](65e-scientific-portability-and-execution.md#transactional-handoff-and-explicit-placement-finish--november-5-amendment)
+owns exact transport/source references, Hyper's erased-error limitation and lifecycle acceptance.
+This advances F02's failure population without completing general diagnostic delivery or
+whole-completion/service/CLI adoption.
+
 ## Selected contract and presentation design
 
 Define separate source-owned diagnostic, observation, scientific outcome and result-description
