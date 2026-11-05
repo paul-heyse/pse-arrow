@@ -398,6 +398,152 @@ finite source selections; native implementation, property validity envelopes,
 additional admissible configuration combinations, reference execution and H01
 completion remain open.
 
+## Modular state-coordinate census and input closure — 2026-11-05
+
+**Interface-checked, source only:** this slice covers C's six
+`modular_properties/state_definitions` modules, shared electrolyte projection,
+all twelve coordinate test modules, generic-property/state/bounds configuration,
+the five BT-ideal coordinate example test modules and their inherited property
+harness. It consumes existing native coordinate declarations rather than proposing
+a second state mechanism. These are coordinate/initialization configurations;
+their existence does not qualify the chosen EOS, equilibrium, phase selection,
+electrolyte science or numerical solve. All required coordinate families remain
+in D02/D03/H04; the counts below describe named source populations only.
+
+### Effective coordinate contracts and inherited choices
+
+| C state definition | Independent coordinates / bounds keys | Actual reconstructed or solved quantities / flash policy |
+| --- | --- | --- |
+| `FTPx` | Total molar flow, T, P, bulk component mole fractions; bounds keys flow_mol/T/P | Phase flows/compositions and phase fractions; `always_flash=True`. |
+| `FcTP` | Component molar flows, T, P; bounds keys flow_mol_comp/T/P | Total flow is their sum; bulk fractions satisfy component-flow reconstruction; phase flows/compositions/fractions; always flash. |
+| `FPhx` | Total molar flow, P, bulk mole fractions, total molar enthalpy; bounds keys flow_mol/P/enth_mol and supporting T | T is solved with the generic phase-enthalpy mixing equation; always flash. A T initialization/bound is not a separately fixed temperature coordinate. |
+| `FcPh` | Component molar flows, P, total molar enthalpy; bounds keys flow_mol_comp/P/enth_mol and supporting T | Total flow/bulk fractions and T are reconstructed/solved; always flash. |
+| `FpcTP` | Phase-component molar flows on actual phase membership, T, P; active bounds keys flow_mol_phase_comp/T/P | Total/component/phase flows are sums. Bulk fraction and multi-phase fraction contain total-flow ratios; phase composition is constrained against phase flow (or fixed to one for a phase having one component). `always_flash=False`. The accepted bounds-key list also contains enth_mol, but define_state does not read that key or make enthalpy an independent state. |
+| `FpTPxpc` | Phase molar flows, T, P and phase-component mole fractions; bounds keys flow_mol_phase/T/P | Total flow is the phase sum; component flows and bulk fractions are reconstructed, phase fractions constrained; `always_flash=False`. A supplied phase split/composition is not required to be an equilibrium feed. |
+
+T/P in bounds-key cells mean the literal `temperature`/`pressure` keys. All six
+return molar material flow basis, component-total default material balance and
+enthalpy-total default energy balance; explicit unit balance selection remains
+the unit owner's configuration. Material, enthalpy-flow, material-density and
+internal-energy-density methods demand actual phase property products. Coordinate
+selection alone does not supply those products or their derivatives.
+
+`GenericParameterBlock` has no default state_definition; omission is refused.
+Explicit components, phases, per-phase EOS, pressure_ref and temperature_ref are
+required. State components default to true species; apparent/true indexing is a
+separate electrolyte configuration. `defined_state` defaults False in the base
+state; it changes normalization and generic equilibrium construction. For phase
+pairs, generic equilibrium is constructed when the state is receiving or
+always_flash is True. Thus a defined FTPx state still flashes, whereas a defined
+FpcTP/FpTPxpc feed can preserve a supplied nonequilibrium split. `has_phase_equilibrium`
+on the base state is not an independent promise that a generic configuration has
+an EOS, phase-pair method or component fugacity form.
+
+Actual phase-component membership comes from component phase validity or explicit
+phase component lists; unknown members, phase-incompatible members and a component
+absent from every phase are refused. Electrolytes maintain separate true/apparent
+membership. No full Cartesian phase/component membership is implied by the state
+name. Generic flags also retain formation-enthalpy inclusion (default True); an
+enthalpy coordinate requires the same datum choice in its independent reference.
+
+Bounds use (lower, initial, upper) in base units or a fourth explicit unit converted
+by `base/utility.py::get_bounds_from_config`; absent entries yield no bound/initial
+value. Bounds are not empirical validity envelopes. Mole fractions have the source's
+automatic 1e-20/1.001 numerical bounds; fraction-bound inputs are ignored with a
+warning for FTPx/FPhx/FpTPxpc, while the component-flow definitions reject unexpected
+keys. Neither those numerical bounds nor positive nominal initialization establish
+zero-total/zero-phase-flow regularity. FpcTP total ratios and reconstruction from
+flows require explicit domain handling in native acceptance.
+
+### Finite structural, electrolyte and initialization population
+
+| Exact source selection under `state_definitions/tests` | Distinct source configuration / evidence role |
+| --- | --- |
+| Each `test_{FTPx,FcTP,FPhx,FcPh,FpcTP,FpTPxpc}.py::Test{1,2,3}PhaseDefinedStateFalseNoBounds` and `Test{1,2,3}PhaseDefinedStateTrueWithBounds` | Six paired construction fixtures per definition, 36 total: c1/c2/c3 in one/two/three dummy-EOS phases, receiving/no-bounds or supplied/with-bounds. These are paired fixtures, not the full bounds×defined×phase-count product. Each bounded fixture uses coordinate-flow (0,100,200), T (290,345,400) K and P (1e5,3e5,5e5) Pa; FcPh instead uses T initial=300 and P initial=1e5. Enthalpy definitions add (0,500,1000) J/mol. The single-phase supplied FpTPxpc fixture explicitly passes has_phase_equilibrium=False. No physical fluid is selected by the dummy EOS. |
+| Each same module `TestInvalidBounds`, `TestCommon` | Bad-key refusal, mole-fraction-bound warning or refusal as applicable, unit conversion, flow/density/energy projections, normalization, scaling and cloning. Common fixtures use c1/c2/c3 in two dummy phases a/b, coordinate-flow bounds (0,0.1,0.2) kmol/s, T (522,621,720) degR, P (1,3,5) bar and h (0,0.5,1) kJ/mol when applicable; FcPh uses T initial=540 degR and P initial=1 bar. These are conversion/contract cases, not six extra chemical systems or ragged-membership validation. |
+| Each `test_*_electrolyte.py::{TestApparentSpeciesBasisNoInherent,TestApparentSpeciesBasisInherent,TestTrueSpeciesBasisNoInherent,TestTrueSpeciesBasisInherent}`; FTPx class names add scaling suffix | Six coordinate definitions × true/apparent basis × inherent/no-inherent chemistry. FTPx runs both legacy/new scaling and adds apparent/true inherent configurations with Ideal in place of DummyEoS. Scaling implementation is not a new scientific member. These sources use the exact shared `electrolyte_testing_config.py`, not a validated industrial carbonate package. |
+| Shared electrolyte no-inherent configuration | H2O/CO2/KHCO3/K+/HCO3-/N2, aqueous dummy EOS + ideal vapor; KHCO3 dissociates to K+/HCO3-. True/apparent sets and allowed phase memberships differ; preserve both projection directions. Dummy enthalpy and density functions are test inputs, never ordinary scientific coefficients. |
+| Shared electrolyte inherent configuration | One aqueous phase; apparent H2O/KHCO3/K2CO3/KOH and true H+/K+/OH-/HCO3-/CO3-- species, with the two named water-ionization/carbonate reaction laws. True/apparent totals differ through dissociation/inherent extent. Apparent states include equilibrium internally even at defined-state boundaries; the control-volume inherent-reaction flag is suppressed to avoid counting it twice. This is a mapping/reaction-ownership control, not independent physical equilibrium validation. |
+| `test_FTPx.py::TestModifiedRachfordRice::test_flash` | 21 initialization inputs: seven shared/liquid-only/vapor-only component partitions × eps {default=1e-5,0,0.01}, bulk composition (1/3,1/3,1/3), K(a,b,c)=(0.5,1,3). Partitions are ({abc},{},{}), ({bc},{a},{}), ({ab},{},{c}), ({b},{a},{c}), ({c},{ab},{}), ({},{abc},{}), ({},{},{abc}), ordered as (shared,liquid-only,vapor-only). Negative K and unphysical fractions have separate diagnostic controls. These synthetic ratios are not a 21-fluid validation set. |
+| FTPx shared initializer / no-VLE controls | FcTP/FPhx/FcPh reuse FTPx state_initialization. Negative bulk mole fraction raises; more than one liquid-vapor pair raises. No VLE, liquid-only/vapor-only species, bubble/dew guesses and Henry-law branches retain their actual fallback behavior. Missing saturation methods and unsupported Henry types can fall back during initialization; a fallback guess is not a successful thermodynamic solve. |
+| `test_FpcTP.py::{test_phase_equilibrium_legacy_initialization,test_phase_equilibrium_initializer_object}` and `test_FpTPxpc.py::test_phase_equilibrium_initializer_object` | H2O/CO2, Ideal aqueous/vapor, Perrys/NIST coefficients in each module's `thermo_config_no_rxn`; receiving state at 298 K/101325 Pa. FpcTP starts phase-component flows VapCO2=0.005, LiqCO2=1e-8, VapH2O=1e-8, LiqH2O=9.995 mol/s. FpTPxpc starts phase flows (Vap,Liq)=(0.005,9.995) mol/s with corresponding fractions including the 1e-8 cross-phase traces. Both deliberately leave two equilibrium residuals unsolved; initializer-object checks accept infinite constraint tolerance. Retain these as partial-state initialization evidence, never a converged flash reference. |
+| `test_FpcTP.py::{test_legacy_initialization_dof_error,test_initializer_object_single_phase}` | Vapor-only H2O/CO2 after removing liquid/pair configuration; 398 K/101325 Pa, VapCO2=0.005 and VapH2O=0.0005 mol/s. The legacy path fixes incomplete state freedoms and expects an error; the new initializer performs partial state initialization. A failure control and a successful initialization API call are distinct roles of this same scientific input. |
+
+There are no pytest parameter decorators in these twelve coordinate test modules;
+the explicit fixture classes and Rachford–Rice loop are the finite expansions.
+Additional property/EOS/phase-equilibrium test populations remain with those owners,
+including the later electrolyte verification and reaction/solubility consumers.
+
+### BT ideal consumers and scientific input closure
+
+All five example modules use benzene/toluene and liquid/vapor Ideal EOS with
+SmoothVLE, component fugacity equality and IdealBubbleDew; they demand Perrys
+liquid density/caloric and RPP4 ideal-gas caloric/vapor-pressure data. Their
+independent numeric declarations stay at their exact source owners; the
+separately embedded FPhx/FcTP/FcPh config_dicts must not be presumed identical to
+`examples/BT_ideal.py::configuration` from matching names alone.
+
+| Source under `modular_properties/examples/tests` | Exact selected scientific specification |
+| --- | --- |
+| `test_BTIdeal.py::TestStateBlock{LegacyScaling,ScalerObject}` | Defined FTPx state: flow=1 mol/s, T=368 K, P=101325 Pa, benzene/toluene fractions=0.5/0.5. |
+| `test_BTIdeal_FcTP.py::TestStateBlock{LegacyScaling,ScalerObject}` | Defined FcTP state: each component flow=0.5 mol/s, T=368 K, P=101325 Pa. |
+| `test_BTIdeal_FPhx.py::TestStateBlock{LegacyScaler,ScalerObject}` | Defined FPhx state: flow=1 mol/s, h=47297 J/mol, P=101325 Pa, bulk fractions=0.5/0.5; T is solved. The rounded h input is not an assertion of exact equivalence to fixed T=368 K. |
+| `test_BTIdeal_FcPh.py::TestStateBlock{LegacyScaling,ScalerObject}` | Defined FcPh state: each component flow=0.5 mol/s, h=47297 J/mol, P=101325 Pa; T is solved. |
+| `test_BTIdeal_FpTPxpc.py::TestBTIdeal_FpTPxpc` | FeedFlash: T=368 K, P=101325 Pa, each incoming phase flow=0.5 mol/s, each component fraction in each incoming phase=0.5. Inlet is supplied split; receiving outlet flashes. This is a unit consumer, not a property-state alias. |
+
+BT configs bound T to [273.15,450] K with initial 300 K, pressure [5e4,1e6] Pa
+with initial 1e5, coordinate flows [0,1000] mol/s with initial 100; enthalpy
+configs bound h to [1e4,2e5] J/mol with initial 5e4. Reference T/P are 300 K/1e5 Pa.
+These bounds are numerical case settings, not a source-certified validity domain.
+Both scaling classes exercise one scientific specification per coordinate; each
+module's inherited `PropertyTestHarness` also exercises construction, property
+demands, initialization/failure, release-state and 0D CV integration. Do not count
+inherited methods as additional operating points. Solved examples select
+`ipopt_v2`; selected FpcTP legacy initialization also retains its legacy solver
+route. Exact executable and locked environment identity remain execution work.
+
+The closure consists of the selected state module, shared electrolyte helper when
+needed, generic_property/base utility, the selected Ideal/SmoothVLE/fugacity/
+IdealBubbleDew and Perrys/RPP4 or NIST methods, the explicit inline coefficient
+dictionary, and the property harness/FeedFlash consumer. No dataset, trained
+artifact, trainer or saved initialization file is loaded by these coordinate
+fixtures. Original BT source leads are Reid et al. (4th ed.), Perry's (7th ed.)
+and the specific formation-enthalpy source declared in BT_ideal.py. This is a
+provenance lead, not ordinary admission. Preserve original units, reference state,
+formation-versus-sensible convention and coefficient provenance before B/D02
+publication; inline expected values remain oracle-only. H02's ordinary BT science
+is separately selected and must not inherit these reference-only records.
+
+### Native correspondence and remaining acceptance
+
+The existing `thermodynamics/models/state-coordinates.pse` maps the six choices to
+TotalFlowTemperature, ComponentFlowTemperature, TotalFlowEnthalpy,
+ComponentFlowEnthalpy, PhaseComponentFlowTemperature and PhaseFlowTemperature.
+`ideal-caloric-state.pse` adds selected caloric closures;
+`seed-data/models/state-coordinate-fixtures.pse` supplies analytic transport,
+reconstruction and zero/disappearing-state controls. These are concrete native
+owners to extend, not a missing state universe and not the BT equilibrium law.
+Current native coordinate interfaces admit every selected component in every
+selected phase; ragged upstream membership and true/apparent electrolyte projection
+therefore still need actual mapped native contracts and consumers. Native
+component-flow states refuse undefined zero-total composition; supplied total-flow
+coordinates can retain composition at zero flow. Phase-flow coordinates retain
+supplied composition for a disappearing phase, while the caloric phase-component
+closure requires positive phase flow to reconstruct intensive properties. Preserve
+these exact native domains rather than borrowing upstream numerical bounds or
+claiming an unimplemented zero-ratio convention.
+
+D02/D03 acceptance still requires exact native cases/data and full transported
+component/phase flow, composition, T/P/h/energy, equilibrium and derivative
+products for each admitted scientific case; supplied/receiving and ragged/species
+mapping cases must remain separate. Analytic coordinate fixtures do not qualify
+BT, electrolyte chemistry or arbitrary phase counts. Original normalization,
+material/energy/charge conservation, phase disappearance and datum controls
+accompany matched comparisons. Scientific coefficient admission, validity
+envelopes, configuration-specific native/reference solves and the remaining
+property/reaction configuration population remain open. No run was performed in
+this census slice and no initializer tolerance was adopted as native acceptance.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

@@ -119,6 +119,18 @@ the executable reference environment and all scientific runs remain open; this
 source closure does not qualify arbitrary topology, flow reversal or a thermal
 network and does not settle uninspected X/V/archive network selections.
 
+**Update, 2026-11-05 — modular coordinate source closure:** the crosswalk's
+[state-coordinate census](64h-required-process-population.md#modular-state-coordinate-census-and-input-closure--2026-11-05)
+maps all six definitions, 36 paired dummy construction configurations,
+true/apparent/inherent electrolyte projections, the 21-input synthetic flash
+initializer loop and five concrete BT coordinate/unit specifications. Inherited
+property-harness and scaling paths retain their actual evidence roles. The
+FpcTP/FpTPxpc H2O/CO2 initializer controls deliberately leave equilibrium residuals
+unsolved and cannot supply accepted flash references. Native coordinate/analytic
+fixtures already exist; ragged membership, electrolyte mappings, exact scientific
+data/cases, domains and independent execution remain obligations. This source-only
+increment neither replaces H02's ordinary BT selection nor qualifies D02/D03/H04.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
