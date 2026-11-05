@@ -347,6 +347,15 @@ infeasible. Original data provenance,estimator/external derivative-tool
 compatibility,native statistical products andindependent numerical evidence
 remain open;commented bootstrap isnot completed confidence-region science.
 
+**Update, 2026-11-05 — modular PR mixture census:** the
+[cubic mixture closure](64h-required-process-population.md#modular-pr-mixture-and-phase-membership-closure--2026-11-05)
+resolves seven actual BT/ASU/HC/ionic-liquid definitions,fixed operating
+probes andcontinuation/optimization settings,ragged phase membership,
+interaction matrices andcubic-root ABI inputs. SRK/remaining method choices,
+ordinary data admission,native correspondence andindependent numerical
+qualification remain required;the shared kernel andconstructor bounds do
+not establish phase stability or an operating validity envelope.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

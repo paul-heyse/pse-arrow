@@ -2737,6 +2737,98 @@ Remaining API/refusal tests,covariance definiteness/identifiability,ordinary
 data admission,native case/output mapping andindependent execution remain
 open. CSV/JSON/AST reads here ran no estimator,property initializer orsolver.
 
+## Modular PR mixture and phase-membership closure — 2026-11-05
+
+**Interface-checked, source only:** C `models/properties/modular_properties/
+examples/{BT_PR,ASU_PR,HC_PR,HC_PR_vap,CO2_bmimPF6_PR}.py` provides six
+configuration dictionaries;`examples/tests/test_BT_PR_legacy_SmoothVLE.py`
+adds a seventh complete BT definition. Matching seven test modules and
+`eos/{ceos,ceos_common}.py` resolve their selected inputs,phase membership and
+external-root dependency. This is seven authored definitions,not a closed
+count ofevery cubic EOS/mixture/equilibrium combination.
+
+| Definition | Actual state/property/phase selection andinteraction input |
+|---|---|
+| BT_PR | Benzene/toluene,FTPx,Liq+Vap,PR inboth phases,CubicComplementarityVLE,LogBubbleDew andlog fugacity equality. Four kappa entries are0. RPP4 ideal-gas caloric/entropy/saturation methods;298.15 K/101325 Pa reference. Flow bounds0..1000 mol/s(initial100),T273.15..500 K(initial300),P50000..1e6 Pa(initial1e5). |
+| Legacy SmoothVLE BT | Complete BT dictionary in its test module selects SmoothVLE rather than cubic complementarity. Same selected component/PR/caloric family isnot proof that smoothing,phase-transition orderivative behavior isidentical. Six fixed operating probes below correspond;retain separate formulation acceptance. |
+| ASU,standard | Nitrogen/argon/oxygen,FTPx,Liq+Vap,PR,SmoothVLE/LogBubbleDew/log fugacity. RPP4 ideal-gas caloric/entropy,NIST saturation;critical pressures3.4e6/4.898e6/5.043e6 Pa andomega .037/.001/.025 inthat component order. Symmetric off-diagonal kappa N2–Ar−.0026,N2–O2−.0119,Ar–O2 .0104;diagonals0. |
+| ASU,Dowling2015 | Same topology/interaction matrix butRPP3 saturation,critical pressures3394387.5/4873732.5/5045985 Pa andomega .04/−.004/.021. This is a different scientific parameter/method definition,not a second name for standard ASU. Both useT10..350 K/P50000..1e7 Pa bounds,initial300 K/1e5 Pa,andreference298.15 K/101325 Pa. |
+| HC_PR | Thirteen components:hydrogen,methane,ethane,propane,nbutane,ibutane,ethylene,propene,butene,pentene,hexene,heptene,octene. Hydrogen/methane areVap-only;the other eleven haveLiq+Vap,so phase-component set has24 members,not26. FTPx,PR,SmoothVLE/LogBubbleDew/log fugacity;all169 ordered kappa entries0. RPP4 ideal-gas caloric/entropy,with inline Perrys liquid/RPP5 saturation methods for applicable components. T273.15..1500 K/P50000..1e7 Pa bounds. |
+| HC_PR_vap | Same13-component vapor-only property consumer;no selected liquid phase/flash equilibrium. All169 kappa entries0,FTPx/PR,same state bounds/reference. Its retained component coefficient/method tables do not select liquid outputs. Need vapor caloric/fugacity/density correspondence independently ofthe two-phase root. |
+| CO2–bmimPF6 | FTPx,PR,Liq+Vap,SmoothVLE/LogBubbleDew/log fugacity. bmimPF6 isLiq-only;CO2 hasboth phases,so phase set has3 members. Ordered kappa[bmimPF6,CO2]=−.4071 andkappa[CO2,bmimPF6]=.0206,diagonals0;do not symmetrize them. RPP4 ideal-gas caloric/entropy,NIST CO2 saturation. BoundsT10..500 K andP.0005..1e10 Pa areconstructor limits,not a demonstrated validity envelope. Reference298.15 K/101325 Pa. |
+
+The six fixed BT probes all use100 mol/s. Five havebenzene/toluene .5/.5:
+(T K,P Pa)=(350,1e5),(350,5e5),(450,1e5),(450,5e5),(368,1e5).
+The sixth uses376 K/1e5 Pa and.2/.8. Both current complementarity scaling
+paths repeat these inputs;scaler choice isnot a new fluid. Current eps_t/eps_z
+are1e-4 foraccuracy probes. Additional temperature **optimization** sweeps
+select8 pressures logspace(4.8,5.9),freeT within an explicitly widened600 K
+upper bound,andobjective(T−510)²;current formulation first solves at eps10
+thenrefines1e-4 andasserts liquid flow≤1e-5. Legacy SmoothVLE instead scales
+the objective by1/10000 anduses≤1e-4 liquid-flow guard. This trajectory
+crosses the original500 K declared bound deliberately;it doesnot extend the
+ordinary property validity envelope.
+
+Pressure sweeps fix T at370,395,420,445,470,495 K andstep pressure1e5..1e6 Pa
+by1e5,with an extra initial solve at1e5. Current complementarity uses eps1e-2
+for this continuation. These are60 prescribed(T,P) probes per formulation/
+scaling route plus repeated initial solves,not60 independent parameter
+definitions. Solver success isnot the only required physical check:preserve
+root/phase membership,component/energy closure,caloric datum,density,fugacity
+andderivative products. Exact successful/failure trajectories remain
+unexecuted;do not derive a numerical robustness rate from the loop bounds.
+
+Standard ASU's selected state is1 mol/s,85 K/101325 Pa,equal thirds N2/Ar/O2.
+Dowling's three states are1 mol/s at77.5295 K/101000 Pa with
+.9823/.00803/.00967,300 K/353140 Pa with.78/.01/.21 (SF0),and92.88 K/353140 Pa
+with.6653/.014/.3207 (SFIL3). Source compares two-phase nitrogen fractions/
+vapor fraction at the first andsingle-phase vapor/liquid limits andenthalpy
+at the latter two. Standard andDowling state probes aredistinct;these are
+not a direct same-input validation oftheir coefficient changes.
+
+Both HC definitions select1 mol/s,295 K/1e5 Pa,first twelve components each
+.077 andoctene .076 (sum1). Two-phase source targets vapor fraction .77026,
+vapor hydrogen .09996 andliquid/vapor propene .01056/.09681,absolute1e-4.
+The performance helper reuses this same model/input. Vapor-only construction/
+initialization andcaloric products do not reproduce those two-phase split
+targets. Inline elemental composition andall selected method coefficients
+are recursive data inputs;RPP/Perrys table presence isnot ordinary admission
+or a claim that every configured method isconsumed by the cubic EOS.
+
+CO2–IL state/scaling fixtures use1 mol/s,298.15 K,1214713.75 Pa,CO2/IL .2/.8.
+The separate flash uses1 mol/s,200 K/101325 Pa,.5/.5,noheat/no pressure-change
+terms:it isadiabatic,not a flash with outlet temperature fixed200 K. Source
+targets liquid CO2 .3119,vapor CO2≈1,vapor/liquid molar-flow ratio .37619
+(absolute1e-4). Requiring IL vapor would violate the selected phase
+membership. X PR parameter-fitting CSV/flash is a separate required input/
+shared-parameter/estimation consumer,not covered by this fixed fit.
+
+The shared Cubic domain supports PR andSRK with only the default a/b mixing
+rules currently declared;all seven definitions above selectPR. Same-EOS
+options must agree across phases;unrecognized EOS/mixing options,non-liquid/
+vapor phases andHenry components in a cubic phase areexplicit refusals.
+Soave alpha andits first/second temperature derivatives areselected by the
+owner,unless a consuming model deliberately replaces them (the SOC source
+above does). Full SRK,alternative pure-method/coordinate/equilibrium and
+mixed-EOS selections remain required separate census/acceptance work.
+
+`ceos_common` locates andloads `cubic_roots`;the reference bindings select
+`cubic_root_l`/`cubic_root_h` forliquid/vapor root values andderivatives.
+Four synthetic general-polynomial controls in `eos/tests/test_cubic_root.py`
+check low/high root,residual,gradient andpacked Hessian for(b,c,d)=
+(−3,.5,−1),(−3,.5,1),(1,.5,−1),(1,.5,2);onlythe second ismarked three-root.
+This numerical kernel evidence isseparate from a phase-stability certificate.
+Exact shared-library/build provenance andIpopt/ipopt_v2 remain prerequisites;
+availability skips upstream do not relax the local fail-never-skip policy.
+Inherited `properties/tests/test_harness.py` adds property hooks,initialization,
+fixed/free restoration,failure andcontrol-volume construction atdefault
+states;BT/ASU explicitly set `has_density_terms=False`,so those inherited
+integration checks do not qualify transient density inventories. No dataset,
+trainer orsaved initializer isloaded by these fixed core mixture cases.
+All source tables remain oracle inputs until ordinary provenance/envelopes
+areadmitted,andnative ragged phases/methods/output mapping andindependent
+scientific execution remain open. AST/source reads executed no EOS orsolver.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
