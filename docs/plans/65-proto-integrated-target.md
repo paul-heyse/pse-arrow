@@ -643,8 +643,10 @@ selectors retain precedence; passive `fixture show runtime` prepares nothing. Th
 host selection passed 68 controls and the scientific-input check passed its targeted control.
 Actual managed preparation and passive readback succeeded. Those prepared inputs then allowed
 the previously blocked 87-test runtime selection to execute: 85 passed and two failed against
-zero. The original drain-error source correction subsequently passed both project/drain controls;
-conditional reference preparation remains under diagnosis for its obligation-schedule limit.
+zero. The original drain-error source correction subsequently passed both project/drain controls.
+The conditional reference control now declares its scientific-input prerequisite and explicit
+finite full-closure body/scratch allowances; its targeted native run passes. The whole 87-test
+selection has not been rerun as a population after those corrections.
 This is component evidence, not H qualification or full-series completion.
 
 The retirement work now covers the kernel bank, math worker, exact retained finisher, native
@@ -652,7 +654,10 @@ oracle callbacks, conditional and dynamic owners, owner-affine fit/shooting team
 child reap and explicit HTTP/2 task/driver joins. Its eight kernel retirement controls passed;
 cross-crate compilation, remaining constructor migrations and receiving-main acceptance remain
 open. Generic supplier construction must preserve both original refusal and every cleanup
-failure; ordinary Drop cannot close that obligation.
+failure; ordinary Drop cannot close that obligation. Subsequent kernel controls pass ten tests,
+and the native-free math/backend all-target check and 46 selected functional controls pass
+against zero errors, warnings and test failures. Full native-feature/runtime and actual child
+acceptance remain separate; updated worker failure declarations have generated successfully.
 
 ## Verification boundary
 

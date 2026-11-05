@@ -59,6 +59,17 @@ moves from normal Drop to successful explicit finish. Native scope/session/lane 
 original scientific, panic and independent teardown failures. Drop remains abandonment
 containment.
 
+Failed construction consumes the same obligation: preserve the original typed refusal and
+finish every already constructed supplier before returning. Generic mathematical suppliers
+retain their concrete error type in a shared construction-failure product. Distinguish the
+non-cloneable performing root owner from its borrowed native callback; an idle callback alias
+must not keep actual providers alive after owner finish. Native aliases are dismantled before
+extracting and finishing the actual evaluator.
+
+Each independent retirement isolates unwind, including destruction of a caught `panic_any`
+payload. Dispose resulting payload owners under the same containment before visiting siblings;
+neither a leaked payload nor an escaped destructor panic establishes settled retirement.
+
 ### Consequences
 
 Migrate the concrete algebraic, dynamic, conditional-unit and Horizon owners, native oracle
@@ -69,8 +80,10 @@ may silently erase the owned worker's finish obligation.
 
 Keep generated ConnectRPC clients/codecs. Its 0.9.1 shared client detaches workers/drivers;
 where this hides required results, use public ClientTransport over explicitly owned Hyper H2
-SendRequest/driver state in the existing I/O owner. Retain both inner connection errors and
-outer join results. Shutdown acknowledgement, child reap and I/O completion remain distinct;
+SendRequest/driver state in the existing I/O owner. Retain library-exposed inner connection
+errors and outer join results. Hyper 1.11.1 internally logs/erases some HTTP/2 connection
+errors; executor completion cannot reconstruct an error the library does not expose.
+Shutdown acknowledgement, child reap and I/O completion remain distinct;
 failed attempts do not skip independent teardown or release uncertain custody.
 
 ### Confirmation

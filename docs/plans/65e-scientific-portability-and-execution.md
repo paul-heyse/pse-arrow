@@ -273,6 +273,14 @@ native scope through existing native-thread/session joins and `MathRuntimeError:
 retain original scientific failure and independent teardown failures together. Drop remains
 abandonment containment, not positive retirement evidence.
 
+Constructor rejection has the same consumption duty. Retain original typed refusal and all
+already-built supplier cleanup failures; the mathematical owner's shared
+`SupplierConstructionFailure<E>` preserves concrete scientific errors without thread-safety
+or string-erasure requirements. A distinct non-cloneable root owner issues borrowed callback
+handles; callbacks cannot perform owning retirement. Extract actual shared evaluators only
+after callback execution has departed, so idle aliases cannot retain provider custody.
+Independent retirement also contains panic-payload destruction before visiting siblings.
+
 The pinned [ConnectRPC 0.9.1 HTTP/2 source](https://github.com/connectrpc/connect-rust/blob/v0.9.1/src/client/http2.rs)
 detaches its shared-client worker and connection driver; an I/O-thread join alone cannot
 recover their inner connection and outer task results. Preserve generated clients and codecs
@@ -282,6 +290,29 @@ I/O owner, collect inner/outer failures, destroy pending transport tasks and exp
 the I/O thread. Sources: [ClientTransport](https://github.com/connectrpc/connect-rust/blob/v0.9.1/src/client/mod.rs)
 and [Hyper 1.11.1 HTTP/2 ownership](https://docs.rs/hyper/1.11.1/hyper/client/conn/http2/index.html).
 This is connection ownership glue, not a second protocol implementation or request registry.
+
+**Interface-checked limitation:** Context7's Hyper source account was reconciled with the
+installed 1.11.1 implementation. The public connection future returns `Result<(), hyper::Error>`;
+retain that result, executor task joins and actual thread completion. Its internal
+`ConnMapErr` logs and erases some HTTP/2 errors, and `ConnTask` returns `()`. Dropped-sender/EOF
+shutdown may therefore expose completion without the original internal error. This target
+claims custody and library-exposed outcomes, not complete recovery of errors Hyper erases.
+The [exact HTTP/2 source](https://github.com/hyperium/hyper/blob/v1.11.1/src/proto/h2/client.rs)
+and [public connection source](https://github.com/hyperium/hyper/blob/v1.11.1/src/client/conn/http2.rs)
+characterize that boundary; a future requirement for those hidden causes needs a separately
+justified library change. Local and wire retirement still retain every cause their owners
+actually observe, including late undeliverable RPC failures.
+
+Local library causes without a complete allocation contract report unknown retained extent.
+The existing `usize::MAX` retention sentinel conservatively refuses finite retention; it is
+not a measured allocation. Preserve the original local typed cause. The worker wire restores
+only declared known failure leaves and keyed retirement/settlement shapes; other diagnostics
+cross as explicitly opaque observations with no native owner or restoration authority. Bound
+the complete failure tree's depth, nodes and text before known-type restoration; refuse an
+oversized outcome rather than silently dropping causes. The source-owned
+[`Failure`](../../crates/pse-runtime/src/scientific_worker/protocol.rs) and
+[`failure/refusal`](../../crates/pse-runtime/src/scientific_worker/handler.rs) composition use
+the same generated Buffa correspondence and bounded decode owner as ordinary responses.
 
 Acceptance covers every concrete owner above, shared versus borrowed callbacks, failed session
 construction/replacement, multiple simultaneous cleanup failures, successful reap after failed
