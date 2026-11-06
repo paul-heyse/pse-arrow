@@ -14,8 +14,10 @@ use datafusion::{
         disk_manager::{DiskManagerBuilder, DiskManagerMode},
         runtime_env::RuntimeEnvBuilder,
     },
+    physical_plan::SendableRecordBatchStream,
     prelude::{SessionConfig, SessionContext},
 };
+use futures_util::StreamExt as _;
 use pse_columnar::{AllocationLease, CancellationToken, MemoryConsumer, MemoryPool};
 use pse_host::{
     developer_evidence,
@@ -41,6 +43,9 @@ pub enum Error {
     /// Original typed Arrow projection refusal.
     #[error(transparent)]
     Projection(#[from] crate::observation_detail::CaptureError),
+    /// Original native cancellation or columnar control cause.
+    #[error(transparent)]
+    Columnar(#[from] pse_columnar::CanonError),
     /// Explicit population, source identity or shape refusal.
     #[error("developer evidence query: {0}")]
     Invalid(String),
@@ -48,11 +53,11 @@ pub enum Error {
 pse_diagnostics::impl_diagnostic! {
     Error,
     code(this) { match this {
-        Self::Evidence(_) | Self::Projection(_) => None,
+        Self::Evidence(_) | Self::Projection(_) | Self::Columnar(_) => None,
         Self::Engine(datafusion::error::DataFusionError::ResourcesExhausted(_)) => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
         _ => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
     } },
-    forward(this) { match this { Self::Evidence(error) => Some(error.as_ref()), Self::Projection(error) => Some(error), _ => None } },
+    forward(this) { match this { Self::Evidence(error) => Some(error.as_ref()), Self::Projection(error) => Some(error), Self::Columnar(error) => Some(error), _ => None } },
     help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 
@@ -189,7 +194,15 @@ fn acquire(
     pool: &Arc<dyn MemoryPool>,
     owners: &mut Vec<Arc<AllocationLease>>,
 ) -> Result<Vec<u8>, Error> {
-    let file = std::fs::File::open(path)?;
+    // Preserve explicit-path symlink following, but never wait for a FIFO peer
+    // before the selected descriptor's regular-file validation can run.
+    let file: std::fs::File = rustix::fs::open(
+        path,
+        rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC | rustix::fs::OFlags::NONBLOCK,
+        rustix::fs::Mode::empty(),
+    )
+    .map_err(std::io::Error::from)?
+    .into();
     let metadata = file.metadata()?;
     let maximum =
         u64::try_from(developer_evidence::binary_options().max_message_size()).map_err(invalid)?;
@@ -216,6 +229,7 @@ fn acquire(
 
 /// Read the supplied population once, then execute only the maintained relational question.
 pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Analysis, Error> {
+    cancel.checkpoint()?;
     validate(&request)?;
     let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(
         request.memory_bytes.get(),
@@ -225,7 +239,7 @@ pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Ana
     let mut sources = Vec::new();
     let mut identities = BTreeSet::new();
     for (member, input) in request.members.into_iter().enumerate() {
-        cancel.checkpoint().map_err(invalid)?;
+        cancel.checkpoint()?;
         let descriptor = acquire(&input.descriptors, &pool, &mut owners)?;
         let payload = acquire(&input.payload, &pool, &mut owners)?;
         let options = developer_evidence::binary_options();
@@ -292,21 +306,11 @@ pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Ana
             )
             .map_err(Error::Engine)?;
     }
-    cancel.checkpoint().map_err(invalid)?;
-    let batches = context
-        .sql(SQL)
-        .await
-        .map_err(Error::Engine)?
-        .collect()
-        .await
-        .map_err(Error::Engine)?;
-    let mut patterns = Vec::new();
-    for batch in &batches {
-        cancel.checkpoint().map_err(invalid)?;
-        for row in 0..batch.num_rows() {
-            patterns.push(pattern(batch, row)?);
-        }
-    }
+    cancel.checkpoint()?;
+    let query = cancel.until_cancelled(context.sql(SQL)).await??;
+    let stream = cancel.until_cancelled(query.execute_stream()).await??;
+    let patterns = read_patterns(stream, cancel).await?;
+    cancel.checkpoint()?;
     Ok(Analysis { document: Document {
         version: Version, query: SQL, sources, patterns,
         limitations: vec![
@@ -316,6 +320,31 @@ pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Ana
             "This query projects the original failures tree. Pending prerequisite declarations and per-group test/compiler outcomes are outside this observation; an empty diagnostic join does not prove that the original report had no other recorded causes.".into(),
         ],
     }, _owners: owners })
+}
+
+// DataFusion 55.1 DataFrame::execute_stream documents that dropping this stream
+// aborts query execution and frees its resources. This is no external/native
+// lifetime settlement claim. Cancellation retains its original CanonError.
+async fn read_patterns(
+    mut stream: SendableRecordBatchStream,
+    cancel: &CancellationToken,
+) -> Result<Vec<Pattern>, Error> {
+    let mut patterns = Vec::new();
+    loop {
+        cancel.checkpoint()?;
+        let Some(batch) = cancel.until_cancelled(stream.next()).await? else {
+            break;
+        };
+        cancel.checkpoint()?;
+        let batch = batch?;
+        for row in 0..batch.num_rows() {
+            cancel.checkpoint()?;
+            patterns.push(pattern(&batch, row)?);
+        }
+    }
+    // An empty batch/EOF can cancel in the same poll that completes the stream.
+    cancel.checkpoint()?;
+    Ok(patterns)
 }
 fn array<'a, T: Array + 'static>(batch: &'a RecordBatch, name: &str) -> Result<&'a T, Error> {
     batch

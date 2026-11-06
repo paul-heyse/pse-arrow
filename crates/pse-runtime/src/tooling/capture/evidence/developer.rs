@@ -17,7 +17,7 @@ pub fn invocations(
     pool: &Arc<dyn MemoryPool>,
     cancel: &CancellationToken,
 ) -> Result<RecordBatch, CaptureError> {
-    cancel.checkpoint().map_err(invalid)?;
+    cancel.checkpoint()?;
     let owner = reserve_document(&facts, pool)?;
     let actions = facts
         .iter()
@@ -117,7 +117,7 @@ fn diagnostic<'a>(
     pointer: String,
     cancel: &CancellationToken,
 ) -> Result<(), CaptureError> {
-    cancel.checkpoint().map_err(invalid)?;
+    cancel.checkpoint()?;
     add(
         rows,
         Cause {
@@ -181,7 +181,7 @@ pub fn causes(
     pool: &Arc<dyn MemoryPool>,
     cancel: &CancellationToken,
 ) -> Result<RecordBatch, CaptureError> {
-    cancel.checkpoint().map_err(invalid)?;
+    cancel.checkpoint()?;
     let owner = reserve_document(&facts, pool)?;
     let mut rows = Vec::new();
     for (member, facts) in facts.iter().enumerate() {

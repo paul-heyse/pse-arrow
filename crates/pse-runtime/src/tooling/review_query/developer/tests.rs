@@ -253,7 +253,143 @@ async fn typed_original_views_keep_missing_generation_clock_and_selected_count_n
     assert!(empty.document().sources.is_empty());
     let cancelled = CancellationToken::new();
     cancelled.cancel();
-    assert!(analyze(request(vec![]), &cancelled).await.is_err());
+    let error = analyze(request(vec![]), &cancelled).await.unwrap_err();
+    assert!(matches!(
+        error,
+        Error::Columnar(pse_columnar::CanonError::Cancelled)
+    ));
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled)
+    );
+    let table_error = tables::invocations(&[], &pool, &cancelled).unwrap_err();
+    assert!(matches!(
+        table_error,
+        crate::observation_detail::CaptureError::Columnar(pse_columnar::CanonError::Cancelled)
+    ));
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&table_error),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled)
+    );
+}
+
+#[test]
+fn explicit_fifo_refuses_without_waiting_for_a_peer_and_regular_symlinks_remain_supported() {
+    use std::sync::mpsc;
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("explicit-fifo");
+    rustix::fs::mkfifoat(
+        rustix::fs::CWD,
+        &path,
+        rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR,
+    )
+    .unwrap();
+    let (send, receive) = mpsc::channel();
+    let input = path.clone();
+    let owner = std::thread::spawn(move || {
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
+        let result = acquire(&input, &pool, &mut Vec::new());
+        send.send(matches!(result, Err(Error::Invalid(reason)) if reason.contains("regular file")))
+            .unwrap();
+    });
+    let refused = receive.recv_timeout(std::time::Duration::from_secs(2));
+    // Release and join even if a regression reintroduces blocking open. RDWR on
+    // this caller-owned FIFO supplies its peer without signalling any process.
+    let release = rustix::fs::open(
+        &path,
+        rustix::fs::OFlags::RDWR | rustix::fs::OFlags::CLOEXEC | rustix::fs::OFlags::NONBLOCK,
+        rustix::fs::Mode::empty(),
+    )
+    .unwrap();
+    owner.join().unwrap();
+    drop(release);
+    assert_eq!(refused.unwrap(), true);
+    let regular = root.path().join("regular");
+    std::fs::write(&regular, b"explicit selected regular bytes").unwrap();
+    let link = root.path().join("explicit-link");
+    std::os::unix::fs::symlink(&regular, &link).unwrap();
+    let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
+    assert_eq!(
+        acquire(&link, &pool, &mut Vec::new()).unwrap(),
+        b"explicit selected regular bytes"
+    );
+}
+
+#[tokio::test]
+async fn in_flight_stream_cancellation_drops_owned_stream_and_preserves_typed_cause() {
+    use std::{
+        pin::Pin,
+        sync::atomic::{AtomicBool, Ordering},
+        task::{Context, Poll},
+    };
+    struct Pending {
+        started: Option<tokio::sync::oneshot::Sender<()>>,
+        dropped: Arc<AtomicBool>,
+    }
+    impl futures_util::Stream for Pending {
+        type Item = Result<RecordBatch, datafusion::error::DataFusionError>;
+        fn poll_next(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            if let Some(started) = self.started.take() {
+                let _ = started.send(());
+            }
+            Poll::Pending
+        }
+    }
+    impl Drop for Pending {
+        fn drop(&mut self) {
+            self.dropped.store(true, Ordering::SeqCst);
+        }
+    }
+    let dropped = Arc::new(AtomicBool::new(false));
+    let (send, receive) = tokio::sync::oneshot::channel();
+    let stream = datafusion::physical_plan::stream::RecordBatchStreamAdapter::new(
+        Arc::new(datafusion::arrow::datatypes::Schema::empty()),
+        Pending {
+            started: Some(send),
+            dropped: Arc::clone(&dropped),
+        },
+    );
+    let cancel = CancellationToken::new();
+    let child = cancel.clone();
+    let operation = tokio::spawn(async move { read_patterns(Box::pin(stream), &child).await });
+    receive.await.unwrap();
+    cancel.cancel();
+    let error = operation.await.unwrap().unwrap_err();
+    assert!(matches!(
+        error,
+        Error::Columnar(pse_columnar::CanonError::Cancelled)
+    ));
+    assert!(
+        dropped.load(Ordering::SeqCst),
+        "the selected stream, not an external workload, dropped"
+    );
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled)
+    );
+}
+
+#[tokio::test]
+async fn cancellation_during_last_empty_batch_or_eof_cannot_publish_success() {
+    for empty_batch in [true, false] {
+        let cancel = CancellationToken::new();
+        let source = cancel.clone();
+        let schema = Arc::new(datafusion::arrow::datatypes::Schema::empty());
+        let batch_schema = Arc::clone(&schema);
+        let stream = futures_util::stream::poll_fn(move |_| {
+            source.cancel();
+            std::task::Poll::Ready(
+                empty_batch.then(|| Ok(RecordBatch::new_empty(Arc::clone(&batch_schema)))),
+            )
+        });
+        let stream =
+            datafusion::physical_plan::stream::RecordBatchStreamAdapter::new(schema, stream);
+        let error = read_patterns(Box::pin(stream), &cancel).await.unwrap_err();
+        assert!(matches!(
+            error,
+            Error::Columnar(pse_columnar::CanonError::Cancelled)
+        ));
+    }
 }
 
 #[test]

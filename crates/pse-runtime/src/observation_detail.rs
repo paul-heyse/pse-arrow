@@ -49,14 +49,17 @@ pub enum CaptureError {
     /// Actual target checkpoint could not be read.
     #[error(transparent)]
     Observation(#[from] crate::observation::ObservationError),
+    /// Original typed columnar allocation or cancellation cause.
+    #[error(transparent)]
+    Columnar(#[from] pse_columnar::CanonError),
     /// Exporter worker panicked; target science remains separately owned.
     #[error("diagnostic capture worker failed")]
     Worker,
 }
 pse_diagnostics::impl_diagnostic! {
     CaptureError,
-    code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
-    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+    code(this) { if matches!(this, Self::Columnar(_)) { None } else { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) } },
+    forward(this) { match this { Self::Columnar(error) => Some(error), _ => None } }, help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 
 /// Source coverage requested independently from scientific validity.

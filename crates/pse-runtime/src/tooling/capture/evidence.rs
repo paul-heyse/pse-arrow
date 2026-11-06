@@ -57,7 +57,8 @@ fn publish(
             "diagnostic view exceeded its pre-admitted allocation",
         ));
     }
-    pse_columnar::owned_buffer::retain_payload(&batch, owner, cancel).map_err(invalid)
+    pse_columnar::owned_buffer::retain_payload(&batch, owner, cancel)
+        .map_err(CaptureError::Columnar)
 }
 fn strings<'a>(values: impl IntoIterator<Item = Option<&'a str>>) -> ArrayRef {
     Arc::new(StringArray::from_iter(values))

@@ -1,6 +1,34 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
+
+#[test]
+fn developer_cancellation_response_retains_the_original_native_control_code() {
+    let cancel = pse_columnar::CancellationToken::new();
+    cancel.cancel();
+    let cause = cancel.checkpoint().unwrap_err();
+    let error = ReaderError::Developer(crate::tooling::review_query::developer::Error::Columnar(
+        cause,
+    ));
+    let encoded = encode_response(&response(
+        "controlled-original-cancellation".into(),
+        Err(error),
+    ))
+    .unwrap();
+    assert_ne!(encoded.exit_code(), 0);
+    let response: serde_json::Value = serde_json::from_slice(encoded.bytes()).unwrap();
+    assert_eq!(response["payload"]["failure"]["code"], "request.refused");
+    assert_eq!(
+        response["payload"]["failure"]["native"]["code"],
+        pse_diagnostics::DiagnosticCode::RuntimeCancelled.as_str()
+    );
+    assert!(
+        response["payload"]["failure"]["native"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("cancelled")
+    );
+}
 use crate::tooling::{
     frozen_inspection::{self, FrozenEvidenceSet, FrozenInspectionRequest, RecordedWindow},
     review_analysis::AnalysisRequest,
