@@ -85,6 +85,83 @@ mod tests {
         let ambiguous = FitAssessment::unattempted([ids[0], ids[0]]);
         assert!(ambiguous.experiment(ids[0]).is_none());
     }
+
+    #[test]
+    fn fitting_experiment_assessment_terminal_cleanup_retains_tree_and_stops_members() {
+        use crate::math::MathRuntimeError;
+        use pse_backend_native::ProblemError;
+        for cleanup in [
+            MathRuntimeError::Infrastructure("worker finish failed".into()),
+            MathRuntimeError::Cancelled,
+        ] {
+            let cleanup = WorkflowError::Math(cleanup);
+            let expected = cleanup.boundary_diagnostic().class;
+            let numerical = || {
+                WorkflowError::Math(MathRuntimeError::Solve(ProblemError::numerical(
+                    "original operation",
+                )))
+            };
+            let nested = WorkflowError::settle::<()>(Err(numerical()), Err(cleanup)).unwrap_err();
+            let error = WorkflowError::settle::<()>(Err(numerical()), Err(nested)).unwrap_err();
+            let ids = [1, 2, 3, 4]
+                .map(|value| InstanceId::from(pse_ids::SemanticId::from_bytes([value; 16])));
+            let mut assessment = FitAssessment::unattempted(ids);
+            // A truly local numerical failure permits the next original member.
+            assessment
+                .record_result(0, vec![], vec![], Err(numerical()))
+                .unwrap();
+            assessment.record_result(1, vec![], vec![], Ok(())).unwrap();
+            let mut error = Some(error);
+            let mut attempted = Vec::new();
+            for index in 2..4 {
+                attempted.push(index);
+                if assessment
+                    .record_result(
+                        index,
+                        vec![],
+                        vec![],
+                        Err(error
+                            .take()
+                            .expect("terminal cleanup started a later member")),
+                    )
+                    .is_err()
+                {
+                    break;
+                }
+            }
+            assert_eq!(attempted, [2]);
+            assert_eq!(
+                assessment
+                    .experiments()
+                    .map(|member| member.state())
+                    .collect::<Vec<_>>(),
+                [
+                    FitExperimentAssessmentState::Failed,
+                    FitExperimentAssessmentState::Completed,
+                    FitExperimentAssessmentState::Failed,
+                    FitExperimentAssessmentState::Unattempted
+                ]
+            );
+            let member = assessment.experiment(ids[2]).unwrap();
+            let selected = member.failure().unwrap();
+            assert!(std::ptr::eq(assessment.failure().unwrap(), selected));
+            assert_eq!(selected.class, BoundaryClass::Numerical);
+            assert_eq!(selected.causes[0].class, BoundaryClass::Numerical);
+            assert_eq!(selected.causes[0].causes[0].class, expected);
+            assert_eq!(assessment.failures().count(), 2);
+            assert!(assessment.experiment(ids[3]).unwrap().failure().is_none());
+            let observation = assessment.observation().unwrap();
+            assert_eq!(
+                observation.experiments[2]
+                    .failure
+                    .as_ref()
+                    .unwrap()
+                    .causes
+                    .len(),
+                2
+            );
+        }
+    }
 }
 
 impl PartialEq for ExperimentAssessment {
@@ -289,7 +366,7 @@ impl FitAssessment {
         failures()
             .find(|failure| {
                 !crate::math::strategy::permits_numerical_continuation(
-                    crate::math::strategy::boundary_failure(failure.class),
+                    crate::math::strategy::diagnostic_failure(failure),
                 )
             })
             .or_else(|| failures().next())
@@ -330,6 +407,34 @@ impl FitAssessment {
             FitExperimentAssessmentState::Completed
         };
         member.failure = failure.map(Arc::new);
+    }
+    /// Retain the actual member outcome before deciding whether another member may run.
+    pub(super) fn record_result(
+        &mut self,
+        index: usize,
+        checks: Vec<ModelingCheck>,
+        reports: Vec<ModelingReport>,
+        result: Result<(), crate::workflow::WorkflowError>,
+    ) -> Result<(), crate::workflow::WorkflowError> {
+        self.record(
+            index,
+            checks,
+            reports,
+            result
+                .as_ref()
+                .err()
+                .map(crate::workflow::WorkflowError::boundary_diagnostic),
+        );
+        match result {
+            Err(error)
+                if !crate::math::strategy::permits_numerical_continuation(
+                    crate::math::strategy::workflow_failure(&error),
+                ) =>
+            {
+                Err(error)
+            }
+            _ => Ok(()),
+        }
     }
     pub(super) fn bytes(&self) -> usize {
         use pse_model::HeapUsage;

@@ -71,6 +71,10 @@ Native final-fit and profile consumers migrate together, replacing independently
 flat completeness/error fields. Original diagnostics, known owned heap and result exports
 include the retained member evidence. Global fit and profile-statistic qualification still
 require their existing complete original assessment, numerical and statistical conditions.
+The shared typed continuation policy examines retained cause trees: a numerical
+operation envelope cannot hide terminal cleanup. Original envelopes and all causes
+remain intact. Profile documents borrow the original report's chains through wire
+serialization, avoiding hidden copies of physical assessment buffers.
 
 This unit preserves observations actually returned by a scientific member owner. The
 steady `assess_observations` owner still returns an all-or-error tuple and can discard

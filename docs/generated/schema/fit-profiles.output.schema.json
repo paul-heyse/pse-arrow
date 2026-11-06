@@ -3471,7 +3471,7 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "Whether profile intervals were requested, available, or withheld by native admission.",
+  "description": "Report-scoped profile projection. Available chains and their physical assessment\nbuffers remain borrowed from the original native owner through serialization.",
   "oneOf": [
     {
       "additionalProperties": false,

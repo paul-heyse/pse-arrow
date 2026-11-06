@@ -1754,6 +1754,44 @@ mod worker_tests {
         assert_eq!(chain.points[2].seed, Some(1));
     }
     #[test]
+    fn numerical_profile_envelope_with_terminal_cleanup_never_subdivides() {
+        use crate::math::MathRuntimeError;
+        use pse_model::diagnostic::BoundaryClass;
+        for cleanup in [
+            MathRuntimeError::Infrastructure("worker finish failed".into()),
+            MathRuntimeError::Cancelled,
+        ] {
+            let cleanup = WorkflowError::Math(cleanup);
+            let expected = cleanup.boundary_diagnostic().class;
+            let numerical = || {
+                WorkflowError::Math(MathRuntimeError::Solve(ProblemError::numerical(
+                    "original pin",
+                )))
+            };
+            let nested = WorkflowError::settle::<()>(Err(numerical()), Err(cleanup)).unwrap_err();
+            let mut original =
+                Some(WorkflowError::settle::<()>(Err(numerical()), Err(nested)).unwrap_err());
+            let execution = execution();
+            let mut calls = 0;
+            let chain = policy(&execution).run(|_, _| {
+                calls += 1;
+                Err(original_failure(
+                    original
+                        .take()
+                        .expect("terminal cleanup retried a profile pin"),
+                ))
+            });
+            assert_eq!(calls, 1);
+            assert_eq!(chain.bound.outcome, IntervalOutcome::Stopped);
+            let failure = &chain.points[0].failures[0];
+            assert!(!failure.subdivides());
+            let retained = failure.diagnostic();
+            assert_eq!(retained.class, BoundaryClass::Numerical);
+            assert_eq!(retained.causes[0].class, BoundaryClass::Numerical);
+            assert_eq!(retained.causes[0].causes[0].class, expected);
+        }
+    }
+    #[test]
     fn terminal_profile_causes_never_subdivide_and_keep_the_original_error() {
         let source_id = SemanticId::from_bytes([9; 16]);
         let terminal = vec![

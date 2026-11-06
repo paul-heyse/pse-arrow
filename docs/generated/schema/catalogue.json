@@ -1546,9 +1546,9 @@
       "exported_name": "FitProfileDocument",
       "name": "FitProfileDocument",
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
-      "rust_type": "pse_runtime :: workflow :: FitProfileDocument",
+      "rust_type": "pse_runtime :: workflow :: FitProfileDocument < '_ >",
       "schema_path": "docs/generated/schema/fit-profiles.output.schema.json",
-      "schema_sha256": "5dffd98e4d946370230c0ad0c82e805023862bd158b854d184c7a7b50ab658f6",
+      "schema_sha256": "656f3940e413a54965a243d8b967a6c1bc3ec89b236fe91bbb2ae3cc9c45d88b",
       "slug": "fit-profiles",
       "version": 3,
       "wire": "FlatV3"
@@ -5946,6 +5946,6 @@
       "wire": "FlatV1"
     }
   ],
-  "schema_set_fingerprint": "blake3:3e43d222fd73713b3199faad9137a1772ad0ef46d1b3d6a633ff0dccdbd46f4c",
+  "schema_set_fingerprint": "blake3:91e5af76badca77d5278a74401cc4526e8a5a595a95e70bc3ab66801ea3bd18d",
   "version": 1
 }

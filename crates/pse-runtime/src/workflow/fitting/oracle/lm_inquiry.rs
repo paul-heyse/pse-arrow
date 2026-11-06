@@ -1736,6 +1736,43 @@ async fn fitting_lm_profile_chains_record_actual_criteria_and_effective_caps() {
     let report = regression::report(&result);
     let batch = result.table("runtime.profile_points").unwrap();
     let exported = profile_points::Row::rows(&batch).unwrap();
+    let document = report.profile_document();
+    let FitProfileDocument::Available { chains: borrowed } = &document else {
+        panic!("original native profiles absent")
+    };
+    let original_chains = report.profiles.as_ref().unwrap().as_ref().unwrap();
+    assert!(
+        std::ptr::eq(borrowed.as_ptr(), original_chains.as_ptr()),
+        "profile document cloned original chains"
+    );
+    for (borrowed, original) in borrowed.iter().zip(original_chains) {
+        assert!(std::ptr::eq(
+            borrowed.points.as_ptr(),
+            original.points.as_ptr()
+        ));
+        for (borrowed, original) in borrowed.points.iter().zip(&original.points) {
+            assert!(std::ptr::eq(&borrowed.assessment, &original.assessment));
+        }
+    }
+    let wire = <FitProfileDocument<'_> as crate::boundary_documents::BoundaryDocument>::WIRE;
+    let projected: serde_json::Value =
+        serde_json::from_slice(&wire.to_vec(&document).unwrap()).unwrap();
+    assert_eq!(projected["document_version"], 3);
+    assert_eq!(projected["status"], "available");
+    assert_eq!(
+        projected["chains"][0]["points"][0]["original_assessment"]["complete"],
+        true
+    );
+    assert!(
+        projected["chains"][0]["points"][0]["original_assessment"]
+            .get("checks")
+            .is_none()
+    );
+    assert!(
+        projected["chains"][0]["points"][0]["original_assessment"]
+            .get("reports")
+            .is_none()
+    );
     let estimate = report.residual.as_ref().unwrap().stopping.unwrap();
     assert_eq!(estimate.criteria, ResidualLmCriteria::current());
     assert_eq!(estimate.parameter_update_limit, updates);

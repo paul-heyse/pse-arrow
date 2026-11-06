@@ -554,6 +554,77 @@ fn pending_original_correction_requires_declared_continuation_and_keeps_actual_v
         assert_eq!(transition(&mechanism, &assessed), Transition::Stop);
     }
 }
+
+#[test]
+fn numerical_envelope_terminal_cleanup_vetoes_shared_strategy_continuation() {
+    use crate::{math::MathRuntimeError, workflow::WorkflowError};
+    use pse_model::diagnostic::BoundaryClass;
+    for (cleanup, expected) in [
+        (
+            MathRuntimeError::Infrastructure("worker finish failed".into()),
+            Observation::OperationalFailure,
+        ),
+        (MathRuntimeError::Cancelled, Observation::Cancelled),
+    ] {
+        let numerical = || {
+            WorkflowError::Math(MathRuntimeError::Solve(ProblemError::numerical(
+                "original operation",
+            )))
+        };
+        let inner = WorkflowError::settle::<()>(Err(numerical()), Err(cleanup.into())).unwrap_err();
+        let original = WorkflowError::settle::<()>(Err(numerical()), Err(inner)).unwrap_err();
+        assert_eq!(workflow_failure(&original), expected);
+        let diagnostic = original.boundary_diagnostic();
+        assert_eq!(diagnostic.class, BoundaryClass::Numerical);
+        assert_eq!(diagnostic.causes[0].class, BoundaryClass::Numerical);
+        assert_eq!(diagnostic_failure(&diagnostic), expected);
+        let error = target::assessment_failure(&diagnostic);
+        assert_eq!(failure(&error), expected);
+        let wrapped = MathRuntimeError::Math(pse_math::MathError::Typed {
+            retained: 1024,
+            cause: pse_model::diagnostic::DiagnosticCause::new(original),
+        });
+        assert_eq!(runtime_failure(&wrapped), expected);
+        let mut calls = Vec::new();
+        let result = run(
+            &strategy(),
+            &scope(),
+            facts,
+            |index, _| {
+                calls.push(index);
+                Ok(Attempt {
+                    evidence: Vec::new(),
+                    value: index,
+                    observation: Observation::NumericalFailure,
+                    work: charge(index),
+                })
+            },
+            |_, observation| {
+                let mut assessment = auxiliary_assessment(observation);
+                assessment.original = OriginalConclusion::auxiliary(Some(error.clone()));
+                assessment.cause = Some(error.clone());
+                assessment
+            },
+        );
+        assert_eq!(calls, [0]);
+        assert_eq!(
+            result.events.last().unwrap().transition,
+            Some(Transition::Stop)
+        );
+        let event = result.events.last().unwrap();
+        assert_eq!(event.phase, Phase::Assessment);
+        let retained_cause = event.original.as_ref().unwrap().cause().unwrap();
+        assert!(Arc::ptr_eq(&retained_cause, &error));
+        let retained = retained_cause.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native);
+        assert_eq!(retained.class, BoundaryClass::Numerical);
+        assert_eq!(retained.causes.len(), 1);
+        assert_eq!(retained.causes[0].causes.len(), 1);
+    }
+    assert_eq!(
+        runtime_failure(&MathRuntimeError::Panic("original panic".into())),
+        Observation::Panic
+    );
+}
 #[tokio::test]
 async fn failed_trajectory_can_run_declared_same_backend_profile_and_only_original_permission_finishes()
  {

@@ -78,16 +78,17 @@ pub enum FitExecutionDocument {
         report: super::FitResidualReport,
     },
 }
-/// Whether profile intervals were requested, available, or withheld by native admission.
+/// Report-scoped profile projection. Available chains and their physical assessment
+/// buffers remain borrowed from the original native owner through serialization.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
-pub enum FitProfileDocument {
+pub enum FitProfileDocument<'a> {
     /// No profile request was made.
     NotRequested,
     /// Every chain, including worker failures and its actual parallelism.
     Available {
         #[doc = "Every retained chain, including distinct worker failures."]
-        chains: Vec<ProfileChain>,
+        chains: &'a [ProfileChain],
     },
     /// The native reason and retained diagnostic explanation.
     Withheld {
@@ -115,13 +116,11 @@ impl FitReport {
             FitExecutionDocument::Evaluation
         }
     }
-    /// Project retained evidence without starting work or revising its outcome.
-    pub fn profile_document(&self) -> FitProfileDocument {
+    /// Borrow retained evidence without copying physical buffers or revising its outcome.
+    pub fn profile_document(&self) -> FitProfileDocument<'_> {
         match &self.profiles {
             None => FitProfileDocument::NotRequested,
-            Some(Ok(chains)) => FitProfileDocument::Available {
-                chains: chains.clone(),
-            },
+            Some(Ok(chains)) => FitProfileDocument::Available { chains },
             Some(Err(reason)) => FitProfileDocument::Withheld {
                 reason: reason.reason(),
                 detail: reason.to_string(),
@@ -150,7 +149,7 @@ mod boundary_unit {
     #[test]
     fn profile_transport_preserves_worker_failure_and_scientific_state() {
         let document = FitProfileDocument::Available {
-            chains: vec![ProfileChain {
+            chains: &[ProfileChain {
                 qualifiers: Vec::new(),
                 scheduling_failures: Vec::new(),
                 worker_failure: Some(ProfileWorkerFailure::Scheduling("pool unavailable".into())),
@@ -236,10 +235,8 @@ mod boundary_unit {
                 },
             ],
         };
-        let value = serde_json::to_value(FitProfileDocument::Available {
-            chains: vec![chain],
-        })
-        .unwrap();
+        let value =
+            serde_json::to_value(FitProfileDocument::Available { chains: &[chain] }).unwrap();
         let chain = &value["chains"][0];
         assert_eq!(chain["worker_failure"]["kind"], "environment");
         assert_eq!(chain["worker_failure"]["detail"]["class"], "resource_limit");

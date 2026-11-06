@@ -1946,7 +1946,7 @@ pub(crate) fn work_native(report: &pse_backend_native::solve::SolveReport) -> Wo
     }
 }
 pub(crate) fn failure(cause: &ProblemError) -> Observation {
-    match cause {
+    let primary = match cause {
         ProblemError::Native { kind, .. } => match kind {
             pse_backend_native::NativeFailureKind::Resource => Observation::ResourceExhausted,
             pse_backend_native::NativeFailureKind::Contract => Observation::ContractFailure,
@@ -1981,11 +1981,14 @@ pub(crate) fn failure(cause: &ProblemError) -> Observation {
                     .class,
             ),
         },
-    }
+    };
+    refine_failure(primary, || {
+        cause.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
+    })
 }
 pub(crate) fn runtime_failure(error: &super::MathRuntimeError) -> Observation {
     use super::MathRuntimeError as E;
-    match error {
+    let primary = match error {
         E::Shared(error) => runtime_failure(error),
         E::Settlement { .. } => Observation::OperationalFailure,
         E::Strategy { cause, .. } | E::StrategyTraceUnavailable { cause, .. } => {
@@ -2020,7 +2023,10 @@ pub(crate) fn runtime_failure(error: &super::MathRuntimeError) -> Observation {
                 .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
                 .class,
         ),
-    }
+    };
+    refine_failure(primary, || {
+        error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
+    })
 }
 /// Scientific consumers classify the same typed failure before applying their own
 /// stage, parameter, statistical or control policy.
@@ -2028,7 +2034,40 @@ pub(crate) fn workflow_failure(error: &crate::workflow::WorkflowError) -> Observ
     if let crate::workflow::WorkflowError::Math(error) = error {
         return runtime_failure(error);
     }
-    boundary_failure(error.boundary_diagnostic().class)
+    diagnostic_failure(&error.boundary_diagnostic())
+}
+/// A numerical envelope permits continuation only when every retained cause does.
+/// Return a terminal descendant's observation without replacing the original envelope.
+pub(crate) fn diagnostic_failure(
+    diagnostic: &pse_model::diagnostic::BoundaryDiagnostic,
+) -> Observation {
+    terminal_cause(boundary_failure(diagnostic.class), diagnostic)
+}
+fn terminal_cause(
+    primary: Observation,
+    diagnostic: &pse_model::diagnostic::BoundaryDiagnostic,
+) -> Observation {
+    if !permits_numerical_continuation(primary) {
+        return primary;
+    }
+    diagnostic
+        .causes
+        .iter()
+        .map(diagnostic_failure)
+        .find(|observation| !permits_numerical_continuation(*observation))
+        .unwrap_or(primary)
+}
+// Preserve the native typed root's distinctions (including Panic and deliberate
+// numerical trial categories); only a terminal retained child can veto it.
+fn refine_failure(
+    primary: Observation,
+    diagnostic: impl FnOnce() -> pse_model::diagnostic::BoundaryDiagnostic,
+) -> Observation {
+    if permits_numerical_continuation(primary) {
+        terminal_cause(primary, &diagnostic())
+    } else {
+        primary
+    }
 }
 pub(crate) const fn boundary_failure(class: pse_model::diagnostic::BoundaryClass) -> Observation {
     use pse_model::diagnostic::BoundaryClass as B;

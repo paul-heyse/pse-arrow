@@ -1785,20 +1785,7 @@ impl PreparedFit {
                     }
                     Ok(())
                 })();
-                assessment.record(
-                    ei,
-                    rows,
-                    reports,
-                    member
-                        .as_ref()
-                        .err()
-                        .map(WorkflowError::boundary_diagnostic),
-                );
-                if let Err(error) = member
-                    && !crate::math::strategy::permits_numerical_continuation(
-                        crate::math::strategy::workflow_failure(&error),
-                    )
-                {
+                if let Err(error) = assessment.record_result(ei, rows, reports, member) {
                     member_failure_returned = true;
                     return Err(error);
                 }

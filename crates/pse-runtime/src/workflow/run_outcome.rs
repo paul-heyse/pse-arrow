@@ -635,7 +635,7 @@ impl super::RunResult {
                     facts.terminal = report
                         .assessment
                         .failure()
-                        .map(|diagnostic| crate::math::strategy::boundary_failure(diagnostic.class))
+                        .map(crate::math::strategy::diagnostic_failure)
                         .or_else(|| {
                             report
                                 .solve
