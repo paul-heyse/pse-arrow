@@ -3,7 +3,9 @@
 //! Actual source/type/domain inspection and complete finite producer controls.
 
 use super::*;
-use crate::workflow::{ModelingPackage, OperationSource, PreparationSettings, Runtime};
+use crate::workflow::{
+    DeclaredProcedure, ModelingPackage, OperationSource, PreparationSettings, Runtime,
+};
 use pse_contract::boundary_projection::{ProjectionGraph, Shape, ValidateProjection as _};
 use pse_modeling::{Type, resolved::CarrierKind, specialize::Value};
 

@@ -13,6 +13,8 @@ use std::{
 };
 
 pub use pse_operations::canonical_project_imports::ProjectImportIntent;
+mod member_copy;
+pub use member_copy::{ProjectMemberCopy, ProjectMemberCopyError};
 
 /// Explicit finite selection; omitted payloads are never silently selected by a latest query.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
@@ -541,25 +543,6 @@ impl ProjectBundleReader {
     pub fn digest(&self) -> &str {
         &self.digest
     }
-    /// Open only a contained verified member; no origin path or service address is followed.
-    pub fn open_member(&self, id: &str) -> Result<std::io::Take<File>, WorkflowError> {
-        let member = self
-            .manifest
-            .members
-            .iter()
-            .find(|m| m.id == id)
-            .ok_or_else(|| contract("unindexed project member"))?;
-        let file =
-            portable_payload::open_contained(&self.directory, &member.relative_path).map_err(io)?;
-        let (bytes, digest) = checksum(file.try_clone().map_err(io)?, member.copied_bytes)?;
-        if bytes != member.copied_bytes || digest != member.digest {
-            return Err(contract("project member changed after inspection"));
-        }
-        use std::io::{Seek, SeekFrom};
-        let mut file = file;
-        file.seek(SeekFrom::Start(0)).map_err(io)?;
-        Ok(file.take(member.copied_bytes))
-    }
     /// Read a bounded member and verify the bytes actually consumed, including changes after open().
     pub fn member_bytes(&self, id: &str, maximum_bytes: usize) -> Result<Vec<u8>, WorkflowError> {
         let member = self
@@ -572,15 +555,8 @@ impl ProjectBundleReader {
             return Err(contract("project member read allowance exhausted"));
         }
         let mut bytes = Vec::new();
-        self.open_member(id)?
-            .take(maximum_bytes as u64 + 1)
-            .read_to_end(&mut bytes)
-            .map_err(io)?;
-        if bytes.len() as u64 != member.copied_bytes
-            || pse_ids::encoding_checksum(&bytes).content_hash().to_hex() != member.digest
-        {
-            return Err(contract("consumed project member digest differs"));
-        }
+        self.copy_member_verified(id, &mut bytes, &crate::CancelSource::new())
+            .map_err(member_copy::workflow_error)?;
         Ok(bytes)
     }
     /// Select a contained supported request for explicit new execution via Runtime::run_reproducer.
@@ -1222,20 +1198,6 @@ impl ProjectBundleReader {
         )
     }
     fn archive(&self, cancel: &crate::CancelSource) -> Result<File, WorkflowError> {
-        struct Output<'a> {
-            file: &'a mut File,
-            hash: pse_ids::EncodingHasher,
-        }
-        impl Write for Output<'_> {
-            fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
-                let n = self.file.write(b)?;
-                self.hash.update(&b[..n]);
-                Ok(n)
-            }
-            fn flush(&mut self) -> std::io::Result<()> {
-                self.file.flush()
-            }
-        }
         let manifest = self.manifest_bytes()?;
         let mut file = tempfile::tempfile().map_err(io)?;
         file.write_all(&(manifest.len() as u64).to_le_bytes())
@@ -1243,25 +1205,8 @@ impl ProjectBundleReader {
         file.write_all(&manifest).map_err(io)?;
         for member in &self.manifest.members {
             super::study::creation_checkpoint(cancel)?;
-            let mut source = self.open_member(&member.id)?;
-            let mut output = Output {
-                file: &mut file,
-                hash: pse_ids::EncodingHasher::new(),
-            };
-            portable_payload::copy_exact(&mut source, &mut output, member.copied_bytes, || {
-                if cancel.token().is_cancelled() {
-                    Err(std::io::Error::new(
-                        std::io::ErrorKind::Interrupted,
-                        "import copy cancelled",
-                    ))
-                } else {
-                    Ok(())
-                }
-            })
-            .map_err(io)?;
-            if output.hash.finish().content_hash().to_hex() != member.digest {
-                return Err(contract("consumed import member digest differs"));
-            }
+            self.copy_member_verified(&member.id, &mut file, cancel)
+                .map_err(member_copy::workflow_error)?;
         }
         file.sync_all().map_err(io)?;
         file.seek(SeekFrom::Start(0)).map_err(io)?;

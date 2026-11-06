@@ -27,7 +27,9 @@ pub struct DescriptorIdentity {
     /// Observed change seconds/nanoseconds.
     pub changed: (i64, i64),
 }
-pub(crate) fn identity(file: &File) -> Result<DescriptorIdentity, ArtifactError> {
+/// Observe a regular descriptor's identity without reopening a path or granting custody.
+/// Callers retain their own permissions and content-commitment policy.
+pub fn identity(file: &File) -> Result<DescriptorIdentity, ArtifactError> {
     let metadata = file.metadata()?;
     if !metadata.is_file() {
         return Err(ArtifactError::Range(

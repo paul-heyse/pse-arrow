@@ -62,6 +62,17 @@ pub(crate) fn copy_exact(
     source: &mut impl Read,
     output: &mut impl Write,
     bytes: u64,
+    checkpoint: impl FnMut() -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    transfer_exact(source, output, bytes, checkpoint)?;
+    output.flush()
+}
+
+/// Transfer the exact selected extent without claiming sink flush or publication.
+pub(crate) fn transfer_exact(
+    source: &mut impl Read,
+    output: &mut impl Write,
+    bytes: u64,
     mut checkpoint: impl FnMut() -> std::io::Result<()>,
 ) -> std::io::Result<()> {
     let mut remaining = bytes;
@@ -79,8 +90,7 @@ pub(crate) fn copy_exact(
         output.write_all(&buffer[..read])?;
         remaining -= read as u64;
     }
-    checkpoint()?;
-    output.flush()
+    checkpoint()
 }
 
 /// Write, synchronize and atomically publish one manifest after the caller's final checkpoint.

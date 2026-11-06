@@ -282,6 +282,179 @@ async fn project_portability_offline_reader_uses_only_contained_bytes_and_detect
     );
     assert!(ProjectBundleReader::open(root.path(), 16 << 20).is_err());
 }
+
+#[tokio::test]
+async fn project_portability_member_copy_verifies_actual_transfer_and_keeps_failed_prefix() {
+    use std::io::{ErrorKind, Write};
+    let (root, mut manifest) = bundle().await;
+    let bytes = vec![0x5a; 2 * 64 * 1024 + 17];
+    let relative_path = "members/sequential.bin";
+    std::fs::write(root.path().join(relative_path), &bytes).unwrap();
+    manifest.members.push(ProjectBundleMember {
+        id: "sequential".into(),
+        relative_path: relative_path.into(),
+        codec: "authored-document.v1".into(),
+        copied_bytes: bytes.len() as u64,
+        digest: pse_ids::encoding_checksum(&bytes).content_hash().to_hex(),
+        result: None,
+        artifact: None,
+        artifact_metadata: None,
+    });
+    save(root.path(), &manifest);
+    let reader = ProjectBundleReader::open(root.path(), 16 << 20).unwrap();
+    let cancel = crate::CancelSource::new();
+    struct Sink {
+        bytes: Vec<u8>,
+        limit: usize,
+        flushes: usize,
+    }
+    impl Write for Sink {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            if self.bytes.len() == self.limit {
+                return Err(std::io::Error::new(
+                    ErrorKind::BrokenPipe,
+                    "original sink failure",
+                ));
+            }
+            let n = bytes.len().min(self.limit - self.bytes.len()).min(997);
+            self.bytes.extend_from_slice(&bytes[..n]);
+            Ok(n)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.flushes += 1;
+            Err(std::io::Error::other("flush remains caller-owned"))
+        }
+    }
+    let mut output = Sink {
+        bytes: vec![],
+        limit: usize::MAX,
+        flushes: 0,
+    };
+    let receipt = reader
+        .copy_member_verified("sequential", &mut output, &cancel)
+        .unwrap();
+    assert_eq!(receipt.member, "sequential");
+    assert_eq!(receipt.copied_bytes, bytes.len() as u64);
+    assert_eq!(receipt.digest, manifest.members.last().unwrap().digest);
+    assert_eq!(output.bytes, bytes);
+    assert_eq!(output.flushes, 0);
+
+    // The real import archive consumes this same transfer owner, not a second prehash/copy loop.
+    let mut archive = reader.archive(&cancel).unwrap();
+    let mut header = [0; 8];
+    archive.read_exact(&mut header).unwrap();
+    let manifest_bytes = std::fs::read(root.path().join("project.json")).unwrap();
+    assert_eq!(u64::from_le_bytes(header), manifest_bytes.len() as u64);
+    let mut copied_manifest = vec![0; manifest_bytes.len()];
+    archive.read_exact(&mut copied_manifest).unwrap();
+    assert_eq!(copied_manifest, manifest_bytes);
+    for member in &manifest.members {
+        let original = std::fs::read(root.path().join(&member.relative_path)).unwrap();
+        let mut copied = vec![0; original.len()];
+        archive.read_exact(&mut copied).unwrap();
+        assert_eq!(copied, original);
+    }
+    assert_eq!(archive.read(&mut [0]).unwrap(), 0);
+
+    let mut output = Sink {
+        bytes: vec![],
+        limit: 70_123,
+        flushes: 0,
+    };
+    let error = reader
+        .copy_member_verified("sequential", &mut output, &cancel)
+        .unwrap_err();
+    assert_eq!(error.member, "sequential");
+    assert_eq!(error.accepted_bytes, 70_123);
+    assert_eq!(error.source.kind(), ErrorKind::BrokenPipe);
+    assert_eq!(error.source.to_string(), "original sink failure");
+    assert_eq!(output.bytes, bytes[..70_123]);
+    assert_eq!(output.flushes, 0);
+
+    // A previously inspected member can be corrupted before the actual transfer.
+    let mut corrupted = bytes.clone();
+    *corrupted.last_mut().unwrap() ^= 1;
+    std::fs::write(root.path().join(relative_path), &corrupted).unwrap();
+    let mut output = Vec::new();
+    let error = reader
+        .copy_member_verified("sequential", &mut output, &cancel)
+        .unwrap_err();
+    assert_eq!(error.accepted_bytes, bytes.len() as u64);
+    assert_eq!(error.source.kind(), ErrorKind::InvalidData);
+    assert_eq!(
+        output, corrupted,
+        "all delivered bytes remain provisional on late refusal"
+    );
+    assert!(reader.member_bytes("sequential", bytes.len()).is_err());
+
+    cancel.cancel();
+    let error = reader
+        .copy_member_verified("sequential", &mut Vec::new(), &cancel)
+        .unwrap_err();
+    assert_eq!(error.accepted_bytes, 0);
+    assert_eq!(error.source.kind(), ErrorKind::Interrupted);
+}
+
+#[tokio::test]
+async fn project_portability_member_copy_refuses_mutation_and_last_write_cancellation() {
+    use std::io::{ErrorKind, Write};
+    let (root, manifest) = bundle().await;
+    let reader = ProjectBundleReader::open(root.path(), 16 << 20).unwrap();
+    let bytes = reader.member_bytes("source", 16 << 20).unwrap();
+    let cancel = crate::CancelSource::new();
+    struct Cancelling<'a> {
+        cancel: &'a crate::CancelSource,
+        bytes: usize,
+    }
+    impl Write for Cancelling<'_> {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.bytes += bytes.len();
+            self.cancel.cancel();
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut sink = Cancelling {
+        cancel: &cancel,
+        bytes: 0,
+    };
+    let error = reader
+        .copy_member_verified("source", &mut sink, &cancel)
+        .unwrap_err();
+    assert_eq!(error.accepted_bytes, sink.bytes as u64);
+    assert_eq!(error.source.kind(), ErrorKind::Interrupted);
+    assert!(sink.bytes > 0);
+
+    struct Mutating {
+        source: File,
+        bytes: usize,
+    }
+    impl Write for Mutating {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.bytes += bytes.len();
+            self.source.set_len(self.source.metadata()?.len() + 1)?;
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut sink = Mutating {
+        source: File::options()
+            .write(true)
+            .open(root.path().join(&manifest.members[0].relative_path))
+            .unwrap(),
+        bytes: 0,
+    };
+    let error = reader
+        .copy_member_verified("source", &mut sink, &crate::CancelSource::new())
+        .unwrap_err();
+    assert_eq!(error.accepted_bytes, bytes.len() as u64);
+    assert_eq!(error.source.kind(), ErrorKind::InvalidData);
+    assert_eq!(sink.bytes, bytes.len());
+}
 #[tokio::test]
 async fn project_portability_missing_required_closure_unknown_codec_and_escaped_path_refuse_complete_manifest()
  {
