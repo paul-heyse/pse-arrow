@@ -195,7 +195,9 @@ library constants qualify. Equal bounds and unanchored numerical elimination do 
 constancy. The complete original Jacobian, residual, arithmetic/gradient uncertainty and
 original-row work demands remain in the existing Estimated correction assessment at the
 actual original point. Physical acceptance and every original First guard remain required;
-this profile proves neither exact feasible-root existence nor Certified reconstruction.
+moving coordinates require strict point-local interior independently of acceptance tolerance.
+This first-order pointwise estimate proves neither exact feasible-root existence, correction
+endpoint feasibility, a finite neighborhood nor Certified reconstruction.
 Public parameter-response and predictor admission retain their ordinary interior contract.
 
 > Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).

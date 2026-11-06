@@ -59,8 +59,10 @@ results. Equal bounds, unanchored cycles, numerical Jacobian zeros and rounded c
 never seed provenance. Nonzero source coefficients or offsets that underflow to zero refuse
 numeric coefficient projection.
 
-Only those proven coordinates may lack a physical interior in this profile. Every other
-original coordinate retains its bound check. Evaluate and factor the complete original
+Only those proven coordinates may lack a physical interior in this profile. Every moving
+coordinate must be strictly inside its physical bounds at the original point. Keep the
+separate tolerance-based physical acceptance check: an acceptance budget is not a required
+derivative-neighborhood radius. Evaluate and factor the complete original
 Jacobian at the actual original point, and preserve complete original residual, arithmetic
 uncertainty, gradient uncertainty, output uncertainty, correction and original-row demands.
 Do not snap the point, zero its affine defects or return the private factor as a public
@@ -74,7 +76,11 @@ provenance and point dependencies. Missing source facts, arithmetic uncertainty 
 First support withholds evidence. The independent original physical feasibility check remains
 tolerance-based; no exact feasible-root existence, two-sided parameter neighborhood or
 Certified reconstruction claim follows, including when a rounded recovered constant lies
-at a bound.
+at a bound. This is a pointwise first-order output-error estimate; it establishes no
+nonlinear remainder bound, correction-endpoint feasibility or finite-neighborhood guarantee.
+The estimator neither evaluates nor applies the numerical correction as a nonlinear step.
+An interval correction tube would serve a stronger future assurance contract and is not
+required by this pointwise operation.
 
 ### Compensating controls
 
@@ -105,3 +111,6 @@ system than a fully reduced evaluator.
 ## Status history
 
 - 2026-11-06 — proposed before activating source-anchored original-output accuracy admission.
+- 2026-11-06 — clarify strict point-local moving-coordinate interior independently of
+  physical acceptance budgets, following focused source reassessment before activation;
+  no change to proposed status or public parameter-response admission.
