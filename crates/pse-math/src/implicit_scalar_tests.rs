@@ -310,7 +310,12 @@ fn real_worker_uses_original_residual_and_derivatives_and_does_not_certify_uniqu
         .unwrap();
     // Widen only the derivative neighborhood so this refusal reaches the
     // singular Jacobian rather than the original root interval endpoint.
-    Arc::get_mut(&mut problem).unwrap().unknowns[0].lower = -1.0;
+    Arc::get_mut(&mut problem)
+        .unwrap()
+        .root_mut()
+        .unwrap()
+        .unknowns[0]
+        .lower = -1.0;
     assert!(matches!(
         problem.derivatives(&[0.0], &root, DerivativeOrder::First, &options, &cancel),
         Err(MathError::Domain {

@@ -680,7 +680,7 @@ fn selected_implicit_nonlinear_second_actions_use_the_full_adjoint_equation() {
 fn implicit_factor_first_upgrade_affine_use_and_failure_preserve_exact_associations() {
     let (factory, parameters, _) = coupled(2, 128);
     let scope = ExecutionScope::new(factory.cancel.clone(), None);
-    let problem = factory.problem(scope.clone()).unwrap();
+    let problem = Arc::new(factory.problem(scope.clone()).unwrap());
     problem
         .prepare_complete(DerivativeOrder::First, &scope)
         .unwrap();
@@ -1129,12 +1129,9 @@ fn implicit_unknown_child_actions_refuse_before_any_provider_effect() {
 fn implicit_nonzero_authored_offsets_agree_across_all_demanded_products() {
     let (factory, parameters, _) = coupled(2, 128);
     let scope = ExecutionScope::new(factory.cancel.clone(), None);
-    let problem = Arc::new(
-        Arc::try_unwrap(factory.problem(scope.clone()).unwrap())
-            .unwrap()
-            .with_residual_offsets(&[2., -1.])
-            .unwrap(),
-    );
+    let mut problem = factory.problem(scope.clone()).unwrap();
+    problem.set_residual_offsets(&[2., -1.]).unwrap();
+    let problem = Arc::new(problem);
     let mut provider = pse_kernels::ProviderBinding::new(
         factory.spec.clone(),
         Box::new(Nested {
@@ -1884,10 +1881,8 @@ fn complete_implicit_preparation_and_cached_lookup_respect_admitted_residual_ord
         DerivativeOrder::First,
     )
     .unwrap();
-    let problem = Arc::try_unwrap(factory.problem(scope.clone()).unwrap())
-        .unwrap()
-        .with_requirements(first)
-        .unwrap();
+    let mut problem = factory.problem(scope.clone()).unwrap();
+    problem.set_requirements(first).unwrap();
     assert!(matches!(
         problem.prepare_complete(DerivativeOrder::Second, &scope),
         Err(MathError::Scope(
@@ -1923,11 +1918,11 @@ fn complete_implicit_preparation_and_cached_lookup_respect_admitted_residual_ord
             .jacobian,
         &expected.jacobian,
     );
-    let problem = Arc::try_unwrap(factory.problem(scope.clone()).unwrap()).unwrap();
+    let mut problem = factory.problem(scope.clone()).unwrap();
     problem
         .prepare_complete(DerivativeOrder::Second, &scope)
         .unwrap();
-    let problem = problem.with_requirements(first).unwrap();
+    problem.set_requirements(first).unwrap();
     assert!(
         matches!(
             problem.complete_program(DerivativeOrder::Second),

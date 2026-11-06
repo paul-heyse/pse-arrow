@@ -205,6 +205,7 @@ impl SelectionWorker {
             if problem.unknowns.len() != 1 {
                 return Err(MathError::Contract("scalar branch extent".into()));
             }
+            let problem = problem.root_mut()?;
             if positive {
                 problem.unknowns[0].lower = problem.unknowns[0].lower.max(0.);
             } else {

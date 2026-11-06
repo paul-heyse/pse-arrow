@@ -11,7 +11,7 @@ use crate::{
 use pse_kernels::DerivativeOrder;
 use pse_math::{
     MathError,
-    implicit::{InnerSolver, InnerWorker, Options, Problem},
+    implicit::{InnerSolver, InnerWorker, Options, Problem, RootExecution},
 };
 use std::{
     cell::RefCell,
@@ -238,7 +238,7 @@ mod sessions {
 /// The trial problem is lent to the native session for one solve only: the implicit
 /// evaluator reconfigures trial problems in place and needs unique ownership back, so a
 /// cached session never retains it.
-type Lent = Rc<RefCell<Option<Arc<Problem>>>>;
+type Lent = Rc<RefCell<Option<Arc<RootExecution>>>>;
 /// Returns the lent problem on every exit path of a solve.
 struct Loan(Lent);
 impl Drop for Loan {
@@ -260,7 +260,7 @@ struct Oracle {
     cancel: Arc<AtomicBool>,
 }
 impl Oracle {
-    fn problem(&self) -> Result<Arc<Problem>, ProblemError> {
+    fn problem(&self) -> Result<Arc<RootExecution>, ProblemError> {
         self.problem
             .borrow()
             .clone()
@@ -368,6 +368,22 @@ impl InnerWorker for Kinsol {
     fn solve(
         &mut self,
         problem: Arc<Problem>,
+        parameters: &[f64],
+        options: &Options,
+        cancel: &pse_diagnostics::Cancellation,
+    ) -> Result<Vec<f64>, MathError> {
+        // Source preparation and its owner stay live through the same core solve.
+        let result = self.solve_root(problem.root_execution(), parameters, options, cancel);
+        drop(problem);
+        result
+    }
+}
+impl Kinsol {
+    /// Solve the actual numerical root core with the same callbacks, cache loan,
+    /// native status interpretation and original residual verification as prepared callers.
+    pub fn solve_root(
+        &mut self,
+        problem: Arc<RootExecution>,
         parameters: &[f64],
         options: &Options,
         cancel: &pse_diagnostics::Cancellation,
@@ -850,7 +866,7 @@ mod tests {
                     .output_smoothness
                     .min(problem.native_order()),
             };
-            let loan = Loan(Rc::new(RefCell::new(Some(problem.clone()))));
+            let loan = Loan(Rc::new(RefCell::new(Some(problem.root_execution()))));
             let oracle = LateOriginalOracle {
                 original: Oracle {
                     problem: loan.0.clone(),
@@ -1262,7 +1278,7 @@ mod tests {
                 &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
-            Problem::new(
+            let mut problem = Problem::new(
                 id,
                 pse_ids::ContentHash::from_bytes([identity; 32]),
                 vec![
@@ -1281,8 +1297,8 @@ mod tests {
                 1,
                 test_residual_bodies(body),
                 100,
-            )?
-            .with_requirements(
+            )?;
+            problem.set_requirements(
                 pse_kernels::DerivativeRequirements::new(
                     order,
                     order,
@@ -1291,7 +1307,8 @@ mod tests {
                     order,
                 )
                 .map_err(|error| MathError::Contract(error.to_string()))?,
-            )
+            )?;
+            Ok(problem)
         }
     }
     fn options() -> Options {
@@ -1446,6 +1463,165 @@ mod tests {
             );
         }
     }
+    #[test]
+    fn numeric_root_core_preserves_asymmetric_csc_jvp_offsets_and_native_loan() {
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let quantity = registry.neutral_dimensionless().unwrap();
+        let id = pse_ids::SemanticId::from_bytes([73; 16]);
+        let cancel = pse_diagnostics::Cancellation::default();
+        let mut builder = pse_math::typed::BodyBuilder::new(
+            pse_math::initialize().unwrap(),
+            &registry,
+            &pse_quantity::standard::StandardInvariantChecker,
+            3,
+            pse_math::typed::BodyLimits::default(),
+        )
+        .unwrap();
+        let variables = (0..3)
+            .map(|i| {
+                builder
+                    .input(i, quantity, pse_quantity::IndexSet::new(), id)
+                    .unwrap()
+            })
+            .collect::<Vec<_>>();
+        let mut residuals = Vec::new();
+        for coefficients in [[1, 2, 0], [0, 3, 5], [7, 0, 11]] {
+            let mut sum = None;
+            for (value, count) in variables.iter().zip(coefficients) {
+                for _ in 0..count {
+                    sum = Some(match sum {
+                        None => value.clone(),
+                        Some(previous) => builder
+                            .binary(
+                                pse_math::typed::Binary::Add,
+                                previous,
+                                value.clone(),
+                                None,
+                                id,
+                            )
+                            .unwrap(),
+                    });
+                }
+            }
+            residuals.push(sum.unwrap());
+        }
+        let parameter = pse_math::SourceBody::prepare(
+            builder,
+            &residuals,
+            |source| {
+                pse_math::SourceBindings::new(
+                    id,
+                    source,
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                )
+            },
+            DerivativeOrder::First,
+            Default::default(),
+            Default::default(),
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+        )
+        .unwrap();
+        let mut problem = Problem::new(
+            id,
+            pse_ids::ContentHash::from_bytes([73; 32]),
+            (0..3)
+                .map(|i| pse_math::implicit::Unknown {
+                    id: pse_ids::named_id(id, &format!("unknown {i}")),
+                    lower: -10.,
+                    upper: 10.,
+                })
+                .collect(),
+            (0..3)
+                .map(|i| pse_ids::named_id(id, &format!("row {i}")))
+                .collect(),
+            0,
+            test_residual_bodies(parameter),
+            100,
+        )
+        .unwrap();
+        problem.set_residual_offsets(&[5., 21., 40.]).unwrap();
+        let core = problem.root_execution();
+        let point = [1., 2., 3.];
+        let loan = Loan(Rc::new(RefCell::new(Some(core.clone()))));
+        let mut oracle = Oracle {
+            problem: loan.0.clone(),
+            pattern: core.pattern().to_owned().unwrap(),
+            parameters: vec![],
+            jvp_output: vec![0.; 3],
+            contract: OracleContract {
+                identity: core.identity,
+                variables: core
+                    .unknowns
+                    .iter()
+                    .map(|u| Variable {
+                        id: u.id,
+                        lower: u.lower,
+                        upper: u.upper,
+                    })
+                    .collect(),
+                rows: core.rows.clone(),
+                derivatives: DerivativeOrder::First,
+                smoothness: DerivativeOrder::First,
+            },
+            cancel: cancel.flag(),
+        };
+        let pattern = core.pattern();
+        assert_eq!(
+            (0..3)
+                .map(|j| pattern.row_idx_of_col(j).collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            [vec![0, 2], vec![0, 1], vec![1, 2]]
+        );
+        let mut residual = [f64::NAN; 3];
+        oracle.residual(&point, &mut residual).unwrap();
+        assert_eq!(residual, [0.; 3]);
+        let mut jacobian = [f64::NAN; 6];
+        oracle.jacobian(&point, &mut jacobian).unwrap();
+        assert_eq!(jacobian, [1., 7., 2., 3., 5., 11.]);
+        let mut action = [f64::NAN; 3];
+        oracle
+            .jacobian_product(&point, &[2., -3., 4.], &mut action)
+            .unwrap();
+        assert_eq!(action, [-4., 11., 58.]);
+        drop(oracle);
+        drop(loan);
+        assert_eq!(Arc::strong_count(&core), 2);
+        drop(problem);
+        assert_eq!(Arc::strong_count(&core), 1);
+        let options = Options {
+            start: vec![0.; 3],
+            variable_nominals: vec![1.; 3],
+            variable_tolerance: vec![1e-9; 3],
+            residual_tolerance: vec![1e-9; 3],
+            iterations: 20,
+            time_limit: std::time::Duration::from_secs(2),
+            derivative_tolerance: 1e-10,
+        };
+        let actual = Kinsol
+            .solve_root(core.clone(), &[], &options, &cancel)
+            .unwrap();
+        for (a, b) in actual.iter().zip(point) {
+            assert!((*a - b).abs() < 1e-8);
+        }
+        core.verify(&[], &actual, &options, &cancel.flag()).unwrap();
+        assert_eq!(
+            Arc::strong_count(&core),
+            1,
+            "cached session retained root core"
+        );
+        let stopped = pse_diagnostics::Cancellation::new(true);
+        assert!(matches!(
+            Kinsol.solve_root(core.clone(), &[], &options, &stopped),
+            Err(MathError::Cancelled)
+        ));
+        assert_eq!(
+            Arc::strong_count(&core),
+            1,
+            "failed call retained root core"
+        );
+    }
     /// L-D7: repeated nested solves of one problem layout on a worker reuse its native
     /// session with each call's parameters; another layout allocates its own. The trial
     /// problem is returned to unique ownership after every solve.
@@ -1467,6 +1643,11 @@ mod tests {
             assert!(
                 Arc::get_mut(&mut problem).is_some(),
                 "a cached session kept the problem"
+            );
+            assert_eq!(
+                Arc::strong_count(&problem.root_execution()),
+                2,
+                "a cached session kept the root execution core"
             );
         }
         assert_eq!(sessions::created() - before, 1);

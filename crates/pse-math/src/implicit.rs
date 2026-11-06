@@ -67,7 +67,7 @@ mod selection;
 use crate::guarded::CompiledBody;
 use crate::{
     MathError, SourceBody,
-    execution::SourceWorker,
+    execution::{ExecutionAttribution, NumericFrame, SourceWorker},
     guarded::{Evaluation, Worker},
 };
 pub use affine::Affine;
@@ -184,9 +184,38 @@ impl ResidualBodies {
     }
 }
 
-/// A library body with unknown coordinates first and independent inputs last.
+/// Prepared source, later derivative products and factors for one native root.
 #[derive(Debug)]
 pub struct Problem {
+    root: Arc<RootExecution>,
+    source_worker: Mutex<ResidualWorker>,
+    // Replaces the sourceful unknown worker's preparation retention.
+    _unknown_source: SourceBody,
+    symbolic: SymbolicLu<usize>,
+    factor: Mutex<FactorWorkspace>,
+    parameter_source: SourceBody,
+    product_workers: Mutex<Vec<Arc<products::ResidualProduct>>>,
+    product_scratch: Mutex<products::ProductScratch>,
+    max_entries: usize,
+    effectful_residual: bool,
+    required_provider_keys: Vec<pse_kernels::ProviderKey>,
+    construction_owner: Option<Arc<dyn crate::construction::ConstructionAdmission>>,
+    prepared_bytes: Mutex<usize>,
+    prepared_demands: Mutex<Vec<pse_kernels::ProviderRequest>>,
+}
+impl std::ops::Deref for Problem {
+    type Target = RootExecution;
+    fn deref(&self) -> &RootExecution {
+        &self.root
+    }
+}
+
+/// Immutable root definition and one attempt's numerical execution state.
+/// This core retains allocation admission, without granting source preparation
+/// or later derivative authority. The original owner retires its provider bank
+/// after every native callback alias is returned.
+#[derive(Debug)]
+pub struct RootExecution {
     /// Semantic identity of the implicit system.
     pub id: SemanticId,
     /// Content identity of the compiled residual body.
@@ -200,28 +229,98 @@ pub struct Problem {
     /// Resolved derivative facts shared with provider and native contracts.
     pub requirements: pse_kernels::DerivativeRequirements,
     residual_offsets: Vec<f64>,
-    source_worker: Mutex<ResidualWorker>,
-    unknown_worker: Mutex<ResidualWorker>,
+    unknown_worker: Mutex<ResidualWorker<RootWorker>>,
     providers: Mutex<pse_kernels::ProviderBindings>,
     pattern: SymbolicSparseColMat<usize>,
-    symbolic: SymbolicLu<usize>,
-    factor: Mutex<FactorWorkspace>,
-    parameter_source: SourceBody,
-    product_workers: Mutex<Vec<Arc<products::ResidualProduct>>>,
-    product_scratch: Mutex<products::ProductScratch>,
-    max_entries: usize,
-    effectful_residual: bool,
-    required_provider_keys: Vec<pse_kernels::ProviderKey>,
     native_order: DerivativeOrder,
-    construction_owner: Option<Arc<dyn crate::construction::ConstructionAdmission>>,
-    prepared_bytes: Mutex<usize>,
-    prepared_demands: Mutex<Vec<pse_kernels::ProviderRequest>>,
+    // Root metadata and attempt buffers share the original construction admission.
+    _construction_owner: Option<Arc<dyn crate::construction::ConstructionAdmission>>,
 }
 #[derive(Debug)]
-struct ResidualWorker {
-    worker: SourceWorker,
+struct ResidualWorker<W = SourceWorker> {
+    worker: W,
     inputs: Vec<f64>,
     evaluation: crate::execution::TrialEvaluation,
+}
+struct RootWorker {
+    numeric: NumericFrame,
+    attribution: ExecutionAttribution,
+}
+impl std::fmt::Debug for RootWorker {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RootWorker")
+            .field("numeric", &self.numeric.census())
+            .field("attribution", &self.attribution)
+            .finish()
+    }
+}
+impl RootWorker {
+    fn new(body: &SourceBody) -> Result<Self, MathError> {
+        let attribution = body.bindings().execution_attribution(body.compiled())?;
+        Ok(Self {
+            numeric: body
+                .compiled()
+                .numeric_frame_scoped(pse_kernels::ExecutionScope::new(
+                    pse_diagnostics::Cancellation::default(),
+                    None,
+                )),
+            attribution,
+        })
+    }
+    fn set_scope(&mut self, scope: pse_kernels::ExecutionScope) {
+        self.numeric.set_scope(scope);
+    }
+    fn prepare_providers(
+        &mut self,
+        providers: &mut pse_kernels::ProviderBindings,
+    ) -> Result<(), MathError> {
+        self.numeric
+            .prepare_providers(providers)
+            .map_err(|e| self.attribution.evaluation_error(e))
+    }
+}
+trait ResidualEngine {
+    fn input_formals(&self) -> &[usize];
+    fn evaluate_trial_into(
+        &mut self,
+        inputs: &[f64],
+        order: DerivativeOrder,
+        providers: &mut pse_kernels::ProviderBindings,
+        cancel: &Arc<AtomicBool>,
+        result: &mut crate::execution::TrialEvaluation,
+    ) -> Result<(), MathError>;
+}
+impl ResidualEngine for SourceWorker {
+    fn input_formals(&self) -> &[usize] {
+        Worker::input_formals(self)
+    }
+    fn evaluate_trial_into(
+        &mut self,
+        inputs: &[f64],
+        order: DerivativeOrder,
+        providers: &mut pse_kernels::ProviderBindings,
+        cancel: &Arc<AtomicBool>,
+        result: &mut crate::execution::TrialEvaluation,
+    ) -> Result<(), MathError> {
+        SourceWorker::evaluate_trial_into(self, inputs, order, providers, cancel, result)
+    }
+}
+impl ResidualEngine for RootWorker {
+    fn input_formals(&self) -> &[usize] {
+        self.numeric.input_formals()
+    }
+    fn evaluate_trial_into(
+        &mut self,
+        inputs: &[f64],
+        order: DerivativeOrder,
+        providers: &mut pse_kernels::ProviderBindings,
+        cancel: &Arc<AtomicBool>,
+        result: &mut crate::execution::TrialEvaluation,
+    ) -> Result<(), MathError> {
+        self.numeric
+            .evaluate_trial_into(inputs, order, providers, cancel, result)
+            .map_err(|e| self.attribution.evaluation_error(e))
+    }
 }
 impl ResidualWorker {
     fn new(body: &SourceBody) -> Self {
@@ -285,17 +384,17 @@ fn selected_inputs(
     parameters: &[f64],
 ) -> Result<Vec<f64>, MathError> {
     let mut values = Vec::new();
-    fill_selected_inputs(worker, unknowns, parameters, &mut values)?;
+    fill_selected_inputs(worker.input_formals(), unknowns, parameters, &mut values)?;
     Ok(values)
 }
 fn fill_selected_inputs(
-    worker: &Worker,
+    input_formals: &[usize],
     unknowns: &[f64],
     parameters: &[f64],
     values: &mut Vec<f64>,
 ) -> Result<(), MathError> {
     values.clear();
-    for &formal in worker.input_formals() {
+    for &formal in input_formals {
         values.push(
             if formal < unknowns.len() {
                 unknowns.get(formal)
@@ -344,7 +443,7 @@ fn owned_evaluation(
     }
 }
 
-impl Problem {
+impl RootExecution {
     /// Called by the actual implicit owner after releasing native callback aliases.
     /// The bank lock drains any current evaluation; poison never hides its payload.
     pub(super) fn finish_providers(&self) -> Result<(), pse_kernels::ProviderError> {
@@ -361,6 +460,183 @@ impl Problem {
             }
         }
     }
+    /// Exact derivative capacity of the eagerly prepared native unknown product.
+    pub fn native_order(&self) -> DerivativeOrder {
+        self.native_order
+    }
+    /// Structural Jacobian support of the residuals with respect to the unknowns.
+    pub fn pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+        self.pattern.as_ref()
+    }
+    /// Native residual/unknown Jacobian product. Parameter derivative axes are never executed.
+    pub fn evaluate_unknown(
+        &self,
+        parameters: &[f64],
+        unknowns: &[f64],
+        order: DerivativeOrder,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Evaluation, MathError> {
+        self.with_trial_evaluation(
+            &self.unknown_worker,
+            parameters,
+            unknowns,
+            order,
+            cancel,
+            |jet| Ok(owned_evaluation(jet, self.unknowns.len(), order)),
+        )
+    }
+    fn with_trial_evaluation<R, W: ResidualEngine>(
+        &self,
+        residual_worker: &Mutex<ResidualWorker<W>>,
+        parameters: &[f64],
+        unknowns: &[f64],
+        order: DerivativeOrder,
+        cancel: &Arc<AtomicBool>,
+        consume: impl FnOnce(&crate::execution::TrialEvaluation) -> Result<R, MathError>,
+    ) -> Result<R, MathError> {
+        let held =
+            self.evaluate_trial_with(residual_worker, parameters, unknowns, order, cancel)?;
+        consume(&held.evaluation)
+    }
+    fn evaluate_trial_with<'a, W: ResidualEngine>(
+        &self,
+        residual_worker: &'a Mutex<ResidualWorker<W>>,
+        parameters: &[f64],
+        unknowns: &[f64],
+        order: DerivativeOrder,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<std::sync::MutexGuard<'a, ResidualWorker<W>>, MathError> {
+        observed!("implicit.residual", {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.source_ref("implicit.residual.source", self.identity.as_bytes());
+                context.integer("implicit.residual.order", "derivative-order", order as i64);
+            }
+            if cancel.load(Ordering::Acquire) {
+                return Err(MathError::Cancelled);
+            }
+            if parameters.len() != self.inputs || unknowns.len() != self.unknowns.len() {
+                return Err(MathError::Contract("implicit coordinate extent".into()));
+            }
+            if unknowns
+                .iter()
+                .zip(&self.unknowns)
+                .any(|(x, b)| !x.is_finite() || *x < b.lower || *x > b.upper)
+            {
+                return Err(MathError::Domain {
+                    source_id: self.id,
+                    requirement: "implicit unknown outside its declared interval",
+                });
+            }
+            let mut held = residual_worker
+                .lock()
+                .map_err(|_| MathError::PoisonedOwner {
+                    owner: "implicit worker",
+                })?;
+            let ResidualWorker {
+                worker,
+                inputs,
+                evaluation,
+            } = &mut *held;
+            fill_selected_inputs(worker.input_formals(), unknowns, parameters, inputs)?;
+            worker.evaluate_trial_into(
+                inputs,
+                order,
+                &mut *self
+                    .providers
+                    .lock()
+                    .map_err(|_| MathError::PoisonedOwner {
+                        owner: "implicit provider",
+                    })?,
+                cancel,
+                evaluation,
+            )?;
+            self.normalize_residual_values(&mut evaluation.values)?;
+            Ok(held)
+        })
+    }
+    /// Check that options match the system's extents and hold finite positive budgets.
+    pub fn validate_options(&self, options: &Options) -> Result<(), MathError> {
+        if options.start.len() != self.unknowns.len()
+            || options.variable_nominals.len() != self.unknowns.len()
+            || options.variable_tolerance.len() != self.unknowns.len()
+            || options
+                .variable_nominals
+                .iter()
+                .chain(&options.variable_tolerance)
+                .any(|v| !v.is_finite() || *v <= 0. || !v.recip().is_finite())
+            || options.residual_tolerance.len() != self.rows.len()
+            || options.iterations == 0
+            || options.time_limit.is_zero()
+            || !options.derivative_tolerance.is_finite()
+            || options.derivative_tolerance <= 0.0
+            || options
+                .residual_tolerance
+                .iter()
+                .any(|t| !t.is_finite() || *t <= 0.0 || !t.recip().is_finite())
+            || options
+                .start
+                .iter()
+                .zip(&self.unknowns)
+                .any(|(x, b)| !x.is_finite() || *x < b.lower || *x > b.upper)
+        {
+            return Err(MathError::Contract(
+                "implicit start, interval or budgets".into(),
+            ));
+        }
+        Ok(())
+    }
+    /// Qualify the original residual and interval before publishing a root or any derivative.
+    pub fn verify(
+        &self,
+        parameters: &[f64],
+        point: &[f64],
+        options: &Options,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<(), MathError> {
+        observed!("implicit.original_assessment", {
+            self.validate_options(options)?;
+            self.with_trial_evaluation(
+                &self.unknown_worker,
+                parameters,
+                point,
+                DerivativeOrder::Value,
+                cancel,
+                |residual| self.verify_values(&residual.values, options),
+            )
+        })
+    }
+    fn normalize_residual_values(&self, values: &mut [f64]) -> Result<(), MathError> {
+        if values.len() != self.residual_offsets.len() {
+            return Err(MathError::Contract("implicit residual value extent".into()));
+        }
+        for (value, offset) in values.iter_mut().zip(&self.residual_offsets) {
+            *value -= offset;
+        }
+        if values.iter().any(|v| !v.is_finite()) {
+            return Err(MathError::Domain {
+                source_id: self.id,
+                requirement: "implicit offset residual is nonfinite",
+            });
+        }
+        Ok(())
+    }
+    fn verify_values(&self, values: &[f64], options: &Options) -> Result<(), MathError> {
+        if values.len() != self.rows.len()
+            || values
+                .iter()
+                .zip(&options.residual_tolerance)
+                .any(|(f, t)| !f.is_finite() || f.abs() > *t)
+        {
+            return Err(MathError::Domain {
+                source_id: self.id,
+                requirement: "inner root did not satisfy original residual budgets",
+            });
+        }
+        Ok(())
+    }
+}
+
+impl Problem {
     /// Bind compiled residuals with their library-owned structural Jacobian support.
     pub fn new(
         id: SemanticId,
@@ -497,7 +773,7 @@ impl Problem {
             .prepared_support()
             .source_available_order()
             .max(bodies.unknown.compiled_order());
-        Ok(Self {
+        let root = Arc::new(RootExecution {
             id,
             identity,
             unknowns,
@@ -512,10 +788,20 @@ impl Problem {
             )
             .map_err(|e| MathError::Contract(e.to_string()))?,
             residual_offsets,
-            source_worker: Mutex::new(ResidualWorker::new(body)),
-            unknown_worker: Mutex::new(ResidualWorker::new(&bodies.unknown)),
+            unknown_worker: Mutex::new(ResidualWorker {
+                worker: RootWorker::new(&bodies.unknown)?,
+                inputs: vec![f64::NAN; bodies.unknown.input_formals().len()],
+                evaluation: crate::execution::TrialEvaluation::default(),
+            }),
             providers: Mutex::new(pse_kernels::ProviderBindings::new()),
             pattern,
+            native_order: bodies.unknown.compiled_order(),
+            _construction_owner: crate::construction::current(),
+        });
+        Ok(Self {
+            root,
+            source_worker: Mutex::new(ResidualWorker::new(body)),
+            _unknown_source: bodies.unknown.clone(),
             symbolic,
             factor: Mutex::new(factor),
             parameter_source: body.clone(),
@@ -524,7 +810,6 @@ impl Problem {
             product_scratch: Mutex::new(products::ProductScratch::new(n)),
             effectful_residual: !required_provider_keys.is_empty(),
             required_provider_keys,
-            native_order: bodies.unknown.compiled_order(),
             construction_owner: crate::construction::current(),
             prepared_bytes: Mutex::new(0),
             prepared_demands: Mutex::new(Vec::new()),
@@ -532,11 +817,16 @@ impl Problem {
     }
     /// Apply an explicit authored-equality offset in named residual output order.
     /// Derivatives and guards stay those of the actual compiled body. Identity changes
-    /// with every consumed offset; verifier projection must apply the same subtraction.
-    pub fn with_residual_offsets(mut self, offsets: &[f64]) -> Result<Self, MathError> {
+    /// with every applied offset; verifier projection applies the same subtraction.
+    /// Each successful assignment extends the original transformation identity,
+    /// including repeated assignments of the same offset values.
+    /// Refusal preserves this problem, its previous definition and its provider bank.
+    pub fn set_residual_offsets(&mut self, offsets: &[f64]) -> Result<(), MathError> {
+        self.root_mut()?;
         if offsets.len() != self.rows.len() || offsets.iter().any(|v| !v.is_finite()) {
-            let operation = MathError::Contract("implicit residual offset extent/value".into());
-            return Err(settle_math_error(operation, self.finish_providers()));
+            return Err(MathError::Contract(
+                "implicit residual offset extent/value".into(),
+            ));
         }
         let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
         h.str("authored-implicit-residual-offsets")
@@ -544,43 +834,79 @@ impl Problem {
         for (row, value) in self.rows.iter().zip(offsets) {
             h.id(row).f64(*value);
         }
-        self.identity = h.finish_hash();
-        self.residual_offsets = offsets.to_vec();
-        Ok(self)
+        let root = self.root_mut()?;
+        root.identity = h.finish_hash();
+        root.residual_offsets.copy_from_slice(offsets);
+        Ok(())
     }
-    /// Attach admitted external workers to this residual worker; ownership is attempt-local.
-    pub fn with_providers(
-        mut self,
+    /// Replace admitted external workers while this root is exclusively owned.
+    /// Refusal preserves this problem and consumes every uninstalled incoming worker.
+    pub fn set_providers(
+        &mut self,
         providers: pse_kernels::ProviderBindings,
-    ) -> Result<Self, pse_kernels::ProviderError> {
-        if let Err(operation) = self.finish_providers() {
+    ) -> Result<(), pse_kernels::ProviderError> {
+        let Some(root) = Arc::get_mut(&mut self.root) else {
+            let operation = pse_kernels::ProviderError::Contract(
+                "cannot replace providers while native root execution is shared".into(),
+            );
+            return Err(settle_provider_error(operation, providers.finish()));
+        };
+        if let Err(operation) = root.finish_providers() {
             return Err(settle_provider_error(operation, providers.finish()));
         }
-        self.providers = Mutex::new(providers);
-        Ok(self)
+        root.providers = Mutex::new(providers);
+        Ok(())
     }
     /// Attach the compiler's resolved selected-function requirements to its residual problem.
-    pub fn with_requirements(
-        mut self,
+    /// Refusal preserves the previous definition and its provider bank.
+    pub fn set_requirements(
+        &mut self,
         requirements: pse_kernels::DerivativeRequirements,
-    ) -> Result<Self, MathError> {
+    ) -> Result<(), MathError> {
+        self.root_mut()?;
         if self.native_order < requirements.inner_minimum {
-            let operation = MathError::Contract(
+            return Err(MathError::Contract(
                 "implicit native product is below the inner algorithm minimum".into(),
-            );
-            return Err(settle_math_error(operation, self.finish_providers()));
+            ));
         }
-        self.requirements = requirements;
-        Ok(self)
+        self.root_mut()?.requirements = requirements;
+        Ok(())
     }
-    /// Exact derivative capacity of the eagerly prepared native unknown product.
-    pub fn native_order(&self) -> DerivativeOrder {
-        self.native_order
+
+    /// Share the actual native root core for one solve. The original prepared
+    /// problem remains responsible for source preparation and provider retirement.
+    pub fn root_execution(&self) -> Arc<RootExecution> {
+        self.root.clone()
     }
-    /// Structural Jacobian support of the residuals with respect to the unknowns.
-    pub fn pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
-        self.pattern.as_ref()
+
+    fn root_mut(&mut self) -> Result<&mut RootExecution, MathError> {
+        Arc::get_mut(&mut self.root).ok_or_else(|| {
+            MathError::Contract("cannot reconfigure shared native root execution".into())
+        })
     }
+
+    /// Obtain the original owner before entering a trial that reconfigures it.
+    /// `get_mut` also excludes upgradeable Weak aliases before any provider effect.
+    fn exclusive_trial(problem: &mut Arc<Self>) -> Result<&mut Self, MathError> {
+        let problem = Arc::get_mut(problem).ok_or_else(|| {
+            MathError::Contract("inner solver retained a completed trial problem".into())
+        })?;
+        problem.root_mut()?;
+        Ok(problem)
+    }
+
+    fn demand_is_prepared(
+        &self,
+        request: &pse_kernels::ProviderRequest,
+    ) -> Result<bool, MathError> {
+        self.prepared_demands
+            .lock()
+            .map(|demands| demands.contains(request))
+            .map_err(|_| MathError::PoisonedOwner {
+                owner: "implicit preparation",
+            })
+    }
+
     /// Interval guards are checked before library evaluation, without clipping a trial.
     pub fn evaluate(
         &self,
@@ -609,186 +935,7 @@ impl Problem {
             },
         )
     }
-    /// Native residual/unknown Jacobian product. Parameter derivative axes are never executed.
-    pub fn evaluate_unknown(
-        &self,
-        parameters: &[f64],
-        unknowns: &[f64],
-        order: DerivativeOrder,
-        cancel: &Arc<AtomicBool>,
-    ) -> Result<Evaluation, MathError> {
-        self.with_trial_evaluation(
-            &self.unknown_worker,
-            parameters,
-            unknowns,
-            order,
-            cancel,
-            |jet| Ok(owned_evaluation(jet, self.unknowns.len(), order)),
-        )
-    }
-    fn with_trial_evaluation<R>(
-        &self,
-        residual_worker: &Mutex<ResidualWorker>,
-        parameters: &[f64],
-        unknowns: &[f64],
-        order: DerivativeOrder,
-        cancel: &Arc<AtomicBool>,
-        consume: impl FnOnce(&crate::execution::TrialEvaluation) -> Result<R, MathError>,
-    ) -> Result<R, MathError> {
-        let held =
-            self.evaluate_trial_with(residual_worker, parameters, unknowns, order, cancel)?;
-        consume(&held.evaluation)
-    }
-    fn evaluate_trial_with<'a>(
-        &self,
-        residual_worker: &'a Mutex<ResidualWorker>,
-        parameters: &[f64],
-        unknowns: &[f64],
-        order: DerivativeOrder,
-        cancel: &Arc<AtomicBool>,
-    ) -> Result<std::sync::MutexGuard<'a, ResidualWorker>, MathError> {
-        observed!("implicit.residual", {
-            if let Some(context) = pse_diagnostics::observation::current() {
-                context.source_ref("implicit.residual.source", self.identity.as_bytes());
-                context.integer("implicit.residual.order", "derivative-order", order as i64);
-            }
-            if cancel.load(Ordering::Acquire) {
-                return Err(MathError::Cancelled);
-            }
-            if parameters.len() != self.inputs || unknowns.len() != self.unknowns.len() {
-                return Err(MathError::Contract("implicit coordinate extent".into()));
-            }
-            if unknowns
-                .iter()
-                .zip(&self.unknowns)
-                .any(|(x, b)| !x.is_finite() || *x < b.lower || *x > b.upper)
-            {
-                return Err(MathError::Domain {
-                    source_id: self.id,
-                    requirement: "implicit unknown outside its declared interval",
-                });
-            }
-            let mut held = residual_worker
-                .lock()
-                .map_err(|_| MathError::PoisonedOwner {
-                    owner: "implicit worker",
-                })?;
-            let ResidualWorker {
-                worker,
-                inputs,
-                evaluation,
-            } = &mut *held;
-            fill_selected_inputs(worker, unknowns, parameters, inputs)?;
-            worker.evaluate_trial_into(
-                inputs,
-                order,
-                &mut *self
-                    .providers
-                    .lock()
-                    .map_err(|_| MathError::PoisonedOwner {
-                        owner: "implicit provider",
-                    })?,
-                cancel,
-                evaluation,
-            )?;
-            self.normalize_residual_values(&mut evaluation.values)?;
-            Ok(held)
-        })
-    }
-    /// Check that options match the system's extents and hold finite positive budgets.
-    pub fn validate_options(&self, options: &Options) -> Result<(), MathError> {
-        if options.start.len() != self.unknowns.len()
-            || options.variable_nominals.len() != self.unknowns.len()
-            || options.variable_tolerance.len() != self.unknowns.len()
-            || options
-                .variable_nominals
-                .iter()
-                .chain(&options.variable_tolerance)
-                .any(|v| !v.is_finite() || *v <= 0. || !v.recip().is_finite())
-            || options.residual_tolerance.len() != self.rows.len()
-            || options.iterations == 0
-            || options.time_limit.is_zero()
-            || !options.derivative_tolerance.is_finite()
-            || options.derivative_tolerance <= 0.0
-            || options
-                .residual_tolerance
-                .iter()
-                .any(|t| !t.is_finite() || *t <= 0.0 || !t.recip().is_finite())
-            || options
-                .start
-                .iter()
-                .zip(&self.unknowns)
-                .any(|(x, b)| !x.is_finite() || *x < b.lower || *x > b.upper)
-        {
-            return Err(MathError::Contract(
-                "implicit start, interval or budgets".into(),
-            ));
-        }
-        Ok(())
-    }
-    /// Qualify the original residual and interval before publishing a root or any derivative.
-    pub fn verify(
-        &self,
-        parameters: &[f64],
-        point: &[f64],
-        options: &Options,
-        cancel: &Arc<AtomicBool>,
-    ) -> Result<(), MathError> {
-        observed!("implicit.original_assessment", {
-            self.validate_options(options)?;
-            self.with_trial_evaluation(
-                &self.unknown_worker,
-                parameters,
-                point,
-                DerivativeOrder::Value,
-                cancel,
-                |residual| {
-                    if residual.values.len() != self.rows.len()
-                        || residual
-                            .values
-                            .iter()
-                            .zip(&options.residual_tolerance)
-                            .any(|(f, t)| !f.is_finite() || f.abs() > *t)
-                    {
-                        return Err(MathError::Domain {
-                            source_id: self.id,
-                            requirement: "inner root did not satisfy original residual budgets",
-                        });
-                    }
-                    Ok(())
-                },
-            )
-        })
-    }
-    fn normalize_residual_values(&self, values: &mut [f64]) -> Result<(), MathError> {
-        if values.len() != self.residual_offsets.len() {
-            return Err(MathError::Contract("implicit residual value extent".into()));
-        }
-        for (value, offset) in values.iter_mut().zip(&self.residual_offsets) {
-            *value -= offset;
-        }
-        if values.iter().any(|v| !v.is_finite()) {
-            return Err(MathError::Domain {
-                source_id: self.id,
-                requirement: "implicit offset residual is nonfinite",
-            });
-        }
-        Ok(())
-    }
-    fn verify_values(&self, values: &[f64], options: &Options) -> Result<(), MathError> {
-        if values.len() != self.rows.len()
-            || values
-                .iter()
-                .zip(&options.residual_tolerance)
-                .any(|(f, t)| !f.is_finite() || f.abs() > *t)
-        {
-            return Err(MathError::Domain {
-                source_id: self.id,
-                requirement: "inner root did not satisfy original residual budgets",
-            });
-        }
-        Ok(())
-    }
+
     fn frame_completed_structure(&self, h: &mut pse_ids::FramedHasher) -> Option<()> {
         let factor = self.factor.lock().ok()?;
         let a = factor.association.as_ref()?;
@@ -1697,7 +1844,17 @@ impl ImplicitFactory {
             .bodies
             .source
             .retained_bytes()
+            .checked_add(size_of::<Problem>())?
+            .checked_add(size_of::<RootExecution>() + 2 * size_of::<usize>())?
+            .checked_add(factory.unknowns.len().checked_mul(size_of::<Unknown>())?)?
+            .checked_add(
+                factory
+                    .rows
+                    .len()
+                    .checked_mul(size_of::<SemanticId>() + size_of::<f64>())?,
+            )?
             .checked_add(size_of::<ResidualWorker>())?
+            .checked_add(size_of::<ResidualWorker<RootWorker>>())?
             .checked_add(factory.bodies.unknown.retained_bytes())?
             .checked_add(factory.bodies.unknown.worker_bytes())?
             .checked_add(
@@ -1908,7 +2065,7 @@ impl pse_kernels::ProviderFactory for Factory {
         Ok(pse_kernels::ProviderBinding::new(
             self.spec.clone(),
             Box::new(Nested {
-                problem,
+                problem: Arc::new(problem),
                 configuration: ConfigurationWorker::new(
                     self.configuration.clone(),
                     self.hints.as_ref(),
@@ -1929,7 +2086,7 @@ impl Factory {
     fn problem(
         &self,
         scope: pse_kernels::ExecutionScope,
-    ) -> Result<Arc<Problem>, pse_kernels::ProviderError> {
+    ) -> Result<Problem, pse_kernels::ProviderError> {
         scope.check()?;
         if self.requirements.inner_minimum != self.solver.minimum_order()
             || self.bodies.unknown.compiled_order() < self.requirements.inner_minimum
@@ -1974,9 +2131,11 @@ impl Factory {
             self.max_entries,
             parallel,
         )
-        .map_err(provider_error)?
-        .with_requirements(self.requirements)
         .map_err(provider_error)?;
+        // No providers are installed yet; a metadata refusal leaves an empty bank.
+        problem
+            .set_requirements(self.requirements)
+            .map_err(provider_error)?;
         let mut bindings = Vec::new();
         for (key, registration) in &self.providers {
             match registration.worker_scoped(scope.nested()) {
@@ -1988,8 +2147,7 @@ impl Factory {
                 }
             }
         }
-        problem =
-            problem.with_providers(pse_kernels::ProviderBindings::try_from_iter(bindings)?)?;
+        problem.set_providers(pse_kernels::ProviderBindings::try_from_iter(bindings)?)?;
         let configured = (|| {
             problem
                 .source_worker
@@ -2001,8 +2159,8 @@ impl Factory {
                 })?
                 .worker
                 .set_scope(scope.clone());
-            problem
-                .unknown_worker
+            let root = problem.root_mut().map_err(provider_error)?;
+            root.unknown_worker
                 .get_mut()
                 .map_err(|_| {
                     provider_error(MathError::PoisonedOwner {
@@ -2012,13 +2170,12 @@ impl Factory {
                 .worker
                 .set_scope(scope.clone());
             {
-                let providers = problem.providers.get_mut().map_err(|_| {
+                let providers = root.providers.get_mut().map_err(|_| {
                     provider_error(MathError::PoisonedOwner {
                         owner: "implicit provider",
                     })
                 })?;
-                problem
-                    .unknown_worker
+                root.unknown_worker
                     .get_mut()
                     .map_err(|_| {
                         provider_error(MathError::PoisonedOwner {
@@ -2040,7 +2197,7 @@ impl Factory {
         if let Err(operation) = configured {
             return Err(settle_provider_error(operation, problem.finish_providers()));
         }
-        Ok(Arc::new(problem))
+        Ok(problem)
     }
 }
 
@@ -2097,6 +2254,13 @@ impl pse_kernels::Provider for Nested {
             return Err(pse_kernels::ProviderError::Contract(
                 "implicit output exceeds compiled demand".into(),
             ));
+        }
+        if !self
+            .problem
+            .demand_is_prepared(request.request())
+            .map_err(provider_error)?
+        {
+            Problem::exclusive_trial(&mut self.problem).map_err(provider_error)?;
         }
         self.problem
             .prepare_product(request, &self.scope)
@@ -2216,6 +2380,7 @@ impl Nested {
             };
             context.count(reason, "requests", 1);
         }
+        Problem::exclusive_trial(&mut self.problem).map_err(provider_error)?;
         let anchor = self
             .selection
             .anchor(&self.problem, inputs, &self.cancel)
@@ -2602,6 +2767,443 @@ mod tests {
     }
 
     #[test]
+    fn root_execution_keeps_offsets_attribution_and_construction_owner_after_problem_drops() {
+        #[derive(Debug)]
+        struct Admission;
+        impl crate::construction::ConstructionAdmission for Admission {
+            fn try_grow(&self, _: usize) -> Result<(), MathError> {
+                Ok(())
+            }
+        }
+        let owner = Arc::new(Admission);
+        let weak_owner = Arc::downgrade(&owner);
+        let (mut problem, _, options) = crate::construction::scoped(owner.clone(), poison_fixture);
+        let offset_storage = problem.residual_offsets.as_ptr();
+        let offset_capacity = problem.residual_offsets.capacity();
+        problem.set_residual_offsets(&[1.0]).unwrap();
+        assert_eq!(problem.residual_offsets.as_ptr(), offset_storage);
+        assert_eq!(problem.residual_offsets.capacity(), offset_capacity);
+        let expected = problem
+            .evaluate_unknown(
+                &[1.],
+                &[2.],
+                DerivativeOrder::First,
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        assert_eq!(expected.values, [0.]);
+        assert_eq!(expected.jacobian, [1.]);
+        let core = problem.root_execution();
+        assert!(std::ptr::eq(&problem.providers, &core.providers));
+        assert_eq!(problem.identity, core.identity);
+        drop(problem);
+        drop(owner);
+        assert!(weak_owner.upgrade().is_some());
+        let actual = core
+            .evaluate_unknown(
+                &[1.],
+                &[2.],
+                DerivativeOrder::First,
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        assert_eq!(actual, expected);
+        core.verify(&[1.], &[2.], &options, &Arc::new(AtomicBool::new(false)))
+            .unwrap();
+        assert!(matches!(
+            core.evaluate_unknown(
+                &[1.],
+                &[11.],
+                DerivativeOrder::Value,
+                &Arc::new(AtomicBool::new(false))
+            ),
+            Err(MathError::Domain { .. })
+        ));
+        assert!(matches!(
+            core.evaluate_unknown(
+                &[1.],
+                &[2.],
+                DerivativeOrder::First,
+                &Arc::new(AtomicBool::new(true))
+            ),
+            Err(MathError::Cancelled)
+        ));
+        core.finish_providers().unwrap();
+        drop(core);
+        assert!(weak_owner.upgrade().is_none());
+    }
+
+    #[test]
+    fn shared_root_reconfiguration_refuses_before_bank_drain_and_settles_incoming_bank() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        #[derive(Debug)]
+        struct Retiring(Arc<AtomicUsize>, bool);
+        impl pse_kernels::Provider for Retiring {
+            fn finish(self: Box<Self>) -> Result<(), pse_kernels::ProviderError> {
+                self.0.fetch_add(1, Ordering::Relaxed);
+                if self.1 {
+                    Err(pse_kernels::ProviderError::Terminal(
+                        "original incoming retirement".into(),
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
+            fn fill(
+                &mut self,
+                _: &[f64],
+                _: &pse_kernels::PreparedProviderRequest,
+                _: pse_kernels::ProviderRuntime<'_>,
+                _: pse_kernels::ProviderOutput<'_>,
+                _: &pse_kernels::EvaluationContext<'_>,
+            ) -> Result<(), pse_kernels::ProviderError> {
+                Ok(())
+            }
+        }
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let quantity = registry.neutral_dimensionless().unwrap();
+        let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+        let bank = |problem: &Problem, finished: Arc<AtomicUsize>, fails| {
+            let spec = pse_kernels::ProviderSpec {
+                shapes: Default::default(),
+                derivative_source: pse_kernels::DerivativeSource::Analytic,
+                id: problem.id,
+                revision: problem.identity,
+                data: ContentHash::from_bytes([0; 32]),
+                inputs: vec![],
+                outputs: vec![pse_kernels::Port {
+                    id: problem.id,
+                    quantity,
+                    unit,
+                }],
+                derivatives: DerivativeOrder::Value,
+                smoothness: DerivativeOrder::Value,
+            };
+            pse_kernels::ProviderBindings::try_from_iter([(
+                spec.key(),
+                pse_kernels::ProviderBinding::new(spec, Box::new(Retiring(finished, fails))),
+            )])
+            .unwrap()
+        };
+        for operation in 0..6 {
+            let (mut problem, _, _) = poison_fixture();
+            let old_finished = Arc::new(AtomicUsize::new(0));
+            let existing = bank(&problem, old_finished.clone(), false);
+            problem.set_providers(existing).unwrap();
+            let core = problem.root_execution();
+            let weak = Arc::downgrade(&core);
+            let core = (operation < 3).then_some(core);
+            let identity = problem.providers.lock().unwrap().identity();
+            match operation % 3 {
+                0 => assert!(matches!(
+                    problem.set_residual_offsets(&[1.]),
+                    Err(MathError::Contract(_))
+                )),
+                1 => {
+                    let requirements = problem.requirements;
+                    assert!(matches!(
+                        problem.set_requirements(requirements),
+                        Err(MathError::Contract(_))
+                    ));
+                }
+                _ => {
+                    let incoming_finished = Arc::new(AtomicUsize::new(0));
+                    let incoming = bank(&problem, incoming_finished.clone(), true);
+                    let error = problem.set_providers(incoming).unwrap_err();
+                    let pse_kernels::ProviderError::Settlement { operation, cleanup } = error
+                    else {
+                        panic!(
+                            "shared-root refusal and original incoming cleanup must both survive"
+                        )
+                    };
+                    assert!(matches!(
+                        *operation,
+                        pse_kernels::ProviderError::Contract(_)
+                    ));
+                    let pse_kernels::ProviderError::Retirement { failures } = *cleanup else {
+                        panic!("missing original incoming retirement")
+                    };
+                    assert_eq!(failures.len(), 1);
+                    assert!(
+                        matches!(failures[0].cause.as_ref(), pse_kernels::ProviderError::Terminal(message)
+                        if message == "original incoming retirement")
+                    );
+                    assert_eq!(incoming_finished.load(Ordering::Relaxed), 1);
+                }
+            }
+            assert_eq!(old_finished.load(Ordering::Relaxed), 0);
+            assert_eq!(problem.providers.lock().unwrap().identity(), identity);
+            assert_eq!(problem.providers.lock().unwrap().len(), 1);
+            assert_eq!(problem.residual_offsets, [0.]);
+            assert!(weak.upgrade().is_some());
+            drop(core);
+            drop(weak);
+            problem.set_residual_offsets(&[1.]).unwrap();
+            problem.finish_providers().unwrap();
+            assert_eq!(old_finished.load(Ordering::Relaxed), 1);
+        }
+    }
+
+    #[test]
+    fn shared_or_weak_root_refuses_configuration_before_resolver_effects() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        #[derive(Debug)]
+        struct Resolver {
+            calls: Arc<AtomicUsize>,
+            unknowns: Vec<Unknown>,
+            options: Options,
+        }
+        impl HintResolver for Resolver {
+            fn identity(&self) -> ContentHash {
+                ContentHash::from_bytes([82; 32])
+            }
+            fn retained_bytes(&self) -> usize {
+                size_of::<Self>()
+            }
+            fn time_limit(&self) -> Duration {
+                self.options.time_limit
+            }
+            fn resolve(
+                &self,
+                _: &[f64],
+                _: Option<&[f64]>,
+                _: Option<&[f64]>,
+            ) -> Result<(Vec<Unknown>, Options), MathError> {
+                self.calls.fetch_add(1, Ordering::Relaxed);
+                Ok((self.unknowns.clone(), self.options.clone()))
+            }
+        }
+        for alias in 0..3 {
+            let (problem, _, options) = poison_fixture();
+            let calls = Arc::new(AtomicUsize::new(0));
+            let mut configuration = ConfigurationWorker::new(
+                Configuration::Hints(Arc::new(Resolver {
+                    calls: calls.clone(),
+                    unknowns: problem.unknowns.clone(),
+                    options,
+                })),
+                None,
+                None,
+            );
+            let mut problem = Arc::new(problem);
+            let bank_identity = problem.providers.lock().unwrap().identity();
+            let strong_root = (alias == 0).then(|| problem.root_execution());
+            let weak_root = (alias == 1).then(|| Arc::downgrade(&problem.root_execution()));
+            let weak_problem = (alias == 2).then(|| Arc::downgrade(&problem));
+            assert!(matches!(
+                configuration.resolve(&mut problem, &[1.], &Arc::new(AtomicBool::new(false)), None),
+                Err(MathError::Contract(_))
+            ));
+            assert_eq!(calls.load(Ordering::Relaxed), 0);
+            assert_eq!(problem.providers.lock().unwrap().identity(), bank_identity);
+            assert_eq!(problem.unknowns[0].lower, -10.);
+            drop(strong_root);
+            drop(weak_root);
+            drop(weak_problem);
+            configuration
+                .resolve(&mut problem, &[1.], &Arc::new(AtomicBool::new(false)), None)
+                .unwrap();
+            assert_eq!(calls.load(Ordering::Relaxed), 1);
+            problem.finish_providers().unwrap();
+        }
+    }
+
+    #[test]
+    fn nested_trial_refuses_retained_core_before_anchor_effects_and_new_preparation() {
+        use crate::guarded::{PreparedBody, Stage};
+        use pse_kernels::Provider;
+        use std::sync::atomic::AtomicUsize;
+        #[derive(Debug)]
+        struct Anchor {
+            calls: Arc<AtomicUsize>,
+            finished: Arc<AtomicUsize>,
+        }
+        impl Provider for Anchor {
+            fn finish(self: Box<Self>) -> Result<(), pse_kernels::ProviderError> {
+                self.finished.fetch_add(1, Ordering::Relaxed);
+                Ok(())
+            }
+            fn fill(
+                &mut self,
+                inputs: &[f64],
+                _: &pse_kernels::PreparedProviderRequest,
+                _: pse_kernels::ProviderRuntime<'_>,
+                output: pse_kernels::ProviderOutput<'_>,
+                _: &pse_kernels::EvaluationContext<'_>,
+            ) -> Result<(), pse_kernels::ProviderError> {
+                self.calls.fetch_add(1, Ordering::Relaxed);
+                output.values[0] = inputs[0];
+                Ok(())
+            }
+        }
+        for weak_only in [false, true] {
+            let (mut problem, scope, options) = poison_fixture();
+            let registry = pse_quantity::standard::standard_registry().unwrap();
+            let quantity = registry.neutral_dimensionless().unwrap();
+            let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+            let spec = pse_kernels::ProviderSpec {
+                shapes: Default::default(),
+                derivative_source: pse_kernels::DerivativeSource::Analytic,
+                id: pse_ids::named_id(problem.id, "anchor-effect"),
+                revision: problem.identity,
+                data: ContentHash::from_bytes([0; 32]),
+                inputs: vec![pse_kernels::Port {
+                    id: problem.id,
+                    quantity,
+                    unit,
+                }],
+                outputs: vec![pse_kernels::Port {
+                    id: problem.rows[0],
+                    quantity,
+                    unit,
+                }],
+                derivatives: DerivativeOrder::Value,
+                smoothness: DerivativeOrder::Value,
+            };
+            let calls = Arc::new(AtomicUsize::new(0));
+            let finished = Arc::new(AtomicUsize::new(0));
+            let anchor_source = PreparedBody::new(
+                2,
+                3,
+                vec![2],
+                vec![Stage::Provider {
+                    spec: spec.clone(),
+                    partial: vec![],
+                    inputs: vec![1],
+                    outputs: vec![2],
+                    source: problem.id,
+                }],
+                DerivativeOrder::Value,
+            )
+            .unwrap();
+            let anchor = source_body_for_test(
+                problem.id,
+                &anchor_source,
+                Arc::new(
+                    anchor_source
+                        .compile(
+                            &[0],
+                            &[],
+                            DerivativeOrder::Value,
+                            Default::default(),
+                            Default::default(),
+                            &scope,
+                        )
+                        .unwrap(),
+                ),
+            );
+            problem
+                .set_providers(
+                    pse_kernels::ProviderBindings::try_from_iter([(
+                        spec.key(),
+                        pse_kernels::ProviderBinding::new(
+                            spec.clone(),
+                            Box::new(Anchor {
+                                calls: calls.clone(),
+                                finished: finished.clone(),
+                            }),
+                        ),
+                    )])
+                    .unwrap(),
+                )
+                .unwrap();
+            let outer_spec = pse_kernels::ProviderSpec {
+                id: problem.id,
+                ..spec.clone()
+            };
+            let unknowns = problem.unknowns.clone();
+            let solves = Arc::new(AtomicUsize::new(0));
+            let solver = CountedLinear(solves.clone());
+            let mut nested = Nested {
+                scope: scope.clone(),
+                requested_output: DerivativeOrder::Value,
+                selection: selection::SelectionWorker::new(&Selection {
+                    anchor: Some(anchor),
+                    ..Default::default()
+                }),
+                problem: Arc::new(problem),
+                configuration: ConfigurationWorker::new(
+                    Configuration::Fixed(unknowns, options),
+                    None,
+                    None,
+                ),
+                solver: SolverWorker::new(&solver),
+                cancel: scope.cancellation().clone(),
+                numerical: None,
+                linearization: None,
+            };
+            let request = pse_kernels::PreparedProviderRequest::new(
+                Arc::new(outer_spec.clone()),
+                pse_kernels::ProviderRequest::all(&outer_spec, DerivativeOrder::Value),
+            )
+            .unwrap();
+            let core = nested.problem.root_execution();
+            let weak = Arc::downgrade(&core);
+            let core = (!weak_only).then_some(core);
+            assert!(nested.prepare_demand(&request).is_err());
+            assert!(nested.problem.prepared_demands.lock().unwrap().is_empty());
+            assert_eq!(calls.load(Ordering::Relaxed), 0);
+            drop(core);
+            drop(weak);
+            nested.prepare_demand(&request).unwrap();
+            let core = nested.problem.root_execution();
+            let weak = Arc::downgrade(&core);
+            let core = (!weak_only).then_some(core);
+            // Existing artifact preparation is a cached observation, not a new trial.
+            nested.prepare_demand(&request).unwrap();
+            let flag = nested.cancel.clone();
+            let context = pse_kernels::EvaluationContext {
+                cancelled: flag.as_ref(),
+                max_result_bytes: 1 << 20,
+            };
+            let mut values = [f64::NAN];
+            assert!(
+                nested
+                    .evaluate_inner(
+                        &[1.],
+                        &request,
+                        Default::default(),
+                        pse_kernels::ProviderOutput {
+                            values: &mut values,
+                            jacobian: &mut [],
+                            hessians: &mut []
+                        },
+                        &context
+                    )
+                    .is_err()
+            );
+            assert_eq!(calls.load(Ordering::Relaxed), 0);
+            assert_eq!(solves.load(Ordering::Relaxed), 0);
+            assert_eq!(finished.load(Ordering::Relaxed), 0);
+            drop(core);
+            drop(weak);
+            let flag = nested.cancel.clone();
+            let context = pse_kernels::EvaluationContext {
+                cancelled: flag.as_ref(),
+                max_result_bytes: 1 << 20,
+            };
+            nested
+                .evaluate_inner(
+                    &[1.],
+                    &request,
+                    Default::default(),
+                    pse_kernels::ProviderOutput {
+                        values: &mut values,
+                        jacobian: &mut [],
+                        hessians: &mut [],
+                    },
+                    &context,
+                )
+                .unwrap();
+            assert_eq!(values, [1.]);
+            assert_eq!(calls.load(Ordering::Relaxed), 1);
+            assert_eq!(solves.load(Ordering::Relaxed), 1);
+            Box::new(nested).finish().unwrap();
+            assert_eq!(finished.load(Ordering::Relaxed), 1);
+        }
+    }
+
+    #[test]
     fn implicit_provider_retirement_preserves_poison_and_settles_every_slot() {
         use std::sync::atomic::{AtomicUsize, Ordering};
         #[derive(Debug)]
@@ -2630,7 +3232,7 @@ mod tests {
         }
         for poisoned in [false, true] {
             for failed_cleanup in [false, true] {
-                let (problem, _, _) = poison_fixture();
+                let (mut problem, _, _) = poison_fixture();
                 let finished = Arc::new(AtomicUsize::new(0));
                 let registry = pse_quantity::standard::standard_registry().unwrap();
                 let quantity = registry.neutral_dimensionless().unwrap();
@@ -2660,7 +3262,7 @@ mod tests {
                     )
                 });
                 let bindings = pse_kernels::ProviderBindings::try_from_iter(bindings).unwrap();
-                let problem = problem.with_providers(bindings).unwrap();
+                problem.set_providers(bindings).unwrap();
                 if poisoned {
                     poison(&problem.providers);
                 }
@@ -3522,6 +4124,7 @@ mod tests {
                 .lock()
                 .unwrap()
                 .worker
+                .numeric
                 .census()
                 .instantiated_orders[1]
         );
@@ -4111,7 +4714,7 @@ mod tests {
             ));
         }
         // Exercise singularity separately from the newly enforced bound interior.
-        problem.unknowns[0].lower = -1.;
+        problem.root_mut().unwrap().unknowns[0].lower = -1.;
         {
             let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
             let operation = hub.start("implicit.ift.singular_stage");
@@ -4161,7 +4764,7 @@ mod tests {
             assert_eq!(count("implicit.derivatives.second_rhs.calls"), None);
             assert_eq!(count("implicit.derivatives.expansion.calls"), None);
         }
-        problem.unknowns[0].lower = 0.;
+        problem.root_mut().unwrap().unknowns[0].lower = 0.;
         let recovered = problem
             .derivatives(&[4.], &[2.], DerivativeOrder::Second, &options, &cancel)
             .unwrap();
