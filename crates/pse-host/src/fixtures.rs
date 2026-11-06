@@ -406,7 +406,7 @@ pub struct Readiness {
 fn prepare(input: Input) -> Vec<String> {
     let args: &[&str] = match input {
         Input::Server => &["scripts/pse-host", "server", "prepare"],
-        Input::StudyModule => &["scripts/pse-host", "study-module", "prepare"],
+        Input::StudyModule => &["scripts/pse", "fixture", "prepare", "study-module"],
         Input::ScientificInputs | Input::NativeLane => {
             &["scripts/pse-host", "fixture", "prepare", "runtime"]
         }

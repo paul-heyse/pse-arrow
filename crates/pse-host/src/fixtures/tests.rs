@@ -97,6 +97,56 @@ fn pure_selection_neither_prepares_tools_nor_requires_a_database() {
 }
 
 #[test]
+fn study_module_readiness_hint_selects_checkout_pointer_preparation_without_effects() {
+    use clap::CommandFactory as _;
+    let scratch = tempfile::tempdir().unwrap();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    // Isolate the checkout pointer, without supplying an alternate module receipt.
+    let environment = BTreeMap::from([(
+        "XDG_STATE_HOME".into(),
+        scratch.path().join("state").into_os_string(),
+    )]);
+    assert!(matches!(
+        selected_module(root, &environment),
+        Err(FixtureError::Unprepared(Input::StudyModule))
+    ));
+    let mut required = requirement();
+    required.declaration.inputs = BTreeSet::from([Input::StudyModule]);
+    let assessed = ExecutionInputs::assess(root, &environment, &[required]);
+    assert!(assessed.blocked());
+    let InputState::Unprepared { next, .. } =
+        &assessed.observations()[0].inputs[&Input::StudyModule]
+    else {
+        panic!("missing checkout pointer was not reported");
+    };
+    // The archive-only low-level preparation route cannot publish this pointer.
+    // Check the independent public spelling and its actual parser-selected owner.
+    assert_eq!(next, &["scripts/pse", "fixture", "prepare", "study-module"]);
+    let parsed = crate::cli::Cli::command()
+        .try_get_matches_from(next)
+        .unwrap();
+    let fixture = parsed
+        .subcommand_matches("fixture")
+        .unwrap()
+        .subcommand_matches("prepare")
+        .unwrap()
+        .get_one::<FixtureKind>("fixture")
+        .unwrap();
+    assert!(matches!(fixture, FixtureKind::StudyModule));
+    assert!(matches!(
+        selected_module(root, &environment),
+        Err(FixtureError::Unprepared(Input::StudyModule))
+    ));
+    assert!(
+        !scratch.path().join("state").exists(),
+        "readiness and hint parsing never prepare the owner"
+    );
+}
+
+#[test]
 fn unsupported_evidence_input_refuses_before_preparation_or_service_effects() {
     let directory = tempfile::tempdir().unwrap();
     let destination = directory.path().join("must-not-be-created");
