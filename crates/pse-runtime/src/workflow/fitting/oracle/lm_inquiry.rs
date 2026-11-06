@@ -2520,7 +2520,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
         pse_relations::RecordBatch::try_new(schema, batch.columns().to_vec()).unwrap()
     }
     let copied_cells = datafusion::arrow::ipc::reader::StreamReader::try_new(
-        bundle.open_member("original-fit-cells").unwrap(),
+        std::io::Cursor::new(bundle.member_bytes("original-fit-cells", 16 << 20).unwrap()),
         None,
     )
     .unwrap()
@@ -2541,7 +2541,11 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
         "copied cells preserve the exact original qualified fit values and identities"
     );
     let copied_predictions = datafusion::arrow::ipc::reader::StreamReader::try_new(
-        bundle.open_member("original-prediction").unwrap(),
+        std::io::Cursor::new(
+            bundle
+                .member_bytes("original-prediction", 16 << 20)
+                .unwrap(),
+        ),
         None,
     )
     .unwrap()
