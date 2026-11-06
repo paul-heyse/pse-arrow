@@ -40,6 +40,7 @@ fn publish(store: &InvocationStore, input: &Input, destination: &Path, report: &
         &fs::read(destination.parent().unwrap().join("workflow-input.json")).unwrap(),
     )));
     let terminal = report.publish(destination).unwrap();
+    let helper_exit = terminal.helper_exit();
     let mut manager = Envelope::response(
         input.action.command(),
         "original native performer observations",
@@ -50,11 +51,7 @@ fn publish(store: &InvocationStore, input: &Input, destination: &Path, report: &
                 report: "workflow/report.json".into(),
             }),
             native_lifetime_pending: None,
-            child_exit: Some(if report.outcome == Outcome::TestsSucceeded {
-                0
-            } else {
-                1
-            }),
+            child_exit: Some(helper_exit),
             stdout: None,
             stderr: None,
             borrowed_reservation: false,
@@ -75,6 +72,101 @@ fn publish(store: &InvocationStore, input: &Input, destination: &Path, report: &
         0o400,
     )
     .unwrap();
+}
+
+#[tokio::test]
+async fn actual_expected_refusal_success_has_original_evidence_and_zero_failed_rerun_is_nonpass() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let mut environment: Environment = std::env::vars_os().collect();
+    environment.insert(
+        "XDG_STATE_HOME".into(),
+        scratch.path().join("state").into_os_string(),
+    );
+    let store =
+        InvocationStore::new(crate::paths::CheckoutState::resolve(root, &environment).unwrap());
+    let mut original = input(Action::Test);
+    original.request.scope = selection::Scope::Packages(vec![selection::PackageIntent {
+        package: "pse-host".into(),
+        target: Some(selection::TargetIntent {
+            name: "pse_host".into(),
+            kind: Some("lib".into()),
+        }),
+        features: selection::Features {
+            defaults: false,
+            ..Default::default()
+        },
+    }]);
+    original.request.filters.ignore_default_filter = true;
+    original.request.filters.words = vec![
+        "fixtures::tests::exact_readiness_retains_all_refused_missing_and_owner_required_inputs"
+            .into(),
+    ];
+    let destination = begin(&store, &original);
+    let mut passed = run(&original, root, &destination, environment.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        passed.outcome,
+        Outcome::TestsSucceeded,
+        "{:?}",
+        passed.failures
+    );
+    assert_eq!(passed.selected_tests, Some(1));
+    assert!(passed.required_capture_complete);
+    assert!(
+        passed.failures.is_empty(),
+        "asserted expected refusals are not outer workflow failures"
+    );
+    for observed in &passed.observations {
+        if let GroupObservation::Test { observation, .. } = observed {
+            assert!(observation.summary.complete());
+            assert!(observation.summary.failed().is_empty());
+        }
+    }
+    publish(&store, &original, &destination, &mut passed);
+    let evidence =
+        crate::test_inventory::captured(&store, original.invocation.as_str(), None).unwrap();
+    assert_eq!(evidence.observation.outcome, Outcome::TestsSucceeded);
+    assert_eq!(evidence.manager_settlement, Some(Settlement::Unknown));
+
+    let mut empty = input(Action::Test);
+    empty.request.scope = selection::Scope::RerunFailed {
+        invocation: original.invocation.to_string(),
+    };
+    let empty_destination = begin(&store, &empty);
+    let mut report = run(&empty, root, &empty_destination, environment)
+        .await
+        .unwrap();
+    assert_eq!(report.outcome, Outcome::ZeroMatch, "{:?}", report.failures);
+    assert_eq!(report.selected_tests, Some(0));
+    assert!(report.required_capture_complete);
+    assert!(report.fixture_requirements.is_empty());
+    assert!(
+        report.observations.is_empty(),
+        "zero failed identities start no test workload"
+    );
+    assert!(!empty_destination.join("fixtures").exists());
+    publish(&store, &empty, &empty_destination, &mut report);
+    let evidence =
+        crate::test_inventory::captured(&store, empty.invocation.as_str(), None).unwrap();
+    assert_eq!(evidence.observation.outcome, Outcome::ZeroMatch);
+    assert_eq!(
+        evidence.terminal.helper_exit(),
+        1,
+        "zero match cannot become an acceptance pass"
+    );
+    assert_ne!(evidence.id, original.invocation);
+    assert_eq!(
+        crate::test_inventory::captured(&store, original.invocation.as_str(), None)
+            .unwrap()
+            .observation
+            .outcome,
+        Outcome::TestsSucceeded
+    );
 }
 
 #[tokio::test]
