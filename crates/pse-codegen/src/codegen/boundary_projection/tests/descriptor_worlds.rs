@@ -5,6 +5,103 @@ use super::*;
 use buffa_codegen::{EnumTypeOverride, FeatureOverride};
 
 #[test]
+fn authored_support_preserves_per_file_layout_complete_world_and_effective_features() {
+    let mut source = enum_source();
+    source.file.insert(
+        0,
+        FileDescriptorProto {
+            name: Some("dependency.proto".into()),
+            package: Some("dependency.v1".into()),
+            syntax: Some("proto3".into()),
+            ..Default::default()
+        },
+    );
+    source.file[1].dependency.push("dependency.proto".into());
+    source.__buffa_unknown_fields.push(buffa::UnknownField {
+        number: 100,
+        data: buffa::UnknownFieldData::Varint(9),
+    });
+    let original = source.encode_to_vec();
+    let mut config = default_config("crate::authored::__buffa_fds");
+    config.file_per_package = false;
+    let generation = ProjectionGeneration::new(&source, &["world.proto".into()], &config).unwrap();
+    let support = generation.support("descriptor-runtime.bin").unwrap();
+    let mut expected = source.clone();
+    for file in &mut expected.file {
+        file.source_code_info = Default::default();
+    }
+    assert_eq!(support.descriptor_set, expected);
+    assert_eq!(
+        FileDescriptorSet::decode_from_slice(&support.descriptor_bytes).unwrap(),
+        expected
+    );
+    assert_eq!(support.source_descriptor_bytes, original);
+    assert!(
+        support.sources["shared-root.rs"]
+            .split_whitespace()
+            .collect::<String>()
+            .contains("include_bytes!(\"descriptor-runtime.bin\")")
+    );
+    assert!(support.sources["mod.rs"].contains("world.mod.rs"));
+    assert!(generation.files.iter().any(|file| file.name == "world.rs"));
+    assert_eq!(source.encode_to_vec(), original);
+
+    config.feature_overrides.push((
+        ".world.Color".into(),
+        FeatureOverride::EnumType(EnumTypeOverride::Open),
+    ));
+    config.feature_overrides.push((
+        ".absent.Enum".into(),
+        FeatureOverride::EnumType(EnumTypeOverride::Open),
+    ));
+    let effective = ProjectionGeneration::new(&source, &["world.proto".into()], &config).unwrap();
+    let support = effective.support("descriptor-runtime.bin").unwrap();
+    assert_eq!(
+        support.descriptor_set.__buffa_unknown_fields,
+        source.__buffa_unknown_fields
+    );
+    assert_eq!(
+        support
+            .descriptor_set
+            .file
+            .iter()
+            .map(|file| &file.name)
+            .collect::<Vec<_>>(),
+        source
+            .file
+            .iter()
+            .map(|file| &file.name)
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        support.descriptor_set.file[1].dependency,
+        source.file[1].dependency
+    );
+    assert_eq!(
+        support.descriptor_set.file[1].enum_type[0]
+            .options
+            .as_option()
+            .unwrap()
+            .__buffa_unknown_fields,
+        source.file[1].enum_type[0]
+            .options
+            .as_option()
+            .unwrap()
+            .__buffa_unknown_fields
+    );
+    let pool = buffa_descriptor::DescriptorPool::new(support.descriptor_set).unwrap();
+    assert_eq!(
+        pool.enum_by_name("world.Color").unwrap().enum_type(),
+        buffa::editions::EnumType::Open
+    );
+    assert!(effective.warnings.iter().any(|warning| matches!(warning, CodeGenWarning::FeatureOverrideMatchedNothing { rule, .. } if rule == ".absent.Enum")));
+    assert_eq!(
+        effective.descriptors().file[1].source_code_info,
+        source.file[1].source_code_info
+    );
+}
+
+#[test]
 fn admitted_generation_shares_full_effective_source_and_retains_original_override_warning() {
     let mut imported = imports();
     imported[0].source_code_info = descriptor::SourceCodeInfo {

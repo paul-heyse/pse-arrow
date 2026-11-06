@@ -462,6 +462,9 @@ pub(super) fn generate(
     for path in [
         "xtask/src/codegen/code_intelligence.rs",
         "xtask/src/codegen/code_intelligence/associations.rs",
+        "xtask/src/codegen/proto_projection.rs",
+        "xtask/src/codegen/proto_projection/composition.rs",
+        "crates/pse-codegen/src/codegen/boundary_projection.rs",
         "scripts/protobuf-associations.rs",
         "Cargo.toml",
         "xtask/Cargo.toml",

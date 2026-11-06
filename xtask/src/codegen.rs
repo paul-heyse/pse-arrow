@@ -19,7 +19,6 @@ mod native_root;
 mod ownership;
 mod private_store;
 mod proto_dispatch;
-#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
 mod proto_projection;
 
 #[cfg(feature = "native-abi")]
