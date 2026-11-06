@@ -25,13 +25,89 @@ const LOG_LIMIT: usize = 1 << 20;
 const TRUNCATED_LOG: &[u8] = b"\n[reference diagnostic extent exceeded; retained bounded prefix]\n";
 type TestResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
+#[derive(Debug)]
+struct ScalarComparison {
+    role: String,
+    output: SemanticId,
+    native: f64,
+    reference: f64,
+    absolute_allowance: f64,
+    relative_allowance: f64,
+    absolute_error: f64,
+    relative_error: Option<f64>,
+}
+
+#[derive(Debug, Default)]
+struct ComparisonDiagnostics(Vec<ScalarComparison>);
+
+impl std::fmt::Display for ComparisonDiagnostics {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for sample in &self.0 {
+            write!(
+                formatter,
+                " [role={} output={} native={:?} reference={:?} absolute_allowance={:?} relative_allowance={:?} absolute_error={:?} relative_error={:?}]",
+                sample.role,
+                sample.output,
+                sample.native,
+                sample.reference,
+                sample.absolute_allowance,
+                sample.relative_allowance,
+                sample.absolute_error,
+                sample.relative_error
+            )?;
+        }
+        Ok(())
+    }
+}
+
+impl ComparisonDiagnostics {
+    /// Report every already-held scalar pair; the shared comparator alone decides acceptance.
+    fn capture(
+        roles: Vec<String>,
+        candidate: &ReferenceEnvelope,
+        reference: &ReferenceEnvelope,
+        allowances: &[ComparisonAllowance],
+    ) -> Self {
+        let (
+            ReferenceOutcome::Completed {
+                outputs: native, ..
+            },
+            ReferenceOutcome::Completed {
+                outputs: foreign, ..
+            },
+        ) = (&candidate.outcome, &reference.outcome)
+        else {
+            return Self::default();
+        };
+        let mut samples = Vec::with_capacity(roles.len());
+        for (((role, native), reference), allowance) in
+            roles.into_iter().zip(native).zip(foreign).zip(allowances)
+        {
+            let absolute_error = (native.value - reference.value).abs();
+            samples.push(ScalarComparison {
+                role,
+                output: allowance.output,
+                native: native.value,
+                reference: reference.value,
+                absolute_allowance: allowance.absolute,
+                relative_allowance: allowance.relative,
+                absolute_error,
+                relative_error: (reference.value != 0.)
+                    .then(|| absolute_error / reference.value.abs()),
+            });
+        }
+        Self(samples)
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
-#[error("independent reference {phase}: {cause}; {diagnostics}")]
+#[error("independent reference {phase}: {cause}; {diagnostics}{comparison}")]
 struct ReferenceDiagnosticFailure {
     phase: &'static str,
     #[source]
     cause: Box<dyn std::error::Error + Send + Sync>,
     diagnostics: String,
+    comparison: ComparisonDiagnostics,
     // Diagnostic/error payloads settle before both preparation and response owners.
     _owners: [Option<Arc<pse_columnar::AllocationLease>>; 3],
 }
@@ -42,10 +118,27 @@ fn reference_failure(
     diagnostics: String,
     owners: &[Arc<pse_columnar::AllocationLease>; 3],
 ) -> Box<dyn std::error::Error + Send + Sync> {
+    reference_failure_with_comparison(
+        phase,
+        cause,
+        diagnostics,
+        ComparisonDiagnostics::default(),
+        owners,
+    )
+}
+
+fn reference_failure_with_comparison(
+    phase: &'static str,
+    cause: impl Into<Box<dyn std::error::Error + Send + Sync>>,
+    diagnostics: String,
+    comparison: ComparisonDiagnostics,
+    owners: &[Arc<pse_columnar::AllocationLease>; 3],
+) -> Box<dyn std::error::Error + Send + Sync> {
     Box::new(ReferenceDiagnosticFailure {
         phase,
         cause: cause.into(),
         diagnostics,
+        comparison,
         _owners: [
             Some(owners[0].clone()),
             Some(owners[1].clone()),
@@ -511,6 +604,7 @@ pub(super) fn check(
             phase: "original source snapshot refused",
             cause,
             diagnostics: String::new(),
+            comparison: ComparisonDiagnostics::default(),
             _owners: [Some(verification_owner.clone()), None, None],
         }));
     }
@@ -763,6 +857,16 @@ pub(super) fn check(
         },
     };
     let admission = crate::reference_exchange::ScalarAdmission::new(&original_shape, LIMIT)?;
+    let diagnostic_backing = observables
+        .len()
+        .checked_mul(size_of::<ScalarComparison>() + size_of::<String>())
+        .ok_or("comparison diagnostic extent overflow")?;
+    let diagnostic_bytes = observables
+        .iter()
+        .try_fold(diagnostic_backing, |bytes, observable| {
+            bytes.checked_add(observable.key.capacity())
+        })
+        .ok_or("comparison diagnostic extent overflow")?;
     let response_bytes = admission
         .custody_bound(
             LOG_LIMIT
@@ -776,10 +880,15 @@ pub(super) fn check(
                 .ok_or("native comparison custody overflow")?,
         )
         .and_then(|bytes| bytes.checked_add(size_of::<ReferenceDiagnosticFailure>()))
+        .and_then(|bytes| bytes.checked_add(diagnostic_bytes))
         .ok_or("complete scalar custody overflow")?;
     let response_owner = services
         .math()
         .reserve("ordinary-reference:scalar-response-custody", response_bytes)?;
+    let diagnostic_roles = observables
+        .iter()
+        .map(|observable| observable.key.clone())
+        .collect();
     let contract = ReferenceCaseContract {
         version: Default::default(),
         case_name: case_name.into(),
@@ -913,6 +1022,9 @@ pub(super) fn check(
     }
     let reference = match (|| -> TestResult<_> {
         let payload = read_bounded(&response, LIMIT)?;
+        if let Some(destination) = &evidence {
+            std::fs::write(destination.join(format!("{short}.reference.bin")), &payload)?;
+        }
         Ok(admission.decode(&payload)?)
     })() {
         Ok(reference) => reference,
@@ -952,10 +1064,16 @@ pub(super) fn check(
         },
     };
     if let Err(cause) = compare(&candidate, reference.known(), &allowances) {
-        return Err(reference_failure(
+        return Err(reference_failure_with_comparison(
             "scalar comparison failed",
             cause,
             diagnostic,
+            ComparisonDiagnostics::capture(
+                diagnostic_roles,
+                &candidate,
+                reference.known(),
+                &allowances,
+            ),
             owners,
         ));
     }
@@ -992,6 +1110,80 @@ mod tests {
     use pse_quantity::standard::ids;
 
     const ORIGINAL_MODEL: &[u8] = b"package q { def D { var x: Scalar; } }";
+
+    #[test]
+    fn comparison_diagnostics_preserve_original_pairs_without_deciding_acceptance() {
+        use pse_model::reference_exchange::ReferenceObservable;
+        // Mechanical diagnostic coordinates, not authored scientific expectations.
+        let ids = [1, 2].map(|byte| SemanticId::from_bytes([byte; 16]));
+        let envelope = |values: [f64; 2]| ReferenceEnvelope {
+            version: 1,
+            meaning: ReferenceMeaning {
+                case: SemanticId::NIL,
+                source: pse_ids::ContentHash::NIL,
+                formulation: pse_ids::ContentHash::NIL,
+                physical: pse_ids::ContentHash::NIL,
+                configuration: pse_ids::ContentHash::NIL,
+            },
+            required: ids.to_vec(),
+            outcome: ReferenceOutcome::Completed {
+                outputs: ids
+                    .into_iter()
+                    .zip(values)
+                    .map(|(id, value)| ReferenceObservable {
+                        id,
+                        quantity: SemanticId::NIL,
+                        unit: SemanticId::NIL,
+                        basis: None,
+                        datum: None,
+                        value,
+                    })
+                    .collect(),
+                blocks: Vec::new(),
+            },
+        };
+        let candidate = envelope([3., 0.]);
+        let reference = envelope([2., 0.]);
+        let allowances = ids.map(|output| ComparisonAllowance {
+            output,
+            absolute: 0.5,
+            relative: 0.1,
+        });
+        let original = compare(&candidate, &reference, &allowances).unwrap_err();
+        let detail = ComparisonDiagnostics::capture(
+            vec!["different".into(), "same".into()],
+            &candidate,
+            &reference,
+            &allowances,
+        );
+        assert_eq!(
+            detail.0.len(),
+            2,
+            "diagnostics retain all pairs, not a second verdict"
+        );
+        let first = &detail.0[0];
+        assert_eq!(
+            (first.output, first.native, first.reference),
+            (ids[0], 3., 2.)
+        );
+        assert_eq!(
+            (first.absolute_allowance, first.relative_allowance),
+            (0.5, 0.1)
+        );
+        assert_eq!(
+            (first.absolute_error, first.relative_error),
+            (1., Some(0.5))
+        );
+        assert_eq!(
+            detail.0[1].relative_error, None,
+            "zero-reference relative error is undefined"
+        );
+        assert!(detail.to_string().contains("native=3.0 reference=2.0"));
+        assert_eq!(
+            compare(&candidate, &reference, &allowances).unwrap_err(),
+            original
+        );
+    }
 
     fn original_tree() -> TestResult<tempfile::TempDir> {
         let directory = tempfile::tempdir()?;
