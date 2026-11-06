@@ -764,6 +764,15 @@ solved SRK witness are explicit. Installed data-dependent sweep cardinality,
 ordinary scientific inputs,native phase/chemistry and full acceptance remain
 required;no property or solver executed.
 
+**Update, 2026-11-05 — direct cost-account source closure:** the
+[four-file account census](64h-required-process-population.md#direct-power-cost-account-capture-and-sco2-case-population--2026-11-05)
+resolves old/new ownership,29 common accounts,16NGCC groups/60accounts,
+44CCS correlations,ten sCO2 blocks,ASU andunit/year/override roles. The
+ten global presets retain technology2 equipment;order-dependent module
+assembly andcooler-as-recuperator selection stay explicit. Ordinary economic
+provenance,exact compatibility andcomplete native/reference cost acceptance
+remain required.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

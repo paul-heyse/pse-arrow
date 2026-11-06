@@ -6350,6 +6350,133 @@ nitrogen/electrolyte records by their labels. This closes this finite source
 group while ordinary science,loaded-library readiness and native/reference
 acceptance remain open.
 
+## Direct power-cost account, capture and sCO2 case population — 2026-11-05
+
+**Interface-checked, source only:** C `power_generation/costing/tests/
+test_{power_plant_costing,power_plant_capcost,NGCC_capcost,CCS_capcost}.py`,
+`power_plant_costing.py`,`power_plant_capcost.py` andthe already identified
+QGESS/dictionary owners resolve G06's direct account population.
+`PowerPlantCostingData` **inherits the newer QGESSCostingData**,adding
+sCO2/ASU methods. The old `power_plant_capcost` QGESS implementation is a
+different owner. Different argument/currency/override conventions cannot
+be normalized into scientific equivalence merely by similar test names.
+No account model,dictionary regeneration,initializer orsolver ran.
+
+The common coal-plant fixture uses equipment technology2/CCS-A andseven
+groups(29 accounts),with fixed physical scaling quantities:
+
+| Scaling input | Exact accounts / units |
+|---|---|
+| Coal7238.95ton/day |1.1/1.2/1.3/1.4/2.1/2.2/4.11/4.15/4.16 |
+| Fuel603246lb/hour |3.6/3.9/7.3/7.5 |
+| Feedwater5316158lb/hour |3.1/3.3/3.5/4.9/8.4 |
+| Turbine769600kW |8.1 |
+| Condenser2016MBtu/hour |8.3 |
+| Circulating water463371gallon/min |9.2/9.3/9.4/9.6/9.7/14.5 |
+| Ash66903lb/hour |10.6/10.7/10.9 |
+
+The newer test repeats these **same technology2 equipment selections**
+under ten global lifecycle presets1–10,Lang2,all optional lifecycle flags
+enabled,USD2018,phaseout2031–33→75/50/25 andcapital percentages10/60/30.
+It also consumes650MW output,natural gas1.2MBtu/s,solvent40ton/day at
+500USD2018/ton. That is ten lifecycle/account interactions,not ten
+different equipment technologies. Old/new fixed-only,variable-only,both,
+empty/no-argument,inventory/land/transport andinvalid-unit/currency tests
+retain their calculation-bypass/default/refusal roles. Old O&M additionally
+specifies650MW nameplate,800MUSD total plant cost,labor40USD/hour,
+burden30%,10operators/shift,technology1 andcapacity factor.85;newer
+global O&M assumptions remain those in the QGESS section above.
+
+Both generations separately select seven mixed-technology account groups:
+technology1/A coal7613.37ton/day(1.1/1.2/1.3);3/A feedwater1576062.15
+lb/hour(3.1/3.3/3.5);4/A syngas182335.921lb/hour(6.1/6.2/6.3);
+5/A HRSG1777.86MBtu/hour(7.1/7.2);6/A turbine212500kW(8.1/8.2/8.5);
+7/B feedwater3298815.58lb/hour(4.9/8.4);6/B CO2493587.88lb/hour
+(5.1.a.epri). These are independently imposed assessment capacities,
+not a coupled plant material/energy solution. Currency controls use the
+same coal accounts at2018,2019_Sep,2020 andCE500;compare converted costs,
+not raw currency numbers. Expression-valued scaling is valid;incompatible
+sum-of-units orwrong dimensions refuse. Four custom-account roles add a
+new account,refuse a selected conflict,allow a conflict on an unselected
+account,andexplicitly overwrite a selected account. New API uses a list
+of dictionaries;old API uses one dictionary. Those exact override inputs
+and resulting account coverage must be retained independently.
+
+Varying parallel equipment and scale-down policy is exposed by newer
+QGESS,but these BB fixtures use their defaults. The only explicit parallel
+train counts in these selected tests are the sCO2 compressor/motor cases
+below;do not attribute an unexecuted BB train-scaling sweep to them.
+
+The old NGCC CCS-B/USD2018 test uses a module-scoped model progressively
+extended through16 groups(60 selected accounts). Its exact scaling inputs
+and group selectors are:
+
+| Group | Fixed scaling quantity / accounts |
+|---|---|
+| Feedwater |1085751lb/hour;3.1/3.3/8.4 |
+| Raw water |2902gallon/min;3.2/3.4/3.5/9.5/14.6 |
+| Fuel gas |205630lb/hour;3.6/3.9/6.1/6.3/6.4 |
+| Water discharge |657gallon/min;3.7 |
+| Flue gas |(8658430/60)/.025ft3/min;7.6 |
+| Gas turbine |477000kW;6.5 |
+| HRSG |(538.1−277.1)×8658430/1e6MBtu/hour;7.1/7.2 |
+| Stack |(8658430/60)/.061ft3/min;7.3/7.4/7.5 |
+| Steam turbine |263000kW;8.1/8.2/8.5/14.3 |
+| Condenser / cooling tower |1332/1357MBtu/hour;8.3 /9.1 |
+| Circulating water |217555gallon/min;9.2/9.3/9.4/9.6/9.7/14.5 |
+| Gross power |740000kW;11.1/11.7/11.9/13.1/13.2/13.3/14.4/14.7/14.8/14.9/14.10 |
+| Auxiliary load |14000kW;11.2/11.3/11.4/11.5/11.6/12.1/12.2/12.3/12.4/12.5/12.6/12.7/12.8/12.9 |
+| Combined turbine output |689800kW;11.8 |
+| Gas turbine ancillary |477000kW;14.1 |
+
+Source total plant cost target574.09MUSD2018(abs.1) assumes all those
+groups have been added before the final module test. Running the final
+test in isolation need not construct the same population. The native
+case must declare the complete account graph explicitly,with individual
+account and total outputs,without depending on Python test ordering.
+
+The old CCS test's44 accounts use technology6/defaultCCS-B,USD2013:
+single6.1–6.8.ccs scale absorber4999m3,packing3773m3,stripper386m3,
+packing291m3,condenser/reboiler1500m2 each,lean-rich40700m2 andlean
+cooler600m2. Accounts6.9–6.26 each have two additive correlations(.1/.2):
+CO2product245000lb/hour andflue gas2e6m3/hour. Those cover blower,DCC/
+packing,pretreatment pump/cooler/tank,wash column/packing/cooler/pump,
+condenser pump,reflux drum,lean-solvent pump,storage/wash tanks,reclaimer/
+cooler andfiltration. This is44 cost correlations over26 equipment
+categories,not44 simulated capture units. It targets total100.86MUSD2013
+atrelative1e-3. The regeneration test writes inline coefficient declarations
+to a temporary JSON andcompares exact expected content;it does not fetch
+new vendor data orprove scientific cost accuracy.
+
+Both generations' sCO2 fixture selects10 cost blocks,USD2017:coal heater
+1461.5MW/620C;turbine1006.2MW/620C;generator1006.2MW;three
+recuperator-law exchangers at453/216/81C withUA computed from
+1461e6W/21.45K,911.7e6W/5.21K and739421217W/5K;main compressor
+5.99m3/s and159.7MW motor in5 trains;bypass6.89m3/s and124.3MW
+motor in4 trains. A supplied UA initialization is a guess before the
+heat/LMTD equation,not its final specification. Even the CO2 cooler uses
+**Recuperator**,not Direct-air-cooler correlation. Per-train scaling divides
+total capacity bycount,then sums train equipment costs. Temperature
+correction uses a branch at550C;required-temperature omission fails and
+non-temperature-corrected families usefactor1. The bound-check helper only
+prints diagnostics;it is not an enforcing physical validity guard. Separate
+ASU scales13078tonO2/day atUSD2017;no air-separation thermodynamic model
+is constructed by that cost test.
+
+Recursive input closure is the frozen BB,genericCCS andsCO2 coefficient
+files already identified,inline custom accounts/physical capacities,
+currency/index definitions andthe selected old/new calculation owner.
+No commodity-price feed,process dataset,trainer orsaved state is read.
+Reference expected costs are oracle outputs;ordinary correlation/vendor/
+year/scale provenance and valid economic envelopes remain required.
+Native G06 needs each selected account once,correct unit/year conversion,
+capacity/train/contingency/override identity,all component andaggregate
+costs,andindependent scaling/aggregation checks. Failing physical domains,
+unknown account/technology/currency andunavailable outputs stay explicit.
+This resolves the four-file source population while exact reference
+compatibility,ordinary admission andnative economic/scientific acceptance
+remain open.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
