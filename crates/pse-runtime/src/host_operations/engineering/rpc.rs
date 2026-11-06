@@ -19,6 +19,7 @@ mod edit;
 mod ingress;
 mod inspection;
 mod outgoing;
+mod responses;
 mod study;
 mod wire;
 
@@ -99,10 +100,7 @@ impl EngineeringClient {
     /// Missing/replaced/stale original custody and transport failures refuse the connection.
     pub async fn connect(endpoint: EngineeringEndpoint) -> Result<Self, EngineeringServiceError> {
         use sha2::Digest as _;
-        let config = connectrpc::client::ClientConfig::new(
-            "http://localhost".parse().map_err(infrastructure)?,
-        )
-        .with_protocol(connectrpc::Protocol::Grpc);
+        let config = responses::config("http://localhost".parse().map_err(infrastructure)?);
         let connection = connectrpc::client::Http2Connection::connect_with_connector(
             AuthenticatedConnector(endpoint),
             config.base_uri().clone(),
@@ -111,7 +109,8 @@ impl EngineeringClient {
         .map_err(infrastructure)?
         .shared(32);
         let inner = bindings::EngineeringServiceClient::new(connection, config);
-        let described = inner
+        let client = Self { inner };
+        let described = client
             .describe_contract(pb::EngineeringDescribeRequest::default())
             .await
             .map_err(infrastructure)?
@@ -121,9 +120,10 @@ impl EngineeringClient {
         {
             return Err(EngineeringServiceError::Interpretation("prepared service descriptor differs from this client's compiled source-owned contract".into()));
         }
-        Ok(Self { inner })
+        Ok(client)
     }
-    /// Use the generated typed binding directly; reads have no service-preparation side effect.
+    /// Use generated bindings for ordinary bounded responses. The operation helpers
+    /// select larger response limits only for their original complete-response contract.
     pub fn generated(
         &self,
     ) -> &bindings::EngineeringServiceClient<connectrpc::client::SharedHttp2Connection> {
@@ -308,7 +308,7 @@ impl bindings::EngineeringService for Implementation {
             message: crate::engineering_projection::encode_engineering_contract(output.document)
                 .map_err(study::projection_error)?,
             reservation: output.owner,
-            maximum_bytes: 16 << 20,
+            maximum_bytes: super::DOCUMENT_RESPONSE_BYTES,
         }))
     }
     async fn admit_source<'a>(

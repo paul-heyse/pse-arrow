@@ -19,6 +19,7 @@ workspace = true
 [features]
 engineering-service = ["dep:http-body"]
 property-coolprop = [
+  "dep:http-body",
   "pse-backend-native/coolprop",
   "pse-quantity/reference-package-projection",
 ]

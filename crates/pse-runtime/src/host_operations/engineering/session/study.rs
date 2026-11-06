@@ -141,7 +141,7 @@ impl EngineeringService {
             .try_grow(
                 pse_operations::canonical::MetadataResponse::Page
                     .allocation_bytes()
-                    .checked_add(4 * (16 << 20))
+                    .checked_add(4 * super::super::DOCUMENT_RESPONSE_BYTES)
                     .ok_or_else(|| resource("workbench response extent overflow"))?,
             )
             .map_err(owner)?;
@@ -157,7 +157,7 @@ impl EngineeringService {
         Ok(EngineeringStudyOutput {
             value,
             owner: reservation,
-            maximum_bytes: 16 << 20,
+            maximum_bytes: super::super::DOCUMENT_RESPONSE_BYTES,
         })
     }
 
@@ -266,8 +266,11 @@ impl EngineeringService {
         let Outcome::PreparedStudy(prepared) = operation.completed().await? else {
             return Err(request("original native study preparation is unavailable"));
         };
-        let extent = crate::workflow::bounded_study_document_extent(&prepared.definition, 16 << 20)
-            .map_err(owner)?;
+        let extent = crate::workflow::bounded_study_document_extent(
+            &prepared.definition,
+            super::super::DOCUMENT_RESPONSE_BYTES,
+        )
+        .map_err(owner)?;
         let encoding = self
             .shared
             .math()
@@ -282,7 +285,7 @@ impl EngineeringService {
         Ok(EngineeringStudyOutput {
             value: prepared.definition.clone(),
             owner: Arc::new((prepared, encoding)),
-            maximum_bytes: 16 << 20,
+            maximum_bytes: super::super::DOCUMENT_RESPONSE_BYTES,
         })
     }
 

@@ -10,6 +10,9 @@ pub use session::{
     EngineeringService, EngineeringServiceError, EngineeringStudyOutput,
 };
 
+/// Complete encoded ceiling for fixed contract, workbench and prepared-study documents.
+const DOCUMENT_RESPONSE_BYTES: usize = 16 << 20;
+
 /// Source-generated wire messages, constraints and independent client/service bindings.
 #[cfg(feature = "engineering-service")]
 pub mod generated;

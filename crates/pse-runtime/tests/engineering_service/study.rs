@@ -285,7 +285,6 @@ async fn phase_submit() {
     assert_eq!(repeated.preparation, prepared.preparation);
     let definition = codec::decode_study_definition(
         client
-            .generated()
             .read_prepared_study(pb::EngineeringOperationKey {
                 operation: prepared.operation.clone(),
                 ..Default::default()
@@ -381,7 +380,6 @@ async fn phase_submit() {
     );
     assert!(
         observer
-            .generated()
             .read_study_result(
                 codec::encode_engineering_read_study_result(EngineeringReadStudyResult {
                     operation: retired_capture.clone(),
@@ -818,7 +816,6 @@ async fn phase_complete() {
     // Original diagnostic relations can remain readable after scientific failure.
     // Their bytes never change the captured operation's unusable classification.
     match client
-        .generated()
         .read_study_result(
             codec::encode_engineering_read_study_result(selected(
                 usize::try_from(failed.position).unwrap(),
@@ -871,7 +868,6 @@ async fn phase_complete() {
     exhausted_extent.maximum_bytes = 1;
     assert!(
         client
-            .generated()
             .read_study_result(
                 codec::encode_engineering_read_study_result(exhausted_extent).unwrap()
             )
@@ -921,7 +917,6 @@ async fn phase_complete() {
     assert!(release.local_admission_closed);
     assert!(
         client
-            .generated()
             .read_study_result(
                 codec::encode_engineering_read_study_result(selected(
                     usize::try_from(usable.position).unwrap(),
@@ -995,7 +990,6 @@ pub(super) async fn read_result(
 ) -> EngineeringStudyResultPage {
     codec::decode_engineering_study_result_page(
         client
-            .generated()
             .read_study_result(codec::encode_engineering_read_study_result(input).unwrap())
             .await
             .unwrap()

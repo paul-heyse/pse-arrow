@@ -25,6 +25,32 @@ pub(super) const FRAME_LIMIT: usize = 1 << 20;
 pub(super) const DECODE_LIMIT: usize = 4 << 20;
 pub(super) const NATIVE_STACK: usize = 8 << 20;
 
+async fn binary_grpc<D, B>(
+    mut service: connectrpc::ConnectRpcService<D>,
+    request: http::Request<B>,
+) -> Result<http::Response<connectrpc::ConnectRpcBody>, std::convert::Infallible>
+where
+    D: connectrpc::Dispatcher,
+    B: http_body::Body<Data = bytes::Bytes> + Send + 'static,
+    B::Error: std::error::Error + Send + Sync + 'static,
+{
+    // Kernel parent authentication precedes creation of this HTTP service. Refuse
+    // unsupported protocols before body polling or library decode construction.
+    if request.method() != http::Method::POST
+        || request.version() != http::Version::HTTP_2
+        || !connectrpc::Protocol::detect(request.headers()).is_some_and(|protocol| {
+            protocol.protocol == connectrpc::Protocol::Grpc
+                && protocol.codec_format == connectrpc::CodecFormat::Proto
+        })
+    {
+        return Ok(connectrpc::ConnectError::unimplemented(
+            "local scientific worker operations require binary gRPC POST over HTTP/2",
+        )
+        .into_http_response(request.headers()));
+    }
+    service.call(request).await
+}
+
 /// ConnectRPC owns framing/codecs; this adapter owns the one authenticated H2
 /// sender, without Tower reconnect/buffer tasks or a detached connection driver.
 #[derive(Clone)]
@@ -998,10 +1024,8 @@ pub(super) fn serve_with_preparation(
                 .with_max_message_size(FRAME_LIMIT)
                 .with_element_memory_limit(DECODE_LIMIT),
         );
-        let service = hyper::service::service_fn(move |request| {
-            let mut service = service.clone();
-            service.call(request)
-        });
+        let service =
+            hyper::service::service_fn(move |request| binary_grpc(service.clone(), request));
         let mut builder =
             hyper::server::conn::http2::Builder::new(hyper_util::rt::TokioExecutor::new());
         // One numerical request and one bounded control request may coexist. Native
@@ -1123,6 +1147,136 @@ fn perturb_response_for_test(mut response: p::Response) -> p::Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct ObservedIngress {
+        reads: Arc<std::sync::atomic::AtomicUsize>,
+        frame: Option<bytes::Bytes>,
+    }
+    impl http_body::Body for ObservedIngress {
+        type Data = bytes::Bytes;
+        type Error = std::convert::Infallible;
+        fn poll_frame(
+            self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Option<Result<http_body::Frame<Self::Data>, Self::Error>>> {
+            let body = self.get_mut();
+            body.reads.fetch_add(1, Ordering::SeqCst);
+            std::task::Poll::Ready(
+                body.frame
+                    .take()
+                    .map(|frame| Ok(http_body::Frame::data(frame))),
+            )
+        }
+    }
+
+    #[tokio::test]
+    async fn scientific_worker_ingress_rejects_nonbinary_protocols_before_body_or_dispatch() {
+        use http_body_util::BodyExt as _;
+        use std::sync::atomic::AtomicUsize;
+        let calls = Arc::new(AtomicUsize::new(0));
+        let observed = calls.clone();
+        let router = connectrpc::Router::new().route::<_, pb::Request, pb::Response>(
+            "pse.scientific_worker.v1.ScientificWorker",
+            "Exchange",
+            connectrpc::handler::handler_fn(move |_, _: pb::Request| {
+                observed.fetch_add(1, Ordering::SeqCst);
+                async { Ok(connectrpc::Response::new(pb::Response::default())) }
+            }),
+        );
+        let service = connectrpc::ConnectRpcService::new(router).with_limits(
+            connectrpc::Limits::default()
+                .with_max_request_body_size(FRAME_LIMIT)
+                .with_max_message_size(FRAME_LIMIT)
+                .with_element_memory_limit(DECODE_LIMIT),
+        );
+        for (method, version, content_type) in [
+            (
+                http::Method::POST,
+                http::Version::HTTP_2,
+                Some("application/json"),
+            ),
+            (
+                http::Method::POST,
+                http::Version::HTTP_2,
+                Some("application/proto"),
+            ),
+            (
+                http::Method::POST,
+                http::Version::HTTP_2,
+                Some("application/connect+proto"),
+            ),
+            (
+                http::Method::POST,
+                http::Version::HTTP_2,
+                Some("application/grpc+json"),
+            ),
+            (
+                http::Method::POST,
+                http::Version::HTTP_2,
+                Some("application/grpc-web+proto"),
+            ),
+            (
+                http::Method::POST,
+                http::Version::HTTP_2,
+                Some("application/grpc-web-text+proto"),
+            ),
+            (http::Method::GET, http::Version::HTTP_2, None),
+            (
+                http::Method::PUT,
+                http::Version::HTTP_2,
+                Some("application/grpc+proto"),
+            ),
+            (
+                http::Method::POST,
+                http::Version::HTTP_11,
+                Some("application/grpc+proto"),
+            ),
+            (http::Method::POST, http::Version::HTTP_2, None),
+        ] {
+            let reads = Arc::new(AtomicUsize::new(0));
+            let mut request = http::Request::builder()
+                .method(method)
+                .version(version)
+                .uri("/pse.scientific_worker.v1.ScientificWorker/Exchange");
+            if let Some(content_type) = content_type {
+                request = request.header(http::header::CONTENT_TYPE, content_type);
+            }
+            let request = request
+                .body(ObservedIngress {
+                    reads: reads.clone(),
+                    frame: Some(bytes::Bytes::from_static(&[0, 0, 0, 0, 0])),
+                })
+                .unwrap();
+            let response = binary_grpc(service.clone(), request).await.unwrap();
+            assert_eq!(reads.load(Ordering::SeqCst), 0);
+            assert_eq!(calls.load(Ordering::SeqCst), 0);
+            if content_type == Some("application/grpc+json") {
+                assert_eq!(response.headers()["grpc-status"], "12");
+            }
+        }
+        for content_type in [
+            "application/grpc",
+            "application/grpc+proto",
+            "application/grpc+proto; charset=utf-8",
+        ] {
+            let reads = Arc::new(AtomicUsize::new(0));
+            let request = http::Request::builder()
+                .method("POST")
+                .version(http::Version::HTTP_2)
+                .uri("/pse.scientific_worker.v1.ScientificWorker/Exchange")
+                .header(http::header::CONTENT_TYPE, content_type)
+                .body(ObservedIngress {
+                    reads: reads.clone(),
+                    frame: Some(bytes::Bytes::from_static(&[0, 0, 0, 0, 0])),
+                })
+                .unwrap();
+            let response = binary_grpc(service.clone(), request).await.unwrap();
+            let collected = response.into_body().collect().await.unwrap();
+            assert_eq!(collected.trailers().unwrap()["grpc-status"], "0");
+            assert!(reads.load(Ordering::SeqCst) > 0);
+        }
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+    }
 
     struct GatedShutdownWrites {
         stream: tokio::net::UnixStream,

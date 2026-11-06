@@ -228,7 +228,6 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         .await
         .unwrap();
     let described = client
-        .generated()
         .describe_contract(pb::EngineeringDescribeRequest::default())
         .await
         .unwrap()
@@ -377,7 +376,6 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
     )
     .unwrap();
     let original_file = client
-        .generated()
         .read_source_file(pb::EngineeringReadSourceFile {
             source_operation: replaced_operation.clone(),
             request: file_request.into(),
@@ -507,7 +505,6 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         )
         .unwrap();
     let final_file = client
-        .generated()
         .read_source_file(pb::EngineeringReadSourceFile {
             source_operation: removed_operation.clone(),
             request: final_file_request.into(),
@@ -615,7 +612,6 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         .into_owned();
     assert_eq!(repeated.run, finished.run);
     let output = reconnected
-        .generated()
         .read_result(pb::EngineeringReadResult {
             operation: submit.operation,
             run: submit.run,
@@ -698,7 +694,6 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         )
         .unwrap();
         let published = reconnected
-            .generated()
             .read_result(pb::EngineeringReadResult {
                 operation: key.operation.clone(),
                 run: key.run.clone(),
