@@ -1098,7 +1098,7 @@ mod refinement_tests {
         for invalid in 0..3 {
             let mut changed = reconstructed.clone();
             let Outcome::Constant(report) = &mut changed else {
-                unreachable!()
+                panic!("cloning original reconstruction must preserve its outcome kind")
             };
             match invalid {
                 0 => report.coordinates[0].0 = SemanticId::NIL,
