@@ -6,7 +6,8 @@
 mod source_bindings;
 pub(crate) use source_bindings::SourceWorker;
 pub use source_bindings::{
-    ExecutionAttribution, ExecutionAttributionSnapshot, SourceBindings, SourceBody,
+    AttributionExtents, AttributionTransferError, ExecutionAttribution,
+    ExecutionAttributionSnapshot, SourceBindings, SourceBody,
 };
 
 use crate::{
