@@ -188,8 +188,10 @@ FeedFlash delivery, source-driven adapter helper imports, original failed-rerun 
 checkout-aware StudyModule preparation hint. The recorded-result consumer cutover and combined
 regeneration and finite pure-source recorded-result bootstrap are integrated. The latter passed
 its selected generator, ordinary and service controls in its owning checkout; general runtime-root
-bootstrap remains open. Full combined generation subsequently passed fifteen targets on main;
-ordinary/service receiving remains a distinct check of that integrated world.
+bootstrap remains open. Full combined generation subsequently passed fifteen targets on main.
+Main then passed six generator controls and nineteen ordinary-result/developer-query controls
+with `engineering-service` excluded, zero failures/pending/build warnings and complete original
+capture/settlement; service receiving is a separate selected check of that integrated world.
 
 C01's reproduced compiler/solver refusal came from the selected standalone compiler receipt
 still referencing the old contracts checkout's `.config/native-cache.cmake`. Existing source

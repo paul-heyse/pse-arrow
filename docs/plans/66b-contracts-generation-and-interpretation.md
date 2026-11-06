@@ -94,8 +94,10 @@ early generation route while the old adapter still described the prior shape; th
 the original declaration and regenerated before integration. Independent Buf encoding agrees with
 the original recorded-result golden bytes. The early/full descriptor pools remain separate, and
 the finite graph rejects future transitive re-registration outside its supported imported cut.
-General runtime-root bootstrap is still open. Combined main generation and receiving are separate
-from those branch checks.
+General runtime-root bootstrap is still open. Full combined `just codegen` passed fifteen targets
+on main. Main's six selected generator controls and nineteen ordinary-result/developer-query
+controls subsequently passed, zero failures/pending/build warnings; the ordinary receiving excludes
+`engineering-service`. The service receiving closure remains separate from these passes.
 
 The existing `xtask/src/codegen/proto_projection/composition.rs` already composes the complete
 typed request, Buffa corpus, maintained validators and service generation. Retain that foundation.
