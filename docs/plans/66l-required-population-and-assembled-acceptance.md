@@ -83,7 +83,7 @@ or cold-build interruption cannot establish or refute whole-operation benefit.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| L01 | planned | Immutable source census; current native cases and exact evidence; G–K inputs | Close configured executable population, inherited/callable expansions, ordinary inputs/envelopes and remaining holds. Record each remaining case at its delivery owner, retaining source attribution without a duplicate status ledger. |
+| L01 | in-progress | Immutable source census; current native cases and exact evidence; G–K inputs | Initial case/input roles supplied to G–K: FeedFlash seed witnesses need ordinary-BT consumption; existing CSTR feed/initial state is oracle input; costing arithmetic retains unknown/extrapolated support. Final configured executable denominator and remaining holds stay open. |
 | L02 | planned | A/B/C/E narrow working contracts; F developer evidence | Demonstrate scientific admission→execution→scoped products→protected independent read and developer refusal/failure→preparation→original full evidence→inspection→valid rerun. Exercise cancellation/lost ACK with actual drain. |
 | L03 | planned | Functional scope integrated across A–K; L01 denominator | Run selected integration/component/native/service/database/reference journeys and required static/manual checks, resolve failures against zero, and reconcile exact supported conditions and unavailable work. |
 | L04 | planned | Selected mechanism and matching baseline/workload | Measure material complete-operation benefit claims; record conditions and limitations. Unselected enhancements need no invented performance campaign. |

@@ -14,6 +14,19 @@ previous selection. Help, activation and reads never rebuild. A missing host req
 preparation; an effectful new-work command refreshes an existing stale host before admission.
 Existing invocation wait/cancel uses its recorded identities without a current-source rebuild.
 
+If a tool session is outside a unit known to the user manager, foreground admission can
+refuse with `NoUnitForPID`. Launch through an ordinary transient user scope with a real
+parent shell that waits for the command:
+
+```bash
+systemd-run --user --scope --quiet bash -c '"$@" & child=$!; wait "$child"' pse-launch scripts/pse check pse-host --all-targets
+```
+
+The waiting parent preserves the original scope while the native boundary moves its controller
+into the owned workload. Launching a lone `exec` in a dedicated scope can correctly refuse
+because that move would empty the original lifetime unit. This route retains native membership,
+containment and settlement checks; it does not substitute a scope marker for authentication.
+
 When an intentional host dependency edit requires a lockfile change, the stale host cannot
 rebuild with `--locked` before that change exists. Refresh only the named workspace packages
 with pinned-toolchain Cargo directly, for example `cargo update -p pse-host -p xtask`, under

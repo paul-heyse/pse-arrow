@@ -176,6 +176,47 @@ Native build width, incremental compilation and compiler caches remain in force.
 
 ## Verification, current outcome and cleanup handoff
 
+### Execution resumed — November6
+
+The maintainer authorized implementation of the full execution approach. Work is active on
+main and three current-main-based branches in the existing warm checkout directories:
+`p66-results` owns B01/B03/E02 generation and actual export/read consumers; `p66-science`
+owns the FeedFlash/ordinary-input delivery and subsequent ready physics; `p66-host` owns
+semantic comparison and original evidence delivery. Original candidate branches retain
+their frozen changes. No older plan branch is merged wholesale.
+
+C01's reproduced compiler/solver refusal came from the selected standalone compiler receipt
+still referencing the old contracts checkout's `.config/native-cache.cmake`. Existing source
+correctly refused that old preparation. Explicit compiler preparation selected a fresh immutable
+native-cache bridge; root compiler/solver selection and nested selection then succeeded with
+normal incremental/compiler caching. Combined compiler/KLU selection already succeeded.
+Cross-worktree receiving remains in progress; no identity check was relaxed and no product
+source correction is inferred from refreshing a stale receipt.
+
+**Tested, targeted:** `scripts/pse test pse-host --lib -E 'test(native_cache_bridge_) |
+test(native_selection_) | test(providers_compiler_)'`, launched under an authenticated user
+scope with a waiting parent, selected **9 tests, zero failures/pending**, with complete original
+capture and settlement (invocation `01a1b207-2e53-7503-a750-42bca21d1b47`). This exercises the
+existing cache/identity/reentry controls, not the complete C or Plan66 population. Initial
+bare and lone-scope launches refused before tests; the environment guide records the supported
+surviving-parent route. Generation has entered compilation after explicit receipt refresh.
+
+L01 supplied initial source/input distinctions to the scientific lane: ordinary-BT admits
+separate physical data/conventions; the FeedFlash seed and existing ControlledCSTR oracle-input
+records cannot silently qualify ordinary delivery. Existing exchanger costing retains its
+explicit unknown-area/extrapolated-pressure meaning. Required configurations and held inputs
+remain in the denominator; this is an initial handoff, not its final closure.
+
+C02 will also record the finite installed-service-profile decision against the actual
+independent client. C04 will record process isolation versus a versioned native ABI against a
+named distribution consumer. These are bounded decisions within the existing coordinator
+crosswalk; retaining current mechanisms with reasons is valid and adds no mandatory platform.
+
+The first result unit will leave general future recorded-root shape bootstrap explicitly open
+if it establishes only current source-forward generation. An additive feature that disables
+production adapters across the unified workspace is not an acceptable shortcut. No full
+qualification, Clippy or performance campaign has started.
+
 **Proposed verification:** package-local compile/targeted functional controls during execution;
 generation with declaration changes; independent native/scientific/operational journeys and
 static/manual checks at functional scope end under L. Every claimed benefit names its measured
