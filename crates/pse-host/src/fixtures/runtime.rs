@@ -314,6 +314,8 @@ fn construction_inputs(environment: &Environment) -> Environment {
                         | "RUSTUP_HOME"
                         | "RUSTC"
                         | "RUSTDOC"
+                        | "RUSTC_WRAPPER"
+                        | "RUSTC_WORKSPACE_WRAPPER"
                         | "RUSTFLAGS"
                         | "RUSTDOCFLAGS"
                         | "CARGO_ENCODED_RUSTFLAGS"
@@ -831,6 +833,44 @@ mod tests {
         generation::SourceFingerprint::from_metadata_for(root, &metadata, context, "xtask").unwrap()
     }
     #[test]
+    fn runtime_construction_retains_original_cache_selection_across_reentry() {
+        let original = Environment::from([
+            ("RUSTC_WRAPPER".into(), "/tools/sccache".into()),
+            ("PSE_NATIVE_COMPILER_CACHE".into(), "/tools/sccache".into()),
+            (
+                "CMAKE_TOOLCHAIN_FILE".into(),
+                "/checkout/native-cache.cmake".into(),
+            ),
+            (
+                "RUSTC_WORKSPACE_WRAPPER".into(),
+                "/tools/workspace-wrapper".into(),
+            ),
+            ("PSE_MANAGED_INVOCATION".into(), "one invocation".into()),
+        ]);
+        let selected = construction_inputs(&original);
+        for name in [
+            "RUSTC_WRAPPER",
+            "RUSTC_WORKSPACE_WRAPPER",
+            "PSE_NATIVE_COMPILER_CACHE",
+            "CMAKE_TOOLCHAIN_FILE",
+        ] {
+            assert_eq!(
+                selected.get(OsStr::new(name)),
+                original.get(OsStr::new(name)),
+                "{name}"
+            );
+        }
+        assert!(!selected.contains_key(OsStr::new("PSE_MANAGED_INVOCATION")));
+        assert_eq!(construction_inputs(&selected), selected);
+
+        let mut off = original;
+        off.insert("RUSTC_WRAPPER".into(), "".into());
+        assert_eq!(
+            construction_inputs(&off)[OsStr::new("RUSTC_WRAPPER")],
+            OsStr::new("")
+        );
+    }
+    #[test]
     fn runtime_current_context_refuses_changed_compiler_native_flags_and_features() {
         let temp = tempfile::tempdir().unwrap();
         let original = Environment::from([
@@ -867,6 +907,8 @@ mod tests {
         );
         for (name, value) in [
             ("CFLAGS", "-O3"),
+            ("RUSTC_WRAPPER", "/changed/cache-wrapper"),
+            ("RUSTC_WORKSPACE_WRAPPER", "/changed/workspace-wrapper"),
             ("PSE_KLU_PROVIDER_RECEIPT", "/native/changed/.complete.json"),
             ("RUSTFLAGS", "--cfg changed"),
             (
