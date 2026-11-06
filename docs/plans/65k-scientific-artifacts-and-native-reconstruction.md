@@ -862,8 +862,10 @@ Review of the final stable revision closes that finding without other material i
 compiler/KLU and compiled evaluators/KINSOL; default and native math/backend all-target checks
 report zero errors/warnings. They include actual asymmetric CSC/JVP, core-only KINSOL after
 sourceful problem death, offsets, shared/Weak ownership, cleanup and cache-loan success/cancel.
-Receiving-main verification is in progress. Complete snapshot restoration and private-child
-activation remain separate and unclaimed.
+**Tested on receiving main:** the same `pse test pse-math pse-backend-native --lib --profile
+local --features pse-math/compiled-evaluator,pse-backend-native/kinsol -E 'test(implicit::)'`
+selection passes 101/101 against zero failures with native compiler/KLU, unbounded/cache-off
+placement and complete capture/settlement. Private-child activation remains separate.
 
 The supplier prerequisite `517730bce` is now merged. Its
 [`ExpressionEvaluator<f64>::f64_transfer`](../../vendor/symbolica/src/evaluate/f64_transfer.rs)
@@ -889,8 +891,42 @@ tests or warnings; root-lock `pse-math` all-target compilation reports zero erro
 Standalone Rug 1.29 and repository Rug 1.30 remain distinct unchanged locks. Independent read-only
 review found no material loader/correspondence issue and checked all 159 source receipt paths,
 hashes and modes; it did not repeat the executor's archive reapplication or tests. Complete native
-stage snapshots, derived native allowances/census, checked restoration and child activation are
-the next distinct package. No decoded program or successful supplier inspection grants them.
+stage restoration and child activation remain distinct from supplier inspection.
+
+The native snapshot prerequisite `41071b985` and its sizing prerequisite `0e95f1b0d` are now
+integrated on main. The source-owned
+[`ExecutionSnapshot` and `StageSnapshot`](../../crates/pse-math/src/execution/transfer.rs)
+retain every Value/First signature, sparse coefficient layout, supplier program, gather/scatter,
+check range, Domain, Applicability plan and Branch arm in the table above. `capture` measures
+actual populations before its admission callback; `restore` consumes ownership-bound passive
+input, validates indices/layouts/supplier dataflow, and creates a cold `CheckedExecution` over
+the existing numerical engine. It retains passive-input, restored-allocation and construction
+owners through actual frame drain. Actual capacities contribute to input-overlap pricing;
+serialized limits and counts confer no allocation permission. Native/JIT blocks, providers,
+directional products and Second demand explicitly refuse this fixed profile.
+
+Supplier `F64ProgramView::operation_count` shares allocation-free checked instruction counting
+with the original native view. Existing applicability
+[`Node::checked_capture_extents` and scratch validation](../../crates/pse-model/src/applicability.rs)
+own plan populations, observation backing and validation rules; the transfer consumer does not
+reimplement them. Checked
+[`JetLayoutSnapshot` restoration](../../crates/pse-math/src/jets.rs) preserves coefficient and
+sparse slot indexing. Snapshot controls exposed an existing direct-input output bug in
+`numeric_slots`: input roots without an arithmetic writer could lose their derivative slot.
+The producer now retains the remaining needed input roots; independent raw and physically typed
+Value/First/Second controls require the identity derivative to be one.
+
+Independent read-only review of the stable native snapshot and adjacent owners found no material
+issues. **Tested:** isolated default and compiled all-target checks report zero errors/warnings;
+focused populations pass 40/40 and 41/41 respectively. On receiving main, `pse test pse-math
+pse-model --lib --profile local --features pse-math/compiled-evaluator -E
+'test(execution::transfer::) | test(applicability::tests::) | test(identity)'` passes 43/43 against
+zero failures with native compiler/KLU, unbounded/cache-off placement and complete capture and
+settlement. This covers nested guards/evidence/branches, asymmetric/sparse correspondence,
+structural zero versus gathered NaN, malformed metadata, denied growth, cancellation and owner
+lifetimes. Runtime still separately owes pre-admitted decoded DTO/conversion storage, actual
+wire-depth qualification, root/attribution/attempt binding and the private-child cutover. The
+native stage depth of 512 grants no Buffa wire or Rust call-stack allowance.
 
 Sources: [parent preparation and child path](../../crates/pse-runtime/src/math/native_child.rs),
 [compiled stages/order selection/worker](../../crates/pse-math/src/execution.rs),

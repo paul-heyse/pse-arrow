@@ -413,6 +413,21 @@ steam/pump, fitting, session/RPC and retained-result controls; it does not run t
 ordinary native/reference comparisons or qualify later root-core/snapshot changes. The preceding
 refusals remain no-test-body evidence, not passing attempts.
 
+The subsequent root-core/backend receiving selection passes **101/101** with compiled
+evaluators/KINSOL, native compiler/KLU, unbounded/cache-off placement and complete capture and
+settlement: `scripts/pse test pse-math pse-backend-native --lib --profile local --features
+pse-math/compiled-evaluator,pse-backend-native/kinsol -E 'test(implicit::)'`. Its source-free core,
+actual asymmetric native CSC/JVP and alias-before-effect controls do not activate child transfer.
+The following native snapshot/applicability/identity receiving selection passes **43/43**:
+`scripts/pse test pse-math pse-model --lib --profile local --features
+pse-math/compiled-evaluator -E 'test(execution::transfer::) | test(applicability::tests::) |
+test(identity)'`, under the same placement with complete capture/settlement. Both selections
+have zero failures, retries or incomplete records. Stable snapshot review found no material
+issues; [65k](65k-scientific-artifacts-and-native-reconstruction.md#live-admitted-body-delegation)
+owns its functionality and separate runtime admission/cutover obligations. The five ordinary
+native/reference comparisons and canonical readback are executing on their preceding isolated
+RootExecution baseline; no result is claimed before those original runs settle.
+
 ## Completion and enduring meaning
 
 Series completion requires every selected actual consumer, all required failure controls,

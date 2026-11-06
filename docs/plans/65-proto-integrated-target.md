@@ -734,12 +734,14 @@ pass. Execution-attribution extraction passes eleven receiving controls while pr
 original weak-source checks. Numerical frame extraction is merged and its receiving selection
 passes 102/102. The checked supplier f64 loader is merged with its narrow source-backed profile
 and twelve-control acceptance. Root-core/backend extraction is also merged; its receiving
-verification proceeds after the isolated 101-control pass and closed independent review finding.
+selection passes 101/101 after the closed independent review finding.
 The preceding scientific/runtime selection passes 111/111 with matching four-profile fixture
-preparation and complete capture/settlement. Complete native template snapshot/restoration and
-five ordinary native/reference comparisons now proceed in isolated worktrees; actual new child
-acceptance follows their concrete interfaces. Complete native restoration and private-child
-activation remain unclaimed.
+preparation and complete capture/settlement. Complete native template snapshot/restoration is
+merged and its receiving selection passes 43/43; independent review found no material issues.
+Root-definition/attribution restoration, generated crossing and five ordinary native/reference
+comparisons now proceed in isolated packages; actual new child acceptance follows their concrete
+interfaces. Private-child activation remains unclaimed. The detailed mechanisms and remaining
+admission obligations stay in [65k](65k-scientific-artifacts-and-native-reconstruction.md#live-admitted-body-delegation).
 
 The next integration milestone is the scientific admission/execution/selected-read journey
 and developer failed-report/export/exact-rerun journey, followed by complete selected Proto
