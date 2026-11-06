@@ -77,6 +77,7 @@ pse-contract.workspace = true
 pse-contract-proto = { workspace = true, features = ["crossings"] }
 pse-host.workspace = true
 buffa.workspace = true
+base64.workspace = true
 buffa-descriptor.workspace = true
 buffa-types.workspace = true
 connectrpc = { workspace = true, features = ["client", "server"] }
@@ -162,7 +163,6 @@ chrono.workspace = true
 
 [dev-dependencies]
 http-body-util.workspace = true
-base64.workspace = true
 proptest.workspace = true
 uuid.workspace = true
 pse-operations = { workspace = true, features = ["test-support"] }
