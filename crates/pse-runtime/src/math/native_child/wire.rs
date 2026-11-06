@@ -8,11 +8,82 @@ use crate::math::{
 };
 use buffa::Message as _;
 use pse_contract_proto::support::BoundaryProjectionError;
+use pse_math::transfer::{ExecutionSnapshot, StageSnapshot};
+
+const MESSAGE_DEPTH_LIMIT: u32 = 64;
 
 pub(super) trait Frame: Sized {
     type Wire: buffa::Message;
     fn into_wire(self) -> Result<Self::Wire, BoundaryProjectionError>;
     fn from_wire(wire: Self::Wire) -> Result<Self, BoundaryProjectionError>;
+    fn preflight(&self) -> Result<(), MathRuntimeError> {
+        Ok(())
+    }
+}
+
+impl Frame for ExecutionSnapshot {
+    type Wire = pb::MathExecutionSnapshot;
+    fn into_wire(self) -> Result<Self::Wire, BoundaryProjectionError> {
+        native_projection::encode_math_execution_snapshot(self)
+    }
+    fn from_wire(wire: Self::Wire) -> Result<Self, BoundaryProjectionError> {
+        native_projection::decode_math_execution_snapshot(wire)
+    }
+    fn preflight(&self) -> Result<(), MathRuntimeError> {
+        snapshot_depth(self, 0)
+    }
+}
+
+// Bound the native walk before generated validation, conversion and size traversal.
+// Stage/Node recursion is distinct from the fixed leaf records. Reserve eight
+// message levels for those records (layouts, tuples, lineage, claims, permissions),
+// including optional/alternative carriers. The profile deliberately admits a
+// subset of the native 512-stage envelope; its codec still has only 64 levels.
+fn snapshot_depth(
+    snapshot: &ExecutionSnapshot,
+    enclosing_depth: u32,
+) -> Result<(), MathRuntimeError> {
+    fn leaf(depth: u32) -> Result<(), MathRuntimeError> {
+        if depth + 8 > MESSAGE_DEPTH_LIMIT {
+            Err(MathRuntimeError::Limit("native snapshot wire nesting"))
+        } else {
+            Ok(())
+        }
+    }
+    fn node(plan: &pse_model::applicability::Node, depth: u32) -> Result<(), MathRuntimeError> {
+        leaf(depth)?;
+        for dependency in &plan.dependencies {
+            node(dependency, depth + 1)?;
+        }
+        if let pse_model::applicability::Region::Union(alternatives) = &plan.region {
+            for alternative in alternatives {
+                node(alternative, depth + 3)?;
+            }
+        }
+        Ok(())
+    }
+    fn stages(program: &[StageSnapshot], depth: u32) -> Result<(), MathRuntimeError> {
+        leaf(depth)?;
+        for stage in program {
+            match stage {
+                StageSnapshot::Block(_) | StageSnapshot::Require { .. } => {}
+                StageSnapshot::Domain(domain) => stages(&domain.stages, depth + 3)?,
+                StageSnapshot::Applicability(application) => {
+                    node(&application.plan, depth + 3)?;
+                    stages(&application.stages, depth + 3)?;
+                }
+                StageSnapshot::Branch {
+                    then, otherwise, ..
+                } => {
+                    stages(then, depth + 2)?;
+                    stages(otherwise, depth + 2)?;
+                }
+            }
+        }
+        Ok(())
+    }
+    stages(&snapshot.value, enclosing_depth + 1)?;
+    stages(&snapshot.first, enclosing_depth + 1)
 }
 macro_rules! frame {
     ($native:ty, $wire:ty, $encode:ident, $decode:ident) => {
@@ -56,6 +127,7 @@ fn correspondence(error: BoundaryProjectionError) -> MathRuntimeError {
     NativeRootWireError::Projection(error.into()).into_runtime()
 }
 pub(super) fn encode<T: Frame>(value: T, limit: usize) -> Result<Vec<u8>, MathRuntimeError> {
+    value.preflight()?;
     // The generated helper checks native rules before moving this owned data into the wire form.
     // Whole recipe/registry/numeric buffers are never cloned merely to frame them.
     let wire = value.into_wire().map_err(correspondence)?;
@@ -73,7 +145,7 @@ pub(super) fn decode<T: Frame>(bytes: &[u8], limit: usize) -> Result<T, MathRunt
     let wire = buffa::DecodeOptions::new()
         .with_max_message_size(limit)
         .with_element_memory_limit(elements)
-        .with_recursion_limit(64)
+        .with_recursion_limit(MESSAGE_DEPTH_LIMIT)
         .with_unknown_field_limit(256)
         .decode_from_slice::<T::Wire>(bytes)
         .map_err(|error| NativeRootWireError::Decode(error).into_runtime())?;

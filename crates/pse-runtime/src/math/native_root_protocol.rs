@@ -139,6 +139,9 @@ pub struct Response {
 /// Actual source-owned closed-root records; a schema walk never reconstructs scientific authority.
 pub fn projection_graph() -> Result<ProjectionGraph, ProjectionError> {
     let mut graph = ProjectionGraph::of::<RootInput>()?;
+    // Numerical correspondence has its own passive root. Register the actual owner
+    // rather than duplicating its recursively nested stages in the runtime DTO.
+    graph.register::<pse_math::transfer::ExecutionSnapshot>()?;
     graph.register::<Hello>()?;
     graph.register::<Request>()?;
     graph.register::<Response>()?;
@@ -152,6 +155,10 @@ mod tests {
     fn private_native_source_graph_uses_actual_typed_context_and_platform_data() {
         let graph = projection_graph().unwrap();
         for name in [
+            "MathExecutionSnapshot",
+            "MathStageSnapshot",
+            "MathBlockSnapshot",
+            "MathApplicabilitySnapshot",
             "NativeRootInput",
             "NativeRootHello",
             "NativeRootRequest",

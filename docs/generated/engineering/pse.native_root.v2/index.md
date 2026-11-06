@@ -36,6 +36,20 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `value` | 2 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
 | `quantity_type` | 3 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
 
+## `ApplicabilityNode`
+
+Rust owner: `pse_model::applicability::Node`. Source: `crates/pse-model/src/applicability.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `claim` | 1 | `Named("ApplicabilityClaim")` | `Both` | `[]` | `{}` |
+| `region` | 2 | `Named("ApplicabilityRegion")` | `Both` | `[]` | `{}` |
+| `dependencies` | 3 | `Repeated(Named("ApplicabilityNode"))` | `Both` | `[]` | `{}` |
+| `inputs` | 4 | `Repeated(Named("Tuple3OfStringAndUsizeAndSemanticId"))` | `Both` | `[]` | `{}` |
+| `permissions` | 5 | `Repeated(Named("ApplicabilityPermission"))` | `Both` | `[]` | `{}` |
+
 ## `ApplicabilityObservation`
 
 Rust owner: `pse_model::applicability::Observation`. Source: `crates/pse-model/src/applicability.rs`. Interpretation version: 1. Direction: `Both`.
@@ -68,6 +82,19 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `targets` | 4 | `Repeated(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
 | `allow_unknown` | 5 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
 | `allow_extrapolation` | 6 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+
+## `ApplicabilityRegion`
+
+Rust owner: `pse_model::applicability::Region`. Source: `crates/pse-model/src/applicability.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Predicate (alternative tag 1).predicate` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `Unrestricted` | 2 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Unknown` | 3 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Union (alternative tag 4).alternatives` | 1 | `Repeated(Named("ApplicabilityNode"))` | `Both` | `[]` | `{}` |
 
 ## `Array16U8`
 
@@ -401,6 +428,18 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
 
+## `KernelDerivativeOrder`
+
+Rust owner: `pse_kernels::DerivativeOrder`. Source: `crates/pse-kernels/src/lib.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Value` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `First` | 2 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Second` | 3 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+
 ## `KindDefinition`
 
 Rust owner: `pse_quantity::kind::KindDefinition`. Source: `crates/pse-quantity/src/kind.rs`. Interpretation version: 1. Direction: `Both`.
@@ -427,6 +466,44 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `kind` | 1 | `Named("QuantityKindId")` | `Both` | `[]` | `{}` |
 | `exponent` | 2 | `Named("PhysicalRatio")` | `Both` | `[]` | `{}` |
 
+## `MathApplicabilitySnapshot`
+
+Rust owner: `pse_math::execution::transfer::ApplicabilitySnapshot`. Source: `crates/pse-math/src/execution/transfer.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `stages` | 1 | `Repeated(Named("MathStageSnapshot"))` | `Both` | `[]` | `{}` |
+| `frame` | 2 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `reads` | 3 | `Repeated(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `layout` | 4 | `Named("MathJetLayoutSnapshot")` | `Both` | `[Required]` | `{}` |
+| `predicates` | 5 | `Repeated(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `inputs` | 6 | `Repeated(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `token` | 7 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `plan` | 8 | `Named("ApplicabilityNode")` | `Both` | `[Required]` | `{}` |
+
+## `MathBlockSnapshot`
+
+Rust owner: `pse_math::execution::transfer::BlockSnapshot`. Source: `crates/pse-math/src/execution/transfer.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `program` | 1 | `Scalar(Bytes)` | `Both` | `[]` | `{}` |
+| `resettable` | 2 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `components` | 3 | `Repeated(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `inputs` | 4 | `Repeated(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `outputs` | 5 | `Repeated(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `gather` | 6 | `Repeated(Named("Tuple2OfUsizeAndUsize"))` | `Both` | `[]` | `{}` |
+| `scatter` | 7 | `Repeated(Named("Tuple2OfUsizeAndOptionalUsize"))` | `Both` | `[]` | `{}` |
+| `arguments` | 8 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `values` | 9 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `source` | 10 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `checks` | 11 | `Repeated(Named("MathSourceCheckSnapshot"))` | `Both` | `[]` | `{}` |
+| `checked_ends` | 12 | `Repeated(Scalar(U64))` | `Both` | `[]` | `{}` |
+
 ## `MathBodySpec`
 
 Rust owner: `pse_math::binding::BodySpec`. Source: `crates/pse-math/src/binding.rs`. Interpretation version: 1. Direction: `Both`.
@@ -442,6 +519,47 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `providers` | 5 | `Repeated(Scalar(ContentHash))` | `Both` | `[]` | `{}` |
 | `policy` | 6 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
 
+## `MathComparison`
+
+Rust owner: `pse_math::guarded::Comparison`. Source: `crates/pse-math/src/guarded.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Eq` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Ne` | 2 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Lt` | 3 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Le` | 4 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+
+## `MathCondition`
+
+Rust owner: `pse_math::guarded::Condition`. Source: `crates/pse-math/src/guarded.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Positive` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Nonnegative` | 2 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Nonzero` | 3 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+
+## `MathDomainSnapshot`
+
+Rust owner: `pse_math::execution::transfer::DomainSnapshot`. Source: `crates/pse-math/src/execution/transfer.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `stages` | 1 | `Repeated(Named("MathStageSnapshot"))` | `Both` | `[]` | `{}` |
+| `frame` | 2 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `reads` | 3 | `Repeated(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `layout` | 4 | `Named("MathJetLayoutSnapshot")` | `Both` | `[Required]` | `{}` |
+| `argument` | 5 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `token` | 6 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `lineage` | 7 | `Named("ModelValidityLineage")` | `Both` | `[Required]` | `{}` |
+
 ## `MathEvaluationLimits`
 
 Rust owner: `pse_math::jets::EvaluationLimits`. Source: `crates/pse-math/src/jets.rs`. Interpretation version: 1. Direction: `Both`.
@@ -454,6 +572,77 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `operations` | 2 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
 | `scratch_bytes` | 3 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
 | `provider_calls` | 4 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
+
+## `MathExecutionSnapshot`
+
+Rust owner: `pse_math::execution::transfer::ExecutionSnapshot`. Source: `crates/pse-math/src/execution/transfer.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 1, max: 1 }]` | `{}` |
+| `inputs` | 2 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `input_formals` | 3 | `Repeated(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `coordinate_offsets` | 4 | `Repeated(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `slots` | 5 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `outputs` | 6 | `Repeated(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `limits` | 7 | `Named("MathEvaluationLimits")` | `Both` | `[Required]` | `{}` |
+| `value_layout` | 8 | `Named("MathJetLayoutSnapshot")` | `Both` | `[Required]` | `{}` |
+| `first_layout` | 9 | `Named("MathJetLayoutSnapshot")` | `Both` | `[Required]` | `{}` |
+| `first_rows` | 10 | `Repeated(Named("Tuple2OfUsizeAndUsize"))` | `Both` | `[]` | `{}` |
+| `first_axes` | 11 | `Repeated(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `value` | 12 | `Repeated(Named("MathStageSnapshot"))` | `Both` | `[]` | `{}` |
+| `first` | 13 | `Repeated(Named("MathStageSnapshot"))` | `Both` | `[]` | `{}` |
+
+## `MathJetLayoutSnapshot`
+
+Rust owner: `pse_math::jets::JetLayoutSnapshot`. Source: `crates/pse-math/src/jets.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `coordinates` | 1 | `Repeated(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `shape` | 2 | `Repeated(Repeated(Scalar(U64)))` | `Both` | `[]` | `{}` |
+| `pairs` | 3 | `Repeated(Named("Tuple2OfUsizeAndUsize"))` | `Both` | `[]` | `{}` |
+| `order` | 4 | `Named("KernelDerivativeOrder")` | `Both` | `[]` | `{}` |
+| `slot_offsets` | 5 | `Optional(Repeated(Scalar(U64)))` | `Both` | `[]` | `{}` |
+| `slot_components` | 6 | `Optional(Repeated(Scalar(U64)))` | `Both` | `[]` | `{}` |
+
+## `MathSourceCheckSnapshot`
+
+Rust owner: `pse_math::execution::transfer::CheckSnapshot`. Source: `crates/pse-math/src/execution/transfer.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `end_output` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `source` | 2 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+
+## `MathStageSnapshot`
+
+Rust owner: `pse_math::execution::transfer::StageSnapshot`. Source: `crates/pse-math/src/execution/transfer.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Block (alternative tag 1).value` | 1 | `Named("MathBlockSnapshot")` | `Both` | `[Required]` | `{}` |
+| `Require (alternative tag 2).argument` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `Require (alternative tag 2).condition` | 2 | `Named("MathCondition")` | `Both` | `[]` | `{}` |
+| `Require (alternative tag 2).order` | 3 | `Named("KernelDerivativeOrder")` | `Both` | `[]` | `{}` |
+| `Require (alternative tag 2).source` | 4 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `Require (alternative tag 2).lineage` | 5 | `Optional(Named("ModelValidityLineage"))` | `Both` | `[]` | `{}` |
+| `Domain (alternative tag 3).value` | 1 | `Named("MathDomainSnapshot")` | `Both` | `[Required]` | `{}` |
+| `Applicability (alternative tag 4).value` | 1 | `Named("MathApplicabilitySnapshot")` | `Both` | `[Required]` | `{}` |
+| `Branch (alternative tag 5).require_separation` | 1 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `Branch (alternative tag 5).comparison` | 2 | `Named("MathComparison")` | `Both` | `[]` | `{}` |
+| `Branch (alternative tag 5).left` | 3 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `Branch (alternative tag 5).right` | 4 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `Branch (alternative tag 5).then` | 5 | `Repeated(Named("MathStageSnapshot"))` | `Both` | `[]` | `{}` |
+| `Branch (alternative tag 5).otherwise` | 6 | `Repeated(Named("MathStageSnapshot"))` | `Both` | `[]` | `{}` |
 
 ## `ModelBoundaryDiagnostic`
 
@@ -1109,6 +1298,40 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `first` | 1 | `Named("OperationId")` | `Both` | `[]` | `{}` |
 | `second` | 2 | `Named("EntityKindId")` | `Both` | `[]` | `{}` |
+
+## `Tuple2OfUsizeAndOptionalUsize`
+
+Rust owner: `(usize, core::option::Option<usize>)`. Source: `crates/pse-contract/src/boundary_projection/tuple_pair.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `first` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `second` | 2 | `Optional(Scalar(U64))` | `Both` | `[]` | `{}` |
+
+## `Tuple2OfUsizeAndUsize`
+
+Rust owner: `(usize, usize)`. Source: `crates/pse-contract/src/boundary_projection/tuple_pair.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `first` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `second` | 2 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+
+## `Tuple3OfStringAndUsizeAndSemanticId`
+
+Rust owner: `(alloc::string::String, usize, pse_ids::id::SemanticId)`. Source: `crates/pse-contract/src/boundary_projection/tuple_triple.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `first` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `second` | 2 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `third` | 3 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
 
 ## `UnitFactor`
 

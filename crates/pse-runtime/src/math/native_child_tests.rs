@@ -2,6 +2,108 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 
+fn numerical_snapshot() -> pse_math::transfer::ExecutionSnapshot {
+    let source = source();
+    let scope = ExecutionScope::new(Cancellation::default(), None);
+    let compiled = source
+        .body
+        .math()
+        .compile(
+            &(0..source.rows.len()).collect::<Vec<_>>(),
+            &(0..source.unknowns.len()).collect::<Vec<_>>(),
+            DerivativeOrder::First,
+            pse_math::library::Optimization::default(),
+            source.evaluation,
+            &scope,
+        )
+        .unwrap();
+    let captured = pse_math::transfer::capture(&compiled, &scope, |_| {
+        Ok::<Arc<dyn pse_math::AllocationOwner>, std::convert::Infallible>(Arc::new(()))
+    })
+    .unwrap();
+    captured.into_parts().0
+}
+
+#[test]
+fn native_snapshot_generated_codec_preserves_complete_execution_without_issuing_authority() {
+    let snapshot = numerical_snapshot();
+    let original = snapshot.inspect().unwrap();
+    let bytes = wire::encode(snapshot.clone(), REQUEST_LIMIT).unwrap();
+    let decoded: pse_math::transfer::ExecutionSnapshot =
+        wire::decode(&bytes, REQUEST_LIMIT).unwrap();
+    assert_eq!(decoded, snapshot);
+    let restored = decoded.inspect().unwrap();
+    // Owned decoder capacities move into the restored template. Preserve the
+    // data exactly, but price the actual input and its retained backing anew.
+    assert!(restored.restore_peak_bytes >= restored.input_bytes + restored.template_bytes);
+    assert_eq!(restored.worker_bytes, original.worker_bytes);
+    assert_eq!(restored.library_operations, original.library_operations);
+    assert_eq!(restored.stages, original.stages);
+
+    // Structural projection is deliberately not evaluator dataflow admission.
+    let mut invalid = snapshot;
+    fn corrupt(stages: &mut [pse_math::transfer::StageSnapshot]) -> bool {
+        for stage in stages {
+            match stage {
+                pse_math::transfer::StageSnapshot::Block(block) => {
+                    block.program.clear();
+                    return true;
+                }
+                pse_math::transfer::StageSnapshot::Domain(domain) => {
+                    if corrupt(&mut domain.stages) {
+                        return true;
+                    }
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+    assert!(corrupt(&mut invalid.first));
+    let bytes = wire::encode(invalid, REQUEST_LIMIT).unwrap();
+    let passive: pse_math::transfer::ExecutionSnapshot =
+        wire::decode(&bytes, REQUEST_LIMIT).unwrap();
+    assert!(passive.inspect().is_err());
+}
+
+#[test]
+fn native_snapshot_generated_codec_refuses_unknown_meaning_and_deep_outgoing_controls() {
+    let snapshot = numerical_snapshot();
+    let mut bytes = wire::encode(snapshot.clone(), REQUEST_LIMIT).unwrap();
+    bytes.extend_from_slice(&[0xf8, 0x3e, 0x01]);
+    assert!(wire::decode::<pse_math::transfer::ExecutionSnapshot>(&bytes, REQUEST_LIMIT).is_err());
+
+    let mut deep = snapshot;
+    for _ in 0..20 {
+        deep.first = vec![pse_math::transfer::StageSnapshot::Branch {
+            require_separation: true,
+            comparison: pse_math::guarded::Comparison::Lt,
+            left: 0,
+            right: 0,
+            then: deep.first,
+            otherwise: vec![],
+        }];
+    }
+    let bytes = wire::encode(deep.clone(), REQUEST_LIMIT).unwrap();
+    let decoded: pse_math::transfer::ExecutionSnapshot =
+        wire::decode(&bytes, REQUEST_LIMIT).unwrap();
+    assert_eq!(decoded, deep);
+    for _ in 0..12 {
+        deep.first = vec![pse_math::transfer::StageSnapshot::Branch {
+            require_separation: true,
+            comparison: pse_math::guarded::Comparison::Lt,
+            left: 0,
+            right: 0,
+            then: deep.first,
+            otherwise: vec![],
+        }];
+    }
+    assert!(matches!(
+        wire::encode(deep, REQUEST_LIMIT),
+        Err(MathRuntimeError::Limit("native snapshot wire nesting"))
+    ));
+}
+
 #[test]
 fn private_native_frames_refuse_oversize_and_keep_original_stop() {
     let (mut reader, mut writer) = UnixStream::pair().unwrap();

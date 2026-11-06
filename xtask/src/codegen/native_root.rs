@@ -24,6 +24,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         &imports,
     )?;
     let roots = [
+        "MathExecutionSnapshot",
         "NativeRootInput",
         "NativeRootHello",
         "NativeRootRequest",

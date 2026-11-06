@@ -328,6 +328,173 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
+    crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityNode,
+> for pse_model::applicability::Node {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityNode,
+        AdapterError,
+    > {
+        layout(
+            <pse_model::applicability::Node as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::applicability::Node as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "claim"),
+                (2, "region"),
+                (3, "dependencies"),
+                (4, "inputs"),
+                (5, "permissions"),
+            ],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3, field_4) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityNode {
+            claim: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityClaim,
+                >(field_0, &child_path(path, "claim"))?,
+            ),
+            region: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityRegion,
+                >(field_1, &child_path(path, "region"))?,
+            ),
+            dependencies: {
+                let current_path = &child_path(path, "dependencies");
+                items(field_2)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityNode,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            inputs: {
+                let current_path = &child_path(path, "inputs");
+                items(field_3)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Tuple3OfStringAndUsizeAndSemanticId,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            permissions: {
+                let current_path = &child_path(path, "permissions");
+                items(field_4)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityPermission,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityNode,
+> for pse_model::applicability::Node {
+    fn from_wire(
+        wire: crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityNode,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_model::applicability::Node as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::applicability::Node as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "claim"),
+                (2, "region"),
+                (3, "dependencies"),
+                (4, "inputs"),
+                (5, "permissions"),
+            ],
+            path,
+        )?;
+        let fields = (
+            native_from::<
+                _,
+                crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityClaim,
+            >(
+                required(wire.claim.into_option(), &child_path(path, "claim"))?,
+                &child_path(path, "claim"),
+            )?,
+            native_from::<
+                _,
+                crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityRegion,
+            >(
+                required(wire.region.into_option(), &child_path(path, "region"))?,
+                &child_path(path, "region"),
+            )?,
+            {
+                let current_path = &child_path(path, "dependencies");
+                let values = wire
+                    .dependencies
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityNode,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "inputs");
+                let values = wire
+                    .inputs
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Tuple3OfStringAndUsizeAndSemanticId,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "permissions");
+                let values = wire
+                    .permissions
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityPermission,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
     crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityObservation,
 > for pse_model::applicability::Observation {
     fn into_wire(
@@ -649,6 +816,299 @@ impl NativeFrom<
                 fields,
             )
             .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityRegion,
+> for pse_model::applicability::Region {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityRegion,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "predicate")],
+            path,
+        )?;
+        let value = match <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Predicate");
+                let path = alternative_path.as_str();
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityRegion {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::applicability_region::Kind::Predicate(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::applicability_region::Alternative1 {
+                                predicate: native_into::<
+                                    _,
+                                    u64,
+                                >(field_0, &child_path(path, "predicate"))?,
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityRegion {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::applicability_region::Kind::Unrestricted(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::applicability_region::Alternative2 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::VERSION,
+            <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+            3,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityRegion {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::applicability_region::Kind::Unknown(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::applicability_region::Alternative3 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::VERSION,
+            <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "alternatives")],
+            path,
+        )?;
+        let value = match <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+            4,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Union");
+                let path = alternative_path.as_str();
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityRegion {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::applicability_region::Kind::Union(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::applicability_region::Alternative4 {
+                                alternatives: {
+                                    let current_path = &child_path(path, "alternatives");
+                                    items(field_0)
+                                        .enumerate()
+                                        .map(|(index, value)| -> Result<_, AdapterError> {
+                                            native_into::<
+                                                _,
+                                                crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityNode,
+                                            >(value, &format!("{path}[{index}]", path = current_path))
+                                        })
+                                        .collect::<Result<Vec<_>, _>>()?
+                                },
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityRegion,
+> for pse_model::applicability::Region {
+    fn from_wire(
+        wire: crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityRegion,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::applicability_region::Kind::Predicate(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Predicate");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "predicate")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<
+                        _,
+                        u64,
+                    >(wire.predicate, &child_path(path, "predicate"))?,
+                );
+                Ok(
+                    <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::applicability_region::Kind::Unrestricted(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Unrestricted");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::applicability_region::Kind::Unknown(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Unknown");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::VERSION,
+                    <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::applicability_region::Kind::Union(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Union");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::VERSION,
+                    <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "alternatives")],
+                    path,
+                )?;
+                let fields = (
+                    {
+                        let current_path = &child_path(path, "alternatives");
+                        let values = wire
+                            .alternatives
+                            .into_iter()
+                            .enumerate()
+                            .map(|(index, value)| -> Result<_, AdapterError> {
+                                native_from::<
+                                    _,
+                                    crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityNode,
+                                >(value, &format!("{path}[{index}]", path = current_path))
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        from_items(values, current_path)?
+                    },
+                );
+                Ok(
+                    <pse_model::applicability::Region as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
     }
 }
 impl NativeInto<crate::math::native_root_generated::pb::pse::native_root::v2::Array16U8>
@@ -2956,6 +3416,205 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
+    crate::math::native_root_generated::pb::pse::native_root::v2::KernelDerivativeOrder,
+> for pse_kernels::DerivativeOrder {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::math::native_root_generated::pb::pse::native_root::v2::KernelDerivativeOrder,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::KernelDerivativeOrder {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::kernel_derivative_order::Kind::Value(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::kernel_derivative_order::Alternative1 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::KernelDerivativeOrder {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::kernel_derivative_order::Kind::First(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::kernel_derivative_order::Alternative2 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::VERSION,
+            <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+            3,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::KernelDerivativeOrder {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::kernel_derivative_order::Kind::Second(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::kernel_derivative_order::Alternative3 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::math::native_root_generated::pb::pse::native_root::v2::KernelDerivativeOrder,
+> for pse_kernels::DerivativeOrder {
+    fn from_wire(
+        wire: crate::math::native_root_generated::pb::pse::native_root::v2::KernelDerivativeOrder,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::kernel_derivative_order::Kind::Value(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Value");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::kernel_derivative_order::Kind::First(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "First");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::kernel_derivative_order::Kind::Second(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Second");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::VERSION,
+                    <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_kernels::DerivativeOrder as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
+    }
+}
+impl NativeInto<
     crate::math::native_root_generated::pb::pse::native_root::v2::KindDefinition,
 > for pse_quantity::kind::KindDefinition {
     fn into_wire(
@@ -3206,6 +3865,509 @@ for pse_quantity::kind::KindFactor {
     }
 }
 impl NativeInto<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathApplicabilitySnapshot,
+> for pse_math::transfer::ApplicabilitySnapshot {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::math::native_root_generated::pb::pse::native_root::v2::MathApplicabilitySnapshot,
+        AdapterError,
+    > {
+        layout(
+            <pse_math::transfer::ApplicabilitySnapshot as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_math::transfer::ApplicabilitySnapshot as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "stages"),
+                (2, "frame"),
+                (3, "reads"),
+                (4, "layout"),
+                (5, "predicates"),
+                (6, "inputs"),
+                (7, "token"),
+                (8, "plan"),
+            ],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3, field_4, field_5, field_6, field_7) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathApplicabilitySnapshot {
+            stages: {
+                let current_path = &child_path(path, "stages");
+                items(field_0)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            frame: native_into::<_, u64>(field_1, &child_path(path, "frame"))?,
+            reads: {
+                let current_path = &child_path(path, "reads");
+                items(field_2)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            layout: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::math::native_root_generated::pb::pse::native_root::v2::MathJetLayoutSnapshot,
+                >(field_3, &child_path(path, "layout"))?,
+            ),
+            predicates: {
+                let current_path = &child_path(path, "predicates");
+                items(field_4)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            inputs: {
+                let current_path = &child_path(path, "inputs");
+                items(field_5)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            token: native_into::<_, u64>(field_6, &child_path(path, "token"))?,
+            plan: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityNode,
+                >(field_7, &child_path(path, "plan"))?,
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathApplicabilitySnapshot,
+> for pse_math::transfer::ApplicabilitySnapshot {
+    fn from_wire(
+        wire: crate::math::native_root_generated::pb::pse::native_root::v2::MathApplicabilitySnapshot,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_math::transfer::ApplicabilitySnapshot as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_math::transfer::ApplicabilitySnapshot as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "stages"),
+                (2, "frame"),
+                (3, "reads"),
+                (4, "layout"),
+                (5, "predicates"),
+                (6, "inputs"),
+                (7, "token"),
+                (8, "plan"),
+            ],
+            path,
+        )?;
+        let fields = (
+            {
+                let current_path = &child_path(path, "stages");
+                let values = wire
+                    .stages
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<_, u64>(wire.frame, &child_path(path, "frame"))?,
+            {
+                let current_path = &child_path(path, "reads");
+                let values = wire
+                    .reads
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<
+                _,
+                crate::math::native_root_generated::pb::pse::native_root::v2::MathJetLayoutSnapshot,
+            >(
+                required(wire.layout.into_option(), &child_path(path, "layout"))?,
+                &child_path(path, "layout"),
+            )?,
+            {
+                let current_path = &child_path(path, "predicates");
+                let values = wire
+                    .predicates
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "inputs");
+                let values = wire
+                    .inputs
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<_, u64>(wire.token, &child_path(path, "token"))?,
+            native_from::<
+                _,
+                crate::math::native_root_generated::pb::pse::native_root::v2::ApplicabilityNode,
+            >(
+                required(wire.plan.into_option(), &child_path(path, "plan"))?,
+                &child_path(path, "plan"),
+            )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathBlockSnapshot,
+> for pse_math::transfer::BlockSnapshot {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::math::native_root_generated::pb::pse::native_root::v2::MathBlockSnapshot,
+        AdapterError,
+    > {
+        layout(
+            <pse_math::transfer::BlockSnapshot as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_math::transfer::BlockSnapshot as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "program"),
+                (2, "resettable"),
+                (3, "components"),
+                (4, "inputs"),
+                (5, "outputs"),
+                (6, "gather"),
+                (7, "scatter"),
+                (8, "arguments"),
+                (9, "values"),
+                (10, "source"),
+                (11, "checks"),
+                (12, "checked_ends"),
+            ],
+            path,
+        )?;
+        let (
+            field_0,
+            field_1,
+            field_2,
+            field_3,
+            field_4,
+            field_5,
+            field_6,
+            field_7,
+            field_8,
+            field_9,
+            field_10,
+            field_11,
+        ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathBlockSnapshot {
+            program: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
+            resettable: native_into::<
+                _,
+                bool,
+            >(field_1, &child_path(path, "resettable"))?,
+            components: {
+                let current_path = &child_path(path, "components");
+                items(field_2)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            inputs: {
+                let current_path = &child_path(path, "inputs");
+                items(field_3)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            outputs: {
+                let current_path = &child_path(path, "outputs");
+                items(field_4)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            gather: {
+                let current_path = &child_path(path, "gather");
+                items(field_5)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndUsize,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            scatter: {
+                let current_path = &child_path(path, "scatter");
+                items(field_6)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndOptionalUsize,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            arguments: native_into::<_, u64>(field_7, &child_path(path, "arguments"))?,
+            values: native_into::<_, u64>(field_8, &child_path(path, "values"))?,
+            source: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_9,
+            ),
+            checks: {
+                let current_path = &child_path(path, "checks");
+                items(field_10)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::MathSourceCheckSnapshot,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            checked_ends: {
+                let current_path = &child_path(path, "checked_ends");
+                items(field_11)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathBlockSnapshot,
+> for pse_math::transfer::BlockSnapshot {
+    fn from_wire(
+        wire: crate::math::native_root_generated::pb::pse::native_root::v2::MathBlockSnapshot,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_math::transfer::BlockSnapshot as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_math::transfer::BlockSnapshot as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "program"),
+                (2, "resettable"),
+                (3, "components"),
+                (4, "inputs"),
+                (5, "outputs"),
+                (6, "gather"),
+                (7, "scatter"),
+                (8, "arguments"),
+                (9, "values"),
+                (10, "source"),
+                (11, "checks"),
+                (12, "checked_ends"),
+            ],
+            path,
+        )?;
+        let fields = (
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.program,
+                &child_path(path, "program"),
+            )?,
+            native_from::<_, bool>(wire.resettable, &child_path(path, "resettable"))?,
+            {
+                let current_path = &child_path(path, "components");
+                let values = wire
+                    .components
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "inputs");
+                let values = wire
+                    .inputs
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "outputs");
+                let values = wire
+                    .outputs
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "gather");
+                let values = wire
+                    .gather
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndUsize,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "scatter");
+                let values = wire
+                    .scatter
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndOptionalUsize,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<_, u64>(wire.arguments, &child_path(path, "arguments"))?,
+            native_from::<_, u64>(wire.values, &child_path(path, "values"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.source,
+                &child_path(path, "source"),
+            )?,
+            {
+                let current_path = &child_path(path, "checks");
+                let values = wire
+                    .checks
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::MathSourceCheckSnapshot,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "checked_ends");
+                let values = wire
+                    .checked_ends
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
     crate::math::native_root_generated::pb::pse::native_root::v2::MathBodySpec,
 > for pse_math::binding::BodySpec {
     fn into_wire(
@@ -3323,6 +4485,607 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathComparison,
+> for pse_math::guarded::Comparison {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::math::native_root_generated::pb::pse::native_root::v2::MathComparison,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathComparison {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_comparison::Kind::Eq(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::math_comparison::Alternative1 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathComparison {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_comparison::Kind::Ne(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::math_comparison::Alternative2 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::VERSION,
+            <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+            3,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathComparison {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_comparison::Kind::Lt(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::math_comparison::Alternative3 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::VERSION,
+            <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+            4,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathComparison {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_comparison::Kind::Le(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::math_comparison::Alternative4 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathComparison,
+> for pse_math::guarded::Comparison {
+    fn from_wire(
+        wire: crate::math::native_root_generated::pb::pse::native_root::v2::MathComparison,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_comparison::Kind::Eq(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Eq");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_comparison::Kind::Ne(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Ne");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_comparison::Kind::Lt(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Lt");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::VERSION,
+                    <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_comparison::Kind::Le(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Le");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::VERSION,
+                    <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_math::guarded::Comparison as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
+    }
+}
+impl NativeInto<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathCondition,
+> for pse_math::guarded::Condition {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::math::native_root_generated::pb::pse::native_root::v2::MathCondition,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathCondition {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_condition::Kind::Positive(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::math_condition::Alternative1 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathCondition {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_condition::Kind::Nonnegative(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::math_condition::Alternative2 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::VERSION,
+            <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+            3,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathCondition {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_condition::Kind::Nonzero(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::math_condition::Alternative3 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathCondition,
+> for pse_math::guarded::Condition {
+    fn from_wire(
+        wire: crate::math::native_root_generated::pb::pse::native_root::v2::MathCondition,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_condition::Kind::Positive(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Positive");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_condition::Kind::Nonnegative(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Nonnegative");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_condition::Kind::Nonzero(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Nonzero");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::VERSION,
+                    <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_math::guarded::Condition as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
+    }
+}
+impl NativeInto<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathDomainSnapshot,
+> for pse_math::transfer::DomainSnapshot {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::math::native_root_generated::pb::pse::native_root::v2::MathDomainSnapshot,
+        AdapterError,
+    > {
+        layout(
+            <pse_math::transfer::DomainSnapshot as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_math::transfer::DomainSnapshot as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "stages"),
+                (2, "frame"),
+                (3, "reads"),
+                (4, "layout"),
+                (5, "argument"),
+                (6, "token"),
+                (7, "lineage"),
+            ],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3, field_4, field_5, field_6) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathDomainSnapshot {
+            stages: {
+                let current_path = &child_path(path, "stages");
+                items(field_0)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            frame: native_into::<_, u64>(field_1, &child_path(path, "frame"))?,
+            reads: {
+                let current_path = &child_path(path, "reads");
+                items(field_2)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            layout: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::math::native_root_generated::pb::pse::native_root::v2::MathJetLayoutSnapshot,
+                >(field_3, &child_path(path, "layout"))?,
+            ),
+            argument: native_into::<_, u64>(field_4, &child_path(path, "argument"))?,
+            token: native_into::<_, u64>(field_5, &child_path(path, "token"))?,
+            lineage: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::math::native_root_generated::pb::pse::native_root::v2::ModelValidityLineage,
+                >(field_6, &child_path(path, "lineage"))?,
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathDomainSnapshot,
+> for pse_math::transfer::DomainSnapshot {
+    fn from_wire(
+        wire: crate::math::native_root_generated::pb::pse::native_root::v2::MathDomainSnapshot,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_math::transfer::DomainSnapshot as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_math::transfer::DomainSnapshot as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "stages"),
+                (2, "frame"),
+                (3, "reads"),
+                (4, "layout"),
+                (5, "argument"),
+                (6, "token"),
+                (7, "lineage"),
+            ],
+            path,
+        )?;
+        let fields = (
+            {
+                let current_path = &child_path(path, "stages");
+                let values = wire
+                    .stages
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<_, u64>(wire.frame, &child_path(path, "frame"))?,
+            {
+                let current_path = &child_path(path, "reads");
+                let values = wire
+                    .reads
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<
+                _,
+                crate::math::native_root_generated::pb::pse::native_root::v2::MathJetLayoutSnapshot,
+            >(
+                required(wire.layout.into_option(), &child_path(path, "layout"))?,
+                &child_path(path, "layout"),
+            )?,
+            native_from::<_, u64>(wire.argument, &child_path(path, "argument"))?,
+            native_from::<_, u64>(wire.token, &child_path(path, "token"))?,
+            native_from::<
+                _,
+                crate::math::native_root_generated::pb::pse::native_root::v2::ModelValidityLineage,
+            >(
+                required(wire.lineage.into_option(), &child_path(path, "lineage"))?,
+                &child_path(path, "lineage"),
+            )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
     crate::math::native_root_generated::pb::pse::native_root::v2::MathEvaluationLimits,
 > for pse_math::jets::EvaluationLimits {
     fn into_wire(
@@ -3404,6 +5167,1213 @@ impl NativeFrom<
                 fields,
             )
             .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathExecutionSnapshot,
+> for pse_math::transfer::ExecutionSnapshot {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::math::native_root_generated::pb::pse::native_root::v2::MathExecutionSnapshot,
+        AdapterError,
+    > {
+        layout(
+            <pse_math::transfer::ExecutionSnapshot as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_math::transfer::ExecutionSnapshot as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "version"),
+                (2, "inputs"),
+                (3, "input_formals"),
+                (4, "coordinate_offsets"),
+                (5, "slots"),
+                (6, "outputs"),
+                (7, "limits"),
+                (8, "value_layout"),
+                (9, "first_layout"),
+                (10, "first_rows"),
+                (11, "first_axes"),
+                (12, "value"),
+                (13, "first"),
+            ],
+            path,
+        )?;
+        let (
+            field_0,
+            field_1,
+            field_2,
+            field_3,
+            field_4,
+            field_5,
+            field_6,
+            field_7,
+            field_8,
+            field_9,
+            field_10,
+            field_11,
+            field_12,
+        ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathExecutionSnapshot {
+            version: native_into::<_, u32>(field_0, &child_path(path, "version"))?,
+            inputs: native_into::<_, u64>(field_1, &child_path(path, "inputs"))?,
+            input_formals: {
+                let current_path = &child_path(path, "input_formals");
+                items(field_2)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            coordinate_offsets: {
+                let current_path = &child_path(path, "coordinate_offsets");
+                items(field_3)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            slots: native_into::<_, u64>(field_4, &child_path(path, "slots"))?,
+            outputs: {
+                let current_path = &child_path(path, "outputs");
+                items(field_5)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            limits: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::math::native_root_generated::pb::pse::native_root::v2::MathEvaluationLimits,
+                >(field_6, &child_path(path, "limits"))?,
+            ),
+            value_layout: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::math::native_root_generated::pb::pse::native_root::v2::MathJetLayoutSnapshot,
+                >(field_7, &child_path(path, "value_layout"))?,
+            ),
+            first_layout: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::math::native_root_generated::pb::pse::native_root::v2::MathJetLayoutSnapshot,
+                >(field_8, &child_path(path, "first_layout"))?,
+            ),
+            first_rows: {
+                let current_path = &child_path(path, "first_rows");
+                items(field_9)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndUsize,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            first_axes: {
+                let current_path = &child_path(path, "first_axes");
+                items(field_10)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            value: {
+                let current_path = &child_path(path, "value");
+                items(field_11)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            first: {
+                let current_path = &child_path(path, "first");
+                items(field_12)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathExecutionSnapshot,
+> for pse_math::transfer::ExecutionSnapshot {
+    fn from_wire(
+        wire: crate::math::native_root_generated::pb::pse::native_root::v2::MathExecutionSnapshot,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_math::transfer::ExecutionSnapshot as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_math::transfer::ExecutionSnapshot as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "version"),
+                (2, "inputs"),
+                (3, "input_formals"),
+                (4, "coordinate_offsets"),
+                (5, "slots"),
+                (6, "outputs"),
+                (7, "limits"),
+                (8, "value_layout"),
+                (9, "first_layout"),
+                (10, "first_rows"),
+                (11, "first_axes"),
+                (12, "value"),
+                (13, "first"),
+            ],
+            path,
+        )?;
+        let fields = (
+            native_from::<_, u32>(wire.version, &child_path(path, "version"))?,
+            native_from::<_, u64>(wire.inputs, &child_path(path, "inputs"))?,
+            {
+                let current_path = &child_path(path, "input_formals");
+                let values = wire
+                    .input_formals
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "coordinate_offsets");
+                let values = wire
+                    .coordinate_offsets
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<_, u64>(wire.slots, &child_path(path, "slots"))?,
+            {
+                let current_path = &child_path(path, "outputs");
+                let values = wire
+                    .outputs
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<
+                _,
+                crate::math::native_root_generated::pb::pse::native_root::v2::MathEvaluationLimits,
+            >(
+                required(wire.limits.into_option(), &child_path(path, "limits"))?,
+                &child_path(path, "limits"),
+            )?,
+            native_from::<
+                _,
+                crate::math::native_root_generated::pb::pse::native_root::v2::MathJetLayoutSnapshot,
+            >(
+                required(
+                    wire.value_layout.into_option(),
+                    &child_path(path, "value_layout"),
+                )?,
+                &child_path(path, "value_layout"),
+            )?,
+            native_from::<
+                _,
+                crate::math::native_root_generated::pb::pse::native_root::v2::MathJetLayoutSnapshot,
+            >(
+                required(
+                    wire.first_layout.into_option(),
+                    &child_path(path, "first_layout"),
+                )?,
+                &child_path(path, "first_layout"),
+            )?,
+            {
+                let current_path = &child_path(path, "first_rows");
+                let values = wire
+                    .first_rows
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndUsize,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "first_axes");
+                let values = wire
+                    .first_axes
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "value");
+                let values = wire
+                    .value
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "first");
+                let values = wire
+                    .first
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathJetLayoutSnapshot,
+> for pse_math::jets::JetLayoutSnapshot {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::math::native_root_generated::pb::pse::native_root::v2::MathJetLayoutSnapshot,
+        AdapterError,
+    > {
+        layout(
+            <pse_math::jets::JetLayoutSnapshot as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_math::jets::JetLayoutSnapshot as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "coordinates"),
+                (2, "shape"),
+                (3, "pairs"),
+                (4, "order"),
+                (5, "slot_offsets"),
+                (6, "slot_components"),
+            ],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathJetLayoutSnapshot {
+            coordinates: {
+                let current_path = &child_path(path, "coordinates");
+                items(field_0)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            shape: {
+                let current_path = &child_path(path, "shape");
+                items(field_1)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        Ok(crate::math::native_root_generated::pb::pse::native_root::v2::math_jet_layout_snapshot::Field2Value {
+                            value: {
+                                let current_path = &format!(
+                                    "{path}[{index}]",
+                                    path = current_path,
+                                );
+                                items(value)
+                                    .enumerate()
+                                    .map(|(index, value)| -> Result<_, AdapterError> {
+                                        native_into::<
+                                            _,
+                                            u64,
+                                        >(value, &format!("{path}[{index}]", path = current_path))
+                                    })
+                                    .collect::<Result<Vec<_>, _>>()?
+                            },
+                            ..Default::default()
+                        })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            pairs: {
+                let current_path = &child_path(path, "pairs");
+                items(field_2)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndUsize,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            order: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::math::native_root_generated::pb::pse::native_root::v2::KernelDerivativeOrder,
+                >(field_3, &child_path(path, "order"))?,
+            ),
+            slot_offsets: field_4
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(crate::math::native_root_generated::pb::pse::native_root::v2::math_jet_layout_snapshot::Field5Value {
+                        value: {
+                            let current_path = &child_path(path, "slot_offsets");
+                            items(value)
+                                .enumerate()
+                                .map(|(index, value)| -> Result<_, AdapterError> {
+                                    native_into::<
+                                        _,
+                                        u64,
+                                    >(value, &format!("{path}[{index}]", path = current_path))
+                                })
+                                .collect::<Result<Vec<_>, _>>()?
+                        },
+                        ..Default::default()
+                    })
+                })
+                .transpose()?
+                .into(),
+            slot_components: field_5
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(crate::math::native_root_generated::pb::pse::native_root::v2::math_jet_layout_snapshot::Field6Value {
+                        value: {
+                            let current_path = &child_path(path, "slot_components");
+                            items(value)
+                                .enumerate()
+                                .map(|(index, value)| -> Result<_, AdapterError> {
+                                    native_into::<
+                                        _,
+                                        u64,
+                                    >(value, &format!("{path}[{index}]", path = current_path))
+                                })
+                                .collect::<Result<Vec<_>, _>>()?
+                        },
+                        ..Default::default()
+                    })
+                })
+                .transpose()?
+                .into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathJetLayoutSnapshot,
+> for pse_math::jets::JetLayoutSnapshot {
+    fn from_wire(
+        wire: crate::math::native_root_generated::pb::pse::native_root::v2::MathJetLayoutSnapshot,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_math::jets::JetLayoutSnapshot as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_math::jets::JetLayoutSnapshot as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "coordinates"),
+                (2, "shape"),
+                (3, "pairs"),
+                (4, "order"),
+                (5, "slot_offsets"),
+                (6, "slot_components"),
+            ],
+            path,
+        )?;
+        let fields = (
+            {
+                let current_path = &child_path(path, "coordinates");
+                let values = wire
+                    .coordinates
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "shape");
+                let values = wire
+                    .shape
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        {
+                            let wrapped = value;
+                            unknown_fields(
+                                &wrapped.__buffa_unknown_fields,
+                                &format!("{path}[{index}]", path = current_path),
+                            )?;
+                            {
+                                let current_path = &format!(
+                                    "{path}[{index}]",
+                                    path = current_path,
+                                );
+                                let values = wrapped
+                                    .value
+                                    .into_iter()
+                                    .enumerate()
+                                    .map(|(index, value)| -> Result<_, AdapterError> {
+                                        native_from::<
+                                            _,
+                                            u64,
+                                        >(value, &format!("{path}[{index}]", path = current_path))
+                                    })
+                                    .collect::<Result<Vec<_>, _>>()?;
+                                from_items(values, current_path)
+                            }
+                        }
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "pairs");
+                let values = wire
+                    .pairs
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndUsize,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<
+                _,
+                crate::math::native_root_generated::pb::pse::native_root::v2::KernelDerivativeOrder,
+            >(
+                required(wire.order.into_option(), &child_path(path, "order"))?,
+                &child_path(path, "order"),
+            )?,
+            wire
+                .slot_offsets
+                .into_option()
+                .map(|value| -> Result<_, AdapterError> {
+                    {
+                        let wrapped = value;
+                        unknown_fields(
+                            &wrapped.__buffa_unknown_fields,
+                            &child_path(path, "slot_offsets"),
+                        )?;
+                        {
+                            let current_path = &child_path(path, "slot_offsets");
+                            let values = wrapped
+                                .value
+                                .into_iter()
+                                .enumerate()
+                                .map(|(index, value)| -> Result<_, AdapterError> {
+                                    native_from::<
+                                        _,
+                                        u64,
+                                    >(value, &format!("{path}[{index}]", path = current_path))
+                                })
+                                .collect::<Result<Vec<_>, _>>()?;
+                            from_items(values, current_path)
+                        }
+                    }
+                })
+                .transpose()?,
+            wire
+                .slot_components
+                .into_option()
+                .map(|value| -> Result<_, AdapterError> {
+                    {
+                        let wrapped = value;
+                        unknown_fields(
+                            &wrapped.__buffa_unknown_fields,
+                            &child_path(path, "slot_components"),
+                        )?;
+                        {
+                            let current_path = &child_path(path, "slot_components");
+                            let values = wrapped
+                                .value
+                                .into_iter()
+                                .enumerate()
+                                .map(|(index, value)| -> Result<_, AdapterError> {
+                                    native_from::<
+                                        _,
+                                        u64,
+                                    >(value, &format!("{path}[{index}]", path = current_path))
+                                })
+                                .collect::<Result<Vec<_>, _>>()?;
+                            from_items(values, current_path)
+                        }
+                    }
+                })
+                .transpose()?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathSourceCheckSnapshot,
+> for pse_math::transfer::CheckSnapshot {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::math::native_root_generated::pb::pse::native_root::v2::MathSourceCheckSnapshot,
+        AdapterError,
+    > {
+        layout(
+            <pse_math::transfer::CheckSnapshot as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_math::transfer::CheckSnapshot as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "end_output"), (2, "source")],
+            path,
+        )?;
+        let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathSourceCheckSnapshot {
+            end_output: native_into::<_, u64>(field_0, &child_path(path, "end_output"))?,
+            source: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathSourceCheckSnapshot,
+> for pse_math::transfer::CheckSnapshot {
+    fn from_wire(
+        wire: crate::math::native_root_generated::pb::pse::native_root::v2::MathSourceCheckSnapshot,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_math::transfer::CheckSnapshot as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_math::transfer::CheckSnapshot as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "end_output"), (2, "source")],
+            path,
+        )?;
+        let fields = (
+            native_from::<_, u64>(wire.end_output, &child_path(path, "end_output"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.source,
+                &child_path(path, "source"),
+            )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+> for pse_math::transfer::StageSnapshot {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "value")],
+            path,
+        )?;
+        let value = match <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Block");
+                let path = alternative_path.as_str();
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_stage_snapshot::Kind::Block(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::math_stage_snapshot::Alternative1 {
+                                value: buffa::MessageField::some(
+                                    native_into::<
+                                        _,
+                                        crate::math::native_root_generated::pb::pse::native_root::v2::MathBlockSnapshot,
+                                    >(field_0, &child_path(path, "value"))?,
+                                ),
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "argument"),
+                (2, "condition"),
+                (3, "order"),
+                (4, "source"),
+                (5, "lineage"),
+            ],
+            path,
+        )?;
+        let value = match <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok((field_0, field_1, field_2, field_3, field_4)) => {
+                let alternative_path = child_path(path, "Require");
+                let path = alternative_path.as_str();
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_stage_snapshot::Kind::Require(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::math_stage_snapshot::Alternative2 {
+                                argument: native_into::<
+                                    _,
+                                    u64,
+                                >(field_0, &child_path(path, "argument"))?,
+                                condition: buffa::MessageField::some(
+                                    native_into::<
+                                        _,
+                                        crate::math::native_root_generated::pb::pse::native_root::v2::MathCondition,
+                                    >(field_1, &child_path(path, "condition"))?,
+                                ),
+                                order: buffa::MessageField::some(
+                                    native_into::<
+                                        _,
+                                        crate::math::native_root_generated::pb::pse::native_root::v2::KernelDerivativeOrder,
+                                    >(field_2, &child_path(path, "order"))?,
+                                ),
+                                source: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_3,
+                                ),
+                                lineage: field_4
+                                    .map(|value| -> Result<_, AdapterError> {
+                                        native_into::<
+                                            _,
+                                            crate::math::native_root_generated::pb::pse::native_root::v2::ModelValidityLineage,
+                                        >(value, &child_path(path, "lineage"))
+                                    })
+                                    .transpose()?
+                                    .into(),
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::VERSION,
+            <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "value")],
+            path,
+        )?;
+        let value = match <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+            3,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Domain");
+                let path = alternative_path.as_str();
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_stage_snapshot::Kind::Domain(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::math_stage_snapshot::Alternative3 {
+                                value: buffa::MessageField::some(
+                                    native_into::<
+                                        _,
+                                        crate::math::native_root_generated::pb::pse::native_root::v2::MathDomainSnapshot,
+                                    >(field_0, &child_path(path, "value"))?,
+                                ),
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::VERSION,
+            <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "value")],
+            path,
+        )?;
+        let value = match <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+            4,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Applicability");
+                let path = alternative_path.as_str();
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_stage_snapshot::Kind::Applicability(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::math_stage_snapshot::Alternative4 {
+                                value: buffa::MessageField::some(
+                                    native_into::<
+                                        _,
+                                        crate::math::native_root_generated::pb::pse::native_root::v2::MathApplicabilitySnapshot,
+                                    >(field_0, &child_path(path, "value"))?,
+                                ),
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                5,
+            >>::VERSION,
+            <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                5,
+            >>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "require_separation"),
+                (2, "comparison"),
+                (3, "left"),
+                (4, "right"),
+                (5, "then"),
+                (6, "otherwise"),
+            ],
+            path,
+        )?;
+        let value = match <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+            5,
+        >>::into_projection_alternative(value) {
+            Ok((field_0, field_1, field_2, field_3, field_4, field_5)) => {
+                let alternative_path = child_path(path, "Branch");
+                let path = alternative_path.as_str();
+                return Ok(crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot {
+                    kind: Some(
+                        crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_stage_snapshot::Kind::Branch(
+                            Box::new(crate::math::native_root_generated::pb::pse::native_root::v2::math_stage_snapshot::Alternative5 {
+                                require_separation: native_into::<
+                                    _,
+                                    bool,
+                                >(field_0, &child_path(path, "require_separation"))?,
+                                comparison: buffa::MessageField::some(
+                                    native_into::<
+                                        _,
+                                        crate::math::native_root_generated::pb::pse::native_root::v2::MathComparison,
+                                    >(field_1, &child_path(path, "comparison"))?,
+                                ),
+                                left: native_into::<
+                                    _,
+                                    u64,
+                                >(field_2, &child_path(path, "left"))?,
+                                right: native_into::<
+                                    _,
+                                    u64,
+                                >(field_3, &child_path(path, "right"))?,
+                                then: {
+                                    let current_path = &child_path(path, "then");
+                                    items(field_4)
+                                        .enumerate()
+                                        .map(|(index, value)| -> Result<_, AdapterError> {
+                                            native_into::<
+                                                _,
+                                                crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+                                            >(value, &format!("{path}[{index}]", path = current_path))
+                                        })
+                                        .collect::<Result<Vec<_>, _>>()?
+                                },
+                                otherwise: {
+                                    let current_path = &child_path(path, "otherwise");
+                                    items(field_5)
+                                        .enumerate()
+                                        .map(|(index, value)| -> Result<_, AdapterError> {
+                                            native_into::<
+                                                _,
+                                                crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+                                            >(value, &format!("{path}[{index}]", path = current_path))
+                                        })
+                                        .collect::<Result<Vec<_>, _>>()?
+                                },
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+> for pse_math::transfer::StageSnapshot {
+    fn from_wire(
+        wire: crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_stage_snapshot::Kind::Block(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Block");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "value")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::MathBlockSnapshot,
+                    >(
+                        required(wire.value.into_option(), &child_path(path, "value"))?,
+                        &child_path(path, "value"),
+                    )?,
+                );
+                Ok(
+                    <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_stage_snapshot::Kind::Require(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Require");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[
+                        (1, "argument"),
+                        (2, "condition"),
+                        (3, "order"),
+                        (4, "source"),
+                        (5, "lineage"),
+                    ],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<_, u64>(wire.argument, &child_path(path, "argument"))?,
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::MathCondition,
+                    >(
+                        required(
+                            wire.condition.into_option(),
+                            &child_path(path, "condition"),
+                        )?,
+                        &child_path(path, "condition"),
+                    )?,
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::KernelDerivativeOrder,
+                    >(
+                        required(wire.order.into_option(), &child_path(path, "order"))?,
+                        &child_path(path, "order"),
+                    )?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.source,
+                        &child_path(path, "source"),
+                    )?,
+                    wire
+                        .lineage
+                        .into_option()
+                        .map(|value| -> Result<_, AdapterError> {
+                            native_from::<
+                                _,
+                                crate::math::native_root_generated::pb::pse::native_root::v2::ModelValidityLineage,
+                            >(value, &child_path(path, "lineage"))
+                        })
+                        .transpose()?,
+                );
+                Ok(
+                    <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_stage_snapshot::Kind::Domain(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Domain");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::VERSION,
+                    <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "value")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::MathDomainSnapshot,
+                    >(
+                        required(wire.value.into_option(), &child_path(path, "value"))?,
+                        &child_path(path, "value"),
+                    )?,
+                );
+                Ok(
+                    <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_stage_snapshot::Kind::Applicability(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Applicability");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::VERSION,
+                    <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "value")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::MathApplicabilitySnapshot,
+                    >(
+                        required(wire.value.into_option(), &child_path(path, "value"))?,
+                        &child_path(path, "value"),
+                    )?,
+                );
+                Ok(
+                    <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::math::native_root_generated::pb::pse::native_root::v2::__buffa::oneof::math_stage_snapshot::Kind::Branch(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Branch");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::VERSION,
+                    <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[
+                        (1, "require_separation"),
+                        (2, "comparison"),
+                        (3, "left"),
+                        (4, "right"),
+                        (5, "then"),
+                        (6, "otherwise"),
+                    ],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<
+                        _,
+                        bool,
+                    >(wire.require_separation, &child_path(path, "require_separation"))?,
+                    native_from::<
+                        _,
+                        crate::math::native_root_generated::pb::pse::native_root::v2::MathComparison,
+                    >(
+                        required(
+                            wire.comparison.into_option(),
+                            &child_path(path, "comparison"),
+                        )?,
+                        &child_path(path, "comparison"),
+                    )?,
+                    native_from::<_, u64>(wire.left, &child_path(path, "left"))?,
+                    native_from::<_, u64>(wire.right, &child_path(path, "right"))?,
+                    {
+                        let current_path = &child_path(path, "then");
+                        let values = wire
+                            .then
+                            .into_iter()
+                            .enumerate()
+                            .map(|(index, value)| -> Result<_, AdapterError> {
+                                native_from::<
+                                    _,
+                                    crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+                                >(value, &format!("{path}[{index}]", path = current_path))
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        from_items(values, current_path)?
+                    },
+                    {
+                        let current_path = &child_path(path, "otherwise");
+                        let values = wire
+                            .otherwise
+                            .into_iter()
+                            .enumerate()
+                            .map(|(index, value)| -> Result<_, AdapterError> {
+                                native_from::<
+                                    _,
+                                    crate::math::native_root_generated::pb::pse::native_root::v2::MathStageSnapshot,
+                                >(value, &format!("{path}[{index}]", path = current_path))
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        from_items(values, current_path)?
+                    },
+                );
+                Ok(
+                    <pse_math::transfer::StageSnapshot as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
     }
 }
 impl NativeInto<
@@ -8888,6 +11858,218 @@ impl NativeFrom<
             .map_err(|error| error.at(path))
     }
 }
+impl NativeInto<
+    crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndOptionalUsize,
+> for (usize, Option<usize>) {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndOptionalUsize,
+        AdapterError,
+    > {
+        layout(
+            <(
+                usize,
+                Option<usize>,
+            ) as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <(
+                usize,
+                Option<usize>,
+            ) as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "first"), (2, "second")],
+            path,
+        )?;
+        let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndOptionalUsize {
+            first: native_into::<_, u64>(field_0, &child_path(path, "first"))?,
+            second: field_1
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<_, u64>(value, &child_path(path, "second"))
+                })
+                .transpose()?,
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndOptionalUsize,
+> for (usize, Option<usize>) {
+    fn from_wire(
+        wire: crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndOptionalUsize,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <(
+                usize,
+                Option<usize>,
+            ) as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <(
+                usize,
+                Option<usize>,
+            ) as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "first"), (2, "second")],
+            path,
+        )?;
+        let fields = (
+            native_from::<_, u64>(wire.first, &child_path(path, "first"))?,
+            wire
+                .second
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<_, u64>(value, &child_path(path, "second"))
+                })
+                .transpose()?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndUsize,
+> for (usize, usize) {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndUsize,
+        AdapterError,
+    > {
+        layout(
+            <(
+                usize,
+                usize,
+            ) as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <(
+                usize,
+                usize,
+            ) as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "first"), (2, "second")],
+            path,
+        )?;
+        let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndUsize {
+            first: native_into::<_, u64>(field_0, &child_path(path, "first"))?,
+            second: native_into::<_, u64>(field_1, &child_path(path, "second"))?,
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndUsize,
+> for (usize, usize) {
+    fn from_wire(
+        wire: crate::math::native_root_generated::pb::pse::native_root::v2::Tuple2OfUsizeAndUsize,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <(
+                usize,
+                usize,
+            ) as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <(
+                usize,
+                usize,
+            ) as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "first"), (2, "second")],
+            path,
+        )?;
+        let fields = (
+            native_from::<_, u64>(wire.first, &child_path(path, "first"))?,
+            native_from::<_, u64>(wire.second, &child_path(path, "second"))?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::math::native_root_generated::pb::pse::native_root::v2::Tuple3OfStringAndUsizeAndSemanticId,
+> for (String, usize, pse_ids::SemanticId) {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::math::native_root_generated::pb::pse::native_root::v2::Tuple3OfStringAndUsizeAndSemanticId,
+        AdapterError,
+    > {
+        layout(
+            <(
+                String,
+                usize,
+                pse_ids::SemanticId,
+            ) as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <(
+                String,
+                usize,
+                pse_ids::SemanticId,
+            ) as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "first"), (2, "second"), (3, "third")],
+            path,
+        )?;
+        let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::math::native_root_generated::pb::pse::native_root::v2::Tuple3OfStringAndUsizeAndSemanticId {
+            first: native_into::<_, String>(field_0, &child_path(path, "first"))?,
+            second: native_into::<_, u64>(field_1, &child_path(path, "second"))?,
+            third: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::math::native_root_generated::pb::pse::native_root::v2::Tuple3OfStringAndUsizeAndSemanticId,
+> for (String, usize, pse_ids::SemanticId) {
+    fn from_wire(
+        wire: crate::math::native_root_generated::pb::pse::native_root::v2::Tuple3OfStringAndUsizeAndSemanticId,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <(
+                String,
+                usize,
+                pse_ids::SemanticId,
+            ) as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <(
+                String,
+                usize,
+                pse_ids::SemanticId,
+            ) as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "first"), (2, "second"), (3, "third")],
+            path,
+        )?;
+        let fields = (
+            native_from::<_, String>(wire.first, &child_path(path, "first"))?,
+            native_from::<_, u64>(wire.second, &child_path(path, "second"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.third,
+                &child_path(path, "third"),
+            )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
 impl NativeInto<crate::math::native_root_generated::pb::pse::native_root::v2::UnitFactor>
 for pse_quantity::unit::UnitFactor {
     fn into_wire(
@@ -9069,6 +12251,21 @@ for pse_quantity::ids::UnitSetId {
             )
             .map_err(|error| error.at(path))
     }
+}
+/// Encode the actual native `MathExecutionSnapshot` and validate outgoing local rules.
+pub(crate) fn encode_math_execution_snapshot(
+    native: pse_math::transfer::ExecutionSnapshot,
+) -> Result<
+    crate::math::native_root_generated::pb::pse::native_root::v2::MathExecutionSnapshot,
+    BoundaryProjectionError,
+> {
+    encode_root(native, "MathExecutionSnapshot")
+}
+/// Adopt known `MathExecutionSnapshot` meaning under this package's declared unknown-field policy.
+pub(crate) fn decode_math_execution_snapshot(
+    wire: crate::math::native_root_generated::pb::pse::native_root::v2::MathExecutionSnapshot,
+) -> Result<pse_math::transfer::ExecutionSnapshot, BoundaryProjectionError> {
+    decode_root(wire, "MathExecutionSnapshot")
 }
 /// Encode the actual native `NativeRootInput` and validate outgoing local rules.
 pub(crate) fn encode_native_root_input(

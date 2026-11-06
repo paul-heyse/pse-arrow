@@ -1040,6 +1040,14 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-math/src/execution/transfer.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/guarded.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-math/src/implicit.rs",
           "kind": "file"
         },
@@ -1620,6 +1628,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-contract/src/boundary_projection/tuple_triple.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-diagnostics/src/lib.rs",
           "kind": "file"
         },
@@ -1632,7 +1644,19 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-kernels/src/lib.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-math/src/binding.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/execution/transfer.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/guarded.rs",
           "kind": "file"
         },
         {
