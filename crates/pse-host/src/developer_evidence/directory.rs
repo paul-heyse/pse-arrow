@@ -99,6 +99,89 @@ const MANIFEST: &str = "manifest.pb";
 const DESCRIPTORS: &str = "descriptor.bin";
 const MEMBERS: &str = "members";
 
+/// Complete original-member verification and bytes accepted by Write.
+/// This receipt establishes neither sink flush/sync nor destination publication.
+#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct MemberCopy {
+    /// Exact original dependency ordinal.
+    pub member: usize,
+    /// Complete original bytes transferred and verified, never a prefix commitment.
+    pub content: crate::test_workflow::execute::ContentIdentity,
+}
+
+/// Exclusive publication of one verified member, retaining original acquisition meaning.
+#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct MemberExport {
+    /// Explicit destination published by the native no-replace/sync owner.
+    pub output: crate::investigation::NativePath,
+    /// Original complete member, separately verified during this transfer.
+    pub copied: MemberCopy,
+    /// Original report outcome and acquisition coverage; copying cannot upgrade them.
+    pub readback: Readback,
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("original member transfer cancelled at its native checkpoint")]
+struct TransferCancelled;
+
+struct TransferSink<'a, W> {
+    output: &'a mut W,
+    cancel: &'a tokio_util::sync::CancellationToken,
+    accepted: u64,
+    cancelled: bool,
+}
+impl<W: Write> TransferSink<'_, W> {
+    fn checkpoint(&mut self) -> std::io::Result<()> {
+        if self.cancel.is_cancelled() {
+            self.cancelled = true;
+            return Err(std::io::Error::other(TransferCancelled));
+        }
+        Ok(())
+    }
+}
+impl<W: Write> Write for TransferSink<'_, W> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.checkpoint()?;
+        let count = self.output.write(bytes)?;
+        self.accepted = self
+            .accepted
+            .checked_add(
+                u64::try_from(count)
+                    .map_err(|_| std::io::Error::other("accepted member extent exceeds u64"))?,
+            )
+            .ok_or_else(|| std::io::Error::other("accepted member extent exceeds u64"))?;
+        Ok(count)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.checkpoint()?;
+        self.output.flush()
+    }
+}
+
+/// Copy one original member into an exclusively staged and synchronized destination.
+/// No destination prefix is published on transfer failure. A parent-sync failure retains
+/// the native publication-durability-unknown outcome and must not be blindly replayed.
+/// # Errors
+/// Original acquisition, transfer/cancellation, publication or synchronization fails.
+pub fn export_directory_member(
+    input: &Path,
+    ordinal: usize,
+    output: &Path,
+    cancel: &tokio_util::sync::CancellationToken,
+) -> Result<MemberExport, HostError> {
+    let mut reader = open_directory(input, &super::binary_options())?;
+    let mut copied = None;
+    crate::invocation::publish_file(output, 0o400, |sink| {
+        copied = Some(reader.copy_member_verified(ordinal, sink, cancel)?);
+        Ok(())
+    })?;
+    Ok(MemberExport {
+        output: std::path::absolute(output)?.into(),
+        copied: copied.ok_or_else(|| invalid("member publication lost its verified transfer"))?,
+        readback: reader.readback,
+    })
+}
+
 /// Exclusive directory publication and the original observations actually verified.
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 pub struct DirectoryExport {
@@ -325,6 +408,48 @@ impl std::fmt::Debug for DirectoryReader {
     }
 }
 impl DirectoryReader {
+    /// Transfer an original member sequentially with bounded library copy buffers.
+    /// Emitted bytes remain provisional until EOF, fresh identity and whole digest agree.
+    /// Cancellation is observed between writes and at completion; blocked regular-file
+    /// I/O settles before return. The caller owns sink flush/sync and any publication.
+    /// # Errors
+    /// Missing original member, custody/digest change, sink failure or cancellation.
+    pub fn copy_member_verified(
+        &mut self,
+        ordinal: usize,
+        output: &mut impl Write,
+        cancel: &tokio_util::sync::CancellationToken,
+    ) -> Result<MemberCopy, HostError> {
+        let index = self
+            .files
+            .binary_search_by_key(&ordinal, OpenedFile::dependency)
+            .map_err(|_| invalid("selected ordinal has no originally committed member"))?;
+        let mut sink = TransferSink {
+            output,
+            cancel,
+            accepted: 0,
+            cancelled: false,
+        };
+        let operation = (|| {
+            sink.checkpoint()?;
+            let content = self.files[index].copy_verified(&mut sink)?;
+            sink.checkpoint()?;
+            Ok::<_, HostError>(content)
+        })();
+        match operation {
+            Ok(content) => Ok(MemberCopy {
+                member: ordinal,
+                content,
+            }),
+            Err(source) => Err(EvidenceError::Transfer {
+                member: ordinal,
+                accepted_bytes: sink.accepted,
+                cancelled: sink.cancelled,
+                source: Box::new(source),
+            }
+            .into()),
+        }
+    }
     /// Complete acquisition observation, preserving original omissions and outcome facts.
     pub fn readback(&self) -> &Readback {
         &self.readback

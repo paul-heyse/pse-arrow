@@ -60,6 +60,14 @@ pub(super) enum Action {
         #[arg(long, default_value = "4096", requires = "member")]
         length: NonZeroU64,
     },
+    /// Publish one whole verified original directory member through bounded sequential I/O.
+    DeveloperEvidenceMember {
+        input: PathBuf,
+        #[arg(long)]
+        member: usize,
+        #[arg(long)]
+        output: PathBuf,
+    },
     /// Read written declarations or document headings without semantic preparation.
     Outline(source::Outline),
     /// Read a known declaration, literal item, position or exact original range.
@@ -272,6 +280,7 @@ pub(super) fn inspect(
             | Action::Schema(_)
             | Action::Payload(_)
             | Action::DeveloperEvidenceBundle { .. }
+            | Action::DeveloperEvidenceMember { .. }
     );
     let root = if plain_source {
         selected.map_or_else(std::env::current_dir, std::path::absolute)?
@@ -335,6 +344,43 @@ pub(super) fn inspect(
                 .emit(Envelope::response(
                     "inspect developer-evidence",
                     "exported original native observations",
+                    payload,
+                ))
+                .map_err(Into::into)
+        }
+        Action::DeveloperEvidenceMember {
+            input,
+            member,
+            output: destination,
+        } => {
+            let input = root.join(input);
+            let destination = root.join(destination);
+            let payload = super::super::runtime()?.block_on(async {
+                let cancel = tokio_util::sync::CancellationToken::new();
+                let worker_cancel = cancel.clone();
+                let mut operation = tokio::task::spawn_blocking(move ||
+                    crate::developer_evidence::export_directory_member(
+                        &input, member, &destination, &worker_cancel,
+                    ));
+                tokio::select! {
+                    result = &mut operation => result.map_err(HostError::from)?,
+                    signal = tokio::signal::ctrl_c() => {
+                        cancel.cancel();
+                        let settled = operation.await.map_err(HostError::from).and_then(std::convert::identity);
+                        match (signal, settled) {
+                            (Ok(()), result) => result,
+                            (Err(signal), Ok(_)) => Err(HostError::from(signal)),
+                            (Err(signal), Err(cleanup)) => Err(HostError::Settlement {
+                                operation: Box::new(signal.into()), cleanup: Box::new(cleanup),
+                            }),
+                        }
+                    }
+                }
+            })?;
+            output
+                .emit(Envelope::response(
+                    "inspect developer-evidence-member",
+                    "published one verified original member",
                     payload,
                 ))
                 .map_err(Into::into)
@@ -1123,6 +1169,56 @@ mod tests {
             artifact_directory: None,
         };
         assert_eq!(inspect(action, Some(scratch.path()), &output).unwrap(), 0);
+    }
+    #[test]
+    fn directory_sequential_member_cli_publishes_exact_original_without_checkout() {
+        let scratch = tempfile::tempdir().unwrap();
+        let (bundle, _) =
+            crate::developer_evidence::tests::directory::exported(scratch.path(), false);
+        let moved = scratch.path().join("recipient");
+        std::fs::rename(bundle, &moved).unwrap();
+        let action = Parsed::try_parse_from([
+            "inspect",
+            "developer-evidence-member",
+            "recipient",
+            "--member",
+            "1",
+            "--output",
+            "copied.stdout",
+        ])
+        .unwrap()
+        .action;
+        let output = OutputOptions {
+            format: crate::envelope::OutputFormat::Json,
+            presentation: Default::default(),
+            invocation_id: crate::envelope::CliInvocationId::new(),
+            artifact_directory: None,
+        };
+        assert_eq!(inspect(action, Some(scratch.path()), &output).unwrap(), 0);
+        assert_eq!(
+            std::fs::read(scratch.path().join("copied.stdout")).unwrap(),
+            [0; 16]
+        );
+        assert!(
+            Parsed::try_parse_from([
+                "inspect",
+                "developer-evidence-member",
+                "recipient",
+                "--output",
+                "other"
+            ])
+            .is_err()
+        );
+        assert!(
+            Parsed::try_parse_from([
+                "inspect",
+                "developer-evidence-member",
+                "recipient",
+                "--member",
+                "1"
+            ])
+            .is_err()
+        );
     }
     #[test]
     fn test_intent_preserves_native_selection_and_exact_filter_authority() {

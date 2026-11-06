@@ -19,8 +19,8 @@ use std::path::Path;
 pub(crate) const MAX_INPUT_BYTES: usize = 64 * 1024 * 1024;
 pub(crate) mod directory;
 pub use directory::{
-    DirectoryExport, DirectoryProfile, DirectoryReadback, DirectoryReader, export_directory,
-    inspect_directory, open_directory,
+    DirectoryExport, DirectoryProfile, DirectoryReadback, DirectoryReader, MemberCopy,
+    MemberExport, export_directory, export_directory_member, inspect_directory, open_directory,
 };
 
 /// Source-attributed refusal, retaining the original decoder and native owner causes.
@@ -60,6 +60,21 @@ pub enum EvidenceError {
     /// Original native I/O or custody refusal during member adoption.
     #[error("evidence native acquisition: {0}")]
     Native(#[source] Box<HostError>),
+    /// Provisional bytes accepted by a sink never imply a completed original member.
+    #[error(
+        "evidence member {member} transfer failed after {accepted_bytes} accepted bytes (cancelled={cancelled}): {source}"
+    )]
+    Transfer {
+        /// Original dependency ordinal.
+        member: usize,
+        /// Checked count of bytes actually accepted by Write, without a durability claim.
+        accepted_bytes: u64,
+        /// Cancellation was observed at the transfer's own checkpoint.
+        cancelled: bool,
+        /// Original commitment, custody or sink refusal.
+        #[source]
+        source: Box<HostError>,
+    },
     /// Original workflow association refusal.
     #[error("evidence workflow: {0}")]
     Workflow(#[from] crate::test_workflow::WorkflowError),
@@ -70,10 +85,21 @@ pub enum EvidenceError {
 pse_diagnostics::impl_diagnostic! {EvidenceError,
     code(this){Some(match this {
         Self::InputLimit { .. } => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
+        Self::Transfer { cancelled: true, .. } => pse_diagnostics::DiagnosticCode::RuntimeCancelled,
         Self::Decode(error) if pse_contract_proto::support::decode_resource_refusal(error) => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
         _ => pse_diagnostics::DiagnosticCode::HostOwnership,
     })},
-    forward(_this){None},help(_this){None},related(_this){None},source(_this){None}
+    forward(_this){None},help(_this){None},related(_this){None},source(this){match this {
+        Self::Transfer { source, .. } => Some(source.as_ref()), _ => None,
+    }},facts(this){
+        let mut facts = pse_diagnostics::DiagnosticFacts::default();
+        if let Self::Transfer { member, accepted_bytes, cancelled, .. } = this {
+            facts.observe("member", pse_diagnostics::DiagnosticObservation::Text(member.to_string()));
+            facts.observe("accepted_bytes", pse_diagnostics::DiagnosticObservation::Text(accepted_bytes.to_string()));
+            facts.observe("cancelled", pse_diagnostics::DiagnosticObservation::Text(cancelled.to_string()));
+        }
+        facts
+    }
 }
 impl From<pse_contract::boundary_projection::AdapterError> for EvidenceError {
     fn from(error: pse_contract::boundary_projection::AdapterError) -> Self {

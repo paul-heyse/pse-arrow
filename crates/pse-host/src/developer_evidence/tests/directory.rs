@@ -194,6 +194,190 @@ fn directory_export_and_offline_read_exceed_compact_without_promoting_original_o
     assert!(!range.atomic_snapshot);
     assert!(!range.whole_file);
     assert!(range.verified_sha256.is_some());
+    struct BoundedSink {
+        bytes: u64,
+        largest_chunk: usize,
+    }
+    impl std::io::Write for BoundedSink {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.bytes += bytes.len() as u64;
+            self.largest_chunk = self.largest_chunk.max(bytes.len());
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            panic!("verification is not sink flush")
+        }
+    }
+    let mut sink = BoundedSink {
+        bytes: 0,
+        largest_chunk: 0,
+    };
+    let verified = reader
+        .copy_member_verified(1, &mut sink, &tokio_util::sync::CancellationToken::new())
+        .unwrap();
+    assert_eq!(sink.bytes, 65 * 1024 * 1024);
+    assert!(sink.largest_chunk <= 65_536);
+    assert_eq!(verified.content.byte_length, sink.bytes);
+    let copied = export_directory_member(
+        &moved,
+        1,
+        &scratch.path().join("large-original.stdout"),
+        &tokio_util::sync::CancellationToken::new(),
+    )
+    .unwrap();
+    assert_eq!(copied.copied.content.byte_length, 65 * 1024 * 1024);
+    assert_eq!(
+        fs::metadata(scratch.path().join("large-original.stdout"))
+            .unwrap()
+            .len(),
+        copied.copied.content.byte_length
+    );
+    assert_eq!(
+        copied.readback.recorded_manager_settlement,
+        Some(Settlement::Unknown)
+    );
+    assert_eq!(copied.readback.full_original_bytes_available, Some(true));
+}
+
+#[test]
+fn directory_sequential_member_tracks_provisional_prefix_and_observed_cancellation() {
+    use std::io::Write as _;
+    let scratch = tempfile::tempdir().unwrap();
+    let (bundle, _) = exported(scratch.path(), false);
+    let mut reader = open_directory(&bundle, &binary_options()).unwrap();
+    struct PartialSink {
+        accepted: usize,
+    }
+    impl std::io::Write for PartialSink {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            if self.accepted != 0 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::BrokenPipe,
+                    "original sink failure",
+                ));
+            }
+            let count = bytes.len().min(3);
+            self.accepted += count;
+            Ok(count)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            panic!("copy must not claim flush")
+        }
+    }
+    let mut sink = PartialSink { accepted: 0 };
+    let error = reader
+        .copy_member_verified(1, &mut sink, &tokio_util::sync::CancellationToken::new())
+        .unwrap_err();
+    let HostError::DeveloperEvidence(error) = error else {
+        panic!("lost transfer owner")
+    };
+    let EvidenceError::Transfer {
+        member,
+        accepted_bytes,
+        cancelled,
+        source,
+    } = *error
+    else {
+        panic!("lost provisional extent")
+    };
+    assert_eq!((member, accepted_bytes, cancelled), (1, 3, false));
+    assert!(
+        matches!(*source, HostError::Io(ref error) if error.kind() == std::io::ErrorKind::BrokenPipe)
+    );
+    struct CancellingSink {
+        cancel: tokio_util::sync::CancellationToken,
+        accept_all: bool,
+    }
+    impl std::io::Write for CancellingSink {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.cancel.cancel();
+            Ok(if self.accept_all {
+                bytes.len()
+            } else {
+                bytes.len().min(3)
+            })
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            panic!("copy must not claim flush")
+        }
+    }
+    for (accept_all, expected) in [(false, 3), (true, 16)] {
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let error = reader
+            .copy_member_verified(
+                1,
+                &mut CancellingSink {
+                    cancel: cancel.clone(),
+                    accept_all,
+                },
+                &cancel,
+            )
+            .unwrap_err();
+        let HostError::DeveloperEvidence(error) = error else {
+            panic!("lost cancelled transfer")
+        };
+        assert!(
+            matches!(*error, EvidenceError::Transfer { member: 1, accepted_bytes, cancelled: true, .. } if accepted_bytes == expected)
+        );
+    }
+    let mut exact = Vec::new();
+    let receipt = reader
+        .copy_member_verified(1, &mut exact, &tokio_util::sync::CancellationToken::new())
+        .unwrap();
+    assert_eq!(receipt.content, ContentIdentity::of(&[0; 16]));
+    assert_eq!(exact, [0; 16]);
+    exact.flush().unwrap();
+}
+
+#[test]
+fn directory_sequential_member_late_mutation_and_publication_collision_never_complete() {
+    let scratch = tempfile::tempdir().unwrap();
+    let (bundle, _) = exported(scratch.path(), false);
+    let mut reader = open_directory(&bundle, &binary_options()).unwrap();
+    replace(&bundle.join("members/1"), &[1; 16]);
+    let mut prefix = Vec::new();
+    let error = reader
+        .copy_member_verified(1, &mut prefix, &tokio_util::sync::CancellationToken::new())
+        .unwrap_err();
+    assert_eq!(prefix, [1; 16]);
+    let HostError::DeveloperEvidence(error) = error else {
+        panic!("lost commitment refusal")
+    };
+    assert!(matches!(
+        *error,
+        EvidenceError::Transfer {
+            accepted_bytes: 16,
+            cancelled: false,
+            ..
+        }
+    ));
+    replace(&bundle.join("members/1"), &[0; 16]);
+    let destination = scratch.path().join("existing");
+    fs::write(&destination, b"preserved").unwrap();
+    assert!(
+        export_directory_member(
+            &bundle,
+            1,
+            &destination,
+            &tokio_util::sync::CancellationToken::new()
+        )
+        .is_err()
+    );
+    assert_eq!(fs::read(&destination).unwrap(), b"preserved");
+    let cancelled = tokio_util::sync::CancellationToken::new();
+    cancelled.cancel();
+    let output = scratch.path().join("cancelled");
+    assert!(export_directory_member(&bundle, 1, &output, &cancelled).is_err());
+    assert!(!output.exists());
+    assert!(
+        reader
+            .copy_member_verified(
+                999,
+                &mut std::io::sink(),
+                &tokio_util::sync::CancellationToken::new()
+            )
+            .is_err()
+    );
 }
 
 #[test]
