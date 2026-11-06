@@ -181,10 +181,10 @@ and physical-settlement population; no new shutdown test or memory benefit is cl
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | C01 | complete | Existing retained bridge/provider identities and explicit native preparation | Stale standalone compiler receipt explicitly refreshed with the existing immutable-cache implementation. Root compiler/solver selection and nested reentry succeed; the separate results checkout passes the same selection and engineering generation. Nine targeted native identity/cache controls pass with complete capture/settlement, including cross-checkout survival and changed-context refusal. This closes the reproduced preparation gap without relaxed checks or a new cache path; broader C acceptance remains separate. |
-| C02 | in-progress | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Common RPC mapping removal is implemented in the candidate, with contextual effects/authentication retained and receiving pending. Complete selected typed service effects, reconnect and original identity consumers with their replaced maps deleted. |
+| C02 | in-progress | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Common RPC mapping removal is integrated with contextual effects/authentication retained; selected main service/result receiving passes. Complete remaining typed effects, reconnect and original identity consumers with their replaced maps deleted. |
 | C03 | planned | Existing queue/retirement owners; C02 selected operations; D's provider support | Every selected prepared-worker/session path has transactional handoff, per-handle cancellation/close and result-bearing physical finish; true native batch behavior is integrated where selected. |
 | C04 | planned | Complete passive recipe and admitted-body foundations; A/D operation-specific permission; D's preallocation-bounded canonical reconstruction gate | Remaining selected live/receiving/reference contexts use exact native permission and original memberships; canonical binary activation requires bounded native reconstruction or a qualified alternative, and obsolete routes retire only with their actual consumers. |
-| C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | Correct checkout environment activation in native test/check launch, then receive the selected service scope under its requested placement. Complete actual transport/native/process failure population, independent sessions and retained response lifetime; simplify task accounting only where all settlement responsibilities survive. |
+| C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | Checkout activation is corrected and actual main receiving uses requested ordinary placement; selected service and host controls pass with complete capture/settlement, preserving initial interrupted/timed-out evidence. Complete broader transport/native/process failures, independent sessions and retained response lifetime; simplify accounting only where settlement responsibilities survive. |
 
 ### C01 — Make preparation representations compose
 
@@ -199,10 +199,11 @@ not a reason to rebuild all preparation for every plan package.
 
 ### C02 — Complete actual local operation/service consumers
 
-The common engineering RPC candidate now consumes source-generated ingress, edit, identifier,
+The common engineering RPC delivery now consumes source-generated ingress, edit, identifier,
 status/progress and outgoing mappings. Native source-parent, membership, provider, effect and
-authentication checks remain with their existing owners. Receiving is pending after the native
-test launch exposed a separate checkout-environment activation defect; no service pass is inferred.
+authentication checks remain with their existing owners. Main's selected receiving passed after
+the separate checkout-environment activation defect was corrected; B records its 38-control
+bounded-response/result scope. This is not the remaining independent-client population.
 
 Migrate all selected engineering contract/workbench/prepared-study and simulation/fit/horizon
 submission/status/cancel/progress/read paths, plus their preparation, worker and reference service
@@ -250,10 +251,10 @@ and native receiving acceptance exist. Historical readable records can retain un
 
 Original receiving exposed a native launcher gap: a caller without exported placement values
 did not activate the checkout's explicit unbounded selection, so managed test launch chose the
-default finite functional scope and rustc was killed at its 40 GiB limit. Repair test/check launch
-through the existing environment activation owner, preserving caller precedence and explicit
-finite class/memory choices. This is separate from C01's refreshed immutable compiler receipt;
-it requires no reduced build width, cache change, new admission policy or host configuration.
+default finite functional scope and rustc was killed at its 40 GiB limit. Test/check launch now
+uses the existing environment activation owner, preserving caller precedence and explicit
+finite class/memory choices. Main's actual receiving confirms ordinary placement. This is
+separate from C01's refreshed immutable compiler receipt and changes no host capacity/cache policy.
 
 Complete slow/abandoned upload and download, partial progress with terminal stream error,
 deadline-before-admission/after-handoff, observer departure with continued work, lost ACK,

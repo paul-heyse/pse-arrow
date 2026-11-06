@@ -185,8 +185,9 @@ owns the FeedFlash/ordinary-input delivery and subsequent ready physics; `p66-ho
 semantic comparison and original evidence delivery. Original candidate branches retain
 their frozen changes. No older plan branch is merged wholesale. Main now contains the
 FeedFlash delivery, source-driven adapter helper imports, original failed-rerun intent and
-checkout-aware StudyModule preparation hint. The recorded-result consumer cutover is being
-integrated with combined regeneration; general source/bootstrap separation remains open.
+checkout-aware StudyModule preparation hint. The recorded-result consumer cutover and combined
+regeneration are integrated; the finite pure-source bootstrap is receiving in its own checkout.
+General runtime-root bootstrap remains open.
 
 C01's reproduced compiler/solver refusal came from the selected standalone compiler receipt
 still referencing the old contracts checkout's `.config/native-cache.cmake`. Existing source
@@ -225,15 +226,40 @@ establish scientific fixture correctness or general future-source bootstrap. The
 five semantic and six selected delivery controls passed against zero before integration;
 the stricter Buf controls distinguish a valid generated world from an intentionally invalid
 map fixture. Recorded-result ordinary/service and original fixture controls pass in their
-owning checkout; their combined main receiving remains separate work.
+owning checkout. Main subsequently passed the selected service/result population, including
+protected canonical and project export/read, original fixture interpretation and exact metadata.
 
-The engineering RPC cutover removes its handwritten request/result/identifier/progress and
+The engineering RPC cutover has removed its handwritten request/result/identifier/progress and
 source-edit maps in favor of source-generated adapters while preserving native contextual
 admission. Its first receiving attempt ran no tests: native test launch had skipped checkout
 environment activation and allocated the default finite 40 GiB scope despite the checkout's
-unbounded selection. The kernel terminated rustc at that cgroup limit. C/F own the launcher
-correction and precedence controls; the intended response is to apply the existing selection,
-not reduce concurrency or disable caches. RPC receiving and B03 completion remain pending.
+unbounded selection. The kernel terminated rustc at that cgroup limit. The integrated launcher
+correction activates the checkout before managed admission, retaining caller precedence and
+explicit finite choices. Actual main receiving uses ordinary unbounded placement; no host width
+or cache behavior changed.
+
+**Tested, targeted:** `scripts/pse test pse-runtime --lib` with
+`engineering-service,native-study-tests` and the selected RPC/lifecycle/result/inspection controls
+passed 30 tests, then 38 after the B04 bounded-response delivery and additional export/read
+receiving. Both have zero failures/pending/build warnings and complete original capture/settlement.
+B04 uses Buffa's pre-write binary limit and the existing typed Serde sink; returned bytes retain
+their allocation owner through the final consumer. This does not qualify all B/C/E consumers or
+measure memory/latency benefit.
+
+Main's six selected host controls initially produced three passes and three timeouts: nested
+real Cargo discovery shared the artifact directory with the service compilation. This was an
+ordering mistake in receiving, not evidence of an assertion failure. After that prerequisite
+settled, `scripts/pse test --rerun-failed 01a1b266-1ad2-7254-bdcf-a6101c4d68b4` passed exactly the
+three failed identities in a new original invocation (`01a1b273-06c0-75b6-8b89-5de614831399`),
+zero failures/pending/build warnings with complete capture/settlement. Preserve the initial timeout
+evidence. No test deadline, host capacity or test-parallelism rule was widened to obtain that pass.
+
+D01/D02 now own the selected affine preparation demand mismatch exposed by H03; D records
+the actual full-curvature versus selected-row producer distinction and its remaining construction
+contract. H retains simultaneous refinement and compiler-retention obligations while advancing
+the existing single-clock integrated route. F/E's first actual developer-evidence analytical
+consumer is receiving on explicitly selected original members, without scientific association
+or verdict authority.
 
 L01 supplied initial source/input distinctions to the scientific lane: ordinary-BT admits
 separate physical data/conventions; the FeedFlash seed and existing ControlledCSTR oracle-input
