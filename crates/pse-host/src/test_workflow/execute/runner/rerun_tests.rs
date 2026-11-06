@@ -75,6 +75,160 @@ fn publish(store: &InvocationStore, input: &Input, destination: &Path, report: &
 }
 
 #[tokio::test]
+async fn actual_native_setup_failure_preserves_original_capture_without_assertion_rerun_grant() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let mut environment: Environment = std::env::vars_os().collect();
+    environment.insert(
+        "XDG_STATE_HOME".into(),
+        scratch.path().join("state").into_os_string(),
+    );
+    let store =
+        InvocationStore::new(crate::paths::CheckoutState::resolve(root, &environment).unwrap());
+    let mut input = input(Action::Test);
+    input.request.scope = selection::Scope::Packages(vec![selection::PackageIntent {
+        package: "pse-host".into(),
+        target: Some(selection::TargetIntent {
+            name: "pse_host".into(),
+            kind: Some("lib".into()),
+        }),
+        features: selection::Features {
+            defaults: false,
+            ..Default::default()
+        },
+    }]);
+    input.request.filters.ignore_default_filter = true;
+    input.request.filters.words =
+        vec!["test_workflow::execute::runner::tests::rerun_controlled_failure_probe".into()];
+    let destination = begin(&store, &input);
+    fs::create_dir(&destination).unwrap();
+    fs::set_permissions(&destination, fs::Permissions::from_mode(0o700)).unwrap();
+    let cargo = crate::correctness::real_cargo_in(&environment).unwrap();
+    let metadata = Command::new(&cargo)
+        .args([
+            "metadata",
+            "--format-version=1",
+            "--locked",
+            "--offline",
+            "--no-deps",
+        ])
+        .current_dir(root)
+        .env_clear()
+        .envs(&environment)
+        .output()
+        .unwrap();
+    assert!(
+        metadata.status.success(),
+        "{}",
+        String::from_utf8_lossy(&metadata.stderr)
+    );
+    let metadata: cargo_metadata::Metadata = serde_json::from_slice(&metadata.stdout).unwrap();
+    let admitted = test_workflow::Intent::new(
+        metadata.clone(),
+        input.request.clone(),
+        input.profile.clone(),
+        environment.clone(),
+    )
+    .unwrap()
+    .admit()
+    .unwrap();
+    let mut report = Report::new(&input);
+    report.selection = Some(admitted.resolved().plan().clone());
+    report.admission = admitted.resolved().admitted().to_vec();
+    let listed = admitted
+        .list(
+            &nextest(&environment).unwrap(),
+            &destination.join("inventory"),
+            crate::discovery::DiscoveryOptions {
+                policy: input.policy,
+                timings: false,
+            },
+        )
+        .await
+        .unwrap();
+    report.record_inventory(&destination).unwrap();
+    report.selected_tests = Some(listed.inventory().selected_tests_iter().count());
+    discovery_phases(&mut report, listed.inventory());
+    let mut command = listed.command(0).unwrap();
+    assert_eq!(command.program, listed.inventory().nextest.captured);
+    assert_eq!(
+        report.selection.as_ref().unwrap(),
+        &listed.inventory().selection
+    );
+    // Deliberate runtime-input fault in this caller-owned command only. Discovery's
+    // captured correctness adapter and all current image/admission checks stay intact.
+    command
+        .environment
+        .insert("PSE_CORRECTNESS_REAL_CARGO".into(), cargo);
+    command
+        .environment
+        .insert("PSE_CORRECTNESS_EXECUTABLE".into(), "/bin/false".into());
+    let observer = listed.observer(0).unwrap();
+    execute_groups(
+        &input,
+        &destination,
+        vec![(command, GroupObserver::Test(observer))],
+        &mut report,
+    )
+    .await
+    .unwrap();
+    if report.outcome != Outcome::Failed {
+        let retained = scratch.keep();
+        panic!(
+            "expected native setup failure, got {:?}; failures {:?}; original evidence retained at {}",
+            report.outcome,
+            report.failures,
+            retained.display()
+        );
+    }
+    assert!(
+        report.required_capture_complete,
+        "all original raw output was retained"
+    );
+    assert_eq!(report.selected_tests, Some(1));
+    let GroupObservation::Test { observation, .. } = &report.observations[0] else {
+        panic!("native test observation absent")
+    };
+    assert_eq!(observation.summary.outcome(), NextestOutcome::SetupFailed);
+    assert_eq!(
+        observation.summary.setup(),
+        crate::extraction::NextestSetup::FailedByRunner
+    );
+    assert!(
+        !observation.summary.complete(),
+        "setup failure does not establish selected-test completion"
+    );
+    assert_eq!(observation.summary.completed(), 0);
+    assert!(observation.summary.failed().is_empty());
+    assert!(
+        observation.failures.is_empty(),
+        "setup is not a fabricated assertion identity"
+    );
+    assert!(
+        fs::metadata(destination.join("run-0.stderr"))
+            .unwrap()
+            .len()
+            > 0
+    );
+    publish(&store, &input, &destination, &mut report);
+    let captured =
+        crate::test_inventory::captured(&store, input.invocation.as_str(), None).unwrap();
+    assert_eq!(captured.observation.outcome, Outcome::Failed);
+    assert!(captured.observation.required_capture_complete);
+    assert_eq!(captured.manager_settlement, Some(Settlement::Unknown));
+    let mut rerun = input.request.clone();
+    rerun.scope = selection::Scope::RerunFailed {
+        invocation: input.invocation.to_string(),
+    };
+    assert!(
+        test_workflow::Intent::new(metadata, rerun, input.profile.clone(), environment).is_err()
+    );
+}
+
+#[tokio::test]
 async fn actual_expected_refusal_success_has_original_evidence_and_zero_failed_rerun_is_nonpass() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()

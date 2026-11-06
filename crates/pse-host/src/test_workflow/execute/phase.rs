@@ -144,3 +144,45 @@ pub(crate) async fn run<O: ChunkObserver>(
         failures,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{os::unix::process::ExitStatusExt as _, time::Duration};
+    #[tokio::test]
+    async fn phase_signal_exit_retains_original_status_and_complete_raw_capture() {
+        let root = tempfile::tempdir().unwrap();
+        let stdout = root.path().join("original.stdout");
+        let stderr = root.path().join("original.stderr");
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", "printf 'original-before-signal\\n'; printf 'original-error\\n' >&2; kill -TERM $$; printf 'unreachable\\n'"]);
+        let observed = run(
+            command,
+            &stdout,
+            &stderr,
+            crate::managed::result::GenericObserver,
+            PayloadPolicy {
+                startup: Duration::from_secs(30),
+                drain: Duration::from_secs(30),
+                write: Duration::from_secs(5),
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(observed.status.unwrap().signal(), Some(15));
+        assert_eq!(observed.child_exit, Some(128 + 15));
+        assert!(
+            observed.capture_complete,
+            "raw EOF/custody is independent of successful execution"
+        );
+        assert!(
+            observed.failures.is_empty(),
+            "the raw owner does not reinterpret a signal as an I/O failure"
+        );
+        assert!(observed.stdout.as_ref().unwrap().complete);
+        assert!(observed.stderr.as_ref().unwrap().complete);
+        assert_eq!(std::fs::read(stdout).unwrap(), b"original-before-signal\n");
+        assert_eq!(std::fs::read(stderr).unwrap(), b"original-error\n");
+        // This raw phase observation grants no workload pass or enclosing scope settlement.
+    }
+}
