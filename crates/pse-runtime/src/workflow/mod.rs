@@ -275,12 +275,13 @@ mod projects_consumer_tests;
 pub(crate) use modeling::PackageAdmission;
 pub use modeling::documents::{
     ConformanceControls, DeclarationEdit, DeclarationInventory, DiagnosticSamplesControls,
-    InspectionConnection, InspectionDomain, InspectionExecution, InspectionInstance,
-    InspectionLineage, InspectionMember, InspectionPopulation, InspectionPort,
-    JacobianDiagnosticControls, KnowledgeControls, LinearDiagnosticControls,
-    ModelingDeclarationPage, ModelingDeclarationRequest, ModelingInspection,
-    ModelingInspectionRequest, PureConformanceControls, SourceDelta, SourceDocumentDelta,
-    SourceFitDelta,
+    InspectionConnection, InspectionDomain, InspectionExecution, InspectionFixture,
+    InspectionInstance, InspectionIntegration, InspectionLineage, InspectionMember,
+    InspectionPopulation, InspectionPort, InspectionQuadrature, InspectionScheduleControl,
+    InspectionScheduleInterval, InspectionSpecification, JacobianDiagnosticControls,
+    KnowledgeControls, LinearDiagnosticControls, ModelingDeclarationPage,
+    ModelingDeclarationRequest, ModelingInspection, ModelingInspectionRequest,
+    PureConformanceControls, SourceDelta, SourceDocumentDelta, SourceFitDelta,
 };
 pub use modeling::{
     ProviderInspectionEntry, ProviderInspectionOutput, ProviderInspectionPage,

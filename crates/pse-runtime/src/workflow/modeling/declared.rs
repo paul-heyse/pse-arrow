@@ -215,6 +215,10 @@ pub(super) fn initialization(
     Ok(plan)
 }
 impl DeclaredExecution {
+    /// Original selection retained by admission, independent of public analysis overlays.
+    pub(super) fn retained_selection(&self) -> (DeclarationId, InstanceId) {
+        (self.prepared.root, self.prepared.instance)
+    }
     pub(in crate::workflow) fn retained_source(&self) -> &ModelingPackage {
         &self.prepared.source
     }

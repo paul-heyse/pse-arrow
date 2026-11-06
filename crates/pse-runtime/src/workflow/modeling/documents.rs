@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Owned transport of source editing and nonexecuting selected-revision inspection.
+#[path = "inspection_fixture.rs"]
+mod inspection_fixture;
+pub use inspection_fixture::{
+    InspectionFixture, InspectionIntegration, InspectionQuadrature, InspectionScheduleControl,
+    InspectionScheduleInterval, InspectionSpecification,
+};
 #[cfg(all(test, feature = "engineering-service"))]
 #[path = "inspection_generated_tests.rs"]
 mod inspection_generated_tests;
@@ -267,6 +273,16 @@ pub struct InspectionPopulation {
     pub connections: usize => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Complete original finite-domain occurrence population, including empty carriers.
     pub domains: usize => { tag: 5, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
+    /// Original authored scalar specification population.
+    pub specifications: usize => { tag: 6, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
+    /// Original ordered requested integration samples.
+    pub integration_samples: usize => { tag: 7, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
+    /// Original explicitly controlled integration quadratures.
+    pub integration_quadratures: usize => { tag: 8, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
+    /// Original schedule intervals, ordered by schedule then interval.
+    pub schedule_intervals: usize => { tag: 9, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
+    /// Original equations applied at the integrated lower endpoint.
+    pub initial_equations: usize => { tag: 10, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
 pse_contract::projection_struct! {
@@ -303,6 +319,12 @@ pub struct ModelingInspection {
     /// Original contextual finite carriers, preserving kind, exact values and semantic order.
     #[schemars(transform = inspection_members_schema)]
     pub domains: Vec<InspectionDomain> => { tag: 11, direction: pse_contract::boundary_projection::Direction::Output, rules: [INSPECTION_MEMBERS] };
+    /// Original selected declaration, issued by the retained admission owner.
+    pub selected_root: DeclarationId => { tag: 12, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
+    /// Original selected instance, issued by the retained admission owner.
+    pub selected_instance: InstanceId => { tag: 13, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
+    /// Immutable authored/admitted-original inputs; no fixture differs from an empty fixture.
+    pub fixture: Option<InspectionFixture> => { tag: 14, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     @local {
     /// Original selected metadata allocation, retained locally through boundary encoding.
     #[serde(skip)]
@@ -483,6 +505,8 @@ impl super::DeclaredExecution {
         }
         let original = self.prepared_model(retained_source)?;
         let source = &original.compiled().model;
+        let (selected_root, selected_instance) = self.retained_selection();
+        let fixture = source.fixtures.get(&selected_instance);
         // Count original selected metadata before cloning nested member/name inventories.
         // The complete source model remains under its original admission owner.
         let lineage_extent = |lineage: &pse_modeling::specialize::Lineage| {
@@ -560,6 +584,9 @@ impl super::DeclaredExecution {
                 break;
             }
         }
+        extent = extent.saturating_add(inspection_fixture::selected_extent(
+            source, fixture, offset, limit,
+        )?);
         if extent > 64 << 10 {
             return Err(super::super::WorkflowError::Resource(
                 "native selected inspection metadata exceeds64KiB; narrow the page".into(),
@@ -574,6 +601,24 @@ impl super::DeclaredExecution {
             ports: source.ports.len(),
             connections: source.connections.len(),
             domains: source.finite_facts.domains().count(),
+            specifications: fixture.map_or(0, |value| value.specifications.len()),
+            integration_samples: fixture
+                .and_then(|value| value.integration.as_ref())
+                .map_or(0, |value| value.samples.len()),
+            integration_quadratures: fixture
+                .and_then(|value| value.integration.as_ref())
+                .map_or(0, |value| value.quadratures.len()),
+            schedule_intervals: fixture.and_then(|value| value.integration.as_ref()).map_or(
+                0,
+                |value| {
+                    value
+                        .schedules
+                        .iter()
+                        .map(|schedule| schedule.values.len())
+                        .sum()
+                },
+            ),
+            initial_equations: fixture.map_or(0, |_| source.initial_equations.len()),
         };
         let maximum = [
             population.instances,
@@ -581,11 +626,29 @@ impl super::DeclaredExecution {
             population.ports,
             population.connections,
             population.domains,
+            population.specifications,
+            population.integration_samples,
+            population.integration_quadratures,
+            population.schedule_intervals,
+            population.initial_equations,
         ]
         .into_iter()
         .max()
         .unwrap_or(0);
         Ok(ModelingInspection {
+            selected_root,
+            selected_instance,
+            fixture: fixture
+                .map(|fixture| {
+                    inspection_fixture::project(
+                        source,
+                        fixture,
+                        &retained_source.quantities,
+                        offset,
+                        limit,
+                    )
+                })
+                .transpose()?,
             source: source_identity,
             preparation,
             population,
