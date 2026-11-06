@@ -577,3 +577,53 @@ fn capture_owner_and_metadata_budget_follow_complete_original_publication() {
     drop(owner);
     assert!(weak.upgrade().is_none());
 }
+
+#[test]
+fn complete_capture_finalization_preserves_late_control_cause_and_releases_owner() {
+    #[derive(Debug)]
+    struct Owner(Arc<AtomicUsize>);
+    impl Drop for Owner {
+        fn drop(&mut self) {
+            self.0.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+    let original = fixture(true);
+    for deadline in [false, true] {
+        let live = scope();
+        let dropped = Arc::new(AtomicUsize::new(0));
+        let owner = Arc::new(Owner(dropped.clone()));
+        let weak = Arc::downgrade(&owner);
+        let captured = capture(&original, &live, |_| Ok::<_, Infallible>(owner.clone())).unwrap();
+        assert!(!captured.snapshot().numerical.first.is_empty());
+        assert!(!captured.snapshot().attribution.occurrences.is_empty());
+        drop(owner);
+        assert_eq!(dropped.load(Ordering::SeqCst), 0);
+        let final_scope = if deadline {
+            pse_kernels::ExecutionScope::new(
+                pse_diagnostics::Cancellation::new(false),
+                Some(std::time::Instant::now() - Duration::from_secs(1)),
+            )
+        } else {
+            live.cancellation_control().cancel();
+            live
+        };
+        // Exercise the production owning finalizer after every capture buffer
+        // exists. This verifies the late refusal class and owner release; Vec
+        // deallocation ordering is guaranteed by the owning type's field order,
+        // not observed through allocator instrumentation.
+        let error = captured.check_scope(&final_scope).unwrap_err();
+        if deadline {
+            assert!(matches!(
+                error,
+                RootTransferError::Math(MathError::Scope(pse_kernels::ProviderError::Deadline))
+            ));
+        } else {
+            assert!(matches!(
+                error,
+                RootTransferError::Math(MathError::Cancelled)
+            ));
+        }
+        assert!(weak.upgrade().is_none());
+        assert_eq!(dropped.load(Ordering::SeqCst), 1);
+    }
+}
