@@ -237,6 +237,11 @@ production path until that gate and its actual receiving controls are satisfied;
 after a qualified replacement has moved every caller. This local reconstruction bound does not
 change the unbounded host policy. The already implemented provider-free compiled f64 Value/First
 live child is a separate admitted-body path and supplies no canonical receiving qualification.
+The [mathematical owner's source investigation](66d-mathematical-representation-and-numerical-execution.md#canonical-reconstruction-activation)
+identifies maintained Symbolica's inspected/pre-admitted f64 program transfer as a narrower
+receiving seam. It does not restore the symbolic `AdmittedBody` returned by canonical replay.
+Preserve that distinction when choosing real worker/reference consumers and their demanded
+orders, original layouts and receipts; no newly serialized program grants native adoption.
 
 Complete original qualified recipe membership across the canonical receiving population and the
 actual prepared worker/reference consumers. Extend live prepared-body execution where D supplies
@@ -255,6 +260,16 @@ default finite functional scope and rustc was killed at its 40 GiB limit. Test/c
 uses the existing environment activation owner, preserving caller precedence and explicit
 finite class/memory choices. Main's actual receiving confirms ordinary placement. This is
 separate from C01's refreshed immutable compiler receipt and changes no host capacity/cache policy.
+
+A later service receiving was interrupted before tests when global OOM killed the user D-Bus
+service and a compiler process. Its original foreground exited143, required terminal was absent,
+and settlement remains incomplete. This is not the earlier finite40GiB launcher defect. D-Bus
+recovered automatically; no manager restart, host limit, compiler width, cache or incremental
+setting was changed. Other original invocations completed their compiler/test children but
+reported independent manager cleanup failure; their child evidence remains distinct from clean
+command acceptance. H owns its scientific child and outstanding native receiving. Fresh combined
+receiving must use current source and a live original manager; an absent old scope does not
+rewrite a failed historical receipt.
 
 Use E07's explicit caller token with the existing `CancellationToken::until_cancelled`
 and DataFusion's cancellation-safe stream/drop contract.

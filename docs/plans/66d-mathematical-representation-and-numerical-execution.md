@@ -86,6 +86,36 @@ or a specifically approved revised contract replaces them. The already implement
 compiled f64 Value/First live-child handoff is distinct and cannot close canonical reconstruction.
 This is an operation admission contract, not a new host-wide memory cap.
 
+Source investigation of maintained Symbolica3.0.1 confirms a useful narrower mechanism:
+`ExpressionEvaluator<f64>::f64_transfer`, allocation-free `F64ProgramView::inspect`, and
+`F64ProgramView::restore_with(admit)` inspect original instruction/constant/result/stack extents
+and admit requested backing before validation scratch or materialization. They restore the
+supplier's interpreter without atom import or global symbol registration; the stated envelope
+excludes allocator metadata/RSS, borrowed input and outer owners. The supplier format has no
+derivative-order concept: already prepared derivative programs could use it, but the current
+math wrapper refuses Second, directional/direct/reverse products and providers. D02 must qualify
+the exact native product/layout/stage/worker/provider closure before extending that support;
+removing a rejection alone is insufficient. Sources: [maintained supplier contract](../../vendor/symbolica/src/evaluate/f64_transfer.rs)
+and [native math transfer owner](../../crates/pse-math/src/execution/transfer.rs).
+The traced first-party live-root callers are acceptance tests of the closed Value/First factory;
+current NLP/response work prepares its Second/actions through in-process assembly and original
+scientific-worker sessions. Higher-order live transfer therefore stays a capability candidate,
+not an extra implementation added to claim reconstruction progress. Require a concrete receiving
+consumer and its original product/seed/cotangent contract first; see
+[current live-root factory](../../crates/pse-runtime/src/math/native_child.rs) and
+[current demanded-product preparation](../../crates/pse-runtime/src/math/products.rs).
+
+That numerical product cannot replace canonical reconstruction's `AdmittedBody`, whose actual
+consumers require subsequent partial compilation, symbolic affine/quadratic evidence and exact
+factorable work. Ordinary evaluator Serde/bincode decoding allocates vectors/external state;
+`Atom::import`, workspace recycling, evaluator cache limits, `map_coeff_with_prec`, instruction
+export and native library loading do not establish the missing general construction envelope.
+Selected GMP/MPFR growth and process-global registration remain part of that obligation. A
+qualified numerical receiving slice must preserve the original binary64 realization and withhold
+unavailable symbolic/higher-precision products. Any broader supplier extension needs source-backed
+preconstruction admission and registration custody, following the scope discipline in the existing
+[bounded-root maintenance contract](../../vendor/symbolica-bounded-roots.md).
+
 ## First demanded mathematical correction — November6
 
 H03's single aqueous cell reached a 610-coordinate simultaneous formulation and passed its
