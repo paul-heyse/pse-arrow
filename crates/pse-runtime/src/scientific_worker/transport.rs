@@ -722,6 +722,11 @@ impl Server {
         // Admission and handoff have no suspension point. A canceled reservation
         // cannot leave a phantom prepared handle in the control map.
         let (response, received) = tokio::sync::oneshot::channel();
+        #[cfg(test)]
+        let closing = match &request {
+            p::Request::Close(handle) => Some(handle.clone()),
+            _ => None,
+        };
         permit.send(Job {
             request,
             completion: NativeCompletion {
@@ -729,6 +734,19 @@ impl Server {
                 _work: work,
             },
         });
+        #[cfg(test)]
+        if let Some(handle) = closing
+            && std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() == Ok("close-pending")
+        {
+            let marker = PathBuf::from(std::env::var_os("PSE_SCIENCE_TEST_MARKER").unwrap());
+            // Test-child observation of the actual committed queue handoff,
+            // independent of thread scheduling or later acknowledgement.
+            std::fs::write(
+                marker.with_extension("close-queued"),
+                handle.generation.to_string(),
+            )
+            .unwrap();
+        }
         Ok(Submitted { response: received })
     }
 }

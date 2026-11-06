@@ -67,6 +67,21 @@ struct ControlledNative {
 }
 impl Provider for ControlledNative {
     fn finish(self: Box<Self>) -> Result<(), ProviderError> {
+        if self.mode == "close-pending" {
+            assert!(
+                self.marker.with_extension("returned").exists(),
+                "native finish must follow the in-flight fill's actual return"
+            );
+            writeln!(
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(self.marker.with_extension("finished"))
+                    .unwrap(),
+                "finished"
+            )
+            .unwrap();
+        }
         if self.mode == "finish-native-faults" {
             writeln!(
                 std::fs::OpenOptions::new()
@@ -132,6 +147,18 @@ impl Provider for ControlledNative {
         }
         if self.mode == "delay" {
             std::thread::sleep(Duration::from_secs(30));
+        }
+        if self.mode == "close-pending" && inputs[0] == 13. {
+            std::fs::write(self.marker.with_extension("active"), b"native fill active").unwrap();
+            while !self.marker.with_extension("release").exists() {
+                context.check()?;
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            std::fs::write(
+                self.marker.with_extension("returned"),
+                b"native fill returned",
+            )
+            .unwrap();
         }
         if self.mode == "actions-cooperative" && inputs[0] == 13. {
             std::fs::write(self.marker.with_extension("active"), b"native active").unwrap();
@@ -599,6 +626,133 @@ fn provider_binding_finish_reaches_actual_remote_handles_process_and_io() {
         .unwrap();
     binding.finish().unwrap();
     assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert_eq!(pool.reserved(), baseline);
+}
+
+#[test]
+fn actual_close_pending_drains_fill_and_preserves_an_independent_prepared_handle() {
+    struct ReleaseGate(std::path::PathBuf);
+    impl Drop for ReleaseGate {
+        fn drop(&mut self) {
+            // A failing assertion must release the real native thread before
+            // std::thread::scope joins the two request callers during unwind.
+            let _ = std::fs::write(&self.0, b"caller departed native fill gate");
+        }
+    }
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("native");
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let mut proxy = finish_proxy("close-pending", &marker, &service);
+    let closing = proxy.prepared[0].1.clone();
+    let survivor = proxy.prepared[1].1.clone();
+    let remote = proxy.remote.as_ref().unwrap();
+    let pid = remote.child.pid();
+    let endpoint = remote._endpoint.path().to_path_buf();
+    let admitted = pool.reserved();
+    assert!(admitted > baseline);
+    let io = remote.io.as_ref().unwrap();
+    std::thread::scope(|threads| {
+        let _release = ReleaseGate(marker.with_extension("release"));
+        let closing_fill = closing.clone();
+        let scope = &proxy.scope;
+        let evaluation = threads.spawn(move || {
+            io.exchange(
+                p::Request::Evaluate(p::Evaluate {
+                    handle: closing_fill,
+                    invocation: 1,
+                    inputs: vec![13., 20.],
+                    directions: vec![],
+                    cotangents: vec![],
+                    weights: vec![],
+                }),
+                scope,
+                None,
+            )
+        });
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !marker.with_extension("active").exists() {
+            assert!(
+                Instant::now() < deadline,
+                "native fill did not enter its owned gate"
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let close_handle = closing.clone();
+        let close =
+            threads.spawn(move || io.exchange(p::Request::Close(close_handle), scope, None));
+        let queued_generation = closing.generation.to_string();
+        while std::fs::read_to_string(marker.with_extension("close-queued"))
+            .ok()
+            .as_deref()
+            != Some(queued_generation.as_str())
+        {
+            assert!(
+                Instant::now() < deadline,
+                "actual Close did not enter the native queue"
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(!evaluation.is_finished());
+        assert!(
+            !close.is_finished(),
+            "Close cannot acknowledge before native return"
+        );
+        assert!(!marker.with_extension("finished").exists());
+        assert_eq!(pool.reserved(), admitted);
+        std::fs::write(
+            marker.with_extension("release"),
+            b"caller releases native fill",
+        )
+        .unwrap();
+        let p::Response::Values(values) = evaluation.join().unwrap().unwrap() else {
+            panic!("Close drains the original fill rather than cancelling it")
+        };
+        assert_eq!(values.handle, closing);
+        assert_eq!(values.invocation, 1);
+        assert!(!values.values.is_empty());
+        assert!(values.values.iter().all(|value| *value == 1.));
+        assert!(matches!(
+            close.join().unwrap().unwrap(),
+            p::Response::Closed(actual) if actual == closing
+        ));
+        assert!(marker.with_extension("returned").exists());
+        assert_eq!(
+            std::fs::read_to_string(marker.with_extension("finished")).unwrap(),
+            "finished\n"
+        );
+        let p::Response::Values(values) = io
+            .exchange(
+                p::Request::Evaluate(p::Evaluate {
+                    handle: survivor.clone(),
+                    invocation: 1,
+                    inputs: vec![500., 20.],
+                    directions: vec![],
+                    cotangents: vec![],
+                    weights: vec![],
+                }),
+                scope,
+                None,
+            )
+            .unwrap()
+        else {
+            panic!("another handle's queued Close must preserve this preparation")
+        };
+        assert_eq!(values.handle, survivor);
+        assert!(!values.jacobian.is_empty());
+        assert!(values.jacobian.iter().all(|value| *value == 2.));
+        assert_eq!(pool.reserved(), admitted);
+    });
+    // The exact acknowledged handle is already retired. Explicit normal finish
+    // still owns the survivor, process wait and every parent I/O join.
+    proxy.prepared.retain(|(_, handle, _)| *handle != closing);
+    Box::new(proxy).finish().unwrap();
+    assert_eq!(
+        std::fs::read_to_string(marker.with_extension("finished")).unwrap(),
+        "finished\nfinished\n"
+    );
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert!(!endpoint.exists());
     assert_eq!(pool.reserved(), baseline);
 }
 
