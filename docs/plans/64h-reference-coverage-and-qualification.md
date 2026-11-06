@@ -782,6 +782,19 @@ per-coordinate seeded-generator reuse retain their limits. Native statistical/
 backend contracts,realized stochastic custody andindependent scientific
 acceptance remain required;no fit/sampler/trainer ran.
 
+**Update, 2026-11-05 — seven-group source handoff:** the
+[wrapper comparison](64h-required-process-population.md#notebook-wrapper-correspondence-and-disposition-boundary--2026-11-05)
+applies actual generator tag filters across55documented families and180
+present derivatives:177matches andthree exact sCO2 exceptions. Complete
+scientific stages survive wrapper exclusion;held NETL anddistinct archived
+science remain retained. The [final seven-group handoff](64h-required-process-population.md#next-closure-work-and-consumers)
+now distinguishes resolved source choices from ordinary scientific authoring,
+missing metadata/historical helper,loaded-data/stochastic case freezing,
+execution compatibility,native acceptance andcoordinator disposition. No
+further principal source group in this authorized seven-group pass is
+uninspected;H01's executable scientific denominator andqualification remain
+open. No reference preparation,scientific execution orproduct changes ran.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

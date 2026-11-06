@@ -36,10 +36,12 @@ The existing [notebook register](../process-simulator-design/reference/notebook-
 remains the owner of its documented/held/archive entry list. The present crosswalk
 preserves every mandatory family in the
 [adopted scope](../process-simulator-design/delivery/idaes-scope-and-capability-coverage.md).
-It does **not** establish a closed total of scientific configurations or parameterized
-test instances: inherited settings, callable configurations, operating envelopes,
-full test parameters and transitive input closures are not all resolved. The
-specific remaining enumeration work is stated below. No completion percentage can
+It does **not** establish a closed total ofscientific configurations or
+parameterized test instances. The seven bounded source-expansion groups now
+have explicit handoffs below;selected inherited/callable cases,ordinary
+scientific inputs,operating envelopes,realized data-dependent populations
+andexecutable closures remain unresolved asstated in the final handoff.
+No completion percentage can
 be calculated from this investigation.
 
 ## Population rules
@@ -156,7 +158,7 @@ E02/E03/E04 supply only the storage/distribution/cycle capability each row consu
 | TSA zeolite — F05/E04 | [C TSA][tsa] `TestTsaZeolite`: zeolite_13x, fixed bed count 120, no compressor, steam=none; X TSA notebook | Isotherm/thermal/source coefficients and cycle operation are required ordinary scientific inputs. Compare product streams, recovery/purity, stage times, pressure drop, cycle inventories and energy; notebook presence does not qualify the cycle. |
 | TSA MgMOF — F05/E04 | C `TestTsaMgmof`: mmen_mg_mof_74, bed count calculated (`None`), compressor=False, simplified steam | A different adsorbent law, bed-sizing freedom and steam approximation; not an additional rendering of zeolite. Record ordinary isotherm provenance, heat conditions, sizing role and requested steam products. |
 | TSA polystyrene — F05/E04 | C `TestTsaPolystyrene`: polystyrene_amine, one bed, compressor=True with flue-gas properties, rigorous steam with IAPWS95 | Adds compressor work/efficiency and steam-heater property closure; no substitution by simplified steam. DAC electric-boiler/NGCC-retrofit costing cases depend on separate JSON coefficient files in `temperature_swing_adsorption/costing`. |
-| Solid oxide cell/module/SOEC — F05/E03/G05 | [C SOC source][soc]: conductive/porous slabs, channel, triple-phase boundary, contact resistor, cell and simple module; `soec_design.py`; X `soc_pid_control.ipynb` → `mod/power_gen/soc_dynamic_flowsheet.py` | Preserve thin/resolved fuel electrode, oxygen electrode, electrolyte/interconnect; co/counterflow, gas holdup, contact resistance, heat loss, custom voltage and kinetic modifier choices. Thin region plus its x-grid is rejected upstream. X operating scenarios consume `soec_flowsheet_operating_conditions.csv` and `max_production.json.gz`/`power_mode.json.gz`; other shipped initializations must be dispositioned. Full per-option/test population and ordinary electrochemical data remain open. |
+| Solid oxide cell/module/SOEC — F05/E03/G05 | [C SOC source][soc]: conductive/porous slabs, channel, triple-phase boundary, contact resistor, cell and simple module; `soec_design.py`; X `soc_pid_control.ipynb` → `mod/power_gen/soc_dynamic_flowsheet.py` | Preserve thin/resolved layers,co/counterflow,gas/solid storage,contact/heat-loss/custom voltage/kinetic choices andtheir refusals. Detailed cell/submodel/controller sections resolve source fixtures,operating CSV andsaved-state roles. Ordinary electrochemical data,actual dynamic/nonzero-extension cases,native physics andscientific acceptance remain open. |
 | Gas network — F06/E03 | [C gas distribution][gas-network]: natural-gas properties, compressor/node/pipeline; `test_pipeline.py::TestSolvePipelineSquare` nominal/sweep, `TestSolveDynamicPipeline` inlet-pressure/outlet-flow simulation and optimization; `test_pipeline_compressor.py` dynamic coupling; node supply/demand and inlet/outlet counts | Exact gas composition/conventions, isothermal/compression law, pressure-flow boundary roles and temporal/spatial discretization are required. Forward/backward/Radau/Legendre construction tests do not all establish transient solutions. Negative signed flow alone grants no composition/enthalpy reversal semantics. Linepack and network balance require E03. |
 
 The pinned power-unit declarations expose the following additional finite axes.
@@ -2259,8 +2261,10 @@ Additional shipped cardinal_sine(100 rows),cardinal_sine_2500(2500),
 griewank_data(10201) andexponential_function_data(10201 plus header) files
 are not consumed by these seven selected entry points. Their remaining
 benchmark consumers/source selection stay open,not excluded oradded to a
-training population merely because files exist. C's full polynomial/RBF/
-kriging/sampling test parameterizations remain a separate unresolved expansion.
+training population merely because files exist. The later core PySMO/ALAMO/
+sampling section resolves its finite source families;these extra filenames
+are not inputs tothose inspected core orsixhelper selections. Coordinator
+selection ofany additional actual consumer remains separate from file presence.
 No native matched benchmark/training/equation/optimization case has been
 established;G04 retains each selected stage andordinary analytic-function/
 process-data distinctions. Ephemeral AST/text/file inspection established
@@ -5846,8 +5850,9 @@ process or utility-cost data.
 Native G06 requires ordinary cost/property/utility data with year/index,
 equipment selection,sizing/parallel roles,thermal boundaries and explicit
 fit/envelope permissions;original energy,unit-conversion,optimization and
-statistical/derivative products remain independent. Complete QGESS account
-consumers and all unselected geometry/utility cases remain open. Only
+statistical/derivative products remain independent. Later QGESS lifecycle
+anddirect-account sections resolve those source consumers;ordinary economic
+inputs,unselected physical geometry/utility cases andacceptance remain open. Only
 source/AST/JSON inspection and finite-combination arithmetic ran;no cost,
 heat-target,property or solver execution occurred.
 
@@ -6568,6 +6573,96 @@ andindependent acceptance. This closes these named core source families;
 exact executable/trainer versions,realized stochastic populations and
 native/reference scientific results remain held/unattempted as applicable.
 
+## Notebook wrapper correspondence and disposition boundary — 2026-11-05
+
+**Interface-checked, source only:** the existing55-family notebook
+register's exact documented paths,X `build.py`/`util.py` andall their
+present derivative notebook code cells resolve the final authorized H01
+source/disposition group. The separately registered empty `testnew/foo`
+remains excluded non-science machinery;it is not a56th documented process
+family. JSON/AST comparisons read no outputs andexecuted no notebook,
+generator,model,helper orsolver.
+
+The actual generator removes cells by tags,so unfiltered AST equality is
+the wrong duplicate criterion:
+
+| Derivative | Canonical cell tags omitted |
+|---|---|
+| `_test` |exercise,noauto |
+| `_doc` |exercise,testing,noauto |
+| `_usr` /`_solution` |testing,auto |
+| `_exercise` |testing,solution,auto |
+
+There are55doc,54test,55usr,eight exercise andeight solution variants:
+**180** present derivatives ofthe55 source families. Code statements were
+compared after applying **only the declared tag filter**,ignoring cell
+boundaries/AST location fields;non-Python cells were compared as exact raw
+text.177 derivatives match their filtered canonical source. The three
+exceptions are already attributed in the sCO2 source closure:ALAMOusr adds
+future-division import;PySMOtest adds unusedos import;PySMOusr changes the
+default temperature-unit key to`temperatureo`. The latter is an actual
+readiness defect,not a proved compatible rendering. These comparisons
+establish source correspondence,not execution or equivalence of every
+rendered workflow's demanded evidence.
+
+Tagged removals can remove meaningful selected stages orchecks. Preserve
+the union of complete scientific cases at their native/reference case
+owners,without counting pedagogical scaffolding as a second model:
+
+- Flash tutorial retains legacy IdealBT/FTPz,Liq+Vap,1mol/s,368K,
+  101325Pa,.5/.5 feed,duty0/deltaP0;two50-point duty sweeps−17000 to
+  25000W respectively request vapor flow andvapor benzene fraction.
+  A distinct inverse case frees duty to attain vapor benzene fraction.6.
+  Some renderings omit inverse solve/reinitialization orunfinished exercise
+  code. The sweep helper writes0 for failed solves;native acceptance must
+  retain failure rather than treat that placeholder as physical zero.
+- NRTL state/flash tutorials retain the complete estimation functions and
+  separate368K construction probes. Exercise definitions are incomplete
+  andlater replaced by complete definitions;their omission bytest/doc does
+  not create a new parameter model. Preserve the earlier recorded shared
+  experiment/normalization/uncertainty distinctions.
+- Introduction/full-short variants remove instructional code andsome
+  solver calls according to tags. Their analytic quadratic example
+  minimizesx²+y² subject tox+y=1;it is a teaching solver/control case,
+  not an additional process thermodynamic family. Notebook environment
+  checks andscript-run syntax are source machinery,not scientific inputs.
+- Visualizer variants can omit HDA solve andbefore/after visualization;
+  retain selected native solve/report/inspection products without requiring
+  GUI imitation. Diagnostic/scaling variants omit some solves,structural/
+  numerical assertions,nominal-term inspection orunit checks. Mixer
+  renderings omit explicit flow/enthalpy comparison calculations;these are
+  evidence differences,not permission to drop original conservation.
+- Eight exercise/solution pairs are flash,HDA tutorial,full/short
+  introduction,diagnostics toolbox,two NRTL fits andHDA distillation.
+  A complete scientific driver selects the completed equations/stages;
+  running raw instructional cells containing unfinished syntax is not a
+  scientific failure control. Test/doc/user suffix does not establish
+  execution readiness orfull required output coverage.
+
+This source reconciliation supports excluding duplicate **wrappers**,
+not underlying scientific stages. Held NETL remains required withits own
+physical/data/PETSc closure. Previously inspected archived supercritical
+plant/steam wrappers use the same core calls/specifications asmodern;
+their entry-point retirement/deduplication is coordinator disposition.
+Archived NGFC/SOFC/SOEC/rSOFC/combined/reconciliation sources have the
+distinct ROM/material/geometry/statistical roles already recorded;they are
+not blanket duplicates. Missing original helper/metadata andpinned-version
+compatibility stay explicit.
+
+The coordinator also owns conditional supplemental MatOpt(six archived
+design families) andPECOS adoption,plus obsolete DMF infrastructure
+disposition. No fresh adjacent legacy track was opened in this increment.
+Conditional application entry points do not silently enlarge orshrink the
+accepted process-only claim. Original published notebook-register status
+is not edited here;this companion supplies its current source evidence.
+
+All seven authorized source groups now have concrete source handoffs.
+The remaining H01 work is **case/readiness/scientific authoring and
+coordinator disposition** as enumerated below,including loaded-data-derived
+case cardinality andrealized stochastic rows. Neither177 wrapper matches,
+the55-family register,norcompletion ofthis source pass establishes a fully
+frozen executable scientific denominator orPlan64/H01 completion.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
@@ -6611,7 +6706,7 @@ each consumer's originating point/step/coverage and required-versus-optional pro
 
 | Source category / exact population entry | Disposition and closure result |
 | --- | --- |
-| Modern documented notebook families | Required scientific behavior; the existing 55-family register retains exact entry points. This investigation read code-cell imports, configuration/data accesses and the named helper sources above. Generated `_doc`, `_test`, `_usr`, exercise/solution/source renderings do not add members; meaningful science changes still require explicit variants. The full normalized-wrapper content equivalence has not been established. |
+| Modern documented notebook families | Required scientific behavior;the existing55-family register retains exact entry points. Final wrapper comparison applies actual generator tagfilters toall180 present derivatives,with177 source matches/three attributed exceptions. Renderings do not add models;omitted scientific stages/checks remain in the required union andthe PySMOunit typo remains a readiness defect. Source correspondence establishes no executable orscientific qualification. |
 | Modern HDA/custom/methanol helpers | Required with the consuming cases. Local `mod/hda`, `mod/methanol`, `mod/properties`, reactor `egprod_ideal.py`, `egprod_reaction.py`, `msr_reaction.py` and custom liquid-extraction modules must accompany the reference source. Modular and legacy HDA formulations cannot be declared duplicates without a scientific correspondence. |
 | Modern power helpers and saved initialization | Required with NGCC/SOC cases. Nested helper imports identified above and shipped compressed initialization are reference prerequisites. Generated stream CSVs, plots and solver transcripts are outputs, not original physical input data. Serializer compatibility and all recursively loaded files remain execution-readiness work. |
 | Modern surrogate helper/data/artifacts | Required selected training/evaluation/embedding/optimization stages. `AR_training_methods.py` itself imports TensorFlow and multiple trainer families; a helper import can require more than the notebook's chosen fitted family. Reformer/sCO2 datasets, JSON/`.keras` metadata/scaling and local property code are separate input artifacts; obsolete pickle compatibility is not assumed. |
@@ -6633,18 +6728,19 @@ read numeric/data/helper roles. Solid-liquid/thickener,power units,grid,TSA,
 SOC benchmark/controller and modern/archived process examples are no longer
 uninspected families. This does **not** establish a complete released
 configuration denominator,executable reference readiness or scientific acceptance.
-The finite remaining source work is the following;API/scaling/test-count expansion
-is not itself additional science.
+The seven authorized source groups have now been resolved to the following
+bounded handoffs. They are source-choice and input-role products,not accepted
+native cases. API/scaling/test-count expansion is not itself additional science.
 
-| Remaining population product / owner | Exact bounded source work | Availability / dependency |
+| Source population / owner | Resolved source handoff | Remaining actionable case/readiness product |
 |---|---|---|
-| Effective inherited balance matrix — D01/E01/H01 | Reconcile `core/base/control_volume_{0d,1d}.py` and their exact test modules with the per-unit selections above:implemented versus refused material/energy/momentum modes,steady/dynamic/storage,material basis,reaction/transfer,phase membership and property-default behavior. Existing unit guards and physical fixtures are retained;do not multiply all enum/Boolean values or invent solved dynamic cases. | Pinned source available. Remaining source/consumer analysis,not unavailable data. Cases requiring new ordinary physical specifications remain D/E work. |
-| Residual property/EOS consumers — D02/D03 | `modular_properties/eos/tests/{test_ceos_PR,test_ideal,test_enrtl}.py`,`base/tests/{test_generic_property_integration,test_nonvap,test_nonvap_PR,test_noncondense,test_noncondense_PR}.py` and actual generic/CoolProp-backed parameter consumers. Separate derivative/property algebra controls from actual new fluids/phase cases;settle remaining coordinate/EOS/method combinations against these finite owners. PR/SRK mismatch in `phase_equil/tests/test_smooth_VLE_2.py` is a **refusal**,not an SRK fluid witness. An authored supported SRK case still needs independent ordinary inputs if no shipped solved case supplies its selected role. | Sources available. Ordinary coefficient/envelope/datum admission and native ragged/electrolyte correspondence remain required;package names do not supply them. |
-| SOC submodel storage/boundary cases — F05/E03 | Under `soc_submodels/tests`,expand `test_channel`, `test_porous_conductive_slab`, `test_conductive_slab`, `test_triple_phase_boundary`, `test_contact_resistor` and `test_common` beyond the already recorded cell/replication population. Preserve transient/holdup,thermal/material boundary and nonzero extension cases as distinct where their equations/specifications differ. | All six sources available. No missing source is established;ordinary electrochemical/transport records,native physics and actual reference execution remain absent from this census. |
-| Core surrogate/sampling population — G04 | `core/surrogate/pysmo/tests/test_{polynomial_regression,radial_basis_function,kriging,sampling,sampling_modified,utils}.py`,`tests/{test_pysmo_surrogate,test_alamopy}.py` and selected sampling/data-utils/scaling consumers. Enumerate actual basis/kernel/regularization/fit-route/sampling/split/validation/serialization/embedding cases and failures;collapse pure API-shape duplicates without deleting altered statistical models. The already inspected neural/reformer/sCO2/analytic helper stages stay distinct. | Sources available. External ALAMO and fitted-artifact/trainer prerequisites below are separate;decorator or file counts do not settle the population. |
-| Six robustness populations — G03/H04 | V `robustness/unit_models/test_{cstr,flash,hx0d,pressure_changer,requil,rgibbs}.py` with matching JSONs. Each file already contains200 realized sample rows:1200 total across six different models,with9/3/4/4/7/9 input dimensions respectively. Fully match construction,bounds/normalization,sampling,initialization and result/failure retention to these stored rows before any new sampled run. | JSONs and all six sources available. Historical results are oracle observations,not accepted failure allowances. Ordinary scientifically valid envelopes and fresh accepted sample outcomes remain required. |
-| Direct equipment/account costing cases — G06 | `models_extra/power_generation/costing/tests/test_{power_plant_costing,power_plant_capcost,NGCC_capcost,CCS_capcost}.py`:exact selected account/CCS/scale/train/override/year/range cases,sCO2/ASU and cost aggregation. The newer `models/costing/QGESS.py` lifecycle/default/location closure above does not close these two API generations' direct account consumers. | Sources/account JSONs available. Original cost-year/coefficient provenance and custom selected accounts are ordinary-data work;no unseen account catalog is inferred from dictionary cardinality. |
-| Wrapper/disposition reconciliation — A01/H01 | Apply the scoped scientific correspondences above to the existing55-family notebook register and selected archived wrappers;finish any remaining normalized code-cell comparison before declaring wrapper equivalence. Archived MatOpt/PECOS remain conditional supplemental source tracks;DMF infrastructure remains excluded while selected scientific artifacts stay retained. | No mandatory process source is dropped. Coordinator decides archived entry-point adoption and duplicate wrapper dispositions;no new user scientific input is needed merely to retain the current required scope. |
+| Effective inherited balances — D01/E01/H01 | [Base/extended matrix](#effective-inherited-control-volume-balance-population--2026-11-05):implemented/omitted/refused balances,storage/defaults,reaction/basis/geometry andboundary policies. | Map selected actual unit/property/phase cases andordinary densities/internal energy to native balances andcomplete original conservation. Base enum grids are not physical case specifications;Helmholtz mass-basis inconsistency needs explicit correspondence. |
+| Residual property/EOS consumers — D02/D03 | [Algebra/ragged/parameter consumers](#residual-eos-algebra-ragged-phases-and-parameter-consumers--2026-11-05):eight ragged states,critical/inherent/ENRTL/Ideal controls andCoolProp benzene consumers. | Admit correct ordinary science rather than mislabeled synthetic N2/negativeCp;author the required positive SRK case;freeze installed data-derived sweep points andnative phase/datum/derivative products. |
+| Six SOC submodels — F05/E03 | [Fixtures/boundary conservation](#six-soc-submodel-fixtures-and-coupled-boundary-conservation--2026-11-05):steady storage/port roles,1080 coupled points,781 caloric points,source anomalies. | Ordinary electrochemical/solid/transport inputs;native layers/charge/work;actual dynamic/nonzero extension cases andtrajectory/refinement acceptance. The inspected source supplies no transient fixture for those demands. |
+| Core surrogate/sampling — G04 | [Fit/sampling census](#core-pysmo-alamo-and-sampling-source-population--2026-11-05):basis/solver/CV/adaptation,analytic rows,sixsamplers,trace artifacts,statistical/evaluation/embedding roles. | Freeze realized stochastic rows/versions;independent validation andfailure policy;native fitting/expression/backend/refusal choices. Mock/reused-data controls do not qualify statistical performance. |
+| Six robustness populations — G03/H04 | [Fixed-row census](#six-fixed-robustness-populations-and-historical-outcome-roles--2026-11-05):six exact200-row models,nominal/cloning policies,hashes and1071 historical successes/129 failures. | Preserve every row andattributed outcome;admit scientifically valid envelopes,declare infeasible/domain roles andrequest all physical outputs/conservation. Historical regression statistics remain oracle-only,not a failure waiver. |
+| Direct power-cost accounts — G06 | [Four-file account population](#direct-power-cost-account-capture-and-sco2-case-population--2026-11-05):29common accounts,16NGCC groups/60accounts,44CCS correlations,10sCO2 blocks/ASU,old/new calculation roles. | Ordinary year/vendor/capacity/envelope records;explicit complete account graph andunit/currency/train/override semantics;independent component/aggregate cost acceptance. No module-test ordering is allowed asnative scientific authority. |
+| Wrappers/dispositions — A01/H01 | [Exact tag-filter comparison](#notebook-wrapper-correspondence-and-disposition-boundary--2026-11-05):55families,180derivatives,177matches/3attributed exceptions;complete scientific stages retained. | Coordinator disposition ofsame-case archived wrappers/conditional MatOpt/PECOS andsource-register reconciliation. Preserve held required science andfix/attribute incompatible driver selections withoutediting external sources. |
 
 Missing or unqualified prerequisites are not all source-enumeration problems:
 
@@ -6656,6 +6752,7 @@ Missing or unqualified prerequisites are not all source-enumeration problems:
 | Executables / compiled artifacts | Exact legacy Ipopt/ipopt_v2 options,Helmholtz data/expressions/shared library,cubic-roots library,PETSc ASL+trajectory readers,k_aug/dot_sens,ma57/PyNumero/ASL,ALAMO and selected TensorFlow/Keras/ONNX/OMLT stacks must be frozen/tested only for their consuming case closure. This census did not prepare or establish host availability of these dependencies. Missing execution dependencies hold required cases;no substitution/version bump is implied. |
 | Saved-state and trainer compatibility | Named modern/archived snapshot readers,component/index/fixed-active completeness,old PySMO pickle handling and trainer metadata require actual pinned-environment construction/loading. File decoding and known serializer ignore-missing behavior are insufficient. Generated missing load caches can be produced by the selected initialization branch,with fresh execution attribution. |
 | Ordinary scientific inputs and allowed comparison | B/D/F/G must independently source/admit coefficients,phase/datum/basis,physical/envelope/normalization,geometry/economic/statistical inputs and required outputs. Reference data have not acquired ordinary permission. These are outstanding scientific authoring decisions,not absent user answers or evidence that another source scan can complete acceptance. |
+| Data-derived finite cases | Freeze actual installed CoolProp TMIN/TMAX/PR saturation-derived benzene grids andrealized stochastic sampler/adaptive-training row identities under exact versions before their runs. Their source rules are resolved,but reading Python alone cannot supply those realized values without executing the selected reference capability. Already stored robustness rows need replay,not regeneration. |
 
 The next executable boundary is the existing H02/H03 five-case ordinary
 recycle/exchanger contract and D02's already selected native water
