@@ -53,7 +53,7 @@ Reuse existing case/source declarations, conformance/reference exchange and reta
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | H01 | in-progress | Accepted RC01 scope and current case/register sources | [Source/configuration crosswalk](64h-required-process-population.md) supplies D–G selections and gaps; full inherited/parameterized population, recursive closure and exact executable environment remain open |
-| H02 | in-progress | H01 first-case slice; ordinary-data and formulation selection from 64b/64c | Independent ordinary property, three exchanger and recycle/intended-failure references tested. Earlier rating/recycle/intended-failure comparisons pass; design/arithmetic expose genuine scalar disagreements. After added caloric goals, all three exchanger reruns withhold output accuracy as regularity. Original allowances and full correspondence remain open. |
+| H02 | in-progress | H01 first-case slice; ordinary-data and formulation selection from 64b/64c | Ordinary property, exchanger and recycle/intended-failure references executed. Arithmetic now passes its independent comparison with all four caloric goals; design/rating remain receiving after explicit nonzero-domain projection. The [source-anchored checkpoint](#source-anchored-output-assessment--november-6-execution) distinguishes current scientific acceptance from earlier evidence. Full correspondence and the required population remain open. |
 | H03 | in-progress | H02; complete native A–C journeys and consumed F01/F02/F03 contracts | Original canonical intake/protected report readback passes on the isolated comparison baseline. All five contracts support independent mismatch controls; actual original-square/reconstruction control passes. Complete exchanger accuracy, scientific agreement and final integrated-source qualification remain open. |
 | H04 | planned | H01 population; selected 64d–64g scientific capabilities | Configuration, property, unit, workflow and extension acceptance closes each delivered family at its actual scope |
 | H05 | planned | Selected H03/H04 outcomes; applicable C07/G08 corrections; original execution/persistence mechanisms | Relevant assembled native/operational journeys, interruption and supported deployment claims are qualified here with 65h; all remaining obligations belong to Plan64/65 |
@@ -1028,7 +1028,7 @@ claimed for the three exchanger cases.
 
 ### Source-anchored output assessment — November 6 execution
 
-**Implemented, receiving scientific comparison pending:**
+**Implemented; arithmetic comparison tested, remaining scientific receiving open:**
 [proposed ADR-0248](../adr/0248-affine-constant-output-accuracy.md) refines the reduction
 realization for source-fixed boundary coordinates. The backend's sealed
 [`SquareAccuracyFrame`](../../crates/pse-backend-native/src/engineering_accuracy/affine.rs)
@@ -1053,52 +1053,36 @@ two-sided parameter-neighborhood claim. Public parameter response cannot consume
 exemption. A complete reduced evaluator remains a separate option if a required case cannot
 evaluate full original First support.
 
-The initial backend/public-response selection passes 44/44 against zero failures. Additional
-full-frame source, support/storage/cancellation and actual guard controls pass in the expanded
-165-test receiving selection (160 passed, five failed overall). The runtime source-goal fixture
-now passes in the focused receiving selection: a complete original reconstruction may return
-`Outcome::Constant` with producer-issued Certified evidence. Its assertions retain every
-original coordinate and original quality; they do not fabricate a native report or remove a
-certificate to force Estimated classification.
-Goal-driven source-affine preparation is
-independent of solver presolve selection and consumes the resolved goals, while physical
-numerics and independent comparison allowances remain unchanged. The three original exchanger
-comparisons and complete protected readback still govern H02/H03 acceptance.
+Goal-driven source-affine preparation is independent of solver presolve selection. A complete
+original reconstruction may return `Outcome::Constant` with producer-issued Certified evidence;
+its controls retain all original coordinates and quality. IBEX Value/First arithmetic admission
+is separate from the 128-coordinate root-search profile. Charged prepared layouts validate all
+source occurrences before deduplicating executable guards, preserve original identity, and bind
+the original correction's explicit primal start to the actual assessed point. Second/search
+limits remain unchanged. Mechanisms and precise supplier sources belong to
+[65e](65e-scientific-portability-and-execution.md#original-arithmetic-preparation--november-6);
+[65h](65h-integration-and-qualification.md#remaining-scope-receiving--november-6) owns exact
+commands, modes, captures and receiving evidence. Original-point evaluation still uses IBEX's
+outward DAG/AD; higher-precision or significance estimates cannot replace that uncertainty.
 
-The first 146-test receiving selection executed with the explicit IDAES 2.13.0 reference
-interpreter and retained native/reference artifacts. It passed 140 tests and failed six
-against the zero baseline. Two new controls exposed fixture issues (nested original guard
-error attribution and an Ipopt-required boxed-variable case incorrectly selecting KINSOL);
-their source corrections preserve the intended assertions. Three exchanger comparisons
-and protected scientific intake remain unqualified. The retained original numerics identify
-a moving coordinate `24760e39ecfbf77abd93e636856c2c34` at approximately `7.56e-5` inside `[0,1]`
-with acceptance tolerance `0.001`. That is a thin mathematical interior, not an active bound;
-its qualified source role must come from the diagnostic source map, not an inferred quantity.
-Focused source reassessment refined proposed ADR-0248 before changing this admission.
+**Tested, coupled source before the predicate extension:** the selected population passes **147/147**, zero failures
+and build warnings. The arithmetic exchanger completes its independent IDAES comparison,
+with all four caloric goals satisfied by Estimated evidence and original normalized maximum
+approximately `0.01209`. It retains 110 successful component solves and one successful original
+correction. The same-point seed, direct shared residual Function and per-mode fixture corrections
+are exercised. No physical budget or independent comparison allowance changed. Design/rating
+comparisons and protected scientific intake remain receiving; this named journey does not close
+H02/H03 or the complete Plan64 population.
 
-The current receiving implementation also separates IBEX Value/First arithmetic dimension
-admission from its 128-coordinate root-search profile. Checked native signed-int matrix
-products and the existing conservative workspace admission precede encoding/native allocation;
-Second/search/selection limits remain unchanged. Original-point evaluation still uses IBEX's
-outward DAG/AD, not finite differences or Numerica significance estimates. Native 129/230-
-coordinate and no-work resource controls pass in that selection. Optional reference capture now
-retains a bounded source map prepared from the same declaration alongside its original
-review context. The [Symbolica capability refinement](65e-scientific-portability-and-execution.md#symbolica-capability-refinement--november-6)
-records exact identity, precision and algebraic opportunities with version-specific limits.
-
-The subsequent focused selection ran **43 tests: 42 passed, one failed**, against zero,
-with zero build warnings. Exact Boolean predicate lowering clears the earlier auxiliary
-projection obstruction. The original arithmetic exchanger still fails qualification, but now
-retains its original candidate, normalized maximum `0.7882614368572831`, source map and four
-accuracy refusals. Their exact cause is `source_inventory/obligations`: **19,512 source
-occurrences versus the adapter's 8,192 declaration cap**, before any native arithmetic.
-This is not a count of unique executable guards. The next receiving refinement separates
-bounded source-declaration admission from executable-guard admission and removes unused
-search preparation from the arithmetic native route. Every source occurrence and its identity
-remain retained; native guard limits, physical budgets and comparison allowances are unchanged.
-The source map does not serialize those obligations, so their empty/repeated breakdown remains
-unmeasured. [65h](65h-integration-and-qualification.md#remaining-scope-receiving--november-6)
-owns the exact verification context and remaining scientific population.
+The separate six-case scientific population passes **3/6**, with design, rating and protected
+intake still failing against zero. Design retains original normalized maximum approximately
+`0.78826`; all four output goals identify an unrepresented original Domain conjunction in
+`delta-t.pse`'s logarithmic law (`a > 0 and b > 0 and a != b`). Rating depends on that design
+prerequisite. The coordinated `Predicate::{Range, Nonzero}` extension under
+[proposed ADR-0249](../adr/0249-exact-conjunctive-domain-predicates.md) is receiving; it preserves
+the authored domain rather than changing the law or its comparison allowances. Independent
+design/rating/reference and protected-publication journeys must receive the new source before
+their scientific acceptance can be claimed. The broader required population remains open.
 
 ## H04 — Close configurations and scientific workflows
 

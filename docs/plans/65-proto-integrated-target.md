@@ -808,19 +808,28 @@ The Symbolica build correction in [65k](65k-scientific-artifacts-and-native-reco
 binds display version/rebuild dependencies to the actual supplier source, rather than consumer
 Git commits; six standalone controls pass. It establishes dependency behavior, not measured
 build-speed benefit. Actual owned/view validators, transport and selected lifecycle controls
-pass in receiving tests. The broader selection still has four unqualified scientific cases;
-the latest focused selection passes 42/43 with the arithmetic exchanger remaining open.
-Its original candidate is retained and its typed preflight now identifies 19,512 source
-obligations versus the former shared 8,192 declaration cap. Separate source-occurrence
-admission and removal of unused arithmetic native preparation are receiving; executable
-guard/workspace bounds remain enforced. [65h](65h-integration-and-qualification.md#remaining-scope-receiving--november-6)
+pass in receiving tests. Three other scientific cases remain receiving;
+staged arithmetic receiving now exercises actual SCIP and Diffsol consumers and passes the
+arithmetic exchanger's independent comparison with goal-driven correction. Source inventory,
+charged executable layout and native workspace have one backend owner; original provenance
+and unique-guard/workspace bounds remain enforced. Same-point correction start and direct
+shared-Function preparation pass their coupled controls. [65h](65h-integration-and-qualification.md#remaining-scope-receiving--november-6)
 owns these exact scopes and the remaining acceptance population.
+The original design law exposes a mixed positive/nonzero Domain conjunction; the shared
+`Predicate::{Range, Nonzero}` extension under proposed ADR-0249 is component-tested, with
+design/rating/protected-intake scientific receiving still required on that changed source.
 Physical budgets and comparison allowances may be revised with a scientific rationale under
 the maintainer's design-phase direction. The current point-local eligibility correction
 changes neither: acceptance tolerance does not define derivative-neighborhood radius.
 [65e](65e-scientific-portability-and-execution.md#symbolica-capability-refinement--november-6)
 now records the complete expanded Symbolica review's exact-identity, prepared-precision and
 selective-algebra opportunities, including pinned-Rust and bounded-execution limitations.
+The adjacent [original arithmetic preparation](65e-scientific-portability-and-execution.md#original-arithmetic-preparation--november-6)
+retains exact IBEX/Numerica functionality, lifecycle and resource-admission choices.
+[65c's bounded consumer decisions](65c-storage-projections-and-history.md#selected-graph-and-continuity-decisions--november-6)
+retain direct occurrence-preserving canonical queries and select no additional maintained
+graph view or durable external changefeed consumer. They add no adjacency/outbox/broker;
+selected-result migration, original interpretation and coherent publication remain separate.
 Full P03 journeys, selected-population migration, remaining scientific families,
 bounded capability decisions and assembled qualification remain authorized work.
 

@@ -264,6 +264,43 @@ and original typed cause. A returned error reports settled failure; unreaped nat
 remains owned by the original performing finish/supervisor operation, with admission retained.
 Do not release custody merely because a Shutdown, kill, wait or I/O-join attempt failed.
 
+**Remaining performing-owner refinement:** the generic
+[`admitted_storage`](../../crates/pse-runtime/src/math/jobs.rs) supervisor still detaches its
+Tokio task; population-permit return is not collection of that task's join outcome. Retain
+result-bearing supervisors under the existing service owner, with bounded registration and
+ready-result harvesting. Close registration atomically with shutdown. Preserve native and
+publication custody through the response-send attempt: if a successful value is returned by
+an abandoned oneshot, run its caught fallible finisher while the original owners remain live.
+Earlier cancellation/growth-refusal disposal does not cover this final delivery race.
+
+Use one canonical performing body for synchronous submission and async jobs, deleting the
+detached submission wrapper and its second result channel. A receiving publication guard
+signals consumption/abandonment; the supervisor owns the actual value until atomic claim or
+retirement. `oneshot::Sender::send` returning `Err(T)` establishes definite failed enqueue;
+successful enqueue does not establish observation. After successful enqueue, native/TLS join
+permits compute/compiler/working admission to end before idle observation; retain the actual
+result's split allocation through unread-value retirement. Publish readiness only after those
+working owners release, preserving immediate-capacity semantics. Closing the service must
+also retire queued unread values under the same publication lock, returning explicit retiring
+outcomes to late observers; it cannot wait indefinitely for a live handle to be observed.
+Mutex state owns disposition; `Notify` supplies wakeups without a second request registry.
+The bounded task-record allowance includes live and completing waves, independently of the
+existing native job/CPU admission. Sources: [oneshot sender](https://docs.rs/tokio/1.53.3/tokio/sync/oneshot/struct.Sender.html#method.send)
+and [Notify](https://docs.rs/tokio/1.53.3/tokio/sync/struct.Notify.html).
+
+Select an explicit `JoinSet::join_next`/`poll_join_next` collection loop, retaining every
+library-exposed `JoinError` and independent disposal failure. Pinned Tokio 1.53.3 `join_all`
+panics on a join error and cancels remaining tasks; `shutdown` aborts and discards their
+results. Neither implements native drain. Keep task/lane drain custody in the performing
+owner when an observing shutdown future departs; taking a bare JoinSet into that observer
+would abort tasks on Drop. Any accumulated drain failures stay with the bounded closed
+population until completion. Do not add an unbounded completed-task/error ledger or infer
+native admission from task tracking. Source: [pinned JoinSet implementation](https://docs.rs/crate/tokio/1.53.3/source/src/task/join_set.rs).
+Shared `PreparedSurrogate` phase aliases also need an explicit retirement authority through
+the actual actor, after callbacks/advances depart; dropping one alias cannot establish
+physical retirement. Existing pool/actor fallible finish remains the mechanism, not a second
+lifecycle registry. These are open D05/E04 implementation obligations, not tested completion.
+
 Extend `execution::Retained`'s existing type-erased session/workflow storage with the
 monomorphized consuming finisher supplied at actual construction. Make clear, incompatible
 replacement, independent reset and final finish result-bearing; clear retains its existing
@@ -546,6 +583,108 @@ Substantive design, original evidence and remaining obligations moved without a 
 Substantive design, original evidence and remaining obligations moved without a status change to
 [65k](65k-scientific-artifacts-and-native-reconstruction.md#live-admitted-body-delegation). This heading remains for existing references.
 
+## Original arithmetic preparation — November 6
+
+**Execution refinement, receiving:** keep exact-real arithmetic in the library-owned
+IBEX/FILIB DAG. The actual original exchanger has 19,512 retained source obligations and
+14,484 raw source guards; neither count establishes its unique executable population.
+Preserve the complete original projection and `RootIsolationProgram::identity`. Deduplicate
+only executable predicates after checking every consumed occurrence, with the existing exact
+node/kind/chart-scope/domain-scope/bound-bits key. Requirements carry canonical executable
+`Predicate::{Range, Nonzero}` entries; kind and argument remain source attribution, rather
+than a second executable interpretation. Complete empty domain conjunctions do not manufacture
+guards. Unconsumed derivative declarations remain original identity inputs.
+
+Use backend-owned staged preparation: `Ibex::point_arithmetic_inventory` supplies an
+allocation-free source/extent admission; its `preparation_bytes` is reserved before
+`prepare_point_arithmetic` builds the single bounded layout. The prepared owner retains that
+allocation and borrows the immutable original program. Its `native_workspace_bytes` supplies
+separate native admission. Prepared point/box evaluation consumes the same transport and
+unique guard population for actual work accounting. The steady, KKT, certified, objective,
+derived and dynamics consumers share this owner; known producer-profile unavailability is
+separate from terminal allocation/work/contract/cancellation failure.
+
+Inventory itself must not convert arbitrary rationals to f64: Numerica 3.0.1's large-integer
+conversion can allocate multiprecision operands. Use borrowed `Rational::{is_negative,
+is_integer}` for the intrinsic-guard ceiling, conservatively reserving a square-root guard
+pair for positive fractions; exact exponent support is established only during charged
+encoding. Include rational conversion/identity scratch in preparation admission. Retain
+Second-order declarations in source identity without imposing their execution requirements
+on Value/First. Source: [Numerica rational implementation](https://docs.rs/crate/numerica/3.0.1/source/src/domains/rational.rs).
+
+The native arithmetic route constructs only the source arena, one shared residual Function
+and scalar guard Functions. IBEX 2.9.1 `SystemFactory::add_ctr_eq` additionally makes each
+residual's independent scalar copy; arithmetic does not consume those constraint owners.
+Build the aggregate directly using one `ExprCopy` with sharing, a fresh input symbol and a
+scalar body for one output or column vector for multiple outputs, matching `System::init_f_ctrs`.
+`Function::eval_vector` wraps a scalar as a size-one vector; Jacobian and component `diff()`
+use the same library paths. Search retains its Systems. `Function` adopts the supplied symbols/DAG, so scalar
+copies need fresh symbols and independent arenas; source storage survives every dependent
+owner. `Eval`, `Gradient` and `InHC4Revise` retain domain banks; vector-component agendas and
+coefficient matrices also persist. `ExprLinearity` constructs temporary per-node coefficient
+domains, including quadratic full-width input storage even for constant/Value functions;
+these temporaries are released between sequential constructors. Account for reachable root
+closures, native n-ary expansion and these distinct populations rather than a Cartesian
+whole-source-DAG copy for every output and guard. Keep finite checked extents and the existing
+opaque byte allowance; dimensional characterization is not an established allocator/RSS bound.
+Retain conservative Second-order allowance/caps: lazy component and differentiated Functions
+are cached until graph teardown, and their growth is not bounded by a Value/First closure count.
+The current allowance also retains the earlier per-residual-copy term conservatively;
+removing actual construction establishes no measured speedup or tighter RSS claim.
+
+Goal-driven correction must consume the same original point that produced its work demand.
+`PreparedSolve::refine_coordinate_accuracy` binds a compatible primal-only explicit seed,
+retained under the caller's reserved vector/payload owner. The staged driver reserves that
+storage before copying coordinates and preserves the original task clock, work admission,
+backend, physical policy and original identity. The candidate is a proposed correction start,
+not an accepted predecessor. Do not restart silently from authored guesses when tightening
+the native stopping demand. Native mutable solver state/duals are not manufactured.
+
+**Receiving predicate extension:** [proposed ADR-0249](../adr/0249-exact-conjunctive-domain-predicates.md)
+precedes replacing the closed-only source conjunction with `Predicate::{Range, Nonzero}`.
+The actual design exchanger's logarithmic law needs `a > 0`, `b > 0` and `a != b` in one
+original Domain occurrence. Project inequality as `Nonzero` of its original difference;
+preserve source/kind/scope/order and all predicate identity. Require conditions use the same
+executable predicates, with their kind/argument retained for attribution. Version the exact
+program's payload tag to v2; do not bind prior evidence to the changed vocabulary.
+
+The existing [native guard owner](../../crates/pse-backend-native/native/root_isolation.cpp)
+already consumes kind 2 as a nonzero interval guard: an enclosure excluding zero admits;
+the zero singleton violates; zero crossing remains unresolved. This avoids squaring the gap,
+choosing a sign branch or inventing a tolerance. Presolve and curvature use the same three
+outcomes. The closed-only [factorable export](../../crates/pse-backend-native/src/execution/factorable.rs)
+may omit the exclusion only with explicit Relaxed fidelity, and exact-only export refuses it.
+Exact rational zero/one membership and predicate comparisons must not pass through f64, even
+in ordinary arithmetic mode. Direct comparisons with zero retain the operand as the exclusion
+argument, avoiding a rounded `x - 0` DAG. Only proved selector outcomes use the Boolean
+positive/zero shortcut. Curvature and presolve algorithm identities also change with their
+predicate semantics, preventing prior proof identity reuse.
+Genuine disjunctions remain unrepresented. Selected point, interval, closed-export and original
+design/rating/protected-intake controls must receive the coordinated change; current arithmetic
+comparison success does not qualify this extension.
+
+Characterization sources: [SystemFactory](https://raw.githubusercontent.com/ibex-team/ibex-lib/ibex-2.9.1/src/system/ibex_SystemFactory.cpp),
+[Function construction](https://raw.githubusercontent.com/ibex-team/ibex-lib/ibex-2.9.1/src/function/ibex_FunctionBuild.cpp),
+[Function destruction](https://raw.githubusercontent.com/ibex-team/ibex-lib/ibex-2.9.1/src/function/ibex_Function.cpp),
+[linearity workspace](https://raw.githubusercontent.com/ibex-team/ibex-lib/ibex-2.9.1/src/symbolic/ibex_ExprLinearity.cpp),
+[gradient storage](https://raw.githubusercontent.com/ibex-team/ibex-lib/ibex-2.9.1/src/function/ibex_Gradient.cpp),
+[evaluation storage](https://raw.githubusercontent.com/ibex-team/ibex-lib/ibex-2.9.1/src/function/ibex_Eval.cpp)
+and [compiled agendas](https://raw.githubusercontent.com/ibex-team/ibex-lib/ibex-2.9.1/src/function/ibex_CompiledFunction.cpp).
+[65h](65h-integration-and-qualification.md#remaining-scope-receiving--november-6) retains
+the actual receiving results and their scientific limits. No higher-precision comparison
+or first-order significance estimate replaces this outward uncertainty contract.
+
+**Implemented and component-tested at `8a453e053`:** intern point-projection output
+slots by exact `NodeId` before native preparation. Zero-bound equality reuses its value root
+for the residual; `PointArithmeticRow` and the objective retain their explicit mappings.
+Preserve every original row, full row/Jacobian reconstruction, source obligation and nonzero-bound
+subtraction. Shared native output slots remove duplicate Function outputs without changing
+physical equations or dropping original coordinates. The point projection's graph identity
+reflects its compact output inventory; there is no preserved old-hash compatibility path.
+The native local math/backend selection passes 172/172, including mapping/identity controls;
+actual runtime arithmetic/scientific consumers still need receiving. Characterization:
+[point projection producer and row mappings](../../crates/pse-math/src/factorable.rs).
+
 ## Symbolica capability refinement — November 6
 
 **Interface-checked:** review of the complete expanded
@@ -647,6 +786,30 @@ Agreement at two precisions is not an error bound or exactness proof. Do not pop
 current enclosure-specific `SquareResidual` fields silently or allow an enclosure-requiring
 consumer to accept weaker provenance. Prefer an exact predicate/projection repair when it
 supports the concrete population with materially less execution and interpretation burden.
+
+**Scoped LMTD follow-up, conditional on measured cancellation/accuracy need:** pinned
+Symbolica 3.0.1 already registers `atanh` with symbolic derivative, f64/Float evaluation and
+C++ metadata; `Dualizer` can differentiate registered functions through that declaration.
+Numerica 3.0.1 `Real::log1p` uses native/multiprecision `ln_1p`. These are useful ingredients,
+not an adopted stable-logmean primitive. The authored function vocabulary and portable
+compiled profile currently exclude these additional unary channels; factorable/interval
+support must follow any selected extension. Sources:
+[atanh registration](../../vendor/symbolica/src/transcendental.rs),
+[registered-function AD](../../vendor/symbolica/src/evaluate/dual.rs),
+[numeric log1p](https://docs.rs/crate/numerica/3.0.1/source/src/domains/float.rs),
+[authored vocabulary](../../crates/pse-quantity/src/functions.rs) and
+[compiled admission](../../crates/pse-math/src/native_compiled.rs).
+
+Potential identities use `b*r/log1p(r)` for `r=(a-b)/b`, or
+`((a+b)/2)*z/atanh(z)` for `z=(a-b)/(a+b)`. Neither alone removes the equality singularity
+or cancellation in quotient derivatives. An analytic extension of the current positive,
+unequal-input law is a separate scientific formulation/reference decision; an equality branch
+returning `a` would give incorrect ordinary AD derivatives (the diagonal gradient is
+`(1/2,1/2)`). Series require remainder evidence for enclosure claims, and Numerica RealBall's
+transcendentals do not provide that certification. Retain the current law and predicate repair;
+no supplier bump, new AD dependency or unqualified formula substitution is selected from this
+bounded inquiry. Revisit for an actual selected near-equality case whose required accuracy
+the current pipeline cannot meet.
 
 ## Sources
 

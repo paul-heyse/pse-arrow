@@ -182,6 +182,14 @@ See the [exact service implementation](https://github.com/connectrpc/connect-rus
 
 Use result-bearing Tokio 1.53.3 `JoinSet` for task outcomes, including joining after
 `abort_all`; collect every independent teardown before returning aggregate errors.
+For generic math-job supervisors that retain physical native custody, signal the original
+native stop and drain with `join_next`/`poll_join_next` instead of aborting the supervisor.
+Keep registration/closure and finite completed-task admission under the existing service owner;
+shutdown-observer departure must not drop a taken JoinSet and abort those tasks. E04's
+[performing-owner refinement](65e-scientific-portability-and-execution.md#production-finish-ownership--execution-refinement)
+also covers failed final oneshot publication, retained drain outcomes and shared-surrogate
+retirement. Its remaining native implementation is distinct from the already-tested
+connection/session shutdown aggregation.
 Tokio-util 0.7.19 `CancellationToken` signals cancellation; `TaskTracker` tracks
 destruction without retaining outputs, and `close` does not close admission. It is not
 a substitute for either result collection or the native admission state. Tokio-rayon 2.1.0
