@@ -651,16 +651,18 @@ index 565f85db38bdb56e0eaa14e4a6d703a88b26dd51..683b60683f0331d8a47e54d2b1db8d51
      ComplexPhase, ExportedConstantFunction, ExportedInstructions, ExportedSubEvaluator,
 diff --git a/src/evaluate/f64_transfer.rs b/src/evaluate/f64_transfer.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..7f13be0c2ca9f7ad34a440d41201e4d02d8e7849
+index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db610585a149b5b
 --- /dev/null
 +++ b/src/evaluate/f64_transfer.rs
-@@ -0,0 +1,722 @@
+@@ -0,0 +1,774 @@
 +//! Checked transfer of the existing straight-line binary64 interpreter program.
 +//!
 +//! This is execution correspondence, not symbolic/preparation-state serialization.
 +//! Inspection is allocation-free and passive. Restoration asks the caller to admit
 +//! actual requested backing before allocating validation scratch or evaluator storage.
-+use super::{ComplexPhase, ExpressionEvaluator, Instr, OptimizationSettings, Symbol};
++use super::{
++    ComplexPhase, ExpressionEvaluator, Instr, OperationCount, OptimizationSettings, Symbol,
++};
 +use std::{collections::TryReserveError, error::Error, fmt};
 +
 +const MAGIC: &[u8; 8] = b"SYMEVF64";
@@ -879,6 +881,14 @@ index 0000000000000000000000000000000000000000..7f13be0c2ca9f7ad34a440d41201e4d0
 +    }
 +}
 +impl F64ProgramRef<'_> {
++    /// Count the original supplier operations with checked accumulation, allocating nothing.
++    pub fn operation_count(&self) -> Result<OperationCount, F64TransferError> {
++        let mut count = OperationCount::default();
++        for (instruction, phase) in &self.evaluator.instructions {
++            NativeInstruction::from_instr(instruction, *phase)?.count_into(&mut count)?;
++        }
++        Ok(count)
++    }
 +    /// Actual derived storage and encoded extents; this does not grant admission.
 +    pub fn extents(&self) -> F64ProgramExtents {
 +        self.extents
@@ -957,6 +967,35 @@ index 0000000000000000000000000000000000000000..7f13be0c2ca9f7ad34a440d41201e4d0
 +    operands: Operands<'a>,
 +}
 +impl<'a> NativeInstruction<'a> {
++    fn count_into(self, count: &mut OperationCount) -> Result<(), F64TransferError> {
++        // The same scalar rules as ExpressionEvaluator::count_operations. Phases
++        // do not change scalar operation populations; no execution is performed.
++        match self.opcode {
++            0 => {
++                count.additions = add(count.additions, self.operands.len() - 1, "operation count")?
++            }
++            1 => {
++                count.multiplications = add(
++                    count.multiplications,
++                    self.operands.len() - 1,
++                    "operation count",
++                )?
++            }
++            2 => {
++                count.inversions = add(
++                    count.inversions,
++                    usize::from(self.power < 0),
++                    "operation count",
++                )?;
++                let multiplications = usize::try_from(self.power.unsigned_abs().saturating_sub(1))
++                    .map_err(|_| F64TransferError::Overflow("operation count"))?;
++                count.multiplications =
++                    add(count.multiplications, multiplications, "operation count")?;
++            }
++            _ => count.function_calls = add(count.function_calls, 1, "operation count")?,
++        }
++        Ok(())
++    }
 +    fn from_instr(instruction: &'a Instr, phase: ComplexPhase) -> Result<Self, F64TransferError> {
 +        let mut result = Self {
 +            opcode: 0,
@@ -1223,6 +1262,19 @@ index 0000000000000000000000000000000000000000..7f13be0c2ca9f7ad34a440d41201e4d0
 +    instruction_start: usize,
 +}
 +impl<'a> F64ProgramView<'a> {
++    /// Count the inspected supplier instruction stream without restoring or allocating.
++    /// Uses the same checked rules as the borrowed native transfer profile.
++    pub fn operation_count(&self) -> Result<OperationCount, F64TransferError> {
++        let mut count = OperationCount::default();
++        let mut cursor = Cursor {
++            bytes: self.bytes,
++            position: self.instruction_start,
++        };
++        for _ in 0..self.extents.instructions {
++            cursor.instruction()?.count_into(&mut count)?;
++        }
++        Ok(count)
++    }
 +    /// Inspect the supported header, exact populations, indices and complete encoding.
 +    /// No symbolic state or allocation is restored, and the bytes grant no allowance.
 +    pub fn inspect(bytes: &'a [u8]) -> Result<Self, F64TransferError> {
@@ -1379,10 +1431,10 @@ index 0000000000000000000000000000000000000000..7f13be0c2ca9f7ad34a440d41201e4d0
 +mod tests;
 diff --git a/src/evaluate/f64_transfer/tests.rs b/src/evaluate/f64_transfer/tests.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..91f669857047cbc7dff02d843839651f9dfb8a3c
+index 0000000000000000000000000000000000000000..528dd057c6b175e6f9772a65dc5c69929fa1b3a9
 --- /dev/null
 +++ b/src/evaluate/f64_transfer/tests.rs
-@@ -0,0 +1,512 @@
+@@ -0,0 +1,556 @@
 +use super::*;
 +use crate::{
 +    atom::{Atom, AtomCore},
@@ -1415,10 +1467,54 @@ index 0000000000000000000000000000000000000000..91f669857047cbc7dff02d843839651f
 +    }
 +}
 +fn encode(source: &ExpressionEvaluator<f64>) -> Vec<u8> {
++    let expected = source.count_operations();
 +    let source = source.f64_transfer().unwrap();
++    assert_eq!(source.operation_count().unwrap(), expected);
 +    let mut bytes = vec![0; source.encoded_len()];
 +    source.write_into(&mut bytes).unwrap();
++    assert_eq!(
++        F64ProgramView::inspect(&bytes)
++            .unwrap()
++            .operation_count()
++            .unwrap(),
++        expected
++    );
 +    bytes
++}
++
++#[test]
++fn checked_operation_population_overflow() {
++    let mut count = OperationCount::new(usize::MAX, 0, 0, 0);
++    // Keep the borrowed instruction alive while testing the shared counter.
++    let raw = Instr::Add(4, vec![0, 1]);
++    let instruction = NativeInstruction::from_instr(&raw, ComplexPhase::Any).unwrap();
++    assert_eq!(
++        instruction.count_into(&mut count),
++        Err(F64TransferError::Overflow("operation count"))
++    );
++    count = OperationCount::new(0, usize::MAX, 0, 0);
++    let raw = Instr::Pow(4, 0, -2);
++    assert_eq!(
++        NativeInstruction::from_instr(&raw, ComplexPhase::Any)
++            .unwrap()
++            .count_into(&mut count),
++        Err(F64TransferError::Overflow("operation count"))
++    );
++    count = OperationCount::new(0, 0, usize::MAX, 0);
++    assert_eq!(
++        NativeInstruction::from_instr(&raw, ComplexPhase::Any)
++            .unwrap()
++            .count_into(&mut count),
++        Err(F64TransferError::Overflow("operation count"))
++    );
++    count = OperationCount::new(0, 0, 0, usize::MAX);
++    let raw = Instr::Powf(4, 0, 1);
++    assert_eq!(
++        NativeInstruction::from_instr(&raw, ComplexPhase::Any)
++            .unwrap()
++            .count_into(&mut count),
++        Err(F64TransferError::Overflow("operation count"))
++    );
 +}
 +fn restore(bytes: &[u8]) -> ExpressionEvaluator<f64> {
 +    F64ProgramView::inspect(bytes)

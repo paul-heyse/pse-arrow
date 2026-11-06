@@ -35,6 +35,43 @@ fn node(n: u8, region: Region) -> Node {
         permissions: vec![],
     }
 }
+#[test]
+fn capture_validation_uses_actual_admitted_scratch_and_preserves_all_rules() {
+    let mut value = node(1, Region::Union(vec![node(2, Region::Predicate(0))]));
+    value.dependencies.push(node(3, Region::Unknown));
+    value.dependencies[0]
+        .claim
+        .owner_lineage
+        .extend([id(9), id(8)]);
+    let original = value.clone();
+    assert_eq!(value.capture_validation_scratch(1, 1, 3), Some(3));
+    assert!(!value.valid_capture_with_scratch(1, 1, 3, &mut [id(0); 2]));
+    assert!(value.valid_capture_with_scratch(1, 1, 3, &mut [id(0); 3]));
+    assert_eq!(value, original);
+    for (predicates, inputs, budget) in [(0, 1, 3), (1, 0, 3), (1, 1, 2), (1, 1, 0)] {
+        assert_eq!(
+            value.capture_validation_scratch(predicates, inputs, budget),
+            None
+        );
+        assert!(!value.valid_capture_with_scratch(predicates, inputs, budget, &mut [id(0); 3]));
+        assert!(!value.valid_capture(predicates, inputs, budget));
+    }
+    value.dependencies[0].claim.owner_lineage.push(id(9));
+    assert_eq!(value.capture_validation_scratch(1, 1, 3), Some(4));
+    assert!(!value.valid_capture_with_scratch(1, 1, 3, &mut [id(0); 4]));
+    assert!(!value.valid_capture(1, 1, 3));
+    value.dependencies[0].claim.owner_lineage[0] = id(8);
+    assert_eq!(value.capture_validation_scratch(1, 1, 3), None);
+    let mut deep = node(4, Region::Unknown);
+    for _ in 0..513 {
+        deep = Node {
+            dependencies: vec![deep],
+            ..node(4, Region::Unknown)
+        };
+    }
+    assert_eq!(deep.capture_validation_scratch(1, 1, usize::MAX), None);
+    assert!(!deep.valid_capture_with_scratch(1, 1, usize::MAX, &mut [id(0); 4]));
+}
 fn permission(n: u8, unknown: bool, extrapolate: bool) -> Permission {
     Permission {
         id: id(n),

@@ -252,44 +252,89 @@ impl Node {
     }
     /// Validate capture references before any permission can affect evaluation.
     pub fn valid_capture(&self, predicates: usize, inputs: usize, budget: usize) -> bool {
+        let Some(entries) = self.capture_validation_scratch(predicates, inputs, budget) else {
+            return false;
+        };
+        let mut scratch = Vec::new();
+        if scratch.try_reserve_exact(entries).is_err() {
+            return false;
+        }
+        scratch.resize(entries, SemanticId::NIL);
+        self.valid_capture_with_scratch(predicates, inputs, budget, &mut scratch)
+    }
+    /// Allocation-free structural screening and actual identity scratch population.
+    /// Duplicate lineage validation remains outstanding until scratch is supplied.
+    /// The existing node/depth budget and all reference rules apply to both phases.
+    pub fn capture_validation_scratch(
+        &self,
+        predicates: usize,
+        inputs: usize,
+        mut budget: usize,
+    ) -> Option<usize> {
+        let mut entries = 0;
+        self.visit_capture(predicates, inputs, &mut budget, 0, &mut |lineage| {
+            entries = entries.max(lineage.len());
+            true
+        })
+        .then_some(entries)
+    }
+    /// Validate using admitted caller storage; insufficient scratch refuses without
+    /// a fallback allocation. Sorting changes only the supplied scratch, not the plan.
+    pub fn valid_capture_with_scratch(
+        &self,
+        predicates: usize,
+        inputs: usize,
+        mut budget: usize,
+        scratch: &mut [SemanticId],
+    ) -> bool {
+        self.visit_capture(predicates, inputs, &mut budget, 0, &mut |lineage| {
+            let Some(target) = scratch.get_mut(..lineage.len()) else {
+                return false;
+            };
+            target.copy_from_slice(lineage);
+            target.sort_unstable();
+            target.windows(2).all(|pair| pair[0] != pair[1])
+        })
+    }
+    fn visit_capture(
+        &self,
+        predicates: usize,
+        inputs: usize,
+        left: &mut usize,
+        depth: usize,
+        lineage: &mut impl FnMut(&[SemanticId]) -> bool,
+    ) -> bool {
         fn visit(
             n: &Node,
             predicates: usize,
             inputs: usize,
             left: &mut usize,
             depth: usize,
+            lineage: &mut impl FnMut(&[SemanticId]) -> bool,
         ) -> bool {
             if *left == 0 || depth > 512 {
                 return false;
             }
             *left -= 1;
             if n.claim.owner_lineage.first() != Some(&n.claim.owner)
-                || n.claim
-                    .owner_lineage
-                    .iter()
-                    .collect::<std::collections::BTreeSet<_>>()
-                    .len()
-                    != n.claim.owner_lineage.len()
                 || matches!(n.region,Region::Predicate(i) if i>=predicates)
                 || n.inputs.iter().any(|(_, i, _)| *i >= inputs)
+                || !lineage(&n.claim.owner_lineage)
             {
                 return false;
             }
             if let Region::Union(children) = &n.region
                 && !children
                     .iter()
-                    .all(|n| visit(n, predicates, inputs, left, depth + 1))
+                    .all(|n| visit(n, predicates, inputs, left, depth + 1, lineage))
             {
                 return false;
             }
             n.dependencies
                 .iter()
-                .all(|n| visit(n, predicates, inputs, left, depth + 1))
+                .all(|n| visit(n, predicates, inputs, left, depth + 1, lineage))
         }
-        {
-            let mut remaining = budget;
-            visit(self, predicates, inputs, &mut remaining, 0)
-        }
+        visit(self, predicates, inputs, left, depth, lineage)
     }
     /// Owned plan metadata, separate from shared expression/library storage.
     pub fn retained_bytes(&self) -> usize {

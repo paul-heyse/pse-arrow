@@ -89,6 +89,11 @@ or scientific qualification claim follows from this provenance reconciliation.
 
 ## Checked Symbolica binary64 evaluator transfer
 
+The supported borrowed native and inspected-byte profiles also provide checked,
+allocation-free operation counts using shared supplier rules. Native template
+admission can derive actual work without allocating/restoring a program or trusting
+a serialized census. The supplier contract records the focused 13-control evidence.
+
 The separate [checked binary64 evaluator transfer](symbolica-f64-transfer.md) preserves
 the existing supplier instruction engine and reports actual requested extents before
 native admission/restoration. It omits symbolic preparation, external functions and
