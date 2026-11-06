@@ -30,10 +30,54 @@ fn fixture() -> ExpressionEvaluator<f64> {
     }
 }
 fn encode(source: &ExpressionEvaluator<f64>) -> Vec<u8> {
+    let expected = source.count_operations();
     let source = source.f64_transfer().unwrap();
+    assert_eq!(source.operation_count().unwrap(), expected);
     let mut bytes = vec![0; source.encoded_len()];
     source.write_into(&mut bytes).unwrap();
+    assert_eq!(
+        F64ProgramView::inspect(&bytes)
+            .unwrap()
+            .operation_count()
+            .unwrap(),
+        expected
+    );
     bytes
+}
+
+#[test]
+fn checked_operation_population_overflow() {
+    let mut count = OperationCount::new(usize::MAX, 0, 0, 0);
+    // Keep the borrowed instruction alive while testing the shared counter.
+    let raw = Instr::Add(4, vec![0, 1]);
+    let instruction = NativeInstruction::from_instr(&raw, ComplexPhase::Any).unwrap();
+    assert_eq!(
+        instruction.count_into(&mut count),
+        Err(F64TransferError::Overflow("operation count"))
+    );
+    count = OperationCount::new(0, usize::MAX, 0, 0);
+    let raw = Instr::Pow(4, 0, -2);
+    assert_eq!(
+        NativeInstruction::from_instr(&raw, ComplexPhase::Any)
+            .unwrap()
+            .count_into(&mut count),
+        Err(F64TransferError::Overflow("operation count"))
+    );
+    count = OperationCount::new(0, 0, usize::MAX, 0);
+    assert_eq!(
+        NativeInstruction::from_instr(&raw, ComplexPhase::Any)
+            .unwrap()
+            .count_into(&mut count),
+        Err(F64TransferError::Overflow("operation count"))
+    );
+    count = OperationCount::new(0, 0, 0, usize::MAX);
+    let raw = Instr::Powf(4, 0, 1);
+    assert_eq!(
+        NativeInstruction::from_instr(&raw, ComplexPhase::Any)
+            .unwrap()
+            .count_into(&mut count),
+        Err(F64TransferError::Overflow("operation count"))
+    );
 }
 fn restore(bytes: &[u8]) -> ExpressionEvaluator<f64> {
     F64ProgramView::inspect(bytes)

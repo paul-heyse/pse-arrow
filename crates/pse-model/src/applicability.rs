@@ -8,6 +8,42 @@ use crate::generated::enums::{
 };
 use pse_ids::{FramedHasher, SemanticId};
 
+const CAPTURE_MAX_DEPTH: usize = 512;
+
+/// Checked source-owned populations; inspection is passive and grants no validity.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CaptureExtents {
+    /// Requested backing of an exact metadata clone, excluding its inline Node.
+    pub clone_bytes: usize,
+    /// Actual existing owned vector/string capacities, excluding the inline Node.
+    pub owned_bytes: usize,
+    /// Existing complete observation bound, including nonwinning alternatives.
+    pub observation_bytes: usize,
+    /// Actual plan nodes, including unions and dependencies.
+    pub nodes: usize,
+    /// Maximum identity population required by subsequent uniqueness validation.
+    pub validation_entries: usize,
+}
+/// Structural refusal and checked extent overflow are distinct owner outcomes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error, miette::Diagnostic)]
+#[diagnostic(code("model.applicability_capture"))]
+pub enum CaptureExtentError {
+    /// Invalid references or excessive structural nesting/population.
+    #[error("invalid applicability capture structure")]
+    Structure,
+    /// An actual source-owned population/backing is unrepresentable.
+    #[error("applicability capture extent overflow")]
+    Overflow,
+}
+fn capture_add(a: usize, b: usize) -> Result<usize, CaptureExtentError> {
+    a.checked_add(b).ok_or(CaptureExtentError::Overflow)
+}
+fn capture_backing<T>(entries: usize) -> Result<usize, CaptureExtentError> {
+    std::alloc::Layout::array::<T>(entries)
+        .map(|layout| layout.size())
+        .map_err(|_| CaptureExtentError::Overflow)
+}
+
 pse_contract::projection_struct! {
 /// Immutable attribution of an instantiated scientific claim.
 #[derive(
@@ -252,103 +288,209 @@ impl Node {
     }
     /// Validate capture references before any permission can affect evaluation.
     pub fn valid_capture(&self, predicates: usize, inputs: usize, budget: usize) -> bool {
+        let Some(entries) = self.capture_validation_scratch(predicates, inputs, budget) else {
+            return false;
+        };
+        let mut scratch = Vec::new();
+        if scratch.try_reserve_exact(entries).is_err() {
+            return false;
+        }
+        scratch.resize(entries, SemanticId::NIL);
+        self.valid_capture_with_scratch(predicates, inputs, budget, &mut scratch)
+    }
+    /// Allocation-free structural screening and actual identity scratch population.
+    /// Duplicate lineage validation remains outstanding until scratch is supplied.
+    /// The existing node/depth budget and all reference rules apply to both phases.
+    pub fn capture_validation_scratch(
+        &self,
+        predicates: usize,
+        inputs: usize,
+        mut budget: usize,
+    ) -> Option<usize> {
+        let mut entries = 0;
+        self.visit_capture(predicates, inputs, &mut budget, 0, &mut |lineage| {
+            entries = entries.max(lineage.len());
+            true
+        })
+        .then_some(entries)
+    }
+    /// Validate using admitted caller storage; insufficient scratch refuses without
+    /// a fallback allocation. Sorting changes only the supplied scratch, not the plan.
+    pub fn valid_capture_with_scratch(
+        &self,
+        predicates: usize,
+        inputs: usize,
+        mut budget: usize,
+        scratch: &mut [SemanticId],
+    ) -> bool {
+        self.visit_capture(predicates, inputs, &mut budget, 0, &mut |lineage| {
+            let Some(target) = scratch.get_mut(..lineage.len()) else {
+                return false;
+            };
+            target.copy_from_slice(lineage);
+            target.sort_unstable();
+            target.windows(2).all(|pair| pair[0] != pair[1])
+        })
+    }
+    fn visit_capture(
+        &self,
+        predicates: usize,
+        inputs: usize,
+        left: &mut usize,
+        depth: usize,
+        lineage: &mut impl FnMut(&[SemanticId]) -> bool,
+    ) -> bool {
         fn visit(
             n: &Node,
             predicates: usize,
             inputs: usize,
             left: &mut usize,
             depth: usize,
+            lineage: &mut impl FnMut(&[SemanticId]) -> bool,
         ) -> bool {
-            if *left == 0 || depth > 512 {
+            if *left == 0 || depth > CAPTURE_MAX_DEPTH {
                 return false;
             }
             *left -= 1;
             if n.claim.owner_lineage.first() != Some(&n.claim.owner)
-                || n.claim
-                    .owner_lineage
-                    .iter()
-                    .collect::<std::collections::BTreeSet<_>>()
-                    .len()
-                    != n.claim.owner_lineage.len()
                 || matches!(n.region,Region::Predicate(i) if i>=predicates)
                 || n.inputs.iter().any(|(_, i, _)| *i >= inputs)
+                || !lineage(&n.claim.owner_lineage)
             {
                 return false;
             }
             if let Region::Union(children) = &n.region
                 && !children
                     .iter()
-                    .all(|n| visit(n, predicates, inputs, left, depth + 1))
+                    .all(|n| visit(n, predicates, inputs, left, depth + 1, lineage))
             {
                 return false;
             }
             n.dependencies
                 .iter()
-                .all(|n| visit(n, predicates, inputs, left, depth + 1))
+                .all(|n| visit(n, predicates, inputs, left, depth + 1, lineage))
         }
-        {
-            let mut remaining = budget;
-            visit(self, predicates, inputs, &mut remaining, 0)
-        }
+        visit(self, predicates, inputs, left, depth, lineage)
     }
     /// Owned plan metadata, separate from shared expression/library storage.
     pub fn retained_bytes(&self) -> usize {
-        let own = self.claim.owner_lineage.capacity() * size_of::<SemanticId>()
-            + self.claim.records.capacity() * size_of::<SemanticId>()
-            + self.claim.dependencies.capacity() * size_of::<SemanticId>()
-            + self.claim.reason.as_ref().map_or(0, String::capacity)
-            + self.inputs.capacity() * size_of::<(String, usize, SemanticId)>()
-            + self
-                .inputs
-                .iter()
-                .map(|(n, _, _)| n.capacity())
-                .sum::<usize>()
-            + self.permissions.capacity() * size_of::<Permission>()
-            + self
-                .permissions
-                .iter()
-                .map(|p| p.targets.capacity() * size_of::<SemanticId>())
-                .sum::<usize>();
-        let alternatives = match &self.region {
-            Region::Union(c) => {
-                c.capacity() * size_of::<Node>() + c.iter().map(Node::retained_bytes).sum::<usize>()
-            }
-            _ => 0,
-        };
-        own + alternatives
-            + self.dependencies.capacity() * size_of::<Node>()
-            + self
-                .dependencies
-                .iter()
-                .map(Node::retained_bytes)
-                .sum::<usize>()
+        let mut remaining = usize::MAX;
+        self.capture_sizes(&mut remaining, 0)
+            .map_or(usize::MAX, |extent| extent.owned_bytes)
     }
     /// Conservative retained evaluation extent, including nonwinning alternatives.
     pub fn observation_bytes(&self) -> usize {
-        let own = size_of::<Observation>()
-            + self.claim.owner_lineage.len() * size_of::<SemanticId>()
-            + self.claim.records.len() * size_of::<SemanticId>()
-            + self.claim.dependencies.len() * size_of::<SemanticId>()
-            + self.claim.reason.as_ref().map_or(0, String::len)
-            + self.inputs.len() * size_of::<Input>()
-            + self.inputs.iter().map(|(n, _, _)| n.len()).sum::<usize>()
-            + self.permissions.len() * size_of::<Permission>()
-            + self
-                .permissions
-                .iter()
-                .map(|p| p.targets.len() * size_of::<SemanticId>())
-                .sum::<usize>();
-        let alternatives = match &self.region {
-            Region::Union(c) => c.iter().fold(0usize, |b, n| {
-                b.saturating_add(n.observation_bytes().saturating_mul(2))
-            }),
-            _ => 0,
+        let mut remaining = usize::MAX;
+        self.capture_sizes(&mut remaining, 0)
+            .map_or(usize::MAX, |extent| extent.observation_bytes)
+    }
+    /// Allocation-free structural screening and checked native populations. Duplicate
+    /// lineage validation remains required using admitted caller scratch afterward.
+    pub fn checked_capture_extents(
+        &self,
+        predicates: usize,
+        inputs: usize,
+        mut budget: usize,
+    ) -> Result<CaptureExtents, CaptureExtentError> {
+        self.capture_validation_scratch(predicates, inputs, budget)
+            .ok_or(CaptureExtentError::Structure)?;
+        self.capture_sizes(&mut budget, 0)
+    }
+    fn capture_sizes(
+        &self,
+        left: &mut usize,
+        depth: usize,
+    ) -> Result<CaptureExtents, CaptureExtentError> {
+        if *left == 0 || depth > CAPTURE_MAX_DEPTH {
+            return Err(CaptureExtentError::Structure);
+        }
+        *left -= 1;
+        let c = &self.claim;
+        let mut clone = capture_backing::<SemanticId>(capture_add(
+            capture_add(c.owner_lineage.len(), c.records.len())?,
+            c.dependencies.len(),
+        )?)?;
+        clone = capture_add(
+            clone,
+            capture_backing::<u8>(c.reason.as_ref().map_or(0, String::len))?,
+        )?;
+        let mut owned = capture_backing::<SemanticId>(capture_add(
+            capture_add(c.owner_lineage.capacity(), c.records.capacity())?,
+            c.dependencies.capacity(),
+        )?)?;
+        owned = capture_add(
+            owned,
+            capture_backing::<u8>(c.reason.as_ref().map_or(0, String::capacity))?,
+        )?;
+        let mut observation = capture_add(size_of::<Observation>(), clone)?;
+        clone = capture_add(
+            clone,
+            capture_backing::<(String, usize, SemanticId)>(self.inputs.len())?,
+        )?;
+        owned = capture_add(
+            owned,
+            capture_backing::<(String, usize, SemanticId)>(self.inputs.capacity())?,
+        )?;
+        observation = capture_add(observation, capture_backing::<Input>(self.inputs.len())?)?;
+        for (name, _, _) in &self.inputs {
+            let bytes = capture_backing::<u8>(name.len())?;
+            clone = capture_add(clone, bytes)?;
+            observation = capture_add(observation, bytes)?;
+            owned = capture_add(owned, capture_backing::<u8>(name.capacity())?)?;
+        }
+        let permission_bytes = capture_backing::<Permission>(self.permissions.len())?;
+        clone = capture_add(clone, permission_bytes)?;
+        observation = capture_add(observation, permission_bytes)?;
+        owned = capture_add(
+            owned,
+            capture_backing::<Permission>(self.permissions.capacity())?,
+        )?;
+        for permission in &self.permissions {
+            let bytes = capture_backing::<SemanticId>(permission.targets.len())?;
+            clone = capture_add(clone, bytes)?;
+            observation = capture_add(observation, bytes)?;
+            owned = capture_add(
+                owned,
+                capture_backing::<SemanticId>(permission.targets.capacity())?,
+            )?;
+        }
+        let mut result = CaptureExtents {
+            clone_bytes: clone,
+            owned_bytes: owned,
+            observation_bytes: observation,
+            nodes: 1,
+            validation_entries: c.owner_lineage.len(),
         };
-        self.dependencies
-            .iter()
-            .fold(own.saturating_add(alternatives), |b, n| {
-                b.saturating_add(n.observation_bytes())
-            })
+        let mut children =
+            |children: &Vec<Node>, copies: usize| -> Result<(), CaptureExtentError> {
+                result.clone_bytes =
+                    capture_add(result.clone_bytes, capture_backing::<Node>(children.len())?)?;
+                result.owned_bytes = capture_add(
+                    result.owned_bytes,
+                    capture_backing::<Node>(children.capacity())?,
+                )?;
+                for child in children {
+                    let extent = child.capture_sizes(left, depth + 1)?;
+                    result.clone_bytes = capture_add(result.clone_bytes, extent.clone_bytes)?;
+                    result.owned_bytes = capture_add(result.owned_bytes, extent.owned_bytes)?;
+                    result.observation_bytes = capture_add(
+                        result.observation_bytes,
+                        extent
+                            .observation_bytes
+                            .checked_mul(copies)
+                            .ok_or(CaptureExtentError::Overflow)?,
+                    )?;
+                    result.nodes = capture_add(result.nodes, extent.nodes)?;
+                    result.validation_entries =
+                        result.validation_entries.max(extent.validation_entries);
+                }
+                Ok(())
+            };
+        if let Region::Union(alternatives) = &self.region {
+            children(alternatives, 2)?;
+        }
+        children(&self.dependencies, 1)?;
+        Ok(result)
     }
     /// Assess only already evaluated library predicate results and actual input values.
     /// A declared union prefers applicable evidence, then unknown, then outside evidence.
@@ -529,5 +671,21 @@ impl Observation {
                 .iter()
                 .map(|p| p.targets.capacity() * size_of::<SemanticId>())
                 .sum::<usize>()
+    }
+}
+
+#[cfg(test)]
+mod capture_extent_tests {
+    use super::*;
+    #[test]
+    fn checked_population_and_backing_overflow_have_a_distinct_owner_class() {
+        assert_eq!(
+            capture_add(usize::MAX, 1),
+            Err(CaptureExtentError::Overflow)
+        );
+        assert_eq!(
+            capture_backing::<Node>(usize::MAX),
+            Err(CaptureExtentError::Overflow)
+        );
     }
 }

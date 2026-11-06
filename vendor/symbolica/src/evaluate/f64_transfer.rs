@@ -3,7 +3,9 @@
 //! This is execution correspondence, not symbolic/preparation-state serialization.
 //! Inspection is allocation-free and passive. Restoration asks the caller to admit
 //! actual requested backing before allocating validation scratch or evaluator storage.
-use super::{ComplexPhase, ExpressionEvaluator, Instr, OptimizationSettings, Symbol};
+use super::{
+    ComplexPhase, ExpressionEvaluator, Instr, OperationCount, OptimizationSettings, Symbol,
+};
 use std::{collections::TryReserveError, error::Error, fmt};
 
 const MAGIC: &[u8; 8] = b"SYMEVF64";
@@ -222,6 +224,14 @@ impl ExpressionEvaluator<f64> {
     }
 }
 impl F64ProgramRef<'_> {
+    /// Count the original supplier operations with checked accumulation, allocating nothing.
+    pub fn operation_count(&self) -> Result<OperationCount, F64TransferError> {
+        let mut count = OperationCount::default();
+        for (instruction, phase) in &self.evaluator.instructions {
+            NativeInstruction::from_instr(instruction, *phase)?.count_into(&mut count)?;
+        }
+        Ok(count)
+    }
     /// Actual derived storage and encoded extents; this does not grant admission.
     pub fn extents(&self) -> F64ProgramExtents {
         self.extents
@@ -300,6 +310,35 @@ struct NativeInstruction<'a> {
     operands: Operands<'a>,
 }
 impl<'a> NativeInstruction<'a> {
+    fn count_into(self, count: &mut OperationCount) -> Result<(), F64TransferError> {
+        // The same scalar rules as ExpressionEvaluator::count_operations. Phases
+        // do not change scalar operation populations; no execution is performed.
+        match self.opcode {
+            0 => {
+                count.additions = add(count.additions, self.operands.len() - 1, "operation count")?
+            }
+            1 => {
+                count.multiplications = add(
+                    count.multiplications,
+                    self.operands.len() - 1,
+                    "operation count",
+                )?
+            }
+            2 => {
+                count.inversions = add(
+                    count.inversions,
+                    usize::from(self.power < 0),
+                    "operation count",
+                )?;
+                let multiplications = usize::try_from(self.power.unsigned_abs().saturating_sub(1))
+                    .map_err(|_| F64TransferError::Overflow("operation count"))?;
+                count.multiplications =
+                    add(count.multiplications, multiplications, "operation count")?;
+            }
+            _ => count.function_calls = add(count.function_calls, 1, "operation count")?,
+        }
+        Ok(())
+    }
     fn from_instr(instruction: &'a Instr, phase: ComplexPhase) -> Result<Self, F64TransferError> {
         let mut result = Self {
             opcode: 0,
@@ -566,6 +605,19 @@ pub struct F64ProgramView<'a> {
     instruction_start: usize,
 }
 impl<'a> F64ProgramView<'a> {
+    /// Count the inspected supplier instruction stream without restoring or allocating.
+    /// Uses the same checked rules as the borrowed native transfer profile.
+    pub fn operation_count(&self) -> Result<OperationCount, F64TransferError> {
+        let mut count = OperationCount::default();
+        let mut cursor = Cursor {
+            bytes: self.bytes,
+            position: self.instruction_start,
+        };
+        for _ in 0..self.extents.instructions {
+            cursor.instruction()?.count_into(&mut count)?;
+        }
+        Ok(count)
+    }
     /// Inspect the supported header, exact populations, indices and complete encoding.
     /// No symbolic state or allocation is restored, and the bytes grant no allowance.
     pub fn inspect(bytes: &'a [u8]) -> Result<Self, F64TransferError> {

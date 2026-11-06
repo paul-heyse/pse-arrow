@@ -17,6 +17,13 @@ operands, integer exponents, exact stack extent, protected parameter/constant pr
 result indices and result aliases are preserved. The versioned fixed-width
 little-endian profile carries no serialized allocation allowance.
 
+Both the borrowed native profile and inspected byte view expose allocation-free
+`operation_count`. They share checked supplier counting rules: Add/Mul count their
+original operand population minus one, integer Pow counts the original absolute
+exponent minus one and a negative-power inversion, and Powf/builtins count one
+function call. Accumulation overflow refuses. This computes original supplier work
+without restoring an evaluator or introducing a consumer-side byte interpreter.
+
 `F64ProgramView::inspect` checks framing/version, complete byte exhaustion, checked
 integer conversions and requested layouts, populations, every index, protected
 destinations, nonempty Add/Mul and the supported instruction profile without allocating.
@@ -72,6 +79,13 @@ overlong encodings, integer-power boundaries, definition-before-read, denied gro
 unchanged admission error/source, and distinct failures at each reservation step.
 The reservation fault selector is test-only; it returns an actual fallible reservation
 error without provoking machine exhaustion.
+
+The subsequent native-template prerequisite adds one overflow control and checks
+operation-count equality with `ExpressionEvaluator::count_operations` in every
+existing encoding fixture, including original Value/First derivative producers.
+The same standalone command passed **13/13**, zero failures or warnings, with the
+unchanged standalone Rug 1.29 lock. This is supplier evidence; the consuming native
+template controls remain a separate obligation.
 
 The first pure lib-test build encountered six existing tests requiring the native-code
 generation feature, plus seven new Symbol constant-pattern errors and two unused

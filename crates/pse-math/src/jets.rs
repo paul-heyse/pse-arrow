@@ -192,7 +192,181 @@ struct SlotLayout {
     offsets: Vec<usize>,
     components: Vec<usize>,
 }
+pse_contract::projection_struct! {
+/// Passive exact layout metadata. Decoding does not construct a checked jet layout.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JetLayoutSnapshot {
+    projection: { name: "MathJetLayoutSnapshot", rust_path: crate::jets::JetLayoutSnapshot, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    /// Ordered compact input offsets defining derivative axes.
+    pub coordinates: Vec<usize> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    /// Complete canonical coefficient multi-indices, in supplier output order.
+    pub shape: Vec<Vec<usize>> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    /// Ordered symmetric second pairs; empty for the fixed Value/First transfer profile.
+    pub pairs: Vec<(usize, usize)> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    /// Existing mathematical layout order.
+    pub order: DerivativeOrder => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    /// Sparse slot boundaries; present exactly with sparse components.
+    pub slot_offsets: Option<Vec<usize>> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    /// Sorted retained component indices for every logical slot, including value zero.
+    pub slot_components: Option<Vec<usize>> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
+}
+
+/// Borrowed native/passive layout view shared by preflight and checked restoration.
+pub(crate) struct JetLayoutView<'a> {
+    pub coordinates: &'a [usize],
+    pub shape: &'a [Vec<usize>],
+    pub pairs: &'a [(usize, usize)],
+    pub order: DerivativeOrder,
+    pub offsets: Option<&'a [usize]>,
+    pub components: Option<&'a [usize]>,
+}
+/// A passive layout refusal preserves native mathematical limit causes separately.
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[diagnostic(code("math.layout_snapshot"))]
+pub enum LayoutSnapshotError {
+    /// Invalid passive layout metadata; the error path itself allocates nothing.
+    #[error("invalid numerical layout snapshot: {0}")]
+    Invalid(&'static str),
+    /// Original component or scratch limit, with its native diagnostic class.
+    #[error(transparent)]
+    Math(#[from] MathError),
+}
+impl JetLayoutSnapshot {
+    pub(crate) fn view(&self) -> JetLayoutView<'_> {
+        JetLayoutView {
+            coordinates: &self.coordinates,
+            shape: &self.shape,
+            pairs: &self.pairs,
+            order: self.order,
+            offsets: self.slot_offsets.as_deref(),
+            components: self.slot_components.as_deref(),
+        }
+    }
+    pub(crate) fn restore(
+        self,
+        slots: usize,
+        inputs: usize,
+        limits: EvaluationLimits,
+        scratch: &mut [usize],
+    ) -> Result<JetLayout, LayoutSnapshotError> {
+        self.view().validate(slots, inputs, limits)?;
+        let target = scratch
+            .get_mut(..self.coordinates.len())
+            .ok_or(MathError::Limit("layout validation scratch"))?;
+        target.copy_from_slice(&self.coordinates);
+        target.sort_unstable();
+        if target.windows(2).any(|p| p[0] == p[1]) {
+            return Err(LayoutSnapshotError::Invalid(
+                "duplicate derivative coordinates",
+            ));
+        }
+        let slots = match (self.slot_offsets, self.slot_components) {
+            (Some(offsets), Some(components)) => Some(Arc::new(SlotLayout {
+                offsets,
+                components,
+            })),
+            _ => None,
+        };
+        Ok(JetLayout {
+            coordinates: self.coordinates,
+            shape: self.shape,
+            pairs: Arc::new(self.pairs),
+            order: self.order,
+            slots,
+        })
+    }
+}
+impl JetLayoutView<'_> {
+    /// Fixed Value/First profile. Canonical shape and sparse slot coverage are checked
+    /// without allocation; coordinate uniqueness uses admitted scratch on restoration.
+    pub(crate) fn validate(
+        &self,
+        slots: usize,
+        inputs: usize,
+        limits: EvaluationLimits,
+    ) -> Result<usize, LayoutSnapshotError> {
+        limits.check()?;
+        let fail = || LayoutSnapshotError::Invalid("coefficient shape or sparse slot coverage");
+        if self.order > DerivativeOrder::First
+            || !self.pairs.is_empty()
+            || self.coordinates.iter().any(|&c| c >= inputs)
+        {
+            return Err(fail());
+        }
+        let width = if self.order == DerivativeOrder::First {
+            self.coordinates
+                .len()
+                .checked_add(1)
+                .ok_or(MathError::Limit("layout width"))?
+        } else {
+            1
+        };
+        if width > limits.derivative_components {
+            return Err(MathError::Limit("derivative components").into());
+        }
+        if self.shape.len() != width {
+            return Err(fail());
+        }
+        limits.allocation(
+            width
+                .checked_mul(self.coordinates.len().max(1))
+                .ok_or(MathError::Limit("derivative shape"))?,
+        )?;
+        for (component, powers) in self.shape.iter().enumerate() {
+            if powers.len() != self.coordinates.len()
+                || powers
+                    .iter()
+                    .enumerate()
+                    .any(|(axis, &power)| power != usize::from(component == axis + 1))
+            {
+                return Err(fail());
+            }
+        }
+        let entries = match (self.offsets, self.components) {
+            (None, None) => slots
+                .checked_mul(width)
+                .ok_or(MathError::Limit("layout frame"))?,
+            (Some(offsets), Some(components)) => {
+                if offsets.len()
+                    != slots
+                        .checked_add(1)
+                        .ok_or(MathError::Limit("layout offsets"))?
+                    || offsets.first() != Some(&0)
+                    || offsets.last() != Some(&components.len())
+                {
+                    return Err(fail());
+                }
+                for pair in offsets.windows(2) {
+                    let slice = components.get(pair[0]..pair[1]).ok_or_else(fail)?;
+                    if slice.first() != Some(&0)
+                        || slice.iter().any(|&c| c >= width)
+                        || slice.windows(2).any(|p| p[0] >= p[1])
+                    {
+                        return Err(fail());
+                    }
+                }
+                components.len()
+            }
+            _ => return Err(fail()),
+        };
+        limits.allocation(entries)?;
+        Ok(entries)
+    }
+}
 impl JetLayout {
+    pub(crate) fn transfer_view(&self) -> JetLayoutView<'_> {
+        JetLayoutView {
+            coordinates: &self.coordinates,
+            shape: &self.shape,
+            pairs: &self.pairs,
+            order: self.order,
+            offsets: self.slots.as_ref().map(|s| s.offsets.as_slice()),
+            components: self.slots.as_ref().map(|s| s.components.as_slice()),
+        }
+    }
     /// Create a checked layout; coordinates are unique formal input slots.
     pub fn new(
         coordinates: Vec<usize>,
