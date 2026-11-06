@@ -281,6 +281,109 @@ mod tests {
     }
 
     #[test]
+    fn composed_text_rules_reach_owned_and_view_suppliers_in_both_orders() {
+        use pse_codegen::codegen::boundary_projection::descriptors_with_imports;
+        use pse_contract::boundary_projection::{
+            Direction, Field, LocalRule, ProjectionGraph, Shape,
+        };
+        struct ComposedText;
+        let length = LocalRule::Length { min: 2, max: 3 };
+        let bytes = LocalRule::Utf8Bytes { min: 3, max: 5 };
+        let mut graph = ProjectionGraph::default();
+        graph
+            .declare::<ComposedText>(
+                "ComposedText",
+                file!(),
+                1,
+                Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(Shape::Record(vec![
+                        Field::of::<String>(
+                            graph,
+                            "forward",
+                            1,
+                            Direction::Both,
+                            vec![length, bytes],
+                        )?,
+                        Field::of::<String>(
+                            graph,
+                            "reverse",
+                            2,
+                            Direction::Both,
+                            vec![bytes, length],
+                        )?,
+                        Field::of::<Option<String>>(
+                            graph,
+                            "optional_forward",
+                            3,
+                            Direction::Both,
+                            vec![length, bytes],
+                        )?,
+                        Field::of::<Option<String>>(
+                            graph,
+                            "optional_reverse",
+                            4,
+                            Direction::Both,
+                            vec![bytes, length],
+                        )?,
+                    ]))
+                },
+            )
+            .unwrap();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let imports = crate::codegen::contract_metadata::imports(root).unwrap();
+        let source =
+            descriptors_with_imports(&graph, "sample.v1", "selected.proto", &imports.file).unwrap();
+        let suppliers = generate(&generation(&source), "crate::wire").unwrap();
+        let body = suppliers
+            .validators
+            .iter()
+            .find(|file| file.name.as_deref() == Some("selected.rs"))
+            .unwrap()
+            .content
+            .as_deref()
+            .unwrap();
+        let parsed = syn::parse_file(body).unwrap();
+        let mut owners = Vec::new();
+        for item in parsed.items {
+            if let syn::Item::Impl(implementation) = item {
+                let owner = &implementation.self_ty;
+                let owner = quote::quote!(#owner).to_string();
+                owners.push(owner);
+                let body = quote::quote!(#implementation).to_string();
+                for rule in [
+                    "string.min_len",
+                    "string.max_len",
+                    "string.min_bytes",
+                    "string.max_bytes",
+                ] {
+                    assert_eq!(
+                        body.matches(&format!("\"{rule}\"")).count(),
+                        4,
+                        "{rule}: {body}"
+                    );
+                }
+                let compact = body.split_whitespace().collect::<String>();
+                assert!(compact.contains(".chars().count()"));
+                assert!(compact.contains(".len()"));
+            }
+        }
+        assert_eq!(
+            owners.len(),
+            2,
+            "owned and borrowed view validation: {owners:?}"
+        );
+        assert!(owners.iter().any(|owner| owner == "ComposedText"));
+        assert!(
+            owners
+                .iter()
+                .any(|owner| owner.contains("ComposedTextView"))
+        );
+    }
+
+    #[test]
     fn typed_composition_retains_structured_invalid_and_unsupported_cel() {
         for expression in ["this.x +", "[this.x, 1.5].size() > 0"] {
             let generation = generation(&source(expression));

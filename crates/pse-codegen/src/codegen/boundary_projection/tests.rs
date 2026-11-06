@@ -10,6 +10,7 @@ mod float_collections;
 mod nested_wrappers;
 mod observation;
 mod signed_integer;
+mod string_rules;
 
 #[test]
 fn optional_text_byte_limits_keep_protobuf_presence_and_exact_byte_rules() {

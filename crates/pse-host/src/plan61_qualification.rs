@@ -53,6 +53,82 @@ fn plan61_generated_validation_checks_owned_and_eager_views() {
 }
 
 #[test]
+fn plan61_composed_text_extents_execute_owned_and_eager_view_validators() {
+    use buffa::{Message as _, MessageView as _};
+    use pb::plan61::qualification::v1::{
+        __buffa::view::TextExtentControlsView, TextExtentControls,
+    };
+    use protovalidate_buffa::Validate;
+
+    fn check(value: &impl Validate, field: &str, expected: &[&str]) {
+        let result = value.validate();
+        if expected.is_empty() {
+            assert!(result.is_ok(), "{field}: {result:?}");
+            return;
+        }
+        let error = result.unwrap_err();
+        assert!(error.compile_error.is_none() && error.runtime_error.is_none());
+        assert_eq!(error.violations.len(), expected.len());
+        let mut rules = error
+            .violations
+            .iter()
+            .map(|violation| {
+                assert_eq!(violation.field.to_string(), field);
+                violation.rule_id.as_ref()
+            })
+            .collect::<Vec<_>>();
+        rules.sort_unstable();
+        let mut expected = expected.to_vec();
+        expected.sort_unstable();
+        assert_eq!(rules, expected);
+    }
+
+    let cases: &[(&str, &[&str])] = &[
+        ("éa", &[]),
+        ("éé", &[]),
+        // One two-byte character violates both minimums; a three-byte character
+        // isolates the Unicode scalar-value minimum from the byte minimum.
+        ("é", &["string.min_len", "string.min_bytes"]),
+        ("€", &["string.min_len"]),
+        ("ab", &["string.min_bytes"]),
+        ("你好", &["string.max_bytes"]),
+        ("abcd", &["string.max_len"]),
+        ("", &["string.min_len", "string.min_bytes"]),
+    ];
+    for &(text, expected) in cases {
+        for (field, message) in [
+            (
+                "text",
+                TextExtentControls {
+                    text: text.into(),
+                    optional_text: None,
+                    ..Default::default()
+                },
+            ),
+            (
+                "optional_text",
+                TextExtentControls {
+                    text: "éa".into(),
+                    optional_text: Some(text.into()),
+                    ..Default::default()
+                },
+            ),
+        ] {
+            check(&message, field, expected);
+            let bytes = message.encode_to_vec();
+            let decoded = TextExtentControls::decode_from_slice(&bytes).unwrap();
+            assert_eq!(decoded.text, message.text);
+            assert_eq!(decoded.optional_text, message.optional_text);
+            check(&decoded, field, expected);
+            let view = TextExtentControlsView::decode_view(&bytes).unwrap();
+            assert_eq!(view.text, message.text);
+            assert_eq!(view.optional_text, message.optional_text.as_deref());
+            check(&view, field, expected);
+        }
+    }
+}
+
+#[test]
 fn plan61_existing_truth_count_and_raw_path_keep_their_meaning() {
     use crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::{
         Count, CountUnit, Location, PredicateFact, Truth, count::Precision,

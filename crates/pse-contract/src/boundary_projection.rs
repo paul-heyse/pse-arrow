@@ -1352,7 +1352,8 @@ fn validate_fields(
                 | LocalRule::SignedRange { .. }
                 | LocalRule::PositiveDuration
                 | LocalRule::Float64Domain(_) => 1,
-                LocalRule::Length { .. } | LocalRule::Utf8Bytes { .. } => 2,
+                LocalRule::Length { .. } => 2,
+                LocalRule::Utf8Bytes { .. } => 3,
             };
             if !families.insert(family) {
                 return Err(ProjectionError::invalid(
@@ -1419,9 +1420,17 @@ fn validate_fields(
                         }
                 }
                 LocalRule::Length { min, max } => {
+                    let ty = match &field.ty {
+                        TypeRef::Optional(inner)
+                            if matches!(inner.as_ref(), TypeRef::Scalar(Scalar::String)) =>
+                        {
+                            inner.as_ref()
+                        }
+                        ty => ty,
+                    };
                     min <= max
                         && matches!(
-                            field.ty,
+                            ty,
                             TypeRef::Repeated(_)
                                 | TypeRef::Set(_)
                                 | TypeRef::Map(_, _)

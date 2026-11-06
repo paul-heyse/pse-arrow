@@ -33,6 +33,7 @@ pub mod __buffa {
         reg.register_json_any(super::__MASKED_EXISTS_JSON_ANY);
         reg.register_json_any(super::__ERROR_EXISTS_ONE_JSON_ANY);
         reg.register_json_any(super::__RANGE_CONSTRUCTION_ERROR_JSON_ANY);
+        reg.register_json_any(super::__TEXT_EXTENT_CONTROLS_JSON_ANY);
         reg.register_json_ext(super::__buffa::ext::__QUALIFICATION_NOTE_JSON_EXT);
         reg.register_text_any(super::__PAYLOAD_TEXT_ANY);
         reg.register_text_any(super::__UNSAFE_DIVISION_TEXT_ANY);
@@ -40,6 +41,7 @@ pub mod __buffa {
         reg.register_text_any(super::__MASKED_EXISTS_TEXT_ANY);
         reg.register_text_any(super::__ERROR_EXISTS_ONE_TEXT_ANY);
         reg.register_text_any(super::__RANGE_CONSTRUCTION_ERROR_TEXT_ANY);
+        reg.register_text_any(super::__TEXT_EXTENT_CONTROLS_TEXT_ANY);
     }
     /// Reflection support: this package's view onto the crate-wide
     /// descriptor pool. In shared-pool mode the bytes and pool live once
@@ -97,6 +99,10 @@ pub use self::__buffa::view::ErrorExistsOneOwnedView;
 pub use self::__buffa::view::RangeConstructionErrorView;
 #[doc(inline)]
 pub use self::__buffa::view::RangeConstructionErrorOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::TextExtentControlsView;
+#[doc(inline)]
+pub use self::__buffa::view::TextExtentControlsOwnedView;
 #[doc(inline)]
 pub use self::__buffa::ext::QUALIFICATION_NOTE;
 #[doc(inline)]

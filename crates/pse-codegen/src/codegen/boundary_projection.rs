@@ -1233,6 +1233,11 @@ fn apply_rule(
             | LocalRule::Float64Domain(_),
             TypeRef::Optional(inner),
         ) => inner.as_ref(),
+        (LocalRule::Length { .. }, TypeRef::Optional(inner))
+            if matches!(inner.as_ref(), TypeRef::Scalar(Scalar::String)) =>
+        {
+            inner.as_ref()
+        }
         _ => ty,
     };
     match rule {
@@ -1349,11 +1354,15 @@ fn apply_rule(
             if !matches!(ty, TypeRef::Scalar(Scalar::String)) {
                 return Err(error("UTF-8 byte rule requires actual string type"));
             }
+            let previous = match rules.r#type.take() {
+                Some(validate::__buffa::oneof::field_rules::Type::String(previous)) => *previous,
+                _ => StringRules::default(),
+            };
             rules.r#type = Some(
                 StringRules {
                     min_bytes: (*min != 0).then_some(*min),
                     max_bytes: Some(*max),
-                    ..Default::default()
+                    ..previous
                 }
                 .into(),
             );
@@ -1397,12 +1406,20 @@ fn apply_rule(
         },
         LocalRule::Length { min, max } => {
             rules.r#type = Some(match ty {
-                TypeRef::Scalar(Scalar::String) => StringRules {
-                    min_len: (*min != 0).then_some(*min),
-                    max_len: Some(*max),
-                    ..Default::default()
+                TypeRef::Scalar(Scalar::String) => {
+                    let previous = match rules.r#type.take() {
+                        Some(validate::__buffa::oneof::field_rules::Type::String(previous)) => {
+                            *previous
+                        }
+                        _ => StringRules::default(),
+                    };
+                    StringRules {
+                        min_len: (*min != 0).then_some(*min),
+                        max_len: Some(*max),
+                        ..previous
+                    }
+                    .into()
                 }
-                .into(),
                 TypeRef::Scalar(
                     Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash | Scalar::I128Bits,
                 ) => BytesRules {

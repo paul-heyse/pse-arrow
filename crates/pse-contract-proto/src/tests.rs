@@ -511,6 +511,22 @@ fn native_field_codec_preserves_existing_owners_and_exact_interval_bits() {
         &TypeRef::Scalar(Scalar::String),
         &[LocalRule::Utf8Bytes { min: 1, max: 8 }],
     );
+    for rules in [
+        [
+            LocalRule::Length { min: 2, max: 3 },
+            LocalRule::Utf8Bytes { min: 3, max: 5 },
+        ],
+        [
+            LocalRule::Utf8Bytes { min: 3, max: 5 },
+            LocalRule::Length { min: 2, max: 3 },
+        ],
+    ] {
+        roundtrip(&TypeRef::Scalar(Scalar::String), &rules);
+        roundtrip(
+            &TypeRef::Optional(Box::new(TypeRef::Scalar(Scalar::String))),
+            &rules,
+        );
+    }
     roundtrip(
         &TypeRef::Optional(Box::new(TypeRef::Scalar(Scalar::Bool))),
         &[LocalRule::Required],

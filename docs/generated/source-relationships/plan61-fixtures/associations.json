@@ -1,24 +1,24 @@
 {
-  "descriptor_sha256": "31abfbd674c7515afad90db7b97abe3439f0dc978873ad6306eeb7521cb057fe",
+  "descriptor_sha256": "e7e786ce7ea633983f941279e952a9dc7e9d46e846419e067a853bd3f86b8003",
   "inputs": {
     "Cargo.lock": "a9b5aa5424b972d8d1bc440916cb52a286d4d123abb54fae5dc0b973e66005fb",
     "Cargo.toml": "4af49ecb0f115363b25f15979088b0455758e0de89e5399173b4e5e3b5f2492f",
-    "crates/pse-codegen/src/codegen/boundary_projection.rs": "1fef558677d6fb6fa1ca09cfabf2c4d966d662143571cee5e23789f1498e496b",
+    "crates/pse-codegen/src/codegen/boundary_projection.rs": "7cd1cf475f9ebe892bed2a5e0bcbff95ece1af60a03d1412c6acaf9c34669135",
     "crates/pse-host/tests/fixtures/plan61/buf.lock": "f167aece00cd881df9e57b220d5edeff1343c5020a6caed6b425a213f75991ee",
     "crates/pse-host/tests/fixtures/plan61/buf.yaml": "647235719a93a58593b90d87641e03656ddcae35971f822322dc0e30eac528e0",
-    "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+    "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
     "scripts/protobuf-associations.rs": "9612092ad4a1424d391ad3843e1aa74f1d2257b2370f975422f8498fbc7c9a35",
     "xtask/Cargo.toml": "05556fe07c9a198dc09b27679aefd14895661be76e661acab998e12a022b18fd",
     "xtask/src/codegen/code_intelligence.rs": "8aa2f221baaeae8297b9b2512e18a0e6686d6aec0c00574b8dc376932bc25d25",
     "xtask/src/codegen/code_intelligence/associations.rs": "211bad898e26c9f6cade1d2a2e24e93b3a3aaf5df1c712736fce4cd41e3e8bad",
     "xtask/src/codegen/proto_projection.rs": "1d7b590bcbd995a7074ab4a85cf0665c6c39e67128826a3b3aec1d097ad412c8",
-    "xtask/src/codegen/proto_projection/composition.rs": "2525db67228a408a8a4db82742cbd72e634976dd4abe5907fe10fca1cc0fbeb9"
+    "xtask/src/codegen/proto_projection/composition.rs": "c483be2b2c6994a62dc7f085cb55dafb28da8262dbc2ef0f54a1398c19bb3148"
   },
   "associations": [
     {
       "declaration": "plan61.qualification.v1.ErrorExistsOne",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 1349,
         "end": 1525,
@@ -26,7 +26,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "ErrorExistsOneView",
       "rust_field": null,
       "state": ""
@@ -34,7 +34,7 @@
     {
       "declaration": "plan61.qualification.v1.MaskedAll",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 1010,
         "end": 1174,
@@ -42,7 +42,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "MaskedAllView",
       "rust_field": null,
       "state": ""
@@ -50,7 +50,7 @@
     {
       "declaration": "plan61.qualification.v1.MaskedExists",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 1175,
         "end": 1348,
@@ -58,7 +58,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "MaskedExistsView",
       "rust_field": null,
       "state": ""
@@ -66,7 +66,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 447,
         "end": 823,
@@ -74,7 +74,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "PayloadView",
       "rust_field": null,
       "state": ""
@@ -82,7 +82,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#1",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 545,
         "end": 570,
@@ -90,7 +90,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "PayloadView",
       "rust_field": "count",
       "state": ""
@@ -98,7 +98,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#2",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 573,
         "end": 588,
@@ -106,7 +106,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "PayloadView",
       "rust_field": "path",
       "state": ""
@@ -114,7 +114,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#3",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 591,
         "end": 607,
@@ -122,7 +122,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "PayloadView",
       "rust_field": "truth",
       "state": ""
@@ -130,7 +130,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#4",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 610,
         "end": 641,
@@ -138,7 +138,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "PayloadView",
       "rust_field": "detail",
       "state": ""
@@ -146,7 +146,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#5",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 644,
         "end": 679,
@@ -154,7 +154,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "PayloadView",
       "rust_field": "mask",
       "state": ""
@@ -162,7 +162,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#6",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 690,
         "end": 707,
@@ -170,7 +170,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "PayloadView",
       "rust_field": "label",
       "state": ""
@@ -178,7 +178,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#7",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 710,
         "end": 734,
@@ -186,7 +186,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "PayloadView",
       "rust_field": "precision",
       "state": ""
@@ -194,7 +194,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#8",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 737,
         "end": 760,
@@ -202,7 +202,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "PayloadView",
       "rust_field": "source_guard",
       "state": ""
@@ -210,7 +210,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#9",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 763,
         "end": 782,
@@ -218,7 +218,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "PayloadView",
       "rust_field": "context",
       "state": ""
@@ -226,7 +226,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#10",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 785,
         "end": 821,
@@ -234,7 +234,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "PayloadView",
       "rust_field": "measured_count",
       "state": ""
@@ -242,7 +242,7 @@
     {
       "declaration": "plan61.qualification.v1.RangeConstructionError",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 1526,
         "end": 1753,
@@ -250,7 +250,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "RangeConstructionErrorView",
       "rust_field": null,
       "state": ""
@@ -258,7 +258,7 @@
     {
       "declaration": "plan61.qualification.v1.RangeConstructionError#1",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 1735,
         "end": 1751,
@@ -266,15 +266,63 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "RangeConstructionErrorView",
       "rust_field": "denom",
       "state": ""
     },
     {
+      "declaration": "plan61.qualification.v1.TextExtentControls",
+      "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
+      "source_range": {
+        "start": 1754,
+        "end": 2008,
+        "producer": "tree-sitter-proto/0.6.0",
+        "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
+      },
+      "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
+      "rust_type": "TextExtentControlsView",
+      "rust_field": null,
+      "state": ""
+    },
+    {
+      "declaration": "plan61.qualification.v1.TextExtentControls#1",
+      "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
+      "source_range": {
+        "start": 1785,
+        "end": 1885,
+        "producer": "tree-sitter-proto/0.6.0",
+        "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
+      },
+      "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
+      "rust_type": "TextExtentControlsView",
+      "rust_field": "text",
+      "state": ""
+    },
+    {
+      "declaration": "plan61.qualification.v1.TextExtentControls#2",
+      "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
+      "source_range": {
+        "start": 1888,
+        "end": 2006,
+        "producer": "tree-sitter-proto/0.6.0",
+        "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
+      },
+      "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
+      "rust_type": "TextExtentControlsView",
+      "rust_field": "optional_text",
+      "state": ""
+    },
+    {
       "declaration": "plan61.qualification.v1.UnsafeDivision",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 824,
         "end": 1009,
@@ -282,7 +330,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "UnsafeDivisionView",
       "rust_field": null,
       "state": ""
@@ -290,7 +338,7 @@
     {
       "declaration": "plan61.qualification.v1.UnsafeDivision#1",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 989,
         "end": 1007,
@@ -298,7 +346,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
+      "output_sha256": "8fbc8b8502fde0d27bd88a1885e4b09226c72e3469015cb4ba7e65805fbd6bf0",
       "rust_type": "UnsafeDivisionView",
       "rust_field": "divisor",
       "state": ""
@@ -306,7 +354,7 @@
     {
       "declaration": "plan61.qualification.v1.ErrorExistsOne",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 1349,
         "end": 1525,
@@ -314,7 +362,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "ErrorExistsOne",
       "rust_field": null,
       "state": ""
@@ -322,7 +370,7 @@
     {
       "declaration": "plan61.qualification.v1.MaskedAll",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 1010,
         "end": 1174,
@@ -330,7 +378,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "MaskedAll",
       "rust_field": null,
       "state": ""
@@ -338,7 +386,7 @@
     {
       "declaration": "plan61.qualification.v1.MaskedExists",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 1175,
         "end": 1348,
@@ -346,7 +394,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "MaskedExists",
       "rust_field": null,
       "state": ""
@@ -354,7 +402,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 447,
         "end": 823,
@@ -362,7 +410,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "Payload",
       "rust_field": null,
       "state": ""
@@ -370,7 +418,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#1",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 545,
         "end": 570,
@@ -378,7 +426,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "Payload",
       "rust_field": "count",
       "state": ""
@@ -386,7 +434,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#2",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 573,
         "end": 588,
@@ -394,7 +442,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "Payload",
       "rust_field": "path",
       "state": ""
@@ -402,7 +450,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#3",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 591,
         "end": 607,
@@ -410,7 +458,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "Payload",
       "rust_field": "truth",
       "state": ""
@@ -418,7 +466,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#4",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 610,
         "end": 641,
@@ -426,7 +474,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "Payload",
       "rust_field": "detail",
       "state": ""
@@ -434,7 +482,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#5",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 644,
         "end": 679,
@@ -442,7 +490,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "Payload",
       "rust_field": "mask",
       "state": ""
@@ -450,7 +498,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#6",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 690,
         "end": 707,
@@ -458,7 +506,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "Payload",
       "rust_field": "label",
       "state": ""
@@ -466,7 +514,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#7",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 710,
         "end": 734,
@@ -474,7 +522,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "Payload",
       "rust_field": "precision",
       "state": ""
@@ -482,7 +530,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#8",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 737,
         "end": 760,
@@ -490,7 +538,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "Payload",
       "rust_field": "source_guard",
       "state": ""
@@ -498,7 +546,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#9",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 763,
         "end": 782,
@@ -506,7 +554,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "Payload",
       "rust_field": "context",
       "state": ""
@@ -514,7 +562,7 @@
     {
       "declaration": "plan61.qualification.v1.Payload#10",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 785,
         "end": 821,
@@ -522,7 +570,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "Payload",
       "rust_field": "measured_count",
       "state": ""
@@ -530,7 +578,7 @@
     {
       "declaration": "plan61.qualification.v1.RangeConstructionError",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 1526,
         "end": 1753,
@@ -538,7 +586,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "RangeConstructionError",
       "rust_field": null,
       "state": ""
@@ -546,7 +594,7 @@
     {
       "declaration": "plan61.qualification.v1.RangeConstructionError#1",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 1735,
         "end": 1751,
@@ -554,15 +602,63 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "RangeConstructionError",
       "rust_field": "denom",
       "state": ""
     },
     {
+      "declaration": "plan61.qualification.v1.TextExtentControls",
+      "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
+      "source_range": {
+        "start": 1754,
+        "end": 2008,
+        "producer": "tree-sitter-proto/0.6.0",
+        "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
+      },
+      "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
+      "rust_type": "TextExtentControls",
+      "rust_field": null,
+      "state": ""
+    },
+    {
+      "declaration": "plan61.qualification.v1.TextExtentControls#1",
+      "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
+      "source_range": {
+        "start": 1785,
+        "end": 1885,
+        "producer": "tree-sitter-proto/0.6.0",
+        "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
+      },
+      "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
+      "rust_type": "TextExtentControls",
+      "rust_field": "text",
+      "state": ""
+    },
+    {
+      "declaration": "plan61.qualification.v1.TextExtentControls#2",
+      "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
+      "source_range": {
+        "start": 1888,
+        "end": 2006,
+        "producer": "tree-sitter-proto/0.6.0",
+        "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
+      },
+      "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
+      "rust_type": "TextExtentControls",
+      "rust_field": "optional_text",
+      "state": ""
+    },
+    {
       "declaration": "plan61.qualification.v1.UnsafeDivision",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 824,
         "end": 1009,
@@ -570,7 +666,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "UnsafeDivision",
       "rust_field": null,
       "state": ""
@@ -578,7 +674,7 @@
     {
       "declaration": "plan61.qualification.v1.UnsafeDivision#1",
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
-      "source_sha256": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
+      "source_sha256": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
       "source_range": {
         "start": 989,
         "end": 1007,
@@ -586,7 +682,7 @@
         "profile": "descriptor-qualified-message-and-field/utf8-bytes-v1"
       },
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
+      "output_sha256": "65ae2b283513d49389129be18a53b191869b79d8e0981f3b0f0327ceaa4f8d19",
       "rust_type": "UnsafeDivision",
       "rust_field": "divisor",
       "state": ""

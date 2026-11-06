@@ -32,3 +32,7 @@ message RangeConstructionError {
   option (buf.validate.message).cel = { id: "error.range" message: "range construction is not masked by a matching element" expression: "[1 / this.denom].exists(x, true)" };
   int64 denom = 1;
 }
+message TextExtentControls {
+  string text = 1 [(buf.validate.field).string = { min_len: 2 max_len: 3 min_bytes: 3 max_bytes: 5 }];
+  optional string optional_text = 2 [(buf.validate.field).string = { min_len: 2 max_len: 3 min_bytes: 3 max_bytes: 5 }];
+}

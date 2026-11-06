@@ -25,7 +25,8 @@ own this companion's progress. Observed source at `f61286a5fa5894b480efe8584c8b3
 plus dirty projection changes is **Interface-checked**, not tested post-Plan64 behavior.
 Core 3.4, efficient-architecture heuristics 1.0 and process-simulator 1.5 govern the design.
 
-Current local rules expose Required, UnsignedRange, Length and Utf8Bytes. The maintained
+Current local rules expose Required, UnsignedRange, SignedRange, PositiveDuration,
+Float64Domain, Length and Utf8Bytes. The maintained
 Buffa validator is a corrected bounded CEL lowerer. Host payload inspection already distinguishes
 decode/validation and performs strict JSON duplicate-key/alias/trailing-input controls; its
 intermediate JSON tree is an optimization question, not proof of missing validation. Native
@@ -251,6 +252,39 @@ and [0.6.0 runtime source](https://docs.rs/crate/prost-protovalidate/0.6.0/sourc
 characterize that bounded adaptation. No compiler upgrade or dynamic fallback is implied.
 
 ## Allocation, encoding and lifetime
+
+### November 6 execution refinements
+
+**Implemented:** native `Length` and `Utf8Bytes` now occupy independent rule dimensions,
+including optional text with unchanged absent-value semantics. Duplicate rules within either
+dimension still refuse. Descriptor lowering merges `buf.validate.StringRules::{min_len,
+max_len,min_bytes,max_bytes}` into one string rule rather than replacing the previously
+lowered dimension. The maintained generator uses Unicode `chars().count()` for length and
+UTF-8 `len()` for bytes in both owned and view implementations. The
+[native declaration/checker](../../crates/pse-contract/src/boundary_projection.rs),
+[descriptor lowering](../../crates/pse-codegen/src/codegen/boundary_projection.rs) and
+[maintained supplier](../../vendor/protoc-gen-protovalidate-buffa/src/emit/field.rs)
+retain the precise functionality; the [validation reference](../libraries/proto/protobuf_validation_rust.md)
+characterizes the selected supplier. **Tested:** native/descriptor/metadata controls pass;
+`composed_text_rules_reach_owned_and_view_suppliers_in_both_orders` passes against the
+maintained emitted validators (one selected test, zero failures). The compiled fixture
+`plan61_composed_text_extents_execute_owned_and_eager_view_validators` also passes, exercising
+actual owned and eager-view validation, absent/present optional values, both dimensions and
+exact violation rule/field identities. This was one passing control in the 146-test receiving
+selection, whose six other failures remain with Plan64h/65h; no assembled qualification follows.
+
+**Implemented and Tested in the 28-case representation selection:** B02 selects the independently justified narrower
+strict-JSON branch. Serde `DeserializeSeed`, `MapAccess::next_value_seed` and
+`SeqAccess::next_element_seed` carry the exact selected descriptor through one token traversal,
+combining literal duplicate, logical alias and unknown-key checks. The intermediate
+`serde_json::Value` materialization and separate key traversal are removed; generated typed
+decoding remains. Literal/syntax/trailing-input error precedence is retained; when several
+descriptor errors coexist, the first follows original token order. Existing Struct/Value/
+ListValue and imported Any policies remain explicit. Sources are the
+[token preflight](../../crates/pse-host/src/schema/payload/strict_json.rs),
+[Serde seed contract](https://docs.rs/serde/1.0.229/serde/de/trait.DeserializeSeed.html) and
+[Buffa JSON characterization](../libraries/proto/Buffa.md). This does not attribute upstream
+main's strict-JSON configuration to released Buffa 0.9.2 or establish a measured speedup.
 
 Match useful detail at the producer before hydration or encoding. Then choose physical library
 mechanisms at the actual ownership boundary:
