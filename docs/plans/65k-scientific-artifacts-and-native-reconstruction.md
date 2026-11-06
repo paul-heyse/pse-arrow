@@ -1005,13 +1005,23 @@ ordinary exchanger source admission, subsequently repaired and rerun under 64h; 
 erase the actual deployed control's pass. This supersedes the earlier deployed-lane exclusion
 only for that tested control. E03's remaining population and benefit obligations remain open.
 
-**Source-established build investigation:** the vendored Symbolica
+**Source-established build investigation, subsequently implemented November 6:** the vendored Symbolica
 [`get_git_version` and `git_metadata_paths`](../../vendor/symbolica/build.rs) walk outward to
 the enclosing checkout's Git metadata. Main-branch commits can therefore change the supplier
-version environment and invalidate compilation while supplier source is unchanged. Investigate
-binding the vendored release to its actual supplier identity through the maintained patch and
-source-reproduction route before reuse measurements. No vendor change or measured build-speed
-improvement is claimed here; ordinary caching remains enabled.
+version environment and invalidate compilation while supplier source is unchanged. The maintained
+build script now selects `CARGO_MANIFEST_DIR` and uses Git only when that exact supplier directory
+has its own `.git` entry and is the canonical repository root. Genuine supplier roots and linked
+worktrees retain `git describe` and their private/shared metadata watches. Vendored/archive
+sources use `CARGO_PKG_VERSION` and watch `build.rs`; consumer Git commits no longer supply a
+supplier display version or rebuild dependency. Foreign Git-location overrides are excluded.
+This release display identity does not attest the maintained source patch or authorize cache
+adoption; existing exact build/source and scientific receiving checks retain those roles.
+
+**Tested:** six standalone build-script controls cover actual consumer commits, supplier tags/
+packed refs, linked worktrees, archives, foreign Git overrides and unsupported path encoding,
+with zero failures. The initial fixture inherited signed-tag policy and correctly failed;
+fixture-local `tag.gpgSign=false` removes that unrelated interactive requirement. No host Git
+configuration changes or measured build-speed claim follows; ordinary caching remains enabled.
 
 Sources: [parent preparation and child path](../../crates/pse-runtime/src/math/native_child.rs),
 [compiled stages/order selection/worker](../../crates/pse-math/src/execution.rs),
