@@ -634,6 +634,7 @@ impl<R: std::io::Read + std::io::Seek> AdmittedFile<R> {
         )?;
         control.try_grow(inventory_bytes)?;
         cancel.checkpoint()?;
+        crate::ipc_stream::validate_schema_metadata(declaration)?;
         let schema = Arc::new(arrow::ipc::convert::fb_to_schema(declaration));
         if schema != expected {
             return Err(invalid("registry schema mismatch").into());

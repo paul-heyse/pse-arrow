@@ -199,6 +199,50 @@ fn schema_extent_field(field: ipc::Field<'_>) -> Result<usize, CanonError> {
     Ok(bytes)
 }
 
+// The schema grant has already prepaid 256 bytes per metadata pair. Reuse that
+// allowance for borrowed key sorting before Arrow allocates its native maps;
+// the scratch drops first, and no string or encoded metadata is copied here.
+fn distinct_metadata_keys(
+    entries: Option<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<ipc::KeyValue<'_>>>>,
+) -> Result<(), CanonError> {
+    if let Some(entries) = entries {
+        let mut keys = Vec::with_capacity(entries.len());
+        for entry in entries {
+            keys.push(
+                entry
+                    .key()
+                    .ok_or_else(|| invalid("IPC metadata key absent"))?,
+            );
+        }
+        keys.sort_unstable();
+        if keys.windows(2).any(|pair| pair[0] == pair[1]) {
+            return Err(invalid("IPC duplicate metadata key"));
+        }
+    }
+    Ok(())
+}
+
+/// After the schema extent is prepaid, refuse duplicate metadata before Arrow's
+/// HashMap conversion can overwrite it. Names are local to each metadata scope.
+pub(crate) fn validate_schema_metadata(schema: ipc::Schema<'_>) -> Result<(), CanonError> {
+    distinct_metadata_keys(schema.custom_metadata())?;
+    if let Some(fields) = schema.fields() {
+        for field in fields {
+            validate_field_metadata(field)?;
+        }
+    }
+    Ok(())
+}
+fn validate_field_metadata(field: ipc::Field<'_>) -> Result<(), CanonError> {
+    distinct_metadata_keys(field.custom_metadata())?;
+    if let Some(children) = field.children() {
+        for child in children {
+            validate_field_metadata(child)?;
+        }
+    }
+    Ok(())
+}
+
 impl<R: Read + Seek> StreamReader<R> {
     /// Admit and decode the schema without giving it registry/lineage authority.
     /// `bytes` is the actual selected source extent, never an advertised message length.
@@ -260,6 +304,7 @@ impl<R: Read + Seek> StreamReader<R> {
             .grant
             .try_grow(add(extent, rounded(frame.metadata.len())?)?)?;
         reader.cancel.checkpoint()?;
+        validate_schema_metadata(schema)?;
         reader.schema = if let Some(decoder) = &mut reader.decoder {
             let mut buffer = frame.metadata.clone();
             if decoder.decode(&mut buffer)?.is_some() || !buffer.is_empty() {
@@ -643,6 +688,136 @@ mod tests {
     }
     fn pool() -> Arc<dyn MemoryPool> {
         Arc::new(crate::GreedyMemoryPool::new(16 << 20))
+    }
+    fn metadata_stream(schema_pairs: &[(&str, &str)], field_pairs: &[(&str, &str)]) -> Vec<u8> {
+        fn pairs<'a>(
+            builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+            pairs: &[(&str, &str)],
+        ) -> flatbuffers::WIPOffset<
+            flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ipc::KeyValue<'a>>>,
+        > {
+            let pairs = pairs
+                .iter()
+                .map(|(key, value)| {
+                    let key = builder.create_string(key);
+                    let value = builder.create_string(value);
+                    ipc::KeyValue::create(
+                        builder,
+                        &ipc::KeyValueArgs {
+                            key: Some(key),
+                            value: Some(value),
+                        },
+                    )
+                })
+                .collect::<Vec<_>>();
+            builder.create_vector(&pairs)
+        }
+        let mut builder = flatbuffers::FlatBufferBuilder::new();
+        let schema_metadata = pairs(&mut builder, schema_pairs);
+        let field_metadata = pairs(&mut builder, field_pairs);
+        let name = builder.create_string("value");
+        let null = ipc::Null::create(&mut builder, &ipc::NullArgs::default());
+        let leaf = ipc::Field::create(
+            &mut builder,
+            &ipc::FieldArgs {
+                name: Some(name),
+                nullable: true,
+                type_type: ipc::Type::Null,
+                type_: Some(null.as_union_value()),
+                custom_metadata: Some(field_metadata),
+                ..Default::default()
+            },
+        );
+        let children = builder.create_vector(&[leaf]);
+        let name = builder.create_string("nested");
+        let structure = ipc::Struct_::create(&mut builder, &ipc::Struct_Args::default());
+        let parent = ipc::Field::create(
+            &mut builder,
+            &ipc::FieldArgs {
+                name: Some(name),
+                nullable: true,
+                type_type: ipc::Type::Struct_,
+                type_: Some(structure.as_union_value()),
+                children: Some(children),
+                ..Default::default()
+            },
+        );
+        let fields = builder.create_vector(&[parent]);
+        let schema = ipc::Schema::create(
+            &mut builder,
+            &ipc::SchemaArgs {
+                fields: Some(fields),
+                custom_metadata: Some(schema_metadata),
+                ..Default::default()
+            },
+        );
+        let message = ipc::Message::create(
+            &mut builder,
+            &ipc::MessageArgs {
+                version: ipc::MetadataVersion::V5,
+                header_type: ipc::MessageHeader::Schema,
+                header: Some(schema.as_union_value()),
+                ..Default::default()
+            },
+        );
+        builder.finish(message, None);
+        let mut metadata = builder.finished_data().to_vec();
+        metadata.resize(metadata.len().div_ceil(8) * 8, 0);
+        let mut bytes = vec![255; 4];
+        bytes.extend_from_slice(&(metadata.len() as i32).to_le_bytes());
+        bytes.extend_from_slice(&metadata);
+        bytes.extend_from_slice(&[255, 255, 255, 255, 0, 0, 0, 0]);
+        bytes
+    }
+    #[test]
+    fn duplicate_schema_or_nested_field_metadata_refuses_before_arrow_map_normalization() {
+        for values in [
+            [("same", "same"), ("same", "same")],
+            [("same", "first"), ("same", "last")],
+        ] {
+            for (schema, field) in [(&values[..], &[][..]), (&[][..], &values[..])] {
+                let bytes = metadata_stream(schema, field);
+                let pool = pool();
+                let error = StreamReader::try_new(
+                    Cursor::new(&bytes),
+                    bytes.len() as u64,
+                    limits(),
+                    pool.clone(),
+                    CancellationToken::new(),
+                )
+                .unwrap_err();
+                assert!(error.to_string().contains("duplicate metadata key"));
+                assert_eq!(pool.reserved(), 0);
+                assert!(
+                    validate(
+                        Cursor::new(&bytes),
+                        bytes.len() as u64,
+                        limits(),
+                        pool.clone(),
+                        CancellationToken::new()
+                    )
+                    .is_err()
+                );
+                assert_eq!(pool.reserved(), 0);
+            }
+        }
+        let bytes = metadata_stream(
+            &[("same", "schema"), ("Same", "case-sensitive")],
+            &[("same", "field")],
+        );
+        let stream = validate(
+            Cursor::new(&bytes),
+            bytes.len() as u64,
+            limits(),
+            pool(),
+            CancellationToken::new(),
+        )
+        .unwrap();
+        assert_eq!(stream.schema().metadata()["same"], "schema");
+        let DataType::Struct(children) = stream.schema().field(0).data_type().clone() else {
+            panic!("nested original type missing");
+        };
+        assert_eq!(children[0].metadata()["same"], "field");
     }
     fn record_stream(
         ty: DataType,
