@@ -40,40 +40,8 @@ fn pool() -> Arc<DescriptorPool> {
     Arc::new(checked_pool(descriptors()).unwrap())
 }
 
-// This is the observed Buf 1.75 source-coordinate convention, not a universal
-// promise for arbitrary descriptor producers. Original source bytes remain required.
-fn source_range(source: &str, span: &[i32]) -> Option<std::ops::Range<usize>> {
-    let coordinate = |line: i32, column: i32| {
-        let line = usize::try_from(line).ok()?;
-        let column = usize::try_from(column).ok()?;
-        let mut offset = 0;
-        for (number, text) in source.split_inclusive('\n').enumerate() {
-            if number == line {
-                let text = text.trim_end_matches('\n');
-                let within = text
-                    .char_indices()
-                    .map(|(byte, _)| byte)
-                    .chain(std::iter::once(text.len()))
-                    .nth(column)?;
-                return Some(offset + within);
-            }
-            offset += text.len();
-        }
-        None
-    };
-    let (start, end) = match span {
-        [line, start, end] => (coordinate(*line, *start)?, coordinate(*line, *end)?),
-        [start_line, start, end_line, end] => (
-            coordinate(*start_line, *start)?,
-            coordinate(*end_line, *end)?,
-        ),
-        _ => return None,
-    };
-    (end >= start).then_some(start..end)
-}
-
 #[test]
-fn plan61_source_code_info_requires_unicode_column_conversion() {
+fn plan61_source_code_info_retains_compiler_columns_and_independent_utf8_ranges() {
     let source = include_str!("../tests/fixtures/plan61/plan61/qualification/v1/contract.proto");
     let set = descriptors();
     let file = set
@@ -100,8 +68,7 @@ fn plan61_source_code_info_requires_unicode_column_conversion() {
         .unwrap()
         .span;
     assert_eq!(message_span.len(), 4, "multiline declaration");
-    let range = source_range(source, message_span).unwrap();
-    assert!(source[range].starts_with("message Payload {"));
+    assert_eq!(message_span, &[10, 0, 22, 1]);
     let field_path = [
         4,
         i32::try_from(payload_index).unwrap(),
@@ -114,20 +81,54 @@ fn plan61_source_code_info_requires_unicode_column_conversion() {
         .find(|location| location.path == field_path)
         .unwrap()
         .span;
-    let range = source_range(source, field_span).unwrap();
-    assert_eq!(&source[range], "string label = 6;");
-    let line = source
-        .lines()
-        .nth(usize::try_from(field_span[0]).unwrap())
+    // Buf 1.75 uses protocompile 56248e843b50's experimental FDP path:
+    // sourcepath.locationSpan -> Span.StartLoc/EndLoc -> length.TermWidth.
+    // Its unicodex.Width uses four-column tab stops and uniseg display width;
+    // legacy ast.SourcePos (eight-column tabs/runes) is not this compiler path.
+    // https://github.com/bufbuild/buf/blob/v1.75.0/private/bufpkg/bufimage/build_image.go
+    // https://github.com/bufbuild/protocompile/blob/56248e843b50/experimental/fdp/sourcepath.go
+    // https://github.com/bufbuild/protocompile/blob/56248e843b50/internal/ext/unicodex/width.go
+    assert_eq!(field_span, &[17, 12, 29]);
+    let line = source.lines().nth(17).unwrap();
+    assert_eq!(line, "\t/* π */\tstring label = 6;");
+    assert_eq!(line.find("string"), Some(10));
+    assert_eq!(line[..10].chars().count(), 9);
+
+    // The independent literal byte witness qualifies actual authored intervals,
+    // without reconstructing the compiler's display-width Unicode algorithm.
+    assert_eq!(&source.as_bytes()[690..707], b"string label = 6;");
+    let manifest: crate::schema::compare::AssociationManifest =
+        serde_json::from_slice(include_bytes!(
+            "../../../docs/generated/source-relationships/plan61-fixtures/associations.json"
+        ))
         .unwrap();
-    assert_ne!(
-        line.find("string").unwrap(),
-        usize::try_from(field_span[1]).unwrap(),
-        "Unicode scalar column is not a UTF-8 byte column"
+    let selected = manifest
+        .associations
+        .iter()
+        .filter(|association| association.declaration == "plan61.qualification.v1.Payload#6")
+        .collect::<Vec<_>>();
+    assert_eq!(selected.len(), 2, "owned and borrowed-view associations");
+    assert_eq!(
+        selected
+            .iter()
+            .map(|association| association.rust_type.as_str())
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from(["Payload", "PayloadView"])
     );
-    assert!(source_range(source, &[-1, 0, 1]).is_none());
-    assert!(source_range(source, &[0, 1000, 1001]).is_none());
-    assert!(source_range(source, &[0, 5, 2]).is_none());
+    for association in selected {
+        assert!(association.source_range_unavailable.is_none());
+        let range = association.source_range.as_ref().unwrap();
+        assert_eq!((range.start, range.end), (690, 707));
+        assert_eq!(range.producer, "tree-sitter-proto/0.6.0");
+        assert_eq!(
+            range.profile,
+            "descriptor-qualified-message-and-field/utf8-bytes-v1"
+        );
+        assert_eq!(
+            &source.as_bytes()[range.start..range.end],
+            b"string label = 6;"
+        );
+    }
 }
 
 #[test]
