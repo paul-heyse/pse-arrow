@@ -53,8 +53,8 @@ Reuse existing case/source declarations, conformance/reference exchange and reta
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | H01 | in-progress | Accepted RC01 scope and current case/register sources | [Source/configuration crosswalk](64h-required-process-population.md) supplies D–G selections and gaps; full inherited/parameterized population, recursive closure and exact executable environment remain open |
-| H02 | in-progress | H01 first-case slice; ordinary-data and formulation selection from 64b/64c | Independent ordinary property, three exchanger and recycle/intended-failure reference construction tested; complete native/reference correspondence and candidate mismatch controls remain open |
-| H03 | in-progress | H02; complete native A–C journeys and consumed F01/F02/F03 contracts | Binary case/output producers and source-custody controls implemented; five complete native/reference cases, mismatch controls, original physical checks and retained canonical readback remain unqualified |
+| H02 | in-progress | H01 first-case slice; ordinary-data and formulation selection from 64b/64c | Independent ordinary property, three exchanger and recycle/intended-failure references tested; rating/recycle/intended-failure comparisons pass, design/arithmetic expose genuine scalar disagreements under original allowances. Full correspondence remains open. |
+| H03 | in-progress | H02; complete native A–C journeys and consumed F01/F02/F03 contracts | Original canonical intake/protected report readback passes on the isolated comparison baseline. All five contracts support independent mismatch controls; design/arithmetic scientific agreement and final integrated-source qualification remain open. |
 | H04 | planned | H01 population; selected 64d–64g scientific capabilities | Configuration, property, unit, workflow and extension acceptance closes each delivered family at its actual scope |
 | H05 | planned | Selected H03/H04 outcomes; applicable C07/G08 corrections; original execution/persistence owners | Relevant assembled native/operational journeys, interruption and deployment support claims are qualified without duplicating other plans' status |
 | H06 | planned | Selected quality-equivalent cases and a concrete benefit/capacity question | Representative cold/reuse/structural/study/trajectory measurements answer the claim with original failures and conditions retained |
@@ -903,6 +903,48 @@ not a pass for the expanded population.
 H01's complete inherited/parameterized population, recursive artifact closure and exact
 executable prerequisites remain open. H04–H07 retain their original family, operational,
 measurement and final scope-end obligations. No full H package is completed by this checkpoint.
+
+### Receiving scientific comparison checkpoint — November 5
+
+**Implemented:** ordinary source capture recognizes actual document owners while retaining and
+attesting all four raw data artifacts as data. Exchanger costing generics enter the cost child
+through original authored inputs rather than nonexistent runtime generic projections. The
+independent Python driver explicitly projects the six actual generated identifier wrappers and
+checks source species identities. Heat duty uses datum-free `EnergyTransferRate`; transported
+enthalpy retains its caloric datum. Sharing watts does not make those domains interchangeable.
+No selected physical data, SSLW method, costing defaults or comparison allowance changed.
+
+**Tested on the isolated implementation baseline:** the seven-case ordinary selection first
+passed the source-custody control and full canonical intake/protected report readback, while
+five reference calculations failed before calculation on the identifier projection. The repaired
+five-case selection then passed **3/5**, against zero failures: exchanger rating agrees across
+all 25 required scalars, ideal recycle across all 14, and overheated recycle reaches its
+intended failed stage. Exchanger design and arithmetic still fail genuine scalar comparison.
+Both attempts retain complete original capture and settlement. The isolated reference command
+`UV_PROJECT_ENVIRONMENT=.venv-parity uv run --only-group parity --python 3.13 python -I -m
+unittest discover -s tests/reference -p test_ordinary_exchange.py -v` passes **18/18**, including
+nineteen deliberate correspondence mutations using all five actual native contracts.
+
+[`ordinary_reference`](../../crates/pse-runtime/src/workflow/modeling/ordinary_reference.rs)
+now retains every bounded role/output comparison fact, original absolute/relative allowance,
+actual error and the original binary reference response. Zero-reference relative errors remain
+absent rather than invented infinities. A subsequent arithmetic diagnostic still fails: fixed
+hot-inlet enthalpy differs by about 41 J/mol against the original roughly 0.1 J/mol budget;
+area/duty/cost deviations follow. Existing-owner review context captures original sources,
+scalar values, native numerical policy, resolved accuracy and quality before comparison. The
+observed solve requested no output accuracy goals; its physical-feasibility/native termination
+must remain distinct from the comparator's observable-specific scientific allowance.
+The reviewed repair `d4f2cdd4e` is now integrated. Actual feasible `ConstantReport` quality,
+complete ordered original coordinate IDs/bits and original observations feed the existing
+selected-output square-response assessment. The existing staged refinement driver separately
+admits its projected point and consumes the same sensitivity-derived row-work request; it does
+not fabricate a native report or change original backend/numerics/identity guards. Four authored
+caloric assess/refine goals request the original power divided by twice inlet-flow exposure
+before execution. Native physical tolerances, independent comparison allowances and bound/
+regularity refusal remain unchanged. Independent review found no material issue; actual mechanism
+and design/arithmetic reruns remain pending after the maintainer's disk-space/cold-build reset.
+These earlier comparison results precede the new compiled-root handoff and do not qualify all
+H02/H03 or the expanded H01 population.
 
 ## H04 — Close configurations and scientific workflows
 

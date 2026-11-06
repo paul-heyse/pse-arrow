@@ -625,6 +625,22 @@ Explicit four-profile preparation and the matching receiving execution have now 
 complete. The prior environment refusals remain distinct from test failures. This validates
 that selected preparation/execution context, not universal fixture reuse or full J05 acceptance.
 
+The return to ordinary incremental/compiler-cache defaults exposed a separate runtime-fixture
+reentry defect. [`construction_inputs`](../../crates/pse-host/src/fixtures/runtime.rs) retained
+the native CMake/cache bridge but discarded the selected Rust wrapper. Final validation then
+reentered native selection without that wrapper, removed the bridge and correctly refused its
+own changed context; zero source files changed. Construction now preserves `RUSTC_WRAPPER` and
+`RUSTC_WORKSPACE_WRAPPER` through build, captured context and reentry, including an explicitly
+empty selection. Cache/compiler changes remain fingerprint changes; no guard is relaxed and
+cache-off is not a workaround. **Tested:** `scripts/pse test pse-host --lib --profile local`
+with the construction/reentry, changed-context and compiler-cache-profile controls passes
+**3/3**, against zero failures or warnings, with complete capture/settlement under ordinary
+incremental/sccache defaults. `just ready` succeeds, and the subsequent matching four-profile
+`scripts/pse-host fixture prepare runtime` completes its original capsule/lane construction and
+final validation successfully. The earlier refused preparation remains recorded. Consuming
+default-context execution is separate from preparation and the earlier cache-off 111-control
+result; full J05 remains open.
+
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.
 - [Report reconciliation](../../crates/pse-host/src/managed/workflow.rs) and

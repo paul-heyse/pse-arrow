@@ -424,9 +424,41 @@ pse-math/compiled-evaluator -E 'test(execution::transfer::) | test(applicability
 test(identity)'`, under the same placement with complete capture/settlement. Both selections
 have zero failures, retries or incomplete records. Stable snapshot review found no material
 issues; [65k](65k-scientific-artifacts-and-native-reconstruction.md#live-admitted-body-delegation)
-owns its functionality and separate runtime admission/cutover obligations. The five ordinary
-native/reference comparisons and canonical readback are executing on their preceding isolated
-RootExecution baseline; no result is claimed before those original runs settle.
+owns its functionality and separate runtime admission/cutover obligations. Subsequent root
+capture/restoration and the private v4 grant/restore cutover pass **76/76** targeted receiving
+controls with complete capture/settlement in the preceding unbounded/cache-off/nonincremental
+context. The exact deployed lane is excluded pending fresh matching preparation. The
+[65k handoff checkpoint](65k-scientific-artifacts-and-native-reconstruction.md#integrated-compiled-root-handoff)
+details admission, actual self-executable child/refusal, typed-error and wire-depth coverage.
+Independent read-only review found no material issue in the frozen runtime cutover; it does not
+establish deployed-lane acceptance, whole-process memory bounds or measured speedup.
+
+The ordinary scientific runs on the preceding isolated RootExecution baseline have settled:
+canonical intake and protected report readback pass; exchanger rating, ideal recycle and intended
+overheated failure pass, while design and arithmetic fail genuine scalar correspondence. The
+independent retained-contract mismatch suite passes 18/18. Their original source/domain
+corrections, unchanged allowances and remaining accuracy investigation stay in
+[64h](64h-reference-coverage-and-qualification.md#receiving-scientific-comparison-checkpoint--november-5).
+The failed runs remain part of the evidence. All three implementation worktrees are now fully
+merged and removed. Independent read-only review found no material issue in `d4f2cdd4e`'s
+bounded reconstruction-accuracy repair: original feasible quality, ordered coordinate IDs/bits
+and complete observations gate the same existing assessment/refinement, with separately admitted
+point backing. Actual mechanism and design/arithmetic reruns remain required.
+
+Following the maintainer's performance instruction, new builds use normal incremental and
+compiler-cache defaults. Earlier explicit cache-off/nonincremental receipts keep their original
+conditions; those overrides are not ordinary build policy. Native providers are explicitly
+prepared for matching effective toolchain contexts before reuse. No cache-space optimization
+or cache cleanup is part of this wrap-up.
+
+The repaired ordinary-cache runtime fixture successfully completed original capsule/lane
+construction and final validation. Its following combined root/protocol/transfer/host/portability
+selection failed during discovery compilation with two LLVM output-stream `No space left on
+device` failures; **zero test bodies executed**. Original capture and settlement completed.
+This is a build-resource failure, not a passing attempt or a scientific comparison failure.
+Clippy was not run at that boundary. The maintainer then ran `cargo clean`, supplying space;
+all subsequent qualification requires cold native-host reconstruction and fresh source-matching
+fixtures. The original captures and earlier scoped passes remain outside the cleaned build tree.
 
 ## Completion and enduring meaning
 

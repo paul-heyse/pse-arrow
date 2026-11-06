@@ -738,10 +738,33 @@ selection passes 101/101 after the closed independent review finding.
 The preceding scientific/runtime selection passes 111/111 with matching four-profile fixture
 preparation and complete capture/settlement. Complete native template snapshot/restoration is
 merged and its receiving selection passes 43/43; independent review found no material issues.
-Root-definition/attribution restoration, generated crossing and five ordinary native/reference
-comparisons now proceed in isolated packages; actual new child acceptance follows their concrete
-interfaces. Private-child activation remains unclaimed. The detailed mechanisms and remaining
-admission obligations stay in [65k](65k-scientific-artifacts-and-native-reconstruction.md#live-admitted-body-delegation).
+Root-definition/attribution restoration and the generated private NativeRoot v4 crossing are
+now integrated on main. The child restores the parent's existing compiled execution under an
+attempt-bound actual parent-pool grant; source/receipt replay and its production process-message
+authority are removed. The targeted receiving selection passes 76/76, including actual
+self-executable solve/refusal, wire-depth and allocation/cancellation controls; exact deployed
+lane qualification is separate. The detailed mechanisms, evidence limits and remaining admission
+obligations stay in [65k](65k-scientific-artifacts-and-native-reconstruction.md#integrated-compiled-root-handoff).
+
+Authored Buf worlds also use the same typed Buffa/Connect/validator composition as source-owned
+worlds; duplicate plugin/preflight/module-extraction paths and inert configurations are removed.
+The isolated host selection passes 102/102 after correcting a source-coordinate assumption
+against actual pinned compiler output; [65a](65a-contract-foundations-and-generation.md#a04-complete-supplier-decision--november-5-revision)
+owns remaining consumer/option adoption. Both completed implementation worktrees are merged and
+removed. The numerical worktree's current ordinary scientific comparisons establish:
+canonical intake/protected report readback passes, three of five comparisons pass and two expose
+genuine caloric/output disagreements under unchanged allowances. Original comparison and numerical
+review context are retained; [64h](64h-reference-coverage-and-qualification.md#receiving-scientific-comparison-checkpoint--november-5)
+owns those obligations. The reviewed correction `d4f2cdd4e` is now merged on main: actual
+feasible constant-reconstruction coordinates and original observations enter the existing
+selected-output accuracy assessment and admitted refinement. Exchanger caloric resolution
+goals are declared before execution from the original power/flow allocation; physical residual
+and independent comparison allowances are unchanged. Its functional qualification remains
+pending. All three implementation worktrees are fully merged and removed; delegated tasks have
+concluded. An intervening full filesystem stopped combined test discovery before test bodies
+and initially prevented Git merge. The maintainer supplied space with `cargo clean`; source
+integration then completed. New verification uses normal incremental/compiler-cache defaults,
+with explicit cold-host/fixture reconstruction where required.
 
 The next integration milestone is the scientific admission/execution/selected-read journey
 and developer failed-report/export/exact-rerun journey, followed by complete selected Proto

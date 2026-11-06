@@ -12,6 +12,11 @@ The November 5 review-driven planning revision integrates twelve recommendations
 four bounded opportunity decisions. E02/E03 now have one owner in 65k; existing 65e anchors
 redirect there. Subsequent execution and the operator-requested wrap-up are recorded in the
 coordinator; the earlier stopped qualification campaign remains a separate evidence boundary.
+The current wrap-up integrates compiled-root handoff and authored Buf composition on main;
+[65k](65k-scientific-artifacts-and-native-reconstruction.md#integrated-compiled-root-handoff)
+owns private transfer limits and [64h](64h-reference-coverage-and-qualification.md#receiving-scientific-comparison-checkpoint--november-5)
+owns the still-open scientific comparisons. Earlier targeted passes do not establish full-series
+qualification. New builds retain normal incremental/compiler-cache defaults.
 
 | Plan | Work and status owner |
 | --- | --- |

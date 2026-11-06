@@ -286,6 +286,16 @@ scope and prerequisites, not native or reference execution. Scientific repairs n
 Proto acceptance can proceed immediately; broader D–G delivery follows the working Proto
 milestone. Existing B/C native delivery is not reopened merely by this resumption.
 
+The current integration checkpoint merges compiled-root delegation, typed authored Buf
+composition and actual reconstruction-output accuracy work on main; all implementation worktrees
+are removed after merge. [Plan65k](65k-scientific-artifacts-and-native-reconstruction.md#integrated-compiled-root-handoff)
+owns the root mechanism and its scoped evidence. [64h](64h-reference-coverage-and-qualification.md#receiving-scientific-comparison-checkpoint--november-5)
+owns three passing ordinary comparisons, the two genuine design/arithmetic disagreements and
+the integrated, still-unqualified accuracy repair. Physical/reference allowances remain
+unchanged. A full filesystem stopped the next combined test build before bodies; the maintainer
+then supplied space with `cargo clean`. Cold reconstruction and remaining Clippy/functional
+qualification are pending under normal cache/incremental defaults. Neither series is complete.
+
 ### Completed B/C evidence checkpoint — 2026-11-03
 
 A02/A03/A04 design and disposition work is complete;
