@@ -229,6 +229,42 @@ correlation or physical datum change must invalidate affected science even with 
 shape. C01/C04 consume A's shared metadata checker for option meaning and evolution; they do not
 reconstruct its rules or equate a wire-compatible revision with compatible interpretation.
 
+## Selected graph and continuity decisions — November 6
+
+**Interface-checked, bounded decision:** C05 selects the existing direct canonical relation
+queries and no additional path/subgraph export, adjacency cache or maintained view. The actual
+`CanonicalStore::graph_explanation` consumer binds an exact run/revision, artifact/revision,
+analysis node/revision or study-point/revision/generation. Its indexed, keyset-paged queries
+retain relation occurrence identity and parallel edges, validate the complete page including
+its sentinel, and recheck the selected anchor. It explicitly reports one immediate neighborhood
+under current metadata, not an atomic graph snapshot, scientific dependence or payload access.
+That performing query remains with its current owner; generated value conversion supplies no
+projection-freshness promise. Broader path/pair semantics are not selected by this execution.
+
+Sources: [request, guarded query and evidence scope](../../crates/pse-operations/src/canonical_explanations.rs),
+with existing controls `canonical_graph_explanation_preserves_isolates_parallel_edges_and_protected_inputs`
+and `qualify_graph_seek_pages`. These controls were inspected, not rerun for this decision.
+Complete C02 selected-result query/protected-read migration and C04 activation remain separate.
+This decision also does not close A05/G01's remaining native/protocol graph correspondence.
+
+C06 selects no durable external changefeed/export-continuity consumer. The bounded source
+inquiry covered canonical graph/history/result/export and live simulation owners under
+`pse-operations`, `pse-runtime`, `pse-host` and `pse-schema`. Existing terminal-attempt
+manifest/payload acquisition preserves passive history; graph continuation is an interactive
+page cursor; live simulation uses bounded in-process channels. None of these inspected
+contracts promises persisted external acknowledgement, replay or retention-gap recovery.
+Generated gRPC live-query descriptors do not establish an adopted consumer. Accordingly add
+no generic outbox, broker or changefeed adapter. This is a target-scope decision for examined
+first-party consumers, not a claim about out-of-repository or future users.
+
+Sources: [historical protected results](../../crates/pse-operations/src/canonical_results.rs)
+and [live simulation owner](../../crates/pse-runtime/src/workflow/live_simulation.rs).
+Reopen only for a named external consumer with a required continuity/acknowledgement promise,
+or a selected graph output whose semantics/dependencies the current query cannot supply.
+Then apply the exact patched 3.3.4/MX 1.0 source contract above; v4 remains excluded.
+No new implementation, database qualification or performance benefit is claimed by either
+non-selection. C01–C04 and C07 remain open.
+
 ## Packages and dependencies
 
 ### First retained-result mapping — 2026-11-04
@@ -299,8 +335,8 @@ These controls do not establish the entire retained-policy population or assembl
 | C02 | in-progress | C01 generator; working 65a graph/adapters; F04 selected-read contract | Preserve delivered run/attempt/set/batch/output metadata and protected snapshot controls. Complete the selected scientific/runtime and canonical request/result population, including exact column/coordinate/range intent through the named connected-results consumer. Use generated native codecs and Buffa 0.9.2 [independent dynamic metadata read](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/dynamic.rs); decoding cannot construct ResultRead custody. Delete replaced field maps/full-detail hydration only with their producer/readers and preserved predicates/global keys. |
 | C03 | planned | C01; 65b original interpretation; 65i producer references; K-owned E02 where source reconstruction is consumed; 65f retained-evidence contract | Resolve the original family-specific source/context, descriptor, validation and mapping closure once under actual reader custody; add original payload storage only for a selected preservation consumer. Current scientific use remains separate from historical read/forwarding. Exercise absent/expired/corrupt policy and ambiguous/foreign experiment/attempt references. Delete duplicate headers/interpretation lookup; don't retain live fixture/worker readiness or infer authority from a reflected snapshot. |
 | C04 | planned | C02/C03 publication; 65i dependency validity and shared A/B option evolution | Stage the new declared mapping privately, validate its original membership/dependencies, then activate one coherent generation. Retain current guarded-query access while a derived view is incomplete/stale. Contrast mapping-only rebuild with physical data/phase/derivative invalidation; test crash before/after activation, uncertain ACK and unavailable original policy. Delete replaced write paths only with all writers/readers migrated; historical readers retain their deliberate promise. |
-| C05 | planned | Named C02 query consumer; C04 generation; coordinator outcome for any broader graph inspection | Use current native selected-result queries first. For selected graph exploration, decide pair versus occurrence semantics, exact path/subgraph output and all related-record/absent-lookup dependencies before adding a projection/view. Native Kind/SurrealValue conversion in C01 does not establish freshness. Test initial/update identity, related-record mutation and empty-but-not-caught-up output. If no broader consumer is selected, record that disposition and add no adjacency/export machinery; remove redundant materialization only where equivalent access replaces it. |
-| C06 | planned | C03/C04; bounded coordinator decision selecting or declining a continuity consumer | Evaluate external analysis/export with a concrete continuity promise. If selected, implement source cursor plus mutation ordinal, event identity, duplicate policy, acknowledgement crash window and expiry/resynchronization under the exact patched server behavior characterized by the [storage account](../library_leverage/libraries/proto/briefings/surrealdb-storage-and-projections.md). Native Value Proto coding is not replay. Otherwise close with documented non-selection and no generic outbox/broker dependency. |
+| C05 | complete | [Bounded current-consumer decision](#selected-graph-and-continuity-decisions--november-6); selected C02/C04 migration keeps its own owners | Retain existing occurrence-preserving canonical relation queries. No additional path/subgraph, adjacency or maintained-view consumer selected; no new freshness machinery. Reopen for a named output/dependency requirement beyond the current guarded query. Interface-checked source disposition only; no fresh database qualification. |
+| C06 | complete | [Bounded continuity non-selection](#selected-graph-and-continuity-decisions--november-6); C03/C04 remain open | No examined first-party consumer requires durable external cursor/ack/replay continuity. Retain passive protected historical reads and native live-channel semantics; add no changefeed/outbox/broker. Reopen for a named continuity promise under the exact patched server contract. No new implementation or test claim. |
 | C07 | planned | C01–C06 decisions and all selected migrations | Hand H the actual selected producer→current query→protected read→original interpretation population, with empty/full/selected ranges, late terminal failure and failed-release controls. Supply matched complete-operation measurements only where claimed and enduring mapping/recovery guidance. Reconcile all producers/readers/generators/fixtures and deletions; emitted schemas or a native Value round trip alone cannot close publication/recovery. |
 
 The first actual vertical slice is retained diagnostic/result metadata from 65f. It establishes
