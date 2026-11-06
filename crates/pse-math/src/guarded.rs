@@ -20,15 +20,18 @@ use symbolica::atom::{Atom, AtomCore, Symbol};
 /// through [`CompiledBody::input_formals`]; these two index spaces must not be mixed.
 pub type Slot = usize;
 
+pse_contract::projection_enum! {
 /// Runtime condition retained from syntax before normalization.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Condition {
+    projection: { name: "MathCondition", rust_path: crate::guarded::Condition, version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Real logarithm or differentiable square root.
-    Positive,
+    Positive => 1;
     /// Value-only real square root.
-    Nonnegative,
+    Nonnegative => 2;
     /// Denominator or negative integral power.
-    Nonzero,
+    Nonzero => 3;
+}
 }
 impl Condition {
     pub(crate) fn permits(self, value: f64) -> bool {
@@ -48,17 +51,20 @@ impl Condition {
     }
 }
 
+pse_contract::projection_enum! {
 /// Comparison of already evaluated finite scalars.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Comparison {
+    projection: { name: "MathComparison", rust_path: crate::guarded::Comparison, version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Exact equality.
-    Eq,
+    Eq => 1;
     /// Exact inequality.
-    Ne,
+    Ne => 2;
     /// Strict ordering.
-    Lt,
+    Lt => 3;
     /// Nonstrict ordering.
-    Le,
+    Le => 4;
+}
 }
 impl Comparison {
     pub(crate) fn select(self, left: f64, right: f64) -> bool {

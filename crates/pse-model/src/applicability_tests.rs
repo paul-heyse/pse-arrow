@@ -72,6 +72,35 @@ fn capture_validation_uses_actual_admitted_scratch_and_preserves_all_rules() {
     assert_eq!(deep.capture_validation_scratch(1, 1, usize::MAX), None);
     assert!(!deep.valid_capture_with_scratch(1, 1, usize::MAX, &mut [id(0); 4]));
 }
+#[test]
+fn checked_capture_extents_share_owned_observation_policy_and_expose_real_capacity() {
+    let mut value = node(1, Region::Union(vec![node(2, Region::Predicate(0))]));
+    value.dependencies.push(node(3, Region::Unknown));
+    value.permissions.push(permission(4, true, true));
+    let before = value.checked_capture_extents(1, 1, 3).unwrap();
+    assert_eq!(before.nodes, 3);
+    assert_eq!(before.validation_entries, 1);
+    assert_eq!(before.owned_bytes, value.retained_bytes());
+    assert_eq!(before.observation_bytes, value.observation_bytes());
+    value.claim.owner_lineage.reserve_exact(100);
+    value.inputs[0].0.reserve_exact(100);
+    let after = value.checked_capture_extents(1, 1, 3).unwrap();
+    assert_eq!(after.clone_bytes, before.clone_bytes);
+    assert_eq!(after.observation_bytes, before.observation_bytes);
+    assert!(after.owned_bytes > before.owned_bytes);
+    value.claim.owner_lineage.push(value.claim.owner);
+    let duplicates = value.checked_capture_extents(1, 1, 3).unwrap();
+    assert_eq!(duplicates.validation_entries, 2);
+    assert!(!value.valid_capture_with_scratch(1, 1, 3, &mut [id(0); 2]));
+    assert_eq!(
+        value.checked_capture_extents(0, 1, 3),
+        Err(CaptureExtentError::Structure)
+    );
+    assert_eq!(
+        value.checked_capture_extents(1, 1, 2),
+        Err(CaptureExtentError::Structure)
+    );
+}
 fn permission(n: u8, unknown: bool, extrapolate: bool) -> Permission {
     Permission {
         id: id(n),

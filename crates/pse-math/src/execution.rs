@@ -41,6 +41,7 @@ use symbolica::{
 mod products;
 #[path = "reverse.rs"]
 mod reverse;
+pub mod transfer;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum RegionStrategy {
@@ -4655,6 +4656,9 @@ fn numeric_slots(
     let mut needed = outputs.iter().copied().collect();
     let mut seen = BTreeSet::new();
     collect(stages, &mut needed, &mut seen, symbols)?;
+    // A selected result may itself be an initial input, with no arithmetic writer.
+    // Such residual roots still need their seeded derivative components in the frame.
+    seen.extend(needed);
     Ok(seen)
 }
 
