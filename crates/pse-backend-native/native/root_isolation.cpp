@@ -444,9 +444,19 @@ extern "C" int32_t pse_ibex_point_arithmetic(const PseRootRequest* request,
         if(!r.nodes||!r.edges||!r.residuals||!r.lower||!r.upper||(r.guard_count&&!r.guards)||
             !value_lower||!value_upper||(order!=0&&(!jacobian_lower||!jacobian_upper))||
             r.node_count==0||r.node_count>65536||r.edge_count>1048576||r.guard_count>8192||
-            r.unknown_count==0||r.unknown_count>128||r.parameter_count!=0||
+            r.unknown_count==0||r.parameter_count!=0||
             output_count==0||output_count>512||r.score>=r.node_count||r.tolerance>=r.node_count||
             !std::isfinite(r.seconds)||r.seconds<=0||order>2) return 0;
+        // Dim::size() is a signed int product. Graph builds a source/guard
+        // vector and a two-sided constraint system, with rectangular AD matrices.
+        // Refuse their possible extents before constructing any native storage.
+        const uint64_t source_rows=static_cast<uint64_t>(r.node_count)+2ULL*r.guard_count;
+        const uint64_t constraint_rows=2ULL*(output_count+r.guard_count);
+        const uint64_t rows=std::max(source_rows,constraint_rows);
+        const uint64_t int_max=static_cast<uint64_t>(std::numeric_limits<int>::max());
+        if(r.unknown_count>int_max||rows>int_max||rows*r.unknown_count>int_max) {
+            out->status=4;return 0;
+        }
         if(order==2&&(!hessian_lower||!hessian_upper||r.unknown_count>32||output_count>128||
             static_cast<uint64_t>(output_count)*r.unknown_count*r.unknown_count>32768)) {
             out->status=4;return 0;

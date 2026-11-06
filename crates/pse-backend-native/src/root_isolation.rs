@@ -538,14 +538,43 @@ struct SourceInventory {
     extent: usize,
     identity_scratch: usize,
 }
+#[derive(Clone, Copy)]
+enum DimensionProfile {
+    Search,
+    Arithmetic,
+}
+// IBEX Dim::size() multiplies signed int dimensions. Graph constructs both the
+// source/guard vector and the two-sided constraint system, including their AD
+// matrices. Check those products before transport or coordinate allocation.
+fn arithmetic_native_dimensions(
+    inputs: usize,
+    nodes: usize,
+    guards: usize,
+    outputs: usize,
+) -> Option<()> {
+    let source_rows = nodes.checked_add(guards.checked_mul(2)?)?;
+    let constraint_rows = outputs.checked_add(guards)?.checked_mul(2)?;
+    let rows = source_rows.max(constraint_rows).max(1);
+    i32::try_from(inputs).ok()?;
+    i32::try_from(rows).ok()?;
+    i32::try_from(rows.checked_mul(inputs)?).ok()?;
+    Some(())
+}
 /// No hashing, decimal conversion, transport allocation or foreign call precedes this
 /// finite source inventory. Unconsumed derivative declarations are also identity inputs.
 fn source_inventory(
     program: &RootIsolationProgram,
     order: DerivativeOrder,
 ) -> Result<SourceInventory, SelectionProofRefusal> {
+    source_inventory_for_profile(program, order, DimensionProfile::Search)
+}
+fn source_inventory_for_profile(
+    program: &RootIsolationProgram,
+    order: DerivativeOrder,
+    profile: DimensionProfile,
+) -> Result<SourceInventory, SelectionProofRefusal> {
     if program.inputs == 0
-        || program.inputs > MAX_INPUTS
+        || (matches!(profile, DimensionProfile::Search) && program.inputs > MAX_INPUTS)
         || program.nodes.is_empty()
         || program.nodes.len() > MAX_NODES
         || program.residuals.len() > MAX_ARITHMETIC_OUTPUTS
@@ -593,6 +622,15 @@ fn source_inventory(
     let guards = arithmetic_guard_ceiling(program, order)
         .filter(|n| *n <= MAX_GUARDS)
         .ok_or(SelectionProofRefusal::Resource)?;
+    if matches!(profile, DimensionProfile::Arithmetic) {
+        arithmetic_native_dimensions(
+            program.inputs,
+            program.nodes.len(),
+            guards,
+            program.residuals.len(),
+        )
+        .ok_or(SelectionProofRefusal::Resource)?;
+    }
     let extent = program
         .nodes
         .len()
@@ -631,7 +669,14 @@ fn encode(
     program: &RootIsolationProgram,
     order: DerivativeOrder,
 ) -> Result<Transport, SelectionProofRefusal> {
-    source_inventory(program, order)?;
+    encode_for_profile(program, order, DimensionProfile::Search)
+}
+fn encode_for_profile(
+    program: &RootIsolationProgram,
+    order: DerivativeOrder,
+    profile: DimensionProfile,
+) -> Result<Transport, SelectionProofRefusal> {
+    source_inventory_for_profile(program, order, profile)?;
     let mut transport = Transport {
         nodes: Vec::with_capacity(program.nodes.len()),
         edges: Vec::new(),
@@ -1053,7 +1098,8 @@ impl Ibex {
         order: DerivativeOrder,
     ) -> Result<usize, MathError> {
         let graph = &program.graph;
-        source_inventory(graph, order).map_err(|_| MathError::Limit("IBEX source inventory"))?;
+        source_inventory_for_profile(graph, order, DimensionProfile::Arithmetic)
+            .map_err(|_| MathError::Limit("IBEX source inventory"))?;
         let edges = graph.nodes.iter().try_fold(0usize, |n, node| {
             n.checked_add(match node {
                 Node::Sum(v) | Node::Product(v) => v.len(),
@@ -1067,7 +1113,6 @@ impl Ibex {
             let outputs = graph.residuals.len();
             let width = graph.inputs;
             if width == 0
-                || width > MAX_INPUTS
                 || outputs == 0
                 || outputs > MAX_ARITHMETIC_OUTPUTS
                 || graph.nodes.is_empty()
@@ -1370,7 +1415,9 @@ impl Ibex {
         if cancel.load(Ordering::Acquire) {
             return Ok(PointArithmeticEvidence::Interrupted { work: empty_work });
         }
-        if source_inventory(&program.graph, order).is_err() {
+        if source_inventory_for_profile(&program.graph, order, DimensionProfile::Arithmetic)
+            .is_err()
+        {
             return Ok(incomplete(SelectionProofRefusal::Resource, empty_work));
         }
         if lower.len() != program.graph.inputs
@@ -1391,10 +1438,11 @@ impl Ibex {
         {
             return Ok(incomplete(SelectionProofRefusal::Resource, empty_work));
         }
-        let transport = match encode(&program.graph, order) {
-            Ok(t) => t,
-            Err(reason) => return Ok(incomplete(reason, empty_work)),
-        };
+        let transport =
+            match encode_for_profile(&program.graph, order, DimensionProfile::Arithmetic) {
+                Ok(t) => t,
+                Err(reason) => return Ok(incomplete(reason, empty_work)),
+            };
         let library_guard = match acquire_library(
             &IBEX,
             || {
@@ -3249,6 +3297,255 @@ mod tests {
             .unwrap()
     }
     #[test]
+    fn native_point_arithmetic_first_supports_original_dimensions_above_search_profile() {
+        for width in [129, 230] {
+            let mut nodes = (0..width).map(Node::Var).collect::<Vec<_>>();
+            nodes.push(Node::Const(Constant::Float(2.0)));
+            nodes.push(Node::Product(vec![width - 1, width]));
+            nodes.push(Node::Sum(vec![0, width + 1]));
+            let mut program = arithmetic_program(nodes, vec![width + 2, width / 2]);
+            program.graph.inputs = width;
+            // Search and selection continue to consume the original bounded profile.
+            assert!(matches!(
+                source_inventory(&program.graph, DerivativeOrder::First),
+                Err(SelectionProofRefusal::Resource)
+            ));
+            assert!(matches!(
+                encode(&program.graph, DerivativeOrder::First),
+                Err(SelectionProofRefusal::Resource)
+            ));
+            let execution = crate::solve::Execution::new(
+                pse_diagnostics::Cancellation::new(false),
+                &crate::solve::Controls::default(),
+            );
+            let point = (0..width).map(|i| i as f64 + 0.5).collect::<Vec<_>>();
+            let bytes = Ibex::default()
+                .point_arithmetic_workspace_bytes(&program)
+                .unwrap();
+            assert_eq!(
+                Ibex::default()
+                    .enclose_point_arithmetic_with_execution(
+                        &program,
+                        &point,
+                        bytes - 1,
+                        &execution,
+                    )
+                    .unwrap(),
+                PointArithmeticEvidence::Incomplete {
+                    reason: SelectionProofRefusal::Resource,
+                    work: PointArithmeticWork::default(),
+                }
+            );
+            let PointArithmeticEvidence::Enclosed {
+                values,
+                jacobian,
+                hessian,
+                work,
+            } = Ibex::default()
+                .enclose_point_arithmetic_with_execution(&program, &point, bytes, &execution)
+                .unwrap()
+            else {
+                panic!("original-dimensional First arithmetic unavailable");
+            };
+            assert_eq!(values.len(), 2);
+            for (value, expected) in values
+                .iter()
+                .zip([point[0] + 2.0 * point[width - 1], point[width / 2]])
+            {
+                assert!(value.lower <= expected && expected <= value.upper);
+            }
+            assert_eq!(jacobian.len(), 2 * width);
+            for (offset, entry) in jacobian.iter().enumerate() {
+                let expected = if offset == 0 || offset == width + width / 2 {
+                    1.0
+                } else if offset == width - 1 {
+                    2.0
+                } else {
+                    0.0
+                };
+                assert!(entry.lower <= expected && expected <= entry.upper);
+            }
+            assert!(hessian.is_none());
+            assert_eq!(
+                work,
+                PointArithmeticWork {
+                    value_evaluations: 1,
+                    jacobian_evaluations: 1,
+                    ..PointArithmeticWork::default()
+                }
+            );
+            let region = point
+                .iter()
+                .map(|x| ProofInterval {
+                    lower: *x,
+                    upper: *x,
+                })
+                .collect::<Vec<_>>();
+            let bytes = Ibex::default()
+                .point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Value)
+                .unwrap();
+            let PointArithmeticEvidence::Enclosed {
+                values: value_only,
+                jacobian,
+                work,
+                ..
+            } = Ibex::default()
+                .enclose_arithmetic_box_values_with_execution(&program, &region, bytes, &execution)
+                .unwrap()
+            else {
+                panic!("original-dimensional Value arithmetic unavailable");
+            };
+            assert_eq!(value_only, values);
+            assert!(jacobian.is_empty());
+            assert_eq!(work.value_evaluations, 1);
+            assert_eq!(work.jacobian_evaluations, 0);
+            assert!(
+                Ibex::default()
+                    .point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Second)
+                    .is_err()
+            );
+        }
+    }
+    #[test]
+    fn native_point_arithmetic_refuses_int_dimension_products_before_work() {
+        use crate::solve::{Controls, Execution, WorkAdmission, WorkEvidence};
+        #[derive(Debug, Default)]
+        struct Ledger(std::sync::atomic::AtomicUsize);
+        impl WorkAdmission for Ledger {
+            fn admit(&self, _: WorkEvidence) -> Result<(), crate::ProblemError> {
+                self.0.fetch_add(1, Ordering::Relaxed);
+                Ok(())
+            }
+            fn observe(&self, _: WorkEvidence) -> Result<(), crate::ProblemError> {
+                self.0.fetch_add(1, Ordering::Relaxed);
+                Ok(())
+            }
+        }
+        let ledger = Arc::new(Ledger::default());
+        let mut execution = Execution::new(
+            pse_diagnostics::Cancellation::new(false),
+            &Controls::default(),
+        );
+        execution.work_admission = Some(ledger.clone());
+        let mut program = arithmetic_program(
+            vec![Node::Var(0), Node::Const(Constant::Float(0.0))],
+            vec![0, 1],
+        );
+        for width in [i32::MAX as usize + 1, i32::MAX as usize / 4 + 1] {
+            program.graph.inputs = width;
+            for order in [DerivativeOrder::Value, DerivativeOrder::First] {
+                assert!(
+                    Ibex::default()
+                        .point_arithmetic_workspace_bytes_for_order(&program, order)
+                        .is_err()
+                );
+                // No width-sized point or transport exists: preflight must refuse
+                // before coordinates, allocation or work admission are consumed.
+                assert_eq!(
+                    Ibex::default()
+                        .arithmetic_with_execution(
+                            &program,
+                            &[],
+                            &[],
+                            order,
+                            usize::MAX,
+                            &execution
+                        )
+                        .unwrap(),
+                    PointArithmeticEvidence::Incomplete {
+                        reason: SelectionProofRefusal::Resource,
+                        work: PointArithmeticWork::default(),
+                    }
+                );
+            }
+        }
+        // A valid dimension with an insufficient byte ceiling follows the same
+        // no-admission path.
+        program.graph.inputs = 230;
+        let bytes = Ibex::default()
+            .point_arithmetic_workspace_bytes(&program)
+            .unwrap();
+        assert_eq!(
+            Ibex::default()
+                .arithmetic_with_execution(
+                    &program,
+                    &[],
+                    &[],
+                    DerivativeOrder::First,
+                    bytes - 1,
+                    &execution
+                )
+                .unwrap(),
+            PointArithmeticEvidence::Incomplete {
+                reason: SelectionProofRefusal::Resource,
+                work: PointArithmeticWork::default(),
+            }
+        );
+        assert_eq!(ledger.0.load(Ordering::Relaxed), 0);
+        assert!(arithmetic_native_dimensions(1, usize::MAX, 1, 1).is_none());
+        assert!(arithmetic_native_dimensions(1, 1, usize::MAX, 1).is_none());
+        assert!(arithmetic_native_dimensions(i32::MAX as usize / 3 + 1, 1, 1, 0).is_none());
+    }
+    #[test]
+    #[expect(
+        unsafe_code,
+        reason = "test verifies native dimension refusal before any undersized borrowed buffer can be read"
+    )]
+    fn native_point_arithmetic_abi_refuses_int_products_before_storage() {
+        let nodes = [NativeNode::default(), NativeNode::default()];
+        let residuals = [0u32, 1];
+        let coordinate = 0.0;
+        let cancel = pse_diagnostics::Cancellation::default();
+        let native = NativeRequest {
+            nodes: nodes.as_ptr(),
+            node_count: 2,
+            edges: residuals.as_ptr(),
+            edge_count: 0,
+            residuals: residuals.as_ptr(),
+            unknown_count: i32::MAX as u32 / 4 + 1,
+            parameter_count: 0,
+            score: 0,
+            tolerance: 1,
+            guards: std::ptr::null(),
+            guard_count: 0,
+            lower: &coordinate,
+            upper: &coordinate,
+            parameters: &coordinate,
+            candidate: &coordinate,
+            max_cells: 0,
+            seconds: 10.0,
+            cancelled,
+            cancel_context: std::ptr::from_ref(cancel.as_ref()).cast(),
+        };
+        for order in [0, 1] {
+            let mut result = NativePointArithmeticResult::default();
+            let mut vl = -123.0;
+            let mut vu = -123.0;
+            let mut jl = -123.0;
+            let mut ju = -123.0;
+            // SAFETY: the dimension product is rejected before reading any input
+            // buffers or writing any enclosure buffers. All pointer bases are live.
+            let status = unsafe {
+                pse_ibex_point_arithmetic(
+                    &native,
+                    2,
+                    order,
+                    &mut result,
+                    &mut vl,
+                    &mut vu,
+                    &mut jl,
+                    &mut ju,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                )
+            };
+            assert_eq!(status, 0);
+            assert_eq!(result.status, 4);
+            assert_eq!(result.work, PointArithmeticWork::default());
+            assert_eq!([vl, vu, jl, ju], [-123.0; 4]);
+        }
+    }
+    #[test]
     fn native_point_arithmetic_encloses_catastrophic_cancellation_residual() {
         let program = arithmetic_program(
             vec![
@@ -3925,7 +4222,7 @@ mod tests {
             pse_diagnostics::Cancellation::new(false),
             &crate::solve::Controls::default(),
         );
-        for (width, outputs) in [(33, 1), (1, 129), (17, 128)] {
+        for (width, outputs) in [(33, 1), (129, 1), (230, 1), (1, 129), (17, 128)] {
             let mut program = arithmetic_program(
                 vec![Node::Var(0), Node::Const(Constant::Float(0.0))],
                 vec![0; outputs],
