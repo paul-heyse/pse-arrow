@@ -76,11 +76,24 @@ structural specialization and mutable sessions must remain separable. See
 and [maintained source](../../vendor/salsa/src/lib.rs). B owns generated representation,
 C preparation custody, D mathematical realizations and E historical read contexts.
 
+## First consuming agreements — November6
+
+A01's first result delivery consumes existing native selected-result context and governing
+permission without inventing a new admission object. The current task/step/point contract
+is sufficient for that passive fidelity cutover; experiment/member permission remains A02.
+For H03, normalized spatial coordinate and actual cell stock are distinct: a backward N-cell
+aqueous cascade has interior cell Amount `V/N*C`, no inlet stock and physical incoming-minus-
+outgoing ComponentFlow. A derivative in normalized x includes the mesh scale; combining it
+with cell stock requires the corresponding cell-width weight. Independently sum actual cell
+stocks and cumulative boundary flow. The scientific owner will first exercise existing indexed
+stock/temporal composition and report any exposed shared seam before extending the compiler.
+Generic unsupported dynamic/Radau/reactive/energy cases retain their current refusals.
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| A01 | planned | Existing declared/prepared/completion owners; first scientific and developer consumers | Resolve remaining owner ambiguity and supported operation/input/product contracts without replacing working admission. Publish exact consumed agreements for B/C/E and the first family delivery. |
+| A01 | in-progress | Existing declared/prepared/completion owners; first scientific and developer consumers | First passive result and bounded physical inventory consuming agreements are recorded; remaining operation/input/product gaps follow their actual consumers without replacing working admission. |
 | A02 | planned | A01; actual fit/Study/trajectory product producers | Implement missing experiment/member governing scope through producers, native permission, generated observations, storage and independent readers. Remove quantity-only or client-reconstructed permission paths. |
 | A03 | planned | Selected G/H/I physical consumers | Extend material/coordinate and physical operating-program contracts only at exposed shared gaps; retain explicit unsupported combinations and datum/derivative premises. |
 | A04 | planned | A01/A03; J mixed experiments | Integrate shared/local fitting roles and selected schedule targets; distinguish admitted value reuse from structural/scientific invalidation in native and portable consumers. |
