@@ -404,8 +404,14 @@ comparison and identified only changed `LD_LIBRARY_PATH`, with zero changed/adde
 files. The native workflow selects four profiles while the preparation had selected six, changing
 provider library-path precedence. Seven targeted host fingerprint/runtime controls pass; no
 comparison or loader guard was relaxed. Preparation with the actual four-profile context has now
-succeeded, and the corresponding 111-case receiving selection is in progress. Runtime body,
-reference and native-child acceptance remain unclaimed until it completes.
+succeeded. **Tested:** the corresponding `scripts/pse test pse-runtime --lib --profile local`
+selection, with engineering-service/native-study-tests/product-operators/property-coolprop and
+Ipopt/KINSOL/Diffsol/root-isolation/HiGHS, passes **111/111**, zero failures, retries or incomplete
+records. Original capture, fixture teardown and native settlement are complete in configured
+unbounded/cache-off mode with compiler/KLU/solver/isolation. This includes actual child,
+steam/pump, fitting, session/RPC and retained-result controls; it does not run the five complete
+ordinary native/reference comparisons or qualify later root-core/snapshot changes. The preceding
+refusals remain no-test-body evidence, not passing attempts.
 
 ## Completion and enduring meaning
 

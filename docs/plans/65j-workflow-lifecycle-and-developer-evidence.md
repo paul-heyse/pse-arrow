@@ -620,7 +620,10 @@ selector, but ran none when construction context differed. A narrower diagnostic
 only `LD_LIBRARY_PATH`, with zero source changes. Preparation under six native profiles followed
 by a four-profile workload changes authenticated provider search precedence. The guard remains
 strict; preparation and testing must use the same actual compiler/native loader context.
-Explicit four-profile preparation has completed; receiving execution remains in progress.
+Explicit four-profile preparation and the matching receiving execution have now completed:
+111/111 selected runtime controls pass with capture, fixture teardown and native settlement
+complete. The prior environment refusals remain distinct from test failures. This validates
+that selected preparation/execution context, not universal fixture reuse or full J05 acceptance.
 
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.

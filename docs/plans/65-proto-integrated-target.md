@@ -733,9 +733,13 @@ The passive supplier packing inspector is integrated and its seventeen receiving
 pass. Execution-attribution extraction passes eleven receiving controls while preserving the
 original weak-source checks. Numerical frame extraction is merged and its receiving selection
 passes 102/102. The checked supplier f64 loader is merged with its narrow source-backed profile
-and twelve-control acceptance. Root-core/backend integration and complete native template
-snapshot/restoration now proceed in isolated worktrees; actual child acceptance follows their
-concrete interfaces. Complete native restoration and private-child activation remain unclaimed.
+and twelve-control acceptance. Root-core/backend extraction is also merged; its receiving
+verification proceeds after the isolated 101-control pass and closed independent review finding.
+The preceding scientific/runtime selection passes 111/111 with matching four-profile fixture
+preparation and complete capture/settlement. Complete native template snapshot/restoration and
+five ordinary native/reference comparisons now proceed in isolated worktrees; actual new child
+acceptance follows their concrete interfaces. Complete native restoration and private-child
+activation remain unclaimed.
 
 The next integration milestone is the scientific admission/execution/selected-read journey
 and developer failed-report/export/exact-rerun journey, followed by complete selected Proto

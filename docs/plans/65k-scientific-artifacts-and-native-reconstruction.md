@@ -838,6 +838,33 @@ source death and admission retention. This preserves in-process modes; native/JI
 outside the first private f64 transfer profile. Root-core/backend extraction is the next distinct
 package, followed by complete restoration and child activation.
 
+The next prerequisite `83bbacc95` is now integrated on main. `RootExecution` owns immutable
+root metadata, the attributed numerical unknown frame, original residual verification and
+one provider bank; `Problem` retains mandatory source preparation, the explicit unknown source,
+later products and factor machinery. Both numerical and construction admission survive an
+escaped root until its actual drain. KINSOL's existing `InnerWorker::solve` delegates to the
+same `solve_root` core used by the new core-only acceptance; Oracle/CSC/JVP/cache loans and
+retirement are not a second solver implementation.
+
+Configuration now uses mutable fallible `set_residual_offsets`, `set_requirements` and
+`set_providers`, preserving the original owner/bank on refusal. Fresh factories return owned
+problems and publish one `Arc` after successful setup; replaced consuming builders and
+publish/unwrap paths are removed. Offsets reuse their original backing while retaining the
+existing per-assignment transformation identity. Actual `Arc::get_mut` checks both problem
+and root before reconfiguring anchors/hints/provider effects; groups preflight all alternatives
+before their first such effect. Cached artifact observations, direct core reads and unchanged-
+definition refinement retain their distinct behavior.
+
+Independent review caught an anchor-before-refusal gap; actual strong/Weak anchor and solver
+counters plus a later-alternative hint counter now discriminate the corrected orchestration.
+Review of the final stable revision closes that finding without other material issues in scope.
+**Tested in the isolated implementation:** 101 selected `implicit::` controls pass with native
+compiler/KLU and compiled evaluators/KINSOL; default and native math/backend all-target checks
+report zero errors/warnings. They include actual asymmetric CSC/JVP, core-only KINSOL after
+sourceful problem death, offsets, shared/Weak ownership, cleanup and cache-loan success/cancel.
+Receiving-main verification is in progress. Complete snapshot restoration and private-child
+activation remain separate and unclaimed.
+
 The supplier prerequisite `517730bce` is now merged. Its
 [`ExpressionEvaluator<f64>::f64_transfer`](../../vendor/symbolica/src/evaluate/f64_transfer.rs)
 returns a borrowed `F64ProgramRef`; `extents`/`encoded_len` inspect actual populations without
