@@ -8,23 +8,7 @@ pagefind = "1.5.2"
 [publication]
 exclude = ["SUMMARY.md", "generated/rustdoc/**"]
 current_work = [
-  "plans/28*.md",
-  "plans/32-workspace-content-lifecycle.md",
-  "plans/40*.md",
-  "plans/53*.md",
-  "plans/54*.md",
-  "plans/58*.md",
-  "plans/64-process-simulator-target.md",
-  "plans/64a-*.md",
-  "plans/64d-*.md",
-  "plans/64e-*.md",
-  "plans/64f-*.md",
-  "plans/64g-*.md",
-  "plans/64h-*.md",
-  "plans/64i-*.md",
-  "plans/64j-*.md",
-  "plans/64k-*.md",
-  "plans/65*.md",
+  "plans/66*.md",
 ]
 assets = [
   "functional_reviews/probes/rust-agent-cli-log-miner-2026-10-29.py",

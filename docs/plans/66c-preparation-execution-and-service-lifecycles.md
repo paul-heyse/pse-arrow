@@ -1,0 +1,235 @@
+---
+title: "Plan66c: Preparation, execution and service lifecycles"
+status: planned
+date: 2026-11-06
+doc_role: plan
+doc_owner: docs/plans/66-integrated-simulation-target.md
+doc_topics: [design, numerical-execution, preparation, validation]
+review_sources: [docs/plan_improvement_reviews/plan64-65-integrated-target-and-library-leverage-2026-11-06.md, docs/plan_improvement_reviews/plan64-65-contracts-and-runtime-analysis-2026-11-06.md]
+---
+
+# Preparation, execution and service lifecycles
+
+## Remaining target and foundations
+
+Plan66 is the sole go-forward target. This companion owns remaining preparation validity,
+native/service handoff, prepared-worker and physical-settlement changes. It actions I05/I06,
+CR05 and the lifecycle parts of CR02/CR04. Scientific operation semantics belong to
+[A](66a-scientific-operations-and-product-semantics.md), mathematics and derivative premises to
+[D](66d-mathematical-representation-and-numerical-execution.md), generated correspondence to
+[B](66b-contracts-generation-and-interpretation.md), custody to
+[E](66e-protected-data-and-result-delivery.md), and actual clients/evidence to
+[F](66f-developer-operations-clients-and-evidence.md). The
+[coordinator](66-integrated-simulation-target.md) owns combined decisions and
+[L](66l-required-population-and-assembled-acceptance.md) assembled acceptance.
+
+**Interface-checked:** main `66341514d` already contains reentrant generic native supervision,
+service-resident resumable drain, unique surrogate retirement actions, result-bearing native
+finish paths, original identity/context checks, authenticated local binary-gRPC ingress and
+connection error aggregation. Native bridge snapshotting outside disposable worktrees, exact
+fixture prerequisite assessment, complete passive source recipes and a provider-free compiled
+f64 Value/First live-child path also exist. These mechanisms are prerequisites, not new framework
+packages. Earlier focused tests do not qualify every provider, transport or shutdown population.
+
+The prepared compiler bridge still produced a later “compiler cache bridge context changed”
+refusal during generation. That is an unresolved composition case, not proof that the retained
+bridge fix was absent or that strict checking should be weakened. The paused invocation settled;
+resume from inspected source and exact inputs, not an assumed still-running workload.
+
+## Preparation validity and execution placement
+
+Preparation is explicit and attributable to consumed inputs. Separate immutable caller-selected
+configuration, installed tool/provider selection, generated dependent artifacts and runtime
+allocation. Normalize external input once; do not reinterpret installed compiler/bridge values
+as a fresh caller override on the next command. Verify the actual selected executable, bridge
+content and KLU/provider dependencies in their owning order. A changed relevant mode, toolchain,
+provider, artifact or allocation must refuse or invalidate dependent preparation; an unrelated
+capability or disposable checkout path must not invalidate it spuriously.
+
+Use `crates/pse-host/src/native.rs` and `native/providers.rs` as the preparation owners, including
+their existing retained bridge identities. Diagnose the remaining refusal with exact selected
+compiler, environment, normalized inputs and receipt comparisons. Choose the smallest correction
+that makes those representations compose. Repeated full preparation, relaxed identity, a new
+cache-proof service or source recompile fallback is not the target. Test explicit preparation and
+later ordinary use from sibling worktrees, capability subsets and after removing the preparing
+checkout. Help, discovery, listing, attachment and passive reads never prepare implicitly.
+
+Preserve the maintainer-selected unbounded ordinary host mode, native profiles, incremental
+compilation and shared sccache. Do not introduce smaller CPU partitions, cache-off acceptance,
+shared target directories or new host caps. Scientific pool/exclusion and explicit finite
+allocation retain their distinct contracts. A preparation receipt is not a native job permit;
+allocation ownership follows the actual active work.
+
+Reuse scientific preparation only for unchanged consumed premises. Source/model/physical context,
+datum, structure, derivative order/support, provider identity and specialization determine the
+dependent products; compatible value-only overlays may reuse them. D owns numerical realization
+and invalidation; C integrates that lifetime with preparation and active execution. Do not add a
+second generic cache alongside current Salsa/native preparation or collapse mutable sessions into
+immutable artifacts.
+
+## Native operations, effects and service lifetime
+
+Transport decodes, validates and authenticates; native handlers decide contextual membership,
+scientific support and effects. Retain original operation/request/run/attempt/step/point identities,
+prepared generation and governing source. Registration and effects should follow the actual typed
+service composition and B's source-owned correspondence. A universal dynamic-message operation
+interpreter would add a competing meaning owner.
+
+Keep selected local binary gRPC over HTTP/2 Unix sockets unless a concrete consumed requirement
+changes that support. Initial and reconnected peers require kernel credentials and original-image
+custody; a socket path, header PID or descriptor is not authentication. Preserve early method,
+protocol, codec and HTTP-version refusal before body polling or collective allocation. Apply whole
+route limit profiles: Connectrpc0.9.1 `Router::with_route_limits` replaces the profile, while
+body/decompressed-message/element limits remain distinct. Health/reflection expose only the
+authorized prepared service world. New hosting alternatives must actually eliminate glue while
+expressing these obligations; do not reopen a working released Hyper composition merely to
+substitute a library name.
+
+Submission has a native effect boundary. Definite non-submission, accepted execution, abandoned
+method receiver and uncertain network reply are different outcomes. A lost ACK never causes
+automatic replay. Duplicate original request identity can resolve to its original operation;
+changed content under that identity refuses. Progress is observational: dropping a stream does
+not cancel native work or publish a terminal verdict. Explicit cancellation targets the original
+operation; acknowledgement is not physical settlement. Reconnect reads original status/products
+under current custody and E's protected-result rules.
+
+Use Tokio1.53.3 `mpsc::Sender::reserve_owned` followed by `OwnedPermit::send` for the selected
+queue reservation/handoff. Reserve before committing control-map state; the handoff has no
+cancellable `send(...).await` gap. Define disposition for cancellation before reservation,
+after reservation, after ownership transfer and after native completion. A semaphore's owned
+permit moves into the actual native job; observer/future disappearance cannot release it while
+native work continues. Cancellation control must remain reachable while the mutable numerical
+lane is occupied. `FuturesUnordered` can poll independent control and numerical transports;
+its local in-flight shape is not a host concurrency cap.
+
+Settlement follows actual owners: stop admission, request the appropriate cancellation/shutdown,
+settle native calls, reap child processes, join I/O/tasks and retain every independent error.
+Connection graceful-shutdown requests must still be polled to completion. Current engineering
+`JoinSet::join_next` preserves panic/inner connection failures; retain that behavior. In
+`scientific_worker/transport.rs`, the `OwnedExecutor` vector/batched-join mechanism is a candidate
+for simplification only if descendants, error collection and end-of-spawning remain correct.
+Tokio-util0.7.19 `TaskTracker::close` does not prevent spawning, `wait` does not return task errors,
+and neither reaps an OS child. `CancellationToken` is a signal, and a dropped tokio-rayon2.1.0 or
+Rayon1.12.0 future does not establish native cancellation. Use tracker composition only where
+these missing obligations have explicit existing owners; retain JoinSet where simpler. See
+[CR05](../plan_improvement_reviews/plan64-65-contracts-and-runtime-analysis-2026-11-06.md#CR05).
+
+## Prepared workers, receiving and explicit finish
+
+Keep three permissions separate: live execution of an already admitted body; independent receiving
+of a complete passive recipe under original qualified membership; and historical observation.
+The current provider-free compiled f64 Value/First child path must remain an actual prepared-body
+path, without reintroducing source replay. Complete other selected operation/context populations
+only with their native owner and D's explicit support. A successful recipe decode, body allocation
+or historical proof record does not authorize arbitrary provider/session restoration. Preserve
+canonical receiving's existing interpretation until its actual replacement and receiving controls
+qualify together; retire a format only with its last reader.
+
+Prepared worker crossings carry exact input bits, physical/datum/layout identity, derivative demand,
+scope and generation. Immutable descriptors/layouts prepare once; callback evaluation does not
+re-encode a complete model or numerical arrays. Preserve native single mutable-lane semantics,
+foreign-library thread/TLS requirements and CPU ownership. Scalar fill loops do not count as a
+native batch. For each selected genuine multi-point operation, use a coherent native batch with
+ordered point identity, state-reset semantics and independent point outcomes; keep a scalar route
+where the actual provider has no batch contract.
+
+`Stop(handle)` cancels only that handle's work. `Close(handle)` retires its prepared state after
+its invocations settle. Session shutdown may close its own handles; process shutdown drains all
+owned sessions. Abandoned Prepare must retire the actual newly created handle without destroying
+unrelated live handles. Explicit result-bearing finish reports stop, actor retirement, process
+reap and I/O errors independently, retaining banks/allocation until physical settlement. Drop is
+abandonment containment; it must not replace the normal production finish result. The delivered
+generic retirement hooks are the foundation; extend their real use rather than add another
+supervisor or per-service detached cleanup task.
+
+## Packages
+
+| ID | Status | Prerequisites | Completion |
+|---|---|---|---|
+| C01 | planned | Existing retained bridge/provider identities and explicit native preparation | Remaining preparation-context mismatch is corrected at its representation owner; unchanged inputs reuse across supported worktrees/capability subsets, relevant changes refuse, no implicit preparation or weakened checks. |
+| C02 | planned | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Complete selected typed service effects, authentication/reconnect and original identity consumers; remove replaced route/effect/status/error maps while preserving native guards. |
+| C03 | planned | Existing queue/retirement owners; C02 selected operations; D's provider support | Every selected prepared-worker/session path has transactional handoff, per-handle cancellation/close and result-bearing physical finish; true native batch behavior is integrated where selected. |
+| C04 | planned | Complete passive recipe and admitted-body foundations; A/D operation-specific permission; D's preallocation-bounded canonical reconstruction gate | Remaining selected live/receiving/reference contexts use exact native permission and original memberships; canonical binary activation requires bounded native reconstruction or a qualified alternative, and obsolete routes retire only with their actual consumers. |
+| C05 | planned | Working C02–C04 producer/consumer slices and B04 where representation changes | Complete actual transport/native/process failure population, independent sessions and retained response lifetime; simplify task accounting only where all settlement responsibilities survive. |
+
+### C01 — Make preparation representations compose
+
+Reproduce the retained-bridge context refusal using exact admitted command/environment/profile
+and trace the original caller selection through normalization, installed identity and later
+comparison. Correct the structural mismatch, then exercise successful unchanged ordinary use,
+changed bridge bytes/compiler/mode, omitted versus explicit equivalent selections, provider subset
+and preparing-worktree removal. Preserve strict compiler/KLU/provider order and independently
+reported missing capabilities. Delete superseded path-based or duplicate normalization logic only
+when every caller has moved. This is a bounded prerequisite to affected generation/qualification,
+not a reason to rebuild all preparation for every plan package.
+
+### C02 — Complete actual local operation/service consumers
+
+Migrate all selected engineering contract/workbench/prepared-study and simulation/fit/horizon
+submission/status/cancel/progress/read paths, plus their preparation, worker and reference service
+routes. Coordinate F's generated Rust client in the same slices. Compare direct/native and remote
+typed outcomes; preserve errors' original structured diagnostic class. Cover initial/reconnected
+wrong image, stale context, unauthorized reflection, empty/present-default requests, changed
+duplicate request and lost submit ACK. Delete replaced mechanical adapters, hand-maintained
+method/effect/health mirrors and duplicate polling translations as each family moves. Native
+checked edit and parent/membership guards remain.
+
+### C03 — Close performing owners and worker sessions
+
+Start from the delivered generic admitted-job and unique-surrogate retirement mechanisms.
+Complete the selected preparation abandonment, synchronous fill, provider banks, shared-surrogate,
+multi-session and explicit-close caller population. Exercise receiver loss at each handoff phase,
+Stop during fill, Close with pending work, independent surviving handle, shared child retirement,
+native error plus retirement error, child exit and uncertain reap. Preserve all independent
+failures and keep resource ownership until physical completion. Add genuine batch support only
+with existing native provider semantics and a real consumer; coordinate exact point-demand and
+outcome shape with A/D/B. Remove scalar RPC loops only when that replacement is complete.
+
+### C04 — Finish selected reconstruction and execution contexts
+
+Resolve the canonical binary Recipe activation gate with D before switching receiving away from
+current JSON interpretation3. Native normalization, coefficient/partial growth and Symbolica global
+registration need an enforceable preallocation envelope at their actual owner. Decoder budgets,
+postconstructed node/slot limits, payload-size multipliers and process custody do not discharge
+that obligation. D supplies bounded canonical reconstruction, a qualified alternative or an
+explicitly approved revised contract before C activates its receiver. Retain the current JSONv3
+production path until that gate and its actual receiving controls are satisfied; do not retain it
+after a qualified replacement has moved every caller. This local reconstruction bound does not
+change the unbounded host policy. The already implemented provider-free compiled f64 Value/First
+live child is a separate admitted-body path and supplies no canonical receiving qualification.
+
+Complete original qualified recipe membership across the canonical receiving population and the
+actual prepared worker/reference consumers. Extend live prepared-body execution where D supplies
+the matching supported representation; do not create generic restoration from a descriptor.
+Refuse changed source/layout/datum/provider identity, unavailable original rule or unsupported
+arithmetic/derivative path before execution. Verify original physics and demanded derivatives at
+the consuming scientific companion; transport round trips alone cannot establish them. Remove
+source-recompile, duplicate receiving or obsolete JSON paths only after exact replacement readers
+and native receiving acceptance exist. Historical readable records can retain unavailable use.
+
+### C05 — Verify actual shutdown and transport composition
+
+Complete slow/abandoned upload and download, partial progress with terminal stream error,
+deadline-before-admission/after-handoff, observer departure with continued work, lost ACK,
+reconnect, child crash, task panic, listener error and independent native shutdown refusal.
+For shutdown, prove admission closure, continued drain polling, native finish, reap and I/O/task
+join separately. Ignore cancelled joins only after explicit owned abort; preserve unexpected
+cancellation and all other errors. B04 response reservation/backing bytes stay owned until last
+segment release. A TaskTracker replacement needs explicit no-more-spawning and panic/error
+owners; if it adds more machinery, retain the current JoinSet/vector design and close the actual
+coverage gap instead. No task-library substitution is a package-completion requirement.
+
+## Verification and decision limits
+
+Work is **planned**. This document adds no new functional qualification. Implementation uses
+targeted native routes and matching prepared profiles, with Arrow `force_validate` where consumed.
+Client and independently launched process journeys must exercise actual settlement and original
+scientific outcomes; mocks establish only their bounded interface. L owns comprehensive population,
+full Study/science journeys and integrated checks after functional scope. Retain command, mode,
+scope and zero-baseline failure counts in the owning completion evidence.
+
+Changes to kernel permission, metadata or accepted architecture follow the coordinator's decision
+route before implementation. ADR-0251's selected-regime proposal does not authorize inference of
+stability from phase fraction or eligibility. C transports only actual native observations agreed
+by A/D; it creates no new mathematical authority. No new rule waiver or runtime resource policy
+is introduced by this companion.

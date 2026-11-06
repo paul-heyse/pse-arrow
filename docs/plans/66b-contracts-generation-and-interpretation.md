@@ -1,0 +1,228 @@
+---
+title: "Plan66b: Contracts, generation and interpretation"
+status: planned
+date: 2026-11-06
+doc_role: plan
+doc_owner: docs/plans/66-integrated-simulation-target.md
+doc_topics: [design, libraries, validation]
+review_sources: [docs/plan_improvement_reviews/plan64-65-integrated-target-and-library-leverage-2026-11-06.md, docs/plan_improvement_reviews/plan64-65-contracts-and-runtime-analysis-2026-11-06.md]
+---
+
+# Contracts, generation and interpretation
+
+## Remaining target and baseline
+
+Plan66 is the sole go-forward target. This companion owns shared source correspondence,
+generation, representation and interpretation changes, consuming review I04 and CR01–CR04.
+The [coordinator](66-integrated-simulation-target.md) owns combined scope and decision routes;
+[A](66a-scientific-operations-and-product-semantics.md) owns scientific meaning,
+[C](66c-preparation-execution-and-service-lifecycles.md) native preparation and execution,
+[E](66e-protected-data-and-result-delivery.md) protected data consumers, and
+[F](66f-developer-operations-clients-and-evidence.md) developer and independent client cutovers.
+These are consumer dependencies below whole-document completion, not sequential document gates.
+
+**Interface-checked:** source inspection at main `66341514d` establishes the following starting
+mechanisms. They are prerequisites; this plan does not commission their implementation again:
+
+- Source-owned `pse-contract` declarations, generated native adapters and field metadata v2;
+  the maintained Buffa0.9.2 family and protovalidate-buffa0.7.2 supplier composition.
+- Typed semantic metadata and the shared descriptor comparison engine in `pse-contract-proto`;
+  exact source/runtime-world checks retain options, imports, features and unknown metadata.
+- Descriptor-guided independent-host search/count and bounded payload inspection, without the
+  retired full-declaration cache. Existing coverage remains bounded by its named tests.
+- Native recorded-result context observations in `workflow/result_selection.rs`, and original
+  selected-root/instance/fixture inspection observations in `workflow/modeling/documents.rs`
+  and `inspection_fixture.rs`. Source declarations being present does not establish generated
+  availability or a migrated consumer.
+
+The paused contracts branch contains an unqualified adapter split; the paused result branch
+contains a consumer depending on its missing generated output. Neither is an integrated
+prerequisite. Reconcile those candidates against current source, then deliver declarations,
+generated outputs, consumers and deletions together. Do not adopt a branch wholesale or use
+its package status as implementation evidence.
+
+## Target responsibilities and composition
+
+One declaration owns each native meaning. Generate passive observations, structural/local
+validation and mechanical correspondence from that source; retain fallible contextual admission
+in the native owner. Decoding a declaration, historical receipt, provider description or selected
+result cannot mint current execution, membership, publication or restoration permission.
+
+Generation scope follows useful consumer capabilities. Ordinary recorded-result export needs
+messages, validators, descriptors and its small output-only adapter closure; it must not acquire
+an engineering service dependency. The engineering service and independent host have their own
+compilation and presentation needs while sharing the same source world. A semantic world is not
+a requirement to compile every adapter whenever one consumer is built.
+
+In `xtask/src/codegen/engineering.rs`, register the native roots
+`PackResultSelection`, `PackResultPredicate`, `PackResultContext` and `PackScientificState`
+under their source-declared `RecordedResultSelection`, `RecordedResultPredicate`,
+`RecordedResultContext` and `RecordedScientificUsability` projections. Emit the selected closure
+with `native_adapters_scoped(..., AdapterVisibility::Crate)` into an ordinary-consumer artifact;
+remove those roots from the broad service adapter closure. Keep one generated implementation
+owner for every native/projection pairing. Export no inverse observation constructor. The
+original scientific inspection expansion remains rooted transitively at `ModelingInspection`;
+generate its new fields and nested fixture types without a second inspection schema.
+
+Make source-to-generation bootstrap reproducible when native source has advanced beyond old
+generated adapters. Separate the source extractor/generator dependency closure from stale runtime
+adapter compilation; do not hand-edit generated files, temporarily weaken declarations, or add
+a hand-maintained mirror. Use an explicit adapter-group declaration only where actual additional
+consumers justify it: roots, direction, destination and visibility must feed generation and its
+ownership output once. A new crate per projection and a universal policy catalogue are unnecessary.
+
+The existing `xtask/src/codegen/proto_projection/composition.rs` already composes the complete
+typed request, Buffa corpus, maintained validators and service generation. Retain that foundation.
+Buffa0.9.2 `SharedCorpusContext::new` / `CodeGenConfig::shared_corpus_context` reuse complete
+descriptor analysis; maintained `protoc_gen_protovalidate_buffa::prepare(&request)` prepares once
+and renders the same indexed world. Connectrpc-codegen0.9.0 receives the same Buffa configuration,
+explicit extern mappings and view support. Preserve output-path/collision admission and supplier
+provenance: convenience `apply_companions` does not itself prove absence of orphan or duplicate
+module includes. Sources are `vendor/buffa-codegen/src/lib.rs` and the composition owner above;
+the [CR01 analysis](../plan_improvement_reviews/plan64-65-contracts-and-runtime-analysis-2026-11-06.md#CR01)
+records exact release conditions.
+
+## Interpretation, local rules and native adoption
+
+Every selected ingress and retained format needs an explicit operation policy: grammar and
+supported features; scalar/enum/message shape; absent versus present default/empty; unknown
+fields and alternatives; local constraints; original interpretation; and the native owner/context
+needed for adoption. Use the existing declarations and interpretation machinery rather than a
+parallel policy service. Unknown metadata must remain observable even where execution refuses it.
+
+The exact runtime/source-world comparison may remove genuine `SourceCodeInfo` for that comparison
+only. It must preserve file order, imports, features, options and unknowns; keep the original
+artifact identity unchanged. A Rust source move is provenance, not automatically a semantic
+change. Semantic compatibility uses native crossing, registry execution and canonical publication
+facts, not a descriptor checksum, a name match or a foreign pool callback. Original-world
+normalization executes only with its matching native owner. Historical data can remain readable
+with adoption unavailable.
+
+Extend current `pse_contract_proto::compare_descriptors` into actual CLI and client use rather
+than creating another checker. The independent host's `schema/compare.rs` currently supplies
+structural/Buf comparison. Add the shared semantic assessment as a separately identified result:
+compatible, incompatible or unknown, with policy/coverage and original-world limits. Structural,
+wire, validation and scientific compatibility answer different questions. Product-specific
+normalization remains an explicitly prepared product-owner operation; the independent host stays
+product-free and help/read never starts scientific machinery. F owns the user-facing cutover.
+
+Use maintained local validation for owned and view representations, preserving integer exactness,
+presence and supported CEL semantics. Malformed rules and required unsupported semantics refuse
+generation; no runtime CEL fallback or discarded rule is allowed. Bounded nonselection of arbitrary
+dynamic validation and the retained Rustdoc/Serde bridge are existing decisions, not unfinished
+packages. Extend WKT/Any, proto2/extensions, enum aliases or JSON/text support only for the finite
+consumer population that actually uses them, with explicit unknown/presence behavior. An `Any`
+type URL and successful dynamic decode are not native authority.
+
+## Physical representation and whole-lifetime limits
+
+Select fields and rows at the producer before avoidable nested cloning and materialization.
+Preserve the meaningful observation extent and checked overflow rules while deleting duplicate
+preflight passes. A full ordered inspection should use its native inventory operation rather than
+repeated page/decode cycles; bounded pages still need original totals, offsets and continuation.
+Coordinate population and physical typing with A and the scientific companions.
+
+Use Buffa0.9.2 `Message::try_encode_bounded_with_cache` or `SizeCachePool::try_encode_bounded`
+where the owning response needs bounded output. The size pass checks limits before writing;
+cache reuse amortizes encoding scratch, not native mapping or total heap use. For selected large
+responses, preserve backing-aware `Rope::with_backing`, `OwnedView`/`ViewEncode` through actual
+transport wrappers. Connectrpc0.9.1 `Encodable::encode_segments` defaults to contiguous `encode`;
+the current `Validated` and `AccountedResponse` wrappers must explicitly preserve segmented
+encoding when selected. Aggregate segment lengths with checked arithmetic before publication,
+and keep response/allocation ownership alive through consumption of the last segment.
+
+This is not a universal zero-copy requirement. An owned `Vec` producer, compression, interceptors,
+JSON or retained giant backing buffers can make a compact copy preferable. `PreEncoded` has codec
+conditions and JSON reserialization; raw bytes do not replace validation. Buffa maintained
+`DecodeContext::with_allocation_budget` and `CodeGenConfig::allocation_accounted_views` can enforce
+phase-monotonic logical backing-allocation limits before growth, including actual nested/extern/WKT
+capability coverage. They do not bound allocator/RSS, owned native adoption or mathematical work.
+Keep body, decompression, element, logical allocation, output, queue and resident-state limits
+separate. Exact sources are `vendor/buffa/src/message.rs`, `encode_sink.rs`, `pse-patch.md` and
+[CR02](../plan_improvement_reviews/plan64-65-contracts-and-runtime-analysis-2026-11-06.md#CR02).
+
+## Packages
+
+| ID | Status | Prerequisites | Completion |
+|---|---|---|---|
+| B01 | planned | Existing source declarations, typed supplier composition and current exact pins | Consumer-scoped generation and source bootstrap work; ordinary result adapters and complete inspection fields are generated in the one world, duplicate broad roots/implementations are removed, default and service receiving closures compile. |
+| B02 | planned | Existing metadata/checker; native semantic owners for each selected crossing | All selected crossings carry explicit presence/unknown/interpretation/local-rule/adoption policy; semantic comparison is consumable independently; stale and foreign worlds cannot acquire native authority. |
+| B03 | planned | B01 closure needed by each consumer, B02 policy needed at its boundary | Complete finite native/projection correspondence across engineering, worker/reference, independent-host and developer families; move real consumers and delete replaced mechanical maps and tests together. |
+| B04 | planned | Actual large producer/consumer and B03 mapping for that family | Selected production boundaries perform early selection and bounded encoding, retain validation/ownership through segmented output where useful, and remove redundant materialization without weakening extents. |
+| B05 | planned | Each delivered B01–B04 family, its outcome-owned consumer | Cross-representation/evolution/extension controls and surviving-source inventories cover the complete selected population; remaining assembled verification is handed to L with explicit omissions. |
+
+### B01 — Deliver useful generation closures and reproducible bootstrap
+
+Start with the recorded-result ordinary reader and scientific inspection source already on main.
+Compile pure generated messages/validators/descriptors without `engineering-service`; keep service
+dispatch and broad service adapters gated. E's real Arrow/portable-reader cutover consumes the
+small recorded-result adapter, so B01 acceptance includes that consumer closure rather than a
+generated file alone. Generate scientific fixture observations with source identities, specification
+presence, physical type/quantity/unit and original integration inputs; science owns producer
+meaning and its independent reader. Verify changed-source generation before updated adapters
+exist, plus default/service feature closures after publication. Then retire intermediate broad
+root registrations, handwritten fallback adapters and obsolete generator assumptions.
+
+### B02 — Make interpretation usable and refusal precise
+
+Complete metadata for actual native field meanings and local constraints, including source
+correspondence, optionality, ordering, exact integer/IEEE representation and original-world
+identity. Exercise same-world, SourceCodeInfo-only, changed options/imports/features/unknowns,
+foreign pool, stale native owner and unavailable historical normalizer. Unknown coverage remains
+unknown. Add the semantic CLI result through F's existing comparison operation, with stable
+structured facts and human explanation. Parsing immutable compiled descriptors once per generated
+owner may remove repeated work; never reuse them across a merely similar descriptor world.
+
+### B03 — Finish finite source-to-consumer migrations
+
+The migration population is the current selected engineering requests/responses/edits/progress,
+modeling inspection and prepared studies; preparation/evaluate/stop/close worker crossings;
+reference request/result/diagnostics; developer selection/prerequisites/reports/evidence;
+independent-host configuration, requests, facts, graph/investigation and code-intelligence schema
+clients; and E's selected result/storage metadata readers. Identify each existing production
+caller at implementation time and keep its disposition in the owning package, not a second
+permanent schema inventory. A new exemplar does not complete that population.
+
+Replace the mechanical portions of `engineering/rpc/wire.rs::prepare_from_pb`,
+`submit_from_pb`, `progress_value_to_pb`, `page_to_pb` and identifier helpers with generated
+correspondence where the native owner declares the meaning. Preserve parent/membership checks,
+provider support, edit effects and structured domain errors in fallible native admission. For
+independent-host families retain raw versus adjusted paths, unavailable facts and unknown
+alternatives; do not import product runtime to obtain a shared serializer. Each change includes
+its actual caller and deletion of its old map/default-compatible path. F owns the host/client
+behavior; C owns admission and settlement; B supplies reusable generation once.
+
+### B04 — Preserve producer selection and encoding capabilities
+
+Choose expensive real inspection/result/progress responses using source and consumer evidence.
+Preflight selected extents before nested copies, validate once at the correct owner, and enforce
+encoded output before writing. Modify wrappers and transport together when adopting segmented
+output. Test cancellation between segments, invalid nested values, overflow, empty selection,
+partial stream and last-buffer release. Keep contiguous encoding where it is simpler or releases
+larger backing storage. Claim memory or latency benefit only after whole producer→encode→transport
+→decode→release measurement under declared compression and retention conditions.
+
+### B05 — Make extension and compatibility acceptance representative
+
+Add a source-owned provider request, method effect, diagnostic or result facet through its native
+owner and follow the resulting changes through every selected generated/default/service/host/client
+consumer. Preserve exact original errors, optional false/zero/empty and IEEE negative zero; exercise
+unknown/duplicate/noncanonical encodings according to the operation policy. Required generation
+errors are explicit, not supplier substitution. Use binary, ProtoJSON and text where consumed;
+do not manufacture an unused format matrix. Remove fixtures/tests solely supporting retired maps.
+
+## Verification, decisions and completion
+
+The target is authorized; work is **planned**, not newly Tested by this document. Use targeted
+native checks/tests with explicit `force_validate` on Arrow-consuming closures and `just codegen`
+when declarations/generators change. Check receiving default/service and independent-host closures
+as they migrate. L owns the final integrated population, independent journeys, hygiene and benefit
+claims. A focused pass qualifies only its named source/feature/consumer population.
+
+Metadata convention changes follow the coordinator's ADR route before affected implementation;
+ADR-0250's current proposal is not automatic acceptance. No new rule waiver is introduced here.
+The original-world, unknown/presence, native-authority and clean-room constraints remain binding.
+Completion requires all finite selected callers moved, replaced mechanisms deleted, generated
+artifacts reproducible and the applicable L acceptance complete. Preserve historical interpretation
+only where an actual retained artifact requires it, with explicit unavailable adoption; do not
+retain a second production path as evidence.

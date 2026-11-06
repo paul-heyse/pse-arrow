@@ -1,0 +1,143 @@
+---
+title: "Plan66h: Inventory, distributed and cyclic physics"
+status: planned
+date: 2026-11-06
+doc_role: plan
+doc_owner: docs/plans/66-integrated-simulation-target.md
+doc_topics: [current-work, design, validation]
+---
+
+# Inventory, distributed and cyclic physics
+
+## Remaining target and baseline
+
+This companion of the sole go-forward [Plan66](66-integrated-simulation-target.md)
+owns missing physical storage/allocation, distributed temporal accumulation and actual
+cyclic operating programs, plus the receiving evidence for delivered slices. It consumes
+the exact required configuration/input population from
+[66l](66l-required-population-and-assembled-acceptance.md); no earlier plan remains
+a prerequisite or parallel execution owner. Review I01/I02/I03/I09/I10 and scientific
+S01–S04/S07 motivate complete physical consumers instead of a generic dynamics switch.
+
+**Interface-checked baseline:** main `66341514d` already has homogeneous vessel integrated
+and simultaneous formulations, native Diffsol/IDAS routes, temporal specialization,
+indexed stock projections and spatial control-volume source. These are implemented
+foundations, not new infrastructure tasks. The element-stock/projection source and
+selected two-phase transfer controls do not establish all allocated energy or
+phase-equilibrium trajectories. Existing [spatial control-volume source](../../packages/reference/process/models/control-volume-1d.pse)
+explicitly refuses dynamics without time accumulation; no new E03-style distributed
+temporal implementation exists at this baseline. Preserved source investigations are
+not numerical acceptance.
+
+The enduring authorities are [physical semantics](../authoritative_design/sections/physical-semantics.md),
+[composition](../authoritative_design/sections/models-and-composition.md) and
+[workflows/results](../authoritative_design/sections/workflows-and-results.md).
+Extend their existing authored accumulators, [temporal specialization](../../crates/pse-modeling/src/temporal.rs)
+and native formulation owners. New kernel/pass/relation contracts follow the existing
+decision route before implementation; do not create a second physical time graph.
+
+## Physical behavior and mandatory populations
+
+Inventory is an extensive physical quantity with an actual constitutive allocation;
+EOS normalization amount, stream flow and conserved stock are not interchangeable.
+Component, phase-component, element and total material projections retain membership,
+amount basis and initial origin. Energy storage declares internal/enthalpy and formation/
+sensible conventions, pressure/volume/work treatment and wall/fluid ownership so source
+terms do not double count. Initial states and constraints must be consistent with the
+selected differential/algebraic formulation, not invented from the first sampled output.
+
+| Population | Physical/input/configuration obligations |
+|---|---|
+| Lumped vessel and CSTR | Steady initializer versus dynamic physical model; fixed volume, aqueous component inventory, reaction heat, component-total and enthalpy-total demand where selected; nonzero initial component/energy holdup, bounds/controller variants and actual feed/control schedules |
+| Multiphase and wall/fluid allocation | Required phase/component/element/total storage projections; equilibrium and transfer closures where consumed; distinct phase appearance/disappearance; exchanger wall-only storage versus fluid inventory, wall heat capacity/resistance/fouling and independent initial conditions |
+| Distributed inventory | Indexed cells/mesh, physical volume/length/area and flow units; initial profile, inlet/outlet/side boundaries, direction/upwind/collocation compatibility; temporal accumulation of the actual field and conservative source/flux accounting |
+| Reactive/transfer consumers | Fixed-bed gas transport plus stationary solid inventory, methane/iron reduction, reaction-free/reactive balance and pressure drop; required PFR/pipe, exchanger and contacting cases with their actual chemistry, heat and spatial closures |
+| Cyclic/batch behavior | TSA heating/desorption, closed cooling, repressurization and adsorption/collection; carried material/energy and stage boundary/transfer meaning; initial/final inventory, collection windows and periodic closure; distinct adsorbent laws remain 66i obligations |
+| Program and numerical products | Scheduled switches, state-triggered events, resets and periodic boundary conditions distinguished; physical intervals/holds and requested output grid; supported sensitivities, errors and regularity scoped to the actual route and trajectory |
+
+The immutable source basis is the E/F configured census and case specifications at
+`git:66341514d:docs/plans/64h-required-process-population.md`, transferred into 66l.
+Its concrete lumped enzyme-CSTR inputs originate in reference test helpers: helper
+availability does not confer ordinary scientific provenance. The iron-oxide fixed-bed
+and the zeolite TSA source are separate downstream consumers, not interchangeable
+generic dynamic examples. Missing chemistry, isotherms or thermal inputs remain visible.
+
+## Representation, numerical route and reuse
+
+Preserve indexed physical quantities through temporal specialization rather than
+flattening mesh and species to an anonymous vector at the public boundary. Native
+solver vectors can be compact while their original coordinate map remains owned by
+[66a](66a-scientific-operations-and-product-semantics.md). Actual mesh/phase membership
+changes invalidate structure; compatible coefficients or boundary values can reuse
+immutable preparation where its validity conditions still hold. Mutable integrator,
+factor and provider scratch remains attempt-owned under
+[66c](66c-preparation-execution-and-service-lifecycles.md).
+
+[66d](66d-mathematical-representation-and-numerical-execution.md) owns whether a selected
+case uses existing integrated/simultaneous native routes or needs a bounded residual-DAE
+extension. Inspect actual index, algebraic constraints, initialization and demanded
+products first. Existing Diffsol/IDAS availability does not imply arbitrary hybrid or
+high-index support. Event-sensitive derivatives need their real contract; a smooth
+trajectory or provider observation cannot synthesize saltation/stability evidence.
+
+Use Symbolica 3.0.1 shared multi-output evaluation and selective coefficient precision
+remapping where demanded, preserving branch/domain assumptions. faer 0.24.4 sparse
+symbolic reuse already supports native linear work; `LinOp`/`BiLinOp` with `lsmr` are
+conditional large-response candidates, not a replacement for integrator state or an
+automatic conditioning certificate. ndarray 0.16.1 views/Zip and faer borrowed matrices
+can evaluate cell/field batches without Arrow round trips. Retain ragged phase/material
+membership and charge actual factors, high-precision coefficients and scratch to their
+native lifetime. Exact maintained source links and limits are in
+[S02–S04](../plan_improvement_reviews/plan64-65-scientific-extensibility-analysis-2026-11-06.md).
+
+## Packages
+
+| ID | Status | Prerequisites | Completion |
+|---|---|---|---|
+| H01 | planned | 66l selected case/input roles; existing stock/temporal source | Each required physical cohort has a concrete existing/missing allocation, law, time/boundary, route or qualification disposition and independent expected products |
+| H02 | planned | Selected H01 lumped inputs; relevant 66g property/reaction slice | Missing lumped/multiphase/wall allocation and initialization delivered; existing projection/formulation source receives missing native trajectory and closure evidence |
+| H03 | planned | H01 distributed case; selected native stock/spatial/temporal owners and 66d route | Actual distributed temporal accumulation, boundaries, mappings and coupled consumer delivered, removing only the corresponding dynamics refusal |
+| H04 | planned | Working H02/H03 storage law; selected ordinary operating program and 66i constitutive inputs | Physical stage carryover/transfers and supported scheduled/event/periodic behavior operate through existing time owners with attributable unsupported products |
+| H05 | planned | Changed H02–H04 route and demanded 66a/66d product contract | Selected trajectory/response/error/regularity products are independently checked and scoped; unsupported derivative or hybrid claims remain withheld |
+| H06 | planned | Selected physical producers plus 66b/66e/66f receiving paths | Original fixture/program, native execution, retained/read/exported trajectories and family consumers migrate coherently; matching old adapters/fixtures are deleted and 66l acceptance is supplied |
+
+H01 is case-local readiness, not an all-family gate. A narrow H03 first increment is
+constant-density aqueous component transport with explicit cell volumes, flow/boundary
+composition and isothermal energy treatment. Compare its analytic Erlang response as
+an exact finite-volume/cell-cascade discretization reference. Independently accumulate
+global input/output/storage balance. This does not qualify a continuum pipe, reactive
+fixed bed or non-isothermal family. H03 then exposes the actual additional inventory,
+energy, constitutive and solver needs of the iron-oxide consumer; H04 can separately
+use a ready lumped cycle without waiting for all distributed families.
+
+For each increment retain immutable original initial/profile/schedule specifications
+separately from mutable preparation overlays and actual applied inputs. The existing
+original-fixture observation source needs receiving adapter/readback evidence where
+changed; do not reimplement it. Program observation does not confer execution or
+derived-product permission. A Study sequence supplies orchestration, while the physical
+state transfer and time advance remain explicit native operations.
+
+## Consumer cutover and planned acceptance
+
+Each physical case must reach typed admission/execution, complete original-coordinate
+trajectory inspection, independent export and the real specialized-family or control
+consumer. [66b](66b-contracts-generation-and-interpretation.md) projects existing native
+meaning; [66e](66e-protected-data-and-result-delivery.md) retains selected original results;
+[66f](66f-developer-operations-clients-and-evidence.md) supplies client/failure journeys.
+Remove a dynamics guard only for its now-supported configuration. Delete replaced
+flattened interpretation, duplicated allocation and obsolete fixture routes after
+selected callers move; retain scientific negative controls at the surviving owner.
+
+**Planned verification:** native force-validating controls cover nonzero initial clock,
+initial algebraic consistency, reordered species/mesh identity, zero/reverse flow,
+wrong units/datum, local and independently summed global conservation, reaction-free
+and reactive limits, phase changes and unsupported energy/events. Use spatial and
+temporal refinement independently, and interval/hold/event counterexamples. Compare
+integrated/simultaneous outcomes only within matched formulations. Failed trajectory
+members and unsupported response products remain readable with truthful partiality.
+
+Exercise cancellation/observer departure and actual native drain through the selected
+66c/66f owner without adding another execution framework. At scope end 66l owns assembled
+native/reference trajectories and physical carryover evidence, including finite locations
+and output times. Performance/accuracy expansion follows representative consumer
+measurements; no numerical or benefit claim is made by this plan-authoring change.
