@@ -210,6 +210,20 @@ behavior; C owns admission and settlement; B supplies reusable generation once.
 
 ### B04 — Preserve producer selection and encoding capabilities
 
+The first concrete transport consumer is engineering RPC's `AccountedResponse`: its current
+generic encoding allocates the whole response before checking `maximum_bytes`. For its owned
+Buffa messages, use `Message::try_encode_bounded_with_cache` (or the selected pool equivalent)
+so the binary size pass refuses before writing the body. For the existing ProtoJSON path,
+feed Serde's serializer through the existing `pse_ids::sink::BoundedSink`, retaining its typed
+`SinkFailure` cause instead of classifying rendered errors. Keep response/allocation ownership
+through the returned bytes. This bounds logical encoded output, not native adoption, allocator
+capacity or RSS. The selected bodies hold owned `Vec`/`String` fields; Connectrpc0.9.1's
+`Encodable` deliberately uses contiguous output for these, so adding a rope would retain no
+shared payload. Preserve contiguous output here; select segmented wrappers only for an actual
+backed-view/`Bytes` producer. Sources: [maintained bounded encode](../../vendor/buffa/src/message.rs),
+[existing bounded sink](../../crates/pse-ids/src/sink.rs), and
+[Connectrpc0.9.1 response contract](https://docs.rs/connectrpc/0.9.1/src/connectrpc/response.rs.html).
+
 Choose expensive real inspection/result/progress responses using source and consumer evidence.
 Preflight selected extents before nested copies, validate once at the correct owner, and enforce
 encoded output before writing. Modify wrappers and transport together when adopting segmented

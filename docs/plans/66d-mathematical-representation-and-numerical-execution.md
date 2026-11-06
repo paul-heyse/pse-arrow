@@ -1,6 +1,6 @@
 ---
 title: "Plan66d: Mathematical representation and numerical execution"
-status: planned
+status: in-progress
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/66-integrated-simulation-target.md
@@ -86,12 +86,36 @@ or a specifically approved revised contract replaces them. The already implement
 compiled f64 Value/First live-child handoff is distinct and cannot close canonical reconstruction.
 This is an operation admission contract, not a new host-wide memory cap.
 
+## First demanded mathematical correction — November6
+
+H03's single aqueous cell reached a 610-coordinate simultaneous formulation and passed its
+2310 derivative comparisons, then refused affine preparation before solving. This is not a
+physical acceptance result. `pse-compiler`'s `ExecutableCase::class_allocation_bound` currently
+reuses the full value-rebind/factorable bound. In `pse-math::factorable`, that bound includes
+dense quadratic curvature storage proportional to `(columns + 1)^2 * (nodes + 1)`.
+`ExecutableCase::prepare_affine_rows` instead calls the existing selected-row
+`CasePlan::affine_row_facts`: it borrows original contribution indexes, resolves only actual
+formal candidates and uses Symbolica first partials to establish original affine rows. It
+does not build that dense quadratic memo. Do not interpret the rebind estimate as measured
+affine memory demand or widen the worker solely to clear it.
+
+D01/D02 own an operation-specific construction-demand investigation and correction, preserving
+actual symbolic/coefficient growth, foreign allocation, cancellation and retained-product
+responsibilities. Keep full coefficient-class/rebind demands separate. Compare the actual
+native producer with its existing allocation contract before selecting a tighter known bound
+or any qualified alternative; a post-construction charge does not prove a preallocation bound.
+Sources: [compiler class/affine owners](../../crates/pse-compiler/src/workspace.rs),
+[current rebind bound](../../crates/pse-math/src/factorable.rs), and
+[selected-row Symbolica proof](../../crates/pse-math/src/class_evidence.rs).
+H independently assesses the physical temporal layout and the retained compiler frontier;
+its simultaneous refinement cases remain required even if the separate integrated route passes.
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| D01 | planned | Actual remaining G/H/I/J blocks; current source-owned evaluator/accuracy contracts | Select representations and precision by demanded products; decide selective elimination/coefficient mapping versus retained block with original-coordinate recovery and guarded validity. |
-| D02 | planned | D01 selected transforms; A semantic dependencies and C preparation | Integrate chosen evaluator/batch/layout changes through preparation, native demand, product/error reporting and transfer where consumed; resolve canonical reconstruction's pre-allocation growth contract before C04 activation; delete replaced staging and duplicate evaluators. |
+| D01 | in-progress | Actual remaining G/H/I/J blocks; current source-owned evaluator/accuracy contracts | H03 exposed a full quadratic/rebind construction estimate used for selected affine-row proof. Resolve that actual representation/demand mismatch, then select further representations and precision by demanded products with original-coordinate recovery and guarded validity. |
+| D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Investigate the selected affine producer's exact construction contract before changing its receiving allowance. Integrate chosen evaluator/batch/layout changes through preparation, native demand, product/error reporting and transfer; canonical reconstruction's separate preallocation gate and other consumer migrations remain open. |
 | D03 | planned | A selected large-response consumer; current direct factor/SVD route | Decide factors versus faer actions using correctness, convergence/preconditioner, scratch and whole-operation evidence. Deliver the action route only if justified; otherwise retain factors with the comparison and revisit trigger. |
 | D04 | planned | Changed maintained arithmetic/provider consumers | Complete receiving controls for actual SCIP/Diffsol/KINSOL/NLP/native-root closures affected by changes; add missing invocation-bound regime/selection observation under ADR-0251's selected contract. Source/preparation logs cannot stand in for winning observations. |
 | D05 | planned | D02–D04 selected deliveries; family consumers | Retire replaced numeric paths after targeted controls and caller migration; supply complete-operation comparisons and enduring mathematical contracts to L. |
@@ -110,5 +134,6 @@ physical/reference expectations. Structural equivalence and a library convergenc
 prove physical validity. Run targeted controls as implementation lands, and receiving native/
 scientific campaigns through L at functional scope end. Performance benefits remain unmeasured.
 
-**Outcome:** planned; existing passing controls retain their original conditions, not new
-whole-plan qualification. No product change or new numerical measurement occurred in authoring.
+**Outcome:** investigation is active at H03's demanded affine preparation. No new mathematical
+implementation or physical acceptance is claimed by this checkpoint; existing passing controls
+retain their original conditions, not whole-plan qualification.
