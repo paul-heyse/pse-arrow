@@ -1,5 +1,12 @@
 # Plan improvement reviews
 
+The [combined Plan64/65 target and library-leverage review](plan64-65-integrated-target-and-library-leverage-2026-11-06.md)
+assesses the remaining scientific, contract, runtime, data and developer-workflow scope at
+`604516811`. Eleven proposed amendments recommend an integrated outcome-oriented plan series.
+Three supporting analyses characterize concrete library mechanisms, alternatives, migration
+consequences and assurance limits. The review preserves paused worktrees and leaves plan
+scope, status and implementation unchanged.
+
 The [Plan65 Proto capabilities and codebase-integration review](plan65-proto-capabilities-and-codebase-integration-2026-11-05.md)
 assesses the implemented foundations and remaining 65a–65j footprint at `282da134f`.
 Twelve proposed amendments address scientific coordinates/products, worker handoff and
