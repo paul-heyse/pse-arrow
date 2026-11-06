@@ -12,7 +12,7 @@
 //! absolute-value identity.
 //!
 //! Every row and the objective carry a [`Fidelity`]. `Require` and `Domain` stages are
-//! obligations, never dependencies of a value: they become closed constraints, and a
+//! obligations, never dependencies of a value: they become predicate conjunctions, and a
 //! validity predicate is decomposed into its closed conjunction where its structure allows.
 //! Implicit blocks export residual equations with compiler-owned selection evidence. A
 //! selected function is exact only when the represented graph is library-established;
@@ -351,6 +351,24 @@ pub struct Constraint {
     pub strict: bool,
 }
 
+/// One conjunct of a projected domain predicate.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Predicate {
+    /// A possibly strict range over an expression.
+    Range(Constraint),
+    /// The original expression must differ from zero.
+    Nonzero(NodeId),
+}
+impl Predicate {
+    /// Expression tested by this predicate.
+    pub const fn expression(&self) -> NodeId {
+        match self {
+            Self::Range(constraint) => constraint.expression,
+            Self::Nonzero(expression) => *expression,
+        }
+    }
+}
+
 /// A free case column and its declared box.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProjectedVariable {
@@ -414,23 +432,23 @@ pub enum ObligationScope {
     Conditional,
 }
 
-/// One retained obligation and its closed constraints.
+/// One retained authored obligation and its executable predicate conjunction.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProjectedObligation {
     /// Bound instance.
     pub instance: SemanticId,
     /// Authored occurrence.
     pub source: SemanticId,
-    /// Obligation kind.
+    /// Authored obligation kind, retained as provenance.
     pub kind: ObligationKind,
     /// Scope of enforcement.
     pub scope: ObligationScope,
-    /// Checked value of a `Require`.
+    /// Checked value of a `Require`, retained as provenance.
     pub argument: Option<NodeId>,
-    /// Closed constraints; their conjunction is the obligation's closure when `represented`.
-    pub constraints: Vec<Constraint>,
-    /// Every part of the obligation is represented up to closure. A nonzero requirement's
-    /// closure has no constraint; `argument` and `kind` keep its exact condition.
+    /// Complete executable predicate conjunction when `represented`; kind and argument
+    /// do not add further executable conditions.
+    pub predicates: Vec<Predicate>,
+    /// Every part of the obligation is represented.
     pub represented: bool,
     /// `Exact` when represented through exact nodes, otherwise `Relaxed`.
     pub fidelity: Fidelity,
@@ -676,9 +694,8 @@ pub struct FidelityCounts {
 
 /// Exact original-coordinate program for a validated root-isolation adapter.
 ///
-/// This is a projection, not a root proof. Strict bounds remain strict; nonzero
-/// requirements retain their argument and kind even though their closure is empty.
-/// Consumers must enforce obligations as well as eligibility constraints.
+/// This is a projection, not a root proof. Strict bounds and nonzero exclusions retain
+/// their original meanings. Consumers enforce obligations as well as eligibility.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RootIsolationProgram {
     /// All original formals, without coordinate selection or renumbering.
@@ -688,7 +705,7 @@ pub struct RootIsolationProgram {
     /// All residual outputs, in the original body output order.
     pub residuals: Vec<NodeId>,
     /// Exact conjunctive predicate, with each open bound marked by `strict`.
-    pub eligibility: Vec<Constraint>,
+    pub eligibility: Vec<Predicate>,
     /// Exact score and absolute tolerance, in the authored criterion output order.
     pub criterion: [NodeId; 2],
     /// Unconditional value-domain obligations of all three demanded bodies.
@@ -982,7 +999,7 @@ impl RootIsolationProgram {
     /// Exact source identity, including guards and derivative obligations.
     pub fn identity(&self) -> ContentHash {
         let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
-        h.str("exact-root-isolation-program")
+        h.str("exact-root-isolation-program-v2")
             .u64(self.inputs as u64)
             .u64(self.nodes.len() as u64);
         for node in &self.nodes {
@@ -1031,16 +1048,24 @@ impl RootIsolationProgram {
         for i in self.criterion {
             h.u64(i as u64);
         }
-        fn constraints(v: &[Constraint], h: &mut FramedHasher) {
+        fn predicates(v: &[Predicate], h: &mut FramedHasher) {
             h.u64(v.len() as u64);
-            for c in v {
-                h.u64(c.expression as u64)
-                    .f64(c.lower)
-                    .f64(c.upper)
-                    .bool(c.strict);
+            for predicate in v {
+                match predicate {
+                    Predicate::Range(c) => {
+                        h.str("range")
+                            .u64(c.expression as u64)
+                            .f64(c.lower)
+                            .f64(c.upper)
+                            .bool(c.strict);
+                    }
+                    Predicate::Nonzero(expression) => {
+                        h.str("nonzero").u64(*expression as u64);
+                    }
+                }
             }
         }
-        constraints(&self.eligibility, &mut h);
+        predicates(&self.eligibility, &mut h);
         fn obligation(o: &ProjectedObligation, h: &mut FramedHasher) {
             h.id(&o.instance)
                 .id(&o.source)
@@ -1056,7 +1081,7 @@ impl RootIsolationProgram {
                 h.u64(a as u64);
             }
             h.bool(o.represented).u64(o.fidelity as u64);
-            constraints(&o.constraints, h);
+            predicates(&o.predicates, h);
         }
         h.u64(self.obligations.len() as u64);
         for o in &self.obligations {
@@ -1074,7 +1099,7 @@ impl RootIsolationProgram {
         size_of::<Self>()
             + self.nodes.capacity() * size_of::<Node>()
             + self.residuals.capacity() * size_of::<NodeId>()
-            + self.eligibility.capacity() * size_of::<Constraint>()
+            + self.eligibility.capacity() * size_of::<Predicate>()
             + self.obligations.capacity() * size_of::<ProjectedObligation>()
             + self.derivative_obligations.capacity()
                 * size_of::<(DerivativeOrder, ProjectedObligation)>()
@@ -1100,7 +1125,7 @@ impl RootIsolationProgram {
                         .iter()
                         .map(|(_, obligation)| obligation),
                 )
-                .map(|obligation| obligation.constraints.capacity() * size_of::<Constraint>())
+                .map(|obligation| obligation.predicates.capacity() * size_of::<Predicate>())
                 .sum::<usize>()
     }
 }
@@ -1266,7 +1291,7 @@ pub fn root_isolation_program_for_outputs(
         Truth::When(constraints, true) => constraints,
         Truth::Never => {
             let one = builder.constant(Constant::integer(1))?;
-            vec![at_most(one, 0.0, false)]
+            vec![Predicate::Range(at_most(one, 0.0, false))]
         }
         Truth::When(_, false) => return Ok(None),
     };
@@ -1464,7 +1489,7 @@ impl FactorableProgram {
             + self
                 .obligations
                 .iter()
-                .map(|o| size_of_val(o) + o.constraints.capacity() * size_of::<Constraint>())
+                .map(|o| size_of_val(o) + o.predicates.capacity() * size_of::<Predicate>())
                 .sum::<usize>()
             + self
                 .implicit
@@ -1571,7 +1596,7 @@ impl PreparedBody {
             )?,
             mul(
                 requirements,
-                4 * size_of::<ProjectedObligation>() + 4 * size_of::<Constraint>(),
+                4 * size_of::<ProjectedObligation>() + 4 * size_of::<Predicate>(),
             )?,
         )?;
         Ok(Some(add(
@@ -1718,7 +1743,7 @@ impl CasePlan {
         )?;
         let guards = mul(
             requirements,
-            4 * size_of::<ProjectedObligation>() + 4 * size_of::<Constraint>(),
+            4 * size_of::<ProjectedObligation>() + 4 * size_of::<Predicate>(),
         )?;
         Ok(Some(add(
             add(add(add(add(graph, tapes)?, curvature)?, metadata)?, guards)?,
@@ -2508,9 +2533,9 @@ fn classify(p: &mut FactorableProgram) {
 }
 fn classify_obligation(obligation: &mut ProjectedObligation, fidelity: &[Fidelity]) {
     let worst = obligation
-        .constraints
+        .predicates
         .iter()
-        .map(|c| c.expression)
+        .map(Predicate::expression)
         .chain(obligation.argument)
         .map(|node| fidelity.get(node).copied().unwrap_or(Fidelity::Unavailable))
         .max()
@@ -2659,8 +2684,8 @@ impl Test {
 #[derive(Debug)]
 enum Truth {
     Never,
-    /// Conjunction of closed constraints; `exact` when nothing was dropped.
-    When(Vec<Constraint>, bool),
+    /// Predicate conjunction; `exact` when nothing was dropped.
+    When(Vec<Predicate>, bool),
 }
 impl Truth {
     const ALWAYS: Self = Self::When(Vec::new(), true);
@@ -2738,8 +2763,8 @@ impl<'a> Builder<'a> {
     }
     /// A branch-local guard is unconditional only when the same complete guard is
     /// already enforced at every evaluation, at no later derivative order. Preserve
-    /// each authored occurrence; equal closed bounds alone do not cover a different
-    /// Require kind or argument (notably the constraint-free nonzero condition).
+    /// each authored occurrence; coverage requires equality of the complete predicates
+    /// and their authored Require kind and argument provenance.
     fn establish_unconditional_obligations(&mut self) -> Result<(), FactorableError> {
         let covers = |guard: &ProjectedObligation, other: &ProjectedObligation| {
             guard.represented
@@ -2748,7 +2773,7 @@ impl<'a> Builder<'a> {
                 && guard.instance == other.instance
                 && guard.kind == other.kind
                 && guard.argument == other.argument
-                && guard.constraints == other.constraints
+                && guard.predicates == other.predicates
         };
         for index in 0..self.obligations.len() {
             self.check()?;
@@ -2898,8 +2923,9 @@ impl<'a> Builder<'a> {
                 guard.instance == cx.instance
                     && guard.represented
                     && guard.scope == ObligationScope::Unconditional
-                    && guard.kind == ObligationKind::Require(Condition::Positive)
-                    && guard.argument == Some(base)
+                    && guard
+                        .predicates
+                        .contains(&Predicate::Range(at_least(base, 0.0, true)))
             });
             if positive {
                 let log = self.push(Node::Log(base))?;
@@ -2931,9 +2957,6 @@ impl<'a> Builder<'a> {
         self.push(Node::Pow { base, exponent })
     }
     fn value_is_zero(&self, value: &Value) -> bool {
-        if !self.exact_real {
-            return self.value_constant(value) == Some(0.0);
-        }
         match value {
             Value::Node(node) => match self.constant_of(*node) {
                 Some(Constant::Rational(r)) => r.is_zero(),
@@ -3146,35 +3169,15 @@ impl<'a> Builder<'a> {
                         let value = env.read(*argument)?;
                         let node =
                             self.materialize(&value, MaterializationPurpose::RequiredCondition)?;
-                        let truth = match (self.constant_of(node), condition) {
-                            (Some(Constant::Rational(r)), condition) if self.exact_real => {
-                                let permitted = match condition {
-                                    Condition::Positive => r > 0,
-                                    Condition::Nonnegative => r >= 0,
-                                    Condition::Nonzero => !r.is_zero(),
-                                };
-                                if permitted {
-                                    Truth::ALWAYS
-                                } else {
-                                    Truth::Never
-                                }
+                        let truth = match condition {
+                            Condition::Positive => {
+                                Truth::When(vec![Predicate::Range(at_least(node, 0.0, true))], true)
                             }
-                            (Some(c), _) if !c.value().is_finite() => Truth::Never,
-                            (Some(c), condition) => {
-                                if condition.permits(c.value()) {
-                                    Truth::ALWAYS
-                                } else {
-                                    Truth::Never
-                                }
-                            }
-                            (None, Condition::Positive) => {
-                                Truth::When(vec![at_least(node, 0.0, true)], true)
-                            }
-                            (None, Condition::Nonnegative) => {
-                                Truth::When(vec![at_least(node, 0.0, false)], true)
-                            }
-                            // The closure of a nonzero requirement admits every point.
-                            (None, Condition::Nonzero) => Truth::ALWAYS,
+                            Condition::Nonnegative => Truth::When(
+                                vec![Predicate::Range(at_least(node, 0.0, false))],
+                                true,
+                            ),
+                            Condition::Nonzero => Truth::When(vec![Predicate::Nonzero(node)], true),
                         };
                         self.obligation(
                             cx,
@@ -3306,16 +3309,16 @@ impl<'a> Builder<'a> {
         argument: Option<NodeId>,
         truth: Truth,
     ) -> Result<(), FactorableError> {
-        let (constraints, represented) = match truth {
+        let (predicates, represented) = match truth {
             Truth::Never => {
                 let one = self.constant(Constant::integer(1))?;
                 (
-                    vec![Constraint {
+                    vec![Predicate::Range(Constraint {
                         expression: one,
                         lower: f64::NEG_INFINITY,
                         upper: 0.0,
                         strict: false,
-                    }],
+                    })],
                     true,
                 )
             }
@@ -3331,7 +3334,7 @@ impl<'a> Builder<'a> {
                 ObligationScope::Unconditional
             },
             argument,
-            constraints,
+            predicates,
             represented,
             fidelity: Fidelity::Relaxed,
         });
@@ -3533,8 +3536,7 @@ impl<'a> Builder<'a> {
         let l = env.read(left)?;
         let r = env.read(right)?;
         // Both regions were physically admitted; a constant guard selects one statically.
-        if self.exact_real
-            && let (Value::Node(a), Value::Node(b)) = (&l, &r)
+        if let (Value::Node(a), Value::Node(b)) = (&l, &r)
             && let (Some(Constant::Rational(a)), Some(Constant::Rational(b))) =
                 (self.constant_of(*a), self.constant_of(*b))
         {
@@ -3976,7 +3978,7 @@ impl<'a> Builder<'a> {
                 "predicate reads a value before its producer".into(),
             )),
             Value::Node(n) => Ok(match self.constant_of(*n) {
-                Some(Constant::Rational(r)) if self.exact_real => {
+                Some(Constant::Rational(r)) => {
                     let accepted = match test {
                         Test::Positive => r > 0,
                         Test::Zero => r.is_zero(),
@@ -3990,7 +3992,7 @@ impl<'a> Builder<'a> {
                 Some(c) if test.accepts(c.value()) => Truth::ALWAYS,
                 Some(_) => Truth::Never,
                 None => Truth::When(
-                    vec![match test {
+                    vec![Predicate::Range(match test {
                         Test::Positive => at_least(*n, 0.0, true),
                         Test::Zero => Constraint {
                             expression: *n,
@@ -3998,7 +4000,7 @@ impl<'a> Builder<'a> {
                             upper: 0.0,
                             strict: false,
                         },
-                    }],
+                    })],
                     true,
                 ),
             }),
@@ -4020,15 +4022,7 @@ impl<'a> Builder<'a> {
             Value::Terms(terms) => {
                 // A sum of terms whose outcomes are all nonnegative is zero only when every
                 // term is zero.
-                if test == Test::Zero
-                    && terms.iter().all(|t| {
-                        if self.exact_real {
-                            self.nonnegative_outcomes(t)
-                        } else {
-                            self.range(t).is_some_and(|(lower, _)| lower >= 0.0)
-                        }
-                    })
-                {
+                if test == Test::Zero && terms.iter().all(|t| self.nonnegative_outcomes(t)) {
                     let mut truth = Truth::ALWAYS;
                     for term in terms.iter() {
                         truth = truth.and(self.holds(term, Test::Zero)?);
@@ -4066,18 +4060,34 @@ impl<'a> Builder<'a> {
                 return self.holds(&s.right, Test::Zero);
             }
         }
-        // For a value with proved nonnegative outcomes, nonzero is exactly
+        // For a selector with proved nonnegative outcomes, nonzero is exactly
         // positive. Retain that predicate before materializing a Boolean branch
-        // as an opaque auxiliary; signed or unknown outcomes keep the generic path.
+        // as an opaque auxiliary. A signed operand compared with exact zero is
+        // itself the exclusion argument; avoid an unnecessary rounded x - 0 DAG.
         if matches!(
             (s.comparison, negate),
             (Comparison::Ne, false) | (Comparison::Eq, true)
         ) {
-            if self.value_is_zero(&s.right) && self.nonnegative_outcomes(&s.left) {
-                return self.holds(&s.left, Test::Positive);
+            if self.value_is_zero(&s.right) {
+                return if matches!(&s.left, Value::Select(_)) && self.nonnegative_outcomes(&s.left)
+                {
+                    self.holds(&s.left, Test::Positive)
+                } else {
+                    let node =
+                        self.materialize(&s.left, MaterializationPurpose::PredicateComparison)?;
+                    Ok(Truth::When(vec![Predicate::Nonzero(node)], true))
+                };
             }
-            if self.value_is_zero(&s.left) && self.nonnegative_outcomes(&s.right) {
-                return self.holds(&s.right, Test::Positive);
+            if self.value_is_zero(&s.left) {
+                return if matches!(&s.right, Value::Select(_))
+                    && self.nonnegative_outcomes(&s.right)
+                {
+                    self.holds(&s.right, Test::Positive)
+                } else {
+                    let node =
+                        self.materialize(&s.right, MaterializationPurpose::PredicateComparison)?;
+                    Ok(Truth::When(vec![Predicate::Nonzero(node)], true))
+                };
             }
         }
         // These guards state positivity itself, including signed branch outcomes.
@@ -4099,25 +4109,37 @@ impl<'a> Builder<'a> {
             (Comparison::Eq, false) | (Comparison::Ne, true) => {
                 let gap = self.difference(l, r)?;
                 return Ok(Truth::When(
-                    vec![Constraint {
+                    vec![Predicate::Range(Constraint {
                         expression: gap,
                         lower: 0.0,
                         upper: 0.0,
                         strict: false,
-                    }],
+                    })],
                     true,
                 ));
             }
-            // An inequation is open; its closure admits every point.
-            (Comparison::Eq, true) | (Comparison::Ne, false) => return Ok(Truth::UNKNOWN),
+            (Comparison::Eq, true) | (Comparison::Ne, false) => {
+                let gap = self.difference(l, r)?;
+                return Ok(Truth::When(vec![Predicate::Nonzero(gap)], true));
+            }
         };
         if self.exact_real {
             // A rational or stored binary bound must not be rounded into the
             // binary64 Constraint envelope. Keep both operands in the DAG.
             let gap = self.difference(small, large)?;
-            return Ok(Truth::When(vec![at_most(gap, 0.0, strict)], true));
+            return Ok(Truth::When(
+                vec![Predicate::Range(at_most(gap, 0.0, strict))],
+                true,
+            ));
         }
         let constraint = match (self.constant_of(small), self.constant_of(large)) {
+            (Some(Constant::Rational(a)), Some(Constant::Rational(b))) => {
+                return Ok(if a < b || (!strict && a == b) {
+                    Truth::ALWAYS
+                } else {
+                    Truth::Never
+                });
+            }
             (Some(a), Some(b)) => {
                 let (a, b) = (a.value(), b.value());
                 return Ok(if a < b || (!strict && a == b) {
@@ -4133,7 +4155,7 @@ impl<'a> Builder<'a> {
                 at_most(gap, 0.0, strict)
             }
         };
-        Ok(Truth::When(vec![constraint], true))
+        Ok(Truth::When(vec![Predicate::Range(constraint)], true))
     }
 }
 fn at_least(expression: NodeId, lower: f64, strict: bool) -> Constraint {
@@ -4181,6 +4203,298 @@ fn constant(view: CoefficientView<'_>) -> Option<Constant> {
 #[cfg(test)]
 mod exact_constant_tests {
     use super::*;
+    #[test]
+    fn require_conditions_have_one_canonical_predicate_even_for_true_constants() {
+        crate::initialize().unwrap();
+        let request = FactorableRequest::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        for exact_real in [false, true] {
+            let mut builder = Builder::new(&request, &cancel, 256, 2).unwrap();
+            builder.exact_real = exact_real;
+            let variable = builder.push(Node::Var(0)).unwrap();
+            let one = builder.constant(Constant::integer(1)).unwrap();
+            let mut env = Env::new(2);
+            env.assign(0, Value::Node(variable), None).unwrap();
+            env.assign(1, Value::Node(one), None).unwrap();
+            for (argument, node) in [(0, variable), (1, one)] {
+                for condition in [
+                    Condition::Positive,
+                    Condition::Nonnegative,
+                    Condition::Nonzero,
+                ] {
+                    let source = SemanticId::from_bytes([17; 16]);
+                    builder
+                        .stages(
+                            &[Stage::Require {
+                                argument,
+                                condition,
+                                order: DerivativeOrder::Value,
+                                source,
+                                lineage: None,
+                            }],
+                            &mut env,
+                            Context {
+                                instance: source,
+                                local: false,
+                                record: true,
+                                depth: 0,
+                            },
+                        )
+                        .unwrap();
+                    let guard = builder.obligations.last().unwrap();
+                    let expected = match condition {
+                        Condition::Positive => Predicate::Range(at_least(node, 0., true)),
+                        Condition::Nonnegative => Predicate::Range(at_least(node, 0., false)),
+                        Condition::Nonzero => Predicate::Nonzero(node),
+                    };
+                    assert_eq!(guard.predicates, vec![expected]);
+                    assert_eq!(guard.argument, Some(node));
+                    assert_eq!(guard.source, source);
+                    assert!(guard.represented);
+                }
+            }
+            assert_eq!(
+                builder.obligations.len(),
+                6,
+                "authored occurrences must not deduplicate"
+            );
+        }
+    }
+
+    #[test]
+    fn nonzero_fidelity_includes_expression_and_argument_provenance() {
+        let mut guard = ProjectedObligation {
+            instance: SemanticId::NIL,
+            source: SemanticId::NIL,
+            kind: ObligationKind::Domain,
+            scope: ObligationScope::Unconditional,
+            argument: None,
+            predicates: vec![Predicate::Nonzero(0)],
+            represented: true,
+            fidelity: Fidelity::Exact,
+        };
+        classify_obligation(&mut guard, &[Fidelity::Relaxed]);
+        assert_eq!(guard.fidelity, Fidelity::Relaxed);
+        guard.argument = Some(1);
+        classify_obligation(&mut guard, &[Fidelity::Exact, Fidelity::Unavailable]);
+        assert_eq!(guard.fidelity, Fidelity::Unavailable);
+        guard.argument = None;
+        guard.predicates = vec![Predicate::Nonzero(1)];
+        classify_obligation(&mut guard, &[Fidelity::Exact]);
+        assert_eq!(guard.fidelity, Fidelity::Unavailable);
+    }
+
+    #[test]
+    fn nonzero_comparisons_keep_original_difference_without_square_or_margin() {
+        crate::initialize().unwrap();
+        let request = FactorableRequest::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        for exact_real in [false, true] {
+            for (comparison, negate) in [(Comparison::Ne, false), (Comparison::Eq, true)] {
+                for reversed in [false, true] {
+                    let mut builder = Builder::new(&request, &cancel, 256, 0).unwrap();
+                    builder.exact_real = exact_real;
+                    let x = Value::Node(builder.push(Node::Var(0)).unwrap());
+                    let y = Value::Node(builder.push(Node::Var(1)).unwrap());
+                    let zero = Value::Node(builder.constant(Constant::integer(0)).unwrap());
+                    let one = Value::Node(builder.constant(Constant::integer(1)).unwrap());
+                    let (left, right) = if reversed { (y, x) } else { (x, y) };
+                    let Value::Select(select) =
+                        nested_predicate_select(&mut builder, comparison, left, right, one, zero)
+                    else {
+                        unreachable!()
+                    };
+                    let truth = builder.comparison(&select, negate).unwrap();
+                    assert!(matches!(truth, Truth::When(ref predicates, true)
+                        if matches!(predicates.as_slice(), [Predicate::Nonzero(_)])));
+                    assert!(builder.auxiliaries.is_empty());
+                    assert!(
+                        !builder
+                            .nodes
+                            .iter()
+                            .any(|node| matches!(node, Node::Pow { .. }))
+                    );
+                    for (x, y) in [
+                        (0., 0.),
+                        (-0., 0.),
+                        (1., 1.),
+                        (1e-200, 0.),
+                        (-1e-200, 0.),
+                        (1e200, 0.),
+                        (-1e200, 0.),
+                        (2., 1.),
+                    ] {
+                        assert_eq!(
+                            nested_predicate_truth_at(&truth, &builder.nodes, &[x, y]),
+                            x != y
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn exact_nonzero_comparison_preserves_rationals_beyond_binary64_extent() {
+        crate::initialize().unwrap();
+        let request = FactorableRequest::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let huge = Rational::from(2).pow(1200);
+        for exact_real in [false, true] {
+            for difference in [Rational::one() / &huge, huge.clone()] {
+                for difference in [difference.clone(), -difference] {
+                    let mut builder = Builder::new(&request, &cancel, 256, 0).unwrap();
+                    builder.exact_real = exact_real;
+                    let left = Value::Node(
+                        builder
+                            .constant(Constant::Rational(difference.clone()))
+                            .unwrap(),
+                    );
+                    let zero = Value::Node(builder.constant(Constant::integer(0)).unwrap());
+                    let one = Value::Node(builder.constant(Constant::integer(1)).unwrap());
+                    let Value::Select(select) = nested_predicate_select(
+                        &mut builder,
+                        Comparison::Ne,
+                        left,
+                        zero.clone(),
+                        one,
+                        zero,
+                    ) else {
+                        unreachable!()
+                    };
+                    let Truth::When(predicates, true) = builder.comparison(&select, false).unwrap()
+                    else {
+                        panic!("exact nonzero predicate lost")
+                    };
+                    let [Predicate::Nonzero(node)] = predicates.as_slice() else {
+                        panic!("expected direct nonzero difference")
+                    };
+                    assert_eq!(
+                        builder.constant_of(*node),
+                        Some(Constant::Rational(difference))
+                    );
+                }
+            }
+        }
+    }
+    #[test]
+    fn variable_equality_to_tiny_rational_never_simplifies_to_zero_in_either_mode() {
+        crate::initialize().unwrap();
+        let request = FactorableRequest::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let tiny = Rational::one() / Rational::from(2).pow(1200);
+        for exact_real in [false, true] {
+            let mut builder = Builder::new(&request, &cancel, 256, 1).unwrap();
+            builder.exact_real = exact_real;
+            let variable = builder.push(Node::Var(0)).unwrap();
+            let threshold = builder.constant(Constant::Rational(tiny.clone())).unwrap();
+            let zero = builder.constant(Constant::integer(0)).unwrap();
+            let one = builder.constant(Constant::integer(1)).unwrap();
+            assert!(!builder.value_is_zero(&Value::Node(threshold)));
+            assert!(builder.value_is_zero(&Value::Node(zero)));
+            for (comparison, test) in [
+                (Comparison::Eq, Test::Positive),
+                (Comparison::Ne, Test::Zero),
+            ] {
+                for reversed in [false, true] {
+                    let (left, right) = if reversed {
+                        (threshold, variable)
+                    } else {
+                        (variable, threshold)
+                    };
+                    let predicate = nested_predicate_select(
+                        &mut builder,
+                        comparison,
+                        Value::Node(left),
+                        Value::Node(right),
+                        Value::Node(one),
+                        Value::Node(zero),
+                    );
+                    let Truth::When(predicates, true) = builder.holds(&predicate, test).unwrap()
+                    else {
+                        panic!("exact equality conjunction required")
+                    };
+                    let [Predicate::Range(range)] = &predicates[..] else {
+                        panic!("equality requires its original difference")
+                    };
+                    assert_ne!(range.expression, variable);
+                    assert!(matches!(builder.nodes[range.expression], Node::Sum(_)));
+                    assert_eq!((range.lower, range.upper, range.strict), (0.0, 0.0, false));
+                }
+            }
+        }
+    }
+    #[test]
+    fn rational_predicate_constant_facts_do_not_round_in_either_arithmetic_mode() {
+        crate::initialize().unwrap();
+        let request = FactorableRequest::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let huge = Rational::from(2).pow(1200);
+        let tiny = Rational::one() / &huge;
+        for exact_real in [false, true] {
+            let mut builder = Builder::new(&request, &cancel, 256, 4).unwrap();
+            builder.exact_real = exact_real;
+            for (rational, positive) in [
+                (tiny.clone(), true),
+                (-tiny.clone(), false),
+                (huge.clone(), true),
+            ] {
+                let node = builder.constant(Constant::Rational(rational)).unwrap();
+                assert_eq!(
+                    builder
+                        .holds(&Value::Node(node), Test::Positive)
+                        .unwrap()
+                        .always(),
+                    positive
+                );
+                assert!(matches!(
+                    builder.holds(&Value::Node(node), Test::Zero).unwrap(),
+                    Truth::Never
+                ));
+            }
+            let mut env = Env::new(4);
+            let a = builder.constant(Constant::Rational(huge.clone())).unwrap();
+            let b = builder
+                .constant(Constant::Rational(&huge + &Rational::one()))
+                .unwrap();
+            env.assign(0, Value::Node(a), None).unwrap();
+            env.assign(1, Value::Node(b), None).unwrap();
+            let source = SemanticId::NIL;
+            builder
+                .stages(
+                    &[Stage::Branch {
+                        continuity: DerivativeOrder::Value,
+                        comparison: Comparison::Ne,
+                        left: 0,
+                        right: 1,
+                        then: vec![Stage::Block {
+                            expressions: vec![Atom::num(1)],
+                            outputs: vec![2],
+                            source,
+                        }],
+                        otherwise: vec![Stage::Block {
+                            expressions: vec![Atom::num(0)],
+                            outputs: vec![2],
+                            source,
+                        }],
+                    }],
+                    &mut env,
+                    Context {
+                        instance: source,
+                        local: false,
+                        record: true,
+                        depth: 0,
+                    },
+                )
+                .unwrap();
+            assert!(
+                builder
+                    .holds(&env.read(2).unwrap(), Test::Positive)
+                    .unwrap()
+                    .always()
+            );
+        }
+    }
     #[test]
     fn nested_predicate_boolean_one_guard_preserves_compiler_domain_and_truth() {
         crate::initialize().unwrap();
@@ -4261,7 +4575,7 @@ mod exact_constant_tests {
         let obligation = &builder.obligations[0];
         assert_eq!(obligation.source, source);
         assert!(obligation.represented);
-        let truth = Truth::When(obligation.constraints.clone(), obligation.represented);
+        let truth = Truth::When(obligation.predicates.clone(), obligation.represented);
         for x in [-1., 0., 1.] {
             for y in [-1., 0., 1.] {
                 assert_eq!(
@@ -4465,13 +4779,13 @@ mod exact_constant_tests {
             assert!(obligation.represented);
             assert_eq!(
                 obligation
-                    .constraints
+                    .predicates
                     .iter()
-                    .filter(|constraint| constraint.strict)
+                    .filter(|predicate| matches!(predicate, Predicate::Range(constraint) if constraint.strict))
                     .count(),
                 1
             );
-            let truth = Truth::When(obligation.constraints.clone(), obligation.represented);
+            let truth = Truth::When(obligation.predicates.clone(), obligation.represented);
             for x in [-1., 0., 1.] {
                 for y in [-1., 0., 1.] {
                     let signed = if x < 0. { -1. } else { y };
@@ -4630,8 +4944,11 @@ mod exact_constant_tests {
             Truth::Never => false,
             Truth::When(constraints, exact) => {
                 assert!(*exact, "fixture requires an exact represented predicate");
-                constraints.iter().all(|constraint| {
-                    let value = values[constraint.expression];
+                constraints.iter().all(|predicate| {
+                    let value = values[predicate.expression()];
+                    let Predicate::Range(constraint) = predicate else {
+                        return value != 0.0;
+                    };
                     (if constraint.strict && constraint.lower.is_finite() {
                         value > constraint.lower
                     } else {
@@ -4745,7 +5062,7 @@ mod exact_constant_tests {
                     }
                 }
                 assert!(
-                    matches!(and_true, Truth::When(ref constraints, true) if constraints.iter().any(|constraint| constraint.strict))
+                    matches!(and_true, Truth::When(ref constraints, true) if constraints.iter().any(|predicate| matches!(predicate, Predicate::Range(constraint) if constraint.strict)))
                 );
                 // The opposite disjunctive truth sets still have no conjunctive
                 // representation; the shortcut must not claim that they do.
@@ -4839,12 +5156,12 @@ mod exact_constant_tests {
                         then,
                         otherwise,
                     );
+                    let truth = builder.holds(&outer, Test::Positive).unwrap();
+                    assert!(matches!(truth, Truth::When(ref predicates, true)
+                        if matches!(predicates.as_slice(), [Predicate::Nonzero(_)])));
                     assert!(
-                        matches!(
-                            builder.holds(&outer, Test::Positive).unwrap(),
-                            Truth::When(_, false)
-                        ),
-                        "signed or unknown nonzero is not positive"
+                        !builder.auxiliaries.is_empty(),
+                        "signed branch exclusion retains its opaque branch dependency"
                     );
                 }
             }
@@ -4933,7 +5250,7 @@ mod exact_constant_tests {
             kind: ObligationKind::Require(Condition::Positive),
             scope: ObligationScope::Conditional,
             argument: Some(0),
-            constraints: vec![],
+            predicates: vec![Predicate::Range(at_least(0, 0., true))],
             represented: false,
             fidelity: Fidelity::Relaxed,
         };

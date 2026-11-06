@@ -7,8 +7,8 @@ use crate::{
     assembly::CasePlan,
     binding::CaseValues,
     factorable::{
-        Constraint, FactorableError, FactorableProgram, FactorableRequest, Node, NodeId,
-        ObligationKind, ObligationScope, ProjectedObligation,
+        FactorableError, FactorableProgram, FactorableRequest, Node, NodeId, ObligationKind,
+        ObligationScope, Predicate, ProjectedObligation,
     },
 };
 use pounce_nlp::expression_provider::{FbbtOp as Op, FbbtTape};
@@ -346,7 +346,8 @@ impl CasePlan {
         }
         let mut h = FramedHasher::new(pse_ids::Frame::MathBoundFactsV3);
         h.hash(&facts.structure)
-            .str("pounce-nlp-0.12.0;projection-v5;constant-enclosures;exact-exponents;value-domain;explicit-class-proof;aggregate-coefficients;curvature-v1");
+            .str("pounce-nlp-0.12.0;projection-v6;constant-enclosures;exact-exponents;predicate-domains-v1;explicit-class-proof;aggregate-coefficients")
+            .str(crate::curvature::PROOF_ALGORITHM);
         for (id, b) in &facts.values {
             h.str(&id.to_string()).u64(*b);
         }
@@ -364,29 +365,13 @@ fn admission(
     remaining: &mut usize,
     cancel: &AtomicBool,
 ) -> Result<ObligationStatus, MathError> {
-    use crate::guarded::Condition;
-    // A requirement is checked through its exact condition on the argument; a domain
-    // predicate through its closed conjunction with strictness, which must be complete.
-    let (mut status, checks): (_, Vec<(NodeId, Check)>) =
-        match (obligation.kind, obligation.argument) {
-            (ObligationKind::Require(condition), Some(argument)) => (
-                ObligationStatus::Discharged,
-                vec![(argument, Check::Condition(condition))],
-            ),
-            _ => (
-                if obligation.represented {
-                    ObligationStatus::Discharged
-                } else {
-                    ObligationStatus::Unestablished
-                },
-                obligation
-                    .constraints
-                    .iter()
-                    .map(|c| (c.expression, Check::Closed(*c)))
-                    .collect(),
-            ),
-        };
-    for (root, check) in checks {
+    let mut status = if obligation.represented {
+        ObligationStatus::Discharged
+    } else {
+        ObligationStatus::Unestablished
+    };
+    for predicate in &obligation.predicates {
+        let root = predicate.expression();
         let Some(tape) = optional_tape(tape(program, root, remaining, false, cancel))? else {
             status = ObligationStatus::Unestablished;
             continue;
@@ -401,22 +386,12 @@ fn admission(
         };
         let range = pounce_presolve::fbbt::forward_result(&intervals);
         let (lo, hi) = (range.lo, range.hi);
-        let (valid, violated) = match check {
-            Check::Condition(condition) => (
-                lo <= hi
-                    && match condition {
-                        Condition::Positive => lo > 0.0,
-                        Condition::Nonnegative => lo >= 0.0,
-                        Condition::Nonzero => lo > 0.0 || hi < 0.0,
-                    },
-                lo > hi
-                    || match condition {
-                        Condition::Positive => hi <= 0.0,
-                        Condition::Nonnegative => hi < 0.0,
-                        Condition::Nonzero => lo == 0.0 && hi == 0.0,
-                    },
+        let (valid, violated) = match predicate {
+            Predicate::Nonzero(_) => (
+                lo <= hi && (lo > 0.0 || hi < 0.0),
+                lo > hi || (lo == 0.0 && hi == 0.0),
             ),
-            Check::Closed(c) => (
+            Predicate::Range(c) => (
                 lo <= hi
                     && (if c.strict {
                         lo > c.lower
@@ -454,11 +429,6 @@ fn admission(
         }
     }
     Ok(status)
-}
-#[derive(Clone, Copy, Debug)]
-enum Check {
-    Condition(crate::guarded::Condition),
-    Closed(Constraint),
 }
 /// `coefficient * column` with no offset, as a hard sign domain requires.
 fn single_column_sign(program: &FactorableProgram, node: NodeId) -> Option<(usize, bool)> {
@@ -661,6 +631,61 @@ mod rational_interval_tests {
     fn emit(nodes: Vec<Node>, root: usize) -> FbbtTape {
         let program = tape_construction_fixture(nodes);
         tape(&program, root, &mut 4096, false, &AtomicBool::new(false)).unwrap()
+    }
+    #[test]
+    fn nonzero_domain_interval_admission_preserves_conditional_refusal() {
+        let program = tape_construction_fixture(vec![Node::Var(0)]);
+        let mut guard = ProjectedObligation {
+            instance: SemanticId::NIL,
+            source: SemanticId::from_bytes([1; 16]),
+            kind: ObligationKind::Domain,
+            scope: ObligationScope::Unconditional,
+            argument: None,
+            predicates: vec![Predicate::Nonzero(0)],
+            represented: true,
+            fidelity: crate::factorable::Fidelity::Exact,
+        };
+        for kind in [
+            ObligationKind::Domain,
+            ObligationKind::Require(crate::guarded::Condition::Nonzero),
+        ] {
+            guard.kind = kind;
+            guard.argument = (kind != ObligationKind::Domain).then_some(0);
+            for (lo, hi, expected) in [
+                (1.0, 2.0, ObligationStatus::Discharged),
+                (-2.0, -1.0, ObligationStatus::Discharged),
+                (0.0, 0.0, ObligationStatus::Violated),
+                (-0.0, 0.0, ObligationStatus::Violated),
+                (-1.0, 1.0, ObligationStatus::Unestablished),
+                (0.0, 1.0, ObligationStatus::Unestablished),
+                (1e-200, 2e-200, ObligationStatus::Discharged),
+                (-2e200, -1e200, ObligationStatus::Discharged),
+            ] {
+                for scope in [ObligationScope::Unconditional, ObligationScope::Conditional] {
+                    guard.scope = scope;
+                    let expected = if scope == ObligationScope::Conditional
+                        && expected == ObligationStatus::Violated
+                    {
+                        ObligationStatus::Unestablished
+                    } else {
+                        expected
+                    };
+                    assert_eq!(
+                        admission(
+                            &program,
+                            &guard,
+                            &[lo],
+                            &[hi],
+                            &mut 4096,
+                            &AtomicBool::new(false)
+                        )
+                        .unwrap(),
+                        expected,
+                        "{kind:?} {scope:?} [{lo},{hi}]"
+                    );
+                }
+            }
+        }
     }
     #[test]
     fn exact_rational_leaf_prevents_amplified_cancellation_from_shrinking_enclosure() {

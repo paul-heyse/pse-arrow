@@ -7,7 +7,7 @@ use pse_math::{
     MathError,
     factorable::{
         Constant, Constraint, Fidelity, Node, ObligationKind, ObligationScope,
-        PointArithmeticProgram, ProjectedObligation, Rational, RootIsolationProgram,
+        PointArithmeticProgram, Predicate, ProjectedObligation, Rational, RootIsolationProgram,
     },
     guarded::Condition,
     implicit::{
@@ -574,8 +574,7 @@ fn arithmetic_guard_ceiling(
                 .map(|(_, g)| g),
         )
         .try_fold(program.eligibility.len(), |n, g| {
-            n.checked_add(g.constraints.len())?
-                .checked_add(usize::from(g.argument.is_some()))
+            n.checked_add(g.predicates.len())
         })?;
     program.nodes.iter().try_fold(guards, |n, node| {
         n.checked_add(match node {
@@ -641,29 +640,31 @@ fn constraint(
         upper: value.upper,
     })
 }
+fn predicate(
+    value: &Predicate,
+    chart_only: bool,
+    domain: bool,
+) -> Result<NativeGuard, SelectionProofRefusal> {
+    match value {
+        Predicate::Range(range) => constraint(range, chart_only, domain),
+        Predicate::Nonzero(expression) => Ok(NativeGuard {
+            node: index(*expression)?,
+            kind: 2,
+            chart_only: u32::from(chart_only),
+            domain: u32::from(domain),
+            lower: 0.0,
+            upper: f64::INFINITY,
+        }),
+    }
+}
 fn obligation(
     value: &ProjectedObligation,
     chart_only: bool,
     guards: &mut Vec<NativeGuard>,
 ) -> Result<(), SelectionProofRefusal> {
     validate_obligation(value)?;
-    for value in &value.constraints {
-        guards.push(constraint(value, chart_only, true)?);
-    }
-    if let ObligationKind::Require(condition) = value.kind {
-        let argument = value.argument.ok_or(SelectionProofRefusal::Unsupported)?;
-        guards.push(NativeGuard {
-            node: index(argument)?,
-            kind: match condition {
-                Condition::Nonzero => 2,
-                Condition::Positive => 3,
-                Condition::Nonnegative => 4,
-            },
-            chart_only: u32::from(chart_only),
-            domain: 1,
-            lower: 0.0,
-            upper: f64::INFINITY,
-        });
+    for value in &value.predicates {
+        guards.push(predicate(value, chart_only, true)?);
     }
     Ok(())
 }
@@ -873,9 +874,7 @@ fn source_inventory_for_profile(
     ) {
         source_guards = extent(
             "source_guards",
-            source_guards
-                .checked_add(value.constraints.len())
-                .and_then(|n| n.checked_add(usize::from(value.argument.is_some()))),
+            source_guards.checked_add(value.predicates.len()),
         )?;
     }
     let source_guard_limit = match profile {
@@ -1078,7 +1077,7 @@ fn encode_inventory(
         transport.nodes.push(result);
     }
     for value in &program.eligibility {
-        transport.guards.push(constraint(value, false, false)?);
+        transport.guards.push(predicate(value, false, false)?);
     }
     for (ordinal, value) in program.obligations.iter().enumerate() {
         if ordinal % 256 == 0 && execution.is_some_and(|e| e.stopped().is_some()) {
@@ -1169,16 +1168,19 @@ fn validate_arithmetic_source(
     {
         return Err(invalid().into());
     }
-    let valid_constraint = |value: &Constraint| {
-        value.expression < node_count
-            && !value.lower.is_nan()
-            && !value.upper.is_nan()
-            && value.lower <= value.upper
+    let valid_predicate = |value: &Predicate| {
+        value.expression() < node_count
+            && match value {
+                Predicate::Range(range) => {
+                    !range.lower.is_nan() && !range.upper.is_nan() && range.lower <= range.upper
+                }
+                Predicate::Nonzero(_) => true,
+            }
     };
     if program
         .eligibility
         .iter()
-        .any(|value| !valid_constraint(value))
+        .any(|value| !valid_predicate(value))
     {
         return Err(invalid().into());
     }
@@ -1200,9 +1202,9 @@ fn validate_arithmetic_source(
         }
         if value.argument.is_some_and(|id| id >= node_count)
             || value
-                .constraints
+                .predicates
                 .iter()
-                .any(|constraint| !valid_constraint(constraint))
+                .any(|predicate| !valid_predicate(predicate))
         {
             return Err(invalid().into());
         }
@@ -2519,9 +2521,7 @@ impl SelectionVerifier for Ibex {
                             .map(|(_, value)| value),
                     )
                     .try_fold(program.eligibility.len(), |total, value| {
-                        total
-                            .checked_add(value.constraints.len())?
-                            .checked_add(usize::from(value.argument.is_some()))
+                        total.checked_add(value.predicates.len())
                     })?
                     .checked_add(program.nodes.len().checked_mul(2)?)?;
                 let edges = program.nodes.iter().try_fold(0usize, |total, node| {
@@ -4192,7 +4192,7 @@ mod tests {
             kind: ObligationKind::Domain,
             scope: ObligationScope::Unconditional,
             argument: None,
-            constraints: vec![],
+            predicates: vec![],
             represented: true,
             fidelity: Fidelity::Exact,
         };
@@ -4230,6 +4230,7 @@ mod tests {
         // An empty closure is not an empty Nonzero requirement.
         program.graph.obligations[0].kind = ObligationKind::Require(Condition::Nonzero);
         program.graph.obligations[0].argument = Some(0);
+        program.graph.obligations[0].predicates = vec![Predicate::Nonzero(0)];
         assert_eq!(
             encode_for_profile(
                 &program.graph,
@@ -4280,7 +4281,7 @@ mod tests {
             kind: ObligationKind::Domain,
             scope: ObligationScope::Unconditional,
             argument: None,
-            constraints,
+            predicates: constraints.into_iter().map(Predicate::Range).collect(),
             represented: true,
             fidelity: Fidelity::Exact,
         }
@@ -4296,16 +4297,16 @@ mod tests {
             strict: false,
         };
         let mut program = arithmetic_program(vec![Node::Var(0)], vec![0]);
-        program.graph.eligibility = vec![guard.clone(); 19_512];
+        program.graph.eligibility = vec![Predicate::Range(guard.clone()); 19_512];
         // Numerically equal bounds with different bits remain separate native keys.
-        program.graph.eligibility.push(Constraint {
+        program.graph.eligibility.push(Predicate::Range(Constraint {
             lower: 0.0,
             ..guard.clone()
-        });
-        program.graph.eligibility.push(Constraint {
+        }));
+        program.graph.eligibility.push(Predicate::Range(Constraint {
             strict: true,
             ..guard.clone()
-        });
+        }));
         // A domain predicate and a derivative-only predicate keep their scopes.
         program.graph.obligations = vec![arithmetic_obligation(vec![guard.clone()]); 9_000];
         program.graph.derivative_obligations =
@@ -4399,8 +4400,18 @@ mod tests {
                 0 => last.represented = false,
                 1 => last.fidelity = Fidelity::Relaxed,
                 2 => last.scope = ObligationScope::Conditional,
-                3 => last.constraints[0].lower = f64::NAN,
-                _ => last.constraints[0].expression = program.graph.nodes.len(),
+                3 => {
+                    let Predicate::Range(range) = &mut last.predicates[0] else {
+                        unreachable!()
+                    };
+                    range.lower = f64::NAN;
+                }
+                _ => {
+                    let Predicate::Range(range) = &mut last.predicates[0] else {
+                        unreachable!()
+                    };
+                    range.expression = program.graph.nodes.len();
+                }
             }
             let inventory = ibex
                 .point_arithmetic_inventory(&program, DerivativeOrder::First)
@@ -4450,6 +4461,126 @@ mod tests {
         ));
         assert!(ledger.admitted.lock().unwrap().is_empty());
         assert!(ledger.observed.lock().unwrap().is_empty());
+    }
+    #[test]
+    fn native_domain_nonzero_conjunction_uses_original_difference_without_square_or_margin() {
+        let mut program = arithmetic_program(
+            vec![
+                Node::Var(0),
+                Node::Var(1),
+                Node::Const(Constant::Rational(Rational::from(-1))),
+                Node::Product(vec![1, 2]),
+                Node::Sum(vec![0, 3]),
+            ],
+            vec![0],
+        );
+        program.graph.inputs = 2;
+        let positive = |expression| Constraint {
+            expression,
+            lower: 0.0,
+            upper: f64::INFINITY,
+            strict: true,
+        };
+        let mut domain = arithmetic_obligation(vec![positive(0), positive(1)]);
+        domain.predicates.push(Predicate::Nonzero(4));
+        program.graph.obligations.push(domain);
+        let identity = program.graph.identity();
+        let ibex = Ibex::default();
+        let (execution, _) = arithmetic_execution();
+        for order in [DerivativeOrder::First, DerivativeOrder::Second] {
+            let inventory = ibex.point_arithmetic_inventory(&program, order).unwrap();
+            let prepared = ibex
+                .prepare_point_arithmetic(inventory, Arc::new(()), &execution)
+                .unwrap()
+                .unwrap();
+            let transport = prepared.transport.as_ref().unwrap();
+            assert_eq!(transport.guards.len(), 3);
+            assert_eq!(transport.guards[2].node, 4);
+            assert_eq!(transport.guards[2].kind, 2);
+            assert_eq!(transport.guards[2].domain, 1);
+            for point in [
+                [2.0, 1.0],
+                [1.0, 2.0],
+                [2e-200, 1e-200],
+                [2e200, 1e200],
+                [1.0, 1.0_f64.next_up()],
+            ] {
+                let PointArithmeticEvidence::Enclosed {
+                    values, jacobian, ..
+                } = ibex
+                    .enclose_prepared_point_arithmetic_with_execution(
+                        &prepared,
+                        &point,
+                        prepared.native_workspace_bytes(),
+                        &execution,
+                    )
+                    .unwrap()
+                else {
+                    panic!("original nonzero difference must remain admissible")
+                };
+                assert!(values[0].lower <= point[0] && values[0].upper >= point[0]);
+                assert!(jacobian[0].lower <= 1.0 && jacobian[0].upper >= 1.0);
+                assert!(jacobian[1].lower <= 0.0 && jacobian[1].upper >= 0.0);
+            }
+            assert!(matches!(
+                ibex.enclose_prepared_point_arithmetic_with_execution(
+                    &prepared,
+                    &[1.0, 1.0],
+                    prepared.native_workspace_bytes(),
+                    &execution,
+                )
+                .unwrap(),
+                PointArithmeticEvidence::Incomplete {
+                    reason: SelectionProofRefusal::Boundary,
+                    work: PointArithmeticWork {
+                        guard_evaluations: 3,
+                        value_evaluations: 0,
+                        jacobian_evaluations: 0,
+                        hessian_evaluations: 0
+                    },
+                }
+            ));
+        }
+        let inventory = ibex
+            .point_arithmetic_inventory(&program, DerivativeOrder::First)
+            .unwrap();
+        let prepared = ibex
+            .prepare_point_arithmetic(inventory, Arc::new(()), &execution)
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            ibex.enclose_prepared_arithmetic_box_with_execution(
+                &prepared,
+                &[
+                    ProofInterval {
+                        lower: 0.5,
+                        upper: 1.5
+                    },
+                    ProofInterval {
+                        lower: 1.0,
+                        upper: 1.0
+                    }
+                ],
+                prepared.native_workspace_bytes(),
+                &execution,
+            )
+            .unwrap(),
+            PointArithmeticEvidence::Incomplete {
+                reason: SelectionProofRefusal::Boundary,
+                ..
+            }
+        ));
+        drop(prepared);
+        assert_eq!(program.graph.obligations[0].kind, ObligationKind::Domain);
+        assert_eq!(program.graph.identity(), identity);
+        program.graph.obligations[0].predicates[2] = Predicate::Nonzero(program.graph.nodes.len());
+        let inventory = ibex
+            .point_arithmetic_inventory(&program, DerivativeOrder::First)
+            .unwrap();
+        assert!(matches!(
+            ibex.prepare_point_arithmetic(inventory, Arc::new(()), &execution),
+            Err(crate::ProblemError::Math(MathError::Contract(_)))
+        ));
     }
     #[test]
     fn arithmetic_preparation_inventory_avoids_large_rational_conversion_allocations() {
@@ -4538,11 +4669,13 @@ mod tests {
         let (execution, ledger) = arithmetic_execution();
         let mut program = arithmetic_program(vec![Node::Var(0)], vec![0]);
         program.graph.eligibility = (0..=MAX_GUARDS)
-            .map(|i| Constraint {
-                expression: 0,
-                lower: 0.0,
-                upper: 2.0 + i as f64,
-                strict: false,
+            .map(|i| {
+                Predicate::Range(Constraint {
+                    expression: 0,
+                    lower: 0.0,
+                    upper: 2.0 + i as f64,
+                    strict: false,
+                })
             })
             .collect();
         let inventory = ibex
@@ -4576,12 +4709,12 @@ mod tests {
         nodes.extend((0..400).map(|_| Node::Sum(vec![0, 1])));
         let mut program = arithmetic_program(nodes, vec![0, 0]);
         program.graph.inputs = 230;
-        program.graph.eligibility.push(Constraint {
+        program.graph.eligibility.push(Predicate::Range(Constraint {
             expression: 1,
             lower: 0.0,
             upper: 2.0,
             strict: false,
-        });
+        }));
         let inventory = ibex
             .point_arithmetic_inventory(&program, DerivativeOrder::First)
             .unwrap();
@@ -4641,7 +4774,7 @@ mod tests {
             kind: ObligationKind::Require(Condition::Nonzero),
             scope: ObligationScope::Unconditional,
             argument: Some(0),
-            constraints: vec![],
+            predicates: vec![Predicate::Nonzero(0)],
             represented: true,
             fidelity: Fidelity::Exact,
         };
@@ -4685,17 +4818,22 @@ mod tests {
             match metric {
                 "nodes" => program.graph.nodes = vec![Node::Var(0); observed],
                 "residual_outputs" => program.graph.residuals = vec![0; observed],
-                "eligibility_guards" => program.graph.eligibility = vec![guard.clone(); observed],
+                "eligibility_guards" => {
+                    program.graph.eligibility = vec![Predicate::Range(guard.clone()); observed]
+                }
                 "obligations" => program.graph.obligations = vec![obligation.clone(); observed],
                 "derivative_obligations" => {
                     program.graph.derivative_obligations =
                         vec![(DerivativeOrder::Second, obligation.clone()); observed]
                 }
                 "source_guards" => {
-                    program.graph.eligibility.push(guard.clone());
+                    program
+                        .graph
+                        .eligibility
+                        .push(Predicate::Range(guard.clone()));
                     let mut value = obligation.clone();
                     value.argument = None;
-                    value.constraints = vec![guard.clone(); MAX_EDGES];
+                    value.predicates = vec![Predicate::Range(guard.clone()); MAX_EDGES];
                     program.graph.obligations.push(value);
                 }
                 "edges" => program.graph.nodes.push(Node::Sum(vec![0; observed])),
@@ -5810,7 +5948,7 @@ mod tests {
                 kind: ObligationKind::Require(Condition::Nonzero),
                 scope: ObligationScope::Unconditional,
                 argument: Some(0),
-                constraints: vec![],
+                predicates: vec![Predicate::Nonzero(0)],
                 represented: true,
                 fidelity: Fidelity::Exact,
             },
@@ -6060,7 +6198,12 @@ mod tests {
                 kind: ObligationKind::Require(Condition::Positive),
                 scope: ObligationScope::Unconditional,
                 argument: Some(argument),
-                constraints: vec![],
+                predicates: vec![Predicate::Range(Constraint {
+                    expression: argument,
+                    lower: 0.0,
+                    upper: f64::INFINITY,
+                    strict: true,
+                })],
                 represented: true,
                 fidelity: Fidelity::Exact,
             },
@@ -6274,12 +6417,12 @@ mod tests {
         programs.push(edges);
         let mut guards = original.clone();
         guards.eligibility = vec![
-            Constraint {
+            Predicate::Range(Constraint {
                 expression: 0,
                 lower: 0.0,
                 upper: 1.0,
                 strict: false,
-            };
+            });
             MAX_GUARDS + 1
         ];
         programs.push(guards);
@@ -7437,7 +7580,7 @@ mod tests {
                 .program
                 .eligibility
                 .iter()
-                .any(|constraint| constraint.strict)
+                .any(|predicate| matches!(predicate, Predicate::Range(range) if range.strict))
         );
         let evidence = Ibex::default()
             .certify(&fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First))
@@ -7521,7 +7664,12 @@ mod tests {
                 kind: ObligationKind::Require(Condition::Positive),
                 scope: ObligationScope::Unconditional,
                 argument: Some(argument),
-                constraints: vec![],
+                predicates: vec![Predicate::Range(Constraint {
+                    expression: argument,
+                    lower: 0.0,
+                    upper: f64::INFINITY,
+                    strict: true,
+                })],
                 represented: true,
                 fidelity: Fidelity::Exact,
             },

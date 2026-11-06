@@ -25,8 +25,7 @@ use crate::{
     MathError,
     binding::ObjectiveSense,
     convexity::{ConeSummary, Convexity, ConvexityClass, GramFactors, Ldlt, Unrecognized, ldlt},
-    factorable::{Constant, FactorableProgram, Fidelity, Node, NodeId, ObligationKind},
-    guarded::Condition,
+    factorable::{Constant, FactorableProgram, Fidelity, Node, NodeId, Predicate},
 };
 use pounce_presolve::fbbt::Interval;
 use pse_ids::FramedHasher;
@@ -36,6 +35,9 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 use symbolica::domains::rational::Rational;
+
+/// Proof interpretation consumed by curvature and aggregate presolve identities.
+pub(crate) const PROOF_ALGORITHM: &str = "curvature-v2;predicate-domains-v1";
 
 /// Curvature of a node's function over the variable box.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -261,7 +263,7 @@ pub fn fact(
         Recognition::Inconclusive => ConvexityClass::Inconclusive,
     };
     let mut h = FramedHasher::new(pse_ids::Frame::MathConvexityFactV1);
-    h.hash(&program.key).str("curvature-v1").u64(limit as u64);
+    h.hash(&program.key).str(PROOF_ALGORITHM).u64(limit as u64);
     class.hash_into(&mut h);
     Ok(Convexity {
         key: h.finish_hash(),
@@ -444,40 +446,22 @@ impl<'a> Pass<'a> {
             cones: self.cones,
         }))
     }
-    /// Every retained obligation, conditional or not, holds throughout the box: a
-    /// requirement through its exact condition on its argument, a domain predicate through
-    /// its complete closed conjunction.
+    /// Every retained obligation, conditional or not, holds throughout the box.
     fn domains(&mut self) -> Result<bool, MathError> {
         for o in &self.program.obligations {
-            match (o.kind, o.argument) {
-                (ObligationKind::Require(condition), Some(argument)) => {
-                    let range = self.info(argument)?.interval;
-                    let holds = !range.is_empty()
-                        && match condition {
-                            Condition::Positive => range.lo > 0.0,
-                            Condition::Nonnegative => range.lo >= 0.0,
-                            Condition::Nonzero => range.lo > 0.0 || range.hi < 0.0,
-                        };
-                    if !holds {
-                        return Ok(false);
-                    }
-                }
-                _ => {
-                    if !o.represented {
-                        return Ok(false);
-                    }
-                    for c in &o.constraints {
-                        let range = self.info(c.expression)?.interval;
-                        let holds = !range.is_empty()
-                            && if c.strict {
-                                range.lo > c.lower && range.hi < c.upper
-                            } else {
-                                range.lo >= c.lower && range.hi <= c.upper
-                            };
-                        if !holds {
-                            return Ok(false);
-                        }
-                    }
+            if !o.represented {
+                return Ok(false);
+            }
+            for predicate in &o.predicates {
+                let range = self.info(predicate.expression())?.interval;
+                let holds = !range.is_empty()
+                    && match predicate {
+                        Predicate::Nonzero(_) => range.lo > 0.0 || range.hi < 0.0,
+                        Predicate::Range(c) if c.strict => range.lo > c.lower && range.hi < c.upper,
+                        Predicate::Range(c) => range.lo >= c.lower && range.hi <= c.upper,
+                    };
+                if !holds {
+                    return Ok(false);
                 }
             }
         }
@@ -1380,5 +1364,54 @@ fn power_interval(base: Interval, exponent: &Constant) -> Interval {
         Interval::new(0.0, result.hi)
     } else {
         result
+    }
+}
+
+#[cfg(test)]
+mod predicate_domain_tests {
+    use super::*;
+    use crate::factorable::{
+        ObligationKind, ObligationScope, ProjectedObligation, ProjectedVariable,
+        tape_construction_fixture,
+    };
+    use pse_ids::SemanticId;
+
+    #[test]
+    fn nonzero_domain_requires_an_enclosure_excluding_zero() {
+        for (lower, upper, expected) in [
+            (1.0, 2.0, true),
+            (-2.0, -1.0, true),
+            (0.0, 0.0, false),
+            (-0.0, 0.0, false),
+            (-1.0, 1.0, false),
+            (0.0, 1.0, false),
+            (1e-200, 2e-200, true),
+            (-2e200, -1e200, true),
+        ] {
+            let mut program = tape_construction_fixture(vec![Node::Var(0)]);
+            program.variables.push(ProjectedVariable {
+                id: SemanticId::NIL,
+                domain: ModelingVariableDomain::Continuous,
+                lower,
+                upper,
+                active_lower: None,
+            });
+            program.obligations.push(ProjectedObligation {
+                instance: SemanticId::NIL,
+                source: SemanticId::NIL,
+                kind: ObligationKind::Domain,
+                scope: ObligationScope::Unconditional,
+                argument: None,
+                predicates: vec![Predicate::Nonzero(0)],
+                represented: true,
+                fidelity: Fidelity::Exact,
+            });
+            assert_eq!(
+                Pass::new(&program, 4096, &AtomicBool::new(false))
+                    .domains()
+                    .unwrap(),
+                expected
+            );
+        }
     }
 }

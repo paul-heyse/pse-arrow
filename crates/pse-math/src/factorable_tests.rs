@@ -29,6 +29,12 @@ use symbolica::atom::{Atom, AtomCore};
 fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
+fn range(predicate: &Predicate) -> &Constraint {
+    let Predicate::Range(constraint) = predicate else {
+        panic!("expected a range predicate, got {predicate:?}");
+    };
+    constraint
+}
 fn neutral() -> QuantityTypeId {
     ids::quantity("neutral")
 }
@@ -442,9 +448,9 @@ fn projection_exact_rows_match_evaluator() {
     assert!(program.obligations.iter().any(|o| matches!(
         o.kind,
         ObligationKind::Require(crate::guarded::Condition::Positive)
-    ) && o.constraints.len() == 1
-        && o.constraints[0].strict
-        && o.constraints[0].lower == 0.0));
+    ) && o.predicates.len() == 1
+        && range(&o.predicates[0]).strict
+        && range(&o.predicates[0]).lower == 0.0));
     assert_rows_match(
         &assembly,
         &program,
@@ -1018,6 +1024,12 @@ fn select(
     let otherwise = otherwise.clone();
     b.conditional(guard, |b| then(b), move |_| Ok(otherwise), id(221))
 }
+fn disjunctive_predicate(b: &mut BodyBuilder<'_>, x: &TypedValue) -> Result<TypedValue, MathError> {
+    let zero = number(Atom::num(0));
+    let one = number(Atom::num(1));
+    let positive = select(b, Comparison::Lt, &one, x, &|_| Ok(one.clone()), &zero)?;
+    select(b, Comparison::Lt, x, &zero, &|_| Ok(one.clone()), &positive)
+}
 fn sum(b: &mut BodyBuilder<'_>, terms: Vec<TypedValue>) -> TypedValue {
     let mut terms = terms.into_iter();
     let first = terms.next().unwrap();
@@ -1141,21 +1153,21 @@ fn pcsaft_valid_guard_projects_exactly() {
     assert_eq!(guard.scope, ObligationScope::Unconditional);
     assert!(guard.represented);
     assert_eq!(guard.fidelity, Fidelity::Exact);
-    assert_eq!(guard.constraints.len(), 6);
-    assert!(guard.constraints.iter().all(|c| c.strict));
+    assert_eq!(guard.predicates.len(), 6);
+    assert!(guard.predicates.iter().all(|c| range(c).strict));
     assert_eq!(
         guard
-            .constraints
+            .predicates
             .iter()
-            .filter(|c| c.lower == 0.0 && c.upper == f64::INFINITY)
+            .filter(|c| range(c).lower == 0.0 && range(c).upper == f64::INFINITY)
             .count(),
         5
     );
     assert!(
         guard
-            .constraints
+            .predicates
             .iter()
-            .any(|c| c.lower == f64::NEG_INFINITY && c.upper == 1.0)
+            .any(|c| range(c).lower == f64::NEG_INFINITY && range(c).upper == 1.0)
     );
     // The guard is enforced by the evaluator, and the export matches it where it holds.
     assert_rows_match(
@@ -1396,6 +1408,217 @@ fn isolation_project(
     .unwrap()
 }
 
+fn logmean_domain_predicate(
+    b: &mut BodyBuilder<'_>,
+    values: &[TypedValue],
+) -> Result<TypedValue, MathError> {
+    let zero = number(Atom::num(0));
+    let one = number(Atom::num(1));
+    select(
+        b,
+        Comparison::Lt,
+        &zero,
+        &values[0],
+        &|b| {
+            select(
+                b,
+                Comparison::Lt,
+                &zero,
+                &values[1],
+                &|b| {
+                    select(
+                        b,
+                        Comparison::Ne,
+                        &values[0],
+                        &values[1],
+                        &|_| Ok(one.clone()),
+                        &zero,
+                    )
+                },
+                &zero,
+            )
+        },
+        &zero,
+    )
+}
+
+#[test]
+fn logmean_domain_is_one_exact_mixed_predicate_occurrence_in_both_projections() {
+    let registry = standard_registry().unwrap();
+    let mut b = builder(&registry, 2);
+    let values = inputs(&mut b, 2);
+    let token = b
+        .domain(form_lineage(id(251)), |b| {
+            logmean_domain_predicate(b, &values)
+        })
+        .unwrap();
+    let difference = op(&mut b, Binary::Sub, &values[0], &values[1]);
+    let output = b.with_assumption(difference, &token);
+    let body = b.prepare(&[output]).unwrap();
+    let exact = isolation_project(&body, &isolation_true(2)).unwrap();
+    assert_eq!(exact.obligations.len(), 1);
+    let domain = &exact.obligations[0];
+    assert_eq!(domain.source, id(251));
+    assert_eq!(domain.kind, ObligationKind::Domain);
+    assert_eq!(domain.argument, None);
+    assert_eq!(domain.scope, ObligationScope::Unconditional);
+    assert!(domain.represented);
+    assert_eq!(domain.fidelity, Fidelity::Exact);
+    assert_eq!(domain.predicates.len(), 3);
+    assert_eq!(
+        domain
+            .predicates
+            .iter()
+            .filter(|p| matches!(p, Predicate::Nonzero(_)))
+            .count(),
+        1
+    );
+    assert_eq!(
+        domain
+            .predicates
+            .iter()
+            .filter(|p| matches!(p, Predicate::Range(c) if c.strict))
+            .count(),
+        2
+    );
+    assert!(
+        !exact
+            .nodes
+            .iter()
+            .any(|n| matches!(n, Node::Pow { .. } | Node::Aux(_)))
+    );
+    let assembly = case(&registry, body, &[(1., 2.), (3., 4.)], &[]);
+    let ordinary = project(&assembly, &FactorableRequest::default());
+    assert_eq!(ordinary.obligations.len(), 1);
+    assert_eq!(ordinary.obligations[0].predicates.len(), 3);
+    assert_eq!(ordinary.obligations[0].fidelity, Fidelity::Exact);
+    let mut b = builder(&registry, 2);
+    let values = inputs(&mut b, 2);
+    let predicate = logmean_domain_predicate(&mut b, &values).unwrap();
+    let eligibility = b.prepare(&[predicate]).unwrap();
+    let eligibility =
+        isolation_project(&isolation_body(2, 2, vec![0], vec![]), &eligibility).unwrap();
+    assert_eq!(eligibility.eligibility.len(), 3);
+    assert!(
+        eligibility
+            .eligibility
+            .iter()
+            .any(|p| matches!(p, Predicate::Nonzero(_)))
+    );
+}
+
+#[test]
+fn exact_predicate_identity_frames_payload_occurrence_order_and_source_metadata() {
+    use crate::guarded::Condition;
+    let residual = isolation_body(
+        2,
+        2,
+        vec![0],
+        vec![
+            guard_require(0, Condition::Nonzero, DerivativeOrder::Value, id(251)),
+            guard_require(1, Condition::Positive, DerivativeOrder::First, id(252)),
+        ],
+    );
+    let program = isolation_project(&residual, &isolation_true(2)).unwrap();
+    let identity = program.identity();
+    let mut variants = Vec::new();
+    let mut changed = program.clone();
+    changed.obligations[0].predicates[0] = Predicate::Range(Constraint {
+        expression: changed.obligations[0].predicates[0].expression(),
+        lower: 0.,
+        upper: 0.,
+        strict: false,
+    });
+    variants.push(changed);
+    let mut changed = program.clone();
+    changed.obligations[0].predicates[0] =
+        Predicate::Nonzero(program.derivative_obligations[0].1.argument.unwrap());
+    variants.push(changed);
+    let mut changed = program.clone();
+    changed.obligations[0].instance = id(253);
+    variants.push(changed);
+    let mut changed = program.clone();
+    changed.obligations[0].source = id(253);
+    variants.push(changed);
+    let mut changed = program.clone();
+    changed.obligations[0].kind = ObligationKind::Domain;
+    variants.push(changed);
+    let mut changed = program.clone();
+    changed.obligations[0].argument = None;
+    variants.push(changed);
+    let mut changed = program.clone();
+    changed.obligations[0].scope = ObligationScope::Conditional;
+    variants.push(changed);
+    let mut changed = program.clone();
+    changed.obligations[0].represented = false;
+    variants.push(changed);
+    let mut changed = program.clone();
+    changed.obligations[0].fidelity = Fidelity::Relaxed;
+    variants.push(changed);
+    let mut changed = program.clone();
+    changed.derivative_obligations[0].0 = DerivativeOrder::Second;
+    variants.push(changed);
+    let mut changed = program.clone();
+    changed
+        .obligations
+        .push(program.derivative_obligations[0].1.clone());
+    changed.obligations.reverse();
+    variants.push(changed);
+    for changed in variants {
+        assert_ne!(identity, changed.identity());
+    }
+    let mut first = program.clone();
+    first
+        .obligations
+        .push(program.derivative_obligations[0].1.clone());
+    let mut reordered = first.clone();
+    reordered.obligations.reverse();
+    assert_ne!(first.identity(), reordered.identity());
+    let before = first.retained_bytes();
+    let old_capacity = first.obligations[0].predicates.capacity();
+    first.obligations[0].predicates.reserve(16);
+    assert_eq!(
+        first.retained_bytes() - before,
+        (first.obligations[0].predicates.capacity() - old_capacity) * size_of::<Predicate>()
+    );
+}
+
+#[test]
+fn nonzero_domain_admission_does_not_invent_a_hard_sign() {
+    let registry = standard_registry().unwrap();
+    let mut b = builder(&registry, 1);
+    let x = inputs(&mut b, 1).remove(0);
+    let zero = number(Atom::num(0));
+    let one = number(Atom::num(1));
+    let token = b
+        .domain(form_lineage(id(253)), |b| {
+            select(b, Comparison::Ne, &x, &zero, &|_| Ok(one.clone()), &zero)
+        })
+        .unwrap();
+    let output = b.with_assumption(x, &token);
+    let body = b.prepare(&[output]).unwrap();
+    for (bounds, expected) in [
+        ((1., 2.), ObligationStatus::Discharged),
+        ((-2., -1.), ObligationStatus::Discharged),
+        ((0., 0.), ObligationStatus::Violated),
+        ((-1., 1.), ObligationStatus::Unestablished),
+    ] {
+        let assembly = case(&registry, body.clone(), &[bounds], &[]);
+        let facts = assembly
+            .presolve_domain_facts(
+                &CaseValues::default(),
+                100_000,
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        assert_eq!(facts.obligations[&id(9)], expected);
+        assert!(
+            !facts.signs.contains_key(&id(1)),
+            "general Domain exclusion is not a hard sign assumption"
+        );
+    }
+}
+
 #[test]
 fn root_isolation_predicate_conjunction_preserves_original_coordinates_and_exact_bounds() {
     let registry = standard_registry().unwrap();
@@ -1429,12 +1652,12 @@ fn root_isolation_predicate_conjunction_preserves_original_coordinates_and_exact
     assert!(matches!(p.nodes[p.residuals[0]], Node::Var(0)));
     assert!(matches!(p.nodes[p.residuals[1]], Node::Var(1)));
     assert_eq!(p.eligibility.len(), 2);
-    assert_eq!(p.eligibility.iter().filter(|c| c.strict).count(), 1);
-    assert!(
-        p.eligibility
-            .iter()
-            .all(|c| c.upper == 0.0 && c.lower == f64::NEG_INFINITY)
-    );
+    assert_eq!(p.eligibility.iter().filter(|c| range(c).strict).count(), 1);
+    assert!(p.eligibility.iter().all(|c| {
+        let c = range(c);
+        (c.upper == 0.0 && c.lower == f64::NEG_INFINITY)
+            || (c.lower == 0.0 && c.upper == f64::INFINITY)
+    }));
     assert!(
         p.nodes
             .iter()
@@ -1476,14 +1699,17 @@ fn root_isolation_retains_strict_nonzero_and_derivative_order_guards() {
         nonnegative.kind,
         ObligationKind::Require(Condition::Nonnegative)
     );
-    assert!(!nonnegative.constraints[0].strict);
+    assert!(!range(&nonnegative.predicates[0]).strict);
     let nonzero = &p.obligations[1];
     assert_eq!(nonzero.kind, ObligationKind::Require(Condition::Nonzero));
     assert!(nonzero.argument.is_some());
-    assert!(nonzero.constraints.is_empty());
+    assert_eq!(
+        nonzero.predicates,
+        vec![Predicate::Nonzero(nonzero.argument.unwrap())]
+    );
     assert!(nonzero.represented);
     assert_eq!(p.derivative_obligations[0].0, DerivativeOrder::First);
-    assert!(p.derivative_obligations[0].1.constraints[0].strict);
+    assert!(range(&p.derivative_obligations[0].1.predicates[0]).strict);
     assert_eq!(p.derivative_obligations[1].0, DerivativeOrder::Second);
     assert_eq!(p.derivative_obligations[1].1.argument, nonzero.argument);
     assert!(
@@ -1540,7 +1766,7 @@ fn root_isolation_refuses_conditional_guards_even_when_the_result_is_constant() 
 }
 
 #[test]
-fn root_isolation_refuses_nonzero_eligibility_disjunction() {
+fn root_isolation_represents_nonzero_eligibility() {
     let registry = standard_registry().unwrap();
     let mut b = builder(&registry, 1);
     let v = inputs(&mut b, 1);
@@ -1557,7 +1783,11 @@ fn root_isolation_refuses_nonzero_eligibility_disjunction() {
     .unwrap();
     let eligibility = b.prepare(&[predicate]).unwrap();
     let residual = isolation_body(1, 1, vec![0], vec![]);
-    assert!(isolation_project(&residual, &eligibility).is_none());
+    let program = isolation_project(&residual, &eligibility).unwrap();
+    assert!(matches!(
+        program.eligibility.as_slice(),
+        [Predicate::Nonzero(_)]
+    ));
 }
 
 #[test]
@@ -1651,12 +1881,8 @@ fn root_isolation_refuses_unrepresented_domain_obligations() {
     let registry = standard_registry().unwrap();
     let mut b = builder(&registry, 1);
     let x = inputs(&mut b, 1).remove(0);
-    let zero = number(Atom::num(0));
-    let one = number(Atom::num(1));
     let predicate = b
-        .domain(form_lineage(id(245)), |b| {
-            select(b, Comparison::Ne, &x, &zero, &|_| Ok(one.clone()), &zero)
-        })
+        .domain(form_lineage(id(245)), |b| disjunctive_predicate(b, &x))
         .unwrap();
     let output = b.with_assumption(x, &predicate);
     let residual = b.prepare(&[output]).unwrap();
@@ -1767,11 +1993,14 @@ fn root_isolation_criterion_retains_value_and_derivative_guards() {
     assert_eq!(p.derivative_obligations.len(), 2);
     assert_eq!(p.derivative_obligations[0].0, DerivativeOrder::First);
     assert_eq!(p.derivative_obligations[0].1.argument, Some(p.criterion[0]));
-    assert!(p.derivative_obligations[0].1.constraints[0].strict);
+    assert!(range(&p.derivative_obligations[0].1.predicates[0]).strict);
     assert_eq!(p.derivative_obligations[1].0, DerivativeOrder::Second);
     assert_eq!(p.derivative_obligations[1].1.argument, Some(p.criterion[1]));
     assert!(p.derivative_obligations[1].1.represented);
-    assert!(p.derivative_obligations[1].1.constraints.is_empty());
+    assert_eq!(
+        p.derivative_obligations[1].1.predicates,
+        vec![Predicate::Nonzero(p.criterion[1])]
+    );
 }
 
 #[test]
@@ -1790,11 +2019,8 @@ fn root_isolation_refuses_opaque_nonsmooth_or_unrepresented_criteria() {
     let mut b = builder(&registry, 1);
     let x = inputs(&mut b, 1).remove(0);
     let zero = number(Atom::num(0));
-    let one = number(Atom::num(1));
     let predicate = b
-        .domain(form_lineage(id(246)), |b| {
-            select(b, Comparison::Ne, &x, &zero, &|_| Ok(one.clone()), &zero)
-        })
+        .domain(form_lineage(id(246)), |b| disjunctive_predicate(b, &x))
         .unwrap();
     let value = b.with_assumption(x, &predicate);
     let unrepresented = b.prepare(&[value, zero]).unwrap();
@@ -1941,10 +2167,10 @@ fn root_isolation_retains_unconditionally_covered_branch_domain_attribution() {
     assert_eq!(program.obligations[0].source, id(247));
     assert_eq!(program.obligations[1].source, id(248));
     assert_eq!(
-        program.obligations[0].constraints,
-        program.obligations[1].constraints
+        program.obligations[0].predicates,
+        program.obligations[1].predicates
     );
-    assert_eq!(program.obligations[1].constraints.len(), 1);
+    assert_eq!(program.obligations[1].predicates.len(), 1);
     assert!(
         program
             .obligations
@@ -1974,8 +2200,7 @@ fn root_isolation_refuses_branch_guards_without_the_same_unconditional_predicate
             )),
             guard_require(0, Condition::Positive, DerivativeOrder::Value, id(248)),
         ),
-        // Nonzero guards have identical empty closed constraints; their actual arguments
-        // still differ, so the unconditional guard cannot cover this branch obligation.
+        // Nonzero guards over different arguments are different complete predicates.
         covered_guard_criterion(
             Some(guard_require(
                 1,
@@ -2030,7 +2255,7 @@ fn root_isolation_does_not_promote_matching_unrepresented_domain_guards() {
     let domain = |source, token| Stage::Domain {
         stages: vec![Stage::Branch {
             continuity: DerivativeOrder::Value,
-            comparison: Comparison::Ne,
+            comparison: Comparison::Lt,
             left: 0,
             right: 2,
             then: vec![Stage::Block {
@@ -2038,17 +2263,28 @@ fn root_isolation_does_not_promote_matching_unrepresented_domain_guards() {
                 outputs: vec![5],
                 source,
             }],
-            otherwise: vec![Stage::Block {
-                expressions: vec![Atom::num(0)],
-                outputs: vec![5],
-                source,
+            otherwise: vec![Stage::Branch {
+                continuity: DerivativeOrder::Value,
+                comparison: Comparison::Lt,
+                left: 1,
+                right: 2,
+                then: vec![Stage::Block {
+                    expressions: vec![Atom::num(1)],
+                    outputs: vec![5],
+                    source,
+                }],
+                otherwise: vec![Stage::Block {
+                    expressions: vec![Atom::num(0)],
+                    outputs: vec![5],
+                    source,
+                }],
             }],
         }],
         argument: 5,
         token,
         lineage: form_lineage(source),
     };
-    // The nonzero predicate is a disjunction. Identical incomplete records do not
+    // This genuine OR predicate is unrepresented. Identical incomplete records do not
     // establish the required complete original validity domain.
     let criterion = covered_guard_criterion(Some(domain(id(247), 3)), domain(id(248), 6));
     assert!(project_guard_criterion(&criterion).is_none());
@@ -2121,7 +2357,7 @@ fn root_isolation_projects_general_rational_powers_under_original_positive_guard
         );
         assert_eq!(guard.scope, ObligationScope::Unconditional);
         assert!(guard.represented);
-        assert!(guard.constraints[0].strict);
+        assert!(range(&guard.predicates[0]).strict);
         assert!(matches!(
             program.nodes[guard.argument.unwrap()],
             Node::Var(0)

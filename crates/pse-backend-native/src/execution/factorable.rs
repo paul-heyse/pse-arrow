@@ -36,7 +36,7 @@ use pse_math::{
     binding::ObjectiveSense,
     factorable::{
         BoundOwner, Constraint, FactorableProgram, Fidelity, MissingBound, NativeOperand, Node,
-        NodeId, ProjectedNative,
+        NodeId, Predicate, ProjectedNative,
     },
 };
 use pse_model::generated::enums::ModelingVariableDomain;
@@ -146,7 +146,7 @@ pub fn factorable_resolve_allocation_bound(
         let obligations = program
             .obligations
             .iter()
-            .try_fold(0usize, |n, o| n.checked_add(o.constraints.len()))?;
+            .try_fold(0usize, |n, o| n.checked_add(o.predicates.len()))?;
         let additional = program.implicit.iter().try_fold(obligations, |n, b| {
             n.checked_add(b.residuals.len())?
                 .checked_add(b.bounds.len())
@@ -212,6 +212,15 @@ pub enum Refusal {
     Conjunctive(SemanticId),
     /// A native logic or indicator operand is not a binary column or a fixed 0/1 value.
     NativeOperand(usize),
+    /// A retained source occurrence refers to a node outside the projected DAG.
+    InvalidObligation {
+        /// Original obligation occurrence.
+        instance: SemanticId,
+        /// Authored source declaration.
+        source: SemanticId,
+        /// Invalid expression reference in that occurrence.
+        expression: NodeId,
+    },
 }
 impl Refusal {
     pub(crate) fn boundary_diagnostic(
@@ -269,6 +278,17 @@ impl Refusal {
                 );
                 "native_operand"
             }
+            Self::InvalidObligation {
+                instance,
+                source,
+                expression,
+            } => {
+                diagnostic.sources.extend([*instance, *source]);
+                diagnostic
+                    .observations
+                    .insert("node".into(), Observation::Text(expression.to_string()));
+                "invalid_obligation"
+            }
         };
         diagnostic
             .observations
@@ -315,6 +335,14 @@ impl std::fmt::Display for Refusal {
             Self::NativeOperand(k) => write!(
                 f,
                 "native constraint {k} needs binary operands (a binary column or a fixed 0 or 1)"
+            ),
+            Self::InvalidObligation {
+                instance,
+                source,
+                expression,
+            } => write!(
+                f,
+                "obligation {source} in instance {instance} refers to missing node {expression}"
             ),
         }
     }
@@ -690,6 +718,24 @@ pub(crate) fn plan(
     intent: SolveIntent,
 ) -> Result<Plan<'_>, Vec<Refusal>> {
     let mut refusals = Vec::new();
+    // Validate source references before conditional predicates or exclusions can be
+    // omitted by this closed-only transport. Kind and argument are provenance, not
+    // an alternative executable predicate representation.
+    for obligation in &program.obligations {
+        for expression in obligation
+            .argument
+            .into_iter()
+            .chain(obligation.predicates.iter().map(Predicate::expression))
+        {
+            if expression >= program.nodes.len() {
+                return Err(vec![Refusal::InvalidObligation {
+                    instance: obligation.instance,
+                    source: obligation.source,
+                    expression,
+                }]);
+            }
+        }
+    }
     let optimizes = matches!(intent, SolveIntent::Optimize | SolveIntent::Certify);
     let objective = match (&program.objective, optimizes) {
         (Some(o), true) => match o.expression {
@@ -779,15 +825,22 @@ pub(crate) fn plan(
             continue;
         }
         fidelity = fidelity.max(obligation.fidelity);
-        for (k, c) in obligation.constraints.iter().enumerate() {
-            let (lower, upper) = close(c);
-            constraints.push(Function {
-                expression: Expression::Node(c.expression),
-                lower,
-                upper,
-                origin: Origin::Obligation(o, k),
-                condition: None,
-            });
+        for (k, predicate) in obligation.predicates.iter().enumerate() {
+            match predicate {
+                Predicate::Range(c) => {
+                    let (lower, upper) = close(c);
+                    constraints.push(Function {
+                        expression: Expression::Node(c.expression),
+                        lower,
+                        upper,
+                        origin: Origin::Obligation(o, k),
+                        condition: None,
+                    });
+                }
+                // A closed interval cannot represent a point exclusion. Its
+                // omission is a relaxation, never original-domain permission.
+                Predicate::Nonzero(_) => fidelity = fidelity.max(Fidelity::Relaxed),
+            }
         }
     }
     for (b, block) in program.implicit.iter().enumerate() {
@@ -1795,6 +1848,211 @@ fn adopt(
 #[cfg(test)]
 mod selected_graph_tests {
     use super::*;
+    use pse_math::{
+        assembly::{AssemblyLimits, CasePlan},
+        binding::{
+            CaseLimits, CaseStructure, CaseValues, Contribution, InstanceBinding, Objective,
+            SlotBinding, Target, Variable,
+        },
+        factorable::{FactorableRequest, ObligationKind, ObligationScope},
+        guarded::Condition,
+        typed::{BodyBuilder, BodyLimits},
+    };
+    use pse_quantity::{
+        IndexSet,
+        standard::{StandardInvariantChecker, ids, standard_registry},
+    };
+    use std::sync::{Arc, atomic::AtomicBool};
+
+    fn guarded_program(conditions: &[Condition]) -> FactorableProgram {
+        let registry = standard_registry().unwrap();
+        let quantity = ids::quantity("neutral");
+        let id = |n| SemanticId::from_bytes([n; 16]);
+        let mut builder = BodyBuilder::new(
+            pse_math::initialize().unwrap(),
+            &registry,
+            &StandardInvariantChecker,
+            1,
+            BodyLimits::default(),
+        )
+        .unwrap();
+        let mut value = builder
+            .input(0, quantity, IndexSet::new(), id(200))
+            .unwrap();
+        for (ordinal, condition) in conditions.iter().enumerate() {
+            builder
+                .require(
+                    &mut value,
+                    *condition,
+                    pse_kernels::DerivativeOrder::Value,
+                    id(210 + u8::try_from(ordinal).unwrap()),
+                )
+                .unwrap();
+        }
+        let body = builder.prepare(&[value]).unwrap();
+        let key = ContentHash::from_bytes([7; 32]);
+        let port = pse_kernels::Port {
+            id: id(1),
+            quantity,
+            unit: registry.quantity_type(quantity).unwrap().canonical_unit,
+        };
+        let structure = Arc::new(
+            CaseStructure::new(
+                vec![Variable {
+                    port: port.clone(),
+                    fixed: false,
+                    domain: ModelingVariableDomain::Continuous,
+                    lower: Some(-2.0),
+                    upper: Some(2.0),
+                }],
+                vec![],
+                vec![InstanceBinding {
+                    occurrences: Default::default(),
+                    checked_sources: Default::default(),
+                    checked_members: Default::default(),
+                    instance: id(9),
+                    body: key,
+                    slots: vec![SlotBinding::new(&port, &port, &registry).unwrap()].into(),
+                    contributions: vec![Contribution {
+                        output: 0,
+                        target: Target::PRIMARY,
+                        scale: 1.0,
+                    }],
+                }],
+                vec![],
+                Some(Objective {
+                    quantity,
+                    sense: ObjectiveSense::Minimize,
+                }),
+                CaseLimits::default(),
+            )
+            .unwrap(),
+        );
+        let cancel = Arc::new(AtomicBool::new(false));
+        CasePlan::prepare(
+            structure,
+            BTreeMap::from([(key, Arc::new(body))]),
+            &registry,
+            pse_kernels::DerivativeOrder::Value,
+            AssemblyLimits::default(),
+            &cancel,
+        )
+        .unwrap()
+        .factorable_program(
+            &CaseValues::default(),
+            &FactorableRequest::default(),
+            100_000,
+            &cancel,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn closed_export_drops_nonzero_only_as_relaxation_and_refuses_exact_only() {
+        let mut program = guarded_program(&[Condition::Nonzero]);
+        let occurrence = &program.obligations[0];
+        assert_eq!(occurrence.kind, ObligationKind::Require(Condition::Nonzero));
+        assert!(occurrence.represented);
+        assert!(matches!(
+            &occurrence.predicates[..],
+            [Predicate::Nonzero(_)]
+        ));
+        assert_eq!(program.fidelity(), Fidelity::Exact);
+        let exported = plan(&program, SolveIntent::Optimize).unwrap();
+        assert!(exported.constraints.is_empty());
+        assert_eq!(exported.fidelity, Fidelity::Relaxed);
+        assert_eq!(exported.program.obligations, program.obligations);
+        assert!(admit_program(&program, SolveIntent::Optimize).is_empty());
+        program.require_exact = true;
+        assert_eq!(
+            admit_program(&program, SolveIntent::Optimize),
+            vec![Refusal::ExactRequired]
+        );
+    }
+
+    #[test]
+    fn closed_export_preserves_mixed_predicate_order_and_existing_range_policy() {
+        let mut program = guarded_program(&[
+            Condition::Positive,
+            Condition::Nonzero,
+            Condition::Nonnegative,
+        ]);
+        let predicates = program
+            .obligations
+            .iter()
+            .flat_map(|o| o.predicates.clone())
+            .collect();
+        program.obligations.truncate(1);
+        program.obligations[0].kind = ObligationKind::Domain;
+        program.obligations[0].argument = None;
+        program.obligations[0].predicates = predicates;
+        let exported = plan(&program, SolveIntent::Optimize).unwrap();
+        assert_eq!(exported.fidelity, Fidelity::Relaxed);
+        assert_eq!(exported.constraints.len(), 2);
+        assert_eq!(exported.constraints[0].origin, Origin::Obligation(0, 0));
+        assert_eq!(exported.constraints[1].origin, Origin::Obligation(0, 2));
+        assert_eq!(exported.constraints[0].lower, STRICT_MARGIN);
+        assert_eq!(exported.constraints[1].lower, 0.0);
+        assert!(
+            exported
+                .constraints
+                .iter()
+                .all(|c| c.upper == f64::INFINITY)
+        );
+        // Removing the exclusion removes the transport loss. The old strict-range
+        // policy remains independent of the newly representable exclusion.
+        program.obligations[0].predicates.remove(1);
+        program.require_exact = true;
+        assert_eq!(
+            plan(&program, SolveIntent::Optimize).unwrap().fidelity,
+            Fidelity::Exact
+        );
+    }
+
+    #[test]
+    fn closed_export_validates_all_occurrence_refs_before_dropping_predicates() {
+        let original = guarded_program(&[Condition::Nonzero]);
+        for scope in [ObligationScope::Unconditional, ObligationScope::Conditional] {
+            for argument in [false, true] {
+                let mut program = original.clone();
+                let occurrence = &mut program.obligations[0];
+                occurrence.scope = scope;
+                if argument {
+                    occurrence.argument = Some(usize::MAX);
+                } else {
+                    occurrence.predicates = vec![Predicate::Nonzero(usize::MAX)];
+                }
+                let expected = Refusal::InvalidObligation {
+                    instance: occurrence.instance,
+                    source: occurrence.source,
+                    expression: usize::MAX,
+                };
+                assert_eq!(
+                    admit_program(&program, SolveIntent::Optimize),
+                    vec![expected.clone()]
+                );
+                let diagnostic = expected
+                    .boundary_diagnostic(pse_diagnostics::DiagnosticStage::ModelingAdmission);
+                assert!(diagnostic.sources.contains(&original.obligations[0].source));
+                assert!(
+                    diagnostic
+                        .sources
+                        .contains(&original.obligations[0].instance)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn callback_order_extent_counts_nonzero_predicate_population() {
+        let mut program = guarded_program(&[Condition::Nonzero]);
+        let one = factorable_resolve_allocation_bound(&program).unwrap();
+        let predicate = program.obligations[0].predicates[0].clone();
+        program.obligations[0]
+            .predicates
+            .extend(std::iter::repeat_n(predicate, 1024));
+        assert!(factorable_resolve_allocation_bound(&program).unwrap() > one);
+    }
     #[test]
     fn callback_order_source_extent_checks_overflow_and_late_affine_union() {
         let small = pricing_allocation_extent(12, 3, 3, 1, 2, 1, 0).unwrap();
