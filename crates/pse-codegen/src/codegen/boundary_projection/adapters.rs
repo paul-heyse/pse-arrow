@@ -5,6 +5,8 @@
 use std::collections::BTreeSet;
 use std::fmt::Write;
 
+use syn::{ext::IdentExt as _, visit::Visit as _};
+
 use pse_contract::boundary_projection::{
     ConstructionRole, Definition, Field, LocalRule, ProjectionGraph, Scalar, Shape, TypeRef,
 };
@@ -224,12 +226,13 @@ fn generate(
         "unique_pairs",
         "wire_map",
     ];
+    let mut used = HelperPaths::default();
+    let parsed = syn::parse_file(&out)
+        .map_err(|e| error(format!("native adapter rendering failed: {e}")))?;
+    used.visit_file(&parsed);
     let imports = helpers
         .into_iter()
-        .filter(|helper| {
-            out.split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
-                .any(|token| token == *helper)
-        })
+        .filter(|helper| used.0.contains(*helper))
         .collect::<Vec<_>>()
         .join(", ");
     let out = format!(
@@ -238,6 +241,78 @@ fn generate(
     let parsed = syn::parse_file(&out)
         .map_err(|e| error(format!("native adapter rendering failed: {e}")))?;
     Ok(prettyplease::unparse(&parsed))
+}
+
+/// Relative Rust path roots need the parent's mechanics imported. Diagnostic
+/// text, comments and native field names are not references to helper functions.
+#[derive(Default)]
+struct HelperPaths(BTreeSet<String>);
+impl<'ast> syn::visit::Visit<'ast> for HelperPaths {
+    fn visit_path(&mut self, path: &'ast syn::Path) {
+        if path.leading_colon.is_none()
+            && let Some(segment) = path.segments.first()
+        {
+            self.0.insert(segment.ident.unraw().to_string());
+        }
+        syn::visit::visit_path(self, path);
+    }
+}
+
+#[cfg(test)]
+mod helper_import_tests {
+    use super::*;
+
+    #[test]
+    fn helper_imports_follow_code_paths_and_ignore_diagnostics_fields_and_qualified_names() {
+        let source = syn::parse_file(
+            r#"
+            struct Facts { required: bool, r#type: bool }
+            fn examine(facts: Facts) {
+                // required and NativeFrom are mentioned without being used.
+                let diagnostic = "required alternative is absent: NativeFrom";
+                let _ = facts.required;
+                let _ = facts.r#type;
+                other::required(diagnostic);
+                native_into(facts);
+                r#layout();
+            }
+        "#,
+        )
+        .unwrap();
+        let mut used = HelperPaths::default();
+        used.visit_file(&source);
+        assert!(!used.0.contains("required"));
+        assert!(!used.0.contains("NativeFrom"));
+        assert!(!used.0.contains("type"));
+        assert!(used.0.contains("native_into"));
+        assert!(used.0.contains("layout"));
+    }
+
+    #[test]
+    fn helper_imports_keep_nested_trait_arguments_and_required_calls() {
+        let source = syn::parse_file(
+            r#"
+            impl NativeInto<Wire> for Owner {
+                fn into_wire(self) -> Result<Wire, AdapterError> {
+                    let _ = AdapterFailure::UnknownAlternative;
+                    native_into(required(self.value)?)
+                }
+            }
+        "#,
+        )
+        .unwrap();
+        let mut used = HelperPaths::default();
+        used.visit_file(&source);
+        for helper in [
+            "NativeInto",
+            "AdapterError",
+            "AdapterFailure",
+            "native_into",
+            "required",
+        ] {
+            assert!(used.0.contains(helper), "missing helper {helper}");
+        }
+    }
 }
 
 fn select(
