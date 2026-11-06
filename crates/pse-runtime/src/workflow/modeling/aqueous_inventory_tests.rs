@@ -17,6 +17,10 @@ use pse_modeling::{
 use std::collections::BTreeSet;
 
 async fn conform(name: &str) -> ModelingConformanceReport {
+    conform_precision(name, false).await
+}
+
+async fn conform_precision(name: &str, temporal_refinement: bool) -> ModelingConformanceReport {
     let (runtime, package, _spill, preparation) =
         pr_jacobian_tests::ordinary_delivery_package(false)
             .await
@@ -32,6 +36,41 @@ async fn conform(name: &str) -> ModelingConformanceReport {
         .declaration_id;
     let mut solver = fixture::profile();
     solver.selection = SolverSelection::Explicit(Backend::Ipopt);
+    let cancel = crate::CancelSource::new();
+    if temporal_refinement {
+        // Scalar defaults do not replace imported physical engineering floors.
+        // Resolve actual original row owners before requesting numerical accuracy.
+        let mut original = package
+            .declared_execution(
+                services.preparation(),
+                selected,
+                preparation.compiler,
+                solver.clone(),
+                NumericalInputs::default(),
+                preparation.limits,
+                &cancel,
+            )
+            .await
+            .unwrap()
+            .analysis;
+        let plain = package
+            .prepare_analysis(services.preparation(), &original, &cancel)
+            .await
+            .unwrap();
+        solver.numerics.requirements = refinement_row_requirements(&plain);
+        drop(plain);
+        solver.numerics.supplier_action_accuracy = 1e-10;
+        solver.numerics.linear_backward_error = 1e-10;
+        solver.numerics.kkt.stationarity = 1e-10;
+        solver.numerics.kkt.complementarity = 1e-10;
+        original.solver = solver.clone();
+        let checked = package
+            .prepare_analysis(services.preparation(), &original, &cancel)
+            .await
+            .unwrap();
+        assert_refinement_rows(&checked, &solver.numerics.requirements);
+    }
+    let requirements = solver.numerics.requirements.clone();
     let policy = ModelingConformancePolicy {
         compiler: preparation.compiler,
         solver,
@@ -47,10 +86,143 @@ async fn conform(name: &str) -> ModelingConformanceReport {
         fixtures: ModelingFixtureSelection::Selected(BTreeSet::from([selected])),
         diagnostics: None,
     };
-    package
-        .conform(&services, policy, &crate::CancelSource::new())
-        .await
-        .unwrap()
+    let report = package.conform(&services, policy, &cancel).await.unwrap();
+    if temporal_refinement {
+        assert_eq!(
+            report.results.len(),
+            1,
+            "original refinement solve required"
+        );
+        assert_refinement_rows(
+            &report.results.values().next().unwrap().prepared,
+            &requirements,
+        );
+    }
+    report
+}
+
+fn refinement_row_requirements(
+    prepared: &ModelingSolvePreparation,
+) -> Vec<pse_model::numerics::NumericalRequirement> {
+    use pse_model::generated::enums::{NumericalCoordinates, NumericalTarget};
+    let product = prepared.model.model.compiled();
+    let scope = prepared.model.model.solved().lineage();
+    let rows = prepared.model.case.compiled().plan.structure().rows();
+    let resolved = prepared.solve.numerics();
+    assert_eq!(
+        rows.len(),
+        resolved
+            .targets
+            .iter()
+            .filter(|t| t.kind == NumericalTarget::Row)
+            .count()
+    );
+    rows.iter().map(|row| {
+        let sources = product.model.equations.iter().filter(|source| source.id == row.id)
+            .collect::<Vec<_>>();
+        assert_eq!(sources.len(), 1, "selected native row {} requires exact original equation lineage", row.id);
+        let source = sources[0];
+        assert!(product.model.instances.contains_key(&source.lineage.instance));
+        let target = resolved.targets.iter().find(|target|
+            target.kind == NumericalTarget::Row && target.id == row.id).unwrap();
+        assert_eq!(target.quantity, row.quantity.as_id());
+        // Frozen original conditioning, never the solved candidate magnitude.
+        // Zero/invalid budgets cannot be silently replaced by a precision guess.
+        assert!(target.nominal.is_finite() && target.nominal > 0.);
+        assert!(target.budget.is_finite() && target.budget > 0.);
+        let absolute = target.budget.min(1e-10 * target.nominal);
+        assert!(absolute.is_finite() && absolute > 0.);
+        pse_model::numerics::NumericalRequirement {
+            requirement_id: pse_ids::named_id(row.id, "aqueous-temporal-refinement-row-precision"),
+            model_id: scope.model_id,
+            case_id: scope.case_id,
+            instance_id: Some(source.lineage.instance),
+            fit_id: scope.fit_id,
+            target_id: row.id,
+            target_kind: NumericalTarget::Row,
+            nominal: None,
+            scaling_factor: None,
+            absolute_tolerance: Some(absolute),
+            relative_tolerance: Some(0.),
+            shared_engineering_allowance: None,
+            engineering_rule_id: None,
+            unit_id: Some(target.unit),
+            coordinates: NumericalCoordinates::Physical,
+            priority: 100,
+            required: true,
+            provenance: format!("temporal refinement numerical row precision; original source {}; instance {}; frozen nominal {} in canonical unit {}", source.lineage.declaration, source.lineage.instance, target.nominal, target.unit),
+        }
+    }).collect()
+}
+
+fn assert_refinement_rows(
+    prepared: &ModelingSolvePreparation,
+    requirements: &[pse_model::numerics::NumericalRequirement],
+) {
+    use pse_model::generated::enums::{NumericalProvenanceField, NumericalSource, NumericalTarget};
+    let resolved = prepared.solve.numerics();
+    let actual = resolved
+        .targets
+        .iter()
+        .filter(|target| target.kind == NumericalTarget::Row)
+        .map(|target| target.id)
+        .collect::<BTreeSet<_>>();
+    let expected = requirements
+        .iter()
+        .map(|request| request.target_id)
+        .collect::<BTreeSet<_>>();
+    assert_eq!(expected.len(), requirements.len());
+    assert_eq!(
+        actual, expected,
+        "every actual native row keeps its explicit demand"
+    );
+    for request in requirements {
+        let target = resolved
+            .targets
+            .iter()
+            .find(|target| target.kind == NumericalTarget::Row && target.id == request.target_id)
+            .unwrap();
+        assert_eq!(Some(target.unit), request.unit_id);
+        assert_eq!(target.budget, request.absolute_tolerance.unwrap());
+        assert_eq!(target.relative, 0.);
+        assert!(target.provenance.iter().any(|source| source.selected
+            && source.source == NumericalSource::Analysis
+            && source.field == NumericalProvenanceField::AbsoluteTolerance
+            && source.declaration == Some(request.requirement_id)
+            && source.description == request.provenance));
+        let original = prepared
+            .model
+            .model
+            .compiled()
+            .model
+            .equations
+            .iter()
+            .find(|row| row.id == request.target_id)
+            .unwrap();
+        assert_eq!(Some(original.lineage.instance), request.instance_id);
+        let scope = prepared.model.model.solved().lineage();
+        assert_eq!(scope.model_id, request.model_id);
+        assert_eq!(scope.case_id, request.case_id);
+    }
+    let tolerances = prepared.solve.tolerances();
+    assert_eq!(tolerances.rows.len(), requirements.len());
+    assert!(
+        tolerances
+            .rows
+            .iter()
+            .all(|budget| budget.is_finite() && *budget > 0.)
+    );
+    let mut actual_budgets = tolerances.rows.clone();
+    let mut expected_budgets = requirements
+        .iter()
+        .map(|request| request.absolute_tolerance.unwrap())
+        .collect::<Vec<_>>();
+    actual_budgets.sort_by(f64::total_cmp);
+    expected_budgets.sort_by(f64::total_cmp);
+    assert_eq!(
+        actual_budgets, expected_budgets,
+        "native row tolerances retain the resolved demand"
+    );
 }
 
 fn assert_complete(report: &ModelingConformanceReport) {
@@ -101,6 +273,154 @@ async fn aqueous_inventory_single_cell_matches_exact_mixed_cell_response() {
 #[tokio::test]
 async fn aqueous_inventory_four_cells_preserve_nonzero_clock_and_global_stock_balance() {
     assert_complete(&conform("aqueous_four_cell_nonzero_clock").await);
+}
+
+#[cfg(feature = "solver-diffsol")]
+fn original_temporal_reports(
+    result: &ModelingResult,
+    declaration: DeclarationId,
+    source: DeclarationId,
+    points: usize,
+) -> Vec<(f64, DeclarationId, f64)> {
+    let model = &result.prepared.model.model.compiled().model;
+    let cascade_definition = SemanticId::parse_hex("66e03000000000000000000000000120")
+        .unwrap()
+        .into();
+    let cascades = model
+        .instances
+        .values()
+        .filter(|instance| instance.definition == cascade_definition)
+        .collect::<Vec<_>>();
+    assert_eq!(cascades.len(), 1);
+    let instance = cascades[0].id;
+    let tuples = finite_family(model, instance, declaration);
+    assert_eq!(tuples.len(), points * 2);
+    let water = SemanticId::parse_hex("01a0e1461e93764398a669ec398dd8a0")
+        .unwrap()
+        .into();
+    let ethanol = SemanticId::parse_hex("01a0e1461e93764398a669f485d31290")
+        .unwrap()
+        .into();
+    let rows = result
+        .reports
+        .iter()
+        .filter(|row| row.source_id == source)
+        .collect::<Vec<_>>();
+    assert_eq!(rows.len(), tuples.len());
+    let mut targets = BTreeSet::new();
+    let mut water_coordinates = BTreeSet::new();
+    let mut ethanol_coordinates = BTreeSet::new();
+    let mut observations = Vec::with_capacity(tuples.len());
+    for tuple in tuples {
+        let [
+            coordinate @ Value::Coordinate { bits, .. },
+            Value::Entity { id: component, .. },
+        ] = tuple.as_slice()
+        else {
+            panic!("original physical time/component tuple required: {tuple:?}");
+        };
+        let time = f64::from_bits(*bits);
+        assert!(time.is_finite() && (5. ..=10.).contains(&time));
+        let coordinates = if *component == water {
+            &mut water_coordinates
+        } else {
+            assert_eq!(*component, ethanol);
+            &mut ethanol_coordinates
+        };
+        assert!(coordinates.insert(coordinate.clone()));
+        let target = model
+            .finite_facts
+            .require_member(&MemberKey {
+                instance,
+                declaration,
+                tuple: tuple.clone(),
+            })
+            .unwrap();
+        assert!(targets.insert(target));
+        let matching = rows
+            .iter()
+            .filter(|row| row.target_id == target)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            matching.len(),
+            1,
+            "one original source/target observation per member"
+        );
+        let row = matching[0];
+        assert_eq!(row.run_id, result.run_id);
+        assert!(row.value.is_finite());
+        observations.push((time, *component, row.value));
+    }
+    assert_eq!(water_coordinates.len(), points);
+    assert_eq!(water_coordinates, ethanol_coordinates);
+    observations
+}
+
+#[cfg(feature = "solver-diffsol")]
+#[tokio::test]
+async fn aqueous_inventory_temporal_refinement_preserves_complete_original_populations() {
+    let declaration = |text| SemanticId::parse_hex(text).unwrap().into();
+    let ethanol = declaration("01a0e1461e93764398a669f485d31290");
+    let mut errors = Vec::new();
+    for (name, points) in [
+        ("aqueous_four_cell_coarse_nonzero_clock", 31),
+        ("aqueous_four_cell_nonzero_clock", 61),
+    ] {
+        let report = conform_precision(name, true).await;
+        assert_complete(&report);
+        let result = report.results.values().next().unwrap();
+        let outlet = original_temporal_reports(
+            result,
+            declaration("66e0300000000000000000000000012e"),
+            declaration("66e03000000000000000000000000134"),
+            points,
+        );
+        let inventory = original_temporal_reports(
+            result,
+            declaration("66e0300000000000000000000000012f"),
+            declaration("66e03000000000000000000000000135"),
+            points,
+        );
+        assert!(
+            inventory
+                .iter()
+                .all(|(_, component, amount)| if *component == ethanol {
+                    *amount >= -0.001
+                } else {
+                    (*amount - 55.).abs() <= 0.001
+                })
+        );
+        let concentration = |time: f64| {
+            let selected = outlet
+                .iter()
+                .filter(|(at, component, _)| *at == time && *component == ethanol)
+                .collect::<Vec<_>>();
+            assert_eq!(selected.len(), 1, "original common-time member at {time}");
+            selected[0].2
+        };
+        assert!(concentration(5.).abs() <= 1.);
+        let mut maximum_error = 0_f64;
+        for time in [6., 7., 10.] {
+            // Exact four-cell cascade response (Q/V=1/s), not continuum flow.
+            // Original clock starts at5s; each actual cell holds V/4*C.
+            let z: f64 = 4. * (time - 5.);
+            let expected = 100. * (1. - (-z).exp() * (1. + z + z * z / 2. + z * z * z / 6.));
+            let error = (concentration(time) - expected).abs();
+            assert!(error <= 1., "{name} at {time}: {error}mol/m3");
+            maximum_error = maximum_error.max(error);
+        }
+        if points == 61 {
+            assert!((concentration(5.25) - 1.898815687615385).abs() <= 1.);
+        }
+        eprintln!(
+            "{name}: {points} original points; common-time maximum concentration error={maximum_error}mol/m3"
+        );
+        errors.push(maximum_error);
+    }
+    // Three-stage right Radau's linear step map predicts approximately30x
+    // improvement here. An8x discriminator allows solver roundoff without
+    // claiming a general convergence order or widening physical tolerances.
+    assert!(errors[1] * 8. < errors[0], "coarse/fine errors: {errors:?}");
 }
 
 #[tokio::test]

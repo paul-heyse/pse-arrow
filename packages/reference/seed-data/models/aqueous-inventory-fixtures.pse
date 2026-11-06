@@ -30,6 +30,17 @@
 @id("66e03000000000000000000000000226") expect root.outlet_concentration[10{s},chem.ethanol]==99.99967962802195{mol/m^3} tolerance numerical_policy.concentration;
 @id("66e03000000000000000000000000227") expect root.total_component_amount[10{s},chem.water]==55{mol} tolerance numerical_policy.amount;
 }
+// Temporal refinement of the same four physical volumes and original stock.
+// Ten right-Radau elements have31 points; the20-element case retains61,
+// including its separate early5.25s obligation. Physical allowances are identical.
+@id("66e03000000000000000000000000270") test aqueous_four_cell_coarse_nonzero_clock oracle cascade_reference fixture {dof 0;route simultaneous;procedure solve;policy {backend ipopt;limits body_occurrences(10000000);}} {
+@id("66e03000000000000000000000000271") child root:aqueous_inventory.Cascade=aqueous_inventory.Cascade(selected=components,volume=0.001{m^3},volume_flow=0.001{m^3/s},initial=initial,inlet=inlet,finite_elements=4,time_elements=10,first=5{s},last=10{s});
+@id("66e03000000000000000000000000272") expect root.outlet_concentration[5{s},chem.ethanol]==0{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000273") expect root.outlet_concentration[6{s},chem.ethanol]==56.65298796332912{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000274") expect root.outlet_concentration[7{s},chem.ethanol]==95.7619888008316{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000275") expect root.outlet_concentration[10{s},chem.ethanol]==99.99967962802195{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000276") expect root.total_component_amount[10{s},chem.water]==55{mol} tolerance numerical_policy.amount;
+}
 @id("66e03000000000000000000000000230") test aqueous_four_cell_zero_flow oracle cascade_reference fixture {dof 0;route simultaneous;procedure solve;policy {backend ipopt;limits body_occurrences(10000000);}} {
 @id("66e03000000000000000000000000231") child root:aqueous_inventory.Cascade=aqueous_inventory.Cascade(selected=components,volume=0.001{m^3},volume_flow=0{m^3/s},initial=retained,inlet=inlet,finite_elements=4,time_elements=20);
 @id("66e03000000000000000000000000232") expect root.outlet_concentration[5{s},chem.ethanol]==10{mol/m^3} tolerance numerical_policy.concentration;
