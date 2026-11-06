@@ -179,6 +179,86 @@ impl Allowance {
     }
 }
 impl CasePlan {
+    /// Known Rust/container and retained-expression construction for selected affine rows.
+    ///
+    /// This does not construct a factorable DAG, row tapes or a quadratic curvature
+    /// memo. Count selected contributions and their admitted slot inventories before
+    /// allocating proof scratch. Symbolica's transient normalization/differentiation
+    /// remains covered by the caller's separate foreign allowance; this is not a
+    /// preallocation bound for arbitrary symbolic reconstruction.
+    ///
+    /// # Errors
+    /// A foreign row inventory or overflow before proof construction.
+    pub fn affine_row_allocation_bound(
+        &self,
+        base: &Facts,
+        limit: usize,
+    ) -> Result<usize, MathError> {
+        let overflow = || MathError::Limit("affine row construction extent");
+        let add = |a: usize, b: usize| a.checked_add(b).ok_or_else(overflow);
+        let mul = |a: usize, b: usize| a.checked_mul(b).ok_or_else(overflow);
+        if base.structure != self.structure().key()
+            || base.affine.len() != self.structure().rows().len()
+        {
+            return Err(MathError::Contract(
+                "affine row extent requires the original row inventory".into(),
+            ));
+        }
+        let mut selected = 0usize;
+        let mut contributions = 0usize;
+        let mut slots = 0usize;
+        let mut symbols = 0usize;
+        let mut coefficients = 0usize;
+        for (row, affine) in self.structure().rows().iter().zip(&base.affine) {
+            if affine.is_some() {
+                continue;
+            }
+            selected = add(selected, 1)?;
+            let mut candidates = 0usize;
+            for &(binding, contribution) in self.row_contributions(row.id) {
+                let binding = &self.structure().instances()[binding];
+                let contribution = &binding.contributions[contribution];
+                let body = &self.bodies()[&binding.body];
+                contributions = add(contributions, 1)?;
+                // Aliases/duplicate contributions may overcount, but cannot invent
+                // more global candidate columns than their actual admitted slots.
+                slots = add(slots, binding.slots.len())?;
+                candidates = add(candidates, binding.slots.len())?;
+                if let Some(expression) = body.expression(contribution.output) {
+                    // Each distinct original symbol occupies encoded source bytes.
+                    // Counting bytes overbounds discovery without allocating a set.
+                    symbols = add(symbols, expression.as_view().get_byte_size())?;
+                }
+            }
+            coefficients = add(coefficients, candidates.min(self.columns().len()))?;
+        }
+        let population = add(
+            add(self.structure().rows().len(), self.columns().len())?,
+            add(
+                self.structure().instances().len(),
+                self.structure().requirements().len(),
+            )?,
+        )?;
+        // BTree nodes, selected/missing sets, bound-output caches, formal maps,
+        // candidates and replacement vectors. Count repeat bindings before cache
+        // reuse, and allow simultaneous vectors/maps plus their growth capacity.
+        let records = add(
+            add(mul(selected, 3)?, mul(contributions, 4)?)?,
+            add(
+                add(mul(slots, 4)?, mul(symbols, 2)?)?,
+                add(coefficients, population)?,
+            )?,
+        )?;
+        // The successful proof charges every retained expression/clone to its
+        // one continuing allowance. Extra buffers allow simultaneous aggregate,
+        // derivative and constant-substitution results; foreign scratch is separate.
+        let expression_bytes = mul(base.proof_remaining.min(limit), 8)?;
+        add(
+            add(mul(base.bytes(), 4)?, mul(records, 256)?)?,
+            add(expression_bytes, 8192)?,
+        )
+    }
+
     /// Prove original aggregate affine rows independently of whole-program class admission.
     /// The proof describes residuals on their original valid domain: all guards, domain
     /// obligations and tapes remain owned by the original callbacks and postsolve assessment.

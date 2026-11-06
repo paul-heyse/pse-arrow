@@ -8116,6 +8116,87 @@ fn authored_affine_accelerator_uses_registered_solver_and_original_ift_guards() 
 }
 
 #[test]
+fn affine_row_construction_uses_selected_proof_extent_without_quadratic_curvature() {
+    let mut text = String::from("package p { def Root {");
+    for i in 0_u32..128 {
+        text.push_str(&format!(
+            "var x{i}:Scalar; eq e{i}:{}*x{i}=={};",
+            i + 1,
+            i + 2
+        ));
+    }
+    text.push_str("} }");
+    let (mut workspace, _, _, root) = setup(&text);
+    let cancel = Cancellation::new(false);
+    let model = workspace
+        .prepare_modeling_cancellable(
+            root,
+            root_instance(root),
+            Bindings {
+                demand: (0_u32..128).map(|i| format!("x{i}")).collect(),
+                ..Bindings::default()
+            },
+            Limits::default(),
+            cancel.flag(),
+        )
+        .unwrap();
+    let values = CaseValues {
+        scalars: (0_u32..128)
+            .map(|i| (model.model.paths[&format!("x{i}")], 0.0))
+            .collect(),
+    };
+    let base = workspace
+        .prepare_modeling_view(
+            &model,
+            model.bound_structure(&BTreeMap::new()).unwrap().structure,
+            &values,
+            DerivativeOrder::First,
+            Profile::default(),
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(base.plan.columns().len(), 128);
+    assert!(base.presolve.affine.iter().all(Option::is_none));
+    let class_extent = base.class_allocation_bound(&values).unwrap().unwrap();
+    let affine_extent = base.affine_row_allocation_bound(&values).unwrap().unwrap();
+    assert!(
+        class_extent > affine_extent.checked_mul(8).unwrap(),
+        "full class {class_extent}, selected affine {affine_extent}"
+    );
+    let proved = base.prepare_affine_rows(&values, &cancel).unwrap();
+    assert!(proved.retained_bytes() <= affine_extent);
+    assert_eq!(proved.presolve.row_sources, base.presolve.row_sources);
+    assert_eq!(proved.presolve.obligations, base.presolve.obligations);
+    assert_eq!(proved.artifacts, base.artifacts);
+    assert_eq!(
+        proved.presolve.class_status,
+        pse_math::presolve::ClassStatus::Unassessed
+    );
+    let expected = (0_u32..128)
+        .map(|i| {
+            (
+                (-f64::from(i + 2)).to_bits(),
+                (model.model.paths[&format!("x{i}")], f64::from(i + 1)),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    for row in &proved.presolve.affine {
+        let row = row.as_ref().unwrap();
+        assert_eq!(row.entries.len(), 1);
+        let (&column, &coefficient) = row.entries.iter().next().unwrap();
+        assert_eq!(
+            (proved.plan.columns()[column], coefficient),
+            expected[&row.constant.to_bits()]
+        );
+    }
+    let mut exhausted = base.clone();
+    exhausted.class_proof_work = 1;
+    assert!(exhausted.prepare_affine_rows(&values, &cancel).is_err());
+    cancel.cancel();
+    assert!(base.prepare_affine_rows(&values, &cancel).is_err());
+}
+
+#[test]
 fn affine_row_rebind_keeps_free_iterates_and_refreshes_parameter_coefficients_without_artifacts() {
     use pse_math::presolve::ClassStatus;
     let (mut workspace, _, _, root) = setup(

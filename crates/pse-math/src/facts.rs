@@ -67,6 +67,23 @@ pub struct ProblemFacts {
     pub convexity: Convexity,
 }
 impl ProblemFacts {
+    /// Owned vector payload; shared convexity certificates retain their own owner.
+    pub fn heap_bytes(&self) -> usize {
+        self.domains.capacity() * size_of::<ModelingVariableDomain>()
+            + self.bounds.capacity() * size_of::<BoundShape>()
+            + self.affine_rows.capacity() * size_of::<bool>()
+            + self.native.capacity()
+                * size_of::<pse_model::generated::enums::NativeConstraintForm>()
+            + self.requirements.capacity()
+                * size_of::<pse_model::generated::enums::ModelingStructuralRequirement>()
+            + match &self.class_status {
+                crate::presolve::ClassStatus::Pending(dependencies) => {
+                    dependencies.capacity() * size_of::<crate::class_evidence::ClassDependency>()
+                }
+                _ => 0,
+            }
+    }
+
     /// Derive facts from a plan and its optional, current coefficient snapshot. A
     /// coefficient snapshot's objective quadratic is certified here, in the objective's
     /// minimization sense.

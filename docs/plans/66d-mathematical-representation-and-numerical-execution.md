@@ -99,16 +99,29 @@ formal candidates and uses Symbolica first partials to establish original affine
 does not build that dense quadratic memo. Do not interpret the rebind estimate as measured
 affine memory demand or widen the worker solely to clear it.
 
-D01/D02 own an operation-specific construction-demand investigation and correction, preserving
-actual symbolic/coefficient growth, foreign allocation, cancellation and retained-product
-responsibilities. Keep full coefficient-class/rebind demands separate. Compare the actual
-native producer with its existing allocation contract before selecting a tighter known bound
-or any qualified alternative; a post-construction charge does not prove a preallocation bound.
+D01/D02's first correction supplies a separate affine-row construction estimate: selected
+original contribution/slot inventories, source-symbol discovery, coefficient maps, base/fresh
+facts and retained expression allowance. Full coefficient-class/rebind demands remain separate.
+The runtime now consumes this operation-specific estimate without changing proof, cancellation,
+stale-assumption or native job ownership. Prepared/rebound publication also counts owned
+`ProblemFacts` vector payload. The existing foreign allocation allowance remains distinct:
+normalization/differentiation still allocates inside Symbolica before its post-result charge,
+so this known Rust/retained-result estimate does not qualify transient symbolic preallocation
+or C04's canonical reconstruction gate. No opaque fallback or worker increase was introduced.
 Sources: [compiler class/affine owners](../../crates/pse-compiler/src/workspace.rs),
 [current rebind bound](../../crates/pse-math/src/factorable.rs), and
 [selected-row Symbolica proof](../../crates/pse-math/src/class_evidence.rs).
 H independently assesses the physical temporal layout and the retained compiler frontier;
 its simultaneous refinement cases remain required even if the separate integrated route passes.
+
+**Tested, targeted:** `scripts/pse test pse-compiler --lib -E
+'test(affine_row_construction_uses_selected) | test(affine_row_rebind_keeps)'` passed two controls,
+zero failures/pending/build warnings (invocation `01a1b283-3b51-7035-95d1-01c5b4529596`).
+The 128-coordinate sparse case establishes original coefficients/constants without charging
+the unrelated quadratic curvature population; retained product fits its estimate, original
+row/domain/artifact correspondence survives, and work exhaustion/cancellation still refuse.
+The initial control failed because it requested path observations without declaring those
+outputs; explicit source demand corrected the test. Runtime/H receiving remains separate.
 
 ## Packages
 
@@ -134,6 +147,6 @@ physical/reference expectations. Structural equivalence and a library convergenc
 prove physical validity. Run targeted controls as implementation lands, and receiving native/
 scientific campaigns through L at functional scope end. Performance benefits remain unmeasured.
 
-**Outcome:** investigation is active at H03's demanded affine preparation. No new mathematical
-implementation or physical acceptance is claimed by this checkpoint; existing passing controls
-retain their original conditions, not whole-plan qualification.
+**Outcome:** the first demanded affine construction correction is implemented with bounded
+compiler controls above. Runtime/H receiving and the remaining mathematical/physical population
+stay open; no whole-plan, canonical reconstruction or physical acceptance is inferred.

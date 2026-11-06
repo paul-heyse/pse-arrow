@@ -1074,6 +1074,39 @@ impl PreparedCase {
     pub fn class_allocation_bound(&self, values: &CaseValues) -> Result<Option<usize>> {
         self.rebind_allocation_bound(values)
     }
+    /// Selected affine proof construction, without full coefficient-class curvature.
+    /// Symbolica transient allocations retain the native job's separate foreign allowance.
+    /// # Errors
+    /// Overflow or an inconsistent original row inventory before proof construction.
+    pub fn affine_row_allocation_bound(&self, values: &CaseValues) -> Result<Option<usize>> {
+        // A pre-existing coefficient snapshot also asks ProblemFacts to inspect its
+        // quadratic certificate; keep that constructor's existing full envelope.
+        if self.coefficients.is_some() {
+            return self.class_allocation_bound(values);
+        }
+        let proof = self
+            .plan
+            .affine_row_allocation_bound(&self.presolve, self.class_proof_work)?;
+        // This caller transfers a complete prepared product through own_preparation.
+        // Its existing shared components stay in the publication population, beside
+        // fresh bound/class facts and native domain/bound/requirement vectors.
+        let metadata = self
+            .plan
+            .structure()
+            .variables()
+            .len()
+            .checked_add(self.plan.structure().rows().len())
+            .and_then(|n| n.checked_add(self.plan.structure().native().len()))
+            .and_then(|n| n.checked_add(self.plan.structure().requirements().len()))
+            .and_then(|n| n.checked_mul(256))
+            .ok_or(MathError::Limit("affine preparation metadata extent"))?;
+        Ok(Some(
+            proof
+                .checked_add(self.retained_bytes())
+                .and_then(|n| n.checked_add(metadata))
+                .ok_or(MathError::Limit("affine preparation construction extent"))?,
+        ))
+    }
     /// Support upgrades create descriptors and sparse support, while numeric
     /// compilation remains in independently admitted artifact flights.
     /// # Errors
@@ -1252,6 +1285,7 @@ impl PreparedCase {
             + self.plan.retained_bytes()
             + self.plan.owner_wrapper_bytes()
             + self.presolve.bytes()
+            + self.facts.heap_bytes()
             + self.quantities.allocation_extent()
             + self.preconditions.allocation_extent()
             + self.structural_bytes()

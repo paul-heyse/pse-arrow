@@ -3153,7 +3153,7 @@ impl MathService {
         ) {
             let source = result.prepared.clone();
             let construction = super::jobs::ConstructionEstimate::from_bound(
-                source.class_allocation_bound(&values)?,
+                source.affine_row_allocation_bound(&values)?,
                 self.policy.workspace_bytes,
             );
             if construction.bytes() > self.policy.worker_bytes {
