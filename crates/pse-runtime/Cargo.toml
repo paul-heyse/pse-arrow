@@ -324,6 +324,7 @@ scope.tests = [
   "math::portable::canonical_portable_body_tests::canonical_portable_body_candidate_reserves_before_protected_hydration",
   "host_operations::engineering::session::tests::canonical_engineering_original_run_survives_lost_waiter_and_service_retirement",
   "workflow::modeling::ordinary_delivery_tests::ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source",
+  "workflow::modeling::aqueous_inventory_tests::aqueous_integrated_original_native_outcome_survives_protected_export_and_portable_read",
   "workflow::operation_preparation::initialization_tests::canonical_initialization_operation_reopens_complete_success_and_failure_history",
   "workflow::operation_preparation::initialization_tests::canonical_initialization_root_response_reopens_scoped_permission",
   "math::portable::canonical_portable_body_tests::canonical_portable_body_cold_miss_skips_local_runtime_observation",

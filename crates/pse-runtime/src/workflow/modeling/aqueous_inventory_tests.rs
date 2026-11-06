@@ -501,3 +501,337 @@ async fn aqueous_integrated_zero_flow_preserves_original_nonzero_inventory() {
     )
     .await;
 }
+
+#[cfg(all(feature = "canonical-tests", feature = "solver-diffsol"))]
+#[tokio::test]
+async fn aqueous_integrated_original_native_outcome_survives_protected_export_and_portable_read() {
+    use base64::Engine as _;
+    use buffa_descriptor::{
+        DescriptorPool, DynamicMessage, ReflectMessage as _, Value as WireValue,
+        ValueRef as WireValueRef,
+    };
+    use datafusion::arrow::{
+        array::{FixedSizeBinaryArray, Float64Array, Int64Array},
+        ipc::reader::StreamReader,
+    };
+    use pse_compiler::workspace::ModelingOutput;
+
+    let (runtime, package, _spill, preparation) =
+        pr_jacobian_tests::ordinary_delivery_package(true)
+            .await
+            .unwrap();
+    let physical = package.physical_context().clone();
+    let runtime = super::super::durable_tests::durable_runtime_on(runtime);
+    let store = runtime.canonical_store().unwrap();
+    store
+        .create_project(
+            "aqueous-lifecycle-create",
+            "aqueous-lifecycle",
+            "Original aqueous inventory lifecycle",
+        )
+        .await
+        .unwrap();
+    let project = store.project("aqueous-lifecycle").await.unwrap().unwrap();
+    let source = Box::pin(runtime.project_fork(
+        &project,
+        "aqueous-lifecycle-main",
+        "aqueous-lifecycle-problem",
+        "aqueous-lifecycle-fork",
+        &package,
+    ))
+    .await
+    .unwrap();
+    let original_revision = source.key.clone();
+    let original = Box::pin(runtime.modeling_revision(source, physical, BTreeMap::new()))
+        .await
+        .unwrap();
+    let services = runtime.execution_services();
+    let case = original
+        .declarations(services.preparation())
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|row| row.name == "aqueous_four_cell_integrated_nonzero_clock")
+        .unwrap()
+        .declaration_id;
+    let cancel = crate::CancelSource::new();
+    let operation = Box::pin(original.prepare_operation(
+        services.preparation(),
+        &crate::workflow::OperationSource::of(&original),
+        &preparation,
+        crate::workflow::RuntimeOperationRequest::Study {
+            operation: Box::new(crate::workflow::OperationRequest::Simulation(
+                crate::workflow::SimulationOperation {
+                    case,
+                    settings: None,
+                },
+            )),
+            output: crate::workflow::StudyOutputDemand::Full {},
+            admitted_horizon: None,
+        },
+        None,
+        &cancel,
+    ))
+    .await
+    .unwrap();
+    let handle = operation.start(&services, &cancel).await.unwrap();
+    let run_key = handle.canonical_run_key().unwrap().to_owned();
+    let attempt_key = handle.canonical_attempt_key().unwrap().to_owned();
+    let run = handle.wait().await.unwrap();
+    assert!(run.usable());
+    let crate::workflow::RunReport::Simulation(trajectory) = run.report().unwrap() else {
+        panic!("the authored integrate procedure must produce its original native simulation");
+    };
+    assert!(trajectory.accepted() && trajectory.checks_complete());
+    assert_eq!(trajectory.prepared().profile().method, Method::Diffsol);
+    let times = [5., 5.25, 6., 7., 10.];
+    let samples = trajectory.report().samples.iter().collect::<Vec<_>>();
+    prefix_balances(
+        trajectory,
+        &samples,
+        &times,
+        &component_reads(trajectory, 0.),
+    )
+    .unwrap();
+    // Expectations come directly from the producing native vectors and their
+    // admitted member/physical contracts, not the relation projection also used
+    // by the canonical writer.
+    let prepared = trajectory.prepared();
+    let product = prepared.model().compiled();
+    let mut expected = BTreeMap::new();
+    for (sample, point) in trajectory.report().samples.iter().enumerate() {
+        assert_eq!(point.time.to_bits(), times[sample].to_bits());
+        assert_eq!(point.outputs.len(), prepared.contract().outputs.len());
+        for (column, target) in prepared.contract().outputs.iter().enumerate() {
+            let ModelingOutput::Member(member) = product
+                .admitted
+                .outputs
+                .iter()
+                .find(|output| output.row_id() == *target)
+                .unwrap()
+            else {
+                panic!("native trajectory output is not an original member");
+            };
+            let quantity = product
+                .admitted
+                .case()
+                .rows()
+                .iter()
+                .find(|row| row.id == *target)
+                .unwrap()
+                .quantity;
+            let unit = original
+                .physical_context()
+                .quantities()
+                .quantity_type(quantity)
+                .unwrap()
+                .canonical_unit;
+            assert!(
+                expected
+                    .insert(
+                        (*member, sample as i64),
+                        (
+                            trajectory.run_id(),
+                            quantity.as_id(),
+                            unit.as_id(),
+                            point.time.to_bits(),
+                            point.outputs[column].to_bits()
+                        )
+                    )
+                    .is_none()
+            );
+        }
+    }
+    assert_eq!(
+        expected.len(),
+        times.len() * prepared.contract().outputs.len()
+    );
+    assert!(!expected.is_empty());
+    let row_count = expected.len() as u64;
+    drop((run, handle, operation, original, package));
+    runtime.clear_program_cache();
+
+    // This reader acquires the original sealed run/attempt after producer handles drop.
+    // Neither the selection observation nor its portable copy grants execution.
+    let token = pse_columnar::CancellationToken::new();
+    let mut reader = runtime
+        .results(
+            &run_key,
+            &attempt_key,
+            "runtime.simulation_samples",
+            0,
+            row_count,
+            token.clone(),
+        )
+        .await
+        .unwrap();
+    let selection = reader.pack_selection().await.unwrap();
+    assert_eq!((selection.row_start, selection.row_end), (0, row_count));
+    // The accepted native trajectory is readable even though this selected
+    // relation currently retains no scientific-use grant. Copying cannot add it.
+    assert_eq!(
+        selection.usability,
+        crate::workflow::PackScientificState::Unknown
+    );
+    let context = selection.context.as_ref().unwrap();
+    assert_eq!(context.problem, "aqueous-lifecycle-problem");
+    assert_eq!(context.revision, original_revision);
+    assert_eq!(context.manifest, reader.selection().manifest().digest);
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("aqueous-original.arrow");
+    reader
+        .export_ipc_bounded(&destination, 8 << 20, &token)
+        .await
+        .unwrap();
+    drop(reader);
+    assert!(
+        !directory
+            .path()
+            .join("aqueous-original.arrow.incomplete")
+            .exists()
+    );
+    let artifact = std::fs::File::open(&destination).unwrap();
+    let readable_bytes = artifact.metadata().unwrap().len();
+    crate::workflow::portable_payload::validate_scientific_ipc(
+        artifact,
+        readable_bytes,
+        8 << 20,
+        &selection,
+    )
+    .unwrap();
+
+    // Arrow and dynamic Protobuf read the actual protected export independently of
+    // the generated native result adapter and generated relation row decoder.
+    let mut portable =
+        StreamReader::try_new(std::fs::File::open(&destination).unwrap(), None).unwrap();
+    let schema = portable.schema();
+    assert!(!schema.metadata().contains_key("pse.canonical.attempt"));
+    let encoded = &schema.metadata()[crate::workflow::result_selection::SELECTION_METADATA_KEY];
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .unwrap();
+    let world = Arc::new(
+        DescriptorPool::decode(crate::host_operations::engineering::generated::DESCRIPTORS)
+            .unwrap(),
+    );
+    let message = world
+        .message_index("pse.engineering.v1.RecordedResultSelection")
+        .unwrap();
+    let observed = DynamicMessage::decode(world, message, &bytes).unwrap();
+    for (tag, value) in [
+        (1, run_key.as_str()),
+        (2, attempt_key.as_str()),
+        (3, "runtime.simulation_samples"),
+    ] {
+        assert_eq!(
+            observed.field_by_number(tag),
+            Some(&WireValue::String(value.into()))
+        );
+    }
+    // Distinguish canonical wire absence from its descriptor-issued proto3 scalar default.
+    let row_start = observed.message_descriptor().field(5).unwrap();
+    assert!(observed.field_by_number(5).is_none());
+    assert!(!observed.has(row_start));
+    assert!(matches!(observed.get(row_start), WireValueRef::U64(0)));
+    assert_eq!(
+        observed.field_by_number(6),
+        Some(&WireValue::U64(row_count))
+    );
+    let Some(WireValue::Message(usability)) = observed.field_by_number(10) else {
+        panic!("original passive usability absent");
+    };
+    assert!(
+        matches!(usability.field_by_number(1), Some(WireValue::Message(_))),
+        "the original Unknown oneof alternative must survive copying"
+    );
+    for alternate in 2..=5 {
+        assert!(
+            usability.field_by_number(alternate).is_none(),
+            "portable delivery cannot introduce a scientific-use alternative"
+        );
+    }
+    let Some(WireValue::Message(observed_context)) = observed.field_by_number(11) else {
+        panic!("original native context absent");
+    };
+    for (tag, value) in [
+        (1, context.problem.as_str()),
+        (2, context.revision.as_str()),
+        (3, context.manifest.as_str()),
+        (4, context.interpretation.as_str()),
+    ] {
+        assert_eq!(
+            observed_context.field_by_number(tag),
+            Some(&WireValue::String(value.into()))
+        );
+    }
+    crate::workflow::portable_payload::validate_scientific_lineage(schema.as_ref(), &selection)
+        .unwrap();
+    let mut foreign = selection.clone();
+    foreign.context.as_mut().unwrap().revision = "foreign-original-revision".into();
+    assert!(
+        crate::workflow::portable_payload::validate_scientific_lineage(schema.as_ref(), &foreign)
+            .is_err()
+    );
+
+    let mut previous = None;
+    for batch in &mut portable {
+        let batch = batch.unwrap();
+        assert!(
+            batch
+                .columns()
+                .iter()
+                .all(|column| column.null_count() == 0)
+        );
+        let ids = |name| {
+            batch
+                .column_by_name(name)
+                .unwrap()
+                .as_any()
+                .downcast_ref::<FixedSizeBinaryArray>()
+                .unwrap()
+        };
+        let sample = batch
+            .column_by_name("sample")
+            .unwrap()
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .unwrap();
+        let time = batch
+            .column_by_name("time")
+            .unwrap()
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+        let value = batch
+            .column_by_name("value")
+            .unwrap()
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+        for index in 0..batch.num_rows() {
+            let symbol = SemanticId::from_bytes(ids("symbol_id").value(index).try_into().unwrap());
+            let key = (symbol, sample.value(index));
+            assert!(
+                previous.is_none_or(|before| before < key),
+                "canonical output/sample order is original"
+            );
+            previous = Some(key);
+            let original = expected
+                .remove(&key)
+                .expect("portable member/sample must have an actual native producer");
+            assert_eq!(ids("run_id").value(index), original.0.as_bytes());
+            assert_eq!(ids("quantity_id").value(index), original.1.as_bytes());
+            assert_eq!(ids("unit_id").value(index), original.2.as_bytes());
+            assert_eq!(time.value(index).to_bits(), original.3);
+            assert_eq!(value.value(index).to_bits(), original.4);
+        }
+    }
+    assert!(
+        expected.is_empty(),
+        "every original native member/sample must survive portable delivery"
+    );
+    assert!(
+        portable.is_finished(),
+        "independent portable read must consume the complete export"
+    );
+}
