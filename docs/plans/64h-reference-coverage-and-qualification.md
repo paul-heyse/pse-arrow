@@ -1026,6 +1026,63 @@ owners supplying applicable preparation/receipt capabilities. The whole-square i
 estimator remains explicitly unsupported at this tested boundary. No scientific pass is
 claimed for the three exchanger cases.
 
+### Source-anchored output assessment — November 6 execution
+
+**Implemented, receiving scientific comparison pending:**
+[proposed ADR-0248](../adr/0248-affine-constant-output-accuracy.md) refines the reduction
+realization for source-fixed boundary coordinates. The backend's sealed
+[`SquareAccuracyFrame`](../../crates/pse-backend-native/src/engineering_accuracy/affine.rs)
+starts with matching `Facts`/source/consumed values and unary affine anchors, propagates only
+through source binary affine rows, and intersects with existing zero-threshold library
+`VarRecovery::Constant` recovery. Equal bounds, unanchored cycles and rounded elimination
+cannot seed constancy. The existing [root reduction](../../crates/pse-backend-native/src/presolve/roots.rs)
+supplies the library plan; [source coefficient conversion](../../crates/pse-math/src/coefficients.rs)
+now refuses a nonzero expression that underflows to zero rather than erasing dependence.
+
+The private accuracy factor retains every original row and coordinate at the actual point.
+It reuses the existing full-Jacobian `estimate_square` residual/adjoint path, including normal
+correction off the affine manifold, residual/Jacobian/gradient uncertainty and original-row
+refinement demands. No point snapping, affine-defect deletion or synthetic reconstruction
+certificate is introduced. Moving coordinates require strict point-local physical interior;
+the separate original tolerance-based feasibility and full original First guard/selector
+checks remain. Acceptance tolerance is not a derivative-neighborhood radius. The estimator
+does not apply a nonlinear correction or evaluate its endpoint, so it establishes neither
+endpoint feasibility, a nonlinear remainder bound nor a finite-radius neighborhood.
+Evidence is Estimated original-equation correction, with no exact feasible-root existence or
+two-sided parameter-neighborhood claim. Public parameter response cannot consume the private
+exemption. A complete reduced evaluator remains a separate option if a required case cannot
+evaluate full original First support.
+
+The initial backend/public-response selection passes 44/44 against zero failures. Additional
+full-frame source, support/storage/cancellation and actual guard controls pass in the expanded
+165-test receiving selection (160 passed, five failed overall). The runtime source-goal fixture
+passes its preparation/provenance assertions but still fails before obtaining a native report.
+Goal-driven source-affine preparation is
+independent of solver presolve selection and consumes the resolved goals, while physical
+numerics and independent comparison allowances remain unchanged. The three original exchanger
+comparisons and complete protected readback still govern H02/H03 acceptance.
+
+The first 146-test receiving selection executed with the explicit IDAES 2.13.0 reference
+interpreter and retained native/reference artifacts. It passed 140 tests and failed six
+against the zero baseline. Two new controls exposed fixture issues (nested original guard
+error attribution and an Ipopt-required boxed-variable case incorrectly selecting KINSOL);
+their source corrections preserve the intended assertions. Three exchanger comparisons
+and protected scientific intake remain unqualified. The retained original numerics identify
+a moving coordinate `24760e39ecfbf77abd93e636856c2c34` at approximately `7.56e-5` inside `[0,1]`
+with acceptance tolerance `0.001`. That is a thin mathematical interior, not an active bound;
+its qualified source role must come from the diagnostic source map, not an inferred quantity.
+Focused source reassessment refined proposed ADR-0248 before changing this admission.
+
+The current receiving implementation also separates IBEX Value/First arithmetic dimension
+admission from its 128-coordinate root-search profile. Checked native signed-int matrix
+products and the existing conservative workspace admission precede encoding/native allocation;
+Second/search/selection limits remain unchanged. Original-point evaluation still uses IBEX's
+outward DAG/AD, not finite differences or Numerica significance estimates. Native 129/230-
+coordinate and no-work resource controls pass in that selection. Optional reference capture now
+retains a bounded source map prepared from the same declaration alongside its original
+review context. The [Symbolica capability refinement](65e-scientific-portability-and-execution.md#symbolica-capability-refinement--november-6)
+records exact identity, precision and algebraic opportunities with version-specific limits.
+
 ## H04 — Close configurations and scientific workflows
 
 Grow acceptance from property/reaction values and derivative chains to configured units, coupled flowsheets, engineering studies and custom extension workflows. Include original balances, envelopes, conservation, phase/root behavior, initialization, coverage and requested derivative/dual/statistical meaning. Stable equilibrium, local optimum and globally certified results have different evidence requirements.

@@ -21,6 +21,17 @@ records receiving-main functional/Clippy results, actual deployed-lane acceptanc
 exchanger accuracy refusal and completed worktree consolidation. New builds retain normal
 incremental/compiler-cache defaults.
 
+The [remaining-scope execution checkpoint](65h-integration-and-qualification.md#remaining-scope-receiving--november-6)
+tracks the new representation/transport/lifecycle wave and private source-anchored output
+accuracy under proposed ADR-0248. Component controls and actual generated validator/transport
+invocations pass; latest runtime/accuracy receiving, original scientific comparisons and full
+selected-population delivery remain open. The expanded
+[Symbolica capability refinement](65e-scientific-portability-and-execution.md#symbolica-capability-refinement--november-6)
+records source-backed mathematical opportunities and version/evidence limits.
+[65b](65b-representation-validation-and-interpretation.md#november-6-execution-refinements)
+and [65d](65d-local-operations-and-services.md#november-6-execution-refinements) retain the
+specific consumed library functionality and remaining limits.
+
 | Plan | Work and status owner |
 | --- | --- |
 | [65: Integrated Proto target](65-proto-integrated-target.md#joint-execution-resumed-after-the-stop-checkpoint) | Both series execute together: receiving retirement/receipt verification, integrated original-file evidence delivery, checked scientific execution prerequisites and required scientific population closure. The coordinator and 65h own evidence limits; companion tables retain remaining delivery. |

@@ -354,6 +354,38 @@ repeated interpretation and native payload cloning without claiming exact alloca
 accounting or a measured memory benefit. Final receiving tests are owned by the same H
 checkpoint; these changes do not complete the remaining F04 producer/client population.
 
+### Original arithmetic refusal fidelity — November 6
+
+**Implemented and Tested in the focused receiving selection:** original output-accuracy assessment now retains
+the reason exact arithmetic is unavailable through the existing budget-owned `GoalFailure`.
+The mathematical owner supplies one `PointArithmeticAssessment` implementation. Its typed
+unavailable result identifies the first failed inventory/predicate, including original
+instance/source, obligation kind/scope, requested/minimum order, representation and fidelity.
+NIL provenance is explicitly missing; an unrepresented guard can still have known provenance.
+Inventory refusal retains its first original auxiliary, including owner, opacity role,
+bounds/fidelity and any owned function name; retained accounting includes that heap storage.
+Existing optional projection consumers use that same implementation and retain their
+availability semantics.
+
+The runtime preserves original `FactorableError` causes, IBEX
+`PointArithmeticEvidence::Incomplete::{reason,work}`, residual-map refusal and unusable
+enclosure details. Native status alone supplies no failed-guard identity: report that
+attribution as missing rather than selecting a nearby source token. Cloned goal failures
+share the same retained cause/charge. The classification remains `EvaluatorUncertainty`;
+no feasible point, guard check or scientific acceptance is changed. Original cancellation,
+contract errors and enclosing allocation refusal retain terminal precedence. Actual native
+Boundary attribution, if needed, must follow encoded-guard origins including deduplication;
+static source maps alone cannot establish interval guard admission.
+
+Sources: [projection owner](../../crates/pse-math/src/factorable.rs),
+[runtime arithmetic assessment](../../crates/pse-runtime/src/math/solves/engineering_accuracy/arithmetic.rs),
+[shared retained failure owner](../../crates/pse-runtime/src/math/solves/engineering_accuracy.rs)
+and [IBEX native result/work contract](../../crates/pse-backend-native/src/root_isolation.rs).
+Five passing focused controls cover predicate/order/provenance distinctions, original auxiliary
+ownership/heap lifetime, native reason/work,
+typed source preservation and required-error precedence. Passing these does not qualify the
+remaining exchanger comparisons or the complete F02 diagnostic population.
+
 ## Packages
 
 | ID | State | Prerequisite | Delivery and targeted acceptance |

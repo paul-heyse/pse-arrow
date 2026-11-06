@@ -536,6 +536,133 @@ Root `just turn-end` also passes its ADR-index and formatting recipes. Broader h
 powerset, independent scientific and performance campaigns remain the current series' scope-end
 work; they are not established by this requested Clippy/targeted-test wrap-up.
 
+## Remaining-scope receiving — November 6
+
+**Implemented:** the approved remaining-scope approach is underway on `main`. Source owners
+now compose character/UTF-8 rules, combine strict JSON token preflight without a Value tree,
+select complete response limits per Engineering operation, gate private worker binary gRPC
+before body polling, and expose result-bearing pool/surrogate finish through actual ownership.
+Independent review found and corrected a constructor/evaluator-destruction hazard: callback
+custody now survives failed validation, native-team construction, actor spawn and abandoned
+public preparation, preserving original failures alongside destruction/join causes. Actual
+production and fault controls are receiving; shared prepared-surrogate ownership and outer
+job-supervisor drain remain distinct obligations.
+
+[Proposed ADR-0248](../adr/0248-affine-constant-output-accuracy.md) precedes private source-anchored
+output-accuracy admission. It retains the complete original factor/residual/uncertainty and
+row-demand path; public parameter/predictor admission remains unchanged. Scientific comparison
+acceptance stays with [64h](64h-reference-coverage-and-qualification.md#source-anchored-output-assessment--november-6-execution).
+
+**Tested, component scope; failure baseline zero:**
+
+- `scripts/pse test pse-host pse-contract pse-contract-proto pse-codegen --lib --profile local`
+  with `schema_payload_`, composed-text/string-rule and typed metadata-roundtrip selectors
+  passes **28/28**. This includes exact compiled/acquired-world handling, aliases, nested
+  collections, literal/syntax/trailing precedence, WKT/Any, native validation and descriptor
+  composition. The additional generated owned/eager-view text fixture also passes in the
+  receiving selection below; its actual invocation is distinct from supplier-emission checks.
+- `direnv exec . scripts/pse test pse-backend-native pse-math --lib --profile local` with
+  `affine_accuracy_`, `square_response::`, `engineering_accuracy::tests::` and nonzero-underflow
+  selectors passes **44/44**. This is the initial sealed-frame/public-response population;
+  new full-frame and runtime controls remain receiving. The test expectation now follows
+  analytic nonzero original-row defects: the exactly satisfied copy row has no refinement
+  demand while remaining in the full factor. No error contribution was removed to pass it.
+- `direnv exec . just codegen` passes **14 schema targets plus Ipopt bindings**, including
+  the composed text qualification fixture and current generator source associations.
+- Standalone pinned `rustc --test vendor/symbolica/build.rs` passes **6/6** controls. The
+  maintained supplier uses its actual repository identity when present and its declared
+  release for vendored/archive sources; consumer commits no longer supply its Git watches.
+  This is dependency behavior, not a measured build-speed claim.
+
+The native command front door requires a surviving recognized caller scope. The API tool's
+original session was outside the user manager, so receiving commands use a normal user scope
+with a surviving shell parent. Pre-body ownership/ambiguous-target refusals executed no tests.
+One mathematical selection lacked the approved shell environment and hit the library's
+restricted-instance process refusal; the corrected `direnv exec .` selection above passes
+with the existing configured license. No license bypass, worker serialization, cache deletion,
+incremental override or new host resource cap was introduced.
+
+Fresh runtime fixture preparation and consuming tests use matching compiler/KLU/solver/isolation
+profiles. **Tested:** the first combined receiving command selected runtime/backend/host
+libraries with engineering service, CoolProp private-worker transport, compiled evaluation,
+Ipopt/KINSOL/root-isolation and canonical fixture features. With the explicit IDAES 2.13.0
+reference environment it executed **146 tests: 140 passed, six failed**, zero failure target,
+zero build warnings (`01a1afcc-c0ba-7779-8bce-772a7d24d2a1`). Actual owned/view validators,
+UDS/H2 response limits, private ingress and selected lifecycle controls pass. Two new accuracy
+fixture errors are source-corrected; three original exchanger comparisons and protected
+scientific intake remain unqualified. These failures are not waived by the component passes.
+
+Independent receiving review additionally found that cancellation after successful actor
+construction could discard its fallible retirement outcome. The same admitted job pipeline
+now selects a typed retirement callback for unpublished actors, retaining original cancellation
+and independent retirement failure under live admission through team/TLS departure. Ordinary
+data jobs retain ordinary destruction. **Tested:** the expanded receiving selection
+(`01a1aff3-5bbe-72a7-9a52-2a4dc7d61f22`) executed **165 tests: 160 passed, five failed**,
+zero build warnings and complete native settlement. The constructed-actor/TLS control,
+original First-guard control, private thin-interior/public-refusal controls and native
+129/230-coordinate arithmetic/overflow controls pass. One new source-goal fixture still
+fails before obtaining a native report; three original exchanger comparisons and protected
+scientific intake remain unqualified. Recycle and overheated comparisons pass. The original
+explicit reference interpreter and retained native/reference artifacts were used.
+
+The actual exchanger goal refusal has moved beyond physical interior. Typed receiving
+diagnostics now establish that exact projection contains **760 auxiliaries**, with no
+implicit/native inventory. Exact original arithmetic remains unavailable. The next refinement
+retains the first auxiliary's original owner, opacity role, bounds and fidelity to identify
+the unsupported mechanism; original occurrence attribution remains explicitly missing when
+the exporter supplies none. Do not infer a guard, dimension or workspace cause from counts.
+Prepared source maps now identify original members, independently of exact-real arithmetic
+coverage. The current map attributes the previously opaque coordinate to
+`ordinary_arithmetic_closure.root.exchanger.cold.inlet.beta`. This display path is not an
+executable identity or a proof of interval guard admission.
+
+`just ready` passes both skills synchronization and doctor under the approved environment.
+Normal incremental/cache defaults and configured host width remain in effect. Full-scope
+hygiene is not due while functional migrations remain; these receiving checks are targeted.
+
+**Tested:** the focused diagnostic/source-goal receiving selection executed **nine tests:
+eight passed, one failed**, against zero (`01a1b020-f54f-73f8-a464-baf535a70dc7`). It used
+`scripts/pse test pse-runtime pse-backend-native pse-host pse-math --lib --profile local`
+with the explicit same native/features/reference context and selected predicate, auxiliary,
+retained-cause, source-goal, observable and arithmetic-reference controls. Earlier assertions
+expected cancellation at the wrong existing wrapper layer and mistook a complete reconstructed
+original result for an all-fixed source. Their tested corrections
+retain the original typed cancellation and accept producer-issued Certified evidence when
+the authored minimum is Estimated; native reports are not fabricated and certificates are
+not stripped. The remaining failure is the arithmetic exchanger's exact projection: its first
+original auxiliary is `Opaque(Branch)`, bounded `[0,1]`, owned by the hot-inlet
+`enthalpy_binding` instance. The precise branch occurrence/use remains to be established.
+The other three scientific failures from the broad selection have not been rerun here.
+
+The mapped enthalpy owner consumes SmoothPR residual enthalpy from the ordinary-BT PR
+potential. That potential's authored validity includes a sum of `if n[j] > 0 then 0 else 1`
+indicators constrained to zero. This supports investigating domain-predicate truth preservation;
+the static capture does not prove which indicator generated the first auxiliary. A focused
+source review supports the exact rule `v != 0` iff `v > 0` when every outcome of `v` is
+proved nonnegative. Reuse the existing `holds`/rational-sign logic before materializing
+nested Boolean values; preserve unsupported disjunctions and unknown/negative signs.
+The compiler's compound-guard form is specifically `indicator == 1`. The current correction
+also proves exact Boolean membership from zero/one leaves and nested selections, then lowers
+equality/inequality with one through the same predicate owner. Fractions, tiny nonzero and
+near-one rationals, unknown nodes and unresolved disjunctions keep conservative refusal.
+Arithmetic materialization now records its actual original-output, condition, predicate,
+identity or provider consumer so later diagnostics can distinguish these paths. These
+refinements are receiving, without a new point-branch or multiprecision path.
+Sources: [potential validity](../../packages/reference/thermodynamics/models/peng-robinson.pse),
+[selected property mapping](../../packages/reference/data/ordinary-bt/models/parameters.pse)
+and [truth projection](../../crates/pse-math/src/factorable.rs).
+
+**Interface-checked:** `scripts/pse check pse-runtime --all-targets` with engineering service,
+CoolProp, compiled evaluation, Ipopt/KINSOL/root isolation and canonical features passes with
+zero errors and warnings (`01a1b024-daf4-71b8-a596-ac28edfe3c9b`). Two earlier test-source
+qualification warnings were corrected through existing imports; the receiving test build
+also has zero warnings. This checks affected integration targets without claiming their
+externally prepared service journeys executed.
+
+H01–H04 and the complete
+Plan64/65 populations remain open; none of these component passes establishes assembled
+scientific acceptance, a full-process memory bound or measured throughput benefit.
+
 ## Completion and enduring meaning
 
 Series completion requires every selected actual consumer, all required failure controls,

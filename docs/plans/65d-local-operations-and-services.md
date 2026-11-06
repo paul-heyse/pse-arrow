@@ -306,6 +306,54 @@ This does not close D01–D03's full route/effect/hosting population.
 
 ## Physical realization and alternatives not selected
 
+### November 6 execution refinements
+
+**Implemented; targeted transport controls pass:** the generated Engineering client now has six
+operation-specific helpers. Fixed contract/workbench/prepared-study documents share their
+producer's declared document ceiling; result, study-result and original-file reads derive
+their complete encoded-message ceiling from the validated original request. ConnectRPC
+0.9.1 `CallOptions::with_max_message_size` selects that per-call limit; ordinary calls keep
+their explicit default. `with_element_memory_limit` remains an independent finite 32 MiB
+decode profile. A legal blob above 4 MiB can now reach its selected consumer, but full legal
+nested-population eligibility under that separate element profile remains open. Do not
+infer it from a producer's encoding reservation. See the
+[consuming helpers](../../crates/pse-runtime/src/host_operations/engineering/rpc/responses.rs)
+and [ConnectRPC limit reference](../libraries/proto/ConnectRPC_for_Rust.md).
+
+The private scientific-worker HTTP service now rejects nonbinary/non-gRPC profiles before
+body polling or dispatch, using the library's `Protocol::detect` and codec-format result.
+Kernel peer authentication and the two-stream numerical/control arrangement remain active.
+Actual UDS/H2 controls accept selected responses above the ordinary 4 MiB default, enforce
+the complete encoded-message ceiling including metadata, refuse invalid requests before
+dispatch and exercise the separate element ceiling. Private ingress controls prove unsupported
+profiles leave bodies unread; these pass in the 146-test receiving selection. Broader actual
+service/client migrations and complete nested populations remain open.
+The [private transport](../../crates/pse-runtime/src/scientific_worker/transport.rs) and
+[local RPC reference](../libraries/proto/Local_RPC_and_Diagnostics_in_Rust.md) characterize
+the consumed gate and service profile.
+
+`JoinedPool::finish`, retained-surrogate finish and consuming `SurrogateHandle::finish`
+report actual worker/actor departure and aggregate independent original action, Stop,
+destruction and join failures. Rayon `ThreadPoolBuilder::spawn_handler` supplies the actual
+OS `JoinHandle`s; pool drop alone requests termination. Existing actor gate/join ownership
+fences later commands and keeps original charges through physical actor/team TLS departure.
+Drop remains abandonment containment. Shared `PreparedSurrogate` retirement and separately
+admitted outer job-supervisor drain retain their distinct remaining obligations. Sources:
+[pool owner](../../crates/pse-runtime/src/math/joined_pool.rs),
+[surrogate owner](../../crates/pse-runtime/src/math/surrogate.rs) and
+[Rayon lifecycle reference](../libraries/runtime/rayon.md). Receiving fault controls must
+settle constructor/destructor combinations as well as successful construction followed by
+retirement; source integration alone does not close D05.
+
+The public surrogate preparation future also establishes callback custody before its first
+poll. Final evaluator destruction retains the original construction loan through arbitrary
+panic-payload settlement; no nonfinal callback owner waits behind a live evaluator. The
+ordinary admitted-job pipeline now accepts a typed fallible retirement action for successful
+actors that cannot be published after cancellation/deadline/retention refusal. This invokes
+actual actor retirement before releasing compute and memory, preserving both the stop and
+independent cleanup failure. It is the same supervisor/admission path, not another lifecycle
+registry. The latest constructed-actor/TLS fault control is pending receiving execution.
+
 `Encodable::encode_segments`, `EncodedBody`, Buffa `OwnedView`/`ViewEncode` and backing-aware
 rope can reduce conversion where actual source buffers exist. They do not eliminate required
 numeric arrays or make compressed/JSON/intercepted paths segmented. `Response::compress(false)`

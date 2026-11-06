@@ -8,7 +8,8 @@ status: current
 Select checks that reveal the changed behavior. Native Cargo/nextest and the Rust performing
 owners now supply correctness execution; the Python product, assessment/result ledger,
 archive/reuse controller and measurement drivers are retired. Required remaining campaigns
-belong to [Plan58](../plans/58-rust-owned-system.md), especially H. This guide describes
+belong to the active [Plan64 and Plan65 owners](../plans/README.md), including their H
+qualification companions. This guide describes
 commands and evidence limits, not a claim that full qualification has completed.
 
 The local `pse-cli` skill (source: `.codex/skills/pse-cli/SKILL.md`) helps select useful native

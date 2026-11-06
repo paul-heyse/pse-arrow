@@ -546,6 +546,108 @@ Substantive design, original evidence and remaining obligations moved without a 
 Substantive design, original evidence and remaining obligations moved without a status change to
 [65k](65k-scientific-artifacts-and-native-reconstruction.md#live-admitted-body-delegation). This heading remains for existing references.
 
+## Symbolica capability refinement — November 6
+
+**Interface-checked:** review of the complete expanded
+[Symbolica reference](../libraries/scientific_calcs/symbolica.md), the maintained Rust 3.0.1
+supplier, Numerica 3.0.1 and the published Rust 3.0.2 source identifies the following
+investigations for E01 capability classification and Plan64h original-equation assessment.
+These refine mathematical implementation choices;
+they do not claim an upgraded supplier, executed numerical benefit or broader qualification.
+
+* **Exact identity recognition.** Rust 3.0.2 `AtomCore::{check_zero,check_zero_with,
+  check_equal_with}` and `ZeroTestSettings` are candidates for source-class/affine recognition
+  in `class_evidence` and `implicit_affine`. Positive identity can follow exact rational
+  combination, supported trig/hyperbolic normalization and algebraic-field normalization;
+  sampling never establishes zero. Only established identity may enlarge admitted affine
+  scope. Inconclusive results preserve missing evidence; negative results involving opaque
+  functions do not establish scientific nonlinearity. `check_equal_with` can exactify stored
+  float operands before subtraction. Preserve original domain exclusions, parameter
+  assumptions, coefficients and attribution. Local 3.0.1 `zero_test` has different semantics
+  and is not a substitute. Before production selection, rebase the maintained supplier delta
+  and establish bounded symbolic execution: sample/precision settings do not bound exact
+  fallback cost, and this API supplies no cancellation callback. Characterization:
+  [Rust 3.0.2 atom API](https://docs.rs/crate/symbolica/3.0.2/source/src/atom/core.rs),
+  [algorithm/settings and upstream controls](https://docs.rs/crate/symbolica/3.0.2/source/src/atom/zero_test.rs).
+* **Prepared precision diagnostics.** Reuse the existing exact `ScalarCache` evaluator and
+  `ExpressionEvaluator::map_coeff_with_prec` to compare selected f64 values/partials with
+  higher-precision `Float` values without repeating symbolic preparation. Select an actual
+  cancellation or conditioning case and preserve its original physical comparison.
+  `ErrorPropagatingFloat` supplies first-order significance propagation, not a rigorous fresh
+  roundoff enclosure. Numerica `RealBall` certifies basic arithmetic but explicitly does not
+  certify transcendental operations, and the current Symbolica evaluation domains do not
+  provide a ready RealBall evaluator. Neither replaces the IBEX original-point uncertainty
+  supplier for exp/log constitutive relations. Sources:
+  [maintained evaluator](../../vendor/symbolica/src/evaluate/evaluator.rs),
+  [existing prepared owner](../../crates/pse-math/src/library/admission.rs),
+  [Numerica interval contract](https://docs.rs/crate/numerica/3.0.1/source/src/domains/float/interval.rs)
+  and [error propagation](https://docs.rs/crate/numerica/3.0.1/source/src/domains/float/error.rs).
+* **Selective exact blocks and stable formulas.** Compare Numerica `Matrix::{solve,
+  solve_any}`/fraction-free solving and Symbolica `Atom::solve(...).over(...).wrt(...)` for
+  small admitted rational/algebraic blocks; keep parameter specializations, branch conditions
+  and expression-growth admission explicit. Existing parameter-dependent sparse affine and
+  bounded cubic owners remain the reference implementation. `series`, `together`, `cancel`
+  and polynomial conversion can derive stable constitutive forms, but finite series need
+  remainder evidence for enclosure claims and canceled singularities retain original guards.
+  Do not rationalize measured coefficients automatically. Sources:
+  [maintained solve API](../../vendor/symbolica/src/atom/core.rs),
+  [Numerica matrix algorithms](https://docs.rs/crate/numerica/3.0.1/source/src/tensors/matrix.rs)
+  and [existing affine realization](../../crates/pse-math/src/implicit_affine.rs).
+
+Already-used multi-output evaluation, direct alias DAGs, CPE/Horner optimization, sparse
+derivative selection, Dualizer products, provider pullbacks and compiled scalar execution
+are existing leverage, not newly missing implementation. `merge` checks parameter count,
+not semantic argument correspondence; use only with an owner-established mapping and an
+actual preparation benefit. Local Rust's portable API is `export_instructions`; Python
+`get_instructions`/save-load terminology does not supersede K's checked f64 transfer owner.
+Local `nsolve_system` is a possible small high-precision diagnostic: its separate residual
+and dense derivative evaluators, plain Newton steps and absolute-step stop supply neither
+bounds/globalization, original task cancellation nor a root certificate. It is not selected
+as the primary large native solver. Sources:
+[optimizer](../../vendor/symbolica/src/evaluate/optimize.rs),
+[instruction API](../../vendor/symbolica/src/evaluate/instruction.rs) and
+[numerical system implementation](../../vendor/symbolica/src/solve.rs).
+
+The original physical-interior refusal is addressed by ADR-0248's point-local eligibility
+contract, independently of engineering acceptance budgets. Keep Estimated evidence limits;
+additional symbolic capabilities do not establish a finite correction neighborhood or root
+existence. Each selected further increment needs a real affected consumer, source-backed
+mechanism, targeted controls, deletion of its replaced path and the existing execution owners.
+
+**Conditional option, not selected for the current branch refusal:** a complete prepared
+128/256-bit comparison observer could supply explicitly Estimated arithmetic provenance for
+a broader supported population. Pinned 3.0.1 already provides `map_coeff_with_prec`,
+`Float::from_rational_round(..., precision, RoundingDirection::Nearest)` for admitted real
+coefficients and `Float::with_val(precision, actual_f64)` for exact stored binary64 inputs
+at precision at least 53. `Float::from(f64)` fixes precision at 53 and is unsuitable for this
+sweep. Registered constants must be recomputed at the requested precision; unsupported or
+complex coefficient/domain cases must refuse rather than discard components. Sources:
+[coefficient mapping](../../vendor/symbolica/src/evaluate/evaluator.rs),
+[Float evaluation domain](../../vendor/symbolica/src/evaluate/domain.rs) and
+[Numerica precision constructors](https://docs.rs/crate/numerica/3.0.1/source/src/domains/float/multiprecision.rs).
+
+This is not a per-block substitution for current enclosure vectors. Retain/reuse the exact
+selected derivative preparation before `bounded_evaluator` converts it to f64, and carry
+higher precision through the existing regional stage/chain-rule schedule, binding transforms,
+duplicate accumulation and original-bound subtraction. Compare output values/gradients and
+residuals/Jacobian entries on corresponding original branches. Replaying opaque f64 provider
+answers or passing rounded f64 intermediates assesses only part of the arithmetic. The
+current scheduler/assembly and f64 byte estimates need explicit precision-aware realization
+and MPFR limb accounting; library instruction evaluation has no cancellation checkpoint
+inside a block, and registered-constant conversion currently contains an unwrap. See
+[derivative conversion owner](../../crates/pse-math/src/library/admission.rs),
+[regional execution](../../crates/pse-math/src/execution.rs) and
+[original assembly](../../crates/pse-math/src/assembly.rs).
+
+Any selection requires a prior evidence-contract decision that distinguishes outward
+enclosure from observed precision discrepancy and estimated convergence. Compute differences
+before conversion, retain nonzero underflow truthfully, bind source/point/branch/order and
+precision/backend identities, and withhold unresolved cancellation or branch disagreement.
+Agreement at two precisions is not an error bound or exactness proof. Do not populate the
+current enclosure-specific `SquareResidual` fields silently or allow an enclosure-requiring
+consumer to accept weaker provenance. Prefer an exact predicate/projection repair when it
+supports the concrete population with materially less execution and interpretation burden.
+
 ## Sources
 
 - [Scientific discovery and exact current owner links](../library_leverage/libraries/proto/briefings/math-solvers-and-scientific-workers.md).

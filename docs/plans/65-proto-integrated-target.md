@@ -2,7 +2,7 @@
 title: "Plan65: Integrated Proto target alongside Plan64"
 status: in-progress
 date: 2026-11-03
-adrs: [ADR-0224, ADR-0241, ADR-0242, ADR-0243, ADR-0244, ADR-0245, ADR-0246]
+adrs: [ADR-0224, ADR-0241, ADR-0242, ADR-0243, ADR-0244, ADR-0245, ADR-0246, ADR-0248]
 review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
@@ -779,6 +779,46 @@ The finite reference crosswalk retains all held required inputs in its denominat
 enumeration does not close ordinary-science authoring, loaded-data realization or qualification.
 
 ## Verification boundary
+
+### November 6 execution of the remaining-scope approach
+
+The approved conversational approach is now being implemented on `main`. Only Plan64/65
+own remaining work. Concurrent unrelated caching-library documentation and the storage review
+and the newly expanded Symbolica reference are preserved. This wave uses distinct source ownership in the shared checkout; no worktrees
+were created. Normal incremental compilation, the selected compiler cache, configured host
+width and explicit native fixture contexts remain active.
+
+Ready slices now include composed character/UTF-8 validation, the narrower descriptor-aware
+JSON token preflight, per-operation large-response client limits, binary-only private worker
+ingress, and result-bearing native pool/surrogate ownership. Existing package tables retain
+the full migration populations. The initial representation selection passes 28/28; subsequent
+backend accuracy/public-response controls pass 44/44, and generation passes fourteen targets
+plus Ipopt bindings. [65h](65h-integration-and-qualification.md) owns receiving accounting;
+these component results do not complete A/B/D/H or either whole series.
+
+Scientific execution refines the approved reduction approach through
+[proposed ADR-0248](../adr/0248-affine-constant-output-accuracy.md): source-anchored constant
+coordinates can enter a private Estimated output-accuracy frame while the full original
+Jacobian, residual defects, uncertainty and row-work demands remain in the existing estimator.
+This avoids additional numerical lifting/reconstruction error for the narrower supported
+population. Public parameter sensitivity remains strict. [64h](64h-reference-coverage-and-qualification.md#receiving-scientific-comparison-checkpoint--november-5)
+owns actual exchanger acceptance and any remaining unsupported boundary profiles.
+
+The Symbolica build correction in [65k](65k-scientific-artifacts-and-native-reconstruction.md#integrated-compiled-root-handoff)
+binds display version/rebuild dependencies to the actual supplier source, rather than consumer
+Git commits; six standalone controls pass. It establishes dependency behavior, not measured
+build-speed benefit. Next receiving work exercises actual owned/view validators, runtime
+fault combinations and transport, then original exchanger comparisons. The first combined
+receiving selection passed 140/146, including actual validators and transport, with two new
+fixture corrections and four remaining scientific failures; 65h retains that boundary.
+Physical budgets and comparison allowances may be revised with a scientific rationale under
+the maintainer's design-phase direction. The current point-local eligibility correction
+changes neither: acceptance tolerance does not define derivative-neighborhood radius.
+[65e](65e-scientific-portability-and-execution.md#symbolica-capability-refinement--november-6)
+now records the complete expanded Symbolica review's exact-identity, prepared-precision and
+selective-algebra opportunities, including pinned-Rust and bounded-execution limitations.
+Full P03 journeys, selected-population migration, remaining scientific families,
+bounded capability decisions and assembled qualification remain authorized work.
 
 **Proposed verification:** package-local compile/targeted tests during implementation, explicit
 Arrow force-validation in consuming closures, actual code generation when declarations change,
