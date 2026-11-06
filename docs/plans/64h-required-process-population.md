@@ -6477,6 +6477,97 @@ This resolves the four-file source population while exact reference
 compatibility,ordinary admission andnative economic/scientific acceptance
 remain open.
 
+## Core PySMO, ALAMO and sampling source population — 2026-11-05
+
+**Interface-checked, source only:** C `core/surrogate/pysmo/tests/
+test_{polynomial_regression,radial_basis_function,kriging,sampling,
+sampling_modified,utils}.py`,`tests/{test_pysmo_surrogate,test_alamopy}.py`,
+`sampling/tests/{test_data_utils,test_scaling}.py` andtheir implementation
+owners resolve the remaining core G04 source group. Most low-level
+parameter decorators vary **array versus dataframe versus invalid list**,
+not statistical models. Those boundary/label/refusal roles stay required
+without multiplying the scientific denominator. No sampler,fit,pickle/
+surrogate loader,expression evaluator,trainer orsolver ran.
+
+The three low-level fit modules share synthetic quadratic
+y=(x1+1)²+(x2+1)²:441 original rows on21×21 uniform0–10 grid and25
+regression rows on5×5 grid. Separate one-input fixtures use ten integer
+x0–9 withy=(x+1)²,8-point prediction inputs,200-row sizing andconstant/
+wrong-dimension controls. These are analytic data,not process experiments.
+
+| Fit/source role | Actual finite model selections and statistical/solver meaning |
+|---|---|
+| Polynomial | Positive integer degree capped at10 with warning;noninteger/nonpositive orsample-inadequate degree refuses. Defaults3 cross-validation repetitions,.75 training split,4 adaptive samples/iteration,.5 maximum original-data fraction,up to10 adaptive iterations when original population exceeds regression data;equal populations oradaptive count0 disables adaptation. Pyomo(default),MLE andBFGS are distinct fit routes;multinomials0/1 andcustom terms change feature basis. Bad split/count/method/shape/file arguments have explicit guards. |
+| Polynomial actual fit controls | Full25 regression rows/degree2 calls `training` anddirect fitting with ok-status target;first5 rows/degree1 expects poor-fit warning. Custom sin(x1)/sin(x2) data andsubsequent no-extra-term refit are distinct selected roles. Three `test_polyregression_01..03` degree2 routing tests patch the chosen MLE/BFGS/Pyomo optimizer to return synthetic weights10;they **do not** establish fit quality. Degree10 against only20 training rows returns infinite error. Separate direct linear-estimator tests andconfidence products are mathematical controls. |
+| RBF | Six kernels linear,cubic,thin-plate spline,Gaussian,multiquadric,inverse multiquadric;algebraic(default),Pyomo,BFGS;regularizationTrue(default)/False. Parametric kernels search24 shape values.001–1000;fixed kernels use0. Regularization searches21 values1e-5–1 or0 when disabled. These are finite LOOCV hyperparameter grids,not24×21 new physical models. Three training-route fixtures use one-input quadratic data,Gaussian/default kernel,regularizationFalse;Pyomo/BFGS repeated-fit cases retain unstable-solution warnings. Six kernel prediction andexpression cases preserve each kernel's actual transformed/near-zero behavior. |
+| Kriging | Squared-exponential exponent2,regularizationTrue(default)/False andnumerical_gradientsTrue(default)/False. True compares boundedTNC andL-BFGS-B objectives andselects the better;False uses250-iteration basin hopping. Logtheta bounds−3..3;regularization1e-6.. .1 when enabled,**1e-10 fixed** when disabled. The main training comparison uses the first3 quadratic regression rows andresets NumPy seed0 before both fits;it recomputes expected statistics through the same implementation,not an independent statistical oracle. Other prediction/expression/serialization controls use the25-row population. |
+| Trained wrappers | Shared linear synthetic five-rowx1=1..5/x2=5..9/z1=10..50;polynomialdegree1+multinomials,linearRBF andnumerical-gradient kriging. Trainer-construction fixtures use first4 rows,boundsx1[0,5]/x2[0,10]. One/two-output fit/evaluate/embed/save/load cases separately preserve output order,scaling,domain andrequired expression products. JSON strings in the tests are inline fitted-artifact oracles,not newly reproduced training. |
+| Richer wrapper bases | Six-row polynomial fixture adds(3.4,1.1) withz1−84.53625/z2−.230209269 to the five-row linear data;degree1,multinomials and3CV. Separate six-rowx1=1..6/x2=5..10 uses linear combinations plus sin(x1)+cos(x2),or exp(x1/x2),degree1,no multinomials,MLE,10CV. Ratiox1/x2 is another extra-feature role;its zero-denominator domain must remain explicit. One-input cubicRBF/kriging usesx1=1..5,z1=10..50. Gaussian two-output RBF disablesregularization;two-output kriging usespermutedx2=(7,6,9,5,8),regularization/numerical gradientsTrue,seed0. |
+| Confidence products | Six-row/two-output polynomial fixture compares90%/99% coefficient confidence intervals witht multipliers1.8331129326536335/3.2498355440153697. Low-level confidence andresidual-covariance controls remain distinct from prediction intervals,parameter identifiability andprocess-output uncertainty. The validation fixtures largely reuse first4 training rows;they are not independent holdout evidence. |
+
+The common end-to-end analytic fixture is ten inline(x1,x2,z1) rows
+within[−1.5,1.5]²,shared exactly by polynomial,RBF,kriging andALAMO
+workflows. It is the six-hump-style polynomial target
+4x1²−2.1x1⁴+x1⁶/3+x1x2−4x2²+4x2⁴,with rounded stored responses.
+Polynomial selectsdegree6/multinomials;RBF cubic/no regularization;
+kriging no regularization/basin hopping/seed0;ALAMO linear terms,
+monomialpowers2–6 andtwo-variable powers1/2. Each fits,evaluates training
+metrics andembeds an algebraic surrogate. These tests do not solve a new
+surrogate-based process optimization orindependent holdout campaign.
+The ALAMO validation workflow explicitly reuses **the same ten rows** as
+validation. Existing X reformer/sCO2 optimization stages remain separate.
+
+ALAMO's four-row construction andone/two-output trace parsing,known
+polynomial/transcendental expression evaluation,labels/bounds,embedding
+andserialization controls are distinct from real external training. Wrapper
+Gaussian-RBF options `grbfcns`/`rbfparam` explicitly refuse;they are not
+supported ALAMO capabilities supplied by PySMO's separate RBF implementation.
+Missing ormalformed trace,label/output-count mismatch andexisting output
+file refusal remain required failures. Three shipped trace fixtures and
+one control file are input artifacts,not executed training receipts:
+
+| C `core/surrogate/tests` artifact | SHA256 |
+|---|---|
+| `alamotrace.trc` | `8586a5afcb02f2f74fcebee4abfd631f93ca84702e8e54924c158e56c0a3ed44` |
+| `alamotrace2.trc` | `950af01e3abc5eb547da96bba9cdef343093c7b055f2ebc62860e07ed619f8c7` |
+| `alamotrace_w_validation.trc` | `479c654468fa1d21d630cdcc347a805cdd07204b9ec24303a0a7d2c8362dd365` |
+| `alamo_test.alm` | `6a214dcdfa0ce15ffb503ec385678ccd01658af184e0abc6894f0ca438cbefdb` |
+
+The sampling population is likewise finite at its actual source selections:
+
+| Sampler/data boundary | Exact shipped selections / refusals |
+|---|---|
+| LHS,Halton,Hammersley | Selection from ten correlated rows or441-row quadratic grid;creation from two bound rows,three coordinates. Each probes requestedcountNone(default5),10,1. Halton/Hammersley reject dimension>10. Nonpositive/noninteger count,selection count larger than data,wrong mode/type andequal/ill-shaped bounds refuse. No stochastic seed is inferred for unseeded tests. |
+| Uniform grid | Selection2D counts(2,5),(3,2),(4,2),both edges included(defaultTrue) andmid-cell(edgesFalse);creation3D counts(2,5,9),(3,2,10),(4,2,28). These request90/60/224 gridpoints before selection/deduplication. Product count exceeding available selection rows refuses. |
+| CVT | Ten-row selection/two-row-bound creation,count5/10/1;default centroid tolerance1e-7,explicit high/negative/tiny tolerance controls. LHS/CVT repeat creation atseed1000 forcounts5/1/10/100 tocheck repeatability. Repeatability is not independent-space coverage. |
+| Custom distributions | Per-coordinate random/uniform/normal,selection2D orcreation3D,counts5/10/1;seed1000 repeatability5/1/10/100. Normal isgenerated in normalized space withmean.5/sigma1/6. Bounds enforcementFalse(default) permits tails outside0..1;True repeatedly resamples tail draws andwarns that the law changed. Two10000-draw one-dimensional controls distinguish both. Distribution list length/type/name andBoolean bounds option refuse invalid values. |
+| Selection semantics | Scale feature space,choose nearest existing rows,then deduplicate;requested count is not guaranteed realized count. Retain source row identities,selected columns andactual unique cardinality. Replacing selection by freshly evaluated analytic points changes the case. |
+| Split/scaler consumers | Five-row train/validation fraction.7→3/2 andnine-row train/validation/test fractions.6/.35→5/3/1,unseeded versusseed42 with exact row identity assertions. Mean/sample-standard-deviation andmin/max normalization of five-rowA/B data preserve offset/factor/ordered labels,round trips andserialization;constant-feature controls use their explicit fallback rather than an invented division byzero. Wrong labels/order/factor shape are refusals. |
+
+Custom sampling recreates `default_rng(seed)` for **each** coordinate;
+atfixed seed,identical uniform/random distribution columns can therefore
+receive identical normalized draws. It cannot establish independently
+sampled coordinates. LHS/CVT seed selection uses global NumPy state;
+realized samples/versions andsubsequent trainer randomness need explicit
+custody. `test_sampling_modified.py` supplies older unittest variants of
+the same scaling/LHS/uniform/Hammersley/CVT families,not additional named
+physical data orcustom/ALAMO trainers. NumPy evaluator tests use three-point
+sin/abs/atan/atanh andscalar constant expressions;they test evaluation,
+not new regression models.
+
+Recursive input closure is the inline analytic arrays/expressions,three
+trace fixtures/control file,andselected NumPy/SciPy/pandas/Pyomo/Ipopt/
+ALAMO implementations. Low-level `solution.pickle` andfitted JSON outputs
+are generated andmay be overwritten under the selected policy;they are
+not preexisting scientific input data orcompatible historical pickles by
+default. Ordinary analytic/process-data roles,fit/validation separation,
+rank/confounding,failed/unstable outcomes,statistical uncertainty and
+evaluation-versus-embedding-versus-optimization products stay explicit.
+G04 still owes selected native fitting/equation/backend/refusal contracts
+andindependent acceptance. This closes these named core source families;
+exact executable/trainer versions,realized stochastic populations and
+native/reference scientific results remain held/unattempted as applicable.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate

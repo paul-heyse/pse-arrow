@@ -773,6 +773,15 @@ assembly andcooler-as-recuperator selection stay explicit. Ordinary economic
 provenance,exact compatibility andcomplete native/reference cost acceptance
 remain required.
 
+**Update, 2026-11-05 — core surrogate/sampling source closure:** the
+[PySMO/ALAMO/sampling census](64h-required-process-population.md#core-pysmo-alamo-and-sampling-source-population--2026-11-05)
+resolves actual fit/kernel/solver/CV cases,shared analytic training inputs,
+confidence/embedding/serialization roles,six samplers andfour ALAMO input
+artifacts. Array-format duplicates,mocked fits,reused validation rows and
+per-coordinate seeded-generator reuse retain their limits. Native statistical/
+backend contracts,realized stochastic custody andindependent scientific
+acceptance remain required;no fit/sampler/trainer ran.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.
