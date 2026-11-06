@@ -139,6 +139,8 @@ frames! {
         DerivedBindingV1 => "pse:derived-binding:v1",
         /// Composite admitted reconstruction suppliers and their original-space binding.
         DerivedBindingV2 => "pse:derived-binding:v2",
+        /// Full original execution-attribution transfer checksum; never source or attempt authority.
+        ExecutionAttributionV1 => "pse:execution-attribution:v1",
         /// Consumed numerical action/output accuracy, order, source and normalization.
         AccuracyProductV1 => "pse:accuracy-product:v1",
         /// Selected-root numerical proposals/jets with their consumed accuracy binding.

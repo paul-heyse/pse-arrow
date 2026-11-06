@@ -221,23 +221,45 @@ impl DerivativeCapability {
         }
     }
 }
-/// Independent facts and demand for one selected implicit operation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pse_contract::projection_struct! {
+/// Independent facts and demand for one selected implicit operation. Passive
+/// decoding does not establish these capabilities; native owners call validate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DerivativeRequirements {
+    projection: { name: "KernelDerivativeRequirements", rust_path: crate::DerivativeRequirements, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Available residual partials.
-    pub residual_available: DerivativeOrder,
+    pub residual_available: DerivativeOrder => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Established output smoothness before selector restrictions.
-    pub output_smoothness: DerivativeOrder,
+    pub output_smoothness: DerivativeOrder => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Established order on the selector's admitted neighborhood.
-    pub selector_neighborhood: DerivativeOrder,
+    pub selector_neighborhood: DerivativeOrder => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Minimum residual order needed by the selected inner algorithm.
-    pub inner_minimum: DerivativeOrder,
+    pub inner_minimum: DerivativeOrder => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Output partials requested by the outer consumer.
-    pub requested_output: DerivativeOrder,
+    pub requested_output: DerivativeOrder => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Residual order compiled for this attempt.
-    pub residual_compilation: DerivativeOrder,
+    pub residual_compilation: DerivativeOrder => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl DerivativeRequirements {
+    /// Check original capability rules and the stored derived compilation order.
+    pub fn validate(&self) -> Result<(), ProviderError> {
+        let derived = Self::new(
+            self.residual_available,
+            self.output_smoothness,
+            self.selector_neighborhood,
+            self.inner_minimum,
+            self.requested_output,
+        )?;
+        if *self != derived {
+            return Err(ProviderError::Contract(
+                "derivative compilation differs from actual requirements".into(),
+            ));
+        }
+        Ok(())
+    }
     /// Combine capabilities without promoting deterministic selection to smoothness.
     pub fn new(
         residual_available: DerivativeOrder,

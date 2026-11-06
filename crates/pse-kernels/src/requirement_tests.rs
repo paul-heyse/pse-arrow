@@ -2,6 +2,39 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 #[test]
+fn passive_requirements_restore_checks_derived_order_without_collapsing_capability_facts() {
+    use pse_contract::boundary_projection::ProjectionRecord;
+    let original = DerivativeRequirements::new(
+        DerivativeOrder::Second,
+        DerivativeOrder::Second,
+        DerivativeOrder::Second,
+        DerivativeOrder::First,
+        DerivativeOrder::Second,
+    )
+    .unwrap();
+    let restored =
+        DerivativeRequirements::from_projection_fields(original.into_projection_fields()).unwrap();
+    restored.validate().unwrap();
+    assert_eq!(restored, original);
+    assert_eq!(restored.inner_minimum, DerivativeOrder::First);
+    assert_eq!(restored.residual_compilation, DerivativeOrder::Second);
+    let mut crossed = restored;
+    crossed.residual_compilation = DerivativeOrder::First;
+    assert!(matches!(
+        crossed.validate(),
+        Err(ProviderError::Contract(_))
+    ));
+    crossed = restored;
+    crossed.residual_available = DerivativeOrder::Value;
+    assert!(matches!(
+        crossed.validate(),
+        Err(ProviderError::DerivativeUnavailable {
+            capability: DerivativeCapability::Residual,
+            ..
+        })
+    ));
+}
+#[test]
 fn implicit_requirements_separate_c1_inner_minimum_and_selector_stability() {
     use DerivativeOrder::{First, Second, Value};
     let first = DerivativeRequirements::new(First, First, First, First, First).unwrap();

@@ -18,7 +18,9 @@ pub mod engineering_accuracy;
 mod error;
 mod execution;
 pub use execution::transfer;
-pub use execution::{ExecutionAttribution, SourceBindings, SourceBody};
+pub use execution::{
+    ExecutionAttribution, ExecutionAttributionSnapshot, SourceBindings, SourceBody,
+};
 pub mod factorable;
 pub mod facts;
 mod functions;

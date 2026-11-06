@@ -63,6 +63,8 @@ mod regimes;
 mod scalar;
 #[path = "implicit_selection.rs"]
 mod selection;
+#[path = "implicit_transfer.rs"]
+pub mod transfer;
 #[cfg(test)]
 use crate::guarded::CompiledBody;
 use crate::{

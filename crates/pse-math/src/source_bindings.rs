@@ -29,6 +29,24 @@ pub struct ExecutionAttribution {
     checked_sources: Arc<BTreeMap<SemanticId, SemanticId>>,
     occurrences: Arc<BTreeMap<SemanticId, SourceLocation>>,
 }
+pse_contract::projection_struct! {
+/// Complete passive original attribution maps. This record contains no source
+/// witness, Root authority or execution permission, even with a matching checksum.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExecutionAttributionSnapshot {
+    projection: { name: "MathExecutionAttributionSnapshot", rust_path: crate::ExecutionAttributionSnapshot, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    /// Actual original instance whose diagnostic coordinates these maps describe.
+    pub instance: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    /// Complete local checked-member tokens and original current semantic members.
+    pub checked_members: BTreeMap<SemanticId, SemanticId> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    /// Complete distinct local closure-source tokens and original current sources.
+    pub checked_sources: BTreeMap<SemanticId, SemanticId> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    /// Complete original occurrence locations, including legitimate unused entries.
+    pub occurrences: BTreeMap<SemanticId, SourceLocation> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
+}
 impl PartialEq for SourceBindings {
     fn eq(&self, other: &Self) -> bool {
         self.attribution == other.attribution
