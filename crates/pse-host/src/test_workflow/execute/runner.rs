@@ -133,6 +133,32 @@ fn native_pending(report: &mut Report, capabilities: BTreeSet<String>, error: Wo
     report.outcome = Outcome::Pending;
 }
 
+fn prepare_fixtures(
+    report: &mut Report,
+    root: &Path,
+    environment: &Environment,
+    destination: &Path,
+    requirements: &[crate::fixtures::Requirement],
+) -> Result<Option<crate::fixtures::PreparedExecution>, WorkflowError> {
+    let assessed = crate::fixtures::ExecutionInputs::assess(root, environment, requirements);
+    if assessed.blocked() {
+        for (requirement, readiness) in requirements.iter().zip(assessed.observations()) {
+            report
+                .pending
+                .push(Pending::Fixture(Box::new(super::FixturePending {
+                    requirement: requirement.clone(),
+                    readiness: readiness.clone(),
+                })));
+        }
+        if let Err(error) = assessed.prepare(destination) {
+            report.failure(error.into());
+        }
+        report.outcome = Outcome::Pending;
+        return Ok(None);
+    }
+    Ok(Some(assessed.prepare(destination)?))
+}
+
 /// Run only inside the authenticated fixed helper's existing managed physical scope.
 /// `destination` must be a new absolute private directory. After initialization, original
 /// operation failures are retained in the returned report, including successful-child capture
@@ -355,12 +381,16 @@ async fn perform(
                 }
             }
         }
-        let fixtures = crate::fixtures::PreparedExecution::prepare(
+        let Some(fixtures) = prepare_fixtures(
+            report,
             &checkout,
             &listed.context.environment,
             &destination.join("fixtures"),
             &requirements,
-        )?;
+        )?
+        else {
+            return Ok(());
+        };
         let serialized = group_policy(input, destination, &listed, report).await?;
         let mut groups = Vec::new();
         for group in 0..listed.inventory.groups.len() {

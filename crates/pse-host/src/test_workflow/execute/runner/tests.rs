@@ -70,6 +70,58 @@ fn rerun_controlled_failure_probe() {
 }
 
 #[test]
+fn exact_fixture_refusal_records_complete_pending_account_before_helpers() {
+    let root = tempfile::tempdir().unwrap();
+    let destination = root.path().join("must-not-be-created");
+    let requirement: crate::fixtures::Requirement = serde_json::from_value(serde_json::json!({
+        "group": 2,
+        "unit": {
+            "package_id": "original-package", "package_name": "example",
+            "target_name": "original", "target_kinds": ["lib"],
+            "source_path": "/original/lib.rs", "features": [], "platform": null,
+            "mode": "test", "root": true
+        },
+        "declaration": {
+            "id": "selected-original", "target": "original", "kind": "lib",
+            "ownership": "target-owned", "scope": { "tests": ["selected_case"] },
+            "inputs": ["scientific-inputs", "native-lane", "worker", "engineering-endpoint"]
+        }
+    }))
+    .unwrap();
+    let mut report = Report::new(&input(Action::Test));
+    report.selected_tests = Some(1);
+    let result = prepare_fixtures(
+        &mut report,
+        root.path(),
+        &Environment::new(),
+        &destination,
+        &[requirement],
+    )
+    .unwrap();
+    assert!(result.is_none());
+    assert_eq!(report.outcome, Outcome::Pending);
+    assert_eq!(report.selected_tests, Some(1));
+    assert_eq!(report.pending.len(), 1);
+    let Pending::Fixture(pending) = &report.pending[0] else {
+        panic!("original fixture account missing");
+    };
+    assert_eq!(pending.requirement.group(), 2);
+    assert_eq!(pending.readiness.inputs.len(), 4);
+    assert!(matches!(
+        pending.readiness.inputs[&crate::fixtures::Input::Worker],
+        crate::fixtures::InputState::OwnerAdmissionRequired { .. }
+    ));
+    assert_eq!(report.failures.len(), 1);
+    let WorkflowError::Fixture(crate::fixtures::FixtureError::Inputs(failures)) = &report.causes[0]
+    else {
+        panic!("typed original failures missing");
+    };
+    assert_eq!(failures.len(), 3);
+    assert!(report.phases.is_empty());
+    assert!(!destination.exists());
+}
+
+#[test]
 fn failed_discovery_attempt_preserves_source_phases_without_inventory_or_rerun_grant() {
     let root = tempfile::tempdir().unwrap();
     let mut report = Report::new(&input(Action::Test));

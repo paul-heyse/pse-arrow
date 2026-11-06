@@ -111,39 +111,203 @@ pub struct PreparedExecution {
     reader: Option<crate::product_reader::ProductReaderSelection>,
     runtime: Option<runtime::SelectedRuntime>,
 }
-impl PreparedExecution {
-    /// Source-build only the implementation tools demanded by actual selected tests.
-    /// # Errors
-    /// A selected input is unavailable or original source admission/capture fails.
-    pub fn prepare(
-        root: &Path,
-        environment: &Environment,
-        destination: &Path,
-        requirements: &[Requirement],
-    ) -> Result<Self, FixtureError> {
+/// Exact post-list prerequisite account. Assessment uses existing owner selection and
+/// validation; the original selections follow it into explicit helper preparation.
+pub struct ExecutionInputs {
+    root: PathBuf,
+    environment: Environment,
+    requirements: Vec<Requirement>,
+    demand: BTreeSet<Input>,
+    module: Option<study_module::StudyModuleReceipt>,
+    runtime: Option<runtime::SelectedRuntime>,
+    observations: Vec<Readiness>,
+    failures: Vec<InputFailure>,
+}
+impl std::fmt::Debug for ExecutionInputs {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ExecutionInputs")
+            .field("requirement_count", &self.requirements.len())
+            .field("environment_count", &self.environment.len())
+            .field("demand", &self.demand)
+            .field("failure_count", &self.failures.len())
+            .finish_non_exhaustive()
+    }
+}
+impl ExecutionInputs {
+    /// Inspect every exact selected input without source-building helpers or starting services.
+    /// Opaque caller selectors remain subject to their target owner's admission.
+    pub fn assess(root: &Path, environment: &Environment, requirements: &[Requirement]) -> Self {
         let demand: BTreeSet<_> = requirements
             .iter()
             .flat_map(|requirement| requirement.inputs().iter().copied())
             .collect();
-        let runtime = runtime::selected_for_demand(root, environment, &demand)?;
-        let missing: Vec<_> = demand
-            .iter()
-            .copied()
-            .filter(|&input| {
-                original_input_variable(input, environment).is_some_and(|variable| {
-                    environment.get(OsStr::new(variable)).map_or_else(
-                        || {
-                            runtime.is_none()
-                                || !matches!(input, Input::ScientificInputs | Input::NativeLane)
-                        },
-                        |value| value.is_empty(),
-                    )
-                })
+        let mut failures = Vec::new();
+        let mut states = BTreeMap::new();
+        let mut runtime = None;
+        let runtime_demand: BTreeSet<_> = [Input::ScientificInputs, Input::NativeLane]
+            .into_iter()
+            .filter(|input| {
+                demand.contains(input)
+                    && !environment.contains_key(OsStr::new(runtime::variable(*input)))
             })
             .collect();
-        if !missing.is_empty() {
-            return Err(FixtureError::MissingInputs(missing));
+        // One immutable runtime selection preserves capsule/lane correspondence. Its
+        // refusal is attributed to every role it was asked to supply, without flattening it.
+        match runtime::selected_for_demand(root, environment, &runtime_demand) {
+            Ok(Some(selected)) => {
+                let mut bound = environment.clone();
+                // selected_for_demand already checked the original current context.
+                match selected.bind_original(&mut bound, &runtime_demand) {
+                    Ok(()) => {
+                        for &input in &runtime_demand {
+                            let variable = runtime::variable(input);
+                            states.insert(
+                                input,
+                                InputState::OwnerAdmissionRequired {
+                                    path: bound.get(OsStr::new(variable)).map(PathBuf::from),
+                                },
+                            );
+                        }
+                        runtime = Some(selected);
+                    }
+                    Err(cause) => {
+                        record_runtime_refusal(&mut states, &mut failures, &runtime_demand, cause)
+                    }
+                }
+            }
+            Ok(None) => {}
+            Err(cause) => {
+                record_runtime_refusal(&mut states, &mut failures, &runtime_demand, cause)
+            }
         }
+        let borrowed = requirements
+            .iter()
+            .any(|requirement| requirement.ownership() == Ownership::RunnerBorrowed);
+        let mut module = None;
+        for &input in &demand {
+            if states.contains_key(&input) {
+                continue;
+            }
+            if let Some(variable) = original_input_variable(input, environment) {
+                match environment
+                    .get(OsStr::new(variable))
+                    .filter(|value| !value.is_empty())
+                {
+                    Some(path) => {
+                        states.insert(
+                            input,
+                            InputState::OwnerAdmissionRequired {
+                                path: Some(path.into()),
+                            },
+                        );
+                    }
+                    None => record_refusal(
+                        &mut states,
+                        &mut failures,
+                        input,
+                        FixtureError::Unprepared(input),
+                    ),
+                }
+                continue;
+            }
+            match input {
+                Input::StudyModule if borrowed || !recorded_module_selected(environment) => {
+                    match selected_module(root, environment) {
+                        Ok(selected) => {
+                            states.insert(
+                                input,
+                                InputState::Selected {
+                                    path: selected.record(),
+                                    identity: selected.sha256.clone(),
+                                },
+                            );
+                            module = Some(selected);
+                        }
+                        Err(cause) => record_refusal(&mut states, &mut failures, input, cause),
+                    }
+                }
+                Input::Server => match server::select(environment) {
+                    Ok(selected) => {
+                        states.insert(
+                            input,
+                            InputState::Selected {
+                                path: selected.executable(),
+                                identity: selected.recipe().into(),
+                            },
+                        );
+                    }
+                    Err(cause) => record_refusal(&mut states, &mut failures, input, cause.into()),
+                },
+                _ => {
+                    states.insert(
+                        input,
+                        InputState::OwnerAdmissionRequired {
+                            path: (input == Input::StudyModule)
+                                .then(|| {
+                                    environment
+                                        .get(OsStr::new("PSE_NATIVE_FIXTURE_MODULE_STATE"))
+                                        .map(PathBuf::from)
+                                })
+                                .flatten(),
+                        },
+                    );
+                }
+            }
+        }
+        let observations = requirements
+            .iter()
+            .map(|requirement| Readiness {
+                ownership: requirement.ownership(),
+                inputs: states
+                    .iter()
+                    .filter(|(input, _)| requirement.inputs().contains(input))
+                    .map(|(input, state)| (*input, state.clone()))
+                    .collect(),
+            })
+            .collect();
+        Self {
+            root: root.into(),
+            environment: environment.clone(),
+            requirements: requirements.into(),
+            demand,
+            module,
+            runtime,
+            observations,
+            failures,
+        }
+    }
+
+    /// Complete input account in original requirement order, without any execution grant.
+    pub fn observations(&self) -> &[Readiness] {
+        &self.observations
+    }
+
+    /// Whether an original input owner refused readiness, before helper effects.
+    pub fn blocked(&self) -> bool {
+        !self.failures.is_empty()
+    }
+
+    /// Source-build demanded helpers only after every independent input check completed.
+    /// # Errors
+    /// All original prerequisite failures, or the original helper preparation failure.
+    pub fn prepare(self, destination: &Path) -> Result<PreparedExecution, FixtureError> {
+        let Self {
+            root,
+            environment,
+            requirements,
+            demand,
+            module,
+            runtime,
+            failures,
+            ..
+        } = self;
+        if !failures.is_empty() {
+            return Err(FixtureError::Inputs(failures));
+        }
+        let root = root.as_path();
+        let environment = &environment;
+        let requirements = requirements.as_slice();
         if demand.contains(&Input::ServiceHelper)
             || demand.contains(&Input::Worker)
             || demand.contains(&Input::ScientificWorker)
@@ -158,17 +322,7 @@ impl PreparedExecution {
         let borrowed = requirements
             .iter()
             .any(|requirement| requirement.ownership() == Ownership::RunnerBorrowed);
-        let module = if demand.contains(&Input::StudyModule)
-            && (borrowed || !recorded_module_selected(environment))
-        {
-            Some(selected_module(root, environment)?)
-        } else {
-            None
-        };
-        if demand.contains(&Input::Server) {
-            server::select(environment)?;
-        }
-        let mut selected = Self {
+        let mut selected = PreparedExecution {
             module,
             tools: BTreeMap::new(),
             workers: BTreeMap::new(),
@@ -267,7 +421,52 @@ impl PreparedExecution {
         }
         Ok(selected)
     }
+}
 
+fn record_refusal(
+    states: &mut BTreeMap<Input, InputState>,
+    failures: &mut Vec<InputFailure>,
+    input: Input,
+    cause: FixtureError,
+) {
+    record_shared_refusal(states, failures, input, std::sync::Arc::new(cause));
+}
+fn record_runtime_refusal(
+    states: &mut BTreeMap<Input, InputState>,
+    failures: &mut Vec<InputFailure>,
+    demand: &BTreeSet<Input>,
+    cause: FixtureError,
+) {
+    let cause = std::sync::Arc::new(cause);
+    for &input in demand {
+        record_shared_refusal(states, failures, input, cause.clone());
+    }
+}
+fn record_shared_refusal(
+    states: &mut BTreeMap<Input, InputState>,
+    failures: &mut Vec<InputFailure>,
+    input: Input,
+    cause: std::sync::Arc<FixtureError>,
+) {
+    let state = if matches!(cause.as_ref(), FixtureError::Unprepared(_)) {
+        InputState::Unprepared {
+            code: pse_diagnostics::DiagnosticCode::FixtureUnprepared
+                .as_str()
+                .into(),
+            next: prepare(input),
+        }
+    } else {
+        InputState::Refused {
+            code: pse_diagnostics::TypedDiagnostic::diagnostic_code(cause.as_ref())
+                .map(|code| code.as_str().into()),
+            next: prepare(input),
+        }
+    };
+    states.insert(input, state);
+    failures.push(InputFailure { input, cause });
+}
+
+impl PreparedExecution {
     /// Project already prepared inputs onto one selected native command. Borrowed cases use
     /// the existing product fixture runner; target-owned cases only receive their inputs.
     /// # Errors
@@ -448,7 +647,7 @@ fn original_input_variable(input: Input, environment: &Environment) -> Option<&'
         | Input::ScientificWorker
         | Input::ProductReader
         | Input::ObservationHelper => None,
-        Input::ScientificInputs => Some("PSE_SCIENTIFIC_INPUTS"),
+        Input::ScientificInputs | Input::NativeLane => Some(runtime::variable(input)),
         Input::EngineeringEndpoint => Some("PSE_ENGINEERING_ENDPOINT"),
         Input::CanonicalTools => Some("PSE_CANONICAL_TOOLS"),
         Input::DiagnosticEvidence => Some("PSE_DIAGNOSTIC_EVIDENCE"),
@@ -467,7 +666,6 @@ fn original_input_variable(input: Input, environment: &Environment) -> Option<&'
         Input::DegeneracyReferencePython => Some("PSE_DEGENERACY_REFERENCE_PYTHON"),
         Input::SensitivityReferencePython => Some("PSE_SENSITIVITY_REFERENCE_PYTHON"),
         Input::PidReferencePython => Some("PSE_PID_REFERENCE_PYTHON"),
-        Input::NativeLane => Some("PSE_NATIVE_LANE_EXECUTABLE"),
         Input::TraceProcessor => Some("PSE_TRACE_PROCESSOR"),
         Input::CanonicalRestartControl => Some("PSE_CANONICAL_RESTART_CONTROL"),
     }

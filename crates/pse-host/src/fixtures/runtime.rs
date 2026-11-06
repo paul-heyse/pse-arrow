@@ -474,7 +474,7 @@ pub(super) fn selected_for_demand(
     selected.validate_current(root, environment, &needed)?;
     Ok(Some(selected))
 }
-fn variable(input: Input) -> &'static str {
+pub(super) fn variable(input: Input) -> &'static str {
     match input {
         Input::ScientificInputs => "PSE_SCIENTIFIC_INPUTS",
         Input::NativeLane => "PSE_NATIVE_LANE_EXECUTABLE",
@@ -637,7 +637,7 @@ impl SelectedRuntime {
         }
         self.bind_original(environment, demand)
     }
-    fn bind_original(
+    pub(super) fn bind_original(
         &self,
         environment: &mut Environment,
         demand: &BTreeSet<Input>,

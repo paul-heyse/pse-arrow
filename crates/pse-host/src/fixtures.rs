@@ -16,7 +16,7 @@ use std::{
 };
 
 mod execution;
-pub use execution::{PreparedExecution, prepare_module, selected_module};
+pub use execution::{ExecutionInputs, PreparedExecution, prepare_module, selected_module};
 mod runtime;
 pub use runtime::{RuntimeInputArtifact, RuntimeInputs, prepare_runtime, selected_runtime};
 
@@ -361,36 +361,24 @@ pub fn requirements(
     Ok(result)
 }
 
-/// Explicit original input selections, never environment discovery or arbitrary path admission.
-#[derive(Debug, Default)]
-pub struct Sources<'a> {
-    /// The module owner already selected this exact immutable production receipt.
-    pub study_module: Option<&'a study_module::StudyModuleReceipt>,
-    /// The server owner already selected this exact immutable released generation.
-    pub server: Option<&'a server::PreparedServer>,
-    /// Existing immutable byte captures. Source-build binding remains with their owner.
-    pub executables: BTreeMap<Input, &'a Executable>,
-    /// Opaque selectors interpreted only by their actual fixture/evidence/source owner.
-    pub locations: BTreeMap<Input, &'a Path>,
-}
-
 /// Observation of one input; none of these states is an execution or disposal grant.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, JsonSchema)]
 #[serde(tag = "state", rename_all = "kebab-case")]
 pub enum InputState {
+    /// The original preparation owner refused this exact selection; native causes remain
+    /// in the aggregate fixture error rather than a second rendered error string.
+    Refused {
+        /// Typed original cause, for passive presentation only.
+        code: Option<String>,
+        /// Existing explicit preparation route, where one is available.
+        next: Vec<String>,
+    },
     /// Original immutable owner successfully reselected its own exact artifact.
     Selected {
         /// Original immutable path.
         path: PathBuf,
         /// Original owner identity, not a source-build proof.
         identity: String,
-    },
-    /// Bytes were verified, but the execution owner must still bind actual source-build context.
-    CapturedBytes {
-        /// Retained immutable copy; never the original mutable Cargo output.
-        path: PathBuf,
-        /// Verified byte digest.
-        sha256: String,
     },
     /// No owner selection was supplied. `next` invokes an existing explicit prepare route.
     Unprepared {
@@ -407,7 +395,7 @@ pub enum InputState {
 }
 
 /// Passive prerequisite account, retaining the original service ownership distinction.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, JsonSchema)]
 pub struct Readiness {
     /// Owner that must still source-build/start/lend/settle; no live fixture is asserted.
     pub ownership: Ownership,
@@ -429,105 +417,12 @@ fn prepare(input: Input) -> Vec<String> {
         .collect()
 }
 
-/// Reuse immutable artifact owners for passive input checks; never start tools or a database.
-pub fn readiness(
-    requirement: &Requirement,
-    sources: &Sources<'_>,
-) -> Result<Readiness, FixtureError> {
-    let mut inputs = BTreeMap::new();
-    for &input in requirement.inputs() {
-        let state = match input {
-            Input::StudyModule if sources.study_module.is_some() => {
-                let original = sources
-                    .study_module
-                    .ok_or_else(|| invalid("missing module selection"))?;
-                let selected =
-                    study_module::select(&original.record(), study_module::Variant::Production)?;
-                if selected != *original {
-                    return Err(invalid("selected immutable module identity changed"));
-                }
-                InputState::Selected {
-                    path: selected.record(),
-                    identity: selected.sha256.clone(),
-                }
-            }
-            Input::Server if sources.server.is_some() => {
-                let original = sources
-                    .server
-                    .ok_or_else(|| invalid("missing server selection"))?;
-                let selected = server::reopen_generation(original.generation(), original.recipe())?;
-                InputState::Selected {
-                    path: selected.executable(),
-                    identity: selected.recipe().into(),
-                }
-            }
-            Input::ServiceHelper
-            | Input::Worker
-            | Input::ScientificWorker
-            | Input::ObservationHelper
-            | Input::CanonicalTools
-            | Input::TraceProcessor => {
-                if let Some(executable) = sources.executables.get(&input) {
-                    executable.verify()?;
-                    InputState::CapturedBytes {
-                        path: executable.captured.clone(),
-                        sha256: executable.sha256.clone(),
-                    }
-                } else {
-                    InputState::OwnerAdmissionRequired {
-                        path: sources.locations.get(&input).map(|path| path.to_path_buf()),
-                    }
-                }
-            }
-            Input::NativeLane if sources.executables.contains_key(&input) => {
-                let executable = &sources.executables[&input];
-                executable.verify()?;
-                InputState::CapturedBytes {
-                    path: executable.captured.clone(),
-                    sha256: executable.sha256.clone(),
-                }
-            }
-            Input::ScientificInputs | Input::NativeLane
-                if !sources.locations.contains_key(&input) =>
-            {
-                InputState::Unprepared {
-                    code: pse_diagnostics::DiagnosticCode::FixtureUnprepared
-                        .as_str()
-                        .into(),
-                    next: prepare(input),
-                }
-            }
-            Input::StudyModule if sources.locations.contains_key(&input) => {
-                InputState::OwnerAdmissionRequired {
-                    path: sources.locations.get(&input).map(|path| path.to_path_buf()),
-                }
-            }
-            Input::Server | Input::StudyModule => InputState::Unprepared {
-                code: pse_diagnostics::DiagnosticCode::FixtureUnprepared
-                    .as_str()
-                    .into(),
-                next: prepare(input),
-            },
-            _ => InputState::OwnerAdmissionRequired {
-                path: sources.locations.get(&input).map(|path| path.to_path_buf()),
-            },
-        };
-        inputs.insert(input, state);
-    }
-    Ok(Readiness {
-        ownership: requirement.ownership(),
-        inputs,
-    })
-}
-
 /// Native causes survive declaration and owner-admission refusal.
 #[derive(Debug, thiserror::Error)]
 pub enum FixtureError {
-    /// All missing explicit inputs for the exact selected population, before preparation.
-    #[error(
-        "selected fixture inputs {0:?} are unprepared; select their original preparation owners before execution"
-    )]
-    MissingInputs(Vec<Input>),
+    /// Every independently refused or missing preparation input, before helper effects.
+    #[error("selected fixture readiness has {} unfulfilled input owners", .0.len())]
+    Inputs(Vec<InputFailure>),
     /// This prerequisite still requires its actual source/evidence owner to admit it.
     #[error(
         "fixture input {0:?} is unprepared; select its original preparation owner before execution"
@@ -548,9 +443,25 @@ pub enum FixtureError {
 }
 pse_diagnostics::impl_diagnostic! {
     FixtureError,
-    code(this) { match this { Self::Unprepared(_) | Self::MissingInputs(_) => Some(pse_diagnostics::DiagnosticCode::FixtureUnprepared), Self::Owner(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error), Self::Capture(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error), _ => Some(pse_diagnostics::DiagnosticCode::ConfigInvalid) } },
+    code(this) { match this { Self::Unprepared(_) | Self::Inputs(_) => Some(pse_diagnostics::DiagnosticCode::FixtureUnprepared), Self::Owner(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error), Self::Capture(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error), _ => Some(pse_diagnostics::DiagnosticCode::ConfigInvalid) } },
     forward(this) { match this { Self::Owner(error) => Some(error), Self::Capture(error) => Some(error), _ => None } },
-    help(_this) { None }, related(_this) { None }, source(_this) { None }
+    help(_this) { None }, related(this) { match this { Self::Inputs(errors) => Some(Box::new(errors.iter().map(|error| -> &dyn pse_diagnostics::TypedDiagnostic { error }))), _ => None } }, source(_this) { None }
+}
+
+/// One original owner refusal, attributed to its authored input role.
+#[derive(Debug, thiserror::Error)]
+#[error("fixture input {input:?}: {cause}")]
+pub struct InputFailure {
+    /// Original declaration role, not an inferred filename meaning.
+    pub input: Input,
+    /// Original typed cause, retained independently from other failed owners.
+    #[source]
+    pub cause: std::sync::Arc<FixtureError>,
+}
+pse_diagnostics::impl_diagnostic! {
+    InputFailure,
+    code(this) { pse_diagnostics::TypedDiagnostic::diagnostic_code(this.cause.as_ref()) },
+    forward(this) { Some(this.cause.as_ref()) }, help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 
 #[cfg(test)]

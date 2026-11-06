@@ -82,12 +82,16 @@ fn requirement() -> Requirement {
 fn pure_selection_neither_prepares_tools_nor_requires_a_database() {
     let directory = tempfile::tempdir().unwrap();
     let destination = directory.path().join("must-not-be-created");
-    let prepared = PreparedExecution::prepare(
+    let assessed = ExecutionInputs::assess(
         &directory.path().join("not-a-checkout"),
-        &BTreeMap::new(),
-        &destination,
+        &BTreeMap::from([(
+            "UNRELATED_CREDENTIAL".into(),
+            "private-environment-value".into(),
+        )]),
         &[],
     );
+    assert!(!format!("{assessed:?}").contains("private-environment-value"));
+    let prepared = assessed.prepare(&destination);
     assert!(prepared.is_ok());
     assert!(!destination.exists());
 }
@@ -101,16 +105,12 @@ fn unsupported_evidence_input_refuses_before_preparation_or_service_effects() {
         .declaration
         .inputs
         .insert(Input::ScientificInputs);
-    let error = PreparedExecution::prepare(
-        directory.path(),
-        &BTreeMap::new(),
-        &destination,
-        &[requirement],
-    )
-    .unwrap_err();
+    let error = ExecutionInputs::assess(directory.path(), &BTreeMap::new(), &[requirement])
+        .prepare(&destination)
+        .unwrap_err();
     assert!(matches!(
         error,
-        FixtureError::MissingInputs(ref inputs) if inputs == &[Input::ScientificInputs]
+        FixtureError::Inputs(ref inputs) if inputs.iter().any(|failure| failure.input == Input::ScientificInputs)
     ));
     assert!(!destination.exists());
 }
@@ -120,20 +120,24 @@ fn exact_selection_reports_every_missing_original_input_before_effects() {
     let directory = tempfile::tempdir().unwrap();
     let destination = directory.path().join("must-not-be-created");
     let mut requirement = requirement();
-    requirement.declaration.inputs.extend([
+    requirement.declaration.inputs = BTreeSet::from([
         Input::ScientificInputs,
         Input::NativeLane,
         Input::EngineeringEndpoint,
     ]);
     let environment = BTreeMap::from([("PSE_ENGINEERING_ENDPOINT".into(), "".into())]);
-    let error =
-        PreparedExecution::prepare(directory.path(), &environment, &destination, &[requirement])
-            .unwrap_err();
-    let FixtureError::MissingInputs(inputs) = error else {
+    let error = ExecutionInputs::assess(directory.path(), &environment, &[requirement])
+        .prepare(&destination)
+        .unwrap_err();
+    let FixtureError::Inputs(inputs) = error else {
         panic!("expected the complete missing-input population");
     };
     assert_eq!(
-        inputs,
+        inputs
+            .iter()
+            .filter(|failure| matches!(failure.cause.as_ref(), FixtureError::Unprepared(_)))
+            .map(|failure| failure.input)
+            .collect::<Vec<_>>(),
         [
             Input::EngineeringEndpoint,
             Input::ScientificInputs,
@@ -141,6 +145,76 @@ fn exact_selection_reports_every_missing_original_input_before_effects() {
         ]
     );
     assert!(!destination.exists());
+}
+
+#[test]
+fn exact_readiness_retains_all_refused_missing_and_owner_required_inputs() {
+    use pse_diagnostics::TypedDiagnostic as _;
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("must-not-be-created");
+    let mut requirement = requirement();
+    requirement.declaration.inputs.extend([
+        Input::ScientificInputs,
+        Input::NativeLane,
+        Input::EngineeringEndpoint,
+        Input::DiagnosticEvidence,
+    ]);
+    let environment = BTreeMap::from([
+        (
+            "PSE_NATIVE_FIXTURE_MODULE_RECEIPT".into(),
+            directory.path().join("absent-module").into_os_string(),
+        ),
+        (
+            "PSE_SURREAL_TOOLS".into(),
+            directory.path().join("absent-server").into_os_string(),
+        ),
+        ("PSE_ENGINEERING_ENDPOINT".into(), "".into()),
+        (
+            "PSE_DIAGNOSTIC_EVIDENCE".into(),
+            "/original/evidence".into(),
+        ),
+    ]);
+    let assessment = ExecutionInputs::assess(directory.path(), &environment, &[requirement]);
+    assert!(assessment.blocked());
+    let observed = &assessment.observations()[0];
+    assert_eq!(observed.inputs.len(), 7);
+    for input in [Input::Server, Input::StudyModule] {
+        let InputState::Refused { next, .. } = &observed.inputs[&input] else {
+            panic!("original owner refusal missing");
+        };
+        assert_eq!(next, &prepare(input));
+    }
+    for input in [
+        Input::ScientificInputs,
+        Input::NativeLane,
+        Input::EngineeringEndpoint,
+    ] {
+        let InputState::Unprepared { code, next } = &observed.inputs[&input] else {
+            panic!("original missing-input observation missing");
+        };
+        assert_eq!(code, "fixture.unprepared");
+        assert_eq!(next, &prepare(input));
+    }
+    assert!(
+        matches!(&observed.inputs[&Input::DiagnosticEvidence], InputState::OwnerAdmissionRequired { path: Some(path) } if path == Path::new("/original/evidence"))
+    );
+    assert!(matches!(
+        observed.inputs[&Input::ServiceHelper],
+        InputState::OwnerAdmissionRequired { path: None }
+    ));
+    let error = assessment.prepare(&destination).unwrap_err();
+    assert_eq!(error.diagnostic_children().unwrap().count(), 5);
+    let FixtureError::Inputs(failures) = error else {
+        panic!("aggregate original causes missing");
+    };
+    assert_eq!(failures.len(), 5);
+    assert!(
+        failures
+            .iter()
+            .all(|failure| failure.cause.diagnostic_code().is_some())
+    );
+    assert!(!destination.exists());
+    assert!(!directory.path().join("absent-server").exists());
 }
 
 #[test]
@@ -154,7 +228,8 @@ fn explicit_scientific_input_remains_with_its_original_owner_without_helper_buil
         "PSE_SCIENTIFIC_INPUTS".into(),
         "/original/capsule.json".into(),
     )]);
-    PreparedExecution::prepare(directory.path(), &environment, &destination, &[requirement])
+    ExecutionInputs::assess(directory.path(), &environment, &[requirement])
+        .prepare(&destination)
         .unwrap();
     assert!(
         !destination.exists(),
@@ -175,13 +250,9 @@ fn explicit_predecessor_receipt_precedes_state_without_implicit_preparation() {
         BTreeMap::from([(state.clone(), "/recorded/state".into())]),
         BTreeMap::from([(receipt.clone(), "/retained/module.json".into())]),
     ] {
-        PreparedExecution::prepare(
-            directory.path(),
-            &environment,
-            &destination,
-            &[requirement.clone()],
-        )
-        .unwrap();
+        ExecutionInputs::assess(directory.path(), &environment, &[requirement.clone()])
+            .prepare(&destination)
+            .unwrap();
         assert!(
             !destination.exists(),
             "the native test owner admits the original artifact"
@@ -190,13 +261,12 @@ fn explicit_predecessor_receipt_precedes_state_without_implicit_preparation() {
     let empty_explicit_receipt =
         BTreeMap::from([(state, "/recorded/state".into()), (receipt, "".into())]);
     assert!(matches!(
-        PreparedExecution::prepare(
+        ExecutionInputs::assess(
             directory.path(),
             &empty_explicit_receipt,
-            &destination,
             &[requirement]
-        ),
-        Err(FixtureError::MissingInputs(ref inputs)) if inputs == &[Input::PredecessorModuleState]
+        ).prepare(&destination),
+        Err(FixtureError::Inputs(ref inputs)) if inputs.len() == 1 && inputs[0].input == Input::PredecessorModuleState
     ));
     assert!(!destination.exists());
 }
@@ -212,9 +282,9 @@ fn target_owned_recorded_module_state_is_not_replaced_by_a_prepared_module() {
         "/original/owner-admitted-state".into(),
     )]);
     let requirements = vec![requirement];
-    let prepared =
-        PreparedExecution::prepare(directory.path(), &environment, &destination, &requirements)
-            .unwrap();
+    let prepared = ExecutionInputs::assess(directory.path(), &environment, &requirements)
+        .prepare(&destination)
+        .unwrap();
     let command = prepared
         .command(
             crate::test_workflow::GroupCommand {
@@ -298,100 +368,6 @@ fn malformed_or_contradictory_declarations_refuse() {
     }
     let data = metadata(json!([owned(), owned()]));
     assert!(requirements(&data, &resolved(&data, &[], Operation::Test)).is_err());
-}
-
-#[test]
-fn missing_sources_report_exact_prepare_routes_and_do_not_adopt_arbitrary_paths() {
-    let requirement = requirement();
-    let observed = readiness(&requirement, &Sources::default()).unwrap();
-    let InputState::Unprepared { code, next } = &observed.inputs[&Input::StudyModule] else {
-        panic!("missing prepared module")
-    };
-    assert_eq!(code, "fixture.unprepared");
-    assert_eq!(
-        next.as_slice(),
-        ["scripts/pse-host", "study-module", "prepare"]
-    );
-    let InputState::Unprepared { next, .. } = &observed.inputs[&Input::Server] else {
-        panic!("missing prepared server")
-    };
-    assert_eq!(next.as_slice(), ["scripts/pse-host", "server", "prepare"]);
-    assert!(matches!(
-        observed.inputs[&Input::ServiceHelper],
-        InputState::OwnerAdmissionRequired { path: None }
-    ));
-    let mut sources = Sources::default();
-    sources
-        .locations
-        .insert(Input::ServiceHelper, Path::new("/nonexistent/helper"));
-    sources
-        .locations
-        .insert(Input::StudyModule, Path::new("/original/module-state"));
-    let observed = readiness(&requirement, &sources).unwrap();
-    assert!(
-        matches!(&observed.inputs[&Input::ServiceHelper],InputState::OwnerAdmissionRequired {path:Some(path)} if path == Path::new("/nonexistent/helper"))
-    );
-    assert!(
-        matches!(&observed.inputs[&Input::StudyModule],InputState::OwnerAdmissionRequired {path:Some(path)} if path == Path::new("/original/module-state"))
-    );
-}
-
-#[test]
-fn missing_runtime_inputs_report_explicit_bounded_preparation_scope() {
-    let mut requirement = requirement();
-    requirement.declaration.inputs = BTreeSet::from([Input::ScientificInputs, Input::NativeLane]);
-    let observed = readiness(&requirement, &Sources::default()).unwrap();
-    for input in [Input::ScientificInputs, Input::NativeLane] {
-        let InputState::Unprepared { code, next } = &observed.inputs[&input] else {
-            panic!("missing original runtime input");
-        };
-        assert_eq!(code, "fixture.unprepared");
-        assert_eq!(
-            next.as_slice(),
-            ["scripts/pse-host", "fixture", "prepare", "runtime"]
-        );
-    }
-    let mut sources = Sources::default();
-    sources.locations.insert(
-        Input::ScientificInputs,
-        Path::new("/explicit/invalid-capsule"),
-    );
-    let observed = readiness(&requirement, &sources).unwrap();
-    assert!(matches!(
-        observed.inputs[&Input::ScientificInputs],
-        InputState::OwnerAdmissionRequired { path: Some(_) }
-    ));
-}
-
-#[test]
-fn existing_capture_owner_verifies_bytes_without_conferring_source_build_or_service_authority() {
-    use sha2::{Digest, Sha256};
-    let directory = tempfile::tempdir().unwrap();
-    let retained = directory.path().join("retained-helper");
-    std::fs::write(&retained, b"original immutable bytes").unwrap();
-    let executable = Executable {
-        original: "/mutable/cargo/helper".into(),
-        captured: retained.clone(),
-        bytes: 24,
-        sha256: Sha256::digest(b"original immutable bytes")
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect(),
-    };
-    let mut sources = Sources::default();
-    sources
-        .executables
-        .insert(Input::ServiceHelper, &executable);
-    let observed = readiness(&requirement(), &sources).unwrap();
-    assert_eq!(observed.ownership, Ownership::TargetOwned);
-    assert!(
-        matches!(&observed.inputs[&Input::ServiceHelper],InputState::CapturedBytes {path,..} if path == &retained)
-    );
-    std::fs::write(&retained, b"changed bytes").unwrap();
-    assert!(matches!(
-        readiness(&requirement(), &sources),
-        Err(FixtureError::Capture(_))
-    ));
 }
 
 #[test]
