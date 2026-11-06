@@ -135,61 +135,55 @@ impl RegimeFactory {
         }
         let mut alternatives = Vec::new();
         for r in &self.alternatives {
-            let candidate =
-                (|| {
-                    Ok(Regime {
-                        problem: match offsets {
-                            None => r.residual.problem(scope.clone())?,
-                            Some(offsets) => {
-                                let problem = r.residual.problem(scope.clone())?;
-                                let owned = Arc::try_unwrap(problem).map_err(|problem| {
-                                super::settle_provider_error(pse_kernels::ProviderError::Contract(
-                                    "fresh selected residual has an unexpected shared owner".into(),
-                                ), problem.finish_providers())
-                            })?;
-                                Arc::new(
-                                    owned
-                                        .with_residual_offsets(offsets)
-                                        .map_err(super::provider_error)?,
-                                )
+            let candidate = (|| {
+                Ok(Regime {
+                    problem: {
+                        let mut problem = r.residual.problem(scope.clone())?;
+                        if let Some(offsets) = offsets
+                            && let Err(operation) = problem.set_residual_offsets(offsets)
+                        {
+                            return Err(super::settle_provider_error(
+                                super::provider_error(operation),
+                                problem.finish_providers(),
+                            ));
+                        }
+                        Arc::new(problem)
+                    },
+                    solver: super::SolverWorker::new(r.residual.solver.as_ref()),
+                    configuration: super::ConfigurationWorker::new(
+                        r.residual.configuration.clone(),
+                        r.residual.hints.as_ref(),
+                        r.residual.terms.as_ref(),
+                    ),
+                    eligibility: r.eligibility.worker_scoped(scope.clone()),
+                    criterion: r.criterion.worker_scoped(scope.clone()),
+                    eligibility_source: r.eligibility.clone(),
+                    criterion_source: r.criterion.clone(),
+                    isolation_identity: None,
+                    eligibility_trial: Default::default(),
+                    criterion_trial: Default::default(),
+                    eligibility_inputs: Vec::new(),
+                    criterion_inputs: Vec::new(),
+                    isolation: match (&r.isolation, offsets) {
+                        (Some(program), Some(offsets)) => {
+                            let mut program = program.as_ref().clone();
+                            for (residual, offset) in program.residuals.iter_mut().zip(offsets) {
+                                let constant = program.nodes.len();
+                                program.nodes.push(crate::factorable::Node::Const(
+                                    crate::factorable::Constant::Float(-*offset),
+                                ));
+                                let difference = program.nodes.len();
+                                program
+                                    .nodes
+                                    .push(crate::factorable::Node::Sum(vec![*residual, constant]));
+                                *residual = difference;
                             }
-                        },
-                        solver: super::SolverWorker::new(r.residual.solver.as_ref()),
-                        configuration: super::ConfigurationWorker::new(
-                            r.residual.configuration.clone(),
-                            r.residual.hints.as_ref(),
-                            r.residual.terms.as_ref(),
-                        ),
-                        eligibility: r.eligibility.worker_scoped(scope.clone()),
-                        criterion: r.criterion.worker_scoped(scope.clone()),
-                        eligibility_source: r.eligibility.clone(),
-                        criterion_source: r.criterion.clone(),
-                        isolation_identity: None,
-                        eligibility_trial: Default::default(),
-                        criterion_trial: Default::default(),
-                        eligibility_inputs: Vec::new(),
-                        criterion_inputs: Vec::new(),
-                        isolation: match (&r.isolation, offsets) {
-                            (Some(program), Some(offsets)) => {
-                                let mut program = program.as_ref().clone();
-                                for (residual, offset) in program.residuals.iter_mut().zip(offsets)
-                                {
-                                    let constant = program.nodes.len();
-                                    program.nodes.push(crate::factorable::Node::Const(
-                                        crate::factorable::Constant::Float(-*offset),
-                                    ));
-                                    let difference = program.nodes.len();
-                                    program.nodes.push(crate::factorable::Node::Sum(vec![
-                                        *residual, constant,
-                                    ]));
-                                    *residual = difference;
-                                }
-                                Some(Arc::new(program))
-                            }
-                            _ => r.isolation.clone(),
-                        },
-                    })
-                })();
+                            Some(Arc::new(program))
+                        }
+                        _ => r.isolation.clone(),
+                    },
+                })
+            })();
             match candidate {
                 Ok(regime) => alternatives.push(regime),
                 Err(operation) => {
@@ -319,6 +313,9 @@ impl pse_kernels::Provider for SelectedProvider {
         if self.prepared.contains(request.request()) {
             return Ok(());
         }
+        self.selection
+            .exclusive_trials()
+            .map_err(super::provider_error)?;
         let scope = self.selection.scope.as_ref().ok_or_else(|| {
             pse_kernels::ProviderError::Contract("selected provider detached scope".into())
         })?;
@@ -630,6 +627,77 @@ mod tests {
     }
     fn selection(eligibility: [bool; 2]) -> RegimeSelection {
         selection_with_singular_rival(eligibility, false)
+    }
+    #[test]
+    fn all_alternatives_refuse_retained_core_before_earlier_hint_effects() {
+        use crate::implicit::{Configuration, HintResolver};
+        use std::sync::atomic::AtomicUsize;
+        #[derive(Debug)]
+        struct Hint {
+            calls: Arc<AtomicUsize>,
+            unknowns: Vec<Unknown>,
+        }
+        impl HintResolver for Hint {
+            fn identity(&self) -> pse_ids::ContentHash {
+                pse_ids::ContentHash::from_bytes([91; 32])
+            }
+            fn retained_bytes(&self) -> usize {
+                size_of::<Self>()
+            }
+            fn time_limit(&self) -> Duration {
+                Duration::from_secs(1)
+            }
+            fn resolve(
+                &self,
+                _: &[f64],
+                _: Option<&[f64]>,
+                _: Option<&[f64]>,
+            ) -> Result<(Vec<Unknown>, Options), MathError> {
+                self.calls.fetch_add(1, Ordering::Relaxed);
+                Ok((
+                    self.unknowns.clone(),
+                    Options {
+                        start: vec![-1.],
+                        variable_nominals: vec![1.],
+                        variable_tolerance: vec![1e-9],
+                        residual_tolerance: vec![1e-9],
+                        iterations: 10,
+                        time_limit: self.time_limit(),
+                        derivative_tolerance: 1e-10,
+                    },
+                ))
+            }
+        }
+        for weak_only in [false, true] {
+            let mut selected = selection([true, true]);
+            let calls = Arc::new(AtomicUsize::new(0));
+            let first = &mut selected.alternatives[0];
+            first.configuration = super::super::ConfigurationWorker::new(
+                Configuration::Hints(Arc::new(Hint {
+                    calls: calls.clone(),
+                    unknowns: first.problem.unknowns.clone(),
+                })),
+                None,
+                None,
+            );
+            let core = selected.alternatives[1].problem.root_execution();
+            let weak = Arc::downgrade(&core);
+            let core = (!weak_only).then_some(core);
+            let control = pse_diagnostics::Cancellation::default();
+            assert!(matches!(
+                selected.evaluate(&[-2.], DerivativeOrder::Value, &control),
+                Err(MathError::Contract(_))
+            ));
+            assert_eq!(calls.load(Ordering::Relaxed), 0);
+            drop(core);
+            drop(weak);
+            let completed = selected
+                .evaluate(&[-2.], DerivativeOrder::Value, &control)
+                .unwrap();
+            assert_eq!(completed.values, [-1.]);
+            assert!(calls.load(Ordering::Relaxed) > 0);
+            selected.finish().unwrap();
+        }
     }
     fn selection_with_singular_rival(eligibility: [bool; 2], singular: bool) -> RegimeSelection {
         let registry = pse_quantity::standard::standard_registry().unwrap();
@@ -1994,13 +2062,13 @@ impl Regime {
         self.criterion_trial.clear();
         self.eligibility_trial.clear();
         super::fill_selected_inputs(
-            &self.eligibility,
+            self.eligibility.input_formals(),
             point,
             parameters,
             &mut self.eligibility_inputs,
         )?;
         super::fill_selected_inputs(
-            &self.criterion,
+            self.criterion.input_formals(),
             point,
             parameters,
             &mut self.criterion_inputs,
@@ -2108,6 +2176,13 @@ struct PointRefinement {
     inverse_norm_upper: f64,
 }
 impl RegimeSelection {
+    fn exclusive_trials(&mut self) -> Result<(), MathError> {
+        for regime in &mut self.alternatives {
+            Problem::exclusive_trial(&mut regime.problem)?;
+        }
+        Ok(())
+    }
+
     /// Retire every actual alternative after its native aliases have departed.
     pub fn finish(self) -> Result<(), pse_kernels::ProviderError> {
         finish_regimes(self.alternatives)
@@ -2624,6 +2699,7 @@ impl RegimeSelection {
             })?
             .selected
             .clone();
+        self.exclusive_trials()?;
         let mut configurations = Vec::with_capacity(self.alternatives.len());
         for r in &mut self.alternatives {
             configurations.push(r.configuration.resolve(
@@ -2968,6 +3044,7 @@ impl RegimeSelection {
                 "regime selection execution control differs from its scope".into(),
             ));
         }
+        self.exclusive_trials()?;
         self.control = Some(control.clone());
         let cancel = &control.flag();
         let before = self.observed_chain;

@@ -580,7 +580,7 @@ impl Problem {
             inputs,
             evaluation,
         } = &mut *held;
-        fill_selected_inputs(worker, point, parameters, inputs)?;
+        fill_selected_inputs(worker.input_formals(), point, parameters, inputs)?;
         let mut values = program
             .values
             .lock()

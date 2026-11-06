@@ -127,6 +127,10 @@ impl ConfigurationWorker {
                     "implicit semantic anchor extent".into(),
                 ));
             }
+            // Reconfiguration must not enter hint or provider effects while a
+            // native callback owner (including an upgradeable Weak) can still
+            // observe the previous root. get_mut checks both Arc counts.
+            Problem::exclusive_trial(problem)?;
             let (unknowns, options) = match &self.source {
                 Configuration::Fixed(unknowns, options) => {
                     let mut options = options.clone();
@@ -208,7 +212,7 @@ impl ConfigurationWorker {
             let problem = Arc::get_mut(problem).ok_or_else(|| {
                 MathError::Contract("inner solver retained a completed trial problem".into())
             })?;
-            problem.unknowns = unknowns;
+            problem.root_mut()?.unknowns = unknowns;
             problem.validate_options(&options)?;
             Ok(options)
         })

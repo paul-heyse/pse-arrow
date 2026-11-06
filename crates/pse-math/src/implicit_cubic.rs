@@ -1000,7 +1000,12 @@ mod tests {
         );
         // Test the zero Jacobian in an interior neighborhood, independently of
         // the interval-endpoint refusal already covered by the common IFT tests.
-        Arc::get_mut(&mut problem).unwrap().unknowns[0].lower = -1.0;
+        Arc::get_mut(&mut problem)
+            .unwrap()
+            .root_mut()
+            .unwrap()
+            .unknowns[0]
+            .lower = -1.0;
         assert!(matches!(
             problem.derivatives(
                 &[0.0],

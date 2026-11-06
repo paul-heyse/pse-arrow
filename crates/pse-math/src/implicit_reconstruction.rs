@@ -660,24 +660,15 @@ impl RootSelection {
                 "single-root exact projection layout".into(),
             ));
         }
-        let problem = factory.problem(scope.clone())?;
-        let problem = if let Some(offsets) = offsets {
-            let owned = Arc::try_unwrap(problem).map_err(|problem| {
-                super::settle_provider_error(
-                    pse_kernels::ProviderError::Contract(
-                        "fresh root residual unexpectedly shared".into(),
-                    ),
-                    problem.finish_providers(),
-                )
-            })?;
-            Arc::new(
-                owned
-                    .with_residual_offsets(offsets)
-                    .map_err(super::provider_error)?,
-            )
-        } else {
-            problem
-        };
+        let mut problem = factory.problem(scope.clone())?;
+        if let Some(offsets) = offsets
+            && let Err(operation) = problem.set_residual_offsets(offsets)
+        {
+            return Err(super::settle_provider_error(
+                super::provider_error(operation),
+                problem.finish_providers(),
+            ));
+        }
         if let Err(operation) = problem
             .prepare_complete(DerivativeOrder::First, &scope)
             .map_err(super::provider_error)
@@ -689,7 +680,7 @@ impl RootSelection {
         }
         let time_limit = factory.configuration.time_limit();
         Ok(Self {
-            problem,
+            problem: Arc::new(problem),
             configuration: super::ConfigurationWorker::new(
                 factory.configuration.clone(),
                 factory.hints.as_ref(),
@@ -783,6 +774,7 @@ impl RootSelection {
             provider: self.problem.id,
             cause,
         })?;
+        super::Problem::exclusive_trial(&mut self.problem)?;
         let anchor = self.selection.anchor(&self.problem, parameters, cancel)?;
         let mut options =
             self.configuration
