@@ -295,7 +295,12 @@ impl Inventory {
             verification: capture::Verification::default(),
         }
     }
-    fn test_record(&self, identity: &TestIdentity) -> Result<CapturedTest<'_>, DiscoveryError> {
+    /// Resolve recorded correspondence only. This supplies historical intent, never
+    /// executable custody; current reuse/launch must use test/verified_tests verification.
+    pub(crate) fn test_record(
+        &self,
+        identity: &TestIdentity,
+    ) -> Result<CapturedTest<'_>, DiscoveryError> {
         let group = self
             .groups
             .get(identity.group)

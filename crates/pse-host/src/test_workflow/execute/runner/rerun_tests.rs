@@ -1,0 +1,269 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+//! Actual original assertion failure becomes fresh intent without retaining old executables.
+use super::*;
+use crate::{
+    envelope::{Envelope, Settlement},
+    invocation::{InvocationEvidence, InvocationSpec, InvocationStore},
+    managed::result::{ManagedSummary, WorkflowSummary},
+    test_workflow::execute::ContentIdentity,
+};
+
+fn begin(store: &InvocationStore, input: &Input) -> PathBuf {
+    let (binding, encoded) = crate::managed::workflow::encode_input(input).unwrap();
+    let directory = store
+        .begin(InvocationSpec {
+            invocation_id: input.invocation.clone(),
+            command: input.action.command().into(),
+            session: None,
+            parent: None,
+            operation: serde_json::json!({"workflow": binding}),
+            // This ledger fixture has no manager capability. Actual source build/list/test
+            // observations below come from the native performer and retain their own identities.
+            control: crate::generation::PreparedGeneration {
+                generation: "generation.rerun-intent-observation".into(),
+                protocol: 1,
+                manifest_digest: "a".repeat(64),
+            },
+            environment_digest: "b".repeat(64),
+            scientific: vec![],
+        })
+        .unwrap();
+    directory
+        .publish_evidence(InvocationEvidence::WorkflowInput, &encoded)
+        .unwrap();
+    directory.path().join("workflow")
+}
+
+fn publish(store: &InvocationStore, input: &Input, destination: &Path, report: &mut Report) {
+    report.input_cutoff = Some(Ok(ContentIdentity::of(
+        &fs::read(destination.parent().unwrap().join("workflow-input.json")).unwrap(),
+    )));
+    let terminal = report.publish(destination).unwrap();
+    let mut manager = Envelope::response(
+        input.action.command(),
+        "original native performer observations",
+        ManagedSummary {
+            bundle: None,
+            workflow: Some(WorkflowSummary {
+                terminal,
+                report: "workflow/report.json".into(),
+            }),
+            native_lifetime_pending: None,
+            child_exit: Some(if report.outcome == Outcome::TestsSucceeded {
+                0
+            } else {
+                1
+            }),
+            stdout: None,
+            stderr: None,
+            borrowed_reservation: false,
+            service_result: None,
+        },
+    );
+    manager.invocation_id = input.invocation.clone();
+    // A completed native test observation is not a claim of manager-level physical settlement.
+    manager.settlement = Settlement::Unknown;
+    crate::invocation::publish_bytes(
+        &store
+            .directory(&input.invocation)
+            .unwrap()
+            .path()
+            .join("result.json"),
+        &serde_json::to_vec(&manager).unwrap(),
+        None,
+        0o400,
+    )
+    .unwrap();
+}
+
+#[tokio::test]
+async fn actual_rerun_intent_uses_bound_original_failure_after_old_executable_disposal() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let mut environment: Environment = std::env::vars_os().collect();
+    environment.insert(
+        "XDG_STATE_HOME".into(),
+        scratch.path().join("state").into_os_string(),
+    );
+    let store =
+        InvocationStore::new(crate::paths::CheckoutState::resolve(root, &environment).unwrap());
+    let mut original = input(Action::Test);
+    original.request.scope = selection::Scope::Packages(vec![selection::PackageIntent {
+        package: "pse-host".into(),
+        target: Some(selection::TargetIntent {
+            name: "pse_host".into(),
+            kind: Some("lib".into()),
+        }),
+        features: selection::Features {
+            defaults: false,
+            ..Default::default()
+        },
+    }]);
+    original.request.filters.ignore_default_filter = true;
+    original.request.filters.words =
+        vec!["test_workflow::execute::runner::tests::rerun_controlled_failure_probe".into()];
+    let destination = begin(&store, &original);
+    let mut failing = environment.clone();
+    failing.insert("PSE_TEST_RERUN_FAILURE_PROBE".into(), "1".into());
+    let mut report = run(&original, root, &destination, failing).await.unwrap();
+    assert_eq!(report.outcome, Outcome::Failed, "{:?}", report.failures);
+    assert!(report.required_capture_complete);
+    assert_eq!(report.selected_tests, Some(1));
+    publish(&store, &original, &destination, &mut report);
+    let captured =
+        crate::test_inventory::captured(&store, original.invocation.as_str(), None).unwrap();
+    let failed: Vec<_> = report
+        .observations
+        .iter()
+        .flat_map(|observation| match observation {
+            GroupObservation::Test { observation, .. } => observation.summary.failed().to_vec(),
+            _ => vec![],
+        })
+        .collect();
+    assert_eq!(failed.len(), 1);
+    let old_executable = captured
+        .inventory
+        .test(&failed[0])
+        .unwrap()
+        .artifact
+        .executable
+        .captured
+        .clone();
+    fs::remove_file(&old_executable).unwrap();
+    assert!(
+        captured.inventory.test(&failed[0]).is_err(),
+        "old executable reuse remains unavailable"
+    );
+
+    let metadata: cargo_metadata::Metadata =
+        serde_json::from_slice(&fs::read(destination.join("metadata.stdout")).unwrap()).unwrap();
+    let mut rerun = input(Action::Test);
+    rerun.request.scope = selection::Scope::RerunFailed {
+        invocation: original.invocation.to_string(),
+    };
+    let intent = || {
+        test_workflow::Intent::new(
+            metadata.clone(),
+            rerun.request.clone(),
+            rerun.profile.clone(),
+            environment.clone(),
+        )
+    };
+    assert_eq!(intent().unwrap().plan.rerun_cases().len(), 1);
+    // A self-consistent incomplete historical observation stays readable but cannot
+    // silently nominate a complete failed population. This literal negative control
+    // claims neither an actually interrupted process nor manager settlement.
+    let report_path = destination.join("report.json");
+    let manager_path = destination.parent().unwrap().join("result.json");
+    let original_report = fs::read(&report_path).unwrap();
+    let original_manager = fs::read(&manager_path).unwrap();
+    let mut passive: serde_json::Value = serde_json::from_slice(&original_report).unwrap();
+    passive["required_capture_complete"] = false.into();
+    passive["outcome"] = "incomplete".into();
+    let incomplete = serde_json::to_vec(&passive).unwrap();
+    let identity = ContentIdentity::of(&incomplete);
+    let mut manager: Envelope<ManagedSummary> = serde_json::from_slice(&original_manager).unwrap();
+    let terminal = &mut manager.payload.workflow.as_mut().unwrap().terminal;
+    terminal.required_capture_complete = false;
+    terminal.outcome = Outcome::Incomplete;
+    terminal.report.sha256 = identity.sha256;
+    terminal.report.byte_length = identity.byte_length;
+    let replace = |path: &Path, bytes: &[u8]| {
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(path, bytes).unwrap();
+        fs::set_permissions(path, fs::Permissions::from_mode(0o400)).unwrap();
+    };
+    replace(&report_path, &incomplete);
+    replace(&manager_path, &serde_json::to_vec(&manager).unwrap());
+    assert!(
+        !crate::test_inventory::captured(&store, original.invocation.as_str(), None)
+            .unwrap()
+            .observation
+            .required_capture_complete
+    );
+    assert!(
+        intent().is_err(),
+        "incomplete original capture is not a zero-match or a fresh rerun grant"
+    );
+    for complete in [None, Some(false)] {
+        let mut passive: serde_json::Value = serde_json::from_slice(&original_report).unwrap();
+        passive["outcome"] = "incomplete".into();
+        let observed = passive["observations"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|group| group["kind"] == "test")
+            .unwrap();
+        let summary = observed["observation"]["summary"].as_object_mut().unwrap();
+        if let Some(complete) = complete {
+            summary.insert("complete".into(), complete.into());
+        } else {
+            summary.remove("complete");
+        }
+        let bytes = serde_json::to_vec(&passive).unwrap();
+        let identity = ContentIdentity::of(&bytes);
+        let terminal = &mut manager.payload.workflow.as_mut().unwrap().terminal;
+        terminal.required_capture_complete = true;
+        terminal.report.sha256 = identity.sha256;
+        terminal.report.byte_length = identity.byte_length;
+        replace(&report_path, &bytes);
+        replace(&manager_path, &serde_json::to_vec(&manager).unwrap());
+        assert!(
+            intent().is_err(),
+            "a failed name without complete native reconciliation cannot nominate rerun intent"
+        );
+    }
+    replace(&report_path, &original_report);
+    replace(&manager_path, &original_manager);
+    let inventory_path = destination.join("inventory/inventory.json");
+    let inventory_bytes = fs::read(&inventory_path).unwrap();
+    fs::set_permissions(&inventory_path, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::write(&inventory_path, b"{}").unwrap();
+    assert!(
+        intent().is_err(),
+        "changed original association cannot provide rerun intent"
+    );
+    fs::write(&inventory_path, &inventory_bytes).unwrap();
+    fs::set_permissions(&inventory_path, fs::Permissions::from_mode(0o400)).unwrap();
+    let absent = destination.join("inventory/original-inventory.saved");
+    fs::rename(&inventory_path, &absent).unwrap();
+    assert!(
+        intent().is_err(),
+        "missing original association cannot provide rerun intent"
+    );
+    fs::rename(&absent, &inventory_path).unwrap();
+
+    let fresh_destination = begin(&store, &rerun);
+    let mut fresh = run(&rerun, root, &fresh_destination, environment)
+        .await
+        .unwrap();
+    assert_eq!(
+        fresh.outcome,
+        Outcome::TestsSucceeded,
+        "{:?}",
+        fresh.failures
+    );
+    assert_eq!(fresh.selected_tests, Some(1));
+    assert_ne!(fresh.invocation, original.invocation);
+    publish(&store, &rerun, &fresh_destination, &mut fresh);
+    let current = crate::test_inventory::captured(&store, rerun.invocation.as_str(), None).unwrap();
+    test_workflow::source::verify_rerun(&current.inventory).unwrap();
+    assert!(
+        current
+            .inventory
+            .test(&current.inventory.selected_tests()[0])
+            .is_ok()
+    );
+    assert!(!old_executable.exists());
+    assert_eq!(
+        crate::test_inventory::captured(&store, original.invocation.as_str(), None)
+            .unwrap()
+            .observation
+            .outcome,
+        Outcome::Failed
+    );
+}

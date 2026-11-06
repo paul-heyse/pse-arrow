@@ -8,6 +8,9 @@ use crate::{
 };
 use std::time::Duration;
 
+#[path = "rerun_tests.rs"]
+mod rerun_tests;
+
 fn input(action: Action) -> Input {
     Input {
         version: 1,

@@ -32,6 +32,8 @@ struct HistoricalObservation {
 #[derive(Deserialize)]
 struct HistoricalSummary {
     failed: Vec<crate::discovery::TestIdentity>,
+    /// Passive original completeness, not a reconstructed native NextestSummary.
+    complete: Option<bool>,
 }
 
 pub(super) fn resolve(
@@ -87,6 +89,9 @@ pub(super) fn resolve(
                 .resolve(&invocation, None)?
                 .ok_or_else(|| WorkflowError::Invalid("rerun invocation is absent".into()))?;
             let captured_evidence = crate::test_inventory::captured(&store, id.as_str(), None)?;
+            if !captured_evidence.observation.required_capture_complete {
+                return Err(WorkflowError::Invalid("original failed selection has incomplete required capture; inspect its evidence and select current tests explicitly".into()));
+            }
             let original = crate::managed::workflow::retained_input(
                 &store,
                 &id,
@@ -95,6 +100,12 @@ pub(super) fn resolve(
             )?;
             let historical: HistoricalReport = serde_json::from_slice(&captured_evidence.report)
                 .map_err(crate::discovery::DiscoveryError::from)?;
+            if historical.observations.iter().any(|group| {
+                matches!(group,
+                HistoricalGroup::Test { observation } if observation.summary.complete != Some(true))
+            }) {
+                return Err(WorkflowError::Invalid("original failed selection has unavailable or incomplete native test reconciliation; select current tests explicitly".into()));
+            }
             if captured_evidence.observation.action != Action::Test {
                 return Err(WorkflowError::Invalid(
                     "original performing report identity differs".into(),
@@ -111,7 +122,10 @@ pub(super) fn resolve(
                     HistoricalGroup::Other => Vec::new(),
                 })
             {
-                let captured = inventory.test(&failure)?;
+                // Bound original report/inventory facts supply only a fresh selection.
+                // Old captured executable retention is unrelated to the new source build;
+                // verify_rerun and launch authenticate the new inventory independently.
+                let captured = inventory.test_record(&failure)?;
                 let root = inventory
                     .selection
                     .groups()
