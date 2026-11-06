@@ -116,11 +116,13 @@ time, authored target/source and mesh-site correspondence describe points; row o
 caches, caller maps and newly hashed time labels cannot supply authority. Missing demanded accuracy
 evidence withholds use. Preserve qualified siblings independently of aggregate fit failure.
 
-The first L02 simulation consumer also exposes an A01 gap: declared-case dispatch through generic
-SolveSettings does not select Simulation. Existing typed `SimulationOperation` executes the original
-fixture correctly; its readable `simulation_samples` retain Unknown usability until the actual
-trajectory-product owner supplies its governing grant. Unifying purpose/input selection and issuing
-that grant are separate remaining changes, not reasons to infer permission from native acceptance.
+The first L02 consumer initially supplied an integration fixture to `CaseOperation`, whose actual
+contract is an authored solve with SolveSettings; that request correctly refused. Existing typed
+`SimulationOperation` executes the original fixture and retains its physical controls. Preserve
+these distinct operation owners rather than infer a need for universal dispatch from that caller
+mistake. A01 assesses useful discovery/selection improvements against real consumers. The readable
+`simulation_samples` still retain Unknown usability until the actual trajectory-product owner
+supplies its governing grant; native numerical acceptance alone does not issue that permission.
 
 ## Packages
 
