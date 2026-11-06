@@ -72,12 +72,8 @@ pub(super) fn start(
         },
     };
     let encoded = workflow::encode_input(&input)?;
-    let command = workflow::command(
-        &root,
-        &input.invocation,
-        control,
-        std::env::vars_os().collect(),
-    )?;
+    let environment = selected_environment(&root, &std::env::vars_os().collect())?;
+    let command = workflow::command(&root, &input.invocation, control, environment)?;
     let arguments = std::iter::once(command.program.into_os_string())
         .chain(command.arguments)
         .collect();
@@ -100,9 +96,93 @@ pub(super) fn start(
     )
 }
 
+// Workload launch resolves the same checkout selections as pse-env before admission.
+// Passive reads and command discovery deliberately do not evaluate personal shell code.
+fn selected_environment(
+    root: &Path,
+    caller: &crate::environment::Environment,
+) -> Result<crate::environment::Environment, HostError> {
+    crate::admission::validate_request(caller)?;
+    Ok(crate::environment::activate(root, caller, &crate::environment::Environment::new())?.values)
+}
+
 #[cfg(test)]
 mod tests {
     use clap::Parser as _;
+
+    fn checkout() -> tempfile::TempDir {
+        let root = tempfile::tempdir().unwrap();
+        let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        for path in [
+            ".python-version",
+            ".cargo/config.toml",
+            ".config/build.toml",
+            ".config/diagnostic-tools.toml",
+            ".config/sccache.toml",
+            ".config/agent-capacity.toml",
+        ] {
+            let target = root.path().join(path);
+            std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+            std::fs::copy(source.join(path), target).unwrap();
+        }
+        std::fs::write(
+            root.path().join(".envrc.local"),
+            "export PSE_BUILD_MODE=unbounded\n",
+        )
+        .unwrap();
+        root
+    }
+
+    #[test]
+    fn workflow_launch_activates_local_unbounded_mode_before_admission() {
+        let root = checkout();
+        let caller = [("HOME".into(), root.path().as_os_str().to_owned())].into();
+        let environment = super::selected_environment(root.path(), &caller).unwrap();
+        let selection =
+            crate::admission::Selection::load(root.path(), &environment, None, None).unwrap();
+        assert!(selection.profile().ordinary());
+        let controls = selection.profile().controls().unwrap();
+        assert!(controls.memory_max.is_none());
+        assert!(controls.cpu_quota_per_sec_usec.is_none());
+        assert!(controls.allowed_cpus.is_empty());
+        assert_eq!(selection.profile().slots, 0);
+        assert_eq!(
+            environment
+                .get(std::ffi::OsStr::new("CARGO_BUILD_JOBS"))
+                .unwrap(),
+            "32"
+        );
+    }
+
+    #[test]
+    fn workflow_activation_preserves_caller_bounded_and_explicit_finite_selections() {
+        let root = checkout();
+        for (key, value, name, memory) in [
+            ("PSE_BUILD_MODE", "bounded", "functional", 40_u64 << 30),
+            ("PSE_RESOURCE_CLASS", "compile", "compile", 24_u64 << 30),
+            ("PSE_MEMORY_MAX", "64G", "wide", 64_u64 << 30),
+        ] {
+            let caller = [
+                ("HOME".into(), root.path().as_os_str().to_owned()),
+                (key.into(), value.into()),
+            ]
+            .into();
+            let environment = super::selected_environment(root.path(), &caller).unwrap();
+            let selection =
+                crate::admission::Selection::load(root.path(), &environment, None, None).unwrap();
+            assert_eq!(selection.profile().name, name);
+            assert_eq!(selection.profile().memory, memory);
+            assert_eq!(
+                selection.profile().controls().unwrap().memory_max,
+                Some(memory)
+            );
+            assert!(selection.profile().aggregate >= selection.profile().allocation);
+        }
+    }
 
     #[test]
     fn managed_run_options_preserve_selection_and_do_not_leak_into_explain() {
