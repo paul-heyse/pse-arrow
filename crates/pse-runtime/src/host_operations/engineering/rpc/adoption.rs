@@ -123,6 +123,9 @@ mod tests {
         });
         assert!(!ReflectMessage::unknown_fields(&key).is_empty());
         assert!(validate(&key).is_err());
+        assert!(
+            crate::engineering_projection::decode_engineering_operation_key(key.clone()).is_err()
+        );
         // A copied/reencoded binary value still carries the unsupported field.
         let copied = pb::EngineeringOperationKey::decode_from_slice(&key.encode_to_vec()).unwrap();
         assert!(!ReflectMessage::unknown_fields(&copied).is_empty());
@@ -141,5 +144,69 @@ mod tests {
         assert!(ReflectMessage::unknown_fields(&request).is_empty());
         assert_eq!(unknown_message(&request).as_deref(), Some("physical[0]"));
         assert!(validate(&request).is_err());
+        assert!(crate::engineering_projection::decode_engineering_admit_source(request).is_err());
+    }
+
+    #[test]
+    fn generated_service_adoption_requires_original_intent_and_exact_identity() {
+        let original = pb::EngineeringPrepareCase {
+            operation: "prepare-original".into(),
+            source_operation: "source-original".into(),
+            expected_local_revision: "exact-original-parent".into(),
+            case: vec![7; 16],
+            intent: pb::NativeSolveIntent {
+                value: "root".into(),
+                ..Default::default()
+            }
+            .into(),
+            ..Default::default()
+        };
+        let native =
+            crate::engineering_projection::decode_engineering_prepare_case(original.clone())
+                .unwrap();
+        assert_eq!(
+            native.intent,
+            pse_model::generated::enums::NativeSolveIntent::Root
+        );
+        assert_eq!(native.backend, None);
+        assert_eq!(native.case.as_bytes(), &[7; 16]);
+        let mut missing_intent = original.clone();
+        missing_intent.intent = Default::default();
+        let failure = super::super::study::projection_error(
+            crate::engineering_projection::decode_engineering_prepare_case(missing_intent)
+                .unwrap_err(),
+        );
+        assert_eq!(failure.code, connectrpc::ErrorCode::InvalidArgument);
+        assert_eq!(
+            failure
+                .details
+                .iter()
+                .filter(|detail| detail.type_url == "buf.validate.Violations")
+                .count(),
+            1
+        );
+        assert!(
+            failure
+                .details
+                .iter()
+                .any(|detail| { detail.type_url == "pse.engineering.v1.EngineeringFailure" })
+        );
+        for changed in 0..3 {
+            let mut request = original.clone();
+            match changed {
+                0 => request.intent = Default::default(),
+                1 => {
+                    request.intent = pb::NativeSolveIntent {
+                        value: "future-intent".into(),
+                        ..Default::default()
+                    }
+                    .into()
+                }
+                _ => request.case = vec![7; 15],
+            }
+            assert!(
+                crate::engineering_projection::decode_engineering_prepare_case(request).is_err()
+            );
+        }
     }
 }

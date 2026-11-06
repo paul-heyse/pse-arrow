@@ -16,7 +16,6 @@ macro_rules! owned_unary {
         ) -> connectrpc::ServiceResult<impl connectrpc::Encodable<pb::$output> + Send + use<'a>> {
             self.authenticate(&context)?;
             let request = request.to_owned_message();
-            adoption::validate(&request)?;
             let input =
                 crate::engineering_projection::$decode(request).map_err(study::projection_error)?;
             let output = self.engine.$native(input).await.map_err(transport)?;
@@ -40,7 +39,6 @@ macro_rules! admission_unary {
         > {
             self.authenticate(&context)?;
             let request = request.to_owned_message();
-            adoption::validate(&request)?;
             let input =
                 crate::engineering_projection::$decode(request).map_err(study::projection_error)?;
             let output = self.engine.$native(input).await.map_err(transport)?;
@@ -63,7 +61,6 @@ macro_rules! original_unary {
         > {
             self.authenticate(&context)?;
             let request = request.to_owned_message();
-            adoption::validate(&request)?;
             let input = crate::engineering_projection::decode_engineering_study_key(request)
                 .map_err(study::projection_error)?;
             let output = self.engine.$native(&input).await.map_err(transport)?;
@@ -142,8 +139,8 @@ macro_rules! methods {
         > {
             self.authenticate(&context)?;
             let request = request.to_owned_message();
-            adoption::validate(&request)?;
-            let input = wire::key_from_pb(request);
+            let input = crate::engineering_projection::decode_engineering_operation_key(request)
+                .map_err(study::projection_error)?;
             let output = self
                 .engine
                 .prepared_study_definition(&input)
@@ -164,7 +161,6 @@ macro_rules! methods {
         > {
             self.authenticate(&context)?;
             let request = request.to_owned_message();
-            adoption::validate(&request)?;
             let input = crate::engineering_projection::decode_engineering_observe_study(request)
                 .map_err(study::projection_error)?;
             let stream =
@@ -181,7 +177,6 @@ macro_rules! methods {
         > {
             self.authenticate(&context)?;
             let request = request.to_owned_message();
-            adoption::validate(&request)?;
             let input =
                 crate::engineering_projection::decode_engineering_read_study_result(request)
                     .map_err(study::projection_error)?;
@@ -206,8 +201,8 @@ macro_rules! methods {
         > {
             self.authenticate(&context)?;
             let request = request.to_owned_message();
-            adoption::validate(&request)?;
-            let input = wire::key_from_pb(request);
+            let input = crate::engineering_projection::decode_engineering_operation_key(request)
+                .map_err(study::projection_error)?;
             let output = self
                 .engine
                 .release_study_cohort(&input)
@@ -235,9 +230,17 @@ pub(super) fn accounted<N, M>(
 pub(super) fn projection_error(
     error: pse_contract_proto::support::BoundaryProjectionError,
 ) -> ConnectError {
-    transport(EngineeringServiceError::Owner(Box::new(
+    // The maintained validator owns the canonical bounded violation details.
+    // Preserve them exactly once at the common ingress/outgoing presentation seam.
+    let details = error
+        .wire_validation()
+        .map(|failure| failure.clone().into_connect_error().details)
+        .unwrap_or_default();
+    let mut response = transport(EngineeringServiceError::Owner(Box::new(
         crate::projection_diagnostics::ProjectionDiagnosticError::from(error),
-    )))
+    )));
+    response.details.extend(details);
+    response
 }
 
 pub(super) async fn observations(

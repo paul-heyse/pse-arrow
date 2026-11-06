@@ -10,18 +10,15 @@ use crate::CancelSource;
 use connectrpc::{ConnectError, ServiceStream};
 use generated::pb::pse::engineering::v1 as pb;
 use pse_host::{envelope::CliInvocationId, environment::Environment};
-use pse_model::engineering as native;
 use std::{path::PathBuf, sync::Arc};
 
 mod adoption;
 mod auth;
-mod edit;
 mod ingress;
 mod inspection;
 mod outgoing;
 mod responses;
 mod study;
-mod wire;
 
 /// Explicitly prepared original service; connecting never launches or rebuilds it.
 #[derive(Clone, Debug)]
@@ -183,23 +180,14 @@ impl bindings::EngineeringService for Implementation {
         impl connectrpc::Encodable<pb::PhysicalInspectionDocument> + Send + use<'a>,
     > {
         self.authenticate(&context)?;
-        let request = request.to_owned_message();
-        adoption::validate(&request)?;
-        let selected = request.request.into_option().ok_or_else(|| {
-            ConnectError::invalid_argument("the original physical inspection request is required")
-        })?;
-        let selected = crate::engineering_projection::decode_physical_inspection_request(selected)
-            .map_err(study::projection_error)?;
+        let input = crate::engineering_projection::decode_engineering_inspect_physical(
+            request.to_owned_message(),
+        )
+        .map_err(study::projection_error)?;
         let cancel = CancelSource::new().with_deadline(context.deadline());
         let output = self
             .engine
-            .inspect_physical(
-                crate::host_operations::engineering_contract::EngineeringInspectPhysical {
-                    source_operation: request.source_operation,
-                    request: selected,
-                },
-                &cancel,
-            )
+            .inspect_physical(input, &cancel)
             .await
             .map_err(transport)?;
         let encoded = crate::preparation_projection::encode_owned_physical_inspection_document(
@@ -221,23 +209,14 @@ impl bindings::EngineeringService for Implementation {
         impl connectrpc::Encodable<pb::OriginalSourceFile> + Send + use<'a>,
     > {
         self.authenticate(&context)?;
-        let request = request.to_owned_message();
-        adoption::validate(&request)?;
-        let selected = request.request.into_option().ok_or_else(|| {
-            ConnectError::invalid_argument("the original source-file request is required")
-        })?;
-        let selected = crate::engineering_projection::decode_original_source_file_request(selected)
-            .map_err(study::projection_error)?;
+        let input = crate::engineering_projection::decode_engineering_read_source_file(
+            request.to_owned_message(),
+        )
+        .map_err(study::projection_error)?;
         let cancel = CancelSource::new().with_deadline(context.deadline());
         let output = self
             .engine
-            .read_source_file(
-                crate::host_operations::engineering_contract::EngineeringReadSourceFile {
-                    source_operation: request.source_operation,
-                    request: selected,
-                },
-                &cancel,
-            )
+            .read_source_file(input, &cancel)
             .await
             .map_err(transport)?;
         let message = crate::engineering_projection::encode_original_source_file(output.document)
@@ -256,22 +235,21 @@ impl bindings::EngineeringService for Implementation {
         impl connectrpc::Encodable<pb::PreparationDiscoveryReport> + Send + use<'a>,
     > {
         self.authenticate(&context)?;
-        let request = request.to_owned_message();
-        adoption::validate(&request)?;
-        let native_request = request.request.into_option().ok_or_else(|| {
-            ConnectError::invalid_argument(
-                "the original native preparation discovery request is required",
-            )
-        })?;
+        let input = crate::engineering_projection::decode_engineering_discover_preparation(
+            request.to_owned_message(),
+        )
+        .map_err(study::projection_error)?;
         let (package, services) = self
             .engine
-            .inspection_source(request.source_operation)
+            .inspection_source(input.source_operation)
             .map_err(transport)?;
         let cancel = CancelSource::new().with_deadline(context.deadline());
-        let report =
-            crate::preparation_projection::discover(&package, &services, native_request, &cancel)
-                .await
-                .map_err(|error| transport(EngineeringServiceError::Owner(Box::new(error))))?;
+        let report = package
+            .preparation_discovery(&services, &input.request, &cancel)
+            .await
+            .map_err(|error| transport(EngineeringServiceError::Owner(Box::new(error))))?;
+        let report = crate::engineering_projection::encode_preparation_discovery_report(report)
+            .map_err(study::projection_error)?;
         Ok(connectrpc::Response::new(outgoing::Validated(report)))
     }
     async fn edit_source<'a>(
@@ -282,13 +260,11 @@ impl bindings::EngineeringService for Implementation {
         impl connectrpc::Encodable<pb::EngineeringSourceOutcome> + Send + use<'a>,
     > {
         self.authenticate(&context)?;
-        let request = request.to_owned_message();
-        adoption::validate(&request)?;
-        let outcome = self
-            .engine
-            .edit_source(edit::from_pb(request).map_err(transport)?)
-            .await
-            .map_err(transport)?;
+        let input = crate::engineering_projection::decode_engineering_edit_source(
+            request.to_owned_message(),
+        )
+        .map_err(study::projection_error)?;
+        let outcome = self.engine.edit_source(input).await.map_err(transport)?;
         Ok(connectrpc::Response::new(outgoing::Validated(
             crate::engineering_projection::encode_engineering_source_outcome(outcome)
                 .map_err(study::projection_error)?,
@@ -302,7 +278,10 @@ impl bindings::EngineeringService for Implementation {
         impl connectrpc::Encodable<pb::EngineeringContract> + Send + use<'a>,
     > {
         self.authenticate(&context)?;
-        adoption::validate(&request.to_owned_message())?;
+        crate::engineering_projection::decode_engineering_describe_request(
+            request.to_owned_message(),
+        )
+        .map_err(study::projection_error)?;
         let output = self.engine.describe_contract().map_err(transport)?;
         Ok(connectrpc::Response::new(AccountedResponse {
             message: crate::engineering_projection::encode_engineering_contract(output.document)
@@ -319,13 +298,11 @@ impl bindings::EngineeringService for Implementation {
         impl connectrpc::Encodable<pb::EngineeringSourceOutcome> + Send + use<'a>,
     > {
         self.authenticate(&context)?;
-        let request = request.to_owned_message();
-        adoption::validate(&request)?;
-        let outcome = self
-            .engine
-            .admit_source(wire::admit_from_pb(request))
-            .await
-            .map_err(transport)?;
+        let input = crate::engineering_projection::decode_engineering_admit_source(
+            request.to_owned_message(),
+        )
+        .map_err(study::projection_error)?;
+        let outcome = self.engine.admit_source(input).await.map_err(transport)?;
         Ok(connectrpc::Response::new(outgoing::Validated(
             crate::engineering_projection::encode_engineering_source_outcome(outcome)
                 .map_err(study::projection_error)?,
@@ -339,13 +316,13 @@ impl bindings::EngineeringService for Implementation {
         impl connectrpc::Encodable<pb::EngineeringSourceOutcome> + Send + use<'a>,
     > {
         self.authenticate(&context)?;
-        let request = request.to_owned_message();
-        adoption::validate(&request)?;
+        let input = crate::engineering_projection::decode_engineering_operation_key(
+            request.to_owned_message(),
+        )
+        .map_err(study::projection_error)?;
         Ok(connectrpc::Response::new(outgoing::Validated(
             crate::engineering_projection::encode_engineering_source_outcome(
-                self.engine
-                    .source_status(&wire::key_from_pb(request))
-                    .map_err(transport)?,
+                self.engine.source_status(&input).map_err(transport)?,
             )
             .map_err(study::projection_error)?,
         )))
@@ -358,17 +335,22 @@ impl bindings::EngineeringService for Implementation {
         impl connectrpc::Encodable<pb::EngineeringDeclarationPage> + Send + use<'a>,
     > {
         self.authenticate(&context)?;
-        let request = request.to_owned_message();
-        adoption::validate(&request)?;
+        let input = crate::engineering_projection::decode_engineering_inspect_source(
+            request.to_owned_message(),
+        )
+        .map_err(study::projection_error)?;
         let cancel = CancelSource::new().with_deadline(context.deadline());
         let page = self
             .engine
-            .inspect_source(wire::inspect_from_pb(request), &cancel)
+            .inspect_source(input, &cancel)
             .await
             .map_err(transport)?;
         let reservation = page.owner();
         Ok(connectrpc::Response::new(AccountedResponse {
-            message: wire::declaration_page_to_pb(page.as_ref().clone()),
+            message: crate::engineering_projection::encode_engineering_declaration_page(
+                page.as_ref().clone(),
+            )
+            .map_err(study::projection_error)?,
             reservation,
             maximum_bytes: 64 << 10,
         }))
@@ -381,15 +363,14 @@ impl bindings::EngineeringService for Implementation {
         impl connectrpc::Encodable<pb::EngineeringPreparedSelection> + Send + use<'a>,
     > {
         self.authenticate(&context)?;
-        let request = request.to_owned_message();
-        adoption::validate(&request)?;
-        let prepared = self
-            .engine
-            .prepare_case(wire::prepare_from_pb(request).map_err(transport)?)
-            .await
-            .map_err(transport)?;
+        let input = crate::engineering_projection::decode_engineering_prepare_case(
+            request.to_owned_message(),
+        )
+        .map_err(study::projection_error)?;
+        let prepared = self.engine.prepare_case(input).await.map_err(transport)?;
         Ok(connectrpc::Response::new(outgoing::Validated(
-            wire::prepared_to_pb(prepared),
+            crate::engineering_projection::encode_engineering_prepared_selection(prepared)
+                .map_err(study::projection_error)?,
         )))
     }
     async fn submit_run<'a>(
@@ -400,15 +381,15 @@ impl bindings::EngineeringService for Implementation {
         impl connectrpc::Encodable<pb::EngineeringRunStatus> + Send + use<'a>,
     > {
         self.authenticate(&context)?;
-        let request = request.to_owned_message();
-        adoption::validate(&request)?;
+        let input = crate::engineering_projection::decode_engineering_submit_run(
+            request.to_owned_message(),
+        )
+        .map_err(study::projection_error)?;
         Ok(connectrpc::Response::new(outgoing::Validated(
-            wire::status_to_pb(
-                self.engine
-                    .submit_run(wire::submit_from_pb(request).map_err(transport)?)
-                    .await
-                    .map_err(transport)?,
-            ),
+            crate::engineering_projection::encode_engineering_run_status(
+                self.engine.submit_run(input).await.map_err(transport)?,
+            )
+            .map_err(study::projection_error)?,
         )))
     }
     async fn run_status<'a>(
@@ -419,15 +400,14 @@ impl bindings::EngineeringService for Implementation {
         impl connectrpc::Encodable<pb::EngineeringRunStatus> + Send + use<'a>,
     > {
         self.authenticate(&context)?;
-        let request = request.to_owned_message();
-        adoption::validate(&request)?;
+        let input =
+            crate::engineering_projection::decode_engineering_run_key(request.to_owned_message())
+                .map_err(study::projection_error)?;
         Ok(connectrpc::Response::new(outgoing::Validated(
-            wire::status_to_pb(
-                self.engine
-                    .run_status(&wire::run_key_from_pb(request).map_err(transport)?)
-                    .await
-                    .map_err(transport)?,
-            ),
+            crate::engineering_projection::encode_engineering_run_status(
+                self.engine.run_status(&input).await.map_err(transport)?,
+            )
+            .map_err(study::projection_error)?,
         )))
     }
     async fn cancel_run<'a>(
@@ -438,15 +418,14 @@ impl bindings::EngineeringService for Implementation {
         impl connectrpc::Encodable<pb::EngineeringRunStatus> + Send + use<'a>,
     > {
         self.authenticate(&context)?;
-        let request = request.to_owned_message();
-        adoption::validate(&request)?;
+        let input =
+            crate::engineering_projection::decode_engineering_run_key(request.to_owned_message())
+                .map_err(study::projection_error)?;
         Ok(connectrpc::Response::new(outgoing::Validated(
-            wire::status_to_pb(
-                self.engine
-                    .cancel_run(&wire::run_key_from_pb(request).map_err(transport)?)
-                    .await
-                    .map_err(transport)?,
-            ),
+            crate::engineering_projection::encode_engineering_run_status(
+                self.engine.cancel_run(&input).await.map_err(transport)?,
+            )
+            .map_err(study::projection_error)?,
         )))
     }
     async fn read_result<'a>(
@@ -457,16 +436,19 @@ impl bindings::EngineeringService for Implementation {
         impl connectrpc::Encodable<pb::EngineeringResultPage> + Send + use<'a>,
     > {
         self.authenticate(&context)?;
-        let request = request.to_owned_message();
-        adoption::validate(&request)?;
+        let input = crate::engineering_projection::decode_engineering_read_result(
+            request.to_owned_message(),
+        )
+        .map_err(study::projection_error)?;
         let cancel = CancelSource::new().with_deadline(context.deadline());
         let output = self
             .engine
-            .read_result(wire::read_from_pb(request).map_err(transport)?, &cancel)
+            .read_result(input, &cancel)
             .await
             .map_err(transport)?;
         Ok(connectrpc::Response::new(AccountedResponse {
-            message: wire::page_to_pb(output.page),
+            message: crate::engineering_projection::encode_engineering_result_page(output.page)
+                .map_err(study::projection_error)?,
             reservation: output.reservation,
             maximum_bytes: output.maximum_bytes,
         }))
@@ -479,9 +461,9 @@ impl bindings::EngineeringService for Implementation {
         ServiceStream<impl connectrpc::Encodable<pb::EngineeringRunStatus> + Send + use<>>,
     > {
         self.authenticate(&context)?;
-        let request = request.to_owned_message();
-        adoption::validate(&request)?;
-        let key = wire::run_key_from_pb(request).map_err(transport)?;
+        let key =
+            crate::engineering_projection::decode_engineering_run_key(request.to_owned_message())
+                .map_err(study::projection_error)?;
         let engine = self.engine.clone();
         let deadline = context.deadline();
         let stream = futures_util::stream::unfold(
@@ -508,10 +490,12 @@ impl bindings::EngineeringService for Implementation {
                     let done = current.settled || current.failure.is_some();
                     if previous.as_ref() != Some(&current) {
                         previous = Some(current.clone());
-                        return Some((
-                            Ok(outgoing::Validated(wire::status_to_pb(current))),
-                            (engine, key, previous, done),
-                        ));
+                        let encoded =
+                            crate::engineering_projection::encode_engineering_run_status(current)
+                                .map(outgoing::Validated)
+                                .map_err(study::projection_error);
+                        let done = done || encoded.is_err();
+                        return Some((encoded, (engine, key, previous, done)));
                     }
                     if let Err(error) = engine.observation_changed(&key).await {
                         return Some((Err(transport(error)), (engine, key, previous, true)));
@@ -648,7 +632,10 @@ fn infrastructure(error: impl std::fmt::Display) -> EngineeringServiceError {
     EngineeringServiceError::Infrastructure(error.to_string())
 }
 fn transport(error: EngineeringServiceError) -> ConnectError {
-    let failure = wire::failure_to_pb(wire::failure(&error));
+    let failure: Result<pb::EngineeringFailure, _> = pse_contract_proto::support::encode_root(
+        super::session::failure(&error),
+        "EngineeringFailure",
+    );
     let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(&error);
     let mapped = match code {
         Some(
@@ -666,6 +653,18 @@ fn transport(error: EngineeringServiceError) -> ConnectError {
             | pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
         ) => ConnectError::internal(error.to_string()),
         _ => ConnectError::failed_precondition(error.to_string()),
+    };
+    let failure = match failure {
+        Ok(failure) => failure,
+        Err(projection) => {
+            return ConnectError::internal("native engineering failure projection refused")
+                .with_source(EngineeringServiceError::Shutdown(vec![
+                    error,
+                    EngineeringServiceError::Owner(Box::new(
+                        crate::projection_diagnostics::ProjectionDiagnosticError::from(projection),
+                    )),
+                ]));
+        }
     };
     mapped
         .with_detail(connectrpc::ErrorDetail::from_message(

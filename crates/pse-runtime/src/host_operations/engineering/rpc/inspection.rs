@@ -13,7 +13,6 @@ macro_rules! methods {
         > {
             self.authenticate(&context)?;
             let request = request.to_owned_message();
-            adoption::validate(&request)?;
             let input = crate::engineering_projection::decode_engineering_inspect_modeling(request)
                 .map_err(study::projection_error)?;
             let cancel = CancelSource::new().with_deadline(context.deadline());
@@ -41,7 +40,6 @@ macro_rules! methods {
         > {
             self.authenticate(&context)?;
             let request = request.to_owned_message();
-            adoption::validate(&request)?;
             let input =
                 crate::engineering_projection::decode_engineering_inspect_providers(request)
                     .map_err(study::projection_error)?;
