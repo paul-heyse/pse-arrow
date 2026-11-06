@@ -120,6 +120,8 @@ realization contract is proposed [ADR-0100](../../adr/0100-modeling-functions-an
 > closed constraints of the library-neutral factorable program, never as value dependencies
 > (Plan 22 G2, implemented; [§7.5](#section-7-5)).
 
+> Supplement: [ADR-0249](../../adr/0249-exact-conjunctive-domain-predicates.md) (proposed; authorized implementation) extends the source representation to range and nonzero predicates. Closed-only backend exports retain their explicit relaxation limits.
+
 Production lowering consumes the resolved product's retained physical admission for each
 operation: complete operand/result contracts, selected rules and checked preconditions.
 Compiler `typed_math` lowering refuses a demanded operation without its producer-issued admission;
@@ -375,11 +377,16 @@ and original-coordinate qualification remain the authority for every candidate.
   lowered to rows at specialization
   ([§19.7](workflows-and-results.md#section-19-7)) and do not use this policy. A guard
   that is constant under the consumed values selects its region statically.
-- `Require` and `Domain` stages are obligations, never value dependencies. Each becomes a
-  conjunction of closed constraints, marked `strict` where the original condition excludes
-  the finite bound; the conjunction is the obligation's closure. A part without a closed
-  conjunctive form, such as a disjunction of branch outcomes, is dropped soundly and the
-  obligation is marked unrepresented. An obligation inside a branch region is
+- `Require` and `Domain` stages are obligations, never value dependencies. Each retains one
+  original source occurrence and a conjunction of `Predicate::Range(Constraint)` and
+  `Predicate::Nonzero(NodeId)`. Ranges retain open finite endpoints through `strict`;
+  exclusions retain the original difference without a numeric margin or square. Require
+  conditions normalize into the same predicate owner, with kind/argument kept as provenance.
+  Native consumers enforce exclusions directly; a closed-only export may omit them only
+  with explicit Relaxed fidelity. A genuine disjunction without this conjunctive form
+  remains unrepresented. Exact-program identity frames each predicate variant/payload and
+  uses a v2 payload tag; old evidence cannot silently bind to the new meaning (proposed
+  ADR-0249). An obligation inside a branch region is
   `Conditional`: recorded for domain analysis, never a constraint of the exported program.
 - Implicit blocks export their original residual equations and declared bounds whatever
   their realization, from owner-supplied definitions
@@ -418,7 +425,7 @@ bound tightening is not admitted to native execution; supported affine eliminati
 its distinct source and multiplier map ([§18.5](numerical-execution.md#section-18-5)). A
 large factorable body therefore keeps a complete tape, a
 requirement is admitted through its exact condition on its argument, and a validity
-predicate through its closed conjunction, which must be complete, over the selected
+predicate through its complete range/nonzero conjunction over the selected
 variable box. Admission follows the evaluator's obligations:
 
 - obligations that guard only outputs no row or objective evaluates do not count;
