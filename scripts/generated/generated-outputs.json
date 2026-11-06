@@ -636,10 +636,6 @@
           "kind": "file"
         },
         {
-          "path": "crates/pse-runtime/src/workflow/result_selection.rs",
-          "kind": "file"
-        },
-        {
           "path": "crates/pse-runtime/src/workflow/simulation_request/declarations.rs",
           "kind": "file"
         },
@@ -1116,6 +1112,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-model/src/recorded_result.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-model/src/reference_exchange.rs",
           "kind": "file"
         },
@@ -1408,10 +1408,6 @@
           "kind": "file"
         },
         {
-          "path": "crates/pse-runtime/src/workflow/result_selection.rs",
-          "kind": "file"
-        },
-        {
           "path": "crates/pse-runtime/src/workflow/simulation_request/declarations.rs",
           "kind": "file"
         },
@@ -1549,6 +1545,10 @@
         },
         {
           "path": "xtask/src/codegen/proto_projection.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen/recorded_result.rs",
           "kind": "file"
         },
         {
@@ -1729,6 +1729,62 @@
         },
         {
           "path": "xtask/src/codegen/proto_projection.rs",
+          "kind": "file"
+        }
+      ],
+      "contributors": null
+    },
+    {
+      "producer": "recorded-result",
+      "outputs": [
+        {
+          "path": "crates/pse-runtime/src/generated/recorded-result",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/recorded-result/pse.engineering.v1",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/source-relationships/pse-recorded-result-v1",
+          "kind": "tree"
+        }
+      ],
+      "regenerate": [
+        "just",
+        "codegen"
+      ],
+      "inputs": [
+        {
+          "path": "crates/pse-codegen/src",
+          "kind": "tree"
+        },
+        {
+          "path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/recorded_result.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src",
+          "kind": "tree"
+        },
+        {
+          "path": "scripts/generated-outputs.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen",
+          "kind": "tree"
+        },
+        {
+          "path": "xtask/src/codegen.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen/recorded_result.rs",
           "kind": "file"
         }
       ],

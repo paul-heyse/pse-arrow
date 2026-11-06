@@ -67,7 +67,22 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         provenance::sidecar(&producer("pse.scientific_worker.v1"), &tree.relationships)?.files,
     );
     let graph = engineering_graph()?;
-    let mut engineering = projection(
+    let recorded_imports = super::recorded_result::engineering_imports(&graph, &imports)?;
+    let mut config = boundary_projection::default_config(
+        "crate::host_operations::engineering::generated::pb::__buffa_fds",
+    );
+    config
+        .extern_paths
+        .extend(super::recorded_result::extern_paths()?);
+    let output = boundary_projection::generate_with_dependencies(
+        &graph,
+        "pse.engineering.v1",
+        "engineering.proto",
+        &recorded_imports.file,
+        &[super::recorded_result::FILE],
+        &config,
+    )?;
+    let mut engineering = super::proto_projection::publish_projection(
         &graph,
         ProjectionTarget {
             package: "pse.engineering.v1",
@@ -78,7 +93,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
             generator_path: "xtask/src/codegen/proto_projection.rs",
             generator_symbol: "projection",
         },
-        &imports,
+        output,
     )?;
     let mut adapter_roots = BTreeSet::from([
         "PreparationDiscoveryRequest",
@@ -113,18 +128,11 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         }
     }
     let adapter_roots = adapter_roots.into_iter().collect::<Vec<_>>();
-    for (roots, filename, visibility) in [
-        (
-            adapter_roots.as_slice(),
-            "native-adapters.rs",
-            boundary_projection::AdapterVisibility::Public,
-        ),
-        (
-            ["RecordedResultSelection"].as_slice(),
-            "recorded-result-adapters.rs",
-            boundary_projection::AdapterVisibility::Crate,
-        ),
-    ] {
+    for (roots, filename, visibility) in [(
+        adapter_roots.as_slice(),
+        "native-adapters.rs",
+        boundary_projection::AdapterVisibility::Public,
+    )] {
         let adapters = boundary_projection::native_adapters_scoped(
             &graph,
             roots,
@@ -239,7 +247,6 @@ fn engineering_graph() -> Result<ProjectionGraph> {
     graph.register::<pse_model::generated::runtime::canonical_result_batches::Row>()?;
     graph.register::<pse_model::generated::runtime::canonical_result_block_outputs::Row>()?;
     graph.register::<pse_operations::canonical_results::ResultRead>()?;
-    graph.register::<pse_runtime::workflow::PackResultSelection>()?;
     graph.register::<pse_runtime::workflow::ModelingDeclarationRequest>()?;
     graph.register::<pse_runtime::workflow::PreparationDiscoveryReport>()?;
     graph.register::<pse_runtime::workflow::PhysicalInspectionRequest>()?;
@@ -295,7 +302,7 @@ mod tests {
     #[test]
     fn recorded_result_selection_keeps_original_context_without_native_adoption() {
         use pse_contract::boundary_projection::{ConstructionRole, Direction, Shape};
-        let graph = engineering_graph().unwrap();
+        let graph = super::super::recorded_result::graph().unwrap();
         for owner in [
             "RecordedResultSelection",
             "RecordedResultPredicate",
@@ -338,22 +345,22 @@ mod tests {
     #[test]
     fn recorded_result_adapter_has_one_generated_owner_outside_service_adoption() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let passive = super::super::recorded_result::generate(root).unwrap();
         let tree = generate(root).unwrap();
-        let directory = Path::new("crates/pse-runtime/src/generated/engineering");
-        let passive =
-            std::str::from_utf8(&tree.files[&directory.join("recorded-result-adapters.rs")])
-                .unwrap();
-        let service =
-            std::str::from_utf8(&tree.files[&directory.join("native-adapters.rs")]).unwrap();
-        assert!(passive.contains("pub(crate) fn encode_recorded_result_selection"));
-        assert!(!passive.contains("fn decode_recorded_"));
+        let path = Path::new(super::super::recorded_result::DESTINATION).join("native-adapters.rs");
+        let adapter = std::str::from_utf8(&passive.files[&path]).unwrap();
+        assert!(adapter.contains("pub(crate) fn encode_recorded_result_selection"));
+        assert!(!adapter.contains("fn decode_recorded_"));
+        assert!(!tree.files.contains_key(&path));
+        let service = std::str::from_utf8(
+            &tree.files
+                [Path::new("crates/pse-runtime/src/generated/engineering/native-adapters.rs")],
+        )
+        .unwrap();
         assert!(!service.contains("RecordedResultSelection"));
-        assert!(tree.relationships.iter().any(|relationship| {
-            relationship.declaration_key == "RecordedResultSelection"
-                && relationship
-                    .output_path
-                    .ends_with("/recorded-result-adapters.rs")
-        }));
+        assert!(!tree.files.contains_key(Path::new(
+            "crates/pse-runtime/src/generated/engineering/recorded-result-adapters.rs"
+        )));
     }
 
     #[test]

@@ -3,15 +3,15 @@
   "inputs": {
     "Cargo.lock": "a9b5aa5424b972d8d1bc440916cb52a286d4d123abb54fae5dc0b973e66005fb",
     "Cargo.toml": "4af49ecb0f115363b25f15979088b0455758e0de89e5399173b4e5e3b5f2492f",
-    "crates/pse-codegen/src/codegen/boundary_projection.rs": "d926ecd983827995805862a7be692429510a4031dff35071c949db30dc9a63ef",
+    "crates/pse-codegen/src/codegen/boundary_projection.rs": "a82284230b89136b73579d41636a64037de0d205f6765114747c712c1d92a3f6",
     "crates/pse-host/tests/fixtures/plan61/buf.lock": "f167aece00cd881df9e57b220d5edeff1343c5020a6caed6b425a213f75991ee",
     "crates/pse-host/tests/fixtures/plan61/buf.yaml": "647235719a93a58593b90d87641e03656ddcae35971f822322dc0e30eac528e0",
     "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
     "scripts/protobuf-associations.rs": "9612092ad4a1424d391ad3843e1aa74f1d2257b2370f975422f8498fbc7c9a35",
-    "xtask/Cargo.toml": "05556fe07c9a198dc09b27679aefd14895661be76e661acab998e12a022b18fd",
+    "xtask/Cargo.toml": "9b19336ad4967129cc6815a2aafb10f8e3c015edbbc1f8c46f31f2a004a55dea",
     "xtask/src/codegen/code_intelligence.rs": "8aa2f221baaeae8297b9b2512e18a0e6686d6aec0c00574b8dc376932bc25d25",
     "xtask/src/codegen/code_intelligence/associations.rs": "211bad898e26c9f6cade1d2a2e24e93b3a3aaf5df1c712736fce4cd41e3e8bad",
-    "xtask/src/codegen/proto_projection.rs": "1d7b590bcbd995a7074ab4a85cf0665c6c39e67128826a3b3aec1d097ad412c8",
+    "xtask/src/codegen/proto_projection.rs": "4deb94b4e0aac7b226f0e334dbeed52098906022de436eb2f23e37eba4f15bfd",
     "xtask/src/codegen/proto_projection/composition.rs": "c483be2b2c6994a62dc7f085cb55dafb28da8262dbc2ef0f54a1398c19bb3148"
   },
   "associations": [

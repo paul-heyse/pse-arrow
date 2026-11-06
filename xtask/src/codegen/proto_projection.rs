@@ -2,15 +2,27 @@
 // Copyright (c) 2026 Paul Heyse
 //! Shared publication and supplier composition for authored and source-owned Proto worlds.
 
-#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
+#[cfg(any(
+    feature = "product-schemas",
+    feature = "host-contracts",
+    feature = "recorded-result-contracts"
+))]
 use anyhow::{Context, ensure};
 use anyhow::{Result, bail};
 #[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
 use buffa_descriptor::generated::descriptor::FileDescriptorSet;
 use pse_codegen::codegen::GeneratedTree;
-#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
+#[cfg(any(
+    feature = "product-schemas",
+    feature = "host-contracts",
+    feature = "recorded-result-contracts"
+))]
 use pse_codegen::codegen::{boundary_projection, provenance};
-#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
+#[cfg(any(
+    feature = "product-schemas",
+    feature = "host-contracts",
+    feature = "recorded-result-contracts"
+))]
 use pse_contract::boundary_projection::ProjectionGraph;
 use std::{
     collections::BTreeSet,
@@ -19,7 +31,11 @@ use std::{
 pub(super) mod composition;
 
 /// One independently published consumer world and its source attribution.
-#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
+#[cfg(any(
+    feature = "product-schemas",
+    feature = "host-contracts",
+    feature = "recorded-result-contracts"
+))]
 pub(super) struct ProjectionTarget<'a> {
     pub package: &'a str,
     pub file: &'a str,
@@ -55,6 +71,22 @@ pub(super) fn publish_projection(
     graph: &ProjectionGraph,
     target: ProjectionTarget<'_>,
     output: boundary_projection::ProjectionOutput,
+) -> Result<GeneratedTree> {
+    let owner = producer(target.package);
+    publish_projection_owned(graph, target, output, &owner)
+}
+
+/// Independent files can share a wire package while retaining distinct publication ownership.
+#[cfg(any(
+    feature = "product-schemas",
+    feature = "host-contracts",
+    feature = "recorded-result-contracts"
+))]
+pub(super) fn publish_projection_owned(
+    graph: &ProjectionGraph,
+    target: ProjectionTarget<'_>,
+    output: boundary_projection::ProjectionOutput,
+    owner: &str,
 ) -> Result<GeneratedTree> {
     let ProjectionTarget {
         package,
@@ -142,7 +174,7 @@ pub(super) fn publish_projection(
             });
         }
     }
-    let sidecar = provenance::sidecar(&producer(package), &tree.relationships)?;
+    let sidecar = provenance::sidecar(owner, &tree.relationships)?;
     merge_independent(&mut tree, sidecar)?;
     Ok(tree)
 }

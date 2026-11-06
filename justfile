@@ -285,10 +285,12 @@ codegen-relations-check:
 [doc('Generate Rust contracts only, without physical fixtures or compiler workflows')]
 codegen-rust-contracts:
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features recorded-result-contracts --locked -- codegen --only recorded-result
 
 [group('local')]
 codegen-rust-contracts-check:
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts --check
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features recorded-result-contracts --locked -- codegen --only recorded-result --check
 
 [group('mutating')]
 [doc('Generate physical fixtures through lower admission, without Runtime or solver construction')]
@@ -786,6 +788,7 @@ codegen:
     # Contracts and the canonical schema first: the full generator's package loader
     # compiles against them, so a registry change never needs a separate bootstrap.
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features recorded-result-contracts --locked -- codegen --only recorded-result
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
     scripts/pse-env --native=compiler,solver -- scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --features full-codegen,force-validate --locked -- codegen
 
@@ -796,6 +799,7 @@ codegen:
 codegen-contracts:
     unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features recorded-result-contracts --locked -- codegen --only recorded-result
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only docs
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
 

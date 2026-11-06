@@ -362,6 +362,8 @@ struct ProducerIdentityArgs {
 /// Committed generators and the contract bootstrap phase.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum Target {
+    /// Passive recorded-result contracts before compiling runtime adapter consumers.
+    RecordedResult,
     /// Private scientific recipe messages and native adapters from compiler-owned data.
     ScientificRecipe,
     /// Native developer report/inventory observations and independent reader bundle.

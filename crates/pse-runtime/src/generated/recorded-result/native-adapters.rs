@@ -3,18 +3,18 @@ use super::{
     layout, child_path, refused, unknown_fields, native_into,
 };
 impl NativeInto<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedResultContext,
-> for &crate::workflow::PackResultContext {
+    crate::recorded_result_projection::pb::pse::engineering::v1::RecordedResultContext,
+> for &pse_model::recorded_result::PackResultContext {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedResultContext,
+        crate::recorded_result_projection::pb::pse::engineering::v1::RecordedResultContext,
         AdapterError,
     > {
         layout(
-            <crate::workflow::PackResultContext as pse_contract::boundary_projection::ProjectionObservationRecord>::VERSION,
-            <crate::workflow::PackResultContext as pse_contract::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT,
+            <pse_model::recorded_result::PackResultContext as pse_contract::boundary_projection::ProjectionObservationRecord>::VERSION,
+            <pse_model::recorded_result::PackResultContext as pse_contract::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT,
             1,
             &[(1, "problem"), (2, "revision"), (3, "manifest"), (4, "interpretation")],
             path,
@@ -23,7 +23,7 @@ impl NativeInto<
                 self,
             )
             .map_err(|error| error.at(path))?;
-        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedResultContext {
+        Ok(crate::recorded_result_projection::pb::pse::engineering::v1::RecordedResultContext {
             problem: native_into::<_, String>(field_0, &child_path(path, "problem"))?,
             revision: native_into::<_, String>(field_1, &child_path(path, "revision"))?,
             manifest: native_into::<_, String>(field_2, &child_path(path, "manifest"))?,
@@ -36,18 +36,18 @@ impl NativeInto<
     }
 }
 impl NativeInto<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedResultPredicate,
-> for &crate::workflow::PackResultPredicate {
+    crate::recorded_result_projection::pb::pse::engineering::v1::RecordedResultPredicate,
+> for &pse_model::recorded_result::PackResultPredicate {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedResultPredicate,
+        crate::recorded_result_projection::pb::pse::engineering::v1::RecordedResultPredicate,
         AdapterError,
     > {
         layout(
-            <crate::workflow::PackResultPredicate as pse_contract::boundary_projection::ProjectionObservationRecord>::VERSION,
-            <crate::workflow::PackResultPredicate as pse_contract::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT,
+            <pse_model::recorded_result::PackResultPredicate as pse_contract::boundary_projection::ProjectionObservationRecord>::VERSION,
+            <pse_model::recorded_result::PackResultPredicate as pse_contract::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "output"),
@@ -62,7 +62,7 @@ impl NativeInto<
                 self,
             )
             .map_err(|error| error.at(path))?;
-        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedResultPredicate {
+        Ok(crate::recorded_result_projection::pb::pse::engineering::v1::RecordedResultPredicate {
             output: native_into::<_, String>(field_0, &child_path(path, "output"))?,
             partition: native_into::<
                 _,
@@ -88,18 +88,18 @@ impl NativeInto<
     }
 }
 impl NativeInto<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedResultSelection,
-> for &crate::workflow::PackResultSelection {
+    crate::recorded_result_projection::pb::pse::engineering::v1::RecordedResultSelection,
+> for &pse_model::recorded_result::PackResultSelection {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedResultSelection,
+        crate::recorded_result_projection::pb::pse::engineering::v1::RecordedResultSelection,
         AdapterError,
     > {
         layout(
-            <crate::workflow::PackResultSelection as pse_contract::boundary_projection::ProjectionObservationRecord>::VERSION,
-            <crate::workflow::PackResultSelection as pse_contract::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT,
+            <pse_model::recorded_result::PackResultSelection as pse_contract::boundary_projection::ProjectionObservationRecord>::VERSION,
+            <pse_model::recorded_result::PackResultSelection as pse_contract::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "run"),
@@ -132,7 +132,7 @@ impl NativeInto<
                 self,
             )
             .map_err(|error| error.at(path))?;
-        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedResultSelection {
+        Ok(crate::recorded_result_projection::pb::pse::engineering::v1::RecordedResultSelection {
             run: native_into::<_, String>(field_0, &child_path(path, "run"))?,
             attempt: native_into::<_, String>(field_1, &child_path(path, "attempt"))?,
             relation: native_into::<_, String>(field_2, &child_path(path, "relation"))?,
@@ -155,10 +155,10 @@ impl NativeInto<
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedResultPredicate,
+                        crate::recorded_result_projection::pb::pse::engineering::v1::RecordedResultPredicate,
                     >(
                         ::core::borrow::Borrow::<
-                            crate::workflow::PackResultPredicate,
+                            pse_model::recorded_result::PackResultPredicate,
                         >::borrow(&value),
                         &child_path(path, "predicate"),
                     )
@@ -168,17 +168,17 @@ impl NativeInto<
             usability: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedScientificUsability,
+                    crate::recorded_result_projection::pb::pse::engineering::v1::RecordedScientificUsability,
                 >(field_9, &child_path(path, "usability"))?,
             ),
             context: field_10
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedResultContext,
+                        crate::recorded_result_projection::pb::pse::engineering::v1::RecordedResultContext,
                     >(
                         ::core::borrow::Borrow::<
-                            crate::workflow::PackResultContext,
+                            pse_model::recorded_result::PackResultContext,
                         >::borrow(&value),
                         &child_path(path, "context"),
                     )
@@ -190,35 +190,35 @@ impl NativeInto<
     }
 }
 impl NativeInto<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedScientificUsability,
-> for crate::workflow::PackScientificState {
+    crate::recorded_result_projection::pb::pse::engineering::v1::RecordedScientificUsability,
+> for pse_model::recorded_result::PackScientificState {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedScientificUsability,
+        crate::recorded_result_projection::pb::pse::engineering::v1::RecordedScientificUsability,
         AdapterError,
     > {
         let value = self;
         layout(
-            <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                 1,
             >>::VERSION,
-            <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                 1,
             >>::FIELD_LAYOUT,
             1,
             &[],
             path,
         )?;
-        let value = match <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
             1,
         >>::into_projection_alternative(value) {
             Ok(()) => {
-                return Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedScientificUsability {
+                return Ok(crate::recorded_result_projection::pb::pse::engineering::v1::RecordedScientificUsability {
                     kind: Some(
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Unknown(
-                            Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::recorded_scientific_usability::Alternative1 {
+                        crate::recorded_result_projection::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Unknown(
+                            Box::new(crate::recorded_result_projection::pb::pse::engineering::v1::recorded_scientific_usability::Alternative1 {
                                 ..Default::default()
                             }),
                         ),
@@ -229,24 +229,24 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                 2,
             >>::VERSION,
-            <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                 2,
             >>::FIELD_LAYOUT,
             1,
             &[],
             path,
         )?;
-        let value = match <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
             2,
         >>::into_projection_alternative(value) {
             Ok(()) => {
-                return Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedScientificUsability {
+                return Ok(crate::recorded_result_projection::pb::pse::engineering::v1::RecordedScientificUsability {
                     kind: Some(
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Usable(
-                            Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::recorded_scientific_usability::Alternative2 {
+                        crate::recorded_result_projection::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Usable(
+                            Box::new(crate::recorded_result_projection::pb::pse::engineering::v1::recorded_scientific_usability::Alternative2 {
                                 ..Default::default()
                             }),
                         ),
@@ -257,24 +257,24 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                 3,
             >>::VERSION,
-            <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                 3,
             >>::FIELD_LAYOUT,
             1,
             &[],
             path,
         )?;
-        let value = match <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
             3,
         >>::into_projection_alternative(value) {
             Ok(()) => {
-                return Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedScientificUsability {
+                return Ok(crate::recorded_result_projection::pb::pse::engineering::v1::RecordedScientificUsability {
                     kind: Some(
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Partial(
-                            Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::recorded_scientific_usability::Alternative3 {
+                        crate::recorded_result_projection::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Partial(
+                            Box::new(crate::recorded_result_projection::pb::pse::engineering::v1::recorded_scientific_usability::Alternative3 {
                                 ..Default::default()
                             }),
                         ),
@@ -285,24 +285,24 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                 4,
             >>::VERSION,
-            <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                 4,
             >>::FIELD_LAYOUT,
             1,
             &[],
             path,
         )?;
-        let value = match <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
             4,
         >>::into_projection_alternative(value) {
             Ok(()) => {
-                return Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedScientificUsability {
+                return Ok(crate::recorded_result_projection::pb::pse::engineering::v1::RecordedScientificUsability {
                     kind: Some(
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Failed(
-                            Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::recorded_scientific_usability::Alternative4 {
+                        crate::recorded_result_projection::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Failed(
+                            Box::new(crate::recorded_result_projection::pb::pse::engineering::v1::recorded_scientific_usability::Alternative4 {
                                 ..Default::default()
                             }),
                         ),
@@ -313,24 +313,24 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                 5,
             >>::VERSION,
-            <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                 5,
             >>::FIELD_LAYOUT,
             1,
             &[],
             path,
         )?;
-        let value = match <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
             5,
         >>::into_projection_alternative(value) {
             Ok(()) => {
-                return Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedScientificUsability {
+                return Ok(crate::recorded_result_projection::pb::pse::engineering::v1::RecordedScientificUsability {
                     kind: Some(
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Unusable(
-                            Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::recorded_scientific_usability::Alternative5 {
+                        crate::recorded_result_projection::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Unusable(
+                            Box::new(crate::recorded_result_projection::pb::pse::engineering::v1::recorded_scientific_usability::Alternative5 {
                                 ..Default::default()
                             }),
                         ),
@@ -351,10 +351,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedScientificUsability,
-> for crate::workflow::PackScientificState {
+    crate::recorded_result_projection::pb::pse::engineering::v1::RecordedScientificUsability,
+> for pse_model::recorded_result::PackScientificState {
     fn from_wire(
-        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedScientificUsability,
+        wire: crate::recorded_result_projection::pb::pse::engineering::v1::RecordedScientificUsability,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -366,7 +366,7 @@ impl NativeFrom<
                 "required alternative is absent",
             ))?
         {
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Unknown(
+            crate::recorded_result_projection::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Unknown(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Unknown");
@@ -374,10 +374,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::VERSION,
-                    <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::FIELD_LAYOUT,
                     1,
@@ -386,12 +386,12 @@ impl NativeFrom<
                 )?;
                 let fields = ();
                 Ok(
-                    <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Usable(
+            crate::recorded_result_projection::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Usable(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Usable");
@@ -399,10 +399,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::VERSION,
-                    <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::FIELD_LAYOUT,
                     1,
@@ -411,12 +411,12 @@ impl NativeFrom<
                 )?;
                 let fields = ();
                 Ok(
-                    <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Partial(
+            crate::recorded_result_projection::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Partial(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Partial");
@@ -424,10 +424,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::VERSION,
-                    <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::FIELD_LAYOUT,
                     1,
@@ -436,12 +436,12 @@ impl NativeFrom<
                 )?;
                 let fields = ();
                 Ok(
-                    <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Failed(
+            crate::recorded_result_projection::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Failed(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Failed");
@@ -449,10 +449,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::VERSION,
-                    <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::FIELD_LAYOUT,
                     1,
@@ -461,12 +461,12 @@ impl NativeFrom<
                 )?;
                 let fields = ();
                 Ok(
-                    <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Unusable(
+            crate::recorded_result_projection::pb::pse::engineering::v1::__buffa::oneof::recorded_scientific_usability::Kind::Unusable(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Unusable");
@@ -474,10 +474,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                         5,
                     >>::VERSION,
-                    <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                         5,
                     >>::FIELD_LAYOUT,
                     1,
@@ -486,7 +486,7 @@ impl NativeFrom<
                 )?;
                 let fields = ();
                 Ok(
-                    <crate::workflow::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_model::recorded_result::PackScientificState as pse_contract::boundary_projection::ProjectionAlternative<
                         5,
                     >>::from_projection_alternative(fields),
                 )
@@ -496,14 +496,14 @@ impl NativeFrom<
 }
 /// Observe `RecordedResultSelection` without consuming native custody or constructing native authority.
 pub(crate) fn encode_recorded_result_selection(
-    native: &crate::workflow::PackResultSelection,
+    native: &pse_model::recorded_result::PackResultSelection,
 ) -> Result<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedResultSelection,
+    crate::recorded_result_projection::pb::pse::engineering::v1::RecordedResultSelection,
     BoundaryProjectionError,
 > {
     pse_contract::boundary_projection::ValidateProjection::validate_projection(native)
         .map_err(BoundaryProjectionError::OutgoingNative)?;
-    let wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::RecordedResultSelection = native_into(
+    let wire: crate::recorded_result_projection::pb::pse::engineering::v1::RecordedResultSelection = native_into(
             native,
             "RecordedResultSelection",
         )

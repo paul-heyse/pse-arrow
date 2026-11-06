@@ -53,6 +53,8 @@ full-codegen = [
   "host-contracts",
 ]
 host-contracts = ["dep:pse-host"]
+# Passive recorded-result declarations do not depend on their runtime consumers.
+recorded-result-contracts = ["dep:pse-model"]
 evidence-tools = [
   "dep:pse-operations",
   "dep:pse-engine",
@@ -95,6 +97,7 @@ physical-admission = [
   "dep:pse-rules",
 ]
 product-schemas = [
+  "recorded-result-contracts",
   "evidence-tools",
   "dep:pse-compiler",
   "dep:pse-admission",

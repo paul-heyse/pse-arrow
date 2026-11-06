@@ -710,6 +710,19 @@ pub fn generate_with_config(
     imports: &[FileDescriptorProto],
     config: &CodeGenConfig,
 ) -> Result<ProjectionOutput, ProjectionCodegenError> {
+    generate_with_dependencies(graph, package, file_name, imports, &[], config)
+}
+
+/// Generate a locally owned graph with explicitly admitted source-file dependencies.
+/// Imported owners are supplied by their own generation phase, never lowered again.
+pub fn generate_with_dependencies(
+    graph: &ProjectionGraph,
+    package: &str,
+    file_name: &str,
+    imports: &[FileDescriptorProto],
+    dependencies: &[&str],
+    config: &CodeGenConfig,
+) -> Result<ProjectionOutput, ProjectionCodegenError> {
     if !config.generate_reflection
         || !config.generate_reflection_vtable
         || !config.shared_descriptor_pool
@@ -718,7 +731,43 @@ pub fn generate_with_config(
             "owner projections require vtable reflection and one complete shared descriptor pool",
         ));
     }
-    let source_descriptors = descriptors_with_imports(graph, package, file_name, imports)?;
+    let mut source_descriptors = descriptors_with_imports(graph, package, file_name, imports)?;
+    let mut admitted = std::collections::BTreeSet::new();
+    for dependency in dependencies {
+        if !admitted.insert(*dependency) {
+            return Err(error(format!("duplicate explicit dependency {dependency}")));
+        }
+        let imported = imports
+            .iter()
+            .find(|file| file.name.as_deref() == Some(dependency))
+            .ok_or_else(|| {
+                error(format!(
+                    "explicit dependency {dependency} absent from complete imports"
+                ))
+            })?;
+        if imported.package.as_deref() == Some(package) {
+            for owner in &imported.message_type {
+                if let Some(name) = &owner.name {
+                    if graph.definitions().contains_key(name) {
+                        return Err(error(format!(
+                            "imported owner {package}.{name} also lowered locally"
+                        )));
+                    }
+                }
+            }
+        }
+        let target = source_descriptors
+            .file
+            .iter_mut()
+            .find(|file| file.name.as_deref() == Some(file_name))
+            .ok_or_else(|| error("lowered target absent"))?;
+        if target.dependency.iter().any(|name| name == dependency) {
+            return Err(error(format!(
+                "explicit dependency {dependency} already declared"
+            )));
+        }
+        target.dependency.push((*dependency).into());
+    }
     let generation = ProjectionGeneration::new(&source_descriptors, &[file_name.into()], config)?;
     let support = generation.support("descriptor.bin")?;
     Ok(ProjectionOutput {

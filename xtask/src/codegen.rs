@@ -7,7 +7,11 @@
 mod physical;
 
 mod code_intelligence;
-#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
+#[cfg(any(
+    feature = "product-schemas",
+    feature = "host-contracts",
+    feature = "recorded-result-contracts"
+))]
 mod contract_metadata;
 #[cfg(feature = "host-contracts")]
 mod developer_evidence;
@@ -20,6 +24,8 @@ mod ownership;
 mod private_store;
 mod proto_dispatch;
 mod proto_projection;
+#[cfg(feature = "recorded-result-contracts")]
+mod recorded_result;
 
 #[cfg(feature = "native-abi")]
 mod ipopt;
@@ -44,6 +50,15 @@ use crate::Target;
 const BINDINGS: &str = provenance::protocol::IPOPT_BINDINGS;
 
 pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> {
+    if only == Some(Target::RecordedResult) {
+        let tree = recorded_result_tree(root)?;
+        validate_tree(&tree)?;
+        return if check {
+            check_tree(root, &tree)
+        } else {
+            write_tree(root, &tree)
+        };
+    }
     if only == Some(Target::ScientificRecipe) {
         let tree = scientific_recipe_tree(root)?;
         validate_tree(&tree)?;
@@ -110,6 +125,7 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
             | Target::Physical
             | Target::CodeIntelligence
             | Target::Engineering
+            | Target::RecordedResult
             | Target::DeveloperEvidence
             | Target::NativeRoot
             | Target::ScientificRecipe,
@@ -124,6 +140,9 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
     let mut trees = Vec::new();
     // Preflight the complete code-intelligence corpus before any aggregate publication.
     if only.is_none() {
+        let tree = recorded_result_tree(root)?;
+        validate_tree(&tree)?;
+        trees.push(("recorded-result".into(), tree));
         let tree = engineering_tree(root)?;
         validate_tree(&tree)?;
         trees.push(("engineering".into(), tree));
@@ -184,6 +203,15 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         trees.len()
     );
     Ok(())
+}
+
+#[cfg(feature = "recorded-result-contracts")]
+fn recorded_result_tree(root: &Path) -> Result<GeneratedTree> {
+    recorded_result::generate(root)
+}
+#[cfg(not(feature = "recorded-result-contracts"))]
+fn recorded_result_tree(_: &Path) -> Result<GeneratedTree> {
+    bail!("recorded-result projections require recorded-result-contracts")
 }
 
 #[cfg(feature = "product-schemas")]
@@ -382,6 +410,11 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
     }
     if only.is_none() {
         if failures.is_empty() {
+            if let Some(tree) =
+                check_result(&mut failures, "recorded-result", recorded_result_tree(root))
+            {
+                trees.push(("recorded-result".into(), tree));
+            }
             if let Some(tree) = check_result(&mut failures, "engineering", engineering_tree(root)) {
                 trees.push(("engineering".into(), tree));
             }
@@ -664,6 +697,7 @@ fn inventory(root: &Path, tree: &GeneratedTree) -> Result<BTreeSet<PathBuf>> {
 
 /// The roots of other targets that lie inside one of `tree`'s roots.
 pub(super) const ENGINEERING_DOCUMENT_ROOT: &str = "docs/generated/engineering";
+pub(super) const RECORDED_RESULT_DOCUMENT_ROOT: &str = "docs/generated/recorded-result";
 pub(super) const DEVELOPER_EVIDENCE_DOCUMENT_ROOT: &str = "docs/generated/developer-evidence";
 
 fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
@@ -676,6 +710,7 @@ fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
         .chain([
             PathBuf::from(provenance::ROOT),
             PathBuf::from(ENGINEERING_DOCUMENT_ROOT),
+            PathBuf::from(RECORDED_RESULT_DOCUMENT_ROOT),
             PathBuf::from(DEVELOPER_EVIDENCE_DOCUMENT_ROOT),
         ])
         .filter(|candidate| {

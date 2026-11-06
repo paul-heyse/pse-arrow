@@ -31,6 +31,8 @@ pub mod forms;
 pub mod lineage;
 /// Resolved numerical meaning, independent of native solver implementations.
 pub mod numerics;
+/// Passive source-owned original-result observations.
+pub mod recorded_result;
 /// Versioned scientific exchange structure and semantic correspondence checks.
 pub mod reference_exchange;
 /// Validated single-value setting domains (ADR-0116 Outcome 8).

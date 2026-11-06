@@ -1,112 +1,20 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Original protected scientific selection, independent of offline publication tooling.
-use serde::{Deserialize, Serialize};
 
-pse_contract::projection_struct! {
-/// Exact original result lineage and range, including recorded independent usability.
-/// The passive projection cannot create a protected reader or renew scientific permission.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct PackResultSelection {
-    projection: { name: "RecordedResultSelection", rust_path: crate::workflow::PackResultSelection,
-        version: 1, direction: pse_contract::BoundaryDirection::Output, construction: ObservationOnly,
-        reserved_tags: [], reserved_names: [] };
-    /// Original canonical run identity; never a current-run alias.
-    pub run: String => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Exact original attempt identity; retries never substitute another attempt.
-    pub attempt: String => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Qualified original registry relation name.
-    pub relation: String => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Original registry relation schema version, independent of IPC transport encoding.
-    pub schema_version: u32 => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Inclusive original row coordinate, before selected filtering.
-    pub row_start: u64 => { tag: 5, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Exclusive original row coordinate, before selected filtering.
-    pub row_end: u64 => { tag: 6, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Optional original field/output selection; schema remains the original typed relation.
-    pub field: Option<String> => { tag: 7, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Original closed attempt classification, independent of publication.
-    pub terminal_class: String => { tag: 8, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    #[serde(default)]
-    /// Exact original output predicate; absent for the whole selected relation.
-    pub predicate: Option<PackResultPredicate> => { tag: 9, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Original scientific product usability, never upgraded by copying.
-    pub usability: PackScientificState => { tag: 10, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Original native interpretation; absent for historical observations that did not retain it.
-    #[serde(default)]
-    pub context: Option<PackResultContext> => { tag: 11, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-}
-}
-pse_contract::projection_struct! {
-/// Exact protected output predicate. Floating endpoints retain IEEE bits, not JSON rounding.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct PackResultPredicate {
-    projection: { name: "RecordedResultPredicate", rust_path: crate::workflow::PackResultPredicate,
-        version: 1, direction: pse_contract::BoundaryDirection::Output, construction: ObservationOnly,
-        reserved_tags: [], reserved_names: [] };
-    /// Original scientific output owner identity.
-    pub output: String => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Exact original selected output partition.
-    pub partition: String => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Optional lower predicate endpoint as exact IEEE-754 bits.
-    pub minimum_bits: Option<u64> => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Optional upper predicate endpoint as exact IEEE-754 bits.
-    pub maximum_bits: Option<u64> => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Original missing-value predicate, independent of empty output.
-    pub missing: Option<bool> => { tag: 5, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-}
-}
-pse_contract::projection_struct! {
-/// Original immutable native context needed to interpret a recorded selection.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct PackResultContext {
-    projection: { name: "RecordedResultContext", rust_path: crate::workflow::PackResultContext,
-        version: 1, direction: pse_contract::BoundaryDirection::Output, construction: ObservationOnly,
-        reserved_tags: [], reserved_names: [] };
-    /// Original canonical problem identity.
-    pub problem: String => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Original immutable problem revision.
-    pub revision: String => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Original closed manifest digest, independent of returned extent.
-    pub manifest: String => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Original native interpretation, never today's default mapping.
-    pub interpretation: String => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-}
-}
-impl PackResultContext {
-    pub(super) fn from_read(read: &pse_operations::canonical_results::ResultRead) -> Self {
-        Self {
-            problem: read.run().problem.clone(),
-            revision: read.run().revision.clone(),
-            manifest: read.manifest().digest.clone(),
-            interpretation: read.run().interpretation.clone(),
-        }
+pub use pse_model::recorded_result::{
+    PackResultContext, PackResultPredicate, PackResultSelection, PackScientificState,
+};
+
+pub(super) fn context_from_read(
+    read: &pse_operations::canonical_results::ResultRead,
+) -> PackResultContext {
+    PackResultContext {
+        problem: read.run().problem.clone(),
+        revision: read.run().revision.clone(),
+        manifest: read.manifest().digest.clone(),
+        interpretation: read.run().interpretation.clone(),
     }
-}
-pse_contract::projection_enum! {
-/// Scientific usability recorded by the producer; publication never upgrades it.
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
-)]
-#[serde(rename_all = "snake_case")]
-pub enum PackScientificState {
-    projection: { name: "RecordedScientificUsability", rust_path: crate::workflow::PackScientificState,
-        version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
-    /// Original scientific usability was not established.
-    #[default]
-    Unknown => 1;
-    /// Original authority admitted this selected product as usable.
-    Usable => 2;
-    /// Original selected scientific product has partial coverage.
-    Partial => 3;
-    /// Original scientific work failed; export may still complete.
-    Failed => 4;
-    /// Original product is retained but lacks scientific use permission.
-    Unusable => 5;
-}
 }
 
 /// One validated scalar-value or dense-time predicate. Endpoints retain their
@@ -564,6 +472,11 @@ mod tests {
         use base64::Engine as _;
         use buffa::Message as _;
         let selected = selected_observation();
+        // Independent Buf encoding against the original 9eec0b873 engineering
+        // descriptor, before moving source ownership or splitting its file.
+        // This is a retained payload contract, not a descriptor identity assertion.
+        const ORIGINAL_V1: &str = "CgNydW4SB2F0dGVtcHQaFnJ1bnRpbWUuZml0X3BhcmFtZXRlcnMgASgEMAk6BXZhbHVlQgljb252ZXJnZWRKGQoFb3duZXISATAYgICAgICAgICAASAAKABSAgoAWi4KB3Byb2JsZW0SCHJldmlzaW9uGghtYW5pZmVzdCIPb3JpZ2luYWwtcG9saWN5";
+        assert_eq!(selection_metadata(&selected).unwrap(), ORIGINAL_V1);
         let mut metadata = LEGACY_KEYS
             .into_iter()
             .map(|key| (key.into(), "inherited-old-value".into()))
@@ -679,8 +592,7 @@ mod tests {
             .decode(encoded)
             .unwrap();
         let world = std::sync::Arc::new(
-            DescriptorPool::decode(crate::host_operations::engineering::generated::DESCRIPTORS)
-                .unwrap(),
+            DescriptorPool::decode(crate::recorded_result_projection::DESCRIPTORS).unwrap(),
         );
         let message = world
             .message_index("pse.engineering.v1.RecordedResultSelection")
@@ -725,6 +637,44 @@ mod tests {
             context.field_by_number(4),
             Some(&Value::String("original-policy".into()))
         );
+    }
+    #[test]
+    fn recorded_selection_imported_world_keeps_native_callbacks_in_the_owning_pool() {
+        use buffa::Message as _;
+        use buffa_descriptor::{
+            DynamicMessage, Value, ValueRef,
+            reflect::{ReflectCow, Reflectable},
+        };
+        use std::sync::Arc;
+        let wire = crate::recorded_result_projection::encode_recorded_result_selection(
+            &selected_observation(),
+        )
+        .unwrap();
+        let reflection = wire.reflect();
+        assert!(matches!(reflection, ReflectCow::Borrowed(_)));
+        let own = reflection.pool();
+        let full =
+            crate::host_operations::engineering::generated::pb::__buffa_fds::descriptor_pool();
+        assert!(
+            !Arc::ptr_eq(own, full),
+            "complete early and full corpora have distinct pool identities"
+        );
+        let name = "pse.engineering.v1.RecordedResultSelection";
+        assert!(own.message_index(name).is_some());
+        let imported = full.message_index(name).unwrap();
+        // Native getters receive only fields from their own message descriptor.
+        let field = reflection.message_descriptor().field(5).unwrap();
+        assert!(matches!(reflection.get(field), ValueRef::U64(4)));
+        // The full world inspects an imported observation through its own dynamic
+        // representation; it never forwards a same-FQN foreign field to native getters.
+        let independent =
+            DynamicMessage::decode(Arc::clone(full), imported, &wire.encode_to_vec()).unwrap();
+        assert_eq!(independent.field_by_number(5), Some(&Value::U64(4)));
+        assert!(Arc::ptr_eq(independent.pool(), full));
+        assert!(!std::ptr::eq(
+            field,
+            full.message(imported).field(5).unwrap()
+        ));
     }
     #[test]
     fn residual_bounds_refuse_overflow_and_scale_to_the_selected_window() {

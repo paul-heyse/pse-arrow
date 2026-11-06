@@ -737,7 +737,7 @@ impl ResultReader {
                 missing: o.predicate.missing(),
             }),
             usability,
-            context: Some(super::PackResultContext::from_read(&self.read)),
+            context: Some(super::result_selection::context_from_read(&self.read)),
         })
     }
     async fn scientific_usability(
@@ -1757,7 +1757,7 @@ impl RetainedDataServices {
                     .outcome
                     .map(|outcome| outcome.as_str().to_owned())
                     .ok_or_else(|| contract("review requires an exact terminal attempt"))?;
-                let context = super::PackResultContext::from_read(&read);
+                let context = super::result_selection::context_from_read(&read);
                 let context_bytes = [
                     class.len(),
                     context.problem.len(),
