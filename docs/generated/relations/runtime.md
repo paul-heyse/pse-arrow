@@ -1628,6 +1628,44 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id`.
 | `validation_error` | `Utf8` | true | `payload` | — | — |
 | `error` | `Utf8` | true | `payload` | — | — |
 
+## `developer_diagnostic_causes`
+
+Ephemeral original developer diagnostic tree, including independent ordinary sources and related/delegated children without deduplication. Pointer is rooted in the exact committed original report; absent code/class stays null. Empty cause populations remain empty and survive the maintained invocation left join. ADR-0252.
+
+Version: 1. Snapshot class: `derived`. Primary key: `invocation, report_sha256, ordinal`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `member` | `UInt64` | false | `payload` | — | — |
+| `invocation` | `Utf8` | false | `key` | — | — |
+| `report_sha256` | `Utf8` | false | `key` | — | — |
+| `ordinal` | `UInt64` | false | `key` | — | — |
+| `pointer` | `Utf8` | false | `payload` | — | — |
+| `kind` | `Utf8` | false | `payload` | — | — |
+| `code` | `Utf8` | true | `payload` | — | — |
+| `class` | `Utf8` | true | `payload` | — | — |
+
+## `developer_invocation_facts`
+
+Ephemeral passive developer facts verified against the exact original report/terminal commitment. Member indexes the explicit supplied population; selected count, original clock/producer generation and recorded-at-read settlement stay null when unavailable. This is neither scientific run membership nor a native verdict, producer authenticity, current settlement or action grant. ADR-0252.
+
+Version: 1. Snapshot class: `derived`. Primary key: `invocation, report_sha256`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `member` | `UInt64` | false | `payload` | — | — |
+| `invocation` | `Utf8` | false | `key` | — | — |
+| `report_sha256` | `Utf8` | false | `key` | — | — |
+| `report_version` | `UInt32` | false | `payload` | — | — |
+| `action` | `Utf8` | false | `payload` | — | — |
+| `outcome` | `Utf8` | false | `payload` | — | — |
+| `selected_tests` | `UInt64` | true | `payload` | — | — |
+| `required_capture_complete` | `Boolean` | false | `payload` | — | — |
+| `recorded_manager_settlement` | `Utf8` | true | `payload` | — | — |
+| `recorded_native_lifetime_pending` | `Boolean` | true | `payload` | — | — |
+| `producer_generation` | `Utf8` | true | `payload` | — | — |
+| `clock_scope` | `Utf8` | true | `payload` | — | — |
+
 ## `diagnostic_captures`
 
 Immutable optional capture link and its original typed document. Capture failure, output prefixes, loss, symbols and process/thread scope remain independent from scientific result permission.

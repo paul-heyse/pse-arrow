@@ -14128,7 +14128,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14142,7 +14142,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14156,7 +14156,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14170,7 +14170,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14184,7 +14184,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14198,7 +14198,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14212,7 +14212,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14226,7 +14226,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14240,7 +14240,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14254,7 +14254,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14268,7 +14268,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14282,7 +14282,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14296,7 +14296,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14310,7 +14310,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14324,7 +14324,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14338,7 +14338,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14352,7 +14352,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14366,7 +14366,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14380,7 +14380,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14394,7 +14394,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14408,7 +14408,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14422,7 +14422,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14436,7 +14436,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14450,7 +14450,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14464,7 +14464,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14478,7 +14478,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14492,7 +14492,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14506,7 +14506,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14520,7 +14520,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14534,7 +14534,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14548,7 +14548,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14562,7 +14562,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14576,7 +14576,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14590,7 +14590,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14604,7 +14604,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14618,7 +14618,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14632,7 +14632,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14674,7 +14674,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14688,7 +14688,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14702,7 +14702,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14716,7 +14716,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14730,7 +14730,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14744,7 +14744,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14758,7 +14758,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14772,7 +14772,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14786,7 +14786,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14800,7 +14800,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14814,7 +14814,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14828,7 +14828,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14842,7 +14842,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14856,7 +14856,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14870,7 +14870,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14884,7 +14884,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14898,7 +14898,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14912,7 +14912,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14926,7 +14926,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14940,7 +14940,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14954,7 +14954,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14968,7 +14968,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14982,7 +14982,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -14996,7 +14996,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15010,7 +15010,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15024,7 +15024,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15038,7 +15038,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15052,7 +15052,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15066,7 +15066,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15080,7 +15080,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15094,7 +15094,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15108,7 +15108,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15122,7 +15122,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15136,7 +15136,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15150,7 +15150,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15164,7 +15164,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15178,7 +15178,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15192,7 +15192,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15206,7 +15206,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15220,7 +15220,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15234,7 +15234,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15248,7 +15248,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15262,7 +15262,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15276,7 +15276,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15290,7 +15290,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15304,7 +15304,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15318,7 +15318,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15332,7 +15332,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15346,7 +15346,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15360,7 +15360,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15374,7 +15374,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15388,7 +15388,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15402,7 +15402,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15416,7 +15416,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15430,7 +15430,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15444,7 +15444,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15458,7 +15458,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15472,7 +15472,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15486,7 +15486,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15500,7 +15500,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15514,7 +15514,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15528,7 +15528,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15542,7 +15542,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15556,7 +15556,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15570,7 +15570,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15584,7 +15584,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15598,7 +15598,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15612,7 +15612,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15626,7 +15626,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15640,7 +15640,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15654,7 +15654,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15668,7 +15668,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15682,7 +15682,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15696,7 +15696,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15710,7 +15710,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15724,7 +15724,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15738,7 +15738,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15752,7 +15752,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15766,7 +15766,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15780,7 +15780,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15794,7 +15794,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15808,7 +15808,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15822,7 +15822,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15836,7 +15836,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15850,7 +15850,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15864,7 +15864,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15878,7 +15878,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15892,7 +15892,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15906,7 +15906,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15920,7 +15920,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15934,7 +15934,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15948,7 +15948,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15962,7 +15962,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15976,7 +15976,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -15990,7 +15990,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16004,7 +16004,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16018,7 +16018,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16032,7 +16032,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16046,7 +16046,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16060,7 +16060,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16074,7 +16074,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16088,7 +16088,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16102,7 +16102,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16116,7 +16116,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16130,7 +16130,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16144,7 +16144,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16158,7 +16158,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16172,7 +16172,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16186,7 +16186,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16200,7 +16200,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16214,7 +16214,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16228,7 +16228,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16242,7 +16242,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16256,7 +16256,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16270,7 +16270,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16284,7 +16284,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16298,7 +16298,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16312,7 +16312,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16326,7 +16326,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16340,7 +16340,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16354,7 +16354,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16368,7 +16368,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16382,7 +16382,35 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
+      "source_path": null,
+      "source_role": "semantic_declaration_without_source_location",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [],
+      "declaration_key": "runtime.developer_diagnostic_causes@1",
+      "declaration_kind": "relation",
+      "direction": null,
+      "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
+      "generator_symbol": "generate",
+      "output_path": "docs/generated/schema/authoring.schema.json",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
+      "source_path": null,
+      "source_role": "semantic_declaration_without_source_location",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [],
+      "declaration_key": "runtime.developer_invocation_facts@1",
+      "declaration_kind": "relation",
+      "direction": null,
+      "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
+      "generator_symbol": "generate",
+      "output_path": "docs/generated/schema/authoring.schema.json",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16396,7 +16424,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16410,7 +16438,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16424,7 +16452,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16438,7 +16466,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16452,7 +16480,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16466,7 +16494,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16480,7 +16508,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16494,7 +16522,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16508,7 +16536,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16522,7 +16550,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16536,7 +16564,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16550,7 +16578,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16564,7 +16592,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16578,7 +16606,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16592,7 +16620,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16606,7 +16634,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16620,7 +16648,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16634,7 +16662,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16648,7 +16676,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16662,7 +16690,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16676,7 +16704,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16690,7 +16718,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16704,7 +16732,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16718,7 +16746,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16732,7 +16760,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16746,7 +16774,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16760,7 +16788,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16774,7 +16802,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16788,7 +16816,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16802,7 +16830,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16816,7 +16844,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16830,7 +16858,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16844,7 +16872,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16858,7 +16886,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16872,7 +16900,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16886,7 +16914,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16900,7 +16928,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16914,7 +16942,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16928,7 +16956,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16942,7 +16970,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16956,7 +16984,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16970,7 +16998,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16984,7 +17012,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -16998,7 +17026,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17012,7 +17040,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17026,7 +17054,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17040,7 +17068,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17054,7 +17082,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17068,7 +17096,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17082,7 +17110,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17096,7 +17124,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17110,7 +17138,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17124,7 +17152,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17138,7 +17166,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17152,7 +17180,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17166,7 +17194,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17180,7 +17208,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17194,7 +17222,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17208,7 +17236,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17222,7 +17250,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17236,7 +17264,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -17250,7 +17278,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/jsonschema.rs",
       "generator_symbol": "generate",
       "output_path": "docs/generated/schema/authoring.schema.json",
-      "source_identity": "blake3:f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4",
+      "source_identity": "blake3:347f50b839672cadfe40a1085e6efbba3845e50b4d77fd8cda1fe2f84762e8ee",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
