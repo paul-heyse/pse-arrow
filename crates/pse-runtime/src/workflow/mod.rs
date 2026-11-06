@@ -1571,7 +1571,9 @@ mod local_caller_tests {
 }
 
 mod result_selection;
-pub use result_selection::{PackResultPredicate, PackResultSelection, PackScientificState};
+pub use result_selection::{
+    PackResultContext, PackResultPredicate, PackResultSelection, PackScientificState,
+};
 
 #[cfg(test)]
 mod observation_inquiry_tests;

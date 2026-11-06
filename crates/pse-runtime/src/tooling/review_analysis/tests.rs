@@ -1659,6 +1659,7 @@ fn plan47f_growth_and_skew_analyze_export_and_relocated_readback() {
             terminal_class: "failed".into(),
             predicate: None,
             usability: PackScientificState::Unusable,
+            context: None,
         });
         selection.members.push(unavailable_result);
         let mut diagnostic = member(

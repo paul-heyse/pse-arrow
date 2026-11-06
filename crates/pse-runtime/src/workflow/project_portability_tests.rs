@@ -134,6 +134,13 @@ async fn project_portability_result_ipc_reuses_original_lineage_and_finalization
         ("pse.canonical.row-start".into(), "0".into()),
         ("pse.canonical.row-end".into(), "0".into()),
         ("pse.canonical.terminal-class".into(), "completed".into()),
+        ("pse.canonical.problem".into(), "original-problem".into()),
+        ("pse.canonical.revision".into(), "original-revision".into()),
+        ("pse.canonical.manifest".into(), "original-manifest".into()),
+        (
+            "pse.canonical.interpretation".into(),
+            "original-interpretation".into(),
+        ),
     ]);
     let schema = Schema::new_with_metadata(Vec::<Field>::new(), metadata);
     let mut bytes = Vec::new();
@@ -160,6 +167,12 @@ async fn project_portability_result_ipc_reuses_original_lineage_and_finalization
             terminal_class: "completed".into(),
             predicate: None,
             usability: workflow::PackScientificState::Unknown,
+            context: Some(workflow::PackResultContext {
+                problem: "original-problem".into(),
+                revision: "original-revision".into(),
+                manifest: "original-manifest".into(),
+                interpretation: "original-interpretation".into(),
+            }),
         }),
         artifact: None,
         artifact_metadata: None,
@@ -176,6 +189,10 @@ async fn project_portability_result_ipc_reuses_original_lineage_and_finalization
         "terminal",
         "field",
         "predicate",
+        "problem",
+        "revision",
+        "manifest",
+        "interpretation",
     ] {
         let mut changed = original.clone();
         let result = changed.members.last_mut().unwrap().result.as_mut().unwrap();
@@ -195,6 +212,12 @@ async fn project_portability_result_ipc_reuses_original_lineage_and_finalization
                     maximum_bits: None,
                     missing: None,
                 })
+            }
+            "problem" => result.context.as_mut().unwrap().problem = "foreign-problem".into(),
+            "revision" => result.context.as_mut().unwrap().revision = "foreign-revision".into(),
+            "manifest" => result.context.as_mut().unwrap().manifest = "foreign-manifest".into(),
+            "interpretation" => {
+                result.context.as_mut().unwrap().interpretation = "foreign-interpretation".into()
             }
             _ => unreachable!(),
         }

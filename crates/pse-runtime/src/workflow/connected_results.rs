@@ -596,16 +596,7 @@ pub(super) fn same_pack_selection(
     left: &super::PackResultSelection,
     right: &super::PackResultSelection,
 ) -> bool {
-    left.run == right.run
-        && left.attempt == right.attempt
-        && left.relation == right.relation
-        && left.schema_version == right.schema_version
-        && left.row_start == right.row_start
-        && left.row_end == right.row_end
-        && left.field == right.field
-        && left.terminal_class == right.terminal_class
-        && left.predicate == right.predicate
-        && left.usability == right.usability
+    left == right
 }
 
 fn propagation_product_state(
@@ -744,6 +735,7 @@ impl ResultReader {
                 missing: o.predicate.missing(),
             }),
             usability,
+            context: Some(super::PackResultContext::from_read(&self.read)),
         })
     }
     async fn validate_pack_selection(
@@ -1184,6 +1176,7 @@ impl ResultReader {
             .outcome
             .map(|value| value.as_str())
             .ok_or_else(|| contract("terminal result class absent"))?;
+        let original_context = super::PackResultContext::from_read(&self.read);
         let lineage = super::result_selection::ScientificMetadata {
             run: &self.read.run().key,
             attempt: &self.read.attempt().key,
@@ -1202,12 +1195,7 @@ impl ResultReader {
                     missing: filter.predicate.missing(),
                 }
             }),
-            extra: Some(super::result_selection::ScientificMetadataExtra {
-                problem: &self.read.run().problem,
-                revision: &self.read.run().revision,
-                manifest: &self.read.manifest().digest,
-                interpretation: &self.read.run().interpretation,
-            }),
+            extra: Some(&original_context),
         };
         metadata.extend(
             lineage
@@ -1769,8 +1757,14 @@ impl RetainedDataServices {
         reservation
             .try_grow(extent)
             .map_err(pse_engine::EngineError::from)?;
-        let mut attempts =
-            BTreeMap::<(String, String), (String, std::collections::BTreeSet<String>)>::new();
+        let mut attempts = BTreeMap::<
+            (String, String),
+            (
+                String,
+                std::collections::BTreeSet<String>,
+                super::PackResultContext,
+            ),
+        >::new();
         let mut selected = Vec::with_capacity(requests.len());
         for request in requests {
             cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
@@ -1801,10 +1795,21 @@ impl RetainedDataServices {
                     .outcome
                     .map(|outcome| outcome.as_str().to_owned())
                     .ok_or_else(|| contract("review requires an exact terminal attempt"))?;
+                let context = super::PackResultContext::from_read(&read);
+                let context_bytes = [
+                    class.len(),
+                    context.problem.len(),
+                    context.revision.len(),
+                    context.manifest.len(),
+                    context.interpretation.len(),
+                ]
+                .into_iter()
+                .try_fold(0usize, usize::checked_add)
+                .ok_or_else(|| contract("review interpretation metadata extent overflow"))?;
                 let copied_metadata = read
                     .sets()
                     .iter()
-                    .try_fold(class.len(), |total, set| {
+                    .try_fold(context_bytes, |total, set| {
                         total.checked_add(256)?.checked_add(set.name.len())
                     })
                     .ok_or_else(|| contract("review relation metadata extent overflow"))?;
@@ -1812,10 +1817,10 @@ impl RetainedDataServices {
                     .try_grow(copied_metadata)
                     .map_err(pse_engine::EngineError::from)?;
                 let relations = read.sets().iter().map(|set| set.name.clone()).collect();
-                attempts.insert(key.clone(), (class, relations));
+                attempts.insert(key.clone(), (class, relations, context));
                 // ResultRead's protected metadata/borrower is dropped here, before the next attempt.
             }
-            let (terminal_class, relations) = attempts
+            let (terminal_class, relations, context) = attempts
                 .get(&key)
                 .ok_or_else(|| contract("review preflight attempt absent"))?;
             let spec = self
@@ -1861,6 +1866,7 @@ impl RetainedDataServices {
                 terminal_class: terminal_class.clone(),
                 predicate,
                 usability: PackScientificState::Unknown,
+                context: Some(context.clone()),
             };
             let actual = if let Some(output) = &request.output {
                 let (minimum, maximum) = output.bounds()?;
@@ -4856,6 +4862,13 @@ mod canonical_connected_results_server_unit {
             )
             .await
             .unwrap();
+        let recorded = reader.pack_selection().await.unwrap();
+        assert_eq!((recorded.row_start, recorded.row_end), (1, 3));
+        let original_context = recorded.context.as_ref().unwrap();
+        assert_eq!(original_context.problem, "problem");
+        assert_eq!(original_context.revision, source.key);
+        assert_eq!(original_context.manifest, manifest.digest());
+        assert_eq!(original_context.interpretation, pse_operations::generated::surreal::INTERPRETATION);
         assert_eq!(
             reader
                 .selection()

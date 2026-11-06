@@ -3,64 +3,110 @@
 //! Original protected scientific selection, independent of offline publication tooling.
 use serde::{Deserialize, Serialize};
 
-/// Exact original result lineage and range, including independent usability.
-#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
+pse_contract::projection_struct! {
+/// Exact original result lineage and range, including recorded independent usability.
+/// The passive projection cannot create a protected reader or renew scientific permission.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PackResultSelection {
+    projection: { name: "RecordedResultSelection", rust_path: crate::workflow::PackResultSelection,
+        version: 1, direction: pse_contract::BoundaryDirection::Output, construction: ObservationOnly,
+        reserved_tags: [], reserved_names: [] };
     /// Original canonical run identity; never a current-run alias.
-    pub run: String,
+    pub run: String => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Exact original attempt identity; retries never substitute another attempt.
-    pub attempt: String,
+    pub attempt: String => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Qualified original registry relation name.
-    pub relation: String,
+    pub relation: String => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original registry relation schema version, independent of IPC transport encoding.
-    pub schema_version: u32,
+    pub schema_version: u32 => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Inclusive original row coordinate, before selected filtering.
-    pub row_start: u64,
+    pub row_start: u64 => { tag: 5, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Exclusive original row coordinate, before selected filtering.
-    pub row_end: u64,
+    pub row_end: u64 => { tag: 6, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Optional original field/output selection; schema remains the original typed relation.
-    pub field: Option<String>,
+    pub field: Option<String> => { tag: 7, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original closed attempt classification, independent of publication.
-    pub terminal_class: String,
+    pub terminal_class: String => { tag: 8, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     #[serde(default)]
     /// Exact original output predicate; absent for the whole selected relation.
-    pub predicate: Option<PackResultPredicate>,
+    pub predicate: Option<PackResultPredicate> => { tag: 9, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original scientific product usability, never upgraded by copying.
-    pub usability: PackScientificState,
+    pub usability: PackScientificState => { tag: 10, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    /// Original native interpretation; absent for historical observations that did not retain it.
+    #[serde(default)]
+    pub context: Option<PackResultContext> => { tag: 11, direction: pse_contract::BoundaryDirection::Output, rules: [] };
 }
+}
+pse_contract::projection_struct! {
 /// Exact protected output predicate. Floating endpoints retain IEEE bits, not JSON rounding.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PackResultPredicate {
+    projection: { name: "RecordedResultPredicate", rust_path: crate::workflow::PackResultPredicate,
+        version: 1, direction: pse_contract::BoundaryDirection::Output, construction: ObservationOnly,
+        reserved_tags: [], reserved_names: [] };
     /// Original scientific output owner identity.
-    pub output: String,
+    pub output: String => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Exact original selected output partition.
-    pub partition: String,
+    pub partition: String => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Optional lower predicate endpoint as exact IEEE-754 bits.
-    pub minimum_bits: Option<u64>,
+    pub minimum_bits: Option<u64> => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Optional upper predicate endpoint as exact IEEE-754 bits.
-    pub maximum_bits: Option<u64>,
+    pub maximum_bits: Option<u64> => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original missing-value predicate, independent of empty output.
-    pub missing: Option<bool>,
+    pub missing: Option<bool> => { tag: 5, direction: pse_contract::BoundaryDirection::Output, rules: [] };
 }
+}
+pse_contract::projection_struct! {
+/// Original immutable native context needed to interpret a recorded selection.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PackResultContext {
+    projection: { name: "RecordedResultContext", rust_path: crate::workflow::PackResultContext,
+        version: 1, direction: pse_contract::BoundaryDirection::Output, construction: ObservationOnly,
+        reserved_tags: [], reserved_names: [] };
+    /// Original canonical problem identity.
+    pub problem: String => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    /// Original immutable problem revision.
+    pub revision: String => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    /// Original closed manifest digest, independent of returned extent.
+    pub manifest: String => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    /// Original native interpretation, never today's default mapping.
+    pub interpretation: String => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+}
+}
+impl PackResultContext {
+    pub(super) fn from_read(read: &pse_operations::canonical_results::ResultRead) -> Self {
+        Self {
+            problem: read.run().problem.clone(),
+            revision: read.run().revision.clone(),
+            manifest: read.manifest().digest.clone(),
+            interpretation: read.run().interpretation.clone(),
+        }
+    }
+}
+pse_contract::projection_enum! {
 /// Scientific usability recorded by the producer; publication never upgrades it.
 #[derive(
     Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum PackScientificState {
+    projection: { name: "RecordedScientificUsability", rust_path: crate::workflow::PackScientificState,
+        version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Original scientific usability was not established.
     #[default]
-    Unknown,
+    Unknown => 1;
     /// Original authority admitted this selected product as usable.
-    Usable,
+    Usable => 2;
     /// Original selected scientific product has partial coverage.
-    Partial,
+    Partial => 3;
     /// Original scientific work failed; export may still complete.
-    Failed,
+    Failed => 4;
     /// Original product is retained but lacks scientific use permission.
-    Unusable,
+    Unusable => 5;
+}
 }
 
 /// One validated scalar-value or dense-time predicate. Endpoints retain their
@@ -165,7 +211,7 @@ pub(super) struct ScientificMetadata<'a> {
     pub field: Option<&'a str>,
     pub terminal_class: &'a str,
     pub predicate: Option<PredicateMetadata<'a>>,
-    pub extra: Option<ScientificMetadataExtra<'a>>,
+    pub extra: Option<&'a PackResultContext>,
 }
 pub(super) struct PredicateMetadata<'a> {
     pub output: &'a str,
@@ -173,12 +219,6 @@ pub(super) struct PredicateMetadata<'a> {
     pub minimum_bits: Option<u64>,
     pub maximum_bits: Option<u64>,
     pub missing: Option<bool>,
-}
-pub(super) struct ScientificMetadataExtra<'a> {
-    pub problem: &'a str,
-    pub revision: &'a str,
-    pub manifest: &'a str,
-    pub interpretation: &'a str,
 }
 impl<'a> From<&'a PackResultSelection> for ScientificMetadata<'a> {
     fn from(value: &'a PackResultSelection) -> Self {
@@ -198,7 +238,7 @@ impl<'a> From<&'a PackResultSelection> for ScientificMetadata<'a> {
                 maximum_bits: predicate.maximum_bits,
                 missing: predicate.missing,
             }),
-            extra: None,
+            extra: value.context.as_ref(),
         }
     }
 }
@@ -355,6 +395,12 @@ mod tests {
                 missing: Some(false),
             }),
             usability: PackScientificState::Unknown,
+            context: Some(PackResultContext {
+                problem: "problem".into(),
+                revision: "revision".into(),
+                manifest: "manifest".into(),
+                interpretation: "original-policy".into(),
+            }),
         };
         let values = ScientificMetadata::from(&selected)
             .entries()
@@ -377,10 +423,25 @@ mod tests {
                 ("pse.canonical.minimum-bits", "9223372036854775808"),
                 ("pse.canonical.maximum-bits", "0"),
                 ("pse.canonical.missing", "false"),
+                ("pse.canonical.problem", "problem"),
+                ("pse.canonical.revision", "revision"),
+                ("pse.canonical.manifest", "manifest"),
+                ("pse.canonical.interpretation", "original-policy"),
             ]
             .into_iter()
             .map(|(key, value)| (key, value.to_owned()))
             .collect()
+        );
+        let mut historical = serde_json::to_value(&selected).unwrap();
+        historical.as_object_mut().unwrap().remove("context");
+        let historical: PackResultSelection = serde_json::from_value(historical).unwrap();
+        assert!(historical.context.is_none());
+        assert_ne!(historical, selected);
+        assert!(
+            !ScientificMetadata::from(&historical)
+                .entries()
+                .iter()
+                .any(|(key, _)| *key == "pse.canonical.interpretation")
         );
     }
     #[test]
