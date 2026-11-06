@@ -2,7 +2,7 @@
 title: "Plan65i: Scientific operations and product semantics"
 status: in-progress
 date: 2026-11-03
-adrs: []
+adrs: [ADR-0251]
 review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
@@ -161,6 +161,16 @@ Neither deterministic regime choice nor a derivative array permits differentiati
 branch. An intentionally metastable operation remains eligible under its declared purpose;
 new flash algorithms, phase-envelope tracing and global stability search require separate
 scientific selection.
+
+[Proposed ADR-0251](../adr/0251-invocation-bound-provider-observations.md) addresses the concrete
+missing native completion seam: current checked `ProviderBinding::fill` issues optional actual
+selection facts after all output/context/linearization checks. The selected native worker
+supplies its current product; failed calls clear observations, scalar providers supply none,
+and action demand differs from the cached selection's established order. Active-stage and
+final original-coordinate observations retain exact source/run/attempt/step context with
+separately admitted storage. They do not enter derivative-premise equality, infer stability
+from phase fraction, or grant permission. Kernel implementation and BT producer→generated
+independent-reader controls remain required, separately from original fixture inspection.
 
 Fitting admission must expose its current target interpretation: the integration column active
 at the start, with later scheduled intervals retaining authored values. This is intentional in

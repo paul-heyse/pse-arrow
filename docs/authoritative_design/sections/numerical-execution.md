@@ -1074,6 +1074,13 @@ handler may execute ([§18.7](#section-18-7)).
 
 ### 18.2 Evaluation programs and callback boundary
 
+> Decision: [ADR-0251](../../adr/0251-invocation-bound-provider-observations.md) (proposed):
+> a successful checked provider completion may expose optional typed facts from its actual
+> current selected product. Bind the active source occurrence and exact invocation context;
+> failed/partial calls expose none. Passive observations remain separate from derivative
+> premise equality and require their own admitted retention. Selection, local mathematical
+> qualification and separately available physical stability retain distinct meanings.
+
 Value and derivative programs are Symbolica/Numerica artifacts prepared by the
 compiler ([§7](mathematics-and-compilation.md#section-7)); scientific functions and generic external capabilities are supplied through the
 authored modeling contract ([§9](physical-semantics.md#section-9)). Each attempt owns cloned

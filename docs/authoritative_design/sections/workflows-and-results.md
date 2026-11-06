@@ -533,6 +533,12 @@ mutates package declarations.
 
 ### 19.2 Results, qualification and diagnostics
 
+> Decision: [ADR-0251](../../adr/0251-invocation-bound-provider-observations.md) (proposed):
+> selected regime observations come from actual final original-coordinate provider evaluation,
+> retaining original run/attempt/step/member and physical coordinate identity. Earlier or
+> nonselected observations remain raw evidence. Generated reading grants no scientific use;
+> absent physical stability assessment remains unknown.
+
 > Decision: [ADR-0250](../../adr/0250-source-owned-result-selection.md) (proposed): new
 > connected-result Arrow exports carry one versioned, bounded generated observation of the
 > native exact selection and original interpretation. Offline exact serialization comparison

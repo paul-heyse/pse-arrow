@@ -2,7 +2,7 @@
 title: "Plan65c: Storage projections and historical interpretation"
 status: in-progress
 date: 2026-11-03
-adrs: []
+adrs: [ADR-0250]
 review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md

@@ -2,7 +2,7 @@
 title: "Plan65: Integrated Proto target alongside Plan64"
 status: in-progress
 date: 2026-11-03
-adrs: [ADR-0224, ADR-0241, ADR-0242, ADR-0243, ADR-0244, ADR-0245, ADR-0246, ADR-0248]
+adrs: [ADR-0224, ADR-0241, ADR-0242, ADR-0243, ADR-0244, ADR-0245, ADR-0246, ADR-0247, ADR-0248, ADR-0249, ADR-0250, ADR-0251]
 review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md, docs/plan_improvement_reviews/plan65-proto-capabilities-and-codebase-integration-2026-11-05.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md

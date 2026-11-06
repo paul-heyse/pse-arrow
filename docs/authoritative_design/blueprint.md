@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 359
+revision: 360
 date: 2026-11-06
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 360 | 2026-11-06 | Propose invocation-bound native provider selection observations, separate from derivative premises, physical stability and product-use authority (§18.2, §19.2). | ADR-0251; authorized Plan65i concrete BT consumer; focused independent source assessment before kernel implementation. |
 | 359 | 2026-11-06 | Propose source-owned generated selected-result observation metadata with exact bounded serialization and pre-map duplicate refusal (§19.2, §20.5). | ADR-0250; authorized Plan65 A06/C02/F04 consumer migration; passive artifact agreement does not grant native read or scientific authority. |
 | 358 | 2026-11-06 | Propose first-class conjunctive range/nonzero predicates with original occurrence fidelity and versioned exact-program identity (§7.3, §7.5). | ADR-0249; authorized Plan64/65 execution; focused independent source assessment; native nonzero handling reused, closed-only relaxation remains explicit. |
 | 357 | 2026-11-06 | Distinguish point-local moving-coordinate interior from physical acceptance budgets for original-output estimates (§15.5.1). | Proposed ADR-0248 refinement before activation; focused source reassessment confirms no correction step or finite-neighborhood theorem; public response admission unchanged. |
