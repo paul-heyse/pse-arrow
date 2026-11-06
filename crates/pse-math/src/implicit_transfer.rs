@@ -424,6 +424,12 @@ pub struct CapturedRootExecution {
     owner: Arc<dyn AllocationOwner>,
 }
 impl CapturedRootExecution {
+    fn check_scope(self, scope: &pse_kernels::ExecutionScope) -> Result<Self> {
+        // Keep the complete snapshot and its lease in this owning value across
+        // the last refusal: struct fields drop snapshot first, then owner.
+        scope.check().map_err(crate::error::scope_error)?;
+        Ok(self)
+    }
     /// Borrow records while preserving their actual allocation lifetime.
     pub fn snapshot(&self) -> &RootExecutionSnapshot {
         &self.snapshot
@@ -644,15 +650,16 @@ pub fn capture<E: std::fmt::Debug + std::fmt::Display>(
     })()
     .map_err(widen::<E>)?;
     let (numerical, owner) = numerical.into_parts();
-    scope.check().map_err(crate::error::scope_error)?;
-    Ok(CapturedRootExecution {
+    CapturedRootExecution {
         snapshot: RootExecutionSnapshot {
             definition,
             attribution: attribution_data,
             numerical,
         },
         owner,
-    })
+    }
+    .check_scope(scope)
+    .map_err(widen::<E>)
 }
 fn validate_identities(unknowns: &[Unknown], rows: &[SemanticId]) -> Result<()> {
     let mut ids = reserve(unknowns.len())?;
