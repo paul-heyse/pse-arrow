@@ -8,20 +8,17 @@ use buffa_descriptor::{DynamicMessage, ReflectMessage, ValueRef};
 use clap::{Args as ClapArgs, ValueEnum};
 use protovalidate_buffa::Validate;
 use schemars::JsonSchema;
-use serde::{
-    Deserialize, Serialize,
-    de::{self, DeserializeOwned, Visitor},
-};
+use serde::{Serialize, de::DeserializeOwned};
 use sha2::{Digest as _, Sha256};
 use std::{
-    collections::BTreeSet,
-    fmt,
     io::{Seek as _, Write as _},
     path::PathBuf,
     process::{Command, Stdio},
     sync::Arc,
     time::{Duration, Instant},
 };
+
+mod strict_json;
 
 const DEFAULT_INPUT_BYTES: usize = crate::developer_evidence::MAX_INPUT_BYTES;
 const TEXT_STDERR_PREFIX_BYTES: usize = 64 << 10;
@@ -328,11 +325,12 @@ fn inspect_bundle(args: &Args, bundle: &Bundle) -> Result<Report, SchemaError> {
         ))
     })?;
     if matches!(args.encoding, Encoding::Json) {
-        strict_json(&input)?;
-        if compiled_world.is_some() {
-            let json = serde_json::from_slice(&input)?;
-            check_keys(&bundle.pool, bundle.pool.message(index), &json)?;
-        }
+        strict_json::check(
+            &input,
+            compiled_world
+                .is_some()
+                .then_some((bundle.pool.as_ref(), bundle.pool.message(index))),
+        )?;
     }
     let (wire, parser_diagnostics) = if matches!(args.encoding, Encoding::Textproto) {
         text_wire(bundle, &args.message, &input, admission.max_converted_bytes)?
@@ -570,119 +568,6 @@ fn preview(value: ValueRef<'_>, depth: usize, limit: usize) -> Preview {
     }
 }
 
-// A serde visitor checks the original token stream before Any's JSON map conversion
-// can collapse duplicate members. No second JSON value tree is materialized here.
-struct UniqueJson;
-impl<'de> Deserialize<'de> for UniqueJson {
-    fn deserialize<D: de::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_any(Self)
-    }
-}
-impl<'de> Visitor<'de> for UniqueJson {
-    type Value = Self;
-    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("JSON without duplicate object members")
-    }
-    fn visit_bool<E: de::Error>(self, _: bool) -> Result<Self, E> {
-        Ok(Self)
-    }
-    fn visit_i64<E: de::Error>(self, _: i64) -> Result<Self, E> {
-        Ok(Self)
-    }
-    fn visit_u64<E: de::Error>(self, _: u64) -> Result<Self, E> {
-        Ok(Self)
-    }
-    fn visit_f64<E: de::Error>(self, _: f64) -> Result<Self, E> {
-        Ok(Self)
-    }
-    fn visit_str<E: de::Error>(self, _: &str) -> Result<Self, E> {
-        Ok(Self)
-    }
-    fn visit_unit<E: de::Error>(self) -> Result<Self, E> {
-        Ok(Self)
-    }
-    fn visit_seq<A: de::SeqAccess<'de>>(self, mut sequence: A) -> Result<Self, A::Error> {
-        while sequence.next_element::<Self>()?.is_some() {}
-        Ok(Self)
-    }
-    fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Self, A::Error> {
-        let mut keys = BTreeSet::new();
-        while let Some(key) = map.next_key::<String>()? {
-            if !keys.insert(key.clone()) {
-                return Err(de::Error::custom(format!("duplicate JSON member: {key}")));
-            }
-            map.next_value::<Self>()?;
-        }
-        Ok(Self)
-    }
-}
-fn strict_json(bytes: &[u8]) -> Result<(), SchemaError> {
-    let mut decoder = serde_json::Deserializer::from_slice(bytes);
-    UniqueJson::deserialize(&mut decoder)?;
-    decoder.end()?;
-    Ok(())
-}
-
-// The generated Serde reader ignores unknown names. Validate names against the
-// exact compiled schema first, while still decoding and projecting generated
-// messages directly rather than transcoding them through DynamicMessage.
-fn check_keys(
-    pool: &buffa_descriptor::DescriptorPool,
-    message: &buffa_descriptor::MessageDescriptor,
-    json: &serde_json::Value,
-) -> Result<(), SchemaError> {
-    use buffa_descriptor::{FieldKind, SingularKind};
-    if matches!(
-        message.full_name(),
-        "google.protobuf.Struct" | "google.protobuf.Value" | "google.protobuf.ListValue"
-    ) {
-        return Ok(());
-    }
-    let Some(object) = json.as_object() else {
-        return Ok(());
-    };
-    let mut numbers = BTreeSet::new();
-    for (key, value) in object {
-        let field = message
-            .fields()
-            .iter()
-            .find(|f| f.name() == key || f.json_name() == key)
-            .ok_or_else(|| {
-                SchemaError::Decode(format!("unknown JSON field {}.{key}", message.full_name()))
-            })?;
-        if !numbers.insert(field.number()) {
-            return Err(SchemaError::Decode(format!(
-                "duplicate JSON field aliases: {}.{key}",
-                message.full_name()
-            )));
-        }
-        let nested = |kind: SingularKind, value: &serde_json::Value| -> Result<(), SchemaError> {
-            if let SingularKind::Message(index) = kind {
-                check_keys(pool, pool.message(index), value)?;
-            }
-            Ok(())
-        };
-        match field.kind() {
-            FieldKind::Singular(kind) => nested(kind, value)?,
-            FieldKind::List(kind) => {
-                if let Some(items) = value.as_array() {
-                    for item in items {
-                        nested(kind, item)?;
-                    }
-                }
-            }
-            FieldKind::Map { value: kind, .. } => {
-                if let Some(items) = value.as_object() {
-                    for item in items.values() {
-                        nested(kind, item)?;
-                    }
-                }
-            }
-        }
-    }
-    Ok(())
-}
-
 fn text_wire(
     bundle: &Bundle,
     message: &str,
@@ -909,6 +794,35 @@ mod tests {
         let (_directory, args) = args(br#"{"count":"9223372036854775807","path":"/wA=","mask":"someField","detail":{"@type":"type.googleapis.com/plan61.qualification.v1.Payload","label":"nested"}}"#, Encoding::Json);
         assert!(inspect(&args).is_ok());
         for bytes in [br#"{"count":1,"count":2}"#.as_slice(), br#"{"detail":{"@type":"type.googleapis.com/plan61.qualification.v1.Payload","label":"a","label":"b"}}"#, br#"{"unknown":1}"#, b"{} {}"] {
+            std::fs::write(&args.input, bytes).unwrap();
+            assert!(inspect(&args).is_err());
+        }
+    }
+    #[test]
+    fn schema_payload_acquired_json_preserves_any_resolution_and_token_refusals() {
+        let (_directory, args) = args(b"{}", Encoding::Json);
+        for bytes in [
+            br#"{"detail":null,"mask":null}"#.as_slice(),
+            br#"{"detail":{"@type":"type.googleapis.com/plan61.qualification.v1.Payload","measuredCount":"18446744073709551615"}}"#,
+        ] {
+            std::fs::write(&args.input, bytes).unwrap();
+            let report = inspect(&args).unwrap();
+            assert_eq!(report.representation, "acquired_dynamic");
+            assert_eq!(report.original_base64, Some(STANDARD.encode(bytes)));
+        }
+        for bytes in [
+            br#"{"detail":{"@type":"type.googleapis.com/plan61.qualification.v1.Payload","label":"a","label":"b"}}"#.as_slice(),
+            br#"{"detail":{"@type":"a","@type":"b"}}"#,
+            br#"{"detail":{"@type":"type.googleapis.com/plan61.qualification.v1.Payload","label":"a"}} {}"#,
+        ] {
+            std::fs::write(&args.input, bytes).unwrap();
+            assert!(matches!(inspect(&args), Err(SchemaError::Json(_))));
+        }
+        for bytes in [
+            br#"{"detail":{"@type":"type.googleapis.com/absent.Payload"}}"#.as_slice(),
+            br#"{"detail":{"@type":"type.googleapis.com/plan61.qualification.v1.Payload","unknown":1}}"#,
+            br#"{"source_guard":"AA==","sourceGuard":"AQ=="}"#,
+        ] {
             std::fs::write(&args.input, bytes).unwrap();
             assert!(inspect(&args).is_err());
         }
@@ -1213,6 +1127,54 @@ mod tests {
             inspect(&args).is_err(),
             "different aliases of one field must refuse"
         );
+    }
+    #[test]
+    fn schema_payload_compiled_json_token_preflight_keeps_generated_value_semantics() {
+        let (_directory, mut args) = args(b"{}", Encoding::Json);
+        let bundle = Bundle::from_bytes(
+            "compiled".into(),
+            crate::code_intelligence_contracts::DESCRIPTORS.to_vec(),
+        )
+        .unwrap();
+        for (name, bytes) in [
+            (
+                "ContextGuard",
+                br#"{"sourceDigest":"AA==","generation":"18446744073709551615"}"#.as_slice(),
+            ),
+            ("BooleanGroup", br#"{"clauses":[{"files":{}}]}"#),
+            ("BooleanGroup", br#"{"clauses":null}"#),
+            ("NativeControl", br#"{"cancel":{}}"#),
+            ("NativeControl", br#"{"cancel":null}"#),
+        ] {
+            args.message = format!("pse.code_intelligence.v1.{name}");
+            std::fs::write(&args.input, bytes).unwrap();
+            let report = inspect_bundle(&args, &bundle).unwrap();
+            assert_eq!(report.representation, "generated_static");
+            assert_eq!(report.original_base64, Some(STANDARD.encode(bytes)));
+        }
+        for (name, bytes) in [
+            (
+                "ContextGuard",
+                br#"{"generation":"18446744073709551616"}"#.as_slice(),
+            ),
+            ("BooleanGroup", br#"{"clauses":{}}"#),
+            ("NativeControl", br#"{"start":{},"cancel":{}}"#),
+            ("NativeControl", br#"{"cancel":{}} {}"#),
+        ] {
+            args.message = format!("pse.code_intelligence.v1.{name}");
+            std::fs::write(&args.input, bytes).unwrap();
+            assert!(
+                matches!(inspect_bundle(&args, &bundle), Err(SchemaError::Json(_))),
+                "{name}: {}",
+                String::from_utf8_lossy(bytes)
+            );
+        }
+        args.message = "pse.code_intelligence.v1.BooleanGroup".into();
+        std::fs::write(&args.input, br#"{"clauses":[{"files":{"unknown":1}}]}"#).unwrap();
+        let SchemaError::Decode(reason) = inspect_bundle(&args, &bundle).unwrap_err() else {
+            panic!()
+        };
+        assert_eq!(reason, "unknown JSON field google.protobuf.Empty.unknown");
     }
     #[test]
     fn schema_payload_textproto_rejects_unknown_names_and_preserves_warning_boundary() {
