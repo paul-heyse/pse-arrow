@@ -807,10 +807,14 @@ owns actual exchanger acceptance and any remaining unsupported boundary profiles
 The Symbolica build correction in [65k](65k-scientific-artifacts-and-native-reconstruction.md#integrated-compiled-root-handoff)
 binds display version/rebuild dependencies to the actual supplier source, rather than consumer
 Git commits; six standalone controls pass. It establishes dependency behavior, not measured
-build-speed benefit. Next receiving work exercises actual owned/view validators, runtime
-fault combinations and transport, then original exchanger comparisons. The first combined
-receiving selection passed 140/146, including actual validators and transport, with two new
-fixture corrections and four remaining scientific failures; 65h retains that boundary.
+build-speed benefit. Actual owned/view validators, transport and selected lifecycle controls
+pass in receiving tests. The broader selection still has four unqualified scientific cases;
+the latest focused selection passes 42/43 with the arithmetic exchanger remaining open.
+Its original candidate is retained and its typed preflight now identifies 19,512 source
+obligations versus the former shared 8,192 declaration cap. Separate source-occurrence
+admission and removal of unused arithmetic native preparation are receiving; executable
+guard/workspace bounds remain enforced. [65h](65h-integration-and-qualification.md#remaining-scope-receiving--november-6)
+owns these exact scopes and the remaining acceptance population.
 Physical budgets and comparison allowances may be revised with a scientific rationale under
 the maintainer's design-phase direction. The current point-local eligibility correction
 changes neither: acceptance tolerance does not define derivative-neighborhood radius.

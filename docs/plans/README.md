@@ -24,7 +24,8 @@ incremental/compiler-cache defaults.
 The [remaining-scope execution checkpoint](65h-integration-and-qualification.md#remaining-scope-receiving--november-6)
 tracks the new representation/transport/lifecycle wave and private source-anchored output
 accuracy under proposed ADR-0248. Component controls and actual generated validator/transport
-invocations pass; latest runtime/accuracy receiving, original scientific comparisons and full
+invocations pass. Focused arithmetic receiving identifies the exact declaration-profile
+refusal while preserving original solve results; original scientific comparisons and full
 selected-population delivery remain open. The expanded
 [Symbolica capability refinement](65e-scientific-portability-and-execution.md#symbolica-capability-refinement--november-6)
 records source-backed mathematical opportunities and version/evidence limits.

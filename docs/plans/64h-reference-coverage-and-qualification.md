@@ -1056,7 +1056,10 @@ evaluate full original First support.
 The initial backend/public-response selection passes 44/44 against zero failures. Additional
 full-frame source, support/storage/cancellation and actual guard controls pass in the expanded
 165-test receiving selection (160 passed, five failed overall). The runtime source-goal fixture
-passes its preparation/provenance assertions but still fails before obtaining a native report.
+now passes in the focused receiving selection: a complete original reconstruction may return
+`Outcome::Constant` with producer-issued Certified evidence. Its assertions retain every
+original coordinate and original quality; they do not fabricate a native report or remove a
+certificate to force Estimated classification.
 Goal-driven source-affine preparation is
 independent of solver presolve selection and consumes the resolved goals, while physical
 numerics and independent comparison allowances remain unchanged. The three original exchanger
@@ -1082,6 +1085,20 @@ coordinate and no-work resource controls pass in that selection. Optional refere
 retains a bounded source map prepared from the same declaration alongside its original
 review context. The [Symbolica capability refinement](65e-scientific-portability-and-execution.md#symbolica-capability-refinement--november-6)
 records exact identity, precision and algebraic opportunities with version-specific limits.
+
+The subsequent focused selection ran **43 tests: 42 passed, one failed**, against zero,
+with zero build warnings. Exact Boolean predicate lowering clears the earlier auxiliary
+projection obstruction. The original arithmetic exchanger still fails qualification, but now
+retains its original candidate, normalized maximum `0.7882614368572831`, source map and four
+accuracy refusals. Their exact cause is `source_inventory/obligations`: **19,512 source
+occurrences versus the adapter's 8,192 declaration cap**, before any native arithmetic.
+This is not a count of unique executable guards. The next receiving refinement separates
+bounded source-declaration admission from executable-guard admission and removes unused
+search preparation from the arithmetic native route. Every source occurrence and its identity
+remain retained; native guard limits, physical budgets and comparison allowances are unchanged.
+The source map does not serialize those obligations, so their empty/repeated breakdown remains
+unmeasured. [65h](65h-integration-and-qualification.md#remaining-scope-receiving--november-6)
+owns the exact verification context and remaining scientific population.
 
 ## H04 — Close configurations and scientific workflows
 

@@ -377,6 +377,18 @@ contract errors and enclosing allocation refusal retain terminal precedence. Act
 Boundary attribution, if needed, must follow encoded-guard origins including deduplication;
 static source maps alone cannot establish interval guard admission.
 
+The native producer now exposes `Ibex::point_arithmetic_preflight` with a typed
+`ArithmeticProfileRefusal`: requested order, admission stage, failed metric and exact
+observed/limit or overflow values. Values beyond diagnostic signed-integer range retain
+exact decimal text. Preflight reports zero native work scoped to this optional arithmetic
+assessment, not to the enclosing solve. The runtime retains this original cause under
+`GoalFailure` before uncertainty buffers or native preparation, preserving the original solve
+result. It does not broaden optional handling of actual allocation/work/cancellation failures.
+The actual exchanger now identifies 19,512 source declarations versus an 8,192 adapter cap;
+none is claimed to be the native failed guard. Profile/source/order/overflow and hard-error
+controls pass in the 43-test receiving selection (42 passed, one scientific failure); complete
+scientific acceptance and the full F02 population remain open.
+
 Sources: [projection owner](../../crates/pse-math/src/factorable.rs),
 [runtime arithmetic assessment](../../crates/pse-runtime/src/math/solves/engineering_accuracy/arithmetic.rs),
 [shared retained failure owner](../../crates/pse-runtime/src/math/solves/engineering_accuracy.rs)

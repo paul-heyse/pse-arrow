@@ -659,6 +659,42 @@ qualification warnings were corrected through existing imports; the receiving te
 also has zero warnings. This checks affected integration targets without claiming their
 externally prepared service journeys executed.
 
+**Tested:** the next focused runtime/backend/math/host selection with the same local profile,
+engineering/CoolProp/compiled/Ipopt/KINSOL/root-isolation/canonical features, matching four
+native fixture profiles and explicit IDAES 2.13.0 reference executed **43 tests: 42 passed,
+one failed**, against zero (`01a1b07d-e1c1-77b5-af06-5b26bd6819a8`), zero build warnings,
+complete settlement. It adds exact Boolean truth controls, typed source/native-dimension/
+Second-profile refusals, exact overflow metrics, zero-work refusal, quadratic wide-input
+allowance, runtime retained-cause precedence and source-goal reconstruction controls.
+The source-goal fixture accepts legitimate complete reconstructed/Certified original results.
+The arithmetic exchanger remains the one scientific failure in this selection; the other
+three scientific failures from the broader selection were not rerun.
+
+Its exact Boolean lowering now clears the earlier auxiliary obstruction. The optional
+arithmetic preflight retains a typed `source_inventory/obligations` refusal: **19,512 source
+occurrences exceed the previous shared 8,192 cap**. The original candidate and source map
+are retained, with normalized original maximum `0.7882614368572831`; four goal records remain
+`EvaluatorUncertainty`. Complete source occurrence identity differs from executable native
+guard population. Neither capture contains the projected obligation inventory, so an exact
+empty/repeated-guard breakdown is not yet established.
+
+**Implemented, receiving:** arithmetic has a separate finite allowance of 65,536 retained
+value/derivative occurrences per collection; Search retains its previous declaration cap.
+Actual source/derivative guards, native signed-int products, Second bounds, work and workspace
+admission remain enforced. The source projection is charged by its actual retained bytes;
+no attribution or identity occurrence is deleted. The arithmetic C++ graph also omits its
+unused covering System, all-node Function and score/tolerance Functions. IBEX 2.9.1
+`SystemFactory::add_ctr_eq` copies into its own system; `Function` adopts its supplied DAG
+and symbols. Accordingly the original arena survives the arithmetic graph and each scalar
+guard receives a separately owned copy/fresh symbol. Search keeps its existing objects.
+Sources: [native preparation](../../crates/pse-backend-native/native/root_isolation.cpp),
+[SystemFactory](https://raw.githubusercontent.com/ibex-team/ibex-lib/ibex-2.9.1/src/system/ibex_SystemFactory.cpp),
+[Function construction](https://raw.githubusercontent.com/ibex-team/ibex-lib/ibex-2.9.1/src/function/ibex_FunctionBuild.cpp)
+and [destruction](https://raw.githubusercontent.com/ibex-team/ibex-lib/ibex-2.9.1/src/function/ibex_Function.cpp).
+The coupled receiving controls must verify native lifetime/Value/First/Second behavior and
+the actual next exchanger refusal. The conservative opaque workspace allowance has not been
+reduced, and no RSS bound or measured performance benefit is claimed.
+
 H01–H04 and the complete
 Plan64/65 populations remain open; none of these component passes establishes assembled
 scientific acceptance, a full-process memory bound or measured throughput benefit.
