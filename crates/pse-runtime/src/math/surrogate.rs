@@ -14,7 +14,7 @@ pub use library::{
 };
 use std::{
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, Weak,
         mpsc::{self, Sender, SyncSender},
     },
     thread::JoinHandle,
@@ -112,6 +112,7 @@ struct Actor {
     gate: ActorGate,
     abort: Cancellation,
     owner: Mutex<Option<Arc<pse_columnar::AllocationLease>>>,
+    _shell_owner: Option<Arc<pse_columnar::AllocationLease>>,
 }
 impl std::fmt::Debug for Actor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -149,7 +150,7 @@ impl Actor {
                 poison.into_inner()
             }
         };
-        let _gate = ActorGateGuard {
+        let gate = ActorGateGuard {
             guard: Some(guard),
             released: &self.gate.released,
         };
@@ -157,7 +158,26 @@ impl Actor {
             MathRuntimeError::Infrastructure("surrogate actor stop submission lost".into())
         });
         result = MathRuntimeError::settle(result, stopped);
-        MathRuntimeError::settle(result, join_actor(join))
+        // Admission is already closed. TLS and panic-payload destruction may
+        // reenter a borrowed actor, so they must see Retiring without this gate.
+        drop(gate);
+        let owner = match self.owner.lock() {
+            Ok(mut slot) => slot.take(),
+            Err(poison) => {
+                result = MathRuntimeError::settle(
+                    result,
+                    Err(MathRuntimeError::Internal(
+                        "surrogate allocation owner poisoned".into(),
+                    )),
+                );
+                poison.into_inner().take()
+            }
+        };
+        let result = MathRuntimeError::settle(result, join_actor(join));
+        // The performing retirement owns the native charge until the actual
+        // worker, team, TLS and join-payload destruction have all settled.
+        drop(owner);
+        result
     }
     fn check_admission(&self) -> Result<(), MathRuntimeError> {
         let slot = self.join.lock().map_err(|_| {
@@ -256,20 +276,36 @@ impl Actor {
             .map_err(|_| MathRuntimeError::Panic("surrogate owning worker response lost".into()))?
     }
 }
-/// Send channel owner for one actual non-Send solver/state and its accounted worker/pool lifetime.
-/// No global model cache, rebuilt solver or unsafe Send implementation.
+/// Unique retirement authority for one actual non-Send solver/state and its worker/team.
+/// Await every enclosing advance/staged solve before consuming `finish`; cloned
+/// phases only borrow actor access and retain independently accounted metadata.
 #[derive(Debug)]
 pub struct SurrogateHandle {
-    service: Arc<MathService>,
     actor: Arc<Actor>,
-    owner: Arc<pse_columnar::AllocationLease>,
     control: Cancellation,
+    metadata: Arc<SurrogateTaskMetadata>,
+}
+/// Compact immutable binding data survives idle phase aliases independently of
+/// the native workspace. The weak actor conveys no retirement authority.
+#[derive(Debug)]
+struct SurrogateTaskMetadata {
+    service: Arc<MathService>,
+    actor: Weak<Actor>,
     scope: pse_kernels::ExecutionScope,
     task_scope: pse_kernels::ExecutionScope,
-    correspondence: Arc<FidelityCorrespondence>,
+    correspondence: FidelityCorrespondence,
     cores: usize,
     workspace: usize,
     task: pse_ids::ContentHash,
+    _owner: Arc<pse_columnar::AllocationLease>,
+    _actor_shell_owner: Arc<pse_columnar::AllocationLease>,
+}
+impl Drop for SurrogateHandle {
+    fn drop(&mut self) {
+        // Abandonment containment only; successful users consume finish instead.
+        self.cancel();
+        let _ = self.actor.retire();
+    }
 }
 impl SurrogateHandle {
     /// Close command admission, interrupt this handle's work and join its actual
@@ -299,15 +335,16 @@ impl SurrogateHandle {
         cancel
             .checkpoint()
             .map_err(|_| MathRuntimeError::Cancelled)?;
-        self.scope.check().map_err(scope_error)?;
+        self.metadata.scope.check().map_err(scope_error)?;
         let owner = self
+            .metadata
             .service
-            .reserve("math:surrogate-snapshot", self.workspace)?;
+            .reserve("math:surrogate-snapshot", self.metadata.workspace)?;
         self.actor.snapshot(owner, cancel)
     }
     /// Complete actual source/correspondence/options task identity.
     pub fn key(&self) -> pse_ids::ContentHash {
-        self.task
+        self.metadata.task
     }
     /// Latest model proposal, never original result permission.
     pub fn proposal(&self) -> ProposalResult {
@@ -318,11 +355,12 @@ impl SurrogateHandle {
         {
             return Err(MathRuntimeError::Cancelled);
         }
-        self.scope.check().map_err(scope_error)?;
+        self.metadata.scope.check().map_err(scope_error)?;
         self.actor
             .proposal()?
             .map(|proposal| {
                 let owner = self
+                    .metadata
                     .service
                     .reserve("math:surrogate-proposal", proposal.retained_bytes()?)?;
                 Ok(proposal.with_owner(owner))
@@ -335,11 +373,11 @@ impl SurrogateHandle {
     }
     /// Accounted retained solver/state, persistent worker stack and pool reservation.
     pub fn retained_bytes(&self) -> usize {
-        self.owner.size()
+        self.metadata.workspace
     }
     /// Request cooperative interruption; active admitted work joins before releasing CPU.
     pub fn cancel(&self) {
-        self.scope.cancellation_control().cancel();
+        self.metadata.scope.cancellation_control().cancel();
         self.control.cancel();
     }
 }
@@ -534,6 +572,7 @@ fn actor_inner<E: FidelityEvaluator<Error = ProblemError>>(
             gate: ActorGate::default(),
             abort,
             owner: Mutex::new(None),
+            _shell_owner: None,
         }),
         Ok(Err(error)) => MathRuntimeError::settle(Err(error), join_actor(join)),
         Err(_) => MathRuntimeError::settle(
@@ -566,13 +605,26 @@ impl MathService {
                 "surrogate stack/foreign allocation policy",
             ));
         }
-        let correspondence = Arc::new(callback.correspondence()?);
-        let workspace = options.workspace_bytes(&correspondence)?;
-        if workspace > self.policy.workspace_bytes {
-            return Err(MathRuntimeError::Limit("surrogate retained workspace"));
-        }
+        let (correspondence, workspace, task, metadata_owner) = callback.with_correspondence(|correspondence| {
+            let workspace = options.workspace_bytes(correspondence)?;
+            if workspace > self.policy.workspace_bytes {
+                return Err(MathRuntimeError::Limit("surrogate retained workspace"));
+            }
+            let task = options.key(correspondence)?;
+            let metadata_bytes = correspondence.coordinates.capacity()
+                .checked_add(correspondence.outputs.capacity())
+                .and_then(|n| n.checked_mul(size_of::<pse_ids::SemanticId>()))
+                .and_then(|n| n.checked_add(size_of::<SurrogateTaskMetadata>() + 2 * size_of::<usize>()))
+                .ok_or_else(|| ProblemError::memory("surrogate task metadata extent"))?;
+            let owner = self.reserve("math:surrogate-task-metadata", metadata_bytes)?;
+            // Admission precedes the vector copy, from this same locked source.
+            Ok((correspondence.clone(), workspace, task, owner))
+        })?;
         let task_scope = scope.clone();
-        let task = options.key(&correspondence)?;
+        let shell_owner = self.reserve(
+            "math:surrogate-actor-shell",
+            size_of::<Actor>() + 2 * size_of::<usize>(),
+        )?;
         scope.check().map_err(scope_error)?;
         let local = Instant::now()
             .checked_add(options.time)
@@ -585,6 +637,7 @@ impl MathService {
         let worker_scope = scope.clone();
         let worker_control = control.clone();
         let worker_callback = callback.clone();
+        let actor_shell_owner = shell_owner.clone();
         let operation = self.job_retained_scoped_with_finish(
             cores,
             workspace,
@@ -595,7 +648,8 @@ impl MathService {
                 if flag.load(std::sync::atomic::Ordering::Acquire) {
                     return Err(MathRuntimeError::Cancelled);
                 }
-                let actor = actor(worker_callback, options, worker_scope, worker_control)?;
+                let mut actor = actor(worker_callback, options, worker_scope, worker_control)?;
+                actor._shell_owner = Some(actor_shell_owner);
                 Ok((Arc::new(actor), workspace))
             },
             |actor: Arc<Actor>| actor.retire(),
@@ -613,29 +667,34 @@ impl MathService {
                 return MathRuntimeError::settle(Err(MathRuntimeError::Cancelled), cleanup);
             }
         };
-        // The actor itself owns the lease so its Drop joins library/pool destruction before releasing it,
-        // including when the last handle disappears during a detached active job.
-        let attached = actor.owner.lock().map(|mut slot| *slot = Some(owner.clone())).map_err(|_| {
-            MathRuntimeError::Internal("surrogate allocation owner poisoned".into())
-        });
+        // Transfer the native lease to the actor; retirement takes it into the
+        // performing join, independently of idle metadata and actor aliases.
+        let attached = match actor.owner.lock() {
+            Ok(mut slot) => { *slot = Some(owner); Ok(()) }
+            Err(poison) => {
+                *poison.into_inner() = Some(owner);
+                Err(MathRuntimeError::Internal("surrogate allocation owner poisoned".into()))
+            }
+        };
         if let Err(error) = attached {
             return MathRuntimeError::settle(Err(error), actor.retire());
         }
         if let Err(error) = callback.release_construction() {
             return MathRuntimeError::settle(Err(error), actor.retire());
         }
-        Ok(SurrogateHandle {
+        let metadata = Arc::new(SurrogateTaskMetadata {
             service: self.clone(),
-            actor,
-            owner,
-            control,
+            actor: Arc::downgrade(&actor),
             scope,
             task_scope,
             correspondence,
             cores,
             workspace,
             task,
-        })
+            _owner: metadata_owner,
+            _actor_shell_owner: shell_owner,
+        });
+        Ok(SurrogateHandle { actor, control, metadata })
         })).await.unwrap_or_else(|payload| Err(super::joined_pool::worker_panic("surrogate preparation", payload)));
             MathRuntimeError::settle(prepared, callback.finish())
         }
@@ -649,14 +708,12 @@ impl MathService {
     ) -> Result<SurrogateAdvance, MathRuntimeError> {
         let actor = handle.actor.clone();
         let control = handle.control.clone();
-        let owner = handle.owner.clone();
         let operation = self.job_retained_scoped(
-            handle.cores,
-            handle.workspace,
+            handle.metadata.cores,
+            handle.metadata.workspace,
             control.clone(),
-            handle.scope.deadline(),
+            handle.metadata.scope.deadline(),
             move |_| {
-                let _owner = owner;
                 let advance = actor.advance()?;
                 let bytes = advance
                     .proposal
@@ -671,7 +728,7 @@ impl MathService {
                 advance.proposal=advance.proposal.map(|proposal|proposal.with_owner(owner));advance
             }),
             ()=driver.cancelled()=>{
-                handle.scope.cancellation_control().cancel();control.cancel();
+                handle.metadata.scope.cancellation_control().cancel();control.cancel();
                 let settled = match operation.await {
                     Ok(_) | Err(MathRuntimeError::Cancelled) => Ok(()),
                     Err(error) => Err(error),
@@ -682,12 +739,14 @@ impl MathService {
     }
 }
 
-/// Library surrogate phase bound to one actual original target and retained actor.
+/// Cloneable binding to an original target and a borrowed retained actor.
+/// Its creator keeps the unique `SurrogateHandle` until enclosing work departs,
+/// then consumes its fallible finish; idle bindings cannot retain native custody.
 #[derive(Clone, Debug)]
 pub struct PreparedSurrogate(Arc<PreparedSurrogateData>);
 #[derive(Debug)]
 struct PreparedSurrogateData {
-    handle: Arc<SurrogateHandle>,
+    task: Arc<SurrogateTaskMetadata>,
     target: super::solves::PreparedSolve,
     scope: pse_kernels::ExecutionScope,
     operation: pse_kernels::ExecutionScope,
@@ -707,7 +766,7 @@ impl PreparedSurrogate {
     }
     /// Exact finite CPU team retained by the active actor's local rayon pool.
     pub fn threads(&self) -> usize {
-        self.0.handle.cores
+        self.0.task.cores
     }
     /// Actual consumed task/options/fidelity/source and original binding identity.
     pub fn key(&self) -> pse_ids::ContentHash {
@@ -717,9 +776,9 @@ impl PreparedSurrogate {
     pub fn support(&self) -> std::collections::BTreeSet<pse_ids::ContentHash> {
         std::collections::BTreeSet::from([
             self.key(),
-            self.0.handle.task,
-            self.0.handle.correspondence.source,
-            self.0.handle.correspondence.fidelity,
+            self.0.task.task,
+            self.0.task.correspondence.source,
+            self.0.task.correspondence.fidelity,
         ])
     }
     /// Library surrogate phases have no native Backend profile.
@@ -778,7 +837,13 @@ impl PreparedSurrogate {
                 .min();
             let scope =
                 pse_kernels::ExecutionScope::new(active.cancellation_control().clone(), deadline);
-            let reply = self.0.handle.actor.phase(scope.clone())?;
+            let reply = self
+                .0
+                .task
+                .actor
+                .upgrade()
+                .ok_or(MathRuntimeError::Retiring)?
+                .phase(scope.clone())?;
             outcome.callback_terminal = reply.callback_terminal;
             match reply.work {
                 Ok(work) => {
@@ -815,14 +880,14 @@ impl PreparedSurrogate {
                     .target
                     .surrogate_start(
                         &statistical,
-                        &self.0.handle.correspondence,
-                        self.0.handle.task,
+                        &self.0.task.correspondence,
+                        self.0.task.task,
                         pse_model::strategy::BranchPolicy::any_qualified(),
                     )?
                     .with_owner(owner.clone());
                 outcome.statistical = Some(Arc::new(statistical.with_owner(owner.clone())));
                 let mut evaluations = 0;
-                match self.0.handle.service.screen_start_worker_observed(
+                match self.0.task.service.screen_start_worker_observed(
                     &self.0.target,
                     source,
                     pse_model::strategy::BranchPolicy::any_qualified(),
@@ -873,22 +938,25 @@ pub struct SurrogatePhaseOutcome {
 impl MathService {
     /// Bind a genuine retained surrogate task to its original compiled source and caller scope.
     /// Metadata preparation is synchronous and performs no model callbacks or native iteration.
+    /// Keep `handle` until all enclosing phase uses finish, then consume its `finish`.
     /// # Errors
     /// Changed actor service/source/target/inventory, finite extent or scope incompatibility.
     pub fn prepare_surrogate_phase(
         self: &Arc<Self>,
-        handle: Arc<SurrogateHandle>,
+        handle: &SurrogateHandle,
         target: super::solves::PreparedSolve,
         scope: pse_kernels::ExecutionScope,
         time: std::time::Duration,
     ) -> Result<PreparedSurrogate, MathRuntimeError> {
         scope.check().map_err(ProblemError::Provider)?;
-        handle.scope.check().map_err(ProblemError::Provider)?;
+        handle.actor.check_admission()?;
+        let task = &handle.metadata;
+        task.scope.check().map_err(ProblemError::Provider)?;
         if time.is_zero()
             || scope.deadline().is_none()
-            || !Arc::ptr_eq(self, &handle.service)
-            || !Arc::ptr_eq(scope.cancellation(), handle.task_scope.cancellation())
-            || handle
+            || !Arc::ptr_eq(self, &task.service)
+            || !Arc::ptr_eq(scope.cancellation(), task.task_scope.cancellation())
+            || task
                 .task_scope
                 .deadline()
                 .is_some_and(|d| scope.deadline() != Some(d))
@@ -902,10 +970,10 @@ impl MathService {
             )
             .into());
         }
-        handle.correspondence.validate()?;
-        if target.original_identity()? != handle.correspondence.original_target
-            || target.original_coordinates()? != handle.correspondence.coordinates
-            || target.threads() != handle.cores
+        task.correspondence.validate()?;
+        if target.original_identity()? != task.correspondence.original_target
+            || target.original_coordinates()? != task.correspondence.coordinates
+            || target.threads() != task.cores
         {
             return Err(ProblemError::Contract("surrogate correspondence original target/coordinates or admitted CPU team mismatch".into()).into());
         }
@@ -918,20 +986,19 @@ impl MathService {
         let deadline = scope
             .deadline()
             .into_iter()
-            .chain(handle.scope.deadline())
+            .chain(task.scope.deadline())
             .chain([local])
             .min();
         let operation =
             pse_kernels::ExecutionScope::new(scope.cancellation_control().clone(), deadline);
-        let result_bytes = handle
+        let result_bytes = task
             .correspondence
             .coordinates
             .len()
             .checked_mul(size_of::<f64>() * 2 + size_of::<pse_ids::SemanticId>())
             .and_then(|n| {
                 n.checked_add(
-                    handle
-                        .correspondence
+                    task.correspondence
                         .outputs
                         .len()
                         .checked_mul(size_of::<f64>())?,
@@ -948,7 +1015,7 @@ impl MathService {
             .ok_or_else(|| ProblemError::memory("surrogate phase result extent"))?;
         let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
         h.str("actual-retained-surrogate-original-phase")
-            .hash(&handle.task)
+            .hash(&task.task)
             .hash(&target.original_identity()?)
             .hash(&target.preparation_identity()?)
             .u64(time.as_secs())
@@ -956,10 +1023,10 @@ impl MathService {
         let key = h.finish_hash();
         let owner = self.reserve(
             "math:surrogate-phase-metadata",
-            size_of::<PreparedSurrogateData>(),
+            size_of::<PreparedSurrogateData>() + 2 * size_of::<usize>(),
         )?;
         Ok(PreparedSurrogate(Arc::new(PreparedSurrogateData {
-            handle,
+            task: task.clone(),
             target,
             scope,
             operation,
@@ -1109,6 +1176,48 @@ mod tests {
             assert!(destroyed.load(Ordering::Acquire));
             assert_eq!(service.pool.reserved(), baseline);
         }
+    }
+    #[tokio::test]
+    async fn metadata_reservation_refusal_preserves_evaluator_retirement_failure() {
+        let (evaluator, options, threads, destroyed) = fixture();
+        let capacity = 128 << 20;
+        let (service, _cache) = super::super::tests::service_with_policy(
+            capacity,
+            super::super::MathPolicy {
+                stack_bytes: options.stack_bytes,
+                foreign_bytes: options.foreign_bytes,
+                workspace_bytes: 16 << 20,
+                ..Default::default()
+            },
+        );
+        let baseline = service.pool.reserved();
+        let occupied = service
+            .reserve("test:metadata-refusal", capacity - baseline)
+            .unwrap();
+        let result = service
+            .prepare_surrogate(
+                DestructivePreparation {
+                    evaluator,
+                    panic_correspondence: false,
+                },
+                options,
+                pse_kernels::ExecutionScope::new(Cancellation::default(), None),
+                &crate::CancelSource::new(),
+            )
+            .await;
+        assert!(
+            matches!(result, Err(MathRuntimeError::Settlement { operation, cleanup })
+            if matches!(*operation, MathRuntimeError::Pool(_))
+                && matches!(*cleanup, MathRuntimeError::Panic(ref message)
+                    if message.contains("public evaluator destructor failed")))
+        );
+        assert!(destroyed.load(Ordering::Acquire));
+        assert!(
+            threads.lock().unwrap().is_empty(),
+            "metadata refusal must precede native evaluation"
+        );
+        drop(occupied);
+        assert_eq!(service.pool.reserved(), baseline);
     }
     #[test]
     fn actor_spawn_refusal_survives_evaluator_destructor_panic() {
@@ -1531,6 +1640,7 @@ mod tests {
             gate: ActorGate::default(),
             abort: Cancellation::default(),
             owner: Mutex::new(None),
+            _shell_owner: None,
         };
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let _guard = actor.join.lock().unwrap();
@@ -1540,11 +1650,16 @@ mod tests {
             let _guard = actor.gate.mutex.lock().unwrap();
             panic!("injected gate poison");
         }));
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = actor.owner.lock().unwrap();
+            panic!("injected allocation owner poison");
+        }));
         let error = actor.retire().unwrap_err();
         let detail = error.to_string();
         for cause in [
             "join owner poisoned",
             "actor gate poisoned",
+            "allocation owner poisoned",
             "stop submission lost",
             "actor worker exit failure",
         ] {
@@ -1562,11 +1677,32 @@ mod tests {
         struct Departure {
             entered: Sender<()>,
             release: mpsc::Receiver<()>,
+            actor: Arc<Mutex<Option<Weak<Actor>>>>,
+            reentered: Sender<bool>,
         }
         impl Drop for Departure {
             fn drop(&mut self) {
                 let _ = self.entered.send(());
-                let _ = self.release.recv();
+                let _ = self.release.recv_timeout(Duration::from_secs(10));
+                let actor = self
+                    .actor
+                    .lock()
+                    .unwrap()
+                    .as_ref()
+                    .unwrap()
+                    .upgrade()
+                    .unwrap();
+                let (send, receive) = mpsc::channel();
+                // Bound a regression: if retirement still holds the gate, TLS
+                // can depart after the timeout and let the waiting call settle.
+                std::thread::spawn(move || {
+                    let _ = send.send(matches!(actor.work(), Err(MathRuntimeError::Retiring)));
+                });
+                let _ = self.reentered.send(
+                    receive
+                        .recv_timeout(Duration::from_secs(5))
+                        .unwrap_or(false),
+                );
             }
         }
         thread_local! {
@@ -1577,6 +1713,8 @@ mod tests {
             evaluator: Evaluator,
             entered: Sender<()>,
             release: Option<mpsc::Receiver<()>>,
+            actor: Arc<Mutex<Option<Weak<Actor>>>>,
+            reentered: Sender<bool>,
         }
         impl FidelityEvaluator for Gated {
             type Error = ProblemError;
@@ -1589,6 +1727,8 @@ mod tests {
                         *slot.borrow_mut() = Some(Departure {
                             entered: self.entered.clone(),
                             release,
+                            actor: self.actor.clone(),
+                            reentered: self.reentered.clone(),
                         })
                     });
                 }
@@ -1598,10 +1738,14 @@ mod tests {
         let (evaluator, options, _, destroyed) = fixture();
         let (entered, departing) = mpsc::channel();
         let (release, gate) = mpsc::channel();
+        let actor_slot = Arc::new(Mutex::new(None));
+        let (reentered, reentry) = mpsc::channel();
         let evaluator = Gated {
             evaluator,
             entered,
             release: Some(gate),
+            actor: actor_slot.clone(),
+            reentered,
         };
         let (service, _cache) = super::super::tests::service_with_policy(
             128 << 20,
@@ -1624,11 +1768,14 @@ mod tests {
             )
             .await
             .unwrap();
+        *actor_slot.lock().unwrap() = Some(Arc::downgrade(&handle.actor));
         service
             .advance_surrogate(&handle, &crate::CancelSource::new())
             .await
             .unwrap();
         let retained = handle.retained_bytes();
+        let metadata = handle.metadata.clone();
+        let compact = metadata._owner.size() + metadata._actor_shell_owner.size();
         let actor = handle.actor.clone();
         let (send, finished) = mpsc::channel();
         let finisher = std::thread::spawn(move || send.send(handle.finish()).unwrap());
@@ -1638,7 +1785,7 @@ mod tests {
         let queued_actor = actor.clone();
         let queued = std::thread::spawn(move || queued_actor.work());
         release.send(()).unwrap();
-        let result = finished.recv_timeout(Duration::from_secs(5)).unwrap();
+        let result = finished.recv_timeout(Duration::from_secs(10)).unwrap();
         finisher.join().unwrap();
         let refused = queued.join().unwrap();
         assert!(
@@ -1651,9 +1798,175 @@ mod tests {
         );
         result.unwrap();
         assert!(matches!(refused, Err(MathRuntimeError::Retiring)));
+        assert!(
+            reentry.recv_timeout(Duration::from_secs(1)).unwrap(),
+            "TLS reentry must observe closed admission before its destructor departs"
+        );
         assert!(destroyed.load(Ordering::Acquire));
+        assert!(actor.owner.lock().unwrap().is_none());
+        assert_eq!(
+            service.pool.reserved(),
+            baseline + compact,
+            "native workspace must release before idle actor/metadata aliases"
+        );
+        drop(metadata);
+        assert_eq!(
+            service.pool.reserved(),
+            baseline + actor._shell_owner.as_ref().unwrap().size()
+        );
         drop(actor);
         assert_eq!(service.pool.reserved(), baseline);
+    }
+    #[tokio::test]
+    async fn consuming_finish_waits_for_active_command_then_refuses_later_evaluation() {
+        use std::time::Duration;
+        #[derive(Debug)]
+        struct Blocked {
+            evaluator: Evaluator,
+            entered: Option<Sender<()>>,
+            release: mpsc::Receiver<()>,
+        }
+        impl FidelityEvaluator for Blocked {
+            type Error = ProblemError;
+            fn correspondence(&self) -> &FidelityCorrespondence {
+                self.evaluator.correspondence()
+            }
+            fn evaluate(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), Self::Error> {
+                if let Some(entered) = self.entered.take() {
+                    entered.send(()).unwrap();
+                    self.release.recv_timeout(Duration::from_secs(10)).unwrap();
+                }
+                self.evaluator.evaluate(x, out)
+            }
+        }
+        let (evaluator, options, threads, destroyed) = fixture();
+        let (entered, entering) = mpsc::channel();
+        let (release, gate) = mpsc::channel();
+        let (service, _cache) = super::super::tests::service_with_policy(
+            128 << 20,
+            super::super::MathPolicy {
+                stack_bytes: options.stack_bytes,
+                foreign_bytes: options.foreign_bytes,
+                workspace_bytes: 16 << 20,
+                worker_bytes: 8 << 20,
+                inner_session_bytes: 0,
+                ..Default::default()
+            },
+        );
+        let baseline = service.pool.reserved();
+        let handle = service
+            .prepare_surrogate(
+                Blocked {
+                    evaluator,
+                    entered: Some(entered),
+                    release: gate,
+                },
+                options,
+                pse_kernels::ExecutionScope::new(Cancellation::default(), None),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let actor = handle.actor.clone();
+        let active = actor.clone();
+        let command = std::thread::spawn(move || active.advance());
+        entering.recv_timeout(Duration::from_secs(5)).unwrap();
+        let native_bytes = handle.retained_bytes();
+        let (send, receive) = mpsc::channel();
+        let finisher = std::thread::spawn(move || {
+            let _ = send.send(handle.finish());
+        });
+        let until = Instant::now() + Duration::from_secs(5);
+        while actor.join.lock().unwrap().is_some() && Instant::now() < until {
+            std::thread::yield_now();
+        }
+        let closed = actor.join.lock().unwrap().is_none();
+        let pending = matches!(receive.try_recv(), Err(mpsc::TryRecvError::Empty));
+        let charged = service.pool.reserved();
+        release.send(()).unwrap();
+        let command_result = command.join().unwrap();
+        let finished = receive.recv_timeout(Duration::from_secs(5)).unwrap();
+        finisher.join().unwrap();
+        assert!(
+            closed && pending,
+            "finish closes admission but fences the active command"
+        );
+        assert!(charged >= baseline + native_bytes);
+        assert!(
+            command_result.is_err(),
+            "active callback sees original cancellation after departure"
+        );
+        finished.unwrap();
+        let calls = threads.lock().unwrap().len();
+        assert_eq!(calls, 1);
+        assert!(matches!(actor.advance(), Err(MathRuntimeError::Retiring)));
+        assert_eq!(threads.lock().unwrap().len(), calls);
+        assert!(destroyed.load(Ordering::Acquire));
+        assert_eq!(
+            service.pool.reserved(),
+            baseline + actor._shell_owner.as_ref().unwrap().size()
+        );
+        drop(actor);
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+    #[test]
+    fn actor_join_payload_can_reenter_closed_actor_without_holding_retirement_gate() {
+        use std::time::Duration;
+        struct Payload {
+            actor: Arc<Mutex<Option<Weak<Actor>>>>,
+            observed: Sender<bool>,
+        }
+        impl Drop for Payload {
+            fn drop(&mut self) {
+                let actor = self
+                    .actor
+                    .lock()
+                    .unwrap()
+                    .as_ref()
+                    .unwrap()
+                    .upgrade()
+                    .unwrap();
+                let (send, receive) = mpsc::channel();
+                std::thread::spawn(move || {
+                    let _ = send.send(matches!(actor.work(), Err(MathRuntimeError::Retiring)));
+                });
+                let _ = self.observed.send(
+                    receive
+                        .recv_timeout(Duration::from_secs(5))
+                        .unwrap_or(false),
+                );
+            }
+        }
+        let (sender, commands) = mpsc::channel();
+        let slot = Arc::new(Mutex::new(None));
+        let (observed, observation) = mpsc::channel();
+        let payload = Payload {
+            actor: slot.clone(),
+            observed,
+        };
+        let join = std::thread::spawn(move || -> Result<(), MathRuntimeError> {
+            assert!(matches!(
+                commands.recv_timeout(Duration::from_secs(5)),
+                Ok(Command::Stop)
+            ));
+            std::panic::panic_any(payload);
+        });
+        let actor = Arc::new(Actor {
+            observation: None,
+            sender,
+            join: Mutex::new(Some(join)),
+            gate: ActorGate::default(),
+            abort: Cancellation::default(),
+            owner: Mutex::new(None),
+            _shell_owner: None,
+        });
+        *slot.lock().unwrap() = Some(Arc::downgrade(&actor));
+        let result = actor.retire();
+        assert!(
+            observation.recv_timeout(Duration::from_secs(1)).unwrap(),
+            "join-payload destruction must observe Retiring before it departs"
+        );
+        assert!(matches!(result, Err(MathRuntimeError::Panic(_))));
     }
     #[tokio::test]
     async fn handle_cancel_wakes_scope_waiter_before_actor_gate_release() {
@@ -1672,18 +1985,17 @@ mod tests {
         );
         let baseline = service.pool.reserved();
         let scope = pse_kernels::ExecutionScope::new(Cancellation::default(), None);
-        let handle = Arc::new(
-            service
-                .prepare_surrogate(evaluator, options, scope, &crate::CancelSource::new())
-                .await
-                .unwrap(),
-        );
+        let handle = service
+            .prepare_surrogate(evaluator, options, scope, &crate::CancelSource::new())
+            .await
+            .unwrap();
         assert!(!Arc::ptr_eq(
-            &handle.scope.cancellation_control().flag(),
+            &handle.metadata.scope.cancellation_control().flag(),
             &handle.control.flag()
         ));
         let held = handle.actor.gate.lock().unwrap();
-        let waiter = handle.clone();
+        let waiter = handle.metadata.clone();
+        let waiter_actor = handle.actor.clone();
         let (registered, registration) = mpsc::sync_channel(1);
         let (send, receive) = mpsc::sync_channel(1);
         let join = std::thread::spawn(move || {
@@ -1699,7 +2011,7 @@ mod tests {
                 }
                 polled
             });
-            let result = waiter.actor.gate.lock_wait(
+            let result = waiter_actor.gate.lock_wait(
                 || {
                     waiter
                         .scope
@@ -1733,9 +2045,9 @@ mod tests {
             result.unwrap(),
             "scope cancellation must wake the held-gate waiter"
         );
-        assert!(handle.scope.cancellation_control().is_cancelled());
+        assert!(handle.metadata.scope.cancellation_control().is_cancelled());
         assert!(handle.control.is_cancelled());
-        drop(handle);
+        handle.finish().unwrap();
         assert!(destroyed.load(Ordering::Acquire));
         assert_eq!(service.pool.reserved(), baseline);
     }
@@ -1943,20 +2255,18 @@ mod tests {
             Cancellation::new(false),
             Some(Instant::now() + std::time::Duration::from_secs(20)),
         );
-        let handle = Arc::new(
-            runtime
-                .native()
-                .prepare_surrogate(evaluator, options, scope.clone(), &cancel)
-                .await
-                .unwrap(),
-        );
+        let handle = runtime
+            .native()
+            .prepare_surrogate(evaluator, options, scope.clone(), &cancel)
+            .await
+            .unwrap();
         let unrelated =
             pse_kernels::ExecutionScope::new(Cancellation::new(false), scope.deadline());
         assert!(
             runtime
                 .native()
                 .prepare_surrogate_phase(
-                    handle.clone(),
+                    &handle,
                     original.clone(),
                     unrelated.clone(),
                     std::time::Duration::from_secs(10)
@@ -1967,7 +2277,7 @@ mod tests {
             runtime
                 .native()
                 .prepare_surrogate_phase(
-                    handle.clone(),
+                    &handle,
                     original.clone(),
                     scope.clone(),
                     std::time::Duration::ZERO
@@ -1977,12 +2287,19 @@ mod tests {
         let phase = runtime
             .native()
             .prepare_surrogate_phase(
-                handle.clone(),
+                &handle,
                 original.clone(),
                 scope.clone(),
                 std::time::Duration::from_secs(10),
             )
             .unwrap();
+        let idle_phase = phase.clone();
+        let idle_rung = PreparedRung::Surrogate(phase.clone());
+        let actor_alias = handle.actor.clone();
+        let metadata_charge = Arc::downgrade(&handle.metadata._owner);
+        let phase_charge = Arc::downgrade(&phase.0._owner);
+        let binding_key = phase.key();
+        let support = phase.support();
         assert_eq!(handle.work().unwrap().evaluations, 0);
         let limits = WorkLimits {
             attempts: 4,
@@ -2134,6 +2451,7 @@ mod tests {
                 )
                 .unwrap();
         }
+        let action = async {
         let result = package
             .solve_case(
                 &runtime.execution_services(),
@@ -2141,8 +2459,7 @@ mod tests {
                 workflow_fixture::compiler_profile(),
                 &cancel,
             )
-            .await
-            .unwrap();
+            .await?;
         assert!(result.accepted, "diagnostic={:?}", result.diagnostic());
         assert_eq!(handle.work().unwrap().evaluations, 3);
         assert_eq!(handle.work().unwrap().initializations, 1);
@@ -2202,8 +2519,37 @@ mod tests {
         let observed = threads.lock().unwrap();
         assert!(observed.iter().all(|thread| *thread == observed[0]));
         drop(observed);
-        drop(handle);
+        Ok::<_, crate::workflow::WorkflowError>(result)
+        }.await;
+        let charged = runtime.native().pool.reserved();
+        let native_charge = handle.actor.owner.lock().unwrap().as_ref().unwrap().size();
+        let retirement = handle
+            .finish()
+            .map_err(crate::workflow::WorkflowError::from);
+        let result = crate::workflow::WorkflowError::settle(action, retirement).unwrap();
+        assert!(matches!(
+            actor_alias.work(),
+            Err(MathRuntimeError::Retiring)
+        ));
+        assert_eq!(
+            runtime.native().pool.reserved() + native_charge,
+            charged,
+            "idle phase/rung/actor aliases must release the physical native charge at finish"
+        );
+        assert_eq!(idle_phase.key(), binding_key);
+        assert_eq!(idle_phase.support(), support);
+        assert!(metadata_charge.upgrade().is_some());
+        assert!(phase_charge.upgrade().is_some());
         drop(result);
+        drop(idle_phase);
+        assert!(
+            metadata_charge.upgrade().is_some(),
+            "the final rung alias still retains compact metadata"
+        );
+        drop(idle_rung);
+        assert!(phase_charge.upgrade().is_none());
+        assert!(metadata_charge.upgrade().is_none());
+        drop(actor_alias);
         assert!(destroyed.load(Ordering::Acquire));
     }
 }

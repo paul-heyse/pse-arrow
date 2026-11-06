@@ -165,7 +165,8 @@ pub enum PreparedRung {
     Multistart(multistart::PreparedMultistart),
     /// Auxiliary family whose result can supply an original-coordinate proposal.
     Derived(PreparedDerived),
-    /// Actual retained library model-management phase producing an original-screened start.
+    /// Borrowed retained library phase producing an original-screened start. Its
+    /// creator finishes the unique surrogate handle after enclosing solves depart.
     Surrogate(crate::math::surrogate::PreparedSurrogate),
     /// Actual source-bound PETSc artificial flow or declared block product.
     #[cfg(feature = "solver-petsc")]

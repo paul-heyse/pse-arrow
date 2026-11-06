@@ -31,7 +31,7 @@ use pse_runtime::{
         settings::SolveSettings,
         surrogate::{
             CorrelationSpec, FidelityCorrespondence, FidelityEvaluator, RegressionSpec,
-            SurrogateOptions, ThetaTuning,
+            SurrogateHandle, SurrogateOptions, ThetaTuning,
         },
     },
     workflow::{ModelingAnalysis, ModelingSolvePreparation},
@@ -177,6 +177,22 @@ fn finish(outcome: std::thread::Result<Result<()>>, closed: Result<()>) -> Resul
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("surrogate action failed: {operation}; retirement also failed: {cleanup}")]
+struct SurrogateSettlement {
+    #[source]
+    operation: Box<dyn std::error::Error + Send + Sync>,
+    cleanup: MathRuntimeError,
+}
+fn finish_surrogate<T>(action: Result<T>, handle: SurrogateHandle) -> Result<T> {
+    match (action, handle.finish()) {
+        (Ok(value), Ok(())) => Ok(value),
+        (Err(error), Ok(())) => Err(error),
+        (Ok(_), Err(error)) => Err(error.into()),
+        (Err(operation), Err(cleanup)) => Err(Box::new(SurrogateSettlement { operation, cleanup })),
+    }
+}
+
 #[tokio::test]
 async fn native_actor_resumes_actual_history_then_original_root_corrector_grants_permission()
 -> Result<()> {
@@ -201,113 +217,117 @@ async fn native_actor_resumes_actual_history_then_original_root_corrector_grants
                 &cancel,
             )
             .await?;
-        assert_eq!(
-            calls.load(Ordering::SeqCst),
-            0,
-            "preparation does not invent observations"
-        );
-        assert!(handle.proposal()?.is_none());
-        assert!(handle.retained_bytes() > 0);
-        let first = service.advance_surrogate(&handle, &cancel).await?;
-        assert!(first.state.initialized && !first.state.disabled);
-        assert_eq!(first.state.iteration, 0);
-        assert_eq!(first.work.initializations, 1);
-        assert_eq!(first.work.evaluations, 3);
-        let history = handle.snapshot(&pse_columnar::CancellationToken::new())?;
-        assert!(history.retained_bytes() > 0);
-        assert_eq!(history.state().unwrap().iter, 0);
-        assert!(history.state().unwrap().rng.is_some());
-        let cancelled_snapshot = pse_columnar::CancellationToken::new();
-        cancelled_snapshot.cancel();
-        assert!(matches!(
-            handle.snapshot(&cancelled_snapshot),
-            Err(MathRuntimeError::Cancelled)
-        ));
-
-        // A cancelled snapshot is independent of the retained task. Advancing
-        // again consumes its actual RNG/training state rather than replaying DOE.
-        let resumed = service.advance_surrogate(&handle, &cancel).await?;
-        assert_eq!(resumed.state.iteration, 1);
-        assert_eq!(resumed.work.initializations, 1);
-        assert_eq!(resumed.work.iterations, 1);
-        assert_eq!(
-            resumed.work.evaluations,
-            calls.load(Ordering::SeqCst) as u64
-        );
-        assert!(resumed.work.evaluations > first.work.evaluations);
-        assert_eq!(
-            history.state().unwrap().iter,
-            0,
-            "owned history remains a point-in-time copy"
-        );
-        let trained = handle.snapshot(&pse_columnar::CancellationToken::new())?;
-        let state = trained.state().unwrap();
-        assert_eq!(state.iter, 1);
-        let (inputs, outputs, _) = state.surrogate.data.as_ref().unwrap();
-        assert!(inputs.nrows() > 3);
-        assert_eq!(inputs.nrows(), outputs.nrows());
-        for row in 0..inputs.nrows() {
-            let expected = (inputs[[row, 0]] - 2.02).powi(2);
-            assert!(
-                (outputs[[row, 0]] - expected).abs() <= 1e-12,
-                "every completed training observation is the actual declared fidelity"
+        let action: Result<_> = async {
+            assert_eq!(
+                calls.load(Ordering::SeqCst),
+                0,
+                "preparation does not invent observations"
             );
-        }
-        let statistical = resumed.proposal.unwrap();
-        assert_eq!(statistical.task, handle.key());
-        assert_eq!(statistical.original_target, correspondence.original_target);
-        assert_eq!(statistical.fidelity, correspondence.fidelity);
-        let proposal = target.solve.surrogate_start(
-            &statistical,
-            &correspondence,
-            handle.key(),
-            BranchPolicy::any_qualified(),
-        )?;
-        assert!(
-            proposal.source().accuracy.is_none(),
-            "statistical merit grants no numerical accuracy"
-        );
-        let screened = service
-            .screen_start(
-                target.solve.clone(),
-                proposal,
-                BranchPolicy::any_qualified(),
-                scope,
-                &cancel,
-            )
-            .await?;
-        target.solve = target.solve.with_screened_start(&screened)?;
-        let run = target
-            .start(&context.runtime.execution_services())?
-            .wait()
-            .await?;
-        assert!(run.usable(), "{:?}", run.report());
-        let variables = solve_variables::Row::rows(&run.table("runtime.solve_variables")?)?;
-        let corrected = variables
-            .iter()
-            .find(|row| row.symbol_id == variable)
-            .unwrap();
-        let x = corrected.value.unwrap();
-        let allowance = corrected.tolerance.unwrap();
-        assert!(allowance.is_finite() && allowance > 0.);
-        assert!(
-            (x - 4.4_f64.sqrt()).abs() <= allowance,
-            "original corrector must solve x*x=4.4: x={x}, allowance={allowance}"
-        );
-        assert!(
-            (x - 2.02).abs() > 0.01,
-            "the approximate root cannot become original truth"
-        );
+            assert!(handle.proposal()?.is_none());
+            assert!(handle.retained_bytes() > 0);
+            let first = service.advance_surrogate(&handle, &cancel).await?;
+            assert!(first.state.initialized && !first.state.disabled);
+            assert_eq!(first.state.iteration, 0);
+            assert_eq!(first.work.initializations, 1);
+            assert_eq!(first.work.evaluations, 3);
+            let history = handle.snapshot(&pse_columnar::CancellationToken::new())?;
+            assert!(history.retained_bytes() > 0);
+            assert_eq!(history.state().unwrap().iter, 0);
+            assert!(history.state().unwrap().rng.is_some());
+            let cancelled_snapshot = pse_columnar::CancellationToken::new();
+            cancelled_snapshot.cancel();
+            assert!(matches!(
+                handle.snapshot(&cancelled_snapshot),
+                Err(MathRuntimeError::Cancelled)
+            ));
 
-        let entered = calls.load(Ordering::SeqCst);
-        handle.cancel();
-        assert!(matches!(
-            service.advance_surrogate(&handle, &cancel).await,
-            Err(MathRuntimeError::Cancelled)
-        ));
-        assert_eq!(calls.load(Ordering::SeqCst), entered);
-        assert_eq!(handle.work()?.evaluations, resumed.work.evaluations);
-        drop(handle);
+            // A cancelled snapshot is independent of the retained task. Advancing
+            // again consumes its actual RNG/training state rather than replaying DOE.
+            let resumed = service.advance_surrogate(&handle, &cancel).await?;
+            assert_eq!(resumed.state.iteration, 1);
+            assert_eq!(resumed.work.initializations, 1);
+            assert_eq!(resumed.work.iterations, 1);
+            assert_eq!(
+                resumed.work.evaluations,
+                calls.load(Ordering::SeqCst) as u64
+            );
+            assert!(resumed.work.evaluations > first.work.evaluations);
+            assert_eq!(
+                history.state().unwrap().iter,
+                0,
+                "owned history remains a point-in-time copy"
+            );
+            let trained = handle.snapshot(&pse_columnar::CancellationToken::new())?;
+            let state = trained.state().unwrap();
+            assert_eq!(state.iter, 1);
+            let (inputs, outputs, _) = state.surrogate.data.as_ref().unwrap();
+            assert!(inputs.nrows() > 3);
+            assert_eq!(inputs.nrows(), outputs.nrows());
+            for row in 0..inputs.nrows() {
+                let expected = (inputs[[row, 0]] - 2.02).powi(2);
+                assert!(
+                    (outputs[[row, 0]] - expected).abs() <= 1e-12,
+                    "every completed training observation is the actual declared fidelity"
+                );
+            }
+            let statistical = resumed.proposal.unwrap();
+            assert_eq!(statistical.task, handle.key());
+            assert_eq!(statistical.original_target, correspondence.original_target);
+            assert_eq!(statistical.fidelity, correspondence.fidelity);
+            let proposal = target.solve.surrogate_start(
+                &statistical,
+                &correspondence,
+                handle.key(),
+                BranchPolicy::any_qualified(),
+            )?;
+            assert!(
+                proposal.source().accuracy.is_none(),
+                "statistical merit grants no numerical accuracy"
+            );
+            let screened = service
+                .screen_start(
+                    target.solve.clone(),
+                    proposal,
+                    BranchPolicy::any_qualified(),
+                    scope,
+                    &cancel,
+                )
+                .await?;
+            target.solve = target.solve.with_screened_start(&screened)?;
+            let run = target
+                .start(&context.runtime.execution_services())?
+                .wait()
+                .await?;
+            assert!(run.usable(), "{:?}", run.report());
+            let variables = solve_variables::Row::rows(&run.table("runtime.solve_variables")?)?;
+            let corrected = variables
+                .iter()
+                .find(|row| row.symbol_id == variable)
+                .unwrap();
+            let x = corrected.value.unwrap();
+            let allowance = corrected.tolerance.unwrap();
+            assert!(allowance.is_finite() && allowance > 0.);
+            assert!(
+                (x - 4.4_f64.sqrt()).abs() <= allowance,
+                "original corrector must solve x*x=4.4: x={x}, allowance={allowance}"
+            );
+            assert!(
+                (x - 2.02).abs() > 0.01,
+                "the approximate root cannot become original truth"
+            );
+
+            let entered = calls.load(Ordering::SeqCst);
+            handle.cancel();
+            assert!(matches!(
+                service.advance_surrogate(&handle, &cancel).await,
+                Err(MathRuntimeError::Cancelled)
+            ));
+            assert_eq!(calls.load(Ordering::SeqCst), entered);
+            assert_eq!(handle.work()?.evaluations, resumed.work.evaluations);
+            Ok(trained)
+        }
+        .await;
+        let trained = finish_surrogate(action, handle)?;
         assert_eq!(
             trained.state().unwrap().iter,
             1,
@@ -342,46 +362,49 @@ async fn native_actor_retains_failed_callback_work_without_imputed_observation_o
                 &cancel,
             )
             .await?;
-        let error = service
-            .advance_surrogate(&handle, &cancel)
-            .await
-            .unwrap_err();
-        assert!(
-            matches!(
-                error,
-                MathRuntimeError::Solve(ProblemError::Math(pse_math::MathError::Domain {
-                    requirement: "declared approximate-root evaluation refused",
-                    ..
-                }))
-            ),
-            "original typed callback cause must survive: {error:?}"
-        );
-        let work = handle.work()?;
-        assert_eq!(
-            work.evaluations, 2,
-            "include the failed callback, exclude unentered DOE points"
-        );
-        assert_eq!(calls.load(Ordering::SeqCst), 2);
-        assert_eq!(work.initializations, 1);
-        assert_eq!(work.iterations, 0);
-        assert!(
-            handle.proposal()?.is_none(),
-            "failed initialization cannot publish an imputed optimum"
-        );
-        let history = handle.snapshot(&pse_columnar::CancellationToken::new())?;
-        assert!(
-            history.state().is_none(),
-            "no complete library training state was produced"
-        );
-        assert!(service.advance_surrogate(&handle, &cancel).await.is_err());
-        assert_eq!(
-            calls.load(Ordering::SeqCst),
-            2,
-            "terminal failures do not silently retry or impute"
-        );
-        assert_eq!(handle.work()?.evaluations, 2);
-        drop(handle);
-        Ok(())
+        let action: Result<_> = async {
+            let error = service
+                .advance_surrogate(&handle, &cancel)
+                .await
+                .unwrap_err();
+            assert!(
+                matches!(
+                    error,
+                    MathRuntimeError::Solve(ProblemError::Math(pse_math::MathError::Domain {
+                        requirement: "declared approximate-root evaluation refused",
+                        ..
+                    }))
+                ),
+                "original typed callback cause must survive: {error:?}"
+            );
+            let work = handle.work()?;
+            assert_eq!(
+                work.evaluations, 2,
+                "include the failed callback, exclude unentered DOE points"
+            );
+            assert_eq!(calls.load(Ordering::SeqCst), 2);
+            assert_eq!(work.initializations, 1);
+            assert_eq!(work.iterations, 0);
+            assert!(
+                handle.proposal()?.is_none(),
+                "failed initialization cannot publish an imputed optimum"
+            );
+            let history = handle.snapshot(&pse_columnar::CancellationToken::new())?;
+            assert!(
+                history.state().is_none(),
+                "no complete library training state was produced"
+            );
+            assert!(service.advance_surrogate(&handle, &cancel).await.is_err());
+            assert_eq!(
+                calls.load(Ordering::SeqCst),
+                2,
+                "terminal failures do not silently retry or impute"
+            );
+            assert_eq!(handle.work()?.evaluations, 2);
+            Ok(())
+        }
+        .await;
+        finish_surrogate(action, handle)
     })
     .catch_unwind()
     .await;

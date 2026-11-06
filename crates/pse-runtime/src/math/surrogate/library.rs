@@ -440,10 +440,13 @@ impl<E: FidelityEvaluator> CallbackOwner<E> {
             Ok(guard)
         }
     }
-    pub(super) fn correspondence(
+    /// Inspect and admit a copy from one stable evaluator reference. Returning
+    /// from the closure releases the local lock before any owning retirement.
+    pub(super) fn with_correspondence<T>(
         &self,
-    ) -> Result<FidelityCorrespondence, crate::math::MathRuntimeError> {
-        Ok(self.lock()?.evaluator.correspondence().clone())
+        inspect: impl FnOnce(&FidelityCorrespondence) -> Result<T, crate::math::MathRuntimeError>,
+    ) -> Result<T, crate::math::MathRuntimeError> {
+        inspect(self.lock()?.evaluator.correspondence())
     }
     pub(super) fn retain_construction(&self) -> Result<(), crate::math::MathRuntimeError> {
         self.lock()?.construction = pse_math::construction::current();

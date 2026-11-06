@@ -591,12 +591,12 @@ async fn complete_design_initializes_actual_surrogate_in_original_physical_order
         .prepare_surrogate(evaluator, options, scope, &cancel)
         .await
         .unwrap();
-    service.advance_surrogate(&handle, &cancel).await.unwrap();
+    let advanced = service.advance_surrogate(&handle, &cancel).await;
+    crate::math::MathRuntimeError::settle(advanced, handle.finish()).unwrap();
     let observed = seen.lock().unwrap();
     assert!(observed.len() >= 3);
     assert_eq!(&observed[..3], &expected);
     drop(observed);
-    drop(handle);
 }
 
 #[tokio::test]
