@@ -464,7 +464,9 @@ impl PreparedCase {
     /// Payload allocated by a value rebind, excluding shared mathematics and provenance.
     pub fn rebind_allocation_bytes(&self, previous: &Self) -> usize {
         let mut bytes = 2 * size_of::<Self>() + 1024;
-        bytes += self.facts.heap_bytes();
+        // Both the published value and its independent payload anchor own the
+        // cloned vectors; shared convexity certificates retain their own owner.
+        bytes += 2 * self.facts.heap_bytes();
         if !pse_math::SharedAllocation::ptr_eq(
             &self.coefficient_values,
             &previous.coefficient_values,

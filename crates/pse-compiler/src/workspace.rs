@@ -1285,7 +1285,9 @@ impl PreparedCase {
             + self.plan.retained_bytes()
             + self.plan.owner_wrapper_bytes()
             + self.presolve.bytes()
-            + self.facts.heap_bytes()
+            // Publication retains a payload clone beside the current prepared
+            // value; these plain fact vectors are copied, unlike shared plans.
+            + 2 * self.facts.heap_bytes()
             + self.quantities.allocation_extent()
             + self.preconditions.allocation_extent()
             + self.structural_bytes()
