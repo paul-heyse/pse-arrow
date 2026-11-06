@@ -301,6 +301,26 @@ pub enum AuxiliaryRole {
     Opaque(Opacity),
 }
 
+/// Projection operation that first materialized an unresolved branch value.
+/// This is diagnostic context, not authored source attribution or mathematics.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MaterializationPurpose {
+    /// A selected body output needs an arithmetic node.
+    OriginalOutput,
+    /// An arithmetic expression reads a symbolic slot.
+    ArithmeticOperand,
+    /// A retained Require condition first demands its argument node.
+    RequiredCondition,
+    /// A predicate comparison needs arithmetic operands.
+    PredicateComparison,
+    /// A predicate's symbolic sum needs an arithmetic node.
+    PredicateArithmetic,
+    /// An exact branch-identity construction needs its operands.
+    BranchIdentity,
+    /// A provider call consumes its original argument.
+    ProviderArgument,
+}
+
 /// One auxiliary variable with its closed box.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Auxiliary {
@@ -308,6 +328,8 @@ pub struct Auxiliary {
     pub instance: SemanticId,
     /// Origin of the auxiliary.
     pub role: AuxiliaryRole,
+    /// Operation that first materialized a branch, absent for other auxiliary origins.
+    pub materialization: Option<MaterializationPurpose>,
     /// Closed lower bound; negative infinity when none is enforced.
     pub lower: f64,
     /// Closed upper bound; positive infinity when none is enforced.
@@ -706,6 +728,162 @@ pub struct PointArithmeticProgram {
     /// Objective value output, when the original case has one.
     pub objective: Option<usize>,
 }
+/// Admission result for the original arithmetic projection, before any native call.
+#[derive(Debug)]
+pub enum PointArithmeticAssessment {
+    /// The existing exact projection satisfies the requested inventory and guards.
+    Available(PointArithmeticProgram),
+    /// The first failed admission predicate, without guessing a native boundary.
+    Unavailable(PointArithmeticUnavailable),
+}
+/// Source-owned reason an original arithmetic projection cannot be consumed.
+#[derive(Clone, Debug, PartialEq, thiserror::Error)]
+pub enum PointArithmeticUnavailable {
+    /// No original free coordinate exists.
+    #[error("point arithmetic projection has no original variables")]
+    EmptyVariables,
+    /// Derivative arithmetic only consumes continuous original coordinates.
+    #[error(
+        "point arithmetic {requested:?} projection has noncontinuous variable {id}: {domain:?}"
+    )]
+    Variable {
+        /// Original coordinate identity.
+        id: SemanticId,
+        /// Actual declared domain.
+        domain: ModelingVariableDomain,
+        /// Consumed derivative order.
+        requested: DerivativeOrder,
+    },
+    /// Provider envelopes, lifted graphs and native constraints confer no arithmetic authority.
+    #[error(
+        "point arithmetic projection inventory: auxiliaries={auxiliaries}, implicit={implicit}, native={native}, first_auxiliary={first_auxiliary:?}"
+    )]
+    Inventory {
+        /// Retained auxiliary count.
+        auxiliaries: usize,
+        /// Retained implicit block count.
+        implicit: usize,
+        /// Retained native constraint count.
+        native: usize,
+        /// First original auxiliary, retaining its source-owned role and bounds.
+        /// Its instance does not identify a particular authored guard occurrence.
+        first_auxiliary: Option<Auxiliary>,
+    },
+    /// A retained guard failed the existing admission predicate; identity is available
+    /// even when its exact constraint representation is missing.
+    #[error(
+        "point arithmetic obligation instance={instance}, source={source_id}, kind={kind:?}, scope={scope:?}, requested={requested:?}, minimum={minimum:?}, represented={represented}, fidelity={fidelity:?}"
+    )]
+    Obligation {
+        /// Bound instance.
+        instance: SemanticId,
+        /// Authored occurrence (not an inferred byte location).
+        source_id: SemanticId,
+        /// Actual retained predicate kind.
+        kind: ObligationKind,
+        /// Actual retained enforcement scope.
+        scope: ObligationScope,
+        /// Consumed derivative order.
+        requested: DerivativeOrder,
+        /// Minimum order requiring this predicate; Value for value domains.
+        minimum: DerivativeOrder,
+        /// Whether its exact closed representation exists.
+        represented: bool,
+        /// Actual retained predicate fidelity.
+        fidelity: Fidelity,
+    },
+    /// Original output projection is not exact.
+    #[error("point arithmetic projection fidelity is {fidelity:?}")]
+    Fidelity {
+        /// Complete projection fidelity.
+        fidelity: Fidelity,
+    },
+    /// An original row lacks arithmetic or has an invalid bound.
+    #[error(
+        "point arithmetic row {id}: expression_represented={represented}, lower={lower}, upper={upper}"
+    )]
+    Row {
+        /// Original row identity.
+        id: SemanticId,
+        /// Whether the expression is present.
+        represented: bool,
+        /// Actual original lower bound.
+        lower: f64,
+        /// Actual original upper bound.
+        upper: f64,
+    },
+    /// The objective has no expression in the exact vocabulary.
+    #[error("point arithmetic objective expression is unavailable")]
+    Objective,
+    /// No original row or objective is selected.
+    #[error("point arithmetic projection has no selected outputs")]
+    EmptyOutputs,
+}
+impl PointArithmeticUnavailable {
+    /// Owned diagnostic extent, including a retained opaque function name.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + match self {
+                Self::Inventory {
+                    first_auxiliary:
+                        Some(Auxiliary {
+                            role: AuxiliaryRole::Opaque(Opacity::Function(name)),
+                            ..
+                        }),
+                    ..
+                } => name.capacity(),
+                _ => 0,
+            }
+    }
+}
+pse_diagnostics::impl_diagnostic! {
+    PointArithmeticUnavailable,
+    code(_this) { Some(pse_diagnostics::DiagnosticCode::CompileMath) },
+    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None },
+    facts(this) {
+        use pse_diagnostics::{DiagnosticFacts, DiagnosticObservation as O};
+        let mut facts = DiagnosticFacts::default();
+        facts.observe("arithmetic_stage", O::Text("projection_admission".into()));
+        if let Self::Inventory { auxiliaries, implicit, native, first_auxiliary } = this {
+            for (key, value) in [("auxiliaries", auxiliaries), ("implicit", implicit), ("native", native)] {
+                facts.observe(key, i64::try_from(*value).map_or_else(|_| O::Text(value.to_string()), O::Integer));
+            }
+            if let Some(auxiliary) = first_auxiliary {
+                if auxiliary.instance == SemanticId::NIL {
+                    facts.observe("first_auxiliary_instance", O::Missing);
+                } else {
+                    facts.sources.push(*auxiliary.instance.as_bytes());
+                    facts.observe("first_auxiliary_instance", O::Text(auxiliary.instance.to_string()));
+                }
+                facts.observe("first_auxiliary_role", O::Text(format!("{:?}", auxiliary.role)));
+                facts.observe("first_auxiliary_materialization", auxiliary.materialization.map_or(O::Missing, |purpose| O::Text(format!("{purpose:?}"))));
+                facts.observe("first_auxiliary_fidelity", O::Text(format!("{:?}", auxiliary.fidelity)));
+                facts.observe("first_auxiliary_lower", O::Number(auxiliary.lower));
+                facts.observe("first_auxiliary_upper", O::Number(auxiliary.upper));
+                facts.observe("first_auxiliary_source_occurrence", O::Missing);
+            }
+        }
+        if let Self::Obligation { instance, source_id, kind, scope, requested, minimum, represented, fidelity } = this {
+            for (key, id) in [("instance", instance), ("source", source_id)] {
+                if *id == SemanticId::NIL {
+                    facts.observe(key, O::Missing);
+                } else {
+                    facts.sources.push(*id.as_bytes());
+                    facts.observe(key, O::Text(id.to_string()));
+                }
+            }
+            for (key, value) in [
+                ("kind", format!("{kind:?}")), ("scope", format!("{scope:?}")),
+                ("requested_order", format!("{requested:?}")), ("minimum_order", format!("{minimum:?}")),
+                ("fidelity", format!("{fidelity:?}"))] {
+                facts.observe(key, O::Text(value));
+            }
+            facts.observe("represented", O::Boolean(*represented));
+        }
+        facts
+    }
+}
+impl pse_model::diagnostic::DiagnosticProjection for PointArithmeticUnavailable {}
 impl PointArithmeticProgram {
     /// Owned projection extent; transient native memory is admitted separately.
     pub fn retained_bytes(&self) -> usize {
@@ -713,6 +891,92 @@ impl PointArithmeticProgram {
             + self.graph.retained_bytes()
             + self.rows.capacity() * size_of::<PointArithmeticRow>()
     }
+}
+/// The single original-point admission predicate, shared by availability and diagnostics.
+fn point_arithmetic_refusal(
+    program: &FactorableProgram,
+    derivative_obligations: &[(DerivativeOrder, ProjectedObligation)],
+    requested: DerivativeOrder,
+) -> Option<PointArithmeticUnavailable> {
+    use PointArithmeticUnavailable as U;
+    if program.variables.is_empty() {
+        return Some(U::EmptyVariables);
+    }
+    if requested != DerivativeOrder::Value
+        && let Some(variable) = program
+            .variables
+            .iter()
+            .find(|v| v.domain != ModelingVariableDomain::Continuous)
+    {
+        return Some(U::Variable {
+            id: variable.id,
+            domain: variable.domain,
+            requested,
+        });
+    }
+    if !program.auxiliaries.is_empty() || !program.implicit.is_empty() || !program.native.is_empty()
+    {
+        return Some(U::Inventory {
+            auxiliaries: program.auxiliaries.len(),
+            implicit: program.implicit.len(),
+            native: program.native.len(),
+            first_auxiliary: program.auxiliaries.first().cloned(),
+        });
+    }
+    // Prefer the retained original predicate over the aggregate fidelity it can cause.
+    // This changes diagnosis only: the admission conjunction is unchanged.
+    for (minimum, guard) in program
+        .obligations
+        .iter()
+        .map(|g| (DerivativeOrder::Value, g))
+        .chain(
+            derivative_obligations
+                .iter()
+                .map(|(order, guard)| (*order, guard)),
+        )
+    {
+        if minimum <= requested
+            && (!guard.represented
+                || guard.fidelity != Fidelity::Exact
+                || guard.scope != ObligationScope::Unconditional)
+        {
+            return Some(U::Obligation {
+                instance: guard.instance,
+                source_id: guard.source,
+                kind: guard.kind,
+                scope: guard.scope,
+                requested,
+                minimum,
+                represented: guard.represented,
+                fidelity: guard.fidelity,
+            });
+        }
+    }
+    if program.fidelity() != Fidelity::Exact {
+        return Some(U::Fidelity {
+            fidelity: program.fidelity(),
+        });
+    }
+    if let Some(row) = program
+        .rows
+        .iter()
+        .find(|r| r.expression.is_none() || r.lower.is_nan() || r.upper.is_nan())
+    {
+        return Some(U::Row {
+            id: row.id,
+            represented: row.expression.is_some(),
+            lower: row.lower,
+            upper: row.upper,
+        });
+    }
+    if program
+        .objective
+        .as_ref()
+        .is_some_and(|o| o.expression.is_none())
+    {
+        return Some(U::Objective);
+    }
+    None
 }
 impl RootIsolationProgram {
     /// Exact source identity, including guards and derivative obligations.
@@ -1717,6 +1981,31 @@ impl CasePlan {
         limit: usize,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Option<PointArithmeticProgram>, FactorableError> {
+        // Optional capability consumers intentionally need only availability. Admission
+        // and construction remain owned by the diagnostic assessment below.
+        Ok(
+            match self.assess_point_arithmetic_program_for_order(
+                values,
+                requested_order,
+                limit,
+                cancel,
+            )? {
+                PointArithmeticAssessment::Available(program) => Some(program),
+                PointArithmeticAssessment::Unavailable(_) => None,
+            },
+        )
+    }
+    /// Assess the original arithmetic projection and preserve the actual failed
+    /// predicate. A projection refusal is distinct from a later native guard refusal.
+    /// # Errors
+    /// Original source, cancellation and bounded projection extent failures.
+    pub fn assess_point_arithmetic_program_for_order(
+        &self,
+        values: &CaseValues,
+        requested_order: DerivativeOrder,
+        limit: usize,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<PointArithmeticAssessment, FactorableError> {
         let (mut program, derivative_obligations) = self.factorable_program_core(
             values,
             &FactorableRequest::default(),
@@ -1724,35 +2013,10 @@ impl CasePlan {
             cancel,
             true,
         )?;
-        let valid = |guard: &ProjectedObligation| {
-            guard.represented
-                && guard.fidelity == Fidelity::Exact
-                && guard.scope == ObligationScope::Unconditional
-        };
-        if program.variables.is_empty()
-            || (requested_order != DerivativeOrder::Value
-                && program
-                    .variables
-                    .iter()
-                    .any(|v| v.domain != ModelingVariableDomain::Continuous))
-            || !program.auxiliaries.is_empty()
-            || !program.implicit.is_empty()
-            || !program.native.is_empty()
-            || program.fidelity() != Fidelity::Exact
-            || program.obligations.iter().any(|g| !valid(g))
-            || derivative_obligations
-                .iter()
-                .any(|(order, g)| *order <= requested_order && !valid(g))
-            || program
-                .rows
-                .iter()
-                .any(|r| r.expression.is_none() || r.lower.is_nan() || r.upper.is_nan())
-            || program
-                .objective
-                .as_ref()
-                .is_some_and(|o| o.expression.is_none())
+        if let Some(reason) =
+            point_arithmetic_refusal(&program, &derivative_obligations, requested_order)
         {
-            return Ok(None);
+            return Ok(PointArithmeticAssessment::Unavailable(reason));
         }
         let mut outputs = Vec::new();
         let mut rows = Vec::with_capacity(program.rows.len());
@@ -1807,27 +2071,31 @@ impl CasePlan {
             None
         };
         if outputs.is_empty() {
-            return Ok(None);
+            return Ok(PointArithmeticAssessment::Unavailable(
+                PointArithmeticUnavailable::EmptyOutputs,
+            ));
         }
         let zero = program.nodes.len();
         program.nodes.push(Node::Const(Constant::integer(0)));
         if program.nodes.len() > limit {
             return fail(MathError::Limit(EXTENT));
         }
-        Ok(Some(PointArithmeticProgram {
-            key: program.key,
-            graph: RootIsolationProgram {
-                inputs: program.variables.len(),
-                nodes: program.nodes,
-                residuals: outputs,
-                eligibility: vec![],
-                criterion: [zero, zero],
-                obligations: program.obligations,
-                derivative_obligations,
+        Ok(PointArithmeticAssessment::Available(
+            PointArithmeticProgram {
+                key: program.key,
+                graph: RootIsolationProgram {
+                    inputs: program.variables.len(),
+                    nodes: program.nodes,
+                    residuals: outputs,
+                    eligibility: vec![],
+                    criterion: [zero, zero],
+                    obligations: program.obligations,
+                    derivative_obligations,
+                },
+                rows,
+                objective,
             },
-            rows,
-            objective,
-        }))
+        ))
     }
 
     /// Original exact-real Value projection for checking a native export's arithmetic
@@ -2675,6 +2943,30 @@ impl<'a> Builder<'a> {
             _ => false,
         }
     }
+    fn value_is_one(&self, value: &Value) -> bool {
+        match value {
+            Value::Node(node) => match self.constant_of(*node) {
+                Some(Constant::Rational(r)) => r == Rational::one(),
+                Some(Constant::Float(v)) => v == 1.0,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+    /// Exact Boolean outcomes, without interpreting arbitrary positive values as true.
+    fn boolean_outcomes(&self, value: &Value) -> bool {
+        match value {
+            Value::Node(node) => match self.constant_of(*node) {
+                Some(Constant::Rational(r)) => r.is_zero() || r == Rational::one(),
+                Some(Constant::Float(v)) => v == 0.0 || v == 1.0,
+                _ => false,
+            },
+            Value::Select(s) => {
+                self.boolean_outcomes(&s.then) && self.boolean_outcomes(&s.otherwise)
+            }
+            Value::Terms(_) | Value::Unset => false,
+        }
+    }
     fn nonnegative_outcomes(&self, value: &Value) -> bool {
         match value {
             Value::Node(node) => match self.constant_of(*node) {
@@ -2720,6 +3012,7 @@ impl<'a> Builder<'a> {
         role: AuxiliaryRole,
         lower: f64,
         upper: f64,
+        materialization: Option<MaterializationPurpose>,
     ) -> Result<NodeId, FactorableError> {
         if lower.is_nan() || upper.is_nan() || lower > upper {
             return fail(MathError::Contract("auxiliary interval".into()));
@@ -2729,6 +3022,7 @@ impl<'a> Builder<'a> {
         self.auxiliaries.push(Auxiliary {
             instance,
             role,
+            materialization,
             lower,
             upper,
             fidelity: Fidelity::Relaxed,
@@ -2741,6 +3035,7 @@ impl<'a> Builder<'a> {
             AuxiliaryRole::Opaque(opacity),
             f64::NEG_INFINITY,
             f64::INFINITY,
+            None,
         )
     }
 
@@ -2810,7 +3105,10 @@ impl<'a> Builder<'a> {
             .iter()
             .map(|&o| {
                 let value = env.read(body.outputs[o])?;
-                Ok((o, self.materialize(&value)?))
+                Ok((
+                    o,
+                    self.materialize(&value, MaterializationPurpose::OriginalOutput)?,
+                ))
             })
             .collect()
     }
@@ -2846,7 +3144,8 @@ impl<'a> Builder<'a> {
                     // separately retains each derivative guard's minimum admission order.
                     if cx.record && (*order == DerivativeOrder::Value || self.exact_real) {
                         let value = env.read(*argument)?;
-                        let node = self.materialize(&value)?;
+                        let node =
+                            self.materialize(&value, MaterializationPurpose::RequiredCondition)?;
                         let truth = match (self.constant_of(node), condition) {
                             (Some(Constant::Rational(r)), condition) if self.exact_real => {
                                 let permitted = match condition {
@@ -3092,7 +3391,7 @@ impl<'a> Builder<'a> {
                 let s = v.get_symbol();
                 if let Some(&k) = self.symbols.get(&s) {
                     let value = env.read(k)?;
-                    self.materialize(&value)
+                    self.materialize(&value, MaterializationPurpose::ArithmeticOperand)
                 } else if s == Symbol::E && self.exact_real {
                     let one = self.constant(Constant::integer(1))?;
                     self.push(Node::Exp(one))
@@ -3168,7 +3467,11 @@ impl<'a> Builder<'a> {
     }
     /// A node for a slot value. Unresolved branch results become auxiliaries under the
     /// auxiliary policy, bounded by their constant branch values when all are constant.
-    fn materialize(&mut self, value: &Value) -> Result<NodeId, FactorableError> {
+    fn materialize(
+        &mut self,
+        value: &Value,
+        purpose: MaterializationPurpose,
+    ) -> Result<NodeId, FactorableError> {
         match value {
             Value::Unset => fail(MathError::Contract(
                 "projection reads a value before its producer".into(),
@@ -3177,7 +3480,7 @@ impl<'a> Builder<'a> {
             Value::Terms(terms) => {
                 let children = terms
                     .iter()
-                    .map(|t| self.materialize(t))
+                    .map(|t| self.materialize(t, purpose))
                     .collect::<Result<Vec<_>, _>>()?;
                 self.push(Node::Sum(children))
             }
@@ -3196,6 +3499,7 @@ impl<'a> Builder<'a> {
                     AuxiliaryRole::Opaque(Opacity::Branch),
                     lower,
                     upper,
+                    Some(purpose),
                 )?;
                 self.selects.insert(s.id, n);
                 Ok(n)
@@ -3357,10 +3661,13 @@ impl<'a> Builder<'a> {
         else {
             return Ok(None);
         };
-        let xn = self.materialize(&a.values[slot])?;
-        let yn = self.materialize(&b.values[slot])?;
-        let ln = self.materialize(&parent.values[left])?;
-        let rn = self.materialize(&parent.values[right])?;
+        let xn = self.materialize(&a.values[slot], MaterializationPurpose::BranchIdentity)?;
+        let yn = self.materialize(&b.values[slot], MaterializationPurpose::BranchIdentity)?;
+        let ln = self.materialize(&parent.values[left], MaterializationPurpose::BranchIdentity)?;
+        let rn = self.materialize(
+            &parent.values[right],
+            MaterializationPurpose::BranchIdentity,
+        )?;
         let half = self.constant(Constant::Rational(Rational::new(1, 2)))?;
         let total = self.push(Node::Sum(vec![xn, yn]))?;
         let mean = self.push(Node::Product(vec![half, total]))?;
@@ -3455,7 +3762,7 @@ impl<'a> Builder<'a> {
         let mut nodes = Vec::with_capacity(inputs.len());
         for &i in inputs {
             let value = env.read(i)?;
-            nodes.push(self.materialize(&value)?);
+            nodes.push(self.materialize(&value, MaterializationPurpose::ProviderArgument)?);
         }
         // Residual equations are exported only where the call is unconditional; inside a
         // branch region they would constrain points where the call is never made.
@@ -3498,6 +3805,7 @@ impl<'a> Builder<'a> {
                                 }),
                                 lower,
                                 upper,
+                                None,
                             )
                         })
                         .collect::<Result<Vec<_>, _>>()?
@@ -3561,6 +3869,7 @@ impl<'a> Builder<'a> {
                 },
                 lower,
                 upper,
+                None,
             )?);
         }
         let inner = Context {
@@ -3726,7 +4035,7 @@ impl<'a> Builder<'a> {
                     }
                     return Ok(truth);
                 }
-                let node = self.materialize(value)?;
+                let node = self.materialize(value, MaterializationPurpose::PredicateArithmetic)?;
                 self.holds(&Value::Node(node), test)
             }
         }
@@ -3737,6 +4046,18 @@ impl<'a> Builder<'a> {
             (s.comparison, negate),
             (Comparison::Eq, false) | (Comparison::Ne, true)
         );
+        // Compiler Boolean guards compare their lazy indicator to exactly one.
+        // Only proved 0/1 outcomes permit replacing that equality (or its negation)
+        // with the original positive/zero predicate.
+        if matches!(s.comparison, Comparison::Eq | Comparison::Ne) {
+            let test = if equality { Test::Positive } else { Test::Zero };
+            if self.value_is_one(&s.right) && self.boolean_outcomes(&s.left) {
+                return self.holds(&s.left, test);
+            }
+            if self.value_is_one(&s.left) && self.boolean_outcomes(&s.right) {
+                return self.holds(&s.right, test);
+            }
+        }
         if equality {
             if self.value_is_zero(&s.right) {
                 return self.holds(&s.left, Test::Zero);
@@ -3745,8 +4066,30 @@ impl<'a> Builder<'a> {
                 return self.holds(&s.right, Test::Zero);
             }
         }
-        let l = self.materialize(&s.left)?;
-        let r = self.materialize(&s.right)?;
+        // For a value with proved nonnegative outcomes, nonzero is exactly
+        // positive. Retain that predicate before materializing a Boolean branch
+        // as an opaque auxiliary; signed or unknown outcomes keep the generic path.
+        if matches!(
+            (s.comparison, negate),
+            (Comparison::Ne, false) | (Comparison::Eq, true)
+        ) {
+            if self.value_is_zero(&s.right) && self.nonnegative_outcomes(&s.left) {
+                return self.holds(&s.left, Test::Positive);
+            }
+            if self.value_is_zero(&s.left) && self.nonnegative_outcomes(&s.right) {
+                return self.holds(&s.right, Test::Positive);
+            }
+        }
+        // These guards state positivity itself, including signed branch outcomes.
+        // Keep the original truth set instead of materializing its indicator.
+        if s.comparison == Comparison::Lt && !negate && self.value_is_zero(&s.left) {
+            return self.holds(&s.right, Test::Positive);
+        }
+        if s.comparison == Comparison::Le && negate && self.value_is_zero(&s.right) {
+            return self.holds(&s.left, Test::Positive);
+        }
+        let l = self.materialize(&s.left, MaterializationPurpose::PredicateComparison)?;
+        let r = self.materialize(&s.right, MaterializationPurpose::PredicateComparison)?;
         // The closed constraint `small <= large`, from a strict comparison when `strict`.
         let (small, large, strict) = match (s.comparison, negate) {
             (Comparison::Lt, false) => (l, r, true),
@@ -3838,6 +4181,820 @@ fn constant(view: CoefficientView<'_>) -> Option<Constant> {
 #[cfg(test)]
 mod exact_constant_tests {
     use super::*;
+    #[test]
+    fn nested_predicate_boolean_one_guard_preserves_compiler_domain_and_truth() {
+        crate::initialize().unwrap();
+        let request = FactorableRequest::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut builder = Builder::new(&request, &cancel, 256, 7).unwrap();
+        builder.exact_real = true;
+        let source = SemanticId::from_bytes([13; 16]);
+        let block = |value, output| Stage::Block {
+            expressions: vec![value],
+            outputs: vec![output],
+            source,
+        };
+        // The shared compiler's compound guard is Eq(indicator, true), where
+        // AND is lazy control flow: if x < 0 then (y <= 0) else false.
+        let domain = Stage::Domain {
+            stages: vec![
+                block(Atom::num(0), 2),
+                block(Atom::num(1), 3),
+                Stage::Branch {
+                    continuity: DerivativeOrder::Value,
+                    comparison: Comparison::Lt,
+                    left: 0,
+                    right: 2,
+                    then: vec![Stage::Branch {
+                        continuity: DerivativeOrder::Value,
+                        comparison: Comparison::Le,
+                        left: 1,
+                        right: 2,
+                        then: vec![block(Atom::num(1), 4)],
+                        otherwise: vec![block(Atom::num(0), 4)],
+                    }],
+                    otherwise: vec![block(Atom::num(0), 4)],
+                },
+                Stage::Branch {
+                    continuity: DerivativeOrder::Value,
+                    comparison: Comparison::Eq,
+                    left: 4,
+                    right: 3,
+                    then: vec![block(Atom::num(1), 5)],
+                    otherwise: vec![block(Atom::num(0), 5)],
+                },
+            ],
+            argument: 5,
+            token: 6,
+            lineage: Arc::new(pse_model::diagnostic::ValidityLineage {
+                layer: pse_model::generated::enums::ModelingValidityLayer::Form,
+                source,
+                form: Some(source),
+                sets: vec![],
+                variables: vec![],
+                members: vec![],
+            }),
+        };
+        let mut env = Env::new(7);
+        for column in 0..2 {
+            let node = builder.push(Node::Var(column)).unwrap();
+            env.assign(
+                column,
+                Value::Node(node),
+                Some(Arc::new(library::formal(column).unwrap())),
+            )
+            .unwrap();
+        }
+        builder
+            .stages(
+                &[domain],
+                &mut env,
+                Context {
+                    instance: source,
+                    local: false,
+                    record: true,
+                    depth: 0,
+                },
+            )
+            .unwrap();
+        assert!(builder.auxiliaries.is_empty());
+        let obligation = &builder.obligations[0];
+        assert_eq!(obligation.source, source);
+        assert!(obligation.represented);
+        let truth = Truth::When(obligation.constraints.clone(), obligation.represented);
+        for x in [-1., 0., 1.] {
+            for y in [-1., 0., 1.] {
+                assert_eq!(
+                    nested_predicate_truth_at(&truth, &builder.nodes, &[x, y]),
+                    x < 0. && y <= 0.
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn nested_predicate_boolean_one_comparisons_and_nonboolean_refusals_remain_distinct() {
+        let request = FactorableRequest::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        for reversed in [false, true] {
+            for comparison in [Comparison::Eq, Comparison::Ne] {
+                for negate in [false, true] {
+                    let mut builder = Builder::new(&request, &cancel, 256, 0).unwrap();
+                    builder.exact_real = true;
+                    let zero = Value::Node(builder.constant(Constant::integer(0)).unwrap());
+                    let one = Value::Node(builder.constant(Constant::integer(1)).unwrap());
+                    let x = Value::Node(builder.push(Node::Var(0)).unwrap());
+                    let boolean = nested_predicate_select(
+                        &mut builder,
+                        Comparison::Lt,
+                        x,
+                        zero.clone(),
+                        one.clone(),
+                        zero.clone(),
+                    );
+                    let (left, right) = if reversed {
+                        (one.clone(), boolean)
+                    } else {
+                        (boolean, one.clone())
+                    };
+                    let (then, otherwise) = if negate { (zero, one) } else { (one, zero) };
+                    let outer = nested_predicate_select(
+                        &mut builder,
+                        comparison,
+                        left,
+                        right,
+                        then,
+                        otherwise,
+                    );
+                    let truth = builder.holds(&outer, Test::Positive).unwrap();
+                    assert!(builder.auxiliaries.is_empty());
+                    for x in [-1., 0., 1.] {
+                        let expected = match comparison {
+                            Comparison::Eq => x < 0.,
+                            Comparison::Ne => x >= 0.,
+                            _ => unreachable!(),
+                        };
+                        assert_eq!(
+                            nested_predicate_truth_at(&truth, &builder.nodes, &[x]),
+                            if negate { !expected } else { expected }
+                        );
+                    }
+                }
+            }
+        }
+        let tiny = Rational::one() / Rational::from(10).pow(400);
+        for constant in [
+            Constant::Rational(Rational::new(1, 2)),
+            Constant::integer(2),
+            Constant::Rational(tiny.clone()),
+            Constant::Rational(Rational::one() + tiny),
+        ] {
+            for reversed in [false, true] {
+                for comparison in [Comparison::Eq, Comparison::Ne] {
+                    for negate in [false, true] {
+                        let mut builder = Builder::new(&request, &cancel, 256, 0).unwrap();
+                        builder.exact_real = true;
+                        let zero = Value::Node(builder.constant(Constant::integer(0)).unwrap());
+                        let one = Value::Node(builder.constant(Constant::integer(1)).unwrap());
+                        let x = Value::Node(builder.push(Node::Var(0)).unwrap());
+                        for outcome in [
+                            Value::Node(builder.constant(constant.clone()).unwrap()),
+                            x.clone(),
+                        ] {
+                            let nonboolean = nested_predicate_select(
+                                &mut builder,
+                                Comparison::Lt,
+                                x.clone(),
+                                zero.clone(),
+                                outcome,
+                                zero.clone(),
+                            );
+                            let (left, right) = if reversed {
+                                (one.clone(), nonboolean)
+                            } else {
+                                (nonboolean, one.clone())
+                            };
+                            let (then, otherwise) = if negate {
+                                (zero.clone(), one.clone())
+                            } else {
+                                (one.clone(), zero.clone())
+                            };
+                            let outer = nested_predicate_select(
+                                &mut builder,
+                                comparison,
+                                left,
+                                right,
+                                then,
+                                otherwise,
+                            );
+                            let before = builder.auxiliaries.len();
+                            builder.holds(&outer, Test::Positive).unwrap();
+                            assert!(
+                                builder.auxiliaries.len() > before,
+                                "non-Boolean outcomes retain generic projection refusal"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn nested_predicate_domain_positive_zero_guards_preserve_signed_outcomes_and_boundaries() {
+        crate::initialize().unwrap();
+        let request = FactorableRequest::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        for comparison in [Comparison::Lt, Comparison::Le] {
+            let mut builder = Builder::new(&request, &cancel, 256, 7).unwrap();
+            builder.exact_real = true;
+            let source = SemanticId::from_bytes([12; 16]);
+            let block = |expression, output| Stage::Block {
+                expressions: vec![expression],
+                outputs: vec![output],
+                source,
+            };
+            // Actual lazy stage shape: signed = if x < 0 then -1 else y;
+            // the domain consumes either 0 < signed or NOT(signed <= 0).
+            let (left, right, then, otherwise) = if comparison == Comparison::Lt {
+                (2, 4, Atom::num(1), Atom::num(0))
+            } else {
+                (4, 2, Atom::num(0), Atom::num(1))
+            };
+            let domain = Stage::Domain {
+                stages: vec![
+                    block(Atom::num(0), 2),
+                    Stage::Branch {
+                        continuity: DerivativeOrder::Value,
+                        comparison: Comparison::Lt,
+                        left: 0,
+                        right: 2,
+                        then: vec![block(Atom::num(-1), 4)],
+                        otherwise: vec![block(library::formal(1).unwrap(), 4)],
+                    },
+                    Stage::Branch {
+                        continuity: DerivativeOrder::Value,
+                        comparison,
+                        left,
+                        right,
+                        then: vec![block(then, 5)],
+                        otherwise: vec![block(otherwise, 5)],
+                    },
+                ],
+                argument: 5,
+                token: 6,
+                lineage: Arc::new(pse_model::diagnostic::ValidityLineage {
+                    layer: pse_model::generated::enums::ModelingValidityLayer::Form,
+                    source,
+                    form: Some(source),
+                    sets: vec![],
+                    variables: vec![],
+                    members: vec![],
+                }),
+            };
+            let mut env = Env::new(7);
+            for column in 0..2 {
+                let node = builder.push(Node::Var(column)).unwrap();
+                env.assign(
+                    column,
+                    Value::Node(node),
+                    Some(Arc::new(library::formal(column).unwrap())),
+                )
+                .unwrap();
+            }
+            builder
+                .stages(
+                    &[domain],
+                    &mut env,
+                    Context {
+                        instance: source,
+                        local: false,
+                        record: true,
+                        depth: 0,
+                    },
+                )
+                .unwrap();
+            assert!(
+                builder.auxiliaries.is_empty(),
+                "exact signed positivity must retain its original lazy predicate"
+            );
+            assert_eq!(builder.obligations.len(), 1);
+            let obligation = &builder.obligations[0];
+            assert_eq!(obligation.kind, ObligationKind::Domain);
+            assert_eq!(obligation.source, source);
+            assert!(obligation.represented);
+            assert_eq!(
+                obligation
+                    .constraints
+                    .iter()
+                    .filter(|constraint| constraint.strict)
+                    .count(),
+                1
+            );
+            let truth = Truth::When(obligation.constraints.clone(), obligation.represented);
+            for x in [-1., 0., 1.] {
+                for y in [-1., 0., 1.] {
+                    let signed = if x < 0. { -1. } else { y };
+                    assert_eq!(
+                        nested_predicate_truth_at(&truth, &builder.nodes, &[x, y]),
+                        signed > 0.,
+                        "{comparison:?} domain at x={x}, y={y}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn nested_predicate_materialization_identifies_actual_require_and_domain_consumers() {
+        let request = FactorableRequest::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        for required in [false, true] {
+            let mut builder = Builder::new(&request, &cancel, 256, 0).unwrap();
+            builder.exact_real = true;
+            let zero = Value::Node(builder.constant(Constant::integer(0)).unwrap());
+            let one = Value::Node(builder.constant(Constant::integer(1)).unwrap());
+            let x = Value::Node(builder.push(Node::Var(0)).unwrap());
+            let indicator = nested_predicate_select(
+                &mut builder,
+                Comparison::Lt,
+                x,
+                zero.clone(),
+                one.clone(),
+                zero.clone(),
+            );
+            let source = SemanticId::from_bytes([9; 16]);
+            let (value, stage, expected) = if required {
+                (
+                    // The originating purpose must survive symbolic sum recursion.
+                    Value::Terms(vec![indicator].into()),
+                    Stage::Require {
+                        argument: 0,
+                        condition: Condition::Positive,
+                        order: DerivativeOrder::Value,
+                        source,
+                        lineage: None,
+                    },
+                    MaterializationPurpose::RequiredCondition,
+                )
+            } else {
+                (
+                    nested_predicate_select(
+                        &mut builder,
+                        Comparison::Le,
+                        indicator,
+                        one.clone(),
+                        one,
+                        zero,
+                    ),
+                    Stage::Domain {
+                        stages: vec![],
+                        argument: 0,
+                        token: 1,
+                        lineage: Arc::new(pse_model::diagnostic::ValidityLineage {
+                            layer: pse_model::generated::enums::ModelingValidityLayer::Form,
+                            source,
+                            form: Some(source),
+                            sets: vec![],
+                            variables: vec![],
+                            members: vec![],
+                        }),
+                    },
+                    MaterializationPurpose::PredicateComparison,
+                )
+            };
+            let mut env = Env::new(2);
+            env.assign(0, value, None).unwrap();
+            builder
+                .stages(
+                    &[stage],
+                    &mut env,
+                    Context {
+                        instance: source,
+                        local: false,
+                        record: true,
+                        depth: 0,
+                    },
+                )
+                .unwrap();
+            let auxiliary = builder.auxiliaries.first().unwrap();
+            assert_eq!(auxiliary.materialization, Some(expected));
+            assert_eq!(auxiliary.role, AuxiliaryRole::Opaque(Opacity::Branch));
+            assert_eq!((auxiliary.lower, auxiliary.upper), (0., 1.));
+            // A later consumer cannot overwrite the operation that actually created
+            // the shared branch auxiliary.
+            builder
+                .materialize(
+                    &env.read(0).unwrap(),
+                    MaterializationPurpose::OriginalOutput,
+                )
+                .unwrap();
+            assert_eq!(builder.auxiliaries[0].materialization, Some(expected));
+            let mut program = tape_construction_fixture(vec![Node::Var(0)]);
+            program.variables.push(ProjectedVariable {
+                id: source,
+                domain: ModelingVariableDomain::Continuous,
+                lower: -1.,
+                upper: 1.,
+                active_lower: None,
+            });
+            program.auxiliaries = builder.auxiliaries;
+            let refusal = point_arithmetic_refusal(&program, &[], DerivativeOrder::First).unwrap();
+            use pse_diagnostics::TypedDiagnostic;
+            let facts = refusal.diagnostic_facts();
+            assert!(
+                matches!(&facts.observations["first_auxiliary_materialization"], pse_diagnostics::DiagnosticObservation::Text(actual) if actual == &format!("{expected:?}"))
+            );
+        }
+    }
+
+    fn nested_predicate_select(
+        builder: &mut Builder<'_>,
+        comparison: Comparison,
+        left: Value,
+        right: Value,
+        then: Value,
+        otherwise: Value,
+    ) -> Value {
+        let id = builder.next_select;
+        builder.next_select += 1;
+        Value::Select(Arc::new(Select {
+            id,
+            instance: SemanticId::NIL,
+            comparison,
+            left,
+            right,
+            then,
+            otherwise,
+            exact: None,
+        }))
+    }
+
+    /// Evaluate only the projected arithmetic and interval constraints. Expected
+    /// logical truth below is supplied independently by direct Boolean expressions.
+    fn nested_predicate_truth_at(truth: &Truth, nodes: &[Node], point: &[f64]) -> bool {
+        let mut values = Vec::<f64>::new();
+        for node in nodes {
+            values.push(match node {
+                Node::Var(column) => point[*column],
+                Node::Const(value) => value.value(),
+                Node::Sum(children) => children.iter().map(|child| values[*child]).sum(),
+                Node::Product(children) => children.iter().map(|child| values[*child]).product(),
+                _ => panic!("unexpected arithmetic in predicate fixture"),
+            });
+        }
+        match truth {
+            Truth::Never => false,
+            Truth::When(constraints, exact) => {
+                assert!(*exact, "fixture requires an exact represented predicate");
+                constraints.iter().all(|constraint| {
+                    let value = values[constraint.expression];
+                    (if constraint.strict && constraint.lower.is_finite() {
+                        value > constraint.lower
+                    } else {
+                        value >= constraint.lower
+                    }) && (if constraint.strict && constraint.upper.is_finite() {
+                        value < constraint.upper
+                    } else {
+                        value <= constraint.upper
+                    })
+                })
+            }
+        }
+    }
+
+    #[test]
+    fn nested_predicate_and_true_or_false_preserve_exact_corner_truth_and_strictness() {
+        let request = FactorableRequest::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        for reversed in [false, true] {
+            for comparison in [Comparison::Ne, Comparison::Eq] {
+                let mut builder = Builder::new(&request, &cancel, 256, 0).unwrap();
+                builder.exact_real = true;
+                let zero = Value::Node(builder.constant(Constant::integer(0)).unwrap());
+                let one = Value::Node(builder.constant(Constant::integer(1)).unwrap());
+                let x = Value::Node(builder.push(Node::Var(0)).unwrap());
+                let y = Value::Node(builder.push(Node::Var(1)).unwrap());
+                let a = nested_predicate_select(
+                    &mut builder,
+                    Comparison::Lt,
+                    x,
+                    zero.clone(),
+                    one.clone(),
+                    zero.clone(),
+                );
+                let b = nested_predicate_select(
+                    &mut builder,
+                    Comparison::Le,
+                    y,
+                    zero.clone(),
+                    one.clone(),
+                    zero.clone(),
+                );
+                let (left, right) = if reversed {
+                    (zero.clone(), a.clone())
+                } else {
+                    (a.clone(), zero.clone())
+                };
+                let (then, otherwise) = if comparison == Comparison::Ne {
+                    (b.clone(), zero.clone())
+                } else {
+                    (zero.clone(), b.clone())
+                };
+                let conjunction =
+                    nested_predicate_select(&mut builder, comparison, left, right, then, otherwise);
+                let and_true = builder.holds(&conjunction, Test::Positive).unwrap();
+                // De Morgan form: A OR B = NOT(NOT A AND NOT B). Consuming
+                // false must preserve both complements and their boundary polarity.
+                let not_a = nested_predicate_select(
+                    &mut builder,
+                    Comparison::Eq,
+                    a,
+                    zero.clone(),
+                    one.clone(),
+                    zero.clone(),
+                );
+                let not_b = nested_predicate_select(
+                    &mut builder,
+                    Comparison::Eq,
+                    b,
+                    zero.clone(),
+                    one.clone(),
+                    zero.clone(),
+                );
+                let (left, right) = if reversed {
+                    (zero.clone(), not_a)
+                } else {
+                    (not_a, zero.clone())
+                };
+                let (then, otherwise) = if comparison == Comparison::Ne {
+                    (not_b, zero.clone())
+                } else {
+                    (zero.clone(), not_b)
+                };
+                let neither =
+                    nested_predicate_select(&mut builder, comparison, left, right, then, otherwise);
+                let disjunction = nested_predicate_select(
+                    &mut builder,
+                    Comparison::Eq,
+                    neither,
+                    zero.clone(),
+                    one,
+                    zero,
+                );
+                let or_false = builder.holds(&disjunction, Test::Zero).unwrap();
+                assert!(
+                    builder.auxiliaries.is_empty(),
+                    "represented Boolean conjunctions must retain their original truth sets"
+                );
+                for x in [-1., 0., 1.] {
+                    for y in [-1., 0., 1.] {
+                        assert_eq!(
+                            nested_predicate_truth_at(&and_true, &builder.nodes, &[x, y]),
+                            x < 0. && y <= 0.,
+                            "AND at {x}, {y}"
+                        );
+                        assert_eq!(
+                            nested_predicate_truth_at(&or_false, &builder.nodes, &[x, y]),
+                            !(x < 0. || y <= 0.),
+                            "OR false at {x}, {y}"
+                        );
+                    }
+                }
+                assert!(
+                    matches!(and_true, Truth::When(ref constraints, true) if constraints.iter().any(|constraint| constraint.strict))
+                );
+                // The opposite disjunctive truth sets still have no conjunctive
+                // representation; the shortcut must not claim that they do.
+                assert!(matches!(
+                    builder.holds(&conjunction, Test::Zero).unwrap(),
+                    Truth::When(_, false)
+                ));
+                assert!(matches!(
+                    builder.holds(&disjunction, Test::Positive).unwrap(),
+                    Truth::When(_, false)
+                ));
+            }
+        }
+    }
+
+    #[test]
+    fn nested_predicate_nonzero_keeps_signed_unknown_and_tiny_exact_outcomes_distinct() {
+        let request = FactorableRequest::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut builder = Builder::new(&request, &cancel, 256, 0).unwrap();
+        builder.exact_real = true;
+        let zero = Value::Node(builder.constant(Constant::integer(0)).unwrap());
+        let one = Value::Node(builder.constant(Constant::integer(1)).unwrap());
+        let x = Value::Node(builder.push(Node::Var(0)).unwrap());
+        let tiny = Rational::one() / Rational::from(10).pow(400);
+        assert_eq!(
+            tiny.to_f64(),
+            0.,
+            "fixture is below binary64 representation"
+        );
+        let positive = Value::Node(builder.constant(Constant::Rational(tiny.clone())).unwrap());
+        let negative = Value::Node(builder.constant(Constant::Rational(-tiny)).unwrap());
+        let a = nested_predicate_select(
+            &mut builder,
+            Comparison::Lt,
+            x.clone(),
+            zero.clone(),
+            positive,
+            zero.clone(),
+        );
+        for reversed in [false, true] {
+            for comparison in [Comparison::Ne, Comparison::Eq] {
+                let (left, right) = if reversed {
+                    (zero.clone(), a.clone())
+                } else {
+                    (a.clone(), zero.clone())
+                };
+                let (then, otherwise) = if comparison == Comparison::Ne {
+                    (one.clone(), zero.clone())
+                } else {
+                    (zero.clone(), one.clone())
+                };
+                let outer =
+                    nested_predicate_select(&mut builder, comparison, left, right, then, otherwise);
+                let truth = builder.holds(&outer, Test::Positive).unwrap();
+                for x in [-1., 0., 1.] {
+                    assert_eq!(
+                        nested_predicate_truth_at(&truth, &builder.nodes, &[x]),
+                        x < 0.
+                    );
+                }
+            }
+        }
+        assert!(builder.auxiliaries.is_empty());
+        for outcome in [negative, x.clone()] {
+            let signed = nested_predicate_select(
+                &mut builder,
+                Comparison::Lt,
+                x.clone(),
+                zero.clone(),
+                outcome,
+                zero.clone(),
+            );
+            for reversed in [false, true] {
+                for comparison in [Comparison::Ne, Comparison::Eq] {
+                    let (left, right) = if reversed {
+                        (zero.clone(), signed.clone())
+                    } else {
+                        (signed.clone(), zero.clone())
+                    };
+                    let (then, otherwise) = if comparison == Comparison::Ne {
+                        (one.clone(), zero.clone())
+                    } else {
+                        (zero.clone(), one.clone())
+                    };
+                    let outer = nested_predicate_select(
+                        &mut builder,
+                        comparison,
+                        left,
+                        right,
+                        then,
+                        otherwise,
+                    );
+                    assert!(
+                        matches!(
+                            builder.holds(&outer, Test::Positive).unwrap(),
+                            Truth::When(_, false)
+                        ),
+                        "signed or unknown nonzero is not positive"
+                    );
+                }
+            }
+        }
+    }
+    #[test]
+    fn point_arithmetic_inventory_retains_first_original_auxiliary_and_owned_name() {
+        let mut program = tape_construction_fixture(vec![Node::Var(0)]);
+        program.variables.push(ProjectedVariable {
+            id: SemanticId::from_bytes([1; 16]),
+            domain: ModelingVariableDomain::Continuous,
+            lower: -1.,
+            upper: 1.,
+            active_lower: None,
+        });
+        let first = Auxiliary {
+            instance: SemanticId::from_bytes([5; 16]),
+            role: AuxiliaryRole::Opaque(Opacity::Function("unsupported_function".repeat(64))),
+            materialization: None,
+            lower: f64::NEG_INFINITY,
+            upper: 3.,
+            fidelity: Fidelity::Relaxed,
+        };
+        program.auxiliaries = vec![
+            first.clone(),
+            Auxiliary {
+                instance: SemanticId::from_bytes([6; 16]),
+                role: AuxiliaryRole::Opaque(Opacity::Branch),
+                materialization: Some(MaterializationPurpose::RequiredCondition),
+                lower: 0.,
+                upper: 1.,
+                fidelity: Fidelity::Relaxed,
+            },
+        ];
+        let reason = point_arithmetic_refusal(&program, &[], DerivativeOrder::First).unwrap();
+        let PointArithmeticUnavailable::Inventory {
+            auxiliaries,
+            first_auxiliary: Some(auxiliary),
+            ..
+        } = &reason
+        else {
+            panic!("expected source-owned first auxiliary");
+        };
+        assert_eq!(*auxiliaries, 2);
+        assert_eq!(auxiliary, &first);
+        let AuxiliaryRole::Opaque(Opacity::Function(name)) = &auxiliary.role else {
+            panic!("original role was replaced");
+        };
+        assert_eq!(
+            reason.retained_bytes(),
+            size_of::<PointArithmeticUnavailable>() + name.capacity()
+        );
+        use pse_diagnostics::TypedDiagnostic;
+        let facts = reason.diagnostic_facts();
+        assert_eq!(facts.sources, vec![*first.instance.as_bytes()]);
+        assert!(matches!(
+            facts.observations["auxiliaries"],
+            pse_diagnostics::DiagnosticObservation::Integer(2)
+        ));
+        assert!(matches!(
+            facts.observations["first_auxiliary_source_occurrence"],
+            pse_diagnostics::DiagnosticObservation::Missing
+        ));
+        assert!(
+            matches!(facts.observations["first_auxiliary_lower"], pse_diagnostics::DiagnosticObservation::Number(value) if value == f64::NEG_INFINITY)
+        );
+        drop(program);
+        assert_eq!(
+            auxiliary, &first,
+            "retained diagnostic owns its original auxiliary after projection release"
+        );
+    }
+    #[test]
+    fn point_arithmetic_refusal_preserves_source_predicate_and_consumed_order() {
+        let mut program = tape_construction_fixture(vec![Node::Var(0)]);
+        program.variables.push(ProjectedVariable {
+            id: SemanticId::from_bytes([1; 16]),
+            domain: ModelingVariableDomain::Continuous,
+            lower: -1.,
+            upper: 1.,
+            active_lower: None,
+        });
+        let mut guard = ProjectedObligation {
+            instance: SemanticId::from_bytes([2; 16]),
+            source: SemanticId::from_bytes([3; 16]),
+            kind: ObligationKind::Require(Condition::Positive),
+            scope: ObligationScope::Conditional,
+            argument: Some(0),
+            constraints: vec![],
+            represented: false,
+            fidelity: Fidelity::Relaxed,
+        };
+        let derivatives = vec![(DerivativeOrder::Second, guard.clone())];
+        assert!(point_arithmetic_refusal(&program, &derivatives, DerivativeOrder::First).is_none());
+        let reason =
+            point_arithmetic_refusal(&program, &derivatives, DerivativeOrder::Second).unwrap();
+        assert_eq!(
+            reason,
+            PointArithmeticUnavailable::Obligation {
+                instance: guard.instance,
+                source_id: guard.source,
+                kind: guard.kind,
+                scope: guard.scope,
+                requested: DerivativeOrder::Second,
+                minimum: DerivativeOrder::Second,
+                represented: false,
+                fidelity: Fidelity::Relaxed,
+            }
+        );
+        use pse_diagnostics::TypedDiagnostic;
+        let facts = reason.diagnostic_facts();
+        assert_eq!(
+            facts.sources,
+            vec![*guard.instance.as_bytes(), *guard.source.as_bytes()]
+        );
+        assert!(matches!(
+            facts.observations["represented"],
+            pse_diagnostics::DiagnosticObservation::Boolean(false)
+        ));
+        // Attribution and representation are separate: these failures retain the
+        // actual guard source even when its exact projection is unavailable.
+        for (represented, scope, fidelity) in [
+            (false, ObligationScope::Unconditional, Fidelity::Exact),
+            (true, ObligationScope::Conditional, Fidelity::Exact),
+            (true, ObligationScope::Unconditional, Fidelity::Relaxed),
+        ] {
+            guard.represented = represented;
+            guard.scope = scope;
+            guard.fidelity = fidelity;
+            program.obligations = vec![guard.clone()];
+            assert!(
+                matches!(point_arithmetic_refusal(&program, &[], DerivativeOrder::First),
+                Some(PointArithmeticUnavailable::Obligation { source_id, minimum: DerivativeOrder::Value, .. }) if source_id == guard.source)
+            );
+        }
+        guard.source = SemanticId::NIL;
+        program.obligations = vec![guard.clone()];
+        let unattributed = point_arithmetic_refusal(&program, &[], DerivativeOrder::First)
+            .unwrap()
+            .diagnostic_facts();
+        assert_eq!(unattributed.sources, vec![*guard.instance.as_bytes()]);
+        assert!(matches!(
+            unattributed.observations["source"],
+            pse_diagnostics::DiagnosticObservation::Missing
+        ));
+        program.obligations.clear();
+        program.variables[0].domain = ModelingVariableDomain::Integer;
+        assert!(matches!(
+            point_arithmetic_refusal(&program, &[], DerivativeOrder::First),
+            Some(PointArithmeticUnavailable::Variable { .. })
+        ));
+        assert!(point_arithmetic_refusal(&program, &[], DerivativeOrder::Value).is_none());
+    }
     #[test]
     fn process_local_interner_preserves_exact_node_identity() {
         let request = FactorableRequest::default();
