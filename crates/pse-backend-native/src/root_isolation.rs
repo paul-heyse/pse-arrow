@@ -30,6 +30,10 @@ const MAX_CELLS: u64 = 1_048_576;
 const MAX_NODES: usize = 65_536;
 const MAX_EDGES: usize = 1_048_576;
 const MAX_GUARDS: usize = 8192;
+// Source occurrences retain attribution even when an exact complete conjunction
+// emits no executable guard. Arithmetic admits a separately bounded source scan;
+// its native guard population still has the unchanged MAX_GUARDS ceiling.
+const MAX_ARITHMETIC_OBLIGATIONS: usize = 65_536;
 const MAX_INPUTS: usize = 128;
 const MAX_ALTERNATIVES: usize = 64;
 const MAX_ARITHMETIC_OUTPUTS: usize = 512;
@@ -738,6 +742,10 @@ fn source_inventory_for_profile(
     if matches!(profile, DimensionProfile::Search) {
         maximum("search_inputs", program.inputs, MAX_INPUTS)?;
     }
+    let obligation_limit = match profile {
+        DimensionProfile::Search => MAX_GUARDS,
+        DimensionProfile::Arithmetic => MAX_ARITHMETIC_OBLIGATIONS,
+    };
     for (metric, observed, limit) in [
         ("nodes", program.nodes.len(), MAX_NODES),
         (
@@ -746,11 +754,11 @@ fn source_inventory_for_profile(
             MAX_ARITHMETIC_OUTPUTS,
         ),
         ("eligibility_guards", program.eligibility.len(), MAX_GUARDS),
-        ("obligations", program.obligations.len(), MAX_GUARDS),
+        ("obligations", program.obligations.len(), obligation_limit),
         (
             "derivative_obligations",
             program.derivative_obligations.len(),
-            MAX_GUARDS,
+            obligation_limit,
         ),
     ] {
         maximum(metric, observed, limit)?;
@@ -3533,6 +3541,72 @@ mod tests {
             .unwrap()
     }
     #[test]
+    fn arithmetic_profile_retains_source_occurrences_without_manufacturing_native_guards() {
+        let mut program = arithmetic_program(vec![Node::Var(0)], vec![0]);
+        let occurrence = ProjectedObligation {
+            instance: source(),
+            source: source(),
+            kind: ObligationKind::Domain,
+            scope: ObligationScope::Unconditional,
+            argument: None,
+            constraints: vec![],
+            represented: true,
+            fidelity: Fidelity::Exact,
+        };
+        program.graph.obligations = vec![occurrence; 19_512];
+        let identity = program.graph.identity();
+        assert_eq!(
+            arithmetic_guard_ceiling(&program.graph, DerivativeOrder::First),
+            Some(0)
+        );
+        assert!(matches!(
+            source_inventory(&program.graph, DerivativeOrder::First),
+            Err(SelectionProofRefusal::Resource)
+        ));
+        for order in [
+            DerivativeOrder::Value,
+            DerivativeOrder::First,
+            DerivativeOrder::Second,
+        ] {
+            assert!(
+                Ibex::default()
+                    .point_arithmetic_preflight(&program, order)
+                    .is_ok()
+            );
+            let transport =
+                encode_for_profile(&program.graph, order, DimensionProfile::Arithmetic).unwrap();
+            assert!(transport.guards.is_empty());
+        }
+        assert!(matches!(
+            point_arithmetic(&program, 2.0),
+            PointArithmeticEvidence::Enclosed { .. }
+        ));
+        assert_eq!(program.graph.obligations.len(), 19_512);
+        program.graph.obligations[0].source = SemanticId::NIL;
+        assert_ne!(identity, program.graph.identity());
+        // An empty closure is not an empty Nonzero requirement.
+        program.graph.obligations[0].kind = ObligationKind::Require(Condition::Nonzero);
+        program.graph.obligations[0].argument = Some(0);
+        assert_eq!(
+            encode_for_profile(
+                &program.graph,
+                DerivativeOrder::First,
+                DimensionProfile::Arithmetic
+            )
+            .unwrap()
+            .guards
+            .len(),
+            1
+        );
+        assert!(matches!(
+            point_arithmetic(&program, 0.0),
+            PointArithmeticEvidence::Incomplete {
+                reason: SelectionProofRefusal::Boundary,
+                ..
+            }
+        ));
+    }
+    #[test]
     fn arithmetic_profile_source_refusals_identify_metric_and_perform_zero_work() {
         use crate::solve::{Controls, Execution, WorkAdmission, WorkEvidence};
         use pse_diagnostics::{DiagnosticObservation as O, TypedDiagnostic};
@@ -3578,8 +3652,16 @@ mod tests {
                 MAX_ARITHMETIC_OUTPUTS,
             ),
             ("eligibility_guards", MAX_GUARDS + 1, MAX_GUARDS),
-            ("obligations", MAX_GUARDS + 1, MAX_GUARDS),
-            ("derivative_obligations", MAX_GUARDS + 1, MAX_GUARDS),
+            (
+                "obligations",
+                MAX_ARITHMETIC_OBLIGATIONS + 1,
+                MAX_ARITHMETIC_OBLIGATIONS,
+            ),
+            (
+                "derivative_obligations",
+                MAX_ARITHMETIC_OBLIGATIONS + 1,
+                MAX_ARITHMETIC_OBLIGATIONS,
+            ),
             ("source_guards", MAX_GUARDS + 1, MAX_GUARDS),
             ("arithmetic_guards", MAX_GUARDS + 1, MAX_GUARDS),
             ("edges", MAX_EDGES + 1, MAX_EDGES),

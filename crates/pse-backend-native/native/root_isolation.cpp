@@ -60,7 +60,7 @@ struct Budget {
         return std::max(0.0,r.seconds-std::chrono::duration<double>(Clock::now()-started).count());
     }
 };
-// cleanup deduplicates shared nodes. The final Function owns the entire original DAG.
+// cleanup deduplicates shared nodes. Clear only after a Function adopts this DAG.
 struct Arena {
     std::vector<const ExprNode*> nodes;
     const ExprNode& keep(const ExprNode& e) { nodes.push_back(&e); return e; }
@@ -73,6 +73,8 @@ struct Arena {
     }
 };
 struct Graph {
+    // Arithmetic retains the source DAG here; native copies are destroyed first.
+    // Search transfers it to values, whose all-node output reaches every source.
     Arena arena; std::vector<const ExprNode*> expr;
     std::unique_ptr<Function> values;
     std::unique_ptr<System> residual;
@@ -123,60 +125,74 @@ struct Graph {
             }
             expr.push_back(e);
         }
-        SystemFactory factory; factory.set_simplification_level(0); factory.add_var(x);
         const uint32_t output_count=arithmetic_outputs?arithmetic_outputs:r.unknown_count;
         for(uint32_t i=0;i<output_count;++i) {
             if(r.residuals[i]>=expr.size()) throw std::invalid_argument("residual");
-            factory.add_ctr(ExprCtr(*expr[r.residuals[i]],LEQ));
-            factory.add_ctr(ExprCtr(*expr[r.residuals[i]],GEQ));
         }
-        std::vector<const ExprNode*> closure;
         for(uint32_t i=0;i<r.guard_count;++i) {
             budget.check();
             const auto& g=r.guards[i];
             if(g.node>=expr.size()||g.kind>4) throw std::invalid_argument("guard");
-            if(g.chart_only||g.kind==2) continue;
-            const double lower=g.kind>=3?0.0:g.lower;
-            const double upper=g.kind>=3?POS_INFINITY:g.upper;
-            if(std::isfinite(lower)) {
-                const auto& bound=arena.keep(*expr[g.node]-lower); closure.push_back(&bound);
-                factory.add_ctr(ExprCtr(bound,GEQ));
-            }
-            if(std::isfinite(upper)) {
-                const auto& bound=arena.keep(*expr[g.node]-upper); closure.push_back(&bound);
-                factory.add_ctr(ExprCtr(bound,LEQ));
-            }
         }
         if(r.score>=expr.size()||r.tolerance>=expr.size()) throw std::invalid_argument("selection expression");
-        if(competitive) {
-            if(!std::isfinite(threshold)) throw std::invalid_argument("competitive threshold");
-            const auto& bound=arena.keep(*expr[r.score]-threshold); closure.push_back(&bound);
-            // Keep the equality face: a tie or any better root defeats selection.
-            factory.add_ctr(ExprCtr(bound,LEQ));
+        if(competitive&&!std::isfinite(threshold)) throw std::invalid_argument("competitive threshold");
+        std::vector<const ExprNode*> closure;
+        if(!arithmetic_outputs) {
+            SystemFactory factory; factory.set_simplification_level(0); factory.add_var(x);
+            for(uint32_t i=0;i<output_count;++i) {
+                budget.check();
+                factory.add_ctr(ExprCtr(*expr[r.residuals[i]],LEQ));
+                factory.add_ctr(ExprCtr(*expr[r.residuals[i]],GEQ));
+            }
+            for(uint32_t i=0;i<r.guard_count;++i) {
+                budget.check();
+                const auto& g=r.guards[i];
+                if(g.chart_only||g.kind==2) continue;
+                const double lower=g.kind>=3?0.0:g.lower;
+                const double upper=g.kind>=3?POS_INFINITY:g.upper;
+                if(std::isfinite(lower)) {
+                    const auto& bound=arena.keep(*expr[g.node]-lower); closure.push_back(&bound);
+                    factory.add_ctr(ExprCtr(bound,GEQ));
+                }
+                if(std::isfinite(upper)) {
+                    const auto& bound=arena.keep(*expr[g.node]-upper); closure.push_back(&bound);
+                    factory.add_ctr(ExprCtr(bound,LEQ));
+                }
+            }
+            if(competitive) {
+                const auto& bound=arena.keep(*expr[r.score]-threshold); closure.push_back(&bound);
+                // Keep the equality face: a tie or any better root defeats selection.
+                factory.add_ctr(ExprCtr(bound,LEQ));
+            }
+            residual=std::make_unique<System>(factory);
         }
-        residual=std::make_unique<System>(factory);
         SystemFactory equations_factory; equations_factory.set_simplification_level(0); equations_factory.add_var(x);
         for(uint32_t i=0;i<output_count;++i) equations_factory.add_ctr_eq(*expr[r.residuals[i]]);
         equations=std::make_unique<System>(equations_factory);
-        Array<const ExprNode> outputs(static_cast<int>(expr.size()+closure.size()));
-        for(size_t i=0;i<expr.size();++i) outputs.set_ref(static_cast<int>(i),*expr[i]);
-        for(size_t i=0;i<closure.size();++i) outputs.set_ref(static_cast<int>(expr.size()+i),*closure[i]);
-        const auto& vector=arena.keep(ExprVector::new_col(outputs));
-        values=std::make_unique<Function>(x,vector);
-        arena.nodes.clear();
+        if(!arithmetic_outputs) {
+            Array<const ExprNode> outputs(static_cast<int>(expr.size()+closure.size()));
+            for(size_t i=0;i<expr.size();++i) outputs.set_ref(static_cast<int>(i),*expr[i]);
+            for(size_t i=0;i<closure.size();++i) outputs.set_ref(static_cast<int>(expr.size()+i),*closure[i]);
+            const auto& vector=arena.keep(ExprVector::new_col(outputs));
+            values=std::make_unique<Function>(x,vector);
+            arena.nodes.clear();
+        }
         auto scalar=[&](uint32_t node)->std::unique_ptr<Function> {
             budget.check();
+            Arena scalar_arena;
             const auto& input=ExprSymbol::new_("scalar_coordinates",input_dimension);
-            arena.keep(input);
-            const auto& body=arena.keep(ExprCopy().copy(Array<const ExprSymbol>(x),
+            scalar_arena.keep(input);
+            const auto& body=scalar_arena.keep(ExprCopy().copy(Array<const ExprSymbol>(x),
                 Array<const ExprSymbol>(input),*expr[node]));
             auto result=std::make_unique<Function>(input,body);
-            arena.nodes.clear();
+            scalar_arena.nodes.clear();
             return result;
         };
         // Evaluate only the relevant scalar DAG. Unrelated physical outputs can
         // cross their domains on B without invalidating a constant tolerance.
-        score_value=scalar(r.score); tolerance_value=scalar(r.tolerance);
+        if(!arithmetic_outputs) {
+            score_value=scalar(r.score); tolerance_value=scalar(r.tolerance);
+        }
         guard_values.reserve(r.guard_count);
         for(uint32_t i=0;i<r.guard_count;++i) {
             guard_values.push_back(scalar(r.guards[i].node));
@@ -447,9 +463,9 @@ extern "C" int32_t pse_ibex_point_arithmetic(const PseRootRequest* request,
             r.unknown_count==0||r.parameter_count!=0||
             output_count==0||output_count>512||r.score>=r.node_count||r.tolerance>=r.node_count||
             !std::isfinite(r.seconds)||r.seconds<=0||order>2) return 0;
-        // Dim::size() is a signed int product. Graph builds a source/guard
-        // vector and a two-sided constraint system, with rectangular AD matrices.
-        // Refuse their possible extents before constructing any native storage.
+        // Dim::size() is a signed int product. Retain the conservative source/guard
+        // and covering-system envelope even though arithmetic prepares equations
+        // and guard functions only. Refuse it before constructing native storage.
         const uint64_t source_rows=static_cast<uint64_t>(r.node_count)+2ULL*r.guard_count;
         const uint64_t constraint_rows=2ULL*(output_count+r.guard_count);
         const uint64_t rows=std::max(source_rows,constraint_rows);
