@@ -44,7 +44,7 @@ pub mod invocation_view;
 pub mod managed;
 mod manager;
 pub mod native;
-pub(crate) mod output_writer;
+pub mod observer_io;
 pub mod ownership;
 pub mod paths;
 pub mod prepared_xtask;

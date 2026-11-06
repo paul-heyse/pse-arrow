@@ -42,9 +42,21 @@ fn tree(entries: usize, key: usize, value: usize) -> usize {
     )
 }
 fn checkpoint(cancel: &pse_columnar::CancellationToken) -> Result<(), ObservationError> {
-    cancel
-        .checkpoint()
-        .map_err(|error| invalid(error.to_string()))
+    cancel.checkpoint()?;
+    Ok(())
+}
+fn encoded_extent(
+    value: &impl Serialize,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<usize, ObservationError> {
+    checkpoint(cancel)?;
+    let mut extent = Extent { bytes: 0, cancel };
+    let encoded = serde_json::to_writer(&mut extent, value);
+    // The counting writer must use io::Error, while this owner can retain the
+    // original control cause instead of mistaking cancellation for bad input.
+    checkpoint(cancel)?;
+    encoded.map_err(|error| invalid(error.to_string()))?;
+    Ok(extent.bytes)
 }
 /// Lexical storage counting needs no JSON value, string scratch buffer or index.
 /// Syntax and identity remain the existing validators' responsibility after admission.
@@ -149,8 +161,7 @@ pub(super) fn admit(
     cancel: &pse_columnar::CancellationToken,
 ) -> Result<Arc<pse_columnar::AllocationLease>, ObservationError> {
     checkpoint(cancel)?;
-    let mut encoded = Extent { bytes: 0, cancel };
-    serde_json::to_writer(&mut encoded, set).map_err(|error| invalid(error.to_string()))?;
+    encoded_extent(set, cancel)?;
     let mut state = Working::default();
     let mut numerical_copy = 0usize;
     for operation in set
@@ -192,10 +203,7 @@ pub(super) fn admit(
             }
         }
         if request.numerical_history_policy.is_some() && operation.id == request.operation {
-            let mut extent = Extent { bytes: 0, cancel };
-            serde_json::to_writer(&mut extent, operation)
-                .map_err(|error| invalid(error.to_string()))?;
-            numerical_copy = extent.bytes.saturating_mul(4);
+            numerical_copy = encoded_extent(operation, cancel)?.saturating_mul(4);
         }
     }
     for record in &set.records {
@@ -308,10 +316,9 @@ pub(super) fn admit(
         checkpoint(cancel)?;
         state.sources = state.sources.saturating_add(trace.observations.len());
         for observation in &trace.observations {
-            let mut extent = Extent { bytes: 0, cancel };
-            serde_json::to_writer(&mut extent, observation)
-                .map_err(|error| invalid(error.to_string()))?;
-            state.largest_tuple = state.largest_tuple.max(extent.bytes);
+            state.largest_tuple = state
+                .largest_tuple
+                .max(encoded_extent(observation, cancel)?);
             if let Some(execution) = &observation.execution {
                 state.sources = state.sources.saturating_add(execution.metrics.len());
             }
@@ -383,7 +390,7 @@ pub(super) fn admit(
     let reservation = pse_columnar::MemoryConsumer::new("review:analysis").register(pool);
     reservation
         .try_grow(capacity)
-        .map_err(|error| invalid(format!("analysis allocation admission refused: {error}")))?;
+        .map_err(pse_columnar::CanonError::from)?;
     checkpoint(cancel)?;
     // This parse happens under its already reserved decoded footprint. An occurrence
     // duplicates its checked-member terms for every matched slot/addend in the helper;
@@ -437,11 +444,9 @@ pub(super) fn admit(
     if projection == usize::MAX {
         return Err(invalid("analysis source-map projection extent overflow"));
     }
-    reservation.try_grow(projection).map_err(|error| {
-        invalid(format!(
-            "analysis source-map allocation admission refused: {error}"
-        ))
-    })?;
+    reservation
+        .try_grow(projection)
+        .map_err(pse_columnar::CanonError::from)?;
     checkpoint(cancel)?;
     Ok(pse_columnar::AllocationLease::new(reservation))
 }
@@ -462,6 +467,51 @@ pub(super) fn same_record(left: &CoherentRecord, right: &CoherentRecord) -> bool
                 && left.value == right.value
                 && left.availability == right.availability
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct CancelWhileCounting<'a>(&'a pse_columnar::CancellationToken);
+    impl Serialize for CancelWhileCounting<'_> {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            self.0.cancel();
+            serializer.serialize_str("a supplied source value")
+        }
+    }
+
+    #[test]
+    fn extent_counting_retains_original_cancellation_instead_of_writer_format_error() {
+        let cancel = pse_columnar::CancellationToken::new();
+        let error = encoded_extent(&CancelWhileCounting(&cancel), &cancel).unwrap_err();
+        assert!(matches!(
+            error,
+            ObservationError::Columnar(pse_columnar::CanonError::Cancelled)
+        ));
+        assert_eq!(
+            pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+            Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled)
+        );
+    }
+
+    struct InvalidSource;
+    impl Serialize for InvalidSource {
+        fn serialize<S: serde::Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
+            Err(serde::ser::Error::custom("invalid supplied source"))
+        }
+    }
+
+    #[test]
+    fn uncancelled_extent_format_failure_remains_source_owned() {
+        let error =
+            encoded_extent(&InvalidSource, &pse_columnar::CancellationToken::new()).unwrap_err();
+        assert!(matches!(error, ObservationError::Format(_)));
+        assert_eq!(
+            pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+            Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure)
+        );
+    }
 }
 pub(super) fn selections(
     set: &FrozenEvidenceSet,

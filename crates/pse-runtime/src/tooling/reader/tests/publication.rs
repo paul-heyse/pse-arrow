@@ -118,7 +118,7 @@ fn page(evidence: &Evidence, correlation: &str) -> serde_json::Value {
             cursor: None,
         },
     );
-    let reply = encode(&bytes).unwrap();
+    let reply = encode(&bytes, &pse_columnar::CancellationToken::new()).unwrap();
     assert_eq!(reply.exit_code(), 0);
     serde_json::from_slice(reply.bytes()).unwrap()
 }

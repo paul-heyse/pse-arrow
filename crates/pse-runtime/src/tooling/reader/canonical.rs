@@ -91,9 +91,11 @@ pub(super) fn encode(
     correlation: String,
     selection: CanonicalReadSelection,
     read: Read,
+    cancel: &pse_columnar::CancellationToken,
 ) -> Result<EncodedResponse, ReaderError> {
     let deadline = Instant::now() + Duration::from_millis(selection.timeout_ms);
     let result = (|| {
+        cancel.checkpoint()?;
         let options = CanonicalOptions::from_state_for_database(
             &selection.state,
             selection.database.as_deref(),
@@ -106,19 +108,28 @@ pub(super) fn encode(
         executor.block_on(pse_operations::canonical::operation_scope(
             deadline,
             async {
+                cancel.checkpoint()?;
+                // Connection acquisition retains its native clock and partial-acquisition
+                // owner. Only race reads once an acquired store can be explicitly drained.
                 let store = CanonicalStore::connect(&options).await.map_err(canonical)?;
                 let operation = async {
+                    cancel.checkpoint()?;
                     store.open().await.map_err(canonical)?;
                     let services =
                         RetainedDataServices::new(store.clone(), model).map_err(workflow)?;
                     let output = async {
+                        cancel.checkpoint()?;
                         let payload = match read {
                             Read::Study { request, cursor } => {
-                                let mut observer = services
-                                    .observe_study(request, cursor)
-                                    .await
+                                let mut observer = cancel
+                                    .until_cancelled(services.observe_study(request, cursor))
+                                    .await?
                                     .map_err(workflow)?;
-                                let observed = observer.poll().await.map_err(workflow);
+                                let observed = cancel
+                                    .until_cancelled(observer.poll())
+                                    .await
+                                    .map_err(ReaderError::from)
+                                    .and_then(|result| result.map_err(workflow));
                                 observer.close();
                                 Payload::Study {
                                     page: Box::new(observed?),
@@ -126,16 +137,18 @@ pub(super) fn encode(
                             }
                             Read::Attempt { request } => Payload::Attempt {
                                 page: Box::new(
-                                    services.observe_attempt(request).await.map_err(workflow)?,
+                                    cancel
+                                        .until_cancelled(services.observe_attempt(request))
+                                        .await?
+                                        .map_err(workflow)?,
                                 ),
                             },
                         };
+                        cancel.checkpoint()?;
                         let owned = response(correlation.clone(), Ok(payload));
                         // The original page's protected read/capture/allocation is live here.
                         // No detached generic JSON copy replaces that custody boundary.
-                        let encoded = encode_response(&owned);
-                        drop(owned);
-                        encoded
+                        encode_response(owned)
                     }
                     .await;
                     // The typed page was encoded and dropped before closing admission.
@@ -150,7 +163,7 @@ pub(super) fn encode(
                     .map_err(canonical);
                 match (operation, cleanup) {
                     (result, Ok(())) => result,
-                    (Ok(_), Err(error)) => Err(error),
+                    (Ok(output), Err(error)) => Err(output.settlement_failed(error)),
                     (Err(operation), Err(cleanup)) => Err(ReaderError::Settlement {
                         operation: Box::new(operation),
                         cleanup: Box::new(cleanup),
@@ -161,6 +174,6 @@ pub(super) fn encode(
     })();
     match result {
         Ok(output) => Ok(output),
-        Err(error) => encode_response(&response(correlation, Err(error))),
+        Err(error) => encode_response(response(correlation, Err(error))),
     }
 }

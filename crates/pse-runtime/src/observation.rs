@@ -79,6 +79,9 @@ const PUBLICATION_INTERVAL: Duration = Duration::from_secs(1);
 /// Diagnostic-only checkpoint failure; it supplies no scientific conclusion.
 #[derive(Debug, thiserror::Error)]
 pub enum ObservationError {
+    /// Original native allocation or cancellation cause from passive analysis.
+    #[error(transparent)]
+    Columnar(#[from] pse_columnar::CanonError),
     /// The optional checkpoint could not be read or written.
     #[error("diagnostic checkpoint I/O: {0}")]
     Io(#[from] std::io::Error),
@@ -88,8 +91,8 @@ pub enum ObservationError {
 }
 pse_diagnostics::impl_diagnostic! {
     ObservationError,
-    code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
-    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+    code(this) { match this { Self::Columnar(_) => None, _ => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) } },
+    forward(this) { match this { Self::Columnar(error) => Some(error), _ => None } }, help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 
 type CheckpointVersion = pse_model::document::Version<6>;

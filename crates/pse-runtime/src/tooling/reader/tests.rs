@@ -60,7 +60,11 @@ fn managed_launch_candidate_is_transport_only_and_mismatch_never_relabels_select
                 .start_ticks += 1;
         }
         std::fs::write(owner.checkpoint_path(), serde_json::to_vec(&image).unwrap()).unwrap();
-        let encoded = encode(&request("observer", selected.clone())).unwrap();
+        let encoded = encode(
+            &request("observer", selected.clone()),
+            &pse_columnar::CancellationToken::new(),
+        )
+        .unwrap();
         assert_eq!(encoded.exit_code(), 0);
         let value: serde_json::Value = serde_json::from_slice(encoded.bytes()).unwrap();
         assert_eq!(value["payload"]["kind"], "inspection");

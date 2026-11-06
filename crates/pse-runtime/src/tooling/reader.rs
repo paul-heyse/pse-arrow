@@ -25,7 +25,7 @@ use schemars::{JsonSchema, Schema, generate::SchemaSettings};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    io::{Read, Write},
+    io::Read,
     os::unix::fs::MetadataExt as _,
     path::{Path, PathBuf},
 };
@@ -237,8 +237,8 @@ pub struct Failure {
     pub message: String,
     /// Original ordinary error causes, in order.
     pub causes: Vec<String>,
-    /// Source-owned typed diagnostic for the selected developer-evidence family.
-    /// Absence retains the historical source family's existing coverage.
+    /// Source-owned typed diagnostic, including independent related failures.
+    /// Absence retains historical coverage or a transport extent refusal.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub native: Option<pse_host::envelope::ErrorRecord>,
 }
@@ -461,6 +461,10 @@ pub struct ReaderResponse {
     next_request: Option<Box<serde_json::value::RawValue>>,
     /// Candidate association only; native host custody and current membership require readback.
     managed_invocation: Option<pse_diagnostics::process_facts::ManagedInvocationCandidate>,
+    /// The original native failure stays owned through encoding/delivery, never decoded from facts.
+    #[serde(skip)]
+    #[schemars(skip)]
+    original_failure: Option<Box<ReaderError>>,
 }
 /// Concrete native protocol failure; read availability stays in a valid typed response.
 #[derive(Debug, thiserror::Error)]
@@ -486,6 +490,9 @@ pub enum ReaderError {
     /// Original supplied developer evidence, native projection or analytical query refusal.
     #[error(transparent)]
     Developer(#[from] super::review_query::developer::Error),
+    /// Original caller-owned observation cancellation or allocation failure.
+    #[error(transparent)]
+    Columnar(#[from] pse_columnar::CanonError),
     /// Original selected evidence export owner failure.
     #[error(transparent)]
     Pack(#[from] super::review_pack::PackError),
@@ -498,15 +505,26 @@ pub enum ReaderError {
         /// Original independently attempted client drain failure.
         cleanup: Box<ReaderError>,
     },
+    /// A native refusal and an independently failed delivery of its response.
+    #[error(
+        "product response retained its original refusal: {response}; delivery also failed: {transport}"
+    )]
+    Delivery {
+        /// The original native operation/settlement failure, not reconstructed observations.
+        #[source]
+        response: Box<ReaderError>,
+        /// Actual response encoding, cancellation or output error.
+        transport: Box<ReaderError>,
+    },
     /// A malformed selection, changed continuation, or unsupported bound.
     #[error("product reader selection: {0}")]
     Invalid(String),
 }
 pse_diagnostics::impl_diagnostic! {
     ReaderError,
-    code(this) { if matches!(this, Self::Developer(_)) { None } else { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) } },
-    forward(this) { match this { Self::Identity(error) => Some(error),Self::Canonical(error)=>Some(error.as_ref()),Self::Workflow(error)=>Some(error.as_ref()),Self::Capture(error)=>Some(error),Self::Developer(error)=>Some(error),Self::Pack(error)=>Some(error), _ => None } },
-    help(_this) { None }, related(this) { match this {Self::Settlement{operation,cleanup}=>{let errors:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()];Some(Box::new(errors.into_iter()))},_=>None} }, source(_this) { None }
+    code(this) { match this { Self::Identity(_) | Self::Canonical(_) | Self::Workflow(_) | Self::Capture(_) | Self::Developer(_) | Self::Columnar(_) | Self::Pack(_) => None, _ => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) } },
+    forward(this) { match this { Self::Identity(error) => Some(error),Self::Canonical(error)=>Some(error.as_ref()),Self::Workflow(error)=>Some(error.as_ref()),Self::Capture(error)=>Some(error),Self::Developer(error)=>Some(error),Self::Columnar(error)=>Some(error),Self::Pack(error)=>Some(error), _ => None } },
+    help(_this) { None }, related(this) { match this {Self::Settlement{operation,cleanup} | Self::Delivery {response:operation,transport:cleanup} =>{let errors:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()];Some(Box::new(errors.into_iter()))},_=>None} }, source(_this) { None }
 }
 fn hash(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
@@ -745,7 +763,11 @@ fn managed_candidate(
         })
         .cloned()
 }
-fn handle(request: Request) -> Result<Payload, ReaderError> {
+fn handle(
+    request: Request,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<Payload, ReaderError> {
+    cancel.checkpoint()?;
     match request {
         Request::Discover => Ok(Payload::Discovery {
             package_version: env!("CARGO_PKG_VERSION"),
@@ -768,7 +790,7 @@ fn handle(request: Request) -> Result<Payload, ReaderError> {
             invocation,
             resume,
         } => follow::sample(source, request, invocation, resume),
-        Request::Investigate { request } => investigation::handle(request),
+        Request::Investigate { request } => investigation::handle(request, cancel),
         Request::Processes {
             directory,
             limit,
@@ -1029,17 +1051,19 @@ fn decode(bytes: &[u8]) -> Result<ReaderRequest, ReaderError> {
     Ok(request)
 }
 fn response(correlation: String, result: Result<Payload, ReaderError>) -> ReaderResponse {
-    let (category, payload) = match result {
-        Ok(payload) => (Category::Success, payload),
+    let (category, payload, original_failure) = match result {
+        Ok(payload) => (Category::Success, payload, None),
         Err(error) => {
             let mut failure = Failure::capture("request.refused", &error);
-            if matches!(&error, ReaderError::Developer(_)) {
-                failure.native = Some(pse_host::envelope::ErrorRecord::from_typed(
-                    &error,
-                    &pse_host::envelope::RedactionPolicy::from_environment(),
-                ));
-            }
-            (Category::Refused, Payload::Refusal { failure })
+            failure.native = Some(pse_host::envelope::ErrorRecord::from_typed(
+                &error,
+                &pse_host::envelope::RedactionPolicy::from_environment(),
+            ));
+            (
+                Category::Refused,
+                Payload::Refusal { failure },
+                Some(Box::new(error)),
+            )
         }
     };
     let next_request = match &payload {
@@ -1066,12 +1090,14 @@ fn response(correlation: String, result: Result<Payload, ReaderError>) -> Reader
         payload,
         next_request,
         managed_invocation,
+        original_failure,
     }
 }
 /// Complete producer-owned frame after all required protected page/client owners settled.
 pub struct EncodedResponse {
     frame: Vec<u8>,
     code: i32,
+    original_failure: Option<Box<ReaderError>>,
 }
 impl std::fmt::Debug for EncodedResponse {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1091,15 +1117,47 @@ impl EncodedResponse {
     pub fn exit_code(&self) -> i32 {
         self.code
     }
+    /// Preserve a native refusal if its actual encoding/output/cancellation also fails.
+    /// The original typed error is retained directly, never reconstructed from the wire frame.
+    pub fn delivery_failed(self, transport: ReaderError) -> ReaderError {
+        delivery_failure(self.original_failure, transport)
+    }
+    fn settlement_failed(self, cleanup: ReaderError) -> ReaderError {
+        match self.original_failure {
+            Some(operation) => ReaderError::Settlement {
+                operation,
+                cleanup: Box::new(cleanup),
+            },
+            None => cleanup,
+        }
+    }
 }
-fn encode_response(response: &ReaderResponse) -> Result<EncodedResponse, ReaderError> {
-    let mut frame = serde_json::to_vec(response)?;
+fn delivery_failure(original: Option<Box<ReaderError>>, transport: ReaderError) -> ReaderError {
+    match original {
+        Some(response) => ReaderError::Delivery {
+            response,
+            transport: Box::new(transport),
+        },
+        None => transport,
+    }
+}
+fn encode_response(mut response: ReaderResponse) -> Result<EncodedResponse, ReaderError> {
+    let mut frame = match serde_json::to_vec(&response) {
+        Ok(frame) => frame,
+        Err(error) => {
+            return Err(delivery_failure(
+                response.original_failure.take(),
+                error.into(),
+            ));
+        }
+    };
     let mut code = if response.category == Category::Success {
         0
     } else {
         2
     };
     if frame.len().saturating_add(1) > RESPONSE_BYTES {
+        let extent = invalid("whole product response exceeds its declared transport extent");
         let refusal = ReaderResponse {
             protocol: Protocol::ProductReader,
             version: Version,
@@ -1107,23 +1165,45 @@ fn encode_response(response: &ReaderResponse) -> Result<EncodedResponse, ReaderE
             schema: RESPONSE_SCHEMA,
             category: Category::Refused,
             payload: Payload::Refusal {
-                failure: Failure::capture(
-                    "response.extent",
-                    &invalid("whole product response exceeds its declared transport extent"),
-                ),
+                failure: Failure::capture("response.extent", &extent),
             },
             next_request: None,
             managed_invocation: None,
+            original_failure: None,
         };
-        frame = serde_json::to_vec(&refusal)?;
+        frame = match serde_json::to_vec(&refusal) {
+            Ok(frame) => frame,
+            Err(error) => {
+                return Err(delivery_failure(
+                    response.original_failure.take(),
+                    error.into(),
+                ));
+            }
+        };
+        response.original_failure = Some(Box::new(delivery_failure(
+            response.original_failure.take(),
+            extent,
+        )));
         code = 2;
     }
     frame.push(b'\n');
-    Ok(EncodedResponse { frame, code })
+    Ok(EncodedResponse {
+        frame,
+        code,
+        original_failure: response.original_failure.take(),
+    })
 }
 /// Decode one passive request and encode its owned native response before releasing custody.
 /// Canonical pages remain typed and protected through encoding, then join owned client drain.
-pub fn encode(bytes: &[u8]) -> Result<EncodedResponse, ReaderError> {
+/// The caller's token stops only this observer's query/capture/read. This synchronous boundary
+/// retains its native joins; an async process root must join its blocking task rather than drop it.
+pub fn encode(
+    bytes: &[u8],
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<EncodedResponse, ReaderError> {
+    if let Err(error) = cancel.checkpoint() {
+        return encode_response(response(correlation(bytes), Err(error.into())));
+    }
     match decode(bytes) {
         Ok(ReaderRequest {
             correlation,
@@ -1138,31 +1218,25 @@ pub fn encode(bytes: &[u8]) -> Result<EncodedResponse, ReaderError> {
             correlation,
             canonical,
             canonical::Read::Study { request, cursor },
+            cancel,
         ),
         Ok(ReaderRequest {
             correlation,
             request: Request::Attempt { canonical, request },
             ..
-        }) => canonical::encode(correlation, canonical, canonical::Read::Attempt { request }),
+        }) => canonical::encode(
+            correlation,
+            canonical,
+            canonical::Read::Attempt { request },
+            cancel,
+        ),
         Ok(ReaderRequest {
             correlation,
             request,
             ..
-        }) => encode_response(&response(correlation, handle(request))),
-        Err(error) => encode_response(&response(correlation(bytes), Err(error))),
+        }) => encode_response(response(correlation, handle(request, cancel))),
+        Err(error) => encode_response(response(correlation(bytes), Err(error))),
     }
-}
-/// One bounded stdin request and one privately prepared stdout frame. No partial serialization
-/// can become evidence; an actual output I/O failure remains a transport failure.
-pub fn serve(mut input: impl Read, mut output: impl Write) -> Result<i32, ReaderError> {
-    let mut bytes = Vec::new();
-    input
-        .by_ref()
-        .take((REQUEST_BYTES + 1) as u64)
-        .read_to_end(&mut bytes)?;
-    let encoded = encode(&bytes)?;
-    output.write_all(encoded.bytes())?;
-    Ok(encoded.exit_code())
 }
 #[cfg(test)]
 mod tests;

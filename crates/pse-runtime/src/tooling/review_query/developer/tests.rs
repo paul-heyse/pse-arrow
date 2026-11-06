@@ -408,7 +408,11 @@ fn existing_passive_reader_protocol_executes_the_registered_developer_query() {
             },
         },
     };
-    let encoded = reader::encode(&serde_json::to_vec(&request).unwrap()).unwrap();
+    let encoded = reader::encode(
+        &serde_json::to_vec(&request).unwrap(),
+        &CancellationToken::new(),
+    )
+    .unwrap();
     assert_eq!(encoded.exit_code(), 0);
     let response: serde_json::Value = serde_json::from_slice(encoded.bytes()).unwrap();
     let answer = &response["payload"]["result"]["analysis"];
@@ -425,7 +429,11 @@ fn existing_passive_reader_protocol_executes_the_registered_developer_query() {
         panic!("original registered request changed")
     };
     selected.memory_bytes = NonZeroUsize::new(1).unwrap();
-    let encoded = reader::encode(&serde_json::to_vec(&request).unwrap()).unwrap();
+    let encoded = reader::encode(
+        &serde_json::to_vec(&request).unwrap(),
+        &CancellationToken::new(),
+    )
+    .unwrap();
     assert_ne!(encoded.exit_code(), 0);
     let refusal: serde_json::Value = serde_json::from_slice(encoded.bytes()).unwrap();
     assert_eq!(refusal["payload"]["failure"]["code"], "request.refused");

@@ -4,7 +4,11 @@ use super::*;
 use pse_diagnostics::observation::{ProducerRole, RecordField, Value};
 
 fn read(request: Request) -> serde_json::Value {
-    let response = encode(&super::request("observer", request)).unwrap();
+    let response = encode(
+        &super::request("observer", request),
+        &pse_columnar::CancellationToken::new(),
+    )
+    .unwrap();
     serde_json::from_slice(response.bytes()).unwrap()
 }
 fn next(response: &serde_json::Value) -> Request {

@@ -169,43 +169,41 @@ fn analyze(
     evidence: &frozen_inspection::FrozenEvidenceSet,
     request: &review_analysis::AnalysisRequest,
     memory: NonZeroUsize,
+    cancel: &pse_columnar::CancellationToken,
 ) -> Result<review_analysis::Analysis, ReaderError> {
     let pool: Arc<dyn pse_columnar::MemoryPool> =
         Arc::new(pse_columnar::GreedyMemoryPool::new(memory.get()));
-    review_analysis::analyze(
-        evidence,
-        request,
-        &pool,
-        &pse_columnar::CancellationToken::new(),
-    )
-    .map_err(ReaderError::Identity)
+    review_analysis::analyze(evidence, request, &pool, cancel).map_err(ReaderError::Identity)
 }
-fn collect(request: capture::CaptureRequest) -> Result<capture::CaptureDocument, ReaderError> {
-    // Register before attachment. A host stop is a request to join only this collector;
-    // default signal termination must not bypass CaptureSession's child settlement.
+fn collect(
+    request: capture::CaptureRequest,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<capture::CaptureDocument, ReaderError> {
+    // The process root supplies stop. This owner joins only its collector before returning;
+    // no public library call installs process-global signal policy.
+    cancel.checkpoint()?;
     let executor = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
     executor.block_on(async {
-        let mut interrupt =
-            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
-        let mut terminate =
-            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
         let session = capture::start_capture(request)?;
         while !session.is_finished() {
             tokio::select! {
-                _ = interrupt.recv() => return Ok(session.stop()?),
-                _ = terminate.recv() => return Ok(session.stop()?),
+                _ = cancel.cancelled() => return Ok(session.stop()?),
                 _ = tokio::time::sleep(Duration::from_millis(25)) => {},
             }
         }
         Ok(session.wait()?)
     })
 }
-pub(super) fn handle(request: Request) -> Result<Payload, ReaderError> {
+pub(super) fn handle(
+    request: Request,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<Payload, ReaderError> {
+    cancel.checkpoint()?;
     let result = match request {
         Request::Capture { request } => ResultView::Capture {
-            document: collect(request)?,
+            document: collect(request, cancel)?,
         },
         Request::FrozenInspect {
             evidence: path,
@@ -226,7 +224,7 @@ pub(super) fn handle(request: Request) -> Result<Payload, ReaderError> {
         } => {
             let evidence = evidence(&path)?;
             ResultView::Analyze {
-                analysis: analyze(&evidence, &request, memory_bytes)?,
+                analysis: analyze(&evidence, &request, memory_bytes, cancel)?,
             }
         }
         Request::DeveloperAnalyze { request } => {
@@ -234,10 +232,7 @@ pub(super) fn handle(request: Request) -> Result<Payload, ReaderError> {
                 .enable_all()
                 .build()?;
             ResultView::DeveloperAnalyze {
-                analysis: executor.block_on(review_query::developer::analyze(
-                    request,
-                    &pse_columnar::CancellationToken::new(),
-                ))?,
+                analysis: executor.block_on(review_query::developer::analyze(request, cancel))?,
             }
         }
         Request::QuerySpecification { request } => ResultView::QuerySpecification {
@@ -253,12 +248,9 @@ pub(super) fn handle(request: Request) -> Result<Payload, ReaderError> {
             files,
         } => {
             let evidence = evidence(&path)?;
-            let analysis = analyze(&evidence, &request, memory_bytes)?;
-            let mut pack = review_pack::PackSession::create(
-                &destination,
-                selection,
-                pse_columnar::CancellationToken::new(),
-            )?;
+            let analysis = analyze(&evidence, &request, memory_bytes, cancel)?;
+            let mut pack =
+                review_pack::PackSession::create(&destination, selection, cancel.clone())?;
             pack.add_frozen(&evidence)?;
             pack.add_analysis(analysis.document())?;
             pack.copy_files(&files)?;

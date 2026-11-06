@@ -1015,11 +1015,21 @@ fn analysis_preparation_refuses_tiny_pool_and_holds_owner_through_encoding() {
     let (set, request) = fixture();
     let tiny: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1));
     let cancel = pse_columnar::CancellationToken::new();
-    assert!(
-        analyze(&set, &request, &tiny, &cancel)
-            .unwrap_err()
-            .to_string()
-            .contains("admission refused")
+    let error = analyze(&set, &request, &tiny, &cancel).unwrap_err();
+    assert!(matches!(
+        error,
+        ObservationError::Columnar(pse_columnar::CanonError::NativeResource(
+            datafusion::common::DataFusionError::ResourcesExhausted(_)
+        ))
+    ));
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit)
+    );
+    let wrapped = crate::observation_detail::CaptureError::Observation(error);
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&wrapped),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit)
     );
     assert_eq!(tiny.reserved(), 0);
     let pool: Arc<dyn pse_columnar::MemoryPool> =
@@ -1032,7 +1042,74 @@ fn analysis_preparation_refuses_tiny_pool_and_holds_owner_through_encoding() {
     drop(output);
     assert_eq!(pool.reserved(), 0);
     cancel.cancel();
-    assert!(analyze(&set, &request, &pool, &cancel).is_err());
+    assert_native_cancelled(&analyze(&set, &request, &pool, &cancel).unwrap_err());
+    assert_eq!(pool.reserved(), 0);
+}
+
+fn assert_native_cancelled(error: &ObservationError) {
+    assert!(matches!(
+        error,
+        ObservationError::Columnar(pse_columnar::CanonError::Cancelled)
+    ));
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(error),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled)
+    );
+}
+
+#[test]
+fn capture_observation_wrapper_retains_native_analysis_cancellation() {
+    let error = crate::observation_detail::CaptureError::Observation(ObservationError::Columnar(
+        pse_columnar::CanonError::Cancelled,
+    ));
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled)
+    );
+    let format = crate::observation_detail::CaptureError::Observation(ObservationError::Format(
+        "invalid original source selection".into(),
+    ));
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&format),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure)
+    );
+}
+
+#[test]
+fn cancelled_native_event_analysis_retains_cause_and_releases_admitted_owner() {
+    let (mut set, request) = fixture();
+    let original = record(&mut set, "evaluator.calls", "accepted", 1, vec![]);
+    set.records.push(original);
+    let pool: Arc<dyn pse_columnar::MemoryPool> =
+        Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20));
+    let cancel = pse_columnar::CancellationToken::new();
+    let Analysis { document, lease } = analyze(&set, &request, &pool, &cancel).unwrap();
+    assert!(pool.reserved() > 0);
+    let selections = document.selections.clone();
+    let mut builder = Builder {
+        document,
+        inspected: BTreeSet::new(),
+        omitted: BTreeSet::new(),
+        statements: 0,
+        cancel: cancel.clone(),
+    };
+    // Exercise the existing event-analysis boundary with the real admitted owner,
+    // then cancel at a deterministic phase boundary rather than racing a timer.
+    assert_eq!(
+        events(&set, &[request.operation], &selections, &mut builder)
+            .unwrap()
+            .len(),
+        1
+    );
+    cancel.cancel();
+    let error = match events(&set, &[request.operation], &selections, &mut builder) {
+        Err(error) => error,
+        Ok(_) => panic!("cancelled event analysis must not fabricate a successful result"),
+    };
+    assert_native_cancelled(&error);
+    assert!(pool.reserved() > 0);
+    drop(builder);
+    drop(lease);
     assert_eq!(pool.reserved(), 0);
 }
 
@@ -1219,7 +1296,7 @@ fn cancellation_during_preparation_releases_reservation_before_validation() {
         cancel: cancel.clone(),
     });
     let error = analyze(&set, &request, &pool, &cancel).unwrap_err();
-    assert!(error.to_string().to_lowercase().contains("cancel"));
+    assert_native_cancelled(&error);
     assert_eq!(pool.reserved(), 0);
 }
 

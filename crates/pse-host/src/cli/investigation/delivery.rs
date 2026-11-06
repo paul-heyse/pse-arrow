@@ -22,7 +22,7 @@ impl Write for Frames {
     }
 }
 pub(super) async fn stdout(mut frames: mpsc::Receiver<Vec<u8>>) -> io::Result<()> {
-    let output = crate::output_writer::Writer::new(io::stdout())?;
+    let output = crate::observer_io::Writer::new(io::stdout())?;
     while let Some(frame) = frames.recv().await {
         output.write(&frame).await?;
     }

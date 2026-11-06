@@ -8,6 +8,8 @@
     reason = "product operator reports an actionable terminal refusal"
 )]
 use clap::{Parser, Subcommand};
+#[path = "project/observe.rs"]
+mod observe;
 #[path = "project/error.rs"]
 #[cfg(feature = "product-operators")]
 mod operator_error;
@@ -18,7 +20,6 @@ mod project_runtime;
 #[cfg(feature = "product-operators")]
 mod project_tools;
 #[path = "support/signals.rs"]
-#[cfg(feature = "product-operators")]
 mod signals;
 #[derive(Parser)]
 struct Cli {
@@ -36,10 +37,7 @@ fn main() -> std::process::ExitCode {
     let result: Result<i32, Box<dyn std::error::Error + Send + Sync>> = match Cli::parse().command {
         #[cfg(feature = "product-operators")]
         Command::Project(args) => project_tools::run(*args).map(|()| 0),
-        Command::Observe => {
-            pse_runtime::tooling::reader::serve(std::io::stdin().lock(), std::io::stdout().lock())
-                .map_err(Into::into)
-        }
+        Command::Observe => observe::run(),
     };
     match result {
         Ok(code) => std::process::ExitCode::from(u8::try_from(code).unwrap_or(125)),

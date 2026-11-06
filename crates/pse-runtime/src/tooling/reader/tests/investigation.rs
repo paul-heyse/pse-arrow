@@ -3,6 +3,37 @@
 use super::*;
 
 #[test]
+fn cancelled_request_refuses_at_the_public_encoder_before_source_access() {
+    let directory = tempfile::tempdir().unwrap();
+    let cancel = pse_columnar::CancellationToken::new();
+    cancel.cancel();
+    let request = ReaderRequest {
+        protocol: Protocol::ProductReader,
+        version: Version,
+        correlation: "stopped-before-source".into(),
+        access: Access::Passive,
+        request: Request::Investigate {
+            request: InvestigationRequest::FrozenInspect {
+                evidence: directory.path().join("missing-original.json"),
+                request: FrozenInspectionRequest {
+                    version: Version,
+                    inspection: InspectionRequest::new(operation()),
+                    window: RecordedWindow::Recorded,
+                },
+            },
+        },
+    };
+    let encoded = encode(&serde_json::to_vec(&request).unwrap(), &cancel).unwrap();
+    assert_ne!(encoded.exit_code(), 0);
+    let answer: serde_json::Value = serde_json::from_slice(encoded.bytes()).unwrap();
+    assert_eq!(answer["correlation"], "stopped-before-source");
+    assert_eq!(
+        answer["payload"]["failure"]["native"]["code"],
+        pse_diagnostics::DiagnosticCode::RuntimeCancelled.as_str()
+    );
+}
+
+#[test]
 fn developer_cancellation_response_retains_the_original_native_control_code() {
     let cancel = pse_columnar::CancellationToken::new();
     cancel.cancel();
@@ -10,7 +41,7 @@ fn developer_cancellation_response_retains_the_original_native_control_code() {
     let error = ReaderError::Developer(crate::tooling::review_query::developer::Error::Columnar(
         cause,
     ));
-    let encoded = encode_response(&response(
+    let encoded = encode_response(response(
         "controlled-original-cancellation".into(),
         Err(error),
     ))
@@ -29,6 +60,102 @@ fn developer_cancellation_response_retains_the_original_native_control_code() {
             .contains("cancelled")
     );
 }
+
+#[test]
+fn cancelled_read_and_independent_drain_failure_keep_both_native_causes() {
+    let cancel = pse_columnar::CancellationToken::new();
+    cancel.cancel();
+    let error = ReaderError::Settlement {
+        operation: Box::new(ReaderError::Columnar(cancel.checkpoint().unwrap_err())),
+        cleanup: Box::new(ReaderError::Io(std::io::Error::other(
+            "independent original connection drain failure",
+        ))),
+    };
+    let encoded = encode_response(response("cancel-and-drain".into(), Err(error))).unwrap();
+    let answer: serde_json::Value = serde_json::from_slice(encoded.bytes()).unwrap();
+    let causes = answer["payload"]["failure"]["native"]["children"]
+        .as_array()
+        .unwrap();
+    assert_eq!(causes.len(), 2);
+    assert_eq!(
+        causes[0]["code"],
+        pse_diagnostics::DiagnosticCode::RuntimeCancelled.as_str()
+    );
+    assert!(
+        causes[1]["message"]
+            .as_str()
+            .unwrap()
+            .contains("independent original connection drain failure")
+    );
+}
+
+#[test]
+fn encoded_refusal_retains_original_native_owners_through_failed_delivery() {
+    let cancel = pse_columnar::CancellationToken::new();
+    cancel.cancel();
+    let encoded = encode_response(response(
+        "original-three-causes".into(),
+        Err(ReaderError::Columnar(cancel.checkpoint().unwrap_err())),
+    ))
+    .unwrap();
+    let settled =
+        encoded.settlement_failed(ReaderError::Io(std::io::Error::other("original drain")));
+    let encoded = encode_response(response("original-three-causes".into(), Err(settled))).unwrap();
+    let failure = encoded.delivery_failed(ReaderError::Io(std::io::Error::new(
+        std::io::ErrorKind::BrokenPipe,
+        "original output",
+    )));
+    let ReaderError::Delivery {
+        response,
+        transport,
+    } = failure
+    else {
+        panic!("original refusal and transport both survive");
+    };
+    assert!(
+        matches!(*transport, ReaderError::Io(ref cause) if cause.kind() == std::io::ErrorKind::BrokenPipe)
+    );
+    let ReaderError::Settlement { operation, cleanup } = *response else {
+        panic!("original native settlement owner survives encoding");
+    };
+    assert!(matches!(
+        *operation,
+        ReaderError::Columnar(pse_columnar::CanonError::Cancelled)
+    ));
+    assert!(
+        matches!(*cleanup, ReaderError::Io(ref cause) if cause.to_string() == "original drain")
+    );
+}
+
+#[test]
+fn forwarded_reader_errors_keep_their_original_native_codes() {
+    use pse_diagnostics::DiagnosticCode as Code;
+    for (error, expected) in [
+        (
+            ReaderError::Workflow(Box::new(crate::workflow::WorkflowError::CallerClosed)),
+            Code::WorkflowInput,
+        ),
+        (
+            ReaderError::Workflow(Box::new(crate::workflow::WorkflowError::Resource(
+                "original allocation refusal".into(),
+            ))),
+            Code::RuntimeResourceLimit,
+        ),
+        (
+            ReaderError::Canonical(Box::new(pse_operations::canonical::CanonicalError::Codec(
+                pse_operations::canonical_codec::CodecError::Missing("original"),
+            ))),
+            Code::ValidationInvariant,
+        ),
+    ] {
+        let encoded = encode_response(response("original-native-code".into(), Err(error))).unwrap();
+        let answer: serde_json::Value = serde_json::from_slice(encoded.bytes()).unwrap();
+        assert_eq!(
+            answer["payload"]["failure"]["native"]["code"],
+            expected.as_str()
+        );
+    }
+}
 use crate::tooling::{
     frozen_inspection::{self, FrozenEvidenceSet, FrozenInspectionRequest, RecordedWindow},
     review_analysis::AnalysisRequest,
@@ -44,7 +171,11 @@ fn read(request: InvestigationRequest, access: Access) -> serde_json::Value {
     ))
     .unwrap();
     request.access = access;
-    let encoded = encode(&serde_json::to_vec(&request).unwrap()).unwrap();
+    let encoded = encode(
+        &serde_json::to_vec(&request).unwrap(),
+        &pse_columnar::CancellationToken::new(),
+    )
+    .unwrap();
     serde_json::from_slice(encoded.bytes()).unwrap()
 }
 fn operation() -> OperationId {
@@ -66,12 +197,15 @@ fn frozen_inspection_preserves_owner_document_bytes_and_response_schema() {
     };
     let document = frozen_inspection::inspect_frozen(&evidence, request.clone()).unwrap();
     let expected_document = serde_json::to_vec(&document).unwrap();
-    let payload = handle(Request::Investigate {
-        request: InvestigationRequest::FrozenInspect {
-            evidence: path,
-            request,
+    let payload = handle(
+        Request::Investigate {
+            request: InvestigationRequest::FrozenInspect {
+                evidence: path,
+                request,
+            },
         },
-    })
+        &pse_columnar::CancellationToken::new(),
+    )
     .unwrap();
     let mut expected =
         br#"{"kind":"investigation","result":{"action":"frozen_inspect","document":"#.to_vec();

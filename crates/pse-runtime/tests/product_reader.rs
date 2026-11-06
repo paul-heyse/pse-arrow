@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Public reader protocol contracts; no canonical service or scientific provider is required.
-use proptest::prelude::*;
 use pse_diagnostics::observation::{
     OperationId, Outcome, Policy, ProducerRole, RecordField, Relationship, Value,
 };
@@ -12,7 +11,6 @@ use pse_runtime::{
 };
 use serde_json::{Value as Json, json};
 use sha2::{Digest as _, Sha256};
-use std::io::{self, Read};
 
 type TestResult<T = ()> = Result<T, ReaderError>;
 
@@ -26,7 +24,7 @@ fn request(correlation: &str, request: Request) -> TestResult<Vec<u8>> {
     })?)
 }
 fn response(bytes: &[u8]) -> TestResult<Json> {
-    let encoded = encode(bytes)?;
+    let encoded = encode(bytes, &pse_columnar::CancellationToken::new())?;
     assert_eq!(encoded.bytes().last(), Some(&b'\n'));
     let wire: Json = serde_json::from_slice(encoded.bytes())?;
     assert_eq!(
@@ -382,20 +380,6 @@ fn discovery_schema_and_framing_need_no_source_or_service() -> TestResult {
             wire["payload"]["identity"]
         );
     }
-    let mut frame = Vec::new();
-    assert_eq!(
-        serve(
-            request("transport", Request::Discover)?.as_slice(),
-            &mut frame
-        )
-        .unwrap(),
-        0
-    );
-    assert_eq!(frame.last(), Some(&b'\n'));
-    assert_eq!(
-        serde_json::from_slice::<Json>(&frame).unwrap()["correlation"],
-        "transport"
-    );
     assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 0);
     Ok(())
 }
@@ -425,11 +409,20 @@ fn canonical_preflight_neither_connects_nor_creates_missing_state() -> TestResul
     )?)?;
     assert_eq!(wire["correlation"], "invalid-history");
     assert_eq!(wire["category"], "refused");
+    let native = &wire["payload"]["failure"]["native"];
+    assert_eq!(
+        native["code"],
+        pse_diagnostics::DiagnosticCode::WorkflowInput.as_str()
+    );
     assert!(
-        wire["payload"]["failure"]["message"]
+        native["facts"]["observations"]["field_path"]["value"]
             .as_str()
             .unwrap()
-            .contains("allowance outside bounds")
+            .ends_with("maximum_events")
+    );
+    assert_eq!(
+        native["facts"]["observations"]["local_rule"]["value"],
+        "unsigned.range"
     );
     let wire = response(&request(
         "missing-owner",
@@ -499,34 +492,4 @@ fn discovery_operations_match_the_public_request_schema() -> TestResult {
     assert!(operations.iter().any(|operation| operation == "study"));
     assert!(operations.iter().any(|operation| operation == "attempt"));
     Ok(())
-}
-
-struct Chunks<'a> {
-    remaining: &'a [u8],
-    width: usize,
-}
-impl Read for Chunks<'_> {
-    fn read(&mut self, output: &mut [u8]) -> io::Result<usize> {
-        let count = output.len().min(self.width).min(self.remaining.len());
-        output[..count].copy_from_slice(&self.remaining[..count]);
-        self.remaining = &self.remaining[count..];
-        Ok(count)
-    }
-}
-proptest! {
-    #[test]
-    fn transport_chunk_boundaries_preserve_frame_and_truncated_requests_refuse(width in 1usize..128, removed in 1usize..20) {
-        let bytes = request("chunked", Request::Discover)
-            .map_err(|error| TestCaseError::fail(error.to_string()))?;
-        let expected = encode(&bytes).unwrap();
-        let mut output = Vec::new();
-        let code = serve(Chunks { remaining: &bytes, width }, &mut output).unwrap();
-        prop_assert_eq!(code, expected.exit_code());
-        prop_assert_eq!(output, expected.bytes());
-        let truncated = &bytes[..bytes.len().saturating_sub(removed)];
-        let mut output = Vec::new();
-        prop_assert_eq!(serve(Chunks { remaining: truncated, width }, &mut output).unwrap(), 2);
-        let wire: Json = serde_json::from_slice(&output).unwrap();
-        prop_assert_eq!(&wire["category"], "refused");
-    }
 }

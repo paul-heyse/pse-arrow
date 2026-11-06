@@ -58,8 +58,8 @@ pub enum CaptureError {
 }
 pse_diagnostics::impl_diagnostic! {
     CaptureError,
-    code(this) { if matches!(this, Self::Columnar(_)) { None } else { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) } },
-    forward(this) { match this { Self::Columnar(error) => Some(error), _ => None } }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+    code(this) { if matches!(this, Self::Columnar(_) | Self::Observation(_)) { None } else { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) } },
+    forward(this) { match this { Self::Columnar(error) => Some(error), Self::Observation(error) => Some(error), _ => None } }, help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 
 /// Source coverage requested independently from scientific validity.

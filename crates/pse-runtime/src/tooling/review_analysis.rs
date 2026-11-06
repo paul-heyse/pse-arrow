@@ -462,7 +462,8 @@ fn source(
 }
 impl Builder {
     fn checkpoint(&self) -> Result<(), ObservationError> {
-        self.cancel.checkpoint().map_err(|e| invalid(e.to_string()))
+        self.cancel.checkpoint()?;
+        Ok(())
     }
     fn selected(&self, question: AnalysisQuestion) -> bool {
         !self.cancel.is_cancelled()
@@ -724,7 +725,7 @@ pub fn analyze(
 ) -> Result<Analysis, ObservationError> {
     let lease = preparation::admit(set, request, pool, cancel)?;
     set.validate()?;
-    cancel.checkpoint().map_err(|e| invalid(e.to_string()))?;
+    cancel.checkpoint()?;
     let mut declarations = BTreeMap::new();
     for descriptor in set
         .operations
@@ -738,9 +739,7 @@ pub fn analyze(
                 .map(|activation| &activation.producer)
         }))
     {
-        cancel
-            .checkpoint()
-            .map_err(|error| invalid(error.to_string()))?;
+        cancel.checkpoint()?;
         let id = descriptor.id;
         let key = (
             id.operation.process_instance,
@@ -785,9 +784,7 @@ pub fn analyze(
     // Extend only through actual supplied relationship owners; no discovery or guessed ancestry.
     if let Some(op) = set.operation(request.operation) {
         for child in &op.children {
-            cancel
-                .checkpoint()
-                .map_err(|error| invalid(error.to_string()))?;
+            cancel.checkpoint()?;
             if ids.len() >= 64 && !ids.contains(&child.id) {
                 return Err(invalid(
                     "analysis operation selection exceeds 64 exact subjects",
@@ -899,6 +896,7 @@ pub fn analyze(
     b.document.inspected_source_items = b.inspected.len();
     b.document.omitted_source_items = b.omitted.len();
     b.document.validate()?;
+    b.checkpoint()?;
     Ok(Analysis {
         document: b.document,
         lease,
