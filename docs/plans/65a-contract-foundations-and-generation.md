@@ -615,8 +615,8 @@ options described by newer upstream references.
 
 **Execution target, Interface-checked on November 5:** select typed in-process split composition,
 migrating complete consumer worlds with their equivalence controls. The authored Buf worlds
-retain their admitted plugin route until their own migration; no second source-projection route
-is retained. The generators already belong to tooling; removing request serialization, duplicate
+now consume that same typed route as described below; Buf remains their source compiler.
+The generators already belong to tooling; removing request serialization, duplicate
 external preflight preparation and subprocess warning loss improves the ownership structure.
 The tradeoff is a larger xtask linkage and loss of per-plugin process isolation. No generation
 speedup is established. Buffa and Connect retain their actual typed `GeneratedFile` metadata;
@@ -638,8 +638,9 @@ Preserve each supplier's actual layout: copying projection Buffa's `file_per_pac
 into Connect changes its service module filenames. Keep the current split service layout and
 absolute `extern_paths`, with longest-prefix WKT mappings, until consumers migrate deliberately.
 Check complete paths and package mounts before any map collection or cross-world tree extension;
-the final insertion check cannot recover overwritten entries. Current plugin success and
-response-error paths discard stderr, so warning attribution is a required migration control.
+the final insertion check cannot recover overwritten entries. The replaced plugin success and
+response-error paths discarded stderr; the typed route preserves supplier warnings and successful
+compiler stderr with source attribution.
 These are concrete input/output contracts for the selected target; the implementation boundary follows.
 
 **Implemented on main, November 5:** `ProjectionGeneration` retains the full effective
@@ -661,8 +662,43 @@ The focused composition suite passed 67 controls without warnings; the subsequen
 and import-retention suite passed 63. Receiving-main `just codegen` completed all 14 targets,
 and generated consumers compile in the expanded native workspace Clippy selection recorded
 in [65h](65h-integration-and-qualification.md#source-integration-wrap-up--2026-11-05).
-Authored Buf cutover and the remaining receiving option/feature population still own
-A04 acceptance. No performance benefit has been measured.
+The remaining receiving option/feature population still owns A04 acceptance. No performance
+benefit has been measured.
+
+The authored Buf cutover `24f2fd25f` is integrated on main. Both production intelligence and
+the Plan61 fixture call `ProjectionGeneration::new` with the actual complete compiler FDS,
+explicit targets and their per-file `CodeGenConfig`; they preserve `file_per_package=false`.
+[`ProjectionGeneration::support`](../../crates/pse-codegen/src/codegen/boundary_projection.rs)
+uses Buffa 0.9.2 `generate_module_tree`, `shared_descriptor_root_module` and
+`FdsEmbedding::Sidecar` for the actual admitted world. It removes genuine `SourceCodeInfo` only
+from the runtime sidecar. Authored `descriptor.bin` remains the original compiler bytes;
+`descriptor-runtime.bin` is the shared reflection world. No generated-Rust parser reconstructs
+either descriptor, and no synthetic native graph represents authored schemas.
+
+[`code_intelligence::corpus`](../../xtask/src/codegen/code_intelligence.rs) retains locked Buf
+compilation and input-change refusal, then consumes the same typed Buffa/Connect/validator
+[composition](../../xtask/src/codegen/proto_projection/composition.rs) as source-owned worlds.
+`Suppliers::admit` checks actual message/support/reserved/service/validation paths before
+publication; independent worlds use collision-safe merging. The standalone validator preflight,
+plugin-install checks, Buf generation subprocess, duplicated module/descriptor extraction and
+both inert `buf.gen.yaml` files are deleted. Original source associations remain independent
+native byte-range evidence. Source files, imports/options and source-aware effective descriptors
+retain their original meaning.
+
+Independent read-only review of the stable cutover found no material issues. **Tested in the
+implementation checkout:** the final full-codegen/force-validation focused generator selection
+passes 30/30 against zero failures and compiler warnings; `just codegen` completes all fourteen
+targets with the existing explicit Recipe accessor diagnostic. Original descriptor binaries,
+message/service bodies and complete dispatch bytes are unchanged; validator token differences
+are optional trailing commas only. Host qualification initially passed 101/102: one
+source-coordinate control assumed scalar columns although pinned Buf emits terminal-display
+columns. The integrated correction `98a6c22d9` separately checks the actual descriptor spans
+and independent UTF-8 source bytes, following pinned Buf 1.75.0/protocompile's experimental
+descriptor path (four-column tabs and Unicode terminal width). Production tree-sitter byte
+association is unchanged. The final implementation-checkout host selection passes **102/102**,
+with zero failures or compiler warnings, and host/xtask all-target checks pass. Both completed
+implementation worktrees are merged and removed. Receiving-main generation/host qualification
+and full option/feature adoption remain distinct obligations; the failed attempt is retained.
 
 The resumed compiled-facade slice is integrated on main from `89c22c769`.
 `xtask::codegen::proto_dispatch` traverses the actual supplier module/include trees with
@@ -745,7 +781,7 @@ The table records current delivery state. Dependencies describe available produc
 | A01 | complete | Actual native baseline, 65i I01/65j J01 design inputs, proposed ADR-0241 and scoped independent assessment | Pure source-owned graph/macros/adoption extracted; owner implementations and all callers/generators moved; old foundation and temporary aliases deleted. Tests: contract 8/8, model 27/27, codegen 25/25, diagnostics 2/2; workspace all-target check zero errors/warnings. Integrated snapshot is 7e35abae2; H qualification remains separate. |
 | A02 | in-progress | Working A01 field/method semantics → versioned typed metadata option schema and owner emission | All three selected worlds publish typed owner/field/action/method options and all 20 native facet keys. Shared lossless acquisition/checking and native crossing helpers moved to independent pse-contract-proto; replaced implementation/comments/sidecar removed. Source-selected coverage, unknown policy/schema and original-pool controls pass. Native field-shape meaning, domain semantic normalization and independent host policy/readback remain in progress with A05/G02/J02. |
 | A03 | in-progress | A02 metadata plus declared effective feature settings → complete and runtime contract-world artifacts | Six source-derived worlds publish effective runtime and source-aware binary descriptors; independent nondefault-feature/typed-option controls and selected host acquisition checks pass. Complete remaining acquisition consumers and immutable old-world-reader obligations. Preserve full-source retention, effective semantics and unknown options through every selected route. |
-| A04 | in-progress | A03 closed worlds → selected complete supplier composition and generated consumer facade | Source-owned worlds use typed in-process Buffa/Connect composition and one validator preparation, preserving supplier layouts and warnings; per-projection subprocess/preflight glue is deleted. Both host payload catalogs are replaced by dispatch derived from actual emitted message/validator identities; original full-population controls pass. Complete receiving consumer/validation and full option/feature coverage, migrate authored Buf worlds, and remove remaining replaced descriptor/module assembly and naming maps with complete consumers; retain explicit unsupported imported-message CEL scope. |
+| A04 | in-progress | A03 closed worlds → selected complete supplier composition and generated consumer facade | Source-owned and authored Buf worlds use typed in-process Buffa/Connect composition and one validator preparation, preserving actual layouts, original descriptors and diagnostics; replaced plugin/preflight/module-extraction paths and inert configurations are deleted. Both host payload catalogs use dispatch derived from actual emitted message/validator identities. Source-coordinate correction is integrated with 102/102 isolated host controls. Complete receiving-main consumer/validation and full option/feature coverage; retain explicit unsupported imported-message CEL scope. |
 | A05 | in-progress | A01–A04 narrow working slice plus B01/B02 adoption policy → complete native/protocol correspondence for selected populations | Selected host/engineering/worker/reference adapters and completion observations are delivered; the complete passive native Recipe source graph is integrated, with its targeted controls and remaining E02/E03 codec work owned by [65k](65k-scientific-artifacts-and-native-reconstruction.md). Complete native request/fact families, domain-owned document boundaries, and c/f/g consumer projections. Inventory actual remaining maps; classify semantic checks explicitly and remove all replaced mechanical maps. Test native→wire→native against independently constructed expected meaning, raw paths and missing/unknown alternatives. |
 | A06 | planned | Current registry/function owners plus A02/A03 → source-declared selected storage/Arrow projection metadata consumed by C packages | Reuse source facts without decoding ProtoJSON or inferring database behavior from field spelling. Delete duplicate selected field/schema declarations with producer/consumer migration. Preserve transactional/domain-specific logic; test precise numeric, relationship and mapping-version changes. |
 | A07 | planned | Complete selected consumer migration → regeneration equivalence, extension controls and handoff | Add provider request, method effect, diagnostic and result facet through their actual owners and verify every selected projection follows. Run package compile/targeted checks during work and generation when declarations change; scope-end assembled/static checks belong to 65h. Delete remaining obsolete fixtures and parallel publication paths. |

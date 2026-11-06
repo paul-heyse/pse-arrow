@@ -33,17 +33,17 @@ The current source already establishes much of this direction:
 | Source owner | Observed responsibility | Target continuation |
 | --- | --- | --- |
 | `pse-schema::FieldContract`, `BoundaryRecord` | Registry fields carry explicit boundary tags; records carry names, interpretation versions, direction and reservations. | Keep public numbering deliberate and generated shape tied to actual relation definitions. Extend only for a consumer whose meaning is represented. |
-| `pse-model::boundary_projection` | `ProjectionType`, `ProjectionGraph`, `Definition`, `TypeRef`, `Field`, `LocalRule`, `Service` and `Method` describe resolved native types and selected operations. | Share complete source-derived graphs across generation, validation and inspection, without making this a separately editable simulator IR. |
+| `pse-contract::boundary_projection` | `ProjectionType`, `ProjectionGraph`, `Definition`, `TypeRef`, `Field`, `LocalRule`, `Service` and `Method` describe resolved native types and selected operations. | Share complete source-derived graphs across generation, validation and inspection, without making this a separately editable simulator IR. |
 | `ProjectionRecord` and `ProjectionAlternative` | Access actual native field tuples at their defining owner, including private fields, with version/tag/layout checks. | Generate mechanical conversions while preserving fallible owner construction and attributed adoption refusal. |
 | `pse-codegen::codegen::boundary_projection` | Produces descriptors, Buffa sources, warnings, documentation and native adapters. Supplied imports retain custom options; duplicate filenames refuse. | Consolidate reusable generation composition and improve exposed contract metadata before adding bespoke adapter families. |
-| `xtask::codegen::engineering` | Builds scientific-worker, engineering and reference graphs; preflights validation; invokes Connect and validator plugins; publishes descriptor bytes and source relationships. | Reuse the complete generation route across additional selected contracts. Do not create another executable/tool-preparation owner. |
-| Host Buf configuration | Selects Buffa vtable reflection, shared pool, JSON/text, packaging, Connect bindings and generated validators. | Align independently generated package mappings and naming. Share technical mechanisms without conflating host session lifetime with engineering-operation lifetime. |
+| `xtask::codegen::engineering` | Builds source-owned scientific graphs and consumes typed Buffa/Connect/validator composition; publishes descriptor bytes and source relationships. | Reuse the complete generation route across additional selected contracts. Do not create another executable/tool-preparation owner. |
+| `xtask::codegen::code_intelligence` | Compiles authored Buf worlds, then consumes the same typed composition with their actual per-file layout, vtable reflection, shared pool, JSON/text, Connect and validators. | Preserve original compiler descriptors separately from shared runtime reflection. Share technical mechanisms without conflating host sessions with engineering-operation lifetime. |
 
-Source pointers: [projection model](../../../../../crates/pse-model/src/boundary_projection.rs),
-[typed owner access](../../../../../crates/pse-model/src/boundary_projection/access.rs),
+Source pointers: [projection model](../../../../../crates/pse-contract/src/boundary_projection.rs),
+[typed owner access](../../../../../crates/pse-contract/src/boundary_projection/access.rs),
 [projection generation](../../../../../crates/pse-codegen/src/codegen/boundary_projection.rs),
 [engineering orchestration](../../../../../xtask/src/codegen/engineering.rs),
-and [host plugin configuration](../../../../../crates/pse-host/proto/buf.gen.yaml).
+and [authored-world composition](../../../../../xtask/src/codegen/code_intelligence.rs).
 Blueprint §4.7 owns the current projection contract; these recommendations do not amend it.
 
 The overlap with CBO-195 is concrete: manually translated protocol representations can disagree
