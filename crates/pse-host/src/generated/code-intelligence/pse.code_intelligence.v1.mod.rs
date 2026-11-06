@@ -289,7 +289,7 @@ pub mod __buffa {
         /// Re-exported from the shared root module so
         /// `pkg::FILE_DESCRIPTOR_SET_BYTES` keeps working; the bytes are
         /// embedded once for the whole generated tree.
-        pub use super::super::super::super::super::__buffa_fds::FILE_DESCRIPTOR_SET_BYTES;
+        pub use crate::code_intelligence_contracts::pb::__buffa_fds::FILE_DESCRIPTOR_SET_BYTES;
         /// The crate-wide descriptor pool, shared by every package's
         /// `Reflectable` impls. Delegates to the single lazily-built pool
         /// at the module-tree root, so all packages observe the same
@@ -298,7 +298,7 @@ pub mod __buffa {
         pub fn descriptor_pool() -> &'static ::buffa::alloc::sync::Arc<
             ::buffa_descriptor::DescriptorPool,
         > {
-            super::super::super::super::super::__buffa_fds::descriptor_pool()
+            crate::code_intelligence_contracts::pb::__buffa_fds::descriptor_pool()
         }
     }
 }

@@ -25,9 +25,7 @@ SPDX-License-Identifier = "MIT"
 [[annotations]]
 path = [
   "crates/pse-host/proto/buf.yaml",
-  "crates/pse-host/proto/buf.gen.yaml",
   "crates/pse-host/tests/fixtures/plan61/buf.yaml",
-  "crates/pse-host/tests/fixtures/plan61/buf.gen.yaml",
   "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
 ]
 precedence = "aggregate"

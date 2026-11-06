@@ -1,18 +1,25 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! One publication route for source-owned Proto worlds, validators and provenance.
+//! Shared publication and supplier composition for authored and source-owned Proto worlds.
 
-use anyhow::{Context, Result, bail, ensure};
+#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
+use anyhow::{Context, ensure};
+use anyhow::{Result, bail};
+#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
 use buffa_descriptor::generated::descriptor::FileDescriptorSet;
-use pse_codegen::codegen::{GeneratedTree, boundary_projection, provenance};
+use pse_codegen::codegen::GeneratedTree;
+#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
+use pse_codegen::codegen::{boundary_projection, provenance};
+#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
 use pse_contract::boundary_projection::ProjectionGraph;
 use std::{
     collections::BTreeSet,
     path::{Component, Path, PathBuf},
 };
-mod composition;
+pub(super) mod composition;
 
 /// One independently published consumer world and its source attribution.
+#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
 pub(super) struct ProjectionTarget<'a> {
     pub package: &'a str,
     pub file: &'a str,
@@ -23,6 +30,7 @@ pub(super) struct ProjectionTarget<'a> {
     pub generator_symbol: &'a str,
 }
 
+#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
 pub(super) fn projection(
     graph: &ProjectionGraph,
     target: ProjectionTarget<'_>,
@@ -42,6 +50,7 @@ pub(super) fn projection(
 
 /// Publish one actual generation closure. Callers can derive additional consumers
 /// from its descriptor set and original configuration before transferring it here.
+#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
 pub(super) fn publish_projection(
     graph: &ProjectionGraph,
     target: ProjectionTarget<'_>,
@@ -66,7 +75,15 @@ pub(super) fn publish_projection(
     let destination = PathBuf::from(destination);
     let composed = composition::generate(&output.generation, rust_module)
         .with_context(|| format!("{package}: compose admitted source projection"))?;
-    composed.admit(&output, &destination)?;
+    composed.admit(
+        output.sources().map(|(name, _)| name),
+        &destination,
+        &[
+            "native-policy.rs",
+            "descriptor.bin",
+            "descriptor-source.bin",
+        ],
+    )?;
     let mut tree = GeneratedTree::empty(vec![destination.clone()]);
     for (name, source) in output.sources() {
         insert(&mut tree, &destination, name, source.as_bytes())?;
@@ -130,6 +147,7 @@ pub(super) fn publish_projection(
     Ok(tree)
 }
 
+#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
 pub(super) fn producer(package: &str) -> String {
     package.replace(['.', '_'], "-")
 }

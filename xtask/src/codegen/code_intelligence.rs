@@ -23,9 +23,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         "crates/pse-host/tests/fixtures/plan61",
         "crates/pse-host/src/generated/plan61",
     )?;
-    tree.roots.extend(fixture.roots);
-    tree.files.extend(fixture.files);
-    tree.relationships.extend(fixture.relationships);
+    super::proto_projection::merge_independent(&mut tree, fixture)?;
     production_inputs.verify()?;
     fixture_inputs.verify()?;
     Ok(tree)
@@ -35,12 +33,6 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
     let source = root.join(source);
     let inputs = Inputs::capture(&source)?;
     let output = tempfile::tempdir()?;
-    let tools = root.join(".local/plan61-tools/bin");
-    prepared_plugins(root, &tools)?;
-    let mut paths = vec![tools];
-    paths.extend(std::env::split_paths(
-        &std::env::var_os("PATH").unwrap_or_default(),
-    ));
     let image = output.path().join("image.binpb");
     run(
         Command::new("buf")
@@ -61,7 +53,6 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
     )?;
     let bytes = std::fs::read(&descriptor)?;
     let set = FileDescriptorSet::decode_from_slice(&bytes)?;
-    reject_conflicting_files(&set)?;
     let files: Vec<String> = inputs
         .files
         .keys()
@@ -71,54 +62,65 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
         })
         .map(|path| path.to_string_lossy().into_owned())
         .collect();
-    let mut preflight =
-        Command::new(root.join(".local/plan61-tools/bin/protoc-gen-protovalidate-buffa"));
-    preflight.arg("--preflight").arg(&descriptor);
-    for file in &files {
-        preflight.arg("--file").arg(file);
+    let rust_module = if destination.ends_with("code-intelligence") {
+        "crate::code_intelligence_contracts::pb"
+    } else {
+        "crate::plan61_qualification::pb"
+    };
+    let mut config = pse_codegen::codegen::boundary_projection::default_config(&format!(
+        "{rust_module}::__buffa_fds"
+    ));
+    // Authored files retain their original per-file message/module identities.
+    config.file_per_package = false;
+    let generation = pse_codegen::codegen::boundary_projection::ProjectionGeneration::new(
+        &set, &files, &config,
+    )?;
+    anyhow::ensure!(
+        generation.descriptors() == &set,
+        "authored shared descriptor interpretation differs from the complete compiler world"
+    );
+    for warning in &generation.warnings {
+        eprintln!("{} (Buffa): {warning}", source.display());
     }
-    let admission = preflight
-        .output()
-        .context("execute descriptor-bound CEL preflight")?;
-    admit_preflight(&admission)?;
-    run(
-        Command::new("buf")
-            .arg("generate")
-            .arg(&image)
-            .arg("--template")
-            .arg(source.join("buf.gen.yaml"))
-            .arg("--output")
-            .arg(output.path())
-            .current_dir(&source)
-            .env("PATH", std::env::join_paths(paths)?),
-        "generate checked code-intelligence contracts",
-    )?;
-    let generated_root = std::fs::read_to_string(output.path().join("mod.rs"))?;
-    let runtime = runtime_descriptors(&set, &generated_root)?;
-    // descriptor.bin remains Buf's original complete source-aware compiler output.
-    // descriptor-runtime.bin is the actual pinned shared-pool reflection artifact;
-    // these two worlds must differ only in genuine SourceCodeInfo.
-    std::fs::write(
-        output.path().join("descriptor-runtime.bin"),
-        runtime.encode_to_vec(),
-    )?;
-    std::fs::remove_file(&image)?;
+    let support = generation.support("descriptor-runtime.bin")?;
+    let suppliers = super::proto_projection::composition::generate(&generation, rust_module)
+        .with_context(|| format!("{}: compose admitted authored corpus", source.display()))?;
     let destination = PathBuf::from(destination);
-    let mut tree = GeneratedTree::empty(vec![destination.clone()]);
-    collect(output.path(), output.path(), &destination, &mut tree)?;
-    if destination.ends_with("code-intelligence") {
-        let dispatch = super::proto_dispatch::generate(
-            &tree,
-            &destination,
-            "crate::code_intelligence_contracts::pb",
-        )?;
-        let path = destination.join("dispatch.rs");
-        anyhow::ensure!(
-            !tree.files.contains_key(&path),
-            "supplier collides with compiled dispatch: {}",
-            path.display()
+    let sources = generation
+        .files
+        .iter()
+        .map(|file| (file.name.as_str(), file.content.as_str()))
+        .chain(
+            support
+                .sources
+                .iter()
+                .map(|(name, source)| (name.as_str(), source.as_str())),
         );
-        tree.files.insert(path, dispatch);
+    let reserved: &[&str] = if destination.ends_with("code-intelligence") {
+        &["descriptor.bin", "descriptor-runtime.bin", "dispatch.rs"]
+    } else {
+        &["descriptor.bin", "descriptor-runtime.bin"]
+    };
+    suppliers.admit(
+        sources.clone().map(|(name, _)| name),
+        &destination,
+        reserved,
+    )?;
+    let mut tree = GeneratedTree::empty(vec![destination.clone()]);
+    for (name, source) in sources {
+        super::proto_projection::insert(&mut tree, &destination, name, source.as_bytes())?;
+    }
+    super::proto_projection::insert(&mut tree, &destination, "descriptor.bin", &bytes)?;
+    super::proto_projection::insert(
+        &mut tree,
+        &destination,
+        "descriptor-runtime.bin",
+        &support.descriptor_bytes,
+    )?;
+    suppliers.insert(&mut tree, &destination)?;
+    if destination.ends_with("code-intelligence") {
+        let dispatch = super::proto_dispatch::generate(&tree, &destination, rust_module)?;
+        super::proto_projection::insert(&mut tree, &destination, "dispatch.rs", &dispatch)?;
     }
     for file in files {
         let origin = pse_codegen::codegen::provenance::SourceRelationship {
@@ -176,81 +178,9 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
         },
         &tree.relationships,
     )?;
-    tree.roots.extend(origins.roots);
-    tree.files.extend(origins.files);
+    super::proto_projection::merge_independent(&mut tree, origins)?;
     associations::generate(root, &source, &inputs, &bytes, &set, &mut tree)?;
     Ok((tree, inputs))
-}
-
-/// Read the actual pinned packaging supplier's shared reflection artifact, rather
-/// than reproduce its feature configuration or infer it from generated type names.
-fn runtime_descriptors(
-    source: &FileDescriptorSet,
-    generated_root: &str,
-) -> Result<FileDescriptorSet> {
-    let syntax = syn::parse_file(generated_root)?;
-    let roots = syntax
-        .items
-        .iter()
-        .filter_map(|item| match item {
-            syn::Item::Mod(module) if module.ident == "__buffa_fds" => Some(module),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    let [root] = roots.as_slice() else {
-        bail!("pinned shared descriptor publisher must emit exactly one __buffa_fds root");
-    };
-    let (_, items) = root
-        .content
-        .as_ref()
-        .context("shared descriptor root must be inline")?;
-    let descriptors = items
-        .iter()
-        .filter_map(|item| match item {
-            syn::Item::Const(item) if item.ident == "FILE_DESCRIPTOR_SET_BYTES" => Some(item),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    let [descriptor] = descriptors.as_slice() else {
-        bail!("pinned shared descriptor root must emit exactly one complete artifact");
-    };
-    let syn::Expr::Lit(syn::ExprLit {
-        lit: syn::Lit::ByteStr(bytes),
-        ..
-    }) = descriptor.expr.as_ref()
-    else {
-        bail!("pinned shared descriptor artifact must be a literal byte string");
-    };
-    let mut runtime = FileDescriptorSet::decode_from_slice(&bytes.value())?;
-    reject_conflicting_files(&runtime)?;
-    anyhow::ensure!(
-        source.file.len() == runtime.file.len(),
-        "shared descriptor publication changed the file population"
-    );
-    for (original, effective) in source.file.iter().zip(&runtime.file) {
-        anyhow::ensure!(
-            original.name == effective.name,
-            "shared descriptor publication changed file order or identity"
-        );
-        anyhow::ensure!(
-            effective.source_code_info.as_option().is_none(),
-            "shared runtime descriptor unexpectedly retains source information"
-        );
-        let mut compact = original.clone();
-        compact.source_code_info = Default::default();
-        // The pinned protoc plugin explicitly refuses feature overrides in shared
-        // pool mode. Preserve that limit: do not publish mismatched effective
-        // options/features or silently drop source-retained content.
-        anyhow::ensure!(
-            compact == *effective,
-            "shared descriptor runtime content differs from the complete compiler world: {}",
-            original.name.as_deref().unwrap_or("")
-        );
-    }
-    // The supplier accepts a file slice. Retain the compiler artifact's outer-set
-    // unknown fields too, rather than silently dropping them during that crossing.
-    runtime.__buffa_unknown_fields = source.__buffa_unknown_fields.clone();
-    Ok(runtime)
 }
 
 struct Inputs {
@@ -265,7 +195,7 @@ impl Inputs {
         for file in authored {
             files.insert(PathBuf::from(&file), std::fs::read(root.join(file))?);
         }
-        for file in ["buf.yaml", "buf.gen.yaml", "buf.lock"] {
+        for file in ["buf.yaml", "buf.lock"] {
             files.insert(PathBuf::from(file), std::fs::read(root.join(file))?);
         }
         Ok(Self {
@@ -288,15 +218,8 @@ fn run(command: &mut Command, meaning: &str) -> Result<()> {
     if !result.status.success() {
         bail!("{meaning}: {}", String::from_utf8_lossy(&result.stderr));
     }
-    Ok(())
-}
-
-fn admit_preflight(result: &std::process::Output) -> Result<()> {
-    if !result.status.success() || result.stdout != b"pse-cel-preflight-v1\n" {
-        bail!(
-            "CEL preflight refused or returned an unknown protocol: {}",
-            String::from_utf8_lossy(&result.stderr)
-        );
+    if !result.stderr.is_empty() {
+        eprintln!("{meaning}: {}", String::from_utf8_lossy(&result.stderr));
     }
     Ok(())
 }
@@ -317,92 +240,6 @@ fn authored_files(base: &Path, directory: &Path, files: &mut Vec<String>) -> Res
             .is_some_and(|extension| extension == "proto")
         {
             files.push(path.strip_prefix(base)?.to_string_lossy().into_owned());
-        }
-    }
-    Ok(())
-}
-
-fn reject_conflicting_files(set: &FileDescriptorSet) -> Result<()> {
-    let mut files = std::collections::BTreeMap::new();
-    for file in &set.file {
-        let name = file.name.as_deref().context("descriptor filename absent")?;
-        let encoded = file.encode_to_vec();
-        if files
-            .insert(name, encoded.clone())
-            .is_some_and(|previous| previous != encoded)
-        {
-            bail!("conflicting descriptor filename: {name}");
-        }
-    }
-    Ok(())
-}
-
-pub(super) fn prepared_plugins(root: &Path, binaries: &Path) -> Result<()> {
-    let metadata: toml::Value = toml::from_str(
-        &std::fs::read_to_string(root.join(".local/plan61-tools/.crates.toml"))
-            .context("prepare exact Plan61 generators explicitly in .local/plan61-tools")?,
-    )?;
-    let installed = metadata
-        .get("v1")
-        .and_then(toml::Value::as_table)
-        .context("Plan61 generator installation metadata has no v1 table")?;
-    for (package, version, binary) in [
-        ("protoc-gen-buffa", "0.9.2", "protoc-gen-buffa"),
-        (
-            "protoc-gen-buffa-packaging",
-            "0.9.2",
-            "protoc-gen-buffa-packaging",
-        ),
-        ("connectrpc-codegen", "0.9.0", "protoc-gen-connect-rust"),
-        (
-            "protoc-gen-protovalidate-buffa",
-            "0.7.2",
-            "protoc-gen-protovalidate-buffa",
-        ),
-    ] {
-        let prefix = format!("{package} {version} (");
-        let matched = installed.iter().any(|(key, files)| {
-            key.starts_with(&prefix)
-                && (package != "protoc-gen-protovalidate-buffa"
-                    || key
-                        .strip_prefix(&prefix)
-                        .and_then(|source| source.strip_suffix(')'))
-                        .and_then(|source| source.strip_prefix("path+"))
-                        .and_then(|source| url::Url::parse(source).ok())
-                        .and_then(|url| url.to_file_path().ok())
-                        .is_some_and(|source| {
-                            source == root.join("vendor/protoc-gen-protovalidate-buffa")
-                        }))
-                && files
-                    .as_array()
-                    .is_some_and(|files| files.iter().any(|file| file.as_str() == Some(binary)))
-        });
-        if !matched || !binaries.join(binary).is_file() {
-            bail!(
-                "prepare {package} {version} ({binary}) explicitly in .local/plan61-tools; global tools are not selected"
-            );
-        }
-    }
-    Ok(())
-}
-
-fn collect(
-    base: &Path,
-    directory: &Path,
-    destination: &Path,
-    tree: &mut GeneratedTree,
-) -> Result<()> {
-    for entry in std::fs::read_dir(directory)? {
-        let path = entry?.path();
-        if path.is_dir() {
-            collect(base, &path, destination, tree)?;
-        } else {
-            let mut bytes = std::fs::read(&path)?;
-            if path.extension().is_some_and(|extension| extension == "rs") {
-                bytes = qualify_generated_rust(std::str::from_utf8(&bytes)?)?.into_bytes();
-            }
-            tree.files
-                .insert(destination.join(path.strip_prefix(base)?), bytes);
         }
     }
     Ok(())
@@ -549,90 +386,6 @@ pub(super) fn qualify_generated_rust(source: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn shared_root(set: &FileDescriptorSet) -> String {
-        let bytes = syn::LitByteStr::new(
-            &set.encode_to_vec(),
-            syn::parse_str::<syn::Ident>("artifact").unwrap().span(),
-        );
-        quote::quote!(pub mod __buffa_fds { pub const FILE_DESCRIPTOR_SET_BYTES: &[u8] = #bytes; })
-            .to_string()
-    }
-    #[test]
-    fn code_intelligence_artifacts_preserve_source_and_exact_shared_runtime_content() {
-        use buffa_descriptor::generated::descriptor::{SourceCodeInfo, source_code_info::Location};
-        let mut source = FileDescriptorSet {
-            file: vec![
-                FileDescriptorProto {
-                    name: Some("dependency.proto".into()),
-                    syntax: Some("proto3".into()),
-                    ..Default::default()
-                },
-                FileDescriptorProto {
-                    name: Some("main.proto".into()),
-                    dependency: vec!["dependency.proto".into()],
-                    syntax: Some("proto3".into()),
-                    source_code_info: SourceCodeInfo {
-                        location: vec![Location {
-                            path: vec![],
-                            leading_comments: Some("original compiler source".into()),
-                            ..Default::default()
-                        }],
-                        ..Default::default()
-                    }
-                    .into(),
-                    ..Default::default()
-                },
-            ],
-            ..Default::default()
-        };
-        // Independently specified file options: explicit presence feature plus
-        // unknown option100. Neither is allowed to vanish during publication.
-        let mut main = source.file[1].encode_to_vec();
-        main.extend_from_slice(&[0x42, 0x08, 0x92, 0x03, 0x02, 0x08, 0x01, 0xa0, 0x06, 0x09]);
-        source.file[1] = FileDescriptorProto::decode_from_slice(&main).unwrap();
-        let mut runtime = source.clone();
-        for file in &mut runtime.file {
-            file.source_code_info = Default::default();
-        }
-        let root = shared_root(&runtime);
-        let original = source.encode_to_vec();
-        assert_eq!(runtime_descriptors(&source, &root).unwrap(), runtime);
-        assert_eq!(source.encode_to_vec(), original);
-        assert_ne!(source.encode_to_vec(), runtime.encode_to_vec());
-        source.__buffa_unknown_fields.push(buffa::UnknownField {
-            number: 100,
-            data: buffa::UnknownFieldData::Varint(9),
-        });
-        let retained = runtime_descriptors(&source, &root).unwrap();
-        assert_eq!(
-            retained.__buffa_unknown_fields,
-            source.__buffa_unknown_fields
-        );
-        for change in 0..5 {
-            let mut changed = runtime.clone();
-            match change {
-                0 => changed.file.reverse(),
-                1 => {
-                    changed.file.pop();
-                }
-                2 => changed.file[1].dependency.clear(),
-                3 => changed.file[1].options = Default::default(),
-                _ => changed.file[1].source_code_info = source.file[1].source_code_info.clone(),
-            }
-            assert!(
-                runtime_descriptors(&source, &shared_root(&changed)).is_err(),
-                "change {change}"
-            );
-        }
-        assert!(runtime_descriptors(&source, "mod __buffa_fds {}").is_err());
-        assert!(
-            runtime_descriptors(
-                &source,
-                "mod __buffa_fds { const FILE_DESCRIPTOR_SET_BYTES: &[u8] = other(); }"
-            )
-            .is_err()
-        );
-    }
     #[test]
     fn generated_lint_qualification_preserves_spelling_and_limits_expect_permissions() {
         let source = "// source comment\n#![allow(dead_code)]\n#[allow(unused_imports,)]\nmod schema {}\nfn descriptor_pool() { parsed.expect(\"buffa-codegen emitted a decodable FileDescriptorSet\"); }\n";
@@ -650,13 +403,12 @@ mod tests {
         let ordinary = qualify_generated_rust("fn parse() { let value = decode()?; } ").unwrap();
         assert!(!ordinary.contains("expect_used"));
     }
-    use buffa_descriptor::generated::descriptor::FileDescriptorProto;
 
     #[test]
     fn plan61_input_guard_refuses_content_population_and_configuration_changes() {
         let directory = tempfile::tempdir().unwrap();
         let root = directory.path();
-        for file in ["a.proto", "buf.yaml", "buf.gen.yaml", "buf.lock"] {
+        for file in ["a.proto", "buf.yaml", "buf.lock"] {
             std::fs::write(root.join(file), b"original").unwrap();
         }
         let initial = Inputs::capture(root).unwrap();
@@ -672,21 +424,6 @@ mod tests {
         std::fs::write(root.join("buf.lock"), b"original").unwrap();
         std::fs::remove_file(root.join("a.proto")).unwrap();
         assert!(initial.verify().is_err());
-    }
-
-    #[test]
-    fn plan61_unpatched_plugin_empty_success_is_not_preflight_admission() {
-        use std::os::unix::process::ExitStatusExt as _;
-        let mut response = std::process::Output {
-            status: std::process::ExitStatus::from_raw(0),
-            stdout: Vec::new(),
-            stderr: Vec::new(),
-        };
-        assert!(admit_preflight(&response).is_err());
-        response.stdout = b"pse-cel-preflight-v1\n".to_vec();
-        assert!(admit_preflight(&response).is_ok());
-        response.status = std::process::ExitStatus::from_raw(256);
-        assert!(admit_preflight(&response).is_err());
     }
 
     #[test]
@@ -716,7 +453,7 @@ mod tests {
     #[test]
     fn plan61_selected_and_aggregate_stage_faults_preserve_current_and_stale_outputs() {
         for aggregate in [false, true] {
-            for fault in ["invalid CEL", "conflicting descriptor", "plugin failed"] {
+            for fault in ["invalid CEL", "conflicting descriptor", "supplier failed"] {
                 let directory = tempfile::tempdir().unwrap();
                 let root = directory.path();
                 let output = root.join("generated");
@@ -752,65 +489,5 @@ mod tests {
                 );
             }
         }
-    }
-
-    #[test]
-    fn plan61_descriptor_conflicts_fail_before_pool_linking() {
-        let file = FileDescriptorProto {
-            name: Some("same.proto".into()),
-            package: Some("first".into()),
-            ..Default::default()
-        };
-        let mut set = FileDescriptorSet {
-            file: vec![file.clone(), file],
-            ..Default::default()
-        };
-        assert!(reject_conflicting_files(&set).is_ok());
-        set.file[1].package = Some("second".into());
-        assert!(
-            reject_conflicting_files(&set)
-                .unwrap_err()
-                .to_string()
-                .contains("same.proto")
-        );
-    }
-
-    #[test]
-    fn plan61_same_version_registry_validator_is_not_the_corrected_generator() {
-        let directory = tempfile::tempdir().unwrap();
-        let root = directory.path();
-        let binaries = root.join(".local/plan61-tools/bin");
-        std::fs::create_dir_all(&binaries).unwrap();
-        let mut table = toml::map::Map::new();
-        for (name, version, binary) in [
-            ("protoc-gen-buffa", "0.9.2", "protoc-gen-buffa"),
-            (
-                "protoc-gen-buffa-packaging",
-                "0.9.2",
-                "protoc-gen-buffa-packaging",
-            ),
-            ("connectrpc-codegen", "0.9.0", "protoc-gen-connect-rust"),
-            (
-                "protoc-gen-protovalidate-buffa",
-                "0.7.2",
-                "protoc-gen-protovalidate-buffa",
-            ),
-        ] {
-            std::fs::write(binaries.join(binary), b"unqualified executable").unwrap();
-            table.insert(
-                format!("{name} {version} (registry+https://github.com/rust-lang/crates.io-index)"),
-                toml::Value::Array(vec![toml::Value::String(binary.into())]),
-            );
-        }
-        let metadata = toml::Value::Table(toml::map::Map::from_iter([(
-            "v1".into(),
-            toml::Value::Table(table),
-        )]));
-        std::fs::write(
-            root.join(".local/plan61-tools/.crates.toml"),
-            toml::to_string(&metadata).unwrap(),
-        )
-        .unwrap();
-        assert!(prepared_plugins(root, &binaries).is_err());
     }
 }

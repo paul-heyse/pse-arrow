@@ -6,18 +6,18 @@ use buffa_codegen::{
     GeneratedFile, GeneratedFileKind,
     generated::compiler::{CodeGeneratorRequest, code_generator_response::File},
 };
-use pse_codegen::codegen::{
-    GeneratedTree,
-    boundary_projection::{ProjectionGeneration, ProjectionOutput},
-};
+use pse_codegen::codegen::{GeneratedTree, boundary_projection::ProjectionGeneration};
 use std::path::Path;
 
-pub(super) struct Suppliers {
+pub(in crate::codegen) struct Suppliers {
     services: Vec<GeneratedFile>,
     validators: Vec<File>,
 }
 
-pub(super) fn generate(generation: &ProjectionGeneration, rust_module: &str) -> Result<Suppliers> {
+pub(in crate::codegen) fn generate(
+    generation: &ProjectionGeneration,
+    rust_module: &str,
+) -> Result<Suppliers> {
     let request = CodeGeneratorRequest {
         file_to_generate: generation.targets().to_vec(),
         proto_file: generation.descriptors().file.clone(),
@@ -74,25 +74,23 @@ pub(super) fn generate(generation: &ProjectionGeneration, rust_module: &str) -> 
 }
 
 impl Suppliers {
-    pub(super) fn admit(&self, output: &ProjectionOutput, destination: &Path) -> Result<()> {
+    pub(in crate::codegen) fn admit<'a>(
+        &self,
+        sources: impl IntoIterator<Item = &'a str>,
+        destination: &Path,
+        reserved: &[&str],
+    ) -> Result<()> {
         pse_codegen::codegen::boundary_projection::check_package_mounts(
             self.services
                 .iter()
                 .filter(|file| file.kind == GeneratedFileKind::PackageMod)
                 .map(|file| file.package.as_str()),
         )?;
-        let mut paths = output
-            .sources()
-            .map(|(name, _)| destination.join(name))
+        let mut paths = sources
+            .into_iter()
+            .map(|name| destination.join(name))
             .collect::<Vec<_>>();
-        paths.extend(
-            [
-                "native-policy.rs",
-                "descriptor.bin",
-                "descriptor-source.bin",
-            ]
-            .map(|name| destination.join(name)),
-        );
+        paths.extend(reserved.iter().map(|name| destination.join(name)));
         paths.extend(
             self.services
                 .iter()
@@ -116,7 +114,11 @@ impl Suppliers {
         super::admit_paths(paths)
     }
 
-    pub(super) fn insert(self, tree: &mut GeneratedTree, destination: &Path) -> Result<()> {
+    pub(in crate::codegen) fn insert(
+        self,
+        tree: &mut GeneratedTree,
+        destination: &Path,
+    ) -> Result<()> {
         for file in self.services {
             super::insert(
                 tree,
@@ -346,20 +348,72 @@ mod tests {
                 .count(),
             2
         );
-        let output = ProjectionOutput {
-            generation,
-            descriptor_set: source,
-            descriptor_bytes: vec![],
-            source_descriptor_bytes: vec![],
-            support_sources: Default::default(),
-            documentation: String::new(),
-        };
         assert!(
             suppliers
-                .admit(&output, Path::new("world"))
+                .admit(
+                    generation.files.iter().map(|file| file.name.as_str()),
+                    Path::new("world"),
+                    &[]
+                )
                 .unwrap_err()
                 .to_string()
                 .contains("duplicate generated output")
+        );
+    }
+
+    #[test]
+    fn authored_supplier_admission_checks_support_and_reserved_paths_before_insertion() {
+        let mut config =
+            pse_codegen::codegen::boundary_projection::default_config("crate::wire::__buffa_fds");
+        config.file_per_package = false;
+        let generation =
+            ProjectionGeneration::new(&source("this.x > 0"), &["selected.proto".into()], &config)
+                .unwrap();
+        let support = generation.support("descriptor-runtime.bin").unwrap();
+        let suppliers = generate(&generation, "crate::wire").unwrap();
+        let names = || {
+            generation
+                .files
+                .iter()
+                .map(|file| file.name.as_str())
+                .chain(support.sources.keys().map(String::as_str))
+        };
+        suppliers
+            .admit(
+                names(),
+                Path::new("world"),
+                &["descriptor.bin", "descriptor-runtime.bin", "dispatch.rs"],
+            )
+            .unwrap();
+        for reserved in [
+            "selected.rs",
+            "mod.rs",
+            "services/selected.__connect.rs",
+            "validation/selected.rs",
+            "descriptor.bin/nested.rs",
+        ] {
+            let mut paths = vec!["descriptor.bin", reserved];
+            if reserved == "descriptor.bin/nested.rs" {
+                paths.push("descriptor-runtime.bin");
+            }
+            assert!(
+                suppliers
+                    .admit(names(), Path::new("world"), &paths)
+                    .is_err(),
+                "{reserved}"
+            );
+        }
+        assert!(
+            generation
+                .files
+                .iter()
+                .any(|file| file.name == "selected.rs")
+        );
+        assert!(
+            suppliers
+                .services
+                .iter()
+                .any(|file| file.name == "selected.__connect.rs")
         );
     }
 }

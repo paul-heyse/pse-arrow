@@ -97,6 +97,19 @@ pub struct ProjectionGeneration {
     pub warnings: Vec<CodeGenWarning>,
 }
 
+/// Graph-neutral descriptor and module support for one admitted generation.
+#[derive(Debug)]
+pub struct ProjectionSupport {
+    /// Effective shared reflection world, without source locations.
+    pub descriptor_set: FileDescriptorSet,
+    /// Bytes embedded by the shared reflection root.
+    pub descriptor_bytes: Vec<u8>,
+    /// Effective source-aware descriptor bytes.
+    pub source_descriptor_bytes: Vec<u8>,
+    /// Buffa-owned module tree and shared reflection root.
+    pub sources: BTreeMap<String, String>,
+}
+
 impl ProjectionGeneration {
     /// Apply effective features while preserving original source information, then
     /// perform Buffa's fallible post-override shared-context check and generation.
@@ -186,6 +199,57 @@ impl ProjectionGeneration {
     /// Actual admitted configuration, including the shared corpus context.
     pub fn config(&self) -> &CodeGenConfig {
         &self.config
+    }
+
+    /// Assemble reflection and module support from this actual admitted corpus.
+    /// The caller publishes the runtime bytes under the selected sidecar name.
+    pub fn support(
+        &self,
+        runtime_sidecar: &str,
+    ) -> Result<ProjectionSupport, ProjectionCodegenError> {
+        if !self.config.generate_reflection
+            || !self.config.generate_reflection_vtable
+            || !self.config.shared_descriptor_pool
+        {
+            return Err(error(
+                "shared support requires vtable reflection and one complete shared descriptor pool",
+            ));
+        }
+        let source_descriptor_bytes = self.descriptors.encode_to_vec();
+        let mut descriptor_set = self.descriptors.clone();
+        for file in &mut descriptor_set.file {
+            file.source_code_info = Default::default();
+        }
+        let descriptor_bytes = descriptor_set.encode_to_vec();
+        let entries = self
+            .files
+            .iter()
+            .filter(|file| file.kind == GeneratedFileKind::PackageMod)
+            .map(|file| (file.name.clone(), file.package.clone()))
+            .collect::<Vec<_>>();
+        let mut module_tree =
+            buffa_codegen::generate_module_tree(&entries, IncludeMode::Relative(""), false);
+        module_tree.push_str("\ninclude!(\"shared-root.rs\");\n");
+        let sources = BTreeMap::from([
+            ("mod.rs".into(), module_tree),
+            (
+                "shared-root.rs".into(),
+                buffa_codegen::shared_descriptor_root_module(
+                    &descriptor_bytes,
+                    FdsEmbedding::Sidecar {
+                        file_name: runtime_sidecar,
+                        mode: IncludeMode::Relative(""),
+                    },
+                    self.config.reflect_feature_gate(),
+                ),
+            ),
+        ]);
+        Ok(ProjectionSupport {
+            descriptor_set,
+            descriptor_bytes,
+            source_descriptor_bytes,
+            sources,
+        })
     }
 }
 
@@ -656,40 +720,13 @@ pub fn generate_with_config(
     }
     let source_descriptors = descriptors_with_imports(graph, package, file_name, imports)?;
     let generation = ProjectionGeneration::new(&source_descriptors, &[file_name.into()], config)?;
-    let source_descriptor_bytes = generation.descriptors().encode_to_vec();
-    let mut descriptor_set = generation.descriptors().clone();
-    for file in &mut descriptor_set.file {
-        file.source_code_info = Default::default();
-    }
-    let descriptor_bytes = descriptor_set.encode_to_vec();
-    let entries = generation
-        .files
-        .iter()
-        .filter(|file| file.kind == GeneratedFileKind::PackageMod)
-        .map(|file| (file.name.clone(), file.package.clone()))
-        .collect::<Vec<_>>();
-    let mut module_tree =
-        buffa_codegen::generate_module_tree(&entries, IncludeMode::Relative(""), false);
-    module_tree.push_str("\ninclude!(\"shared-root.rs\");\n");
-    let mut support_sources = BTreeMap::new();
-    support_sources.insert(
-        "shared-root.rs".into(),
-        buffa_codegen::shared_descriptor_root_module(
-            &descriptor_bytes,
-            FdsEmbedding::Sidecar {
-                file_name: "descriptor.bin",
-                mode: IncludeMode::Relative(""),
-            },
-            None,
-        ),
-    );
-    support_sources.insert("mod.rs".into(), module_tree);
+    let support = generation.support("descriptor.bin")?;
     Ok(ProjectionOutput {
         generation,
-        descriptor_set,
-        descriptor_bytes,
-        source_descriptor_bytes,
-        support_sources,
+        descriptor_set: support.descriptor_set,
+        descriptor_bytes: support.descriptor_bytes,
+        source_descriptor_bytes: support.source_descriptor_bytes,
+        support_sources: support.sources,
         documentation: owner_reference(graph, package),
     })
 }
