@@ -264,11 +264,11 @@ and original typed cause. A returned error reports settled failure; unreaped nat
 remains owned by the original performing finish/supervisor operation, with admission retained.
 Do not release custody merely because a Shutdown, kill, wait or I/O-join attempt failed.
 
-**Remaining performing-owner refinement:** the generic
-[`admitted_storage`](../../crates/pse-runtime/src/math/jobs.rs) supervisor still detaches its
-Tokio task; population-permit return is not collection of that task's join outcome. Retain
-result-bearing supervisors under the existing service owner, with bounded registration and
-ready-result harvesting. Close registration atomically with shutdown. Preserve native and
+**Implemented and default-mode targeted-tested at `1b2240537`:** generic submission and async
+jobs now use one [`start_admitted_storage`](../../crates/pse-runtime/src/math/jobs.rs)
+performing supervisor. Population-permit return is separate from collection of that task's
+join outcome. The service owns result-bearing supervisors with bounded registration and
+ready-result harvesting; registration closes atomically with shutdown. Preserve native and
 publication custody through the response-send attempt: if a successful value is returned by
 an abandoned oneshot, run its caught fallible finisher while the original owners remain live.
 Earlier cancellation/growth-refusal disposal does not cover this final delivery race.
@@ -299,7 +299,53 @@ native admission from task tracking. Source: [pinned JoinSet implementation](htt
 Shared `PreparedSurrogate` phase aliases also need an explicit retirement authority through
 the actual actor, after callbacks/advances depart; dropping one alias cannot establish
 physical retirement. Existing pool/actor fallible finish remains the mechanism, not a second
-lifecycle registry. These are open D05/E04 implementation obligations, not tested completion.
+lifecycle registry. Shared phase retirement is receiving in the refinement below. The combined default native local
+runtime/host selection passes 47/47 with zero failures/build warnings, including supervisor,
+shutdown, cancellation, unread-value and original inspection controls; default all-target
+runtime/host compilation has zero errors/warnings. New controls include lost sender versus
+delivered scientific error, panicking outer payload destruction, delayed healthy siblings,
+queued live handles, repeated/concurrent finish and canceled/resumed lane drains. Full scientific
+feature receiving and the complete E04 consumer population remain separate obligations; 65h
+owns exact commands and captures.
+
+**Further retirement refinement, implemented and awaiting functional receiving:** generic
+supervisor harvest now extracts raw `JoinSet` outcomes under the service mutex, then normalizes
+panic payloads outside it. Completed lane owners also leave that mutex before destruction.
+Bounded settling records remain counted until failure reconciliation; reentrant generic
+admission refuses instead of waiting on its own destructor. Final spawn/close remains atomic,
+and shutdown cannot cache an outcome while an earlier open harvest still owns a settling
+result. Store the serialized drain's waker under the same lock and wake it after unlocking.
+Extraction, normalization and reconciliation have no intervening await, so cancellation of
+an observing drain cannot discard a removed failure. This uses the existing service owner,
+not a second request registry. Source: [generic supervisor](../../crates/pse-runtime/src/math/jobs.rs)
+and [service drain](../../crates/pse-runtime/src/math/staged.rs).
+
+`prepare_surrogate_phase` now borrows `&SurrogateHandle`; the non-cloneable root keeps
+consuming retirement authority while cloneable phases/rungs retain `Weak<Actor>` access and
+independently charged task metadata. `Arc::downgrade`/`Weak::upgrade` provide access lifetime,
+not retirement or scientific permission. Charge the actor's compact allocation shell through
+the last weak/strong alias, and correspondence vector capacities through their metadata owner;
+idle bindings must not retain the whole opaque native workspace. The callback's borrowed
+`with_correspondence` reserves metadata before cloning the same referenced correspondence,
+preserving one source snapshot and eager evaluator custody through pre-native refusal.
+
+`Actor::retire` takes the physical join owner to close admission, interrupts this actor,
+fences the prior native command, attempts Stop and releases the serialization gate before
+`JoinHandle::join` and panic-payload destruction. Later reentrant commands can observe
+`Retiring`. The performing retirement retains the native lease through actual worker/team/TLS
+and payload settlement, then releases it independently of idle alias count. Existing
+`RetainedSurrogate::finish` and the joined local library team remain the supplier mechanisms.
+Source: [actor/phase owners](../../crates/pse-runtime/src/math/surrogate.rs) and
+[library callback/retirement owner](../../crates/pse-runtime/src/math/surrogate/library.rs).
+
+Creators await enclosing advances/staged solves before consuming root finish, composing
+original action and retirement failures. A reusable rung does not finish the actor after each
+use. The actor fence covers its actual iteration/callbacks; subsequent independent original
+screening retains its own target, worker budget and result owner. New controls cover native
+charge release before idle aliases disappear, compact metadata lifetime, active commands,
+reentrant TLS/payload destruction and metadata-refusal cleanup. Actual KINSOL supplied and
+automatic correctors retain their scientific/history assertions. These changes still require
+their targeted and actual-consumer receiving; the preceding 314-test source boundary is separate.
 
 Extend `execution::Retained`'s existing type-erased session/workflow storage with the
 monomorphized consuming finisher supplied at actual construction. Make clear, incompatible

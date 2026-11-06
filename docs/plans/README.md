@@ -4,8 +4,10 @@ title: "Current work and plans"
 
 # Current work and plans
 
-Only Plan64 and Plan65 are active. They execute under one coordinator, with Proto delivery first and scientific
-input fixes/census progressing where needed for its acceptance. Native package tables own current status and remaining decisions. Index inclusion does not
+Only Plan64 and Plan65 are active. They execute under one coordinator in dependency order,
+with parallel contract, persistence/developer and scientific implementation worktrees and
+integration on `main`. The [whole-scope execution route](65-proto-integrated-target.md#whole-scope-continuation-and-parallel-dependencies)
+keeps every remaining workstream and its prerequisites visible. Native package tables own current status and remaining decisions. Index inclusion does not
 resume stopped work or establish implementation, qualification or measured benefit.
 
 The November 5 review-driven planning revision integrates twelve recommendations and
@@ -15,7 +17,7 @@ coordinator; the earlier stopped qualification campaign remains a separate evide
 The current wrap-up integrates compiled-root handoff and authored Buf composition on main;
 [65k](65k-scientific-artifacts-and-native-reconstruction.md#integrated-compiled-root-handoff)
 owns private transfer limits and [64h](64h-reference-coverage-and-qualification.md#receiving-scientific-comparison-checkpoint--november-5)
-owns the still-open scientific comparisons. Earlier targeted passes do not establish full-series
+owns the required scientific population and its acceptance. Earlier targeted passes do not establish full-series
 qualification. The [November 6 wrap-up](65h-integration-and-qualification.md#wrap-up-verification--november-6)
 records receiving-main functional/Clippy results, actual deployed-lane acceptance, remaining
 exchanger accuracy refusal and completed worktree consolidation. New builds retain normal
@@ -25,9 +27,9 @@ The [remaining-scope execution checkpoint](65h-integration-and-qualification.md#
 tracks the new representation/transport/lifecycle wave and private source-anchored output
 accuracy under proposed ADR-0248. Component controls and actual generated validator/transport
 invocations pass. Charged arithmetic layout receiving exercises actual SCIP/Diffsol consumers
-and passes the arithmetic exchanger's independent comparison with same-point correction;
-the remaining scientific comparisons, protected intake and full
-selected-population delivery remain open. The expanded
+and passes all five ordinary independent comparisons plus protected intake/exact-source readback
+in the selected 314-test receiving population. The next retirement refinement, remaining
+scientific families and full selected-population delivery remain open. The expanded
 [Symbolica capability refinement](65e-scientific-portability-and-execution.md#symbolica-capability-refinement--november-6)
 records source-backed mathematical opportunities and version/evidence limits.
 [65b](65b-representation-validation-and-interpretation.md#november-6-execution-refinements)

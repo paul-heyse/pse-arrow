@@ -782,11 +782,12 @@ enumeration does not close ordinary-science authoring, loaded-data realization o
 
 ### November 6 execution of the remaining-scope approach
 
-The approved conversational approach is now being implemented on `main`. Only Plan64/65
-own remaining work. Concurrent unrelated caching-library documentation and the storage review
-and the newly expanded Symbolica reference are preserved. This wave uses distinct source ownership in the shared checkout; no worktrees
-were created. Normal incremental compilation, the selected compiler cache, configured host
-width and explicit native fixture contexts remain active.
+The approved conversational approach is being implemented and integrated on `main`. Only
+Plan64/65 own remaining work. Concurrent caching-library documentation, the storage review
+and the expanded Symbolica reference are preserved. Initial slices used distinct source
+ownership in the shared checkout; the whole-scope continuation below now uses three isolated
+implementation worktrees. Normal incremental compilation, the selected compiler cache,
+configured host width and explicit native fixture contexts remain active.
 
 Ready slices now include composed character/UTF-8 validation, the narrower descriptor-aware
 JSON token preflight, per-operation large-response client limits, binary-only private worker
@@ -808,16 +809,20 @@ The Symbolica build correction in [65k](65k-scientific-artifacts-and-native-reco
 binds display version/rebuild dependencies to the actual supplier source, rather than consumer
 Git commits; six standalone controls pass. It establishes dependency behavior, not measured
 build-speed benefit. Actual owned/view validators, transport and selected lifecycle controls
-pass in receiving tests. Three other scientific cases remain receiving;
-staged arithmetic receiving now exercises actual SCIP and Diffsol consumers and passes the
-arithmetic exchanger's independent comparison with goal-driven correction. Source inventory,
+pass in receiving tests. The subsequent `1b2240537` receiving selection passes 314/314,
+including all five ordinary independent comparisons and protected scientific intake/exact-source
+readback. This qualifies that selected population, with unchanged physical and comparison
+allowances; it does not complete 64h's required denominator. Staged arithmetic receiving
+exercises actual SCIP and Diffsol consumers and the arithmetic exchanger's independent
+comparison with goal-driven correction. Source inventory,
 charged executable layout and native workspace have one backend owner; original provenance
 and unique-guard/workspace bounds remain enforced. Same-point correction start and direct
 shared-Function preparation pass their coupled controls. [65h](65h-integration-and-qualification.md#remaining-scope-receiving--november-6)
 owns these exact scopes and the remaining acceptance population.
 The original design law exposes a mixed positive/nonzero Domain conjunction; the shared
-`Predicate::{Range, Nonzero}` extension under proposed ADR-0249 is component-tested, with
-design/rating/protected-intake scientific receiving still required on that changed source.
+`Predicate::{Range, Nonzero}` extension under proposed ADR-0249 is included in that receiving
+population, including design/rating/protected intake. A subsequent runtime retirement refinement
+remains separately under targeted verification; those earlier passes do not qualify it.
 Physical budgets and comparison allowances may be revised with a scientific rationale under
 the maintainer's design-phase direction. The current point-local eligibility correction
 changes neither: acceptance tolerance does not define derivative-neighborhood radius.
@@ -836,6 +841,32 @@ no current consumer selects an additional dynamic validator runtime. Reopen for 
 imported-schema operation requiring rule execution and its complete clock/scope contract.
 Full P03 journeys, selected-population migration, remaining scientific families,
 bounded capability decisions and assembled qualification remain authorized work.
+
+### Whole-scope continuation and parallel dependencies
+
+The whole remaining two-plan scope is the execution frame. The rows below assign work and
+order dependencies; companion package tables remain the sole native progress owners. A
+contract or one scientific example passing does not complete the selected consumer population.
+In particular, 64a A02–A04 and 65a A01 have completed bounded deliveries, while 64a A01's
+finite input/case closure and 65a A02–A07's remaining consumer/generation work stay visible.
+
+| Workstream and existing scope owners | Current execution responsibility | Dependency order and next ready work |
+| --- | --- | --- |
+| Contracts, representation and tooling: 65a A02–A07; 65b B01–B03/B05–B07; 65g G01–G04/G06; 64i I01/I02/I06 | Contracts executor, `p65-contracts` worktree | Finish descriptor-guided selected search without whole-world materialization; migrate actual acquisition/adoption/producer populations and delete replaced maps. A06 projection generation follows concrete persistence declarations, rather than inventing an unused projection catalogue. B04/G05 retain their bounded decisions. |
+| Persistence, results and developer lifecycle: 65c C01–C04/C07; 65f F01–F06; 65j J01–J05; 64g G08 | Persistence executor, `p65-persistence` worktree | Aggregate exact selected prerequisites and retain pending/failure observations before effects; then carry exact selected-result intent and original interpretation through producer, storage and readback. Coordinate A06 at the source declaration. Retire replaced captures/readers as their consumers move. C05/C06 remain bounded completed decisions; native 64b/c foundations are retained, not rebuilt. |
+| Scientific foundations and product semantics: 64d D01–D06; 65i I01–I06; contributing source/input closure to 64a A01 and 64h H01 | Science executor, `p64-science` worktree | Close reusable source-authored feed-flash configurations and actual physical consumers, then remaining thermo/reaction/equipment configurations and HDA/methanol. Winning phase/regime observations must come from actual native selection, with any kernel-contract change decided before implementation. Preparation metadata cannot stand in for a winning observation. |
+| Storage, spatial and cyclic formulations: 64e E01–E06 | Science lane, queued by the narrow physical prerequisite | Reuse delivered temporal storage foundations; implement distributed conservation/local inventory and derivative/reference controls. Develop physical cycle carryover once those state contracts exist. Do not wait for all of 64d when the required property/equipment slice is ready. |
+| Specialized workflows: 64f F01–F07 | Science lane; split into further executor assignments as ready slots become available | Integrated power follows the required steam/equipment slice; heterogeneous gas-solid and capture/membrane require their chemistry/transport plus spatial conservation; TSA/SOC require cycle/local-inventory contracts; gas networks require pressure and linepack. Each gets its own exact configuration/evidence population. |
+| Analyses and applications: 64g G01–G07; 65i I03–I06 | Science lane, with result and contract consumers coordinated across the other lanes | Advance fitting, studies, uncertainty, control, custom workflows and assessment on available steady models; only the actual dynamic/spatial consumer waits for 64e. Preserve ordered coordinates, derivative demand, product-use admission and original provenance. G08 remains with persistence. |
+| Runtime, services and scientific portability: 64j J01–J06; 64k K01–K06; 65d D01–D07; 65e E01/E04–E06; 65k E02/E03 | Root on `main`, with further bounded delegation when a slot becomes available | Finish the reviewed generic-supervisor reentrant settlement and unique surrogate retirement refinement with targeted verification, then continue remaining service/worker/session and selected scientific consumers. The current compiler failure is a bounded qualification issue, not a barrier to independent contract, persistence or scientific work. |
+| Denominator, shared decisions and assembled acceptance: 64a A01; 64h H01–H07; 65h H01–H04; coordinator P01–P09 | Root, using exact source/population inputs from all lanes | Keep held inputs/configurations in the denominator; integrate scientific and developer P03 journeys as their narrow prerequisites land. Resolve P06–P09 against named consumers and available evidence. Run assembled qualification and benefit work at the functional scope boundary; targeted tests cannot close missing physics, migrations or extension controls. |
+
+All three worktrees start from integrated `1b2240537`. Executors commit coherent source,
+generator, consumer and deletion changes with their targeted evidence. The root reconciles
+shared declarations and decisions, integrates each contribution on `main`, checks affected
+consumers, updates owning package/status documents, and removes a worktree only after all
+required changes are integrated. Slots are reassigned to ready queued scope as deliveries land.
+This is dependency ordering across the entire scope, not a whole-document serial gate.
 
 **Proposed verification:** package-local compile/targeted tests during implementation, explicit
 Arrow force-validation in consuming closures, actual code generation when declarations change,

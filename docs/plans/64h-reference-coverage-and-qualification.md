@@ -53,8 +53,8 @@ Reuse existing case/source declarations, conformance/reference exchange and reta
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | H01 | in-progress | Accepted RC01 scope and current case/register sources | [Source/configuration crosswalk](64h-required-process-population.md) supplies D–G selections and gaps; full inherited/parameterized population, recursive closure and exact executable environment remain open |
-| H02 | in-progress | H01 first-case slice; ordinary-data and formulation selection from 64b/64c | Ordinary property, exchanger and recycle/intended-failure references executed. Arithmetic now passes its independent comparison with all four caloric goals; design/rating remain receiving after explicit nonzero-domain projection. The [source-anchored checkpoint](#source-anchored-output-assessment--november-6-execution) distinguishes current scientific acceptance from earlier evidence. Full correspondence and the required population remain open. |
-| H03 | in-progress | H02; complete native A–C journeys and consumed F01/F02/F03 contracts | Original canonical intake/protected report readback passes on the isolated comparison baseline. All five contracts support independent mismatch controls; actual original-square/reconstruction control passes. Complete exchanger accuracy, scientific agreement and final integrated-source qualification remain open. |
+| H02 | in-progress | H01 first-case slice; ordinary-data and formulation selection from 64b/64c | All five selected ordinary independent comparisons pass on `1b2240537`: exchanger design/rating/arithmetic, ideal recycle and intended overheated rejection. The [source-anchored checkpoint](#source-anchored-output-assessment--november-6-execution) distinguishes this scientific acceptance from earlier failures. Full correspondence and the broader required population remain open. |
+| H03 | in-progress | H02; complete native A–C journeys and consumed F01/F02/F03 contracts | Protected scientific intake and exact original-source result readback pass in the same integrated receiving selection at `1b2240537`. Original-square/reconstruction and selected mismatch controls retain their scope; other result families, the full scientific population and final whole-series qualification remain open. |
 | H04 | planned | H01 population; selected 64d–64g scientific capabilities | Configuration, property, unit, workflow and extension acceptance closes each delivered family at its actual scope |
 | H05 | planned | Selected H03/H04 outcomes; applicable C07/G08 corrections; original execution/persistence mechanisms | Relevant assembled native/operational journeys, interruption and supported deployment claims are qualified here with 65h; all remaining obligations belong to Plan64/65 |
 | H06 | planned | Selected quality-equivalent cases and a concrete benefit/capacity question | Representative cold/reuse/structural/study/trajectory measurements answer the claim with original failures and conditions retained |
@@ -1074,15 +1074,23 @@ are exercised. No physical budget or independent comparison allowance changed. D
 comparisons and protected scientific intake remain receiving; this named journey does not close
 H02/H03 or the complete Plan64 population.
 
-The separate six-case scientific population passes **3/6**, with design, rating and protected
-intake still failing against zero. Design retains original normalized maximum approximately
-`0.78826`; all four output goals identify an unrepresented original Domain conjunction in
-`delta-t.pse`'s logarithmic law (`a > 0 and b > 0 and a != b`). Rating depends on that design
-prerequisite. The coordinated `Predicate::{Range, Nonzero}` extension under
-[proposed ADR-0249](../adr/0249-exact-conjunctive-domain-predicates.md) is receiving; it preserves
-the authored domain rather than changing the law or its comparison allowances. Independent
-design/rating/reference and protected-publication journeys must receive the new source before
-their scientific acceptance can be claimed. The broader required population remains open.
+The earlier six-case population passed **3/6**, exposing an unrepresented original Domain
+conjunction in `delta-t.pse`'s logarithmic law (`a > 0 and b > 0 and a != b`). The coordinated
+`Predicate::{Range, Nonzero}` extension under
+[proposed ADR-0249](../adr/0249-exact-conjunctive-domain-predicates.md) preserves that authored
+domain, full original provenance and explicit closed-export fidelity. It changes neither the
+law nor physical/comparison allowances.
+
+**Tested at `1b2240537`, zero failure baseline:** the coupled full-feature selection passes
+**314/314**, including all five ordinary independent comparisons and protected scientific
+intake/publish/exact-source readback (`01a1b123-7fa6-76cd-81dc-7125e1cb2ef2`). JUnit identifies
+the actual design, rating, arithmetic, ideal-recycle and intended overheated-rejection
+comparisons individually as passed; the source-generated binary contracts and IDAES 2.13.0
+comparison are exercised by those tests. No changed physical budget or comparison allowance
+is needed. This is acceptance for the named original journeys, not the complete census or
+all H02/H03 obligations. Later lifecycle refinements require their own receiving; exact
+commands, feature profiles, build outcomes and that boundary remain in
+[65h](65h-integration-and-qualification.md#remaining-scope-receiving--november-6).
 
 ## H04 — Close configurations and scientific workflows
 

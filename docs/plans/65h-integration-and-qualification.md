@@ -538,132 +538,124 @@ work; they are not established by this requested Clippy/targeted-test wrap-up.
 
 ## Remaining-scope receiving — November 6
 
-**Implemented, receiving on `main`:** composed character/UTF-8 validation,
-strict JSON token preflight, operation-specific response limits and pre-body private gRPC
-admission are integrated. Result-bearing pool/surrogate finish preserves callback custody
-through failed construction and abandoned preparation; unpublished actors retain original
-cancellation alongside fallible retirement through team/TLS departure. Shared prepared-surrogate
-ownership (D05/E04), outer job-supervisor drain and the remaining selected consumers stay open.
+**Implemented on `main` at `1b2240537`:** composed character/UTF-8 validation,
+strict JSON token preflight, selected response limits and pre-body private gRPC admission
+are integrated. Pool/surrogate finish preserves callback custody through failed construction
+and abandoned preparation. Generic jobs have one bounded performing supervisor, explicit
+unread-result retirement and service-resident resumable task/lane drain; the replaced
+submission wrapper and metric are deleted. Later reentrant-settlement and unique-surrogate
+ownership refinements described below are not covered by this committed-source receipt.
 
 Private source-anchored output assessment follows
-[proposed ADR-0248](../adr/0248-affine-constant-output-accuracy.md), retaining complete original
-rows, Jacobian, residuals, uncertainty, guards and row demands. Its Estimated correction
-evidence establishes neither root existence nor a finite correction neighborhood; public
-parameter/predictor sensitivity admission remains strict. Legitimate producer-issued Certified
-reconstruction evidence is retained when the authored minimum is Estimated. Scientific
-comparison acceptance belongs to
+[proposed ADR-0248](../adr/0248-affine-constant-output-accuracy.md), retaining every original
+row, coordinate, Jacobian, residual, uncertainty, guard and row demand. Its Estimated
+point-local correction is neither root-existence evidence nor a finite-neighborhood bound;
+public parameter sensitivity remains strict. Producer-issued Certified reconstruction is
+retained when the authored minimum is Estimated. Scientific acceptance belongs to
 [64h](64h-reference-coverage-and-qualification.md#source-anchored-output-assessment--november-6-execution).
 
-The original exchanger now reaches arithmetic-driven correction. Exact Boolean truth lowering
-cleared its auxiliary obstruction; preserving **19,512 source occurrences** then exposed the
-old declaration cap, and **14,484 raw guards** exposed the executable cap. Arithmetic now
-admits source occurrences separately and validates every consumed guard before exact
-deduplication against the unchanged **8,192 unique executable-guard cap**. All arithmetic consumers use one
-charged prepared layout for transport, workspace and actual-work accounting. Current source
-also binds correction to the assessed original point through a charged primal-only explicit
-seed and constructs the shared residual Function directly. Both pass the
-coupled 147-test receiving selection. Mechanisms, library sources and conservative workspace/Second
-limits are owned by
+Arithmetic preserves **19,512 source occurrences** and validates **14,484 raw guards** before
+exact deduplication against the unchanged **8,192 unique executable-guard cap**. One charged
+prepared layout owns transport/workspace/work accounting. A charged primal-only explicit
+start binds correction to the actual assessed point; the native route builds one shared
+residual Function. `Predicate::{Range, Nonzero}` under
+[proposed ADR-0249](../adr/0249-exact-conjunctive-domain-predicates.md) preserves the logarithmic
+law's full original conjunction without sign selection or a new tolerance. Exact zero
+membership, complete provenance, changed program/proof identities and explicitly relaxed
+closed export remain enforced. Exact output-slot sharing retains every original row,
+bound subtraction and objective mapping. Precise library APIs, lifecycle, conservative
+workspace/Second limits and the expanded Symbolica options are owned by
 [65e](65e-scientific-portability-and-execution.md#original-arithmetic-preparation--november-6).
 
-**Tested, latest finished coupled selection; failure baseline zero:**
+**Tested at `1b2240537`, full features; failure baseline zero:**
 `scripts/pse test pse-runtime pse-backend-native pse-host pse-math --lib --profile local`
-ran **147 tests: 147 passed**, zero failures, with zero build warnings and complete native
-settlement (`01a1b0b1-c14b-7681-b3b6-88fd55ff301e`). It selected all `root_isolation::tests::`,
-`factorable::`, `engineering_accuracy`, `dynamic_accuracy` and `dynamic_refined_goal` controls,
-plus `affine_accuracy_goals_prepare_source_rows_with_solver_presolve_off`,
-`selected_scalar_observable_has_actual_first_arithmetic_` and
-`ordinary_reference_exchanger_arithmetic_binary_comparison`. Features were runtime
-`engineering-service,property-coolprop,compiled-evaluator,solver-ipopt,solver-kinsol,
-solver-root-isolation,solver-scip,solver-diffsol,canonical-tests` and math `compiled-evaluator`.
-Preparation and tests used matching `compiler,klu,solver,isolation` native profiles through
-`direnv exec . scripts/pse-env --native=compiler,klu,solver,isolation`, a surviving user-manager
-shell scope, and explicit `PSE_ORDINARY_REFERENCE_PYTHON=.venv-parity/bin/python` with
-IDAES 2.13.0. Original workflow capture remains under that invocation's `workflow/` owner.
+passes **314/314**, zero failures/build warnings and complete native settlement
+(`01a1b123-7fa6-76cd-81dc-7125e1cb2ef2`). The filter selects `factorable`, `presolve::tests::`,
+`curvature::tests::`, `root_isolation::tests::`, `engineering_accuracy`, `dynamic_accuracy`,
+`dynamic_refined_goal`, `affine_accuracy_goals_prepare_source_rows_with_solver_presolve_off`,
+`selected_scalar_observable_has_actual_first_arithmetic_`, `native_supervisor_`,
+`native_shutdown_`, `unpublished_result_`, `cancelled_native_job_`, `scoped_deadline_`,
+`scoped_cancellation_`, `math::surrogate::tests::`, `math::joined_pool::tests::`,
+`schema_payload_`, `raw_payload_`, `ordinary_reference_` and
+`ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source`.
+Features are runtime `engineering-service,property-coolprop,compiled-evaluator,solver-ipopt,
+solver-kinsol,solver-root-isolation,solver-scip,solver-diffsol,canonical-tests` and math
+`compiled-evaluator`. Preparation/tests use matching `compiler,klu,solver,isolation` native
+profiles through `direnv exec . scripts/pse-env --native=compiler,klu,solver,isolation` and
+a surviving user-manager shell scope. The independent driver enforces IDAES 2.13.0.
+Original build/workflow capture and per-case JUnit results are retained under that invocation's
+`workflow/` owner.
 
-Charged preparation/retention, exact guard keys and later-invalid occurrences, unique-guard
-admission, root-closure accounting, allocation-free large-rational inventory, derivative-order
-separation, per-mode Value/derivative behavior and actual SCIP/Diffsol consumers pass.
-The arithmetic exchanger completes **111 successful Ipopt solves** (110 initial components
-and one original correction), all four requested caloric goals are satisfied with Estimated
-evidence, and its original normalized maximum is approximately `0.01209`. Original physical
-budgets and independent comparison allowances are unchanged. Its actual IDAES comparison
-passes, retaining native context/source map and native/reference binary products. This is
-assembled acceptance for that named journey, not the complete scientific population.
+JUnit confirms all five ordinary independent comparisons passed: exchanger design, rating,
+arithmetic, ideal recycle and intended overheated rejection. Protected scientific intake,
+publication and exact original-source readback pass in the same selection. Physical budgets
+and independent comparison allowances did not change. The arithmetic preparation, native
+Value/First/Second controls, exact predicates, actual SCIP/Diffsol consumers, typed validation
+and selected lifecycle failures also pass. These are assembled acceptances for the named
+journeys; they do not qualify the complete scientific census or both plan populations.
 
-The preceding selection exposed a Value fixture's assumption that Second-order workspace
-always covers Value, and a correction restart from authored guesses instead of the assessed
-candidate. The fixes select each actual mode's allowance and bind an owned primal-only
-same-point seed. Their original Value/derivative, frozen-policy/identity, explicit-start and
-allocation-lifetime assertions pass on current source.
+Earlier retained arithmetic evidence (`01a1b0b1-c14b-7681-b3b6-88fd55ff301e`, 147/147) includes
+native context/source map and native/reference binary products, 111 successful Ipopt solves,
+four satisfied Estimated caloric goals and original normalized maximum approximately `0.01209`.
+Those numeric captures retain their earlier source boundary. The later 314-test run establishes
+its named comparisons through their original contracts and JUnit outcomes; it is not a newly
+retained export of those earlier numeric captures. Corrections to the per-mode Value fixture,
+same-point seed and legitimate Certified constant-goal fixture preserve their original
+assertions rather than manufacturing an Estimated report.
 
-**Tested, earlier broader population:** the same runtime/backend/host/math local receiving
-route, before the SCIP/Diffsol expansion, ran **165 tests: 160 passed, five failed**, against
-the zero baseline, with zero build warnings and complete native settlement
-(`01a1aff3-5bbe-72a7-9a52-2a4dc7d61f22`).
-Owned/view validation, UDS/H2 limits, private ingress, callback/transport/constructed-actor
-retirement, First guards and wide-input arithmetic controls pass; recycle and overheated
-comparisons pass. Its source-goal fixture was subsequently corrected and passes. Its other
-four scientific failures were three exchanger comparisons and protected scientific intake.
-The latest 147-test selection closes the arithmetic comparison. A separate six-case runtime
-selection (`test(ordinary_reference_) | test(ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source)`)
-with the full native/reference mode above passes **3/6**, zero build warnings and complete
-settlement (`01a1b0b9-81f6-7552-a59e-5b9e4e800d67`). Arithmetic, ideal recycle and intended
-overheated rejection pass; design, rating and protected intake fail against zero. Design's four
-goals retain an unrepresented original Domain conjunction in the logarithmic temperature law,
-including `a != b`; rating fails its design prerequisite. That cause drives the predicate
-extension below. Design/rating comparisons and protected scientific intake remain receiving.
-Focused receiving passes do not qualify the omitted population.
+**Tested, default runtime/host; failure baseline zero:**
+`scripts/pse test pse-runtime pse-host --lib --profile local -E 'test(native_supervisor_) |
+test(native_shutdown_) | test(unpublished_result_) | test(cancelled_native_job_) |
+test(scoped_deadline_) | test(scoped_cancellation_) | test(schema_payload_) | test(raw_payload_)'`
+passes **47/47**, zero failures/build warnings and complete settlement
+(`01a1b116-330d-74d1-9ced-6d74a121bbb6`). It covers default-feature delivery loss, unread/closed
+publication, delayed completion, independent panic/destructor failures, cancellation,
+resumed drain and typed inspection. Independent review corrected lost-sender cancellation
+and outer panic-payload destruction before this run. Default all-target runtime/host check
+has zero errors/warnings (`01a1b113-e576-76a1-a595-8397a0ceebdf`).
 
-**Implemented and component-tested, predicate extension at `a58d88e1c`, output sharing at `8a453e053`:**
-[proposed ADR-0249](../adr/0249-exact-conjunctive-domain-predicates.md) precedes a shared
-`Predicate::{Range, Nonzero}` vocabulary across projection, presolve, curvature, native
-arithmetic and explicitly relaxed closed export. Exact rational zero membership preserves
-very small/large constants in both arithmetic modes. Full source provenance, conjunction
-ordering and changed program/proof identities are retained. The coordinated native math/backend
-local selection `test(factorable) | test(presolve::tests::) | test(curvature::tests::) |
-test(root_isolation::tests::)` passes **172/172**, zero failures/build warnings and complete
-settlement (`01a1b100-4172-7178-ae02-677153f7d52e`), with backend `root-isolation,scip` and math
-`compiled-evaluator`, under the same four native profiles. Controls cover both signs, zero
-singleton/crossing, adjacent values, small/large magnitudes, original attribution, invalid
-references and closed-export fidelity. Exact output-slot sharing retains every original row,
-zero-bound residual and objective correspondence; nonzero-bound subtraction remains inside
-the DAG and compact output inventory changes graph identity. The original scientific cases still require receiving
-on this changed source; the earlier 147/147 result retains its pre-extension boundary.
+Earlier complementary receiving retains its original scope: owned/view validation, UDS/H2
+limits, private ingress and constructed-actor retirement passed in the 165-test selection
+(`01a1aff3-5bbe-72a7-9a52-2a4dc7d61f22`, 160 passed/five failed). The fixture and four scientific
+failures from that selection are corrected in later receiving. Selected contract/host/codegen
+components passed 28/28, initial affine/public-response controls 44/44 and standalone pinned
+Symbolica build controls 6/6. `just codegen` passes all 14 targets plus Ipopt after the metric
+removal. These controls do not qualify unexercised protocol or scientific populations.
 
-**Current receiving limitation:** the expanded runtime local accuracy/scientific selection
-on `a58d88e1c` did not reach test discovery: pinned rustc crashed with SIGSEGV inside LLVM
-MachineLICM while compiling `pse-runtime`'s test binary
-(`01a1b0ee-4c57-735f-832e-c8429ace2964`, settlement complete). Its test-only import warning
-is corrected and the latest component build has zero warnings. A completed scientific
-rerun remains required; no tests or new design/rating/intake acceptance follow from this attempt.
-Keep normal compiler-cache/incremental settings and the pinned toolchain; the original build
-streams retain the crash diagnostic.
+**Interface-checked at `1b2240537`:** full-feature
+`scripts/pse check pse-runtime pse-host --all-targets` has zero errors/warnings
+(`01a1b120-563e-71fa-a59d-38a14384a98a`), using the full runtime feature list above. An earlier
+runtime test build on `a58d88e1c` crashed inside pinned LLVM before discovery
+(`01a1b0ee-4c57-735f-832e-c8429ace2964`); the later 314-test build completes with normal
+settings. No compiler-cause fix or workaround is claimed. `just ready` passes synchronization
+and doctor. Normal cache/incremental defaults and configured host width remain; the opaque
+workspace allowance establishes neither an allocator/RSS bound nor measured speedup.
 
-**Tested, initial components; failure baseline zero:**
+**Current refinement, implementation awaiting functional receiving:** source review confirmed
+that normalizing an outer panic payload under the supervisor mutex permits destructor
+reentry to deadlock admission. The correction extracts bounded settling records, normalizes
+and drops completed lane owners outside that mutex, preserves failures when closure races
+normalization, and wakes/resumes the existing drain. Unique surrogate roots now issue weak
+phase access with separately admitted compact metadata; native workspace retirement does
+not depend on idle alias count. Actual actor callbacks are fenced before Stop, the actor
+gate releases before physical join/payload destruction, and constructor metadata admission
+precedes copying. Enclosing original screening retains its independent owner. Existing
+scientific assertions and new reentry/charge-lifetime controls must receive these changes.
+The full-feature runtime all-target check on this refinement tree has zero errors and two
+unnecessary-qualification warnings against the zero target (`01a1b14a-2272-77cd-979a-0bee5c981d0e`).
+The two qualifications are corrected in source. Its full-feature functional build then
+terminated in pinned rustc with signal 11 before test discovery
+(`01a1b151-8807-7062-85f6-1ca944ef8b99`, complete settlement). This is a compiler failure,
+not a failing functional test or a successful test result. Normal cache/incremental settings
+remain active; default-feature targeted receiving is proceeding independently. Compilation
+and source review establish no functional outcome for this refinement.
 
-| Command and scope | Result |
-| --- | --- |
-| `scripts/pse test pse-host pse-contract pse-contract-proto pse-codegen --lib --profile local`, selected schema-payload, composed-text/string-rule and typed metadata controls | 28/28 passed |
-| `direnv exec . scripts/pse test pse-backend-native pse-math --lib --profile local`, selected affine, square-response, engineering-accuracy and nonzero-underflow controls | 44/44 passed |
-| `direnv exec . just codegen` | 14 schema targets plus Ipopt bindings passed |
-| Pinned `rustc --test vendor/symbolica/build.rs`, standalone supplier build controls | 6/6 passed |
-
-**Interface-checked:** `scripts/pse check pse-runtime --all-targets`, with engineering service,
-CoolProp, compiled evaluation, Ipopt/KINSOL/root-isolation/SCIP/Diffsol and canonical features,
-completed on `a58d88e1c` with zero errors and one unused-import warning against the zero target
-(`01a1b0f2-3c8e-7462-a508-a0d3d8fe3fc4`). The import is now test-scoped; that correction and
-subsequent output/lifecycle changes await receiving. This establishes compilation,
-not execution of externally prepared service journeys. `just ready` passed skill synchronization
-and doctor. Normal cache/incremental defaults and configured host width remain; no serialization,
-cache deletion, new host cap or resource-policy change was introduced. The conservative opaque
-workspace allowance remains; no allocator/RSS bound or measured speedup is claimed.
-
-**Next:** receive the remaining original scientific comparisons and protected intake on current
-source, repair actual failures without weakening numerical evidence, then receive remaining
-lifecycle consumers under their owners. Complete D05/E04 prepared-surrogate ownership and
-outer supervisor drain before assembled acceptance. H01–H04, both complete plan populations,
-scope-end qualification and benefit measurements remain open.
+**Next:** complete targeted and actual-consumer receiving of these retirement refinements
+alongside the [parallel whole-scope route](65-proto-integrated-target.md#whole-scope-continuation-and-parallel-dependencies).
+Contract/tooling, persistence/developer and scientific work proceed in isolated worktrees;
+their selected protocol/storage/result/lifecycle consumers and remaining scientific families
+do not wait for this compiler issue. H01–H04, both complete plan populations, scope-end qualification
+and benefit measurements remain open. No focused pass closes those obligations.
 
 ## Completion and enduring meaning
 
