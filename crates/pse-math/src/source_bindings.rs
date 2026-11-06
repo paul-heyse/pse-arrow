@@ -3,7 +3,7 @@
 //! Current receiving-source bindings, paired with an already admitted numerical body.
 use super::{CompiledBody, Evaluation, PreparedBody, PreparedBodyData, TrialEvaluation, Worker};
 use crate::{MathError, jets::ProductValues};
-use pse_ids::{FramedHasher, SemanticId};
+use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::{DerivativeOrder, ExecutionScope, ProviderBindings, ProviderError};
 use pse_model::diagnostic::SourceLocation;
 use std::{
@@ -47,6 +47,239 @@ pub struct ExecutionAttributionSnapshot {
     pub occurrences: BTreeMap<SemanticId, SourceLocation> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
+
+/// Actual attribution populations and a source-backed Rust tree allocation bound.
+/// This is not allocator usable size/RSS, source authority or an admission grant.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AttributionExtents {
+    /// Actual entries across all three original maps.
+    pub entries: usize,
+    /// Actual UTF-8 bytes copied by a metadata clone.
+    pub clone_string_bytes: usize,
+    /// Actual retained UTF-8 capacities in the existing owned maps.
+    pub owned_string_bytes: usize,
+    /// Requested node/string backing upper bound for a complete clone.
+    pub clone_bytes: usize,
+    /// Existing node/string backing upper bound, including actual string capacities.
+    pub owned_bytes: usize,
+}
+/// Passive attribution shape, commitment and checked population refusals.
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[diagnostic(code("math.attribution_transfer"))]
+pub enum AttributionTransferError {
+    /// The original instance/map/location shape is invalid.
+    #[error("invalid original attribution shape")]
+    Shape,
+    /// Full map framing differs from the original parent-issued checksum.
+    #[error("original attribution commitment differs")]
+    Commitment,
+    /// A source-backed backing/population cannot be represented on this platform.
+    #[error("original attribution backing extent overflow")]
+    Extent,
+    /// An unambiguous emitted Closure member token has no original target.
+    #[error("original attribution lacks Closure member {0}")]
+    MissingMember(SemanticId),
+    /// An unambiguous emitted Closure source token has no original target.
+    #[error("original attribution lacks Closure source {0}")]
+    MissingSource(SemanticId),
+}
+fn attribution_shape(
+    instance: SemanticId,
+    members: &BTreeMap<SemanticId, SemanticId>,
+    sources: &BTreeMap<SemanticId, SemanticId>,
+    occurrences: &BTreeMap<SemanticId, SourceLocation>,
+) -> bool {
+    instance != SemanticId::NIL
+        && members
+            .iter()
+            .chain(sources)
+            .all(|(token, target)| *token != SemanticId::NIL && *target != SemanticId::NIL)
+        && occurrences.iter().all(|(token, location)| {
+            *token != SemanticId::NIL
+                && location.source != SemanticId::NIL
+                && location.document != Some(SemanticId::NIL)
+                && match (location.start, location.end) {
+                    (None, None) => true,
+                    (Some(start), Some(end)) => start <= end && location.document.is_some(),
+                    _ => false,
+                }
+        })
+}
+fn attribution_frame(
+    instance: SemanticId,
+    members: &BTreeMap<SemanticId, SemanticId>,
+    sources: &BTreeMap<SemanticId, SemanticId>,
+    occurrences: &BTreeMap<SemanticId, SourceLocation>,
+    hash: &mut FramedHasher,
+) {
+    hash.id(&instance);
+    for map in [members, sources] {
+        hash.u64(map.len() as u64);
+        for (local, current) in map {
+            hash.id(local).id(current);
+        }
+    }
+    hash.u64(occurrences.len() as u64);
+    for (local, current) in occurrences {
+        hash.id(local);
+        current.frame(hash);
+    }
+}
+fn attribution_add(a: usize, b: usize) -> Result<usize, AttributionTransferError> {
+    a.checked_add(b).ok_or(AttributionTransferError::Extent)
+}
+fn attribution_tree<K, V>(entries: usize) -> Result<usize, AttributionTransferError> {
+    // Pinned Rust alloc/collections/btree/node.rs: B=6, capacity=11,
+    // LeafNode has parent pointer + two u16 fields, keys/values; InternalNode
+    // adds 12 child pointers. Every populated non-root has >=5 entries.
+    // Charge an internal-node bound even for the root/empty retained leaf. No
+    // private tree layout is accessed, copied or implemented by the project.
+    let header = std::alloc::Layout::new::<[usize; 2]>();
+    let keys = std::alloc::Layout::array::<K>(11).map_err(|_| AttributionTransferError::Extent)?;
+    let values =
+        std::alloc::Layout::array::<V>(11).map_err(|_| AttributionTransferError::Extent)?;
+    let (layout, _) = header
+        .extend(keys)
+        .map_err(|_| AttributionTransferError::Extent)?;
+    let (layout, _) = layout
+        .extend(values)
+        .map_err(|_| AttributionTransferError::Extent)?;
+    let (layout, _) = layout
+        .extend(std::alloc::Layout::new::<[usize; 12]>())
+        .map_err(|_| AttributionTransferError::Extent)?;
+    let nodes = attribution_add(entries / 5, 1)?;
+    let bytes = nodes
+        .checked_mul(layout.pad_to_align().size())
+        .ok_or(AttributionTransferError::Extent)?;
+    std::alloc::Layout::array::<u8>(bytes)
+        .map(|layout| layout.size())
+        .map_err(|_| AttributionTransferError::Extent)
+}
+fn attribution_extents(
+    members: &BTreeMap<SemanticId, SemanticId>,
+    sources: &BTreeMap<SemanticId, SemanticId>,
+    occurrences: &BTreeMap<SemanticId, SourceLocation>,
+) -> Result<AttributionExtents, AttributionTransferError> {
+    let entries = attribution_add(
+        attribution_add(members.len(), sources.len())?,
+        occurrences.len(),
+    )?;
+    let nodes = attribution_add(
+        attribution_add(
+            attribution_tree::<SemanticId, SemanticId>(members.len())?,
+            attribution_tree::<SemanticId, SemanticId>(sources.len())?,
+        )?,
+        attribution_tree::<SemanticId, SourceLocation>(occurrences.len())?,
+    )?;
+    let (mut clone_string_bytes, mut owned_string_bytes) = (0, 0);
+    for location in occurrences.values() {
+        for text in [
+            Some(&location.path),
+            location.name.as_ref(),
+            location.occurrence_role.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            clone_string_bytes = attribution_add(clone_string_bytes, text.len())?;
+            owned_string_bytes = attribution_add(owned_string_bytes, text.capacity())?;
+        }
+    }
+    Ok(AttributionExtents {
+        entries,
+        clone_string_bytes,
+        owned_string_bytes,
+        clone_bytes: attribution_add(nodes, clone_string_bytes)?,
+        owned_bytes: attribution_add(nodes, owned_string_bytes)?,
+    })
+}
+impl ExecutionAttributionSnapshot {
+    /// Validate shared original map/location shape; this establishes no source witness.
+    pub fn validate_shape(&self) -> Result<(), AttributionTransferError> {
+        if attribution_shape(
+            self.instance,
+            &self.checked_members,
+            &self.checked_sources,
+            &self.occurrences,
+        ) {
+            Ok(())
+        } else {
+            Err(AttributionTransferError::Shape)
+        }
+    }
+    /// Checked passive populations before metadata materialization/adoption.
+    pub fn extents(&self) -> Result<AttributionExtents, AttributionTransferError> {
+        self.validate_shape()?;
+        attribution_extents(
+            &self.checked_members,
+            &self.checked_sources,
+            &self.occurrences,
+        )
+    }
+    /// Full original framing checksum only; a matching caller-controlled replacement
+    /// remains passive data. The authenticated private issuer establishes origin.
+    pub fn commitment(&self) -> ContentHash {
+        let mut hash = FramedHasher::new(pse_ids::Frame::ExecutionAttributionV1);
+        attribution_frame(
+            self.instance,
+            &self.checked_members,
+            &self.checked_sources,
+            &self.occurrences,
+            &mut hash,
+        );
+        hash.finish_hash()
+    }
+    pub(crate) fn check_commitment(
+        &self,
+        expected: ContentHash,
+    ) -> Result<(), AttributionTransferError> {
+        self.validate_shape()?;
+        if self.commitment() == expected {
+            Ok(())
+        } else {
+            Err(AttributionTransferError::Commitment)
+        }
+    }
+    pub(crate) fn into_attribution(self) -> ExecutionAttribution {
+        ExecutionAttribution {
+            instance: self.instance,
+            checked_members: Arc::new(self.checked_members),
+            checked_sources: Arc::new(self.checked_sources),
+            occurrences: Arc::new(self.occurrences),
+        }
+    }
+}
+impl ExecutionAttribution {
+    pub(crate) fn snapshot_extents(&self) -> Result<AttributionExtents, AttributionTransferError> {
+        if !attribution_shape(
+            self.instance,
+            &self.checked_members,
+            &self.checked_sources,
+            &self.occurrences,
+        ) {
+            return Err(AttributionTransferError::Shape);
+        }
+        attribution_extents(
+            &self.checked_members,
+            &self.checked_sources,
+            &self.occurrences,
+        )
+    }
+    pub(crate) fn snapshot_after_admission(&self) -> ExecutionAttributionSnapshot {
+        ExecutionAttributionSnapshot {
+            instance: self.instance,
+            checked_members: self.checked_members.as_ref().clone(),
+            checked_sources: self.checked_sources.as_ref().clone(),
+            occurrences: self.occurrences.as_ref().clone(),
+        }
+    }
+    /// Checksum of the exact original map framing, separate from source/root identities.
+    pub fn commitment(&self) -> ContentHash {
+        let mut hash = FramedHasher::new(pse_ids::Frame::ExecutionAttributionV1);
+        self.frame(&mut hash);
+        hash.finish_hash()
+    }
+}
 impl PartialEq for SourceBindings {
     fn eq(&self, other: &Self) -> bool {
         self.attribution == other.attribution
@@ -85,23 +318,7 @@ impl SourceBindings {
         checked_sources: &BTreeMap<SemanticId, SemanticId>,
         occurrences: &BTreeMap<SemanticId, SourceLocation>,
     ) -> Result<(), MathError> {
-        let maps_valid = checked_members
-            .iter()
-            .chain(checked_sources)
-            .all(|(token, target)| *token != SemanticId::NIL && *target != SemanticId::NIL);
-        let locations_valid = occurrences.iter().all(|(token, location)| {
-            *token != SemanticId::NIL
-                && location.source != SemanticId::NIL
-                && location.document != Some(SemanticId::NIL)
-                && match (location.start, location.end) {
-                    (None, None) => true,
-                    (Some(start), Some(end)) => start <= end && location.document.is_some(),
-                    _ => false,
-                }
-        });
-        if instance == SemanticId::NIL
-            || !maps_valid
-            || !locations_valid
+        if !attribution_shape(instance, checked_members, checked_sources, occurrences)
             || !checked_members.keys().eq(body.checked_members().iter())
             || !checked_sources.keys().eq(body.checked_sources().iter())
             || !occurrences.keys().eq(body.occurrence_tokens().iter())
@@ -247,18 +464,13 @@ impl ExecutionAttribution {
     }
     /// Frame complete current attribution only when a caller's identity includes source context.
     pub fn frame(&self, hash: &mut FramedHasher) {
-        hash.id(&self.instance);
-        for map in [&self.checked_members, &self.checked_sources] {
-            hash.u64(map.len() as u64);
-            for (local, current) in map.iter() {
-                hash.id(local).id(current);
-            }
-        }
-        hash.u64(self.occurrences.len() as u64);
-        for (local, current) in self.occurrences.iter() {
-            hash.id(local);
-            current.frame(hash);
-        }
+        attribution_frame(
+            self.instance,
+            &self.checked_members,
+            &self.checked_sources,
+            &self.occurrences,
+            hash,
+        );
     }
     pub(crate) fn evaluation_error(&self, error: MathError) -> MathError {
         // These are control/refusal classes consumed directly by the provider boundary.
@@ -423,3 +635,101 @@ impl SourceWorker {
 #[cfg(test)]
 #[path = "source_bindings_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+mod transfer_tests {
+    use super::*;
+    fn id(n: u8) -> SemanticId {
+        SemanticId::from_bytes([n; 16])
+    }
+    fn snapshot() -> ExecutionAttributionSnapshot {
+        ExecutionAttributionSnapshot {
+            instance: id(1),
+            checked_members: [(id(2), id(3))].into(),
+            checked_sources: [(id(4), id(5))].into(),
+            occurrences: [(
+                id(6),
+                SourceLocation {
+                    source: id(7),
+                    revision: Some(ContentHash::from_bytes([8; 32])),
+                    document: Some(id(9)),
+                    occurrence_role: Some("role".into()),
+                    occurrence_position: Some(2),
+                    path: "original".into(),
+                    name: Some("name".into()),
+                    start: Some(1),
+                    end: Some(3),
+                },
+            )]
+            .into(),
+        }
+    }
+    #[test]
+    fn passive_attribution_keeps_original_frame_order_full_maps_and_actual_text_capacities() {
+        let mut passive = snapshot();
+        let extent = passive.extents().unwrap();
+        assert_eq!(extent.entries, 3);
+        assert_eq!(extent.clone_string_bytes, 16);
+        passive
+            .occurrences
+            .get_mut(&id(6))
+            .unwrap()
+            .path
+            .reserve_exact(100);
+        let enlarged = passive.extents().unwrap();
+        assert_eq!(extent.clone_bytes, enlarged.clone_bytes);
+        assert!(enlarged.owned_bytes > extent.owned_bytes);
+        let mut original = FramedHasher::new(pse_ids::Frame::ExecutionAttributionV1);
+        original.id(&passive.instance);
+        original.u64(1).id(&id(2)).id(&id(3));
+        original.u64(1).id(&id(4)).id(&id(5));
+        original.u64(1).id(&id(6));
+        passive.occurrences[&id(6)].frame(&mut original);
+        assert_eq!(original.finish_hash(), passive.commitment());
+        let commitment = passive.commitment();
+        let checked = passive.clone().into_attribution();
+        assert_eq!(checked.commitment(), commitment);
+        assert_eq!(checked.snapshot_after_admission(), passive);
+        passive.checked_members.insert(id(10), id(11));
+        assert_ne!(commitment, passive.commitment());
+        assert!(matches!(
+            passive.check_commitment(commitment),
+            Err(AttributionTransferError::Commitment)
+        ));
+    }
+    #[test]
+    fn passive_attribution_uses_shared_shape_rules_and_checked_tree_bound() {
+        let mutations: [fn(&mut ExecutionAttributionSnapshot); 8] = [
+            |s| s.instance = SemanticId::NIL,
+            |s| {
+                s.checked_members.insert(SemanticId::NIL, id(1));
+            },
+            |s| {
+                s.checked_sources.insert(id(1), SemanticId::NIL);
+            },
+            |s| s.occurrences.get_mut(&id(6)).unwrap().source = SemanticId::NIL,
+            |s| s.occurrences.get_mut(&id(6)).unwrap().document = Some(SemanticId::NIL),
+            |s| s.occurrences.get_mut(&id(6)).unwrap().document = None,
+            |s| s.occurrences.get_mut(&id(6)).unwrap().end = None,
+            |s| s.occurrences.get_mut(&id(6)).unwrap().end = Some(0),
+        ];
+        for mutate in mutations {
+            let mut bad = snapshot();
+            mutate(&mut bad);
+            assert!(matches!(
+                bad.extents(),
+                Err(AttributionTransferError::Shape)
+            ));
+        }
+        assert!(matches!(
+            attribution_tree::<SemanticId, SourceLocation>(usize::MAX),
+            Err(AttributionTransferError::Extent)
+        ));
+        let mut unlocated = snapshot();
+        let location = unlocated.occurrences.get_mut(&id(6)).unwrap();
+        location.start = None;
+        location.end = None;
+        location.document = None;
+        assert!(unlocated.validate_shape().is_ok());
+    }
+}

@@ -19,7 +19,8 @@ mod error;
 mod execution;
 pub use execution::transfer;
 pub use execution::{
-    ExecutionAttribution, ExecutionAttributionSnapshot, SourceBindings, SourceBody,
+    AttributionExtents, AttributionTransferError, ExecutionAttribution,
+    ExecutionAttributionSnapshot, SourceBindings, SourceBody,
 };
 pub mod factorable;
 pub mod facts;

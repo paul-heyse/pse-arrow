@@ -237,6 +237,8 @@ pub struct RootExecution {
     native_order: DerivativeOrder,
     // Root metadata and attempt buffers share the original construction admission.
     _construction_owner: Option<Arc<dyn crate::construction::ConstructionAdmission>>,
+    // Delegated metadata and any moved boundary backing remain owned through drain.
+    _metadata_owner: Option<Arc<dyn crate::AllocationOwner>>,
 }
 #[derive(Debug)]
 struct ResidualWorker<W = SourceWorker> {
@@ -799,6 +801,7 @@ impl Problem {
             pattern,
             native_order: bodies.unknown.compiled_order(),
             _construction_owner: crate::construction::current(),
+            _metadata_owner: None,
         });
         Ok(Self {
             root,

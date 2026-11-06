@@ -708,7 +708,11 @@ fn actual_provider_directional_and_unavailable_order_profiles_refuse_before_capt
         .unwrap();
     let directional = fixture(false)
         .prepared_support()
-        .compile_directional(Optimization::default(), EvaluationLimits::default(), &scope())
+        .compile_directional(
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &scope(),
+        )
         .unwrap();
     let value = PreparedBody::new(1, 1, vec![0], vec![], DerivativeOrder::First)
         .unwrap()
@@ -724,13 +728,13 @@ fn actual_provider_directional_and_unavailable_order_profiles_refuse_before_capt
     for body in [&provider, &second, &directional, &value] {
         ALLOCATIONS.with(|n| n.set(0));
         let called = Cell::new(false);
-        assert!(
+        assert!(matches!(
             capture(body, &scope(), |_| {
                 called.set(true);
                 Ok::<_, Infallible>(Arc::new(()))
-            })
-            .is_err()
-        );
+            }),
+            Err(TransferError::Unsupported(_))
+        ));
         assert!(!called.get());
         assert_eq!(ALLOCATIONS.with(Cell::get), 0);
     }
@@ -761,7 +765,7 @@ fn actual_native_jit_profile_refuses_without_interpreted_recompilation() {
             called.set(true);
             Ok::<_, Infallible>(Arc::new(()))
         }),
-        Err(TransferError::Invalid("native/JIT evaluator"))
+        Err(TransferError::Unsupported("native/JIT evaluator"))
     ));
     assert!(!called.get());
     assert_eq!(ALLOCATIONS.with(Cell::get), 0);

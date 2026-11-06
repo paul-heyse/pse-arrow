@@ -13,7 +13,8 @@ use crate::{
     jets::{JetLayoutSnapshot, JetLayoutView},
 };
 use std::{collections::TryReserveError, convert::Infallible};
-use symbolica::evaluate::{F64ProgramExtents, F64ProgramView, F64RestoreError, F64TransferError};
+pub use symbolica::evaluate::F64TransferError;
+use symbolica::evaluate::{F64ProgramExtents, F64ProgramView, F64RestoreError};
 
 /// Native control nesting supported by this transfer profile. A wire codec must
 /// separately admit the generated message nesting; this is not a codec allowance.
@@ -189,7 +190,10 @@ pub enum StageSnapshot {
 /// Structural/profile, supplier, real allocation, scope and original admission causes.
 #[derive(Debug, thiserror::Error)]
 pub enum TransferError<E: std::fmt::Debug + std::fmt::Display> {
-    /// Passive structure or unsupported fixed execution profile.
+    /// Well-defined execution state outside the fixed transferable capability.
+    #[error("unsupported numerical snapshot profile: {0}")]
+    Unsupported(&'static str),
+    /// Malformed passive structure or inconsistent layout/signature metadata.
     #[error("numerical snapshot: {0}")]
     Invalid(&'static str),
     /// Unrepresentable checked population, layout or backing extent.
@@ -200,7 +204,7 @@ pub enum TransferError<E: std::fmt::Debug + std::fmt::Display> {
     Supplier(#[from] F64TransferError),
     /// Original allocation-free layout refusal or mathematical layout limit.
     #[error("numerical layout transfer: {0}")]
-    Layout(#[from] crate::jets::LayoutSnapshotError),
+    Layout(#[source] crate::jets::LayoutSnapshotError),
     /// Original native mathematical limit or scope refusal, retaining its class.
     #[error("{0}")]
     Math(#[from] MathError),
@@ -210,6 +214,17 @@ pub enum TransferError<E: std::fmt::Debug + std::fmt::Display> {
     /// Unchanged original admission/cancellation error and source chain.
     #[error("numerical snapshot admission: {0}")]
     Admission(#[source] E),
+}
+impl<E: std::fmt::Debug + std::fmt::Display> From<crate::jets::LayoutSnapshotError>
+    for TransferError<E>
+{
+    fn from(error: crate::jets::LayoutSnapshotError) -> Self {
+        match error {
+            crate::jets::LayoutSnapshotError::Unsupported(reason) => Self::Unsupported(reason),
+            crate::jets::LayoutSnapshotError::Math(error) => Self::Math(error),
+            error => Self::Layout(error),
+        }
+    }
 }
 impl<E: std::fmt::Debug + std::fmt::Display + std::error::Error + 'static> miette::Diagnostic
     for TransferError<E>
@@ -294,6 +309,7 @@ fn widen<E: std::fmt::Debug + std::fmt::Display>(
 ) -> TransferError<E> {
     match error {
         TransferError::Invalid(e) => TransferError::Invalid(e),
+        TransferError::Unsupported(e) => TransferError::Unsupported(e),
         TransferError::Overflow(e) => TransferError::Overflow(e),
         TransferError::Supplier(e) => TransferError::Supplier(e),
         TransferError::Layout(e) => TransferError::Layout(e),
@@ -336,7 +352,7 @@ impl<'a> Program<'a> {
                         BlockEvaluator::Interpreted(evaluator) => evaluator,
                         #[cfg(feature = "compiled-evaluator")]
                         BlockEvaluator::Native(_) => {
-                            return Err(TransferError::Invalid("native/JIT evaluator"));
+                            return Err(TransferError::Unsupported("native/JIT evaluator"));
                         }
                     };
                     StageView::Block(BlockView {
@@ -419,7 +435,7 @@ impl<'a> Program<'a> {
                     otherwise: Self::Native(otherwise),
                 },
                 CompiledStage::Provider { .. } => {
-                    return Err(TransferError::Invalid("provider stage"));
+                    return Err(TransferError::Unsupported("provider stage"));
                 }
             },
             Self::Passive(stages) => match &stages[index] {
@@ -698,7 +714,7 @@ impl Counts {
         depth: usize,
     ) -> Result<()> {
         if depth > MAX_STAGE_DEPTH {
-            return Err(TransferError::Invalid("stage recursion"));
+            return Err(TransferError::Unsupported("stage recursion"));
         }
         let frame = layout.validate(slots, slots, limits)?;
         self.index_scratch = self.index_scratch.max(layout.coordinates.len());
@@ -719,7 +735,7 @@ impl Counts {
             match program.at(i)? {
                 StageView::Block(b) => {
                     if !b.resettable {
-                        return Err(TransferError::Invalid("nonresettable evaluator"));
+                        return Err(TransferError::Unsupported("nonresettable evaluator"));
                     }
                     let (supplier, operations) = b.program.facts()?;
                     if supplier.parameters != b.arguments || supplier.results != b.values {
@@ -1417,16 +1433,16 @@ impl<'a> RootView<'a> {
             || t.programs[DerivativeOrder::Second].is_some()
             || t.layouts[DerivativeOrder::Second].is_some()
         {
-            return Err(TransferError::Invalid(
+            return Err(TransferError::Unsupported(
                 "requires nondirectional interpreted Value+First selected partials",
             ));
         }
         let value = t.layouts[DerivativeOrder::Value]
             .as_ref()
-            .ok_or(TransferError::Invalid("missing Value layout"))?;
+            .ok_or(TransferError::Unsupported("missing Value layout"))?;
         let first = t.layouts[DerivativeOrder::First]
             .as_ref()
-            .ok_or(TransferError::Invalid("missing First layout"))?;
+            .ok_or(TransferError::Unsupported("missing First layout"))?;
         Ok(Self {
             inputs: t.inputs,
             formals: &t.input_formals,
@@ -1441,19 +1457,19 @@ impl<'a> RootView<'a> {
                 Program::Native(
                     t.programs[DerivativeOrder::Value]
                         .as_deref()
-                        .ok_or(TransferError::Invalid("missing Value program"))?,
+                        .ok_or(TransferError::Unsupported("missing Value program"))?,
                 ),
                 Program::Native(
                     t.programs[DerivativeOrder::First]
                         .as_deref()
-                        .ok_or(TransferError::Invalid("missing First program"))?,
+                        .ok_or(TransferError::Unsupported("missing First program"))?,
                 ),
             ],
         })
     }
     fn passive(snapshot: &'a ExecutionSnapshot) -> Result<Self> {
         if snapshot.version != 1 {
-            return Err(TransferError::Invalid("snapshot version"));
+            return Err(TransferError::Unsupported("snapshot version"));
         }
         Ok(Self {
             inputs: snapshot.inputs,
@@ -1778,6 +1794,7 @@ impl ExecutionSnapshot {
 /// Native allocation/construction owners and the actual scope live through drain.
 pub struct CheckedExecution {
     pub(crate) frame: NumericFrame,
+    facts: TransferExtents,
 }
 impl std::fmt::Debug for CheckedExecution {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1788,6 +1805,26 @@ impl std::fmt::Debug for CheckedExecution {
     }
 }
 impl CheckedExecution {
+    /// Original checked requested populations, never a wire allocation grant.
+    pub fn extents(&self) -> &TransferExtents {
+        &self.facts
+    }
+    pub(crate) fn first_axis_slice(&self, row: usize) -> Option<&[usize]> {
+        self.frame.transfer_first_axes(row)
+    }
+    pub(crate) fn retain_owner(&mut self, owner: Arc<dyn AllocationOwner>) {
+        self.frame._owner = Some(crate::retain_allocation_owner(
+            self.frame._owner.take(),
+            owner,
+        ));
+    }
+    pub(crate) fn check_closure_attribution(
+        &self,
+        members: &BTreeMap<SemanticId, SemanticId>,
+        sources: &BTreeMap<SemanticId, SemanticId>,
+    ) -> std::result::Result<(), AttributionTransferError> {
+        check_closure_attribution(&self.frame, members, sources)
+    }
     /// Original authored input IDs in compact numeric order.
     pub fn input_formals(&self) -> &[usize] {
         &self.frame.template.input_formals
@@ -1832,6 +1869,65 @@ impl CheckedExecution {
     pub fn worker_bytes(&self) -> usize {
         self.frame.template.worker_bytes
     }
+}
+
+pub(crate) fn check_closure_attribution(
+    frame: &NumericFrame,
+    members: &BTreeMap<SemanticId, SemanticId>,
+    sources: &BTreeMap<SemanticId, SemanticId>,
+) -> std::result::Result<(), AttributionTransferError> {
+    fn lineage(
+        lineage: &pse_model::diagnostic::ValidityLineage,
+        members: &BTreeMap<SemanticId, SemanticId>,
+        sources: &BTreeMap<SemanticId, SemanticId>,
+    ) -> std::result::Result<(), AttributionTransferError> {
+        if lineage.layer == pse_model::generated::enums::ModelingValidityLayer::Closure {
+            for token in &lineage.members {
+                if !members.contains_key(token) {
+                    return Err(AttributionTransferError::MissingMember(*token));
+                }
+            }
+            if !sources.contains_key(&lineage.source) {
+                return Err(AttributionTransferError::MissingSource(lineage.source));
+            }
+        }
+        Ok(())
+    }
+    fn visit(
+        stages: &[CompiledStage],
+        members: &BTreeMap<SemanticId, SemanticId>,
+        sources: &BTreeMap<SemanticId, SemanticId>,
+    ) -> std::result::Result<(), AttributionTransferError> {
+        for stage in stages {
+            match stage {
+                CompiledStage::Require {
+                    lineage: Some(value),
+                    ..
+                } => lineage(value, members, sources)?,
+                CompiledStage::Domain {
+                    lineage: value,
+                    stages,
+                    ..
+                } => {
+                    lineage(value, members, sources)?;
+                    visit(stages, members, sources)?;
+                }
+                CompiledStage::Applicability { stages, .. } => visit(stages, members, sources)?,
+                CompiledStage::Branch {
+                    then, otherwise, ..
+                } => {
+                    visit(then, members, sources)?;
+                    visit(otherwise, members, sources)?;
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+    for program in frame.template.programs.values().flatten() {
+        visit(program, members, sources)?;
+    }
+    Ok(())
 }
 
 /// Restore only after actual native admission, retaining both returned allocation
@@ -1971,7 +2067,26 @@ pub fn restore<E: std::fmt::Debug + std::fmt::Display>(
     })()
     .map_err(widen::<E>)?;
     frame.check_scope()?;
-    Ok(CheckedExecution { frame })
+    Ok(CheckedExecution {
+        frame,
+        facts: counts.facts,
+    })
+}
+
+impl NumericFrame {
+    pub(crate) fn transfer_coordinates(&self) -> &[usize] {
+        &self.template.coordinate_offsets
+    }
+    pub(crate) fn transfer_outputs(&self) -> usize {
+        self.template.outputs.len()
+    }
+    pub(crate) fn transfer_first_axes(&self, row: usize) -> Option<&[usize]> {
+        self.template
+            .first_layout
+            .rows
+            .get(row)
+            .and_then(|range| self.template.first_layout.axes.get(range.clone()))
+    }
 }
 
 #[cfg(test)]

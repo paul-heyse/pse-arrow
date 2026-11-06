@@ -227,6 +227,9 @@ pub(crate) struct JetLayoutView<'a> {
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[diagnostic(code("math.layout_snapshot"))]
 pub enum LayoutSnapshotError {
+    /// A well-defined derivative order outside this fixed transfer capability.
+    #[error("unsupported numerical layout profile: {0}")]
+    Unsupported(&'static str),
     /// Invalid passive layout metadata; the error path itself allocates nothing.
     #[error("invalid numerical layout snapshot: {0}")]
     Invalid(&'static str),
@@ -290,10 +293,10 @@ impl JetLayoutView<'_> {
     ) -> Result<usize, LayoutSnapshotError> {
         limits.check()?;
         let fail = || LayoutSnapshotError::Invalid("coefficient shape or sparse slot coverage");
-        if self.order > DerivativeOrder::First
-            || !self.pairs.is_empty()
-            || self.coordinates.iter().any(|&c| c >= inputs)
-        {
+        if self.order > DerivativeOrder::First {
+            return Err(LayoutSnapshotError::Unsupported("derivative order"));
+        }
+        if !self.pairs.is_empty() || self.coordinates.iter().any(|&c| c >= inputs) {
             return Err(fail());
         }
         let width = if self.order == DerivativeOrder::First {
