@@ -219,12 +219,13 @@ fn retained_destination() -> TestResult<Option<PathBuf>> {
 }
 
 /// Retain the existing factual owner, including native coordinates and original quality.
-pub(super) fn retain_native_context(
+pub(super) async fn retain_native_context(
     name: &str,
     package: &ModelingPackage,
     services: &crate::workflow::PreparationServices,
     declared: &DeclaredExecution,
     outcome: &DeclaredAlgebraicOutcome,
+    cancel: &crate::CancelSource,
 ) -> TestResult {
     let Some(destination) = retained_destination()? else {
         return Ok(());
@@ -243,6 +244,25 @@ pub(super) fn retain_native_context(
     serde_json::to_writer(
         std::fs::File::create(destination.join(format!("{name}.native-context.json")))?,
         context.document(),
+    )?;
+    // The declared capture retains observations, not a specialized symbol table.
+    // Obtain qualified member lineage from the existing diagnostic owner using
+    // this exact declaration; do not infer a physical role from quantity or value.
+    let prepared = package
+        .prepare_declared_diagnostics(services, declared, cancel)
+        .await?;
+    let source_map = package
+        .modeling_diagnostic_source_map(
+            services,
+            &prepared,
+            16 << 20,
+            Duration::from_secs(60),
+            cancel,
+        )
+        .await?;
+    serde_json::to_writer(
+        std::fs::File::create(destination.join(format!("{name}.native-source-map.json")))?,
+        source_map.document(),
     )?;
     Ok(())
 }

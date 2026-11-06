@@ -2811,12 +2811,14 @@ impl ConstantReport {
         self.components.iter().map(Box::as_ref)
     }
 }
-/// A step has either an actual native attempt or direct constant evaluation.
+/// A step retains an actual native attempt, original evaluation/reconstruction,
+/// or a typed refusal before either result becomes available.
 #[derive(Clone, Debug)]
 pub enum Outcome {
     /// Native attempt, including limited/failed exits.
     Native(Box<SolveReport>),
-    /// All-fixed original evaluation.
+    /// Original evaluation, including complete reconstruction or a structural
+    /// schedule with original coordinates and separately retained native reports.
     Constant(Box<ConstantReport>),
     /// A typed admission/execution failure before a native report became available.
     Rejected(Arc<MathRuntimeError>),
@@ -3072,6 +3074,7 @@ impl MathService {
         prepared: Preparation,
         values: CaseValues,
         profile: &SolverProfile,
+        goals: &[pse_model::engineering_accuracy::AccuracyGoal],
     ) -> Result<Preparation, MathRuntimeError> {
         let mut result = if routing::class_evidence_required(
             &prepared.prepared.facts,
@@ -3112,6 +3115,20 @@ impl MathService {
                     && (options.linear_eq_reduction || options.redundant_constraint_removal)
             }
         };
+        // Output-accuracy admission consumes source-affine provenance even when
+        // the selected solver deliberately runs without numerical presolve.
+        let accuracy_affine = matches!(profile.intent, SolveIntent::Root | SolveIntent::Initialize)
+            && goals.iter().any(|goal| {
+                use pse_model::generated::enums::{
+                    AccuracyGoalSubject, AccuracyObservation, NumericalTarget,
+                };
+                goal.subject == AccuracyGoalSubject::SelectedOutput
+                    && goal.observation == AccuracyObservation::Steady
+                    && matches!(
+                        goal.target_kind,
+                        NumericalTarget::Variable | NumericalTarget::Observable
+                    )
+            });
         let nlp_possible = match profile.selection {
             SolverSelection::Auto => execution::LINKED.adapters().any(|adapter| {
                 adapter.linked()
@@ -3130,7 +3147,7 @@ impl MathService {
         if pse_model::strategy::requires_affine_preparation(
             pse_model::strategy::AffinePreparationFacts {
                 automatic: matches!(profile.presolve, native::presolve::Policy::Auto),
-                explicitly_requested: affine_requested,
+                explicitly_requested: affine_requested || accuracy_affine,
                 nlp_possible: nlp_possible
                     || matches!(profile.intent, SolveIntent::Root | SolveIntent::Initialize),
                 missing: result.prepared.presolve.affine.iter().any(Option::is_none),
@@ -3241,7 +3258,7 @@ impl MathService {
         }
         // Per-solve overlays are separate from the shared compiler product.
         let prepared = self
-            .discover_class(prepared, values.clone(), &profile)
+            .discover_class(prepared, values.clone(), &profile, &numerics.policy.goals)
             .await?;
         // Selected-output assessment consumes the full original Jacobian even when
         // a complete causal producer needs only Value from its outer source. Its

@@ -247,6 +247,133 @@ pub struct PointArithmeticWork {
     /// Scalar-output Hessian evaluations (zero for First; at most one per output for Second).
     pub hessian_evaluations: u64,
 }
+/// A finite producer profile refused before transport, work admission or native arithmetic.
+/// This is distinct from an enclosing execution's actual resource failure.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
+#[error(
+    "IBEX arithmetic producer profile: stage={stage}, metric={metric}, violation={violation:?}, requested_order={requested_order:?}; native_not_attempted"
+)]
+pub struct ArithmeticProfileRefusal {
+    /// Producer preparation stage containing the failed check.
+    pub stage: &'static str,
+    /// Exact inventory count or checked extent that failed.
+    pub metric: &'static str,
+    /// Observed count and bound, or checked arithmetic overflow.
+    pub violation: ArithmeticProfileViolation,
+    /// Actual requested arithmetic order.
+    pub requested_order: DerivativeOrder,
+}
+/// The failed condition in an arithmetic producer's finite profile.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ArithmeticProfileViolation {
+    /// A required dimension was zero (observed zero, minimum one).
+    Empty,
+    /// The complete observed count exceeds the producer's existing maximum.
+    Limit {
+        /// Actual observed count.
+        observed: u128,
+        /// Existing maximum for this metric.
+        limit: u128,
+    },
+    /// A checked extent could not be represented by its host integer.
+    Overflow,
+}
+pse_diagnostics::impl_diagnostic! {
+    ArithmeticProfileRefusal,
+    code(_this) { Some(pse_diagnostics::DiagnosticCode::CompileMath) },
+    forward(_this) { None }, help(_this) { None }, related(_this) { None },
+    source(_this) { None },
+    facts(this) {
+        use pse_diagnostics::DiagnosticObservation as O;
+        let mut facts = pse_diagnostics::DiagnosticFacts::default();
+        facts.observe("arithmetic_scope", O::Text("optional_original_point_arithmetic".into()));
+        facts.observe("arithmetic_stage", O::Text("producer_preflight".into()));
+        facts.observe("profile_stage", O::Text(this.stage.into()));
+        facts.observe("profile_metric", O::Text(this.metric.into()));
+        facts.observe("requested_order", O::Text(format!("{:?}", this.requested_order)));
+        facts.observe("native_not_attempted", O::Boolean(true));
+        for key in ["guard_evaluations", "value_evaluations", "jacobian_evaluations", "hessian_evaluations"] {
+            facts.observe(key, O::Integer(0));
+        }
+        let count = |value: u128| i64::try_from(value).map_or_else(|_| O::Text(value.to_string()), O::Integer);
+        match this.violation {
+            ArithmeticProfileViolation::Empty => {
+                facts.observe("profile_observed", O::Integer(0));
+                facts.observe("profile_limit", O::Integer(1));
+                facts.observe("profile_limit_kind", O::Text("minimum".into()));
+            }
+            ArithmeticProfileViolation::Limit { observed, limit } => {
+                facts.observe("profile_observed", count(observed));
+                facts.observe("profile_limit", count(limit));
+                facts.observe("profile_limit_kind", O::Text("maximum".into()));
+            }
+            ArithmeticProfileViolation::Overflow => {
+                facts.observe("profile_observed", O::Missing);
+                facts.observe("profile_limit", O::Missing);
+                facts.observe("profile_limit_kind", O::Text("checked_extent".into()));
+            }
+        }
+        facts.observe("profile_overflow", O::Boolean(matches!(this.violation, ArithmeticProfileViolation::Overflow)));
+        facts
+    }
+}
+impl pse_model::diagnostic::DiagnosticProjection for ArithmeticProfileRefusal {}
+impl ArithmeticProfileRefusal {
+    fn into_math_error(self) -> MathError {
+        MathError::Typed {
+            retained: size_of::<Self>(),
+            cause: pse_model::diagnostic::DiagnosticCause::new(self),
+        }
+    }
+}
+fn profile_extent(
+    order: DerivativeOrder,
+    stage: &'static str,
+    metric: &'static str,
+    value: Option<usize>,
+) -> Result<usize, ArithmeticProfileRefusal> {
+    value.ok_or(ArithmeticProfileRefusal {
+        stage,
+        metric,
+        requested_order: order,
+        violation: ArithmeticProfileViolation::Overflow,
+    })
+}
+fn profile_maximum(
+    order: DerivativeOrder,
+    stage: &'static str,
+    metric: &'static str,
+    observed: u128,
+    limit: u128,
+) -> Result<(), ArithmeticProfileRefusal> {
+    if observed > limit {
+        Err(ArithmeticProfileRefusal {
+            stage,
+            metric,
+            requested_order: order,
+            violation: ArithmeticProfileViolation::Limit { observed, limit },
+        })
+    } else {
+        Ok(())
+    }
+}
+fn profile_nonzero(
+    order: DerivativeOrder,
+    stage: &'static str,
+    metric: &'static str,
+    value: usize,
+) -> Result<(), ArithmeticProfileRefusal> {
+    if value == 0 {
+        Err(ArithmeticProfileRefusal {
+            stage,
+            metric,
+            requested_order: order,
+            violation: ArithmeticProfileViolation::Empty,
+        })
+    } else {
+        Ok(())
+    }
+}
 #[repr(C)]
 #[derive(Default)]
 struct NativePointArithmeticResult {
@@ -537,6 +664,8 @@ struct ArithmeticRequest<'a> {
 struct SourceInventory {
     extent: usize,
     identity_scratch: usize,
+    edges: usize,
+    guards: usize,
 }
 #[derive(Clone, Copy)]
 enum DimensionProfile {
@@ -551,14 +680,39 @@ fn arithmetic_native_dimensions(
     nodes: usize,
     guards: usize,
     outputs: usize,
-) -> Option<()> {
-    let source_rows = nodes.checked_add(guards.checked_mul(2)?)?;
-    let constraint_rows = outputs.checked_add(guards)?.checked_mul(2)?;
+    order: DerivativeOrder,
+) -> Result<(), ArithmeticProfileRefusal> {
+    let extent = |metric, value| profile_extent(order, "native_dimensions", metric, value);
+    let source_rows = extent(
+        "source_rows",
+        guards.checked_mul(2).and_then(|n| nodes.checked_add(n)),
+    )?;
+    let constraint_rows = extent(
+        "constraint_rows",
+        outputs.checked_add(guards).and_then(|n| n.checked_mul(2)),
+    )?;
     let rows = source_rows.max(constraint_rows).max(1);
-    i32::try_from(inputs).ok()?;
-    i32::try_from(rows).ok()?;
-    i32::try_from(rows.checked_mul(inputs)?).ok()?;
-    Some(())
+    for (metric, observed) in [
+        ("inputs", inputs),
+        ("source_rows", source_rows),
+        ("constraint_rows", constraint_rows),
+    ] {
+        profile_maximum(
+            order,
+            "native_dimensions",
+            metric,
+            observed as u128,
+            i32::MAX as u128,
+        )?;
+    }
+    let entries = extent("row_input_product", rows.checked_mul(inputs))?;
+    profile_maximum(
+        order,
+        "native_dimensions",
+        "row_input_product",
+        entries as u128,
+        i32::MAX as u128,
+    )
 }
 /// No hashing, decimal conversion, transport allocation or foreign call precedes this
 /// finite source inventory. Unconsumed derivative declarations are also identity inputs.
@@ -567,31 +721,45 @@ fn source_inventory(
     order: DerivativeOrder,
 ) -> Result<SourceInventory, SelectionProofRefusal> {
     source_inventory_for_profile(program, order, DimensionProfile::Search)
+        .map_err(|_| SelectionProofRefusal::Resource)
 }
 fn source_inventory_for_profile(
     program: &RootIsolationProgram,
     order: DerivativeOrder,
     profile: DimensionProfile,
-) -> Result<SourceInventory, SelectionProofRefusal> {
-    if program.inputs == 0
-        || (matches!(profile, DimensionProfile::Search) && program.inputs > MAX_INPUTS)
-        || program.nodes.is_empty()
-        || program.nodes.len() > MAX_NODES
-        || program.residuals.len() > MAX_ARITHMETIC_OUTPUTS
-        || program.eligibility.len() > MAX_GUARDS
-        || program.obligations.len() > MAX_GUARDS
-        || program.derivative_obligations.len() > MAX_GUARDS
-    {
-        return Err(SelectionProofRefusal::Resource);
+) -> Result<SourceInventory, ArithmeticProfileRefusal> {
+    const STAGE: &str = "source_inventory";
+    let extent = |metric, value| profile_extent(order, STAGE, metric, value);
+    let maximum = |metric, observed: usize, limit: usize| {
+        profile_maximum(order, STAGE, metric, observed as u128, limit as u128)
+    };
+    profile_nonzero(order, STAGE, "inputs", program.inputs)?;
+    profile_nonzero(order, STAGE, "nodes", program.nodes.len())?;
+    if matches!(profile, DimensionProfile::Search) {
+        maximum("search_inputs", program.inputs, MAX_INPUTS)?;
+    }
+    for (metric, observed, limit) in [
+        ("nodes", program.nodes.len(), MAX_NODES),
+        (
+            "residual_outputs",
+            program.residuals.len(),
+            MAX_ARITHMETIC_OUTPUTS,
+        ),
+        ("eligibility_guards", program.eligibility.len(), MAX_GUARDS),
+        ("obligations", program.obligations.len(), MAX_GUARDS),
+        (
+            "derivative_obligations",
+            program.derivative_obligations.len(),
+            MAX_GUARDS,
+        ),
+    ] {
+        maximum(metric, observed, limit)?;
     }
     let mut edges = 0usize;
     let mut identity_bits = 0u64;
     for node in &program.nodes {
         if let Node::Sum(children) | Node::Product(children) = node {
-            edges = edges
-                .checked_add(children.len())
-                .filter(|n| *n <= MAX_EDGES)
-                .ok_or(SelectionProofRefusal::Resource)?;
+            edges = extent("edges", edges.checked_add(children.len()))?;
         }
         if let Node::Const(Constant::Rational(r))
         | Node::Pow {
@@ -602,10 +770,22 @@ fn source_inventory_for_profile(
             identity_bits = identity_bits
                 .checked_add(r.numerator_ref().significant_bits())
                 .and_then(|n| n.checked_add(r.denominator_ref().significant_bits()))
-                .filter(|n| *n <= MAX_IDENTITY_BITS)
-                .ok_or(SelectionProofRefusal::Resource)?;
+                .ok_or(ArithmeticProfileRefusal {
+                    stage: STAGE,
+                    metric: "rational_identity_bits",
+                    requested_order: order,
+                    violation: ArithmeticProfileViolation::Overflow,
+                })?;
         }
     }
+    maximum("edges", edges, MAX_EDGES)?;
+    profile_maximum(
+        order,
+        STAGE,
+        "rational_identity_bits",
+        u128::from(identity_bits),
+        u128::from(MAX_IDENTITY_BITS),
+    )?;
     let mut source_guards = program.eligibility.len();
     for value in program.obligations.iter().chain(
         program
@@ -613,50 +793,55 @@ fn source_inventory_for_profile(
             .iter()
             .map(|(_, value)| value),
     ) {
-        source_guards = source_guards
-            .checked_add(value.constraints.len())
-            .and_then(|n| n.checked_add(usize::from(value.argument.is_some())))
-            .filter(|n| *n <= MAX_GUARDS)
-            .ok_or(SelectionProofRefusal::Resource)?;
+        source_guards = extent(
+            "source_guards",
+            source_guards
+                .checked_add(value.constraints.len())
+                .and_then(|n| n.checked_add(usize::from(value.argument.is_some()))),
+        )?;
     }
-    let guards = arithmetic_guard_ceiling(program, order)
-        .filter(|n| *n <= MAX_GUARDS)
-        .ok_or(SelectionProofRefusal::Resource)?;
+    maximum("source_guards", source_guards, MAX_GUARDS)?;
+    let guards = extent(
+        "arithmetic_guards",
+        arithmetic_guard_ceiling(program, order),
+    )?;
+    maximum("arithmetic_guards", guards, MAX_GUARDS)?;
     if matches!(profile, DimensionProfile::Arithmetic) {
         arithmetic_native_dimensions(
             program.inputs,
             program.nodes.len(),
             guards,
             program.residuals.len(),
-        )
-        .ok_or(SelectionProofRefusal::Resource)?;
+            order,
+        )?;
     }
-    let extent = program
-        .nodes
-        .len()
-        .checked_mul(size_of::<NativeNode>() + size_of::<usize>())
-        .and_then(|n| n.checked_add(edges.checked_mul(2 * size_of::<u32>())?))
-        .and_then(|n| n.checked_add(guards.checked_mul(4 * size_of::<NativeGuard>() + 128)?))
-        .and_then(|n| n.checked_add(program.residuals.len().checked_mul(size_of::<u32>())?))
-        .and_then(|n| n.checked_add(size_of::<Transport>() + 4096))
-        .ok_or(SelectionProofRefusal::Resource)?;
+    let transport_extent = extent(
+        "transport_bytes",
+        program
+            .nodes
+            .len()
+            .checked_mul(size_of::<NativeNode>() + size_of::<usize>())
+            .and_then(|n| n.checked_add(edges.checked_mul(2 * size_of::<u32>())?))
+            .and_then(|n| n.checked_add(guards.checked_mul(4 * size_of::<NativeGuard>() + 128)?))
+            .and_then(|n| n.checked_add(program.residuals.len().checked_mul(size_of::<u32>())?))
+            .and_then(|n| n.checked_add(size_of::<Transport>() + 4096)),
+    )?;
     // Decimal digits never exceed binary significant bits plus a sign and a zero
     // digit per integer. Four copies cover conversion capacity and its work buffers;
     // the fixed allowance covers bounded hash framing and allocator metadata.
-    let identity_scratch = (identity_bits as usize)
-        .checked_add(
-            program
-                .nodes
-                .len()
-                .checked_mul(4)
-                .ok_or(SelectionProofRefusal::Resource)?,
-        )
-        .and_then(|n| n.checked_mul(4))
-        .and_then(|n| n.checked_add(4096))
-        .ok_or(SelectionProofRefusal::Resource)?;
+    let identity_scratch = extent(
+        "identity_scratch_bytes",
+        usize::try_from(identity_bits)
+            .ok()
+            .and_then(|bits| bits.checked_add(program.nodes.len().checked_mul(4)?))
+            .and_then(|n| n.checked_mul(4))
+            .and_then(|n| n.checked_add(4096)),
+    )?;
     Ok(SourceInventory {
-        extent,
+        extent: transport_extent,
         identity_scratch,
+        edges,
+        guards,
     })
 }
 struct PreparedSources {
@@ -676,7 +861,8 @@ fn encode_for_profile(
     order: DerivativeOrder,
     profile: DimensionProfile,
 ) -> Result<Transport, SelectionProofRefusal> {
-    source_inventory_for_profile(program, order, profile)?;
+    source_inventory_for_profile(program, order, profile)
+        .map_err(|_| SelectionProofRefusal::Resource)?;
     let mut transport = Transport {
         nodes: Vec::with_capacity(program.nodes.len()),
         edges: Vec::new(),
@@ -1097,82 +1283,137 @@ impl Ibex {
         program: &PointArithmeticProgram,
         order: DerivativeOrder,
     ) -> Result<usize, MathError> {
+        self.point_arithmetic_preflight(program, order)
+            .map_err(ArithmeticProfileRefusal::into_math_error)
+    }
+    /// Check the finite producer profile and return its conservative workspace extent.
+    /// No transport, uncertainty buffer, work admission or native operation is performed.
+    /// The source inventory is shared with search; arithmetic alone admits original
+    /// input dimensions above the search profile's 128-input limit.
+    /// # Errors
+    /// The exact failed source metric, native integer product, Second profile bound
+    /// or checked workspace extent, with the actual requested derivative order.
+    pub fn point_arithmetic_preflight(
+        &self,
+        program: &PointArithmeticProgram,
+        order: DerivativeOrder,
+    ) -> Result<usize, ArithmeticProfileRefusal> {
         let graph = &program.graph;
-        source_inventory_for_profile(graph, order, DimensionProfile::Arithmetic)
-            .map_err(|_| MathError::Limit("IBEX source inventory"))?;
-        let edges = graph.nodes.iter().try_fold(0usize, |n, node| {
-            n.checked_add(match node {
-                Node::Sum(v) | Node::Product(v) => v.len(),
-                _ => 0,
-            })
-        });
-        let guards = arithmetic_guard_ceiling(graph, order);
-        let checked = || {
-            let edges = edges?;
-            let guards = guards?;
-            let outputs = graph.residuals.len();
-            let width = graph.inputs;
-            if width == 0
-                || outputs == 0
-                || outputs > MAX_ARITHMETIC_OUTPUTS
-                || graph.nodes.is_empty()
-                || graph.nodes.len() > MAX_NODES
-                || edges > MAX_EDGES
-                || guards > MAX_GUARDS
-            {
-                return None;
+        let inventory = source_inventory_for_profile(graph, order, DimensionProfile::Arithmetic)?;
+        let edges = inventory.edges;
+        let guards = inventory.guards;
+        let outputs = graph.residuals.len();
+        let width = graph.inputs;
+        profile_nonzero(order, "arithmetic_profile", "residual_outputs", outputs)?;
+        let extent = |metric, value| profile_extent(order, "arithmetic_workspace", metric, value);
+        let hessian_entries = if order == DerivativeOrder::Second {
+            for (metric, observed, limit) in [
+                ("inputs", width, MAX_SECOND_INPUTS),
+                ("residual_outputs", outputs, MAX_SECOND_OUTPUTS),
+            ] {
+                profile_maximum(
+                    order,
+                    "second_profile",
+                    metric,
+                    observed as u128,
+                    limit as u128,
+                )?;
             }
-            let hessian_entries = if order == DerivativeOrder::Second {
-                let entries = outputs.checked_mul(width)?.checked_mul(width)?;
-                if width > MAX_SECOND_INPUTS
-                    || outputs > MAX_SECOND_OUTPUTS
-                    || entries > MAX_HESSIAN_ENTRIES
-                {
-                    return None;
-                }
-                entries
-            } else {
-                0
-            };
-            let derivative_width = if order == DerivativeOrder::Second {
+            let entries = extent(
+                "hessian_entries",
+                outputs
+                    .checked_mul(width)
+                    .and_then(|n| n.checked_mul(width)),
+            )?;
+            profile_maximum(
+                order,
+                "second_profile",
+                "hessian_entries",
+                entries as u128,
+                MAX_HESSIAN_ENTRIES as u128,
+            )?;
+            entries
+        } else {
+            0
+        };
+        let derivative_width = extent(
+            "derivative_width",
+            if order == DerivativeOrder::Second {
                 width
-                    .checked_mul(width)?
-                    .checked_add(width)?
-                    .checked_add(1)?
+                    .checked_mul(width)
+                    .and_then(|n| n.checked_add(width))
+                    .and_then(|n| n.checked_add(1))
             } else if order == DerivativeOrder::First {
-                width.checked_add(1)?
+                width.checked_add(1)
             } else {
-                1
-            };
-            let native_nodes = graph
+                Some(1)
+            },
+        )?;
+        let native_nodes = extent(
+            "native_nodes",
+            graph
                 .nodes
                 .len()
-                .checked_add(edges)?
-                .checked_add(guards.checked_mul(4)?)?;
-            let native = native_nodes
-                .checked_mul(derivative_width)?
-                .checked_mul(outputs.checked_add(guards)?.checked_add(4)?)?
-                .checked_mul(1024)?;
-            let transport = width
-                .checked_mul(2 * size_of::<f64>())?
-                .checked_add(
-                    graph
-                        .nodes
-                        .len()
-                        .checked_mul(size_of::<NativeNode>() + size_of::<usize>())?,
-                )?
-                .checked_add(edges.checked_mul(2 * size_of::<u32>())?)?
-                .checked_add(guards.checked_mul(4 * size_of::<NativeGuard>() + 128)?)?
-                .checked_add(outputs.checked_mul(size_of::<u32>())?)?
-                .checked_add(
-                    outputs
-                        .checked_mul(width.checked_add(1)?)?
-                        .checked_add(hessian_entries)?
-                        .checked_mul(64)?,
-                )?;
-            native.checked_add(transport)?.checked_add(1024 * 1024)
-        };
-        checked().ok_or(MathError::Limit("IBEX point arithmetic workspace extent"))
+                .checked_add(edges)
+                .and_then(|n| n.checked_add(guards.checked_mul(4)?)),
+        )?;
+        // IBEX 2.9.1 ExprLinearity::build_zero/visit(ExprSymbol) constructs
+        // (width + 1) width-wide coefficient Domains for the vector input,
+        // independently of the number of used Var nodes. Every Function
+        // eagerly constructs Gradient, including Value-only consumers
+        // (ibex_FunctionBuild.cpp, ibex_Gradient.cpp). Include that transient
+        // quadratic scalar coefficient population using the same opaque per-domain
+        // allowance as the existing DAG estimate;
+        // this is an admission estimate, not an established whole-process RSS bound.
+        let opaque_domain_bytes = 1024;
+        let input_coefficient_entries = extent(
+            "input_coefficient_entries",
+            width.checked_add(1).and_then(|n| n.checked_mul(width)),
+        )?;
+        let input_coefficient_bytes = extent(
+            "input_coefficient_bytes",
+            input_coefficient_entries.checked_mul(opaque_domain_bytes),
+        )?;
+        let native = extent(
+            "native_bytes",
+            native_nodes
+                .checked_mul(derivative_width)
+                .and_then(|n| n.checked_mul(outputs.checked_add(guards)?.checked_add(4)?))
+                .and_then(|n| n.checked_mul(opaque_domain_bytes)),
+        )?;
+        let transport = extent(
+            "transport_bytes",
+            width
+                .checked_mul(2 * size_of::<f64>())
+                .and_then(|n| {
+                    n.checked_add(
+                        graph
+                            .nodes
+                            .len()
+                            .checked_mul(size_of::<NativeNode>() + size_of::<usize>())?,
+                    )
+                })
+                .and_then(|n| n.checked_add(edges.checked_mul(2 * size_of::<u32>())?))
+                .and_then(|n| {
+                    n.checked_add(guards.checked_mul(4 * size_of::<NativeGuard>() + 128)?)
+                })
+                .and_then(|n| n.checked_add(outputs.checked_mul(size_of::<u32>())?))
+                .and_then(|n| {
+                    n.checked_add(
+                        outputs
+                            .checked_mul(width.checked_add(1)?)?
+                            .checked_add(hessian_entries)?
+                            .checked_mul(64)?,
+                    )
+                }),
+        )?;
+        extent(
+            "workspace_bytes",
+            native
+                .checked_add(input_coefficient_bytes)
+                .and_then(|n| n.checked_add(transport))
+                .and_then(|n| n.checked_add(1024 * 1024)),
+        )
     }
 
     /// Enclose all projected original row residuals and First entries at a finite
@@ -1270,7 +1511,7 @@ impl Ibex {
             return Err(MathError::Contract("IBEX arithmetic box coordinates".into()).into());
         }
         if self
-            .point_arithmetic_workspace_bytes_for_order(program, order)
+            .point_arithmetic_preflight(program, order)
             .map_or(true, |bytes| bytes > max_workspace_bytes)
         {
             return Ok(PointArithmeticEvidence::Incomplete {
@@ -1326,7 +1567,7 @@ impl Ibex {
         execution.check()?;
         // A preflight resource refusal allocates no transport and performs no arithmetic.
         if self
-            .point_arithmetic_workspace_bytes_for_order(program, order)
+            .point_arithmetic_preflight(program, order)
             .map_or(true, |bytes| bytes > max_workspace_bytes)
         {
             return Ok(PointArithmeticEvidence::Incomplete {
@@ -1415,11 +1656,10 @@ impl Ibex {
         if cancel.load(Ordering::Acquire) {
             return Ok(PointArithmeticEvidence::Interrupted { work: empty_work });
         }
-        if source_inventory_for_profile(&program.graph, order, DimensionProfile::Arithmetic)
-            .is_err()
-        {
-            return Ok(incomplete(SelectionProofRefusal::Resource, empty_work));
-        }
+        let workspace = match self.point_arithmetic_preflight(program, order) {
+            Ok(workspace) => workspace,
+            Err(_) => return Ok(incomplete(SelectionProofRefusal::Resource, empty_work)),
+        };
         if lower.len() != program.graph.inputs
             || upper.len() != lower.len()
             || lower
@@ -1431,11 +1671,7 @@ impl Ibex {
                 "IBEX original point arithmetic coordinates".into(),
             ));
         }
-        if time_limit.is_zero()
-            || self
-                .point_arithmetic_workspace_bytes_for_order(program, order)
-                .map_or(true, |bytes| bytes > max_workspace_bytes)
-        {
+        if time_limit.is_zero() || workspace > max_workspace_bytes {
             return Ok(incomplete(SelectionProofRefusal::Resource, empty_work));
         }
         let transport =
@@ -3297,7 +3533,293 @@ mod tests {
             .unwrap()
     }
     #[test]
-    fn native_point_arithmetic_first_supports_original_dimensions_above_search_profile() {
+    fn arithmetic_profile_source_refusals_identify_metric_and_perform_zero_work() {
+        use crate::solve::{Controls, Execution, WorkAdmission, WorkEvidence};
+        use pse_diagnostics::{DiagnosticObservation as O, TypedDiagnostic};
+        #[derive(Debug, Default)]
+        struct Ledger(std::sync::atomic::AtomicUsize);
+        impl WorkAdmission for Ledger {
+            fn admit(&self, _: WorkEvidence) -> Result<(), crate::ProblemError> {
+                self.0.fetch_add(1, Ordering::Relaxed);
+                Ok(())
+            }
+            fn observe(&self, _: WorkEvidence) -> Result<(), crate::ProblemError> {
+                self.0.fetch_add(1, Ordering::Relaxed);
+                Ok(())
+            }
+        }
+        let ledger = Arc::new(Ledger::default());
+        let mut execution = Execution::new(
+            pse_diagnostics::Cancellation::new(false),
+            &Controls::default(),
+        );
+        execution.work_admission = Some(ledger.clone());
+        let obligation = ProjectedObligation {
+            instance: source(),
+            source: source(),
+            kind: ObligationKind::Require(Condition::Nonzero),
+            scope: ObligationScope::Unconditional,
+            argument: Some(0),
+            constraints: vec![],
+            represented: true,
+            fidelity: Fidelity::Exact,
+        };
+        let guard = Constraint {
+            expression: 0,
+            lower: 0.0,
+            upper: 1.0,
+            strict: false,
+        };
+        for (metric, observed, limit) in [
+            ("nodes", MAX_NODES + 1, MAX_NODES),
+            (
+                "residual_outputs",
+                MAX_ARITHMETIC_OUTPUTS + 1,
+                MAX_ARITHMETIC_OUTPUTS,
+            ),
+            ("eligibility_guards", MAX_GUARDS + 1, MAX_GUARDS),
+            ("obligations", MAX_GUARDS + 1, MAX_GUARDS),
+            ("derivative_obligations", MAX_GUARDS + 1, MAX_GUARDS),
+            ("source_guards", MAX_GUARDS + 1, MAX_GUARDS),
+            ("arithmetic_guards", MAX_GUARDS + 1, MAX_GUARDS),
+            ("edges", MAX_EDGES + 1, MAX_EDGES),
+            (
+                "rational_identity_bits",
+                MAX_IDENTITY_BITS as usize + 3,
+                MAX_IDENTITY_BITS as usize,
+            ),
+        ] {
+            let mut program = arithmetic_program(vec![Node::Var(0)], vec![0]);
+            match metric {
+                "nodes" => program.graph.nodes = vec![Node::Var(0); observed],
+                "residual_outputs" => program.graph.residuals = vec![0; observed],
+                "eligibility_guards" => program.graph.eligibility = vec![guard.clone(); observed],
+                "obligations" => program.graph.obligations = vec![obligation.clone(); observed],
+                "derivative_obligations" => {
+                    program.graph.derivative_obligations =
+                        vec![(DerivativeOrder::Second, obligation.clone()); observed]
+                }
+                "source_guards" => {
+                    program.graph.eligibility.push(guard.clone());
+                    let mut value = obligation.clone();
+                    value.argument = None;
+                    value.constraints = vec![guard.clone(); MAX_GUARDS];
+                    program.graph.obligations.push(value);
+                }
+                "arithmetic_guards" => program.graph.nodes.extend(vec![Node::Log(0); observed]),
+                "edges" => program.graph.nodes.push(Node::Sum(vec![0; observed])),
+                "rational_identity_bits" => program.graph.nodes.push(Node::Const(
+                    Constant::Rational(Rational::from(2).pow(MAX_IDENTITY_BITS + 1)),
+                )),
+                _ => unreachable!(),
+            }
+            let refusal = Ibex::default()
+                .point_arithmetic_preflight(&program, DerivativeOrder::First)
+                .unwrap_err();
+            assert_eq!(
+                refusal,
+                ArithmeticProfileRefusal {
+                    stage: "source_inventory",
+                    metric,
+                    requested_order: DerivativeOrder::First,
+                    violation: ArithmeticProfileViolation::Limit {
+                        observed: observed as u128,
+                        limit: limit as u128
+                    },
+                }
+            );
+            let facts = refusal.diagnostic_facts();
+            assert!(
+                matches!(&facts.observations["arithmetic_scope"], O::Text(value) if value == "optional_original_point_arithmetic")
+            );
+            assert!(
+                matches!(&facts.observations["arithmetic_stage"], O::Text(value) if value == "producer_preflight")
+            );
+            assert!(
+                matches!(&facts.observations["profile_stage"], O::Text(value) if value == "source_inventory")
+            );
+            assert!(
+                matches!(&facts.observations["profile_metric"], O::Text(value) if value == metric)
+            );
+            assert!(
+                matches!(facts.observations["profile_observed"], O::Integer(value) if value == observed as i64)
+            );
+            assert!(
+                matches!(facts.observations["profile_limit"], O::Integer(value) if value == limit as i64)
+            );
+            assert!(matches!(
+                facts.observations["native_not_attempted"],
+                O::Boolean(true)
+            ));
+            for metric in [
+                "guard_evaluations",
+                "value_evaluations",
+                "jacobian_evaluations",
+                "hessian_evaluations",
+            ] {
+                assert!(matches!(facts.observations[metric], O::Integer(0)));
+            }
+            let error = Ibex::default()
+                .point_arithmetic_workspace_bytes(&program)
+                .unwrap_err();
+            let MathError::Typed { retained, cause } = error else {
+                panic!("profile cause was erased")
+            };
+            assert_eq!(retained, size_of::<ArithmeticProfileRefusal>());
+            assert_eq!(
+                cause.as_error().downcast_ref::<ArithmeticProfileRefusal>(),
+                Some(&refusal)
+            );
+            assert_eq!(
+                Ibex::default()
+                    .enclose_point_arithmetic_with_execution(
+                        &program,
+                        &[0.0],
+                        usize::MAX,
+                        &execution
+                    )
+                    .unwrap(),
+                PointArithmeticEvidence::Incomplete {
+                    reason: SelectionProofRefusal::Resource,
+                    work: PointArithmeticWork::default()
+                }
+            );
+        }
+        assert_eq!(ledger.0.load(Ordering::Relaxed), 0);
+    }
+    #[test]
+    fn arithmetic_profile_sparse_wide_input_coefficients_are_admitted_before_native_work() {
+        use crate::solve::{Controls, Execution, WorkAdmission, WorkEvidence};
+        #[derive(Debug, Default)]
+        struct Ledger(std::sync::atomic::AtomicUsize);
+        impl WorkAdmission for Ledger {
+            fn admit(&self, _: WorkEvidence) -> Result<(), crate::ProblemError> {
+                self.0.fetch_add(1, Ordering::Relaxed);
+                Ok(())
+            }
+            fn observe(&self, _: WorkEvidence) -> Result<(), crate::ProblemError> {
+                self.0.fetch_add(1, Ordering::Relaxed);
+                Ok(())
+            }
+        }
+        let ledger = Arc::new(Ledger::default());
+        let mut execution = Execution::new(
+            pse_diagnostics::Cancellation::new(false),
+            &Controls::default(),
+        );
+        execution.work_admission = Some(ledger.clone());
+        let mut program = arithmetic_program(vec![Node::Var(0)], vec![0]);
+        for order in [DerivativeOrder::Value, DerivativeOrder::First] {
+            // One used coordinate does not remove the declared vector input's
+            // eager linearity coefficients. No width-sized point is constructed.
+            program.graph.inputs = 230;
+            let coefficient_bytes = 231 * 230 * 1024;
+            let workspace = Ibex::default()
+                .point_arithmetic_preflight(&program, order)
+                .unwrap();
+            assert!(workspace >= coefficient_bytes);
+            assert_eq!(
+                Ibex::default()
+                    .arithmetic_with_execution(
+                        &program,
+                        &[],
+                        &[],
+                        order,
+                        coefficient_bytes - 1,
+                        &execution,
+                    )
+                    .unwrap(),
+                PointArithmeticEvidence::Incomplete {
+                    reason: SelectionProofRefusal::Resource,
+                    work: PointArithmeticWork::default(),
+                }
+            );
+            // This passes the source/constraint row-times-input signed-int checks;
+            // only the explicit quadratic coefficient extent is unrepresentable.
+            program.graph.inputs = i32::MAX as usize / 4;
+            assert!(arithmetic_native_dimensions(program.graph.inputs, 1, 0, 1, order).is_ok());
+            let refusal = Ibex::default()
+                .point_arithmetic_preflight(&program, order)
+                .unwrap_err();
+            assert_eq!(refusal.stage, "arithmetic_workspace");
+            assert_eq!(
+                refusal.metric,
+                if usize::BITS == 64 {
+                    "input_coefficient_bytes"
+                } else {
+                    "input_coefficient_entries"
+                }
+            );
+            assert_eq!(refusal.violation, ArithmeticProfileViolation::Overflow);
+            assert_eq!(refusal.requested_order, order);
+            assert_eq!(
+                Ibex::default()
+                    .arithmetic_with_execution(&program, &[], &[], order, usize::MAX, &execution,)
+                    .unwrap(),
+                PointArithmeticEvidence::Incomplete {
+                    reason: SelectionProofRefusal::Resource,
+                    work: PointArithmeticWork::default(),
+                }
+            );
+        }
+        assert_eq!(ledger.0.load(Ordering::Relaxed), 0);
+    }
+    #[test]
+    fn arithmetic_profile_second_bounds_and_checked_overflow_are_typed() {
+        let mut program = arithmetic_program(vec![Node::Var(0)], vec![0]);
+        for (width, outputs, metric, observed, limit) in [
+            (
+                MAX_SECOND_INPUTS + 1,
+                1,
+                "inputs",
+                MAX_SECOND_INPUTS + 1,
+                MAX_SECOND_INPUTS,
+            ),
+            (
+                1,
+                MAX_SECOND_OUTPUTS + 1,
+                "residual_outputs",
+                MAX_SECOND_OUTPUTS + 1,
+                MAX_SECOND_OUTPUTS,
+            ),
+            (
+                MAX_SECOND_INPUTS,
+                MAX_SECOND_OUTPUTS,
+                "hessian_entries",
+                MAX_SECOND_INPUTS * MAX_SECOND_INPUTS * MAX_SECOND_OUTPUTS,
+                MAX_HESSIAN_ENTRIES,
+            ),
+        ] {
+            program.graph.inputs = width;
+            program.graph.residuals = vec![0; outputs];
+            let refusal = Ibex::default()
+                .point_arithmetic_preflight(&program, DerivativeOrder::Second)
+                .unwrap_err();
+            assert_eq!(refusal.stage, "second_profile");
+            assert_eq!(refusal.metric, metric);
+            assert_eq!(refusal.requested_order, DerivativeOrder::Second);
+            assert_eq!(
+                refusal.violation,
+                ArithmeticProfileViolation::Limit {
+                    observed: observed as u128,
+                    limit: limit as u128
+                }
+            );
+        }
+        let refusal =
+            arithmetic_native_dimensions(1, usize::MAX, 1, 1, DerivativeOrder::First).unwrap_err();
+        assert_eq!(refusal.metric, "source_rows");
+        assert_eq!(refusal.violation, ArithmeticProfileViolation::Overflow);
+        program.graph.inputs = 1;
+        program.graph.residuals.clear();
+        let refusal = Ibex::default()
+            .point_arithmetic_preflight(&program, DerivativeOrder::Value)
+            .unwrap_err();
+        assert_eq!(refusal.metric, "residual_outputs");
+        assert_eq!(refusal.violation, ArithmeticProfileViolation::Empty);
+    }
+    #[test]
+    fn native_arithmetic_profile_first_supports_original_dimensions_above_search_profile() {
         for width in [129, 230] {
             let mut nodes = (0..width).map(Node::Var).collect::<Vec<_>>();
             nodes.push(Node::Const(Constant::Float(2.0)));
@@ -3407,7 +3929,7 @@ mod tests {
         }
     }
     #[test]
-    fn native_point_arithmetic_refuses_int_dimension_products_before_work() {
+    fn native_arithmetic_profile_refuses_int_dimension_products_before_work() {
         use crate::solve::{Controls, Execution, WorkAdmission, WorkEvidence};
         #[derive(Debug, Default)]
         struct Ledger(std::sync::atomic::AtomicUsize);
@@ -3482,9 +4004,22 @@ mod tests {
             }
         );
         assert_eq!(ledger.0.load(Ordering::Relaxed), 0);
-        assert!(arithmetic_native_dimensions(1, usize::MAX, 1, 1).is_none());
-        assert!(arithmetic_native_dimensions(1, 1, usize::MAX, 1).is_none());
-        assert!(arithmetic_native_dimensions(i32::MAX as usize / 3 + 1, 1, 1, 0).is_none());
+        for (inputs, nodes, guards, outputs, metric) in [
+            (1, usize::MAX, 1, 1, "source_rows"),
+            (1, 1, usize::MAX, 1, "source_rows"),
+            (i32::MAX as usize / 3 + 1, 1, 1, 0, "row_input_product"),
+        ] {
+            let refusal = arithmetic_native_dimensions(
+                inputs,
+                nodes,
+                guards,
+                outputs,
+                DerivativeOrder::First,
+            )
+            .unwrap_err();
+            assert_eq!(refusal.stage, "native_dimensions");
+            assert_eq!(refusal.metric, metric);
+        }
     }
     #[test]
     #[expect(

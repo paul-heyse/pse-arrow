@@ -55,6 +55,7 @@ impl ModelingPackage {
                     selection: SolverSelection::Explicit(Backend::Highs),
                     ..Default::default()
                 },
+                &[],
             ))
             .await?;
         let product = prepared.model.case.compiled();

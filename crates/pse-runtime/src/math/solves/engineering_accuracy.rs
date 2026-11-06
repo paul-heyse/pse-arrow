@@ -279,6 +279,10 @@ impl PreparedSolve {
         };
         let n = point.len();
         let bytes = native::square_response::SparseFactor::allowance(n)
+            .and_then(|factor| {
+                native::presolve::roots::allowance(n, plan.jacobian_pattern().compute_nnz())
+                    .and_then(|projection| factor.checked_add(projection))
+            })
             .and_then(|b| b.checked_add(n.checked_mul(goals.len())?.checked_mul(32)?))
             .ok_or_else(|| ProblemError::memory("engineering output action extent"))?;
         let charge = budget
@@ -292,8 +296,8 @@ impl PreparedSolve {
         execution.work_admission = budget
             .admission()
             .map(|owner| -> Arc<dyn WorkAdmission> { owner });
-        match native::square_response::SparseFactor::admit(
-            &native::square_response::SparseRequest {
+        let frame = match native::engineering_accuracy::SquareAccuracyFrame::admit(
+            native::square_response::SparseRequest {
                 scope: &square,
                 point: &point,
                 values: &observed.values,
@@ -302,9 +306,12 @@ impl PreparedSolve {
                 key: source,
                 bytes,
             },
+            plan,
+            values,
+            &case.prepared.compiled().presolve,
             &execution,
         ) {
-            Ok(_) => {}
+            Ok(frame) => frame,
             Err(native::square_response::Withheld::Cause(cause)) if optional_failure(&cause) => {
                 let failure = retained_failure(cause, budget)?;
                 let mut results = absent(goals, U::Regularity);
@@ -320,7 +327,7 @@ impl PreparedSolve {
                 }));
             }
             Err(error) => return withheld_square(goals, error, budget),
-        }
+        };
         let worker = service
             .case_worker(case.case.clone(), case.providers.clone(), scope, budget)
             .map_err(MathRuntimeError::into_problem)?;
@@ -342,25 +349,19 @@ impl PreparedSolve {
                 });
             }
         }
-        let Some(arithmetic) = arithmetic::original_point(
+        let arithmetic = match arithmetic::original_point(
             plan, values, &point, &residual, &jacobian, &execution, budget,
-        )?
-        else {
-            return Ok(absent(goals, U::EvaluatorUncertainty));
+        )? {
+            arithmetic::ArithmeticAssessment::Available(arithmetic) => arithmetic,
+            arithmetic::ArithmeticAssessment::Unavailable(failure) => {
+                let mut results = absent(goals, U::EvaluatorUncertainty);
+                for result in &mut results {
+                    result.failure = Some(failure.clone());
+                }
+                return Ok(results);
+            }
         };
-        let factor = match native::square_response::SparseFactor::prepare(
-            native::square_response::SparseRequest {
-                scope: &square,
-                point: &point,
-                values: &observed.values,
-                tolerances: &self.tolerances,
-                normalization: &self.normalization,
-                key: source,
-                bytes,
-            },
-            || Ok(jacobian),
-            &execution,
-        ) {
+        let factor = match frame.prepare(|| Ok(jacobian), &execution) {
             Ok(factor) => factor.with_owner(Arc::new(charge)),
             Err(native::square_response::Withheld::Cause(cause)) if optional_failure(&cause) => {
                 let failure = retained_failure(cause, budget)?;
@@ -379,7 +380,7 @@ impl PreparedSolve {
             Err(error) => return withheld_square(goals, error, budget),
         };
         // This receipt names completed derivative/guard evaluation and the factor's actual
-        // original matching, physical feasibility and inactive-bound admission.
+        // original matching, physical feasibility and source-anchored bound admission.
         let mut witness = FramedHasher::new(pse_ids::Frame::EngineeringGoalV1);
         witness
             .str("admitted-original-first-coordinate-action")
@@ -448,15 +449,14 @@ impl PreparedSolve {
                 })
             })
             .collect::<Vec<_>>();
-        let evidence = native::engineering_accuracy::estimate_square(
-            &factor,
+        let evidence = factor.estimate(
             native::engineering_accuracy::SquareResidual {
                 source,
                 values: &residual,
                 residual_uncertainty: Some(&arithmetic.residual),
                 jacobian_uncertainty: Some(&arithmetic.jacobian),
             },
-            Some(validity),
+            validity,
             &outputs,
             &execution,
         );
@@ -677,6 +677,163 @@ mod refinement_tests {
     use pse_kernels::DerivativeOrder;
     use pse_modeling::{Bindings, Limits};
     use std::sync::Arc;
+
+    fn bounded_display(error: &dyn std::fmt::Display) -> String {
+        struct Prefix(String);
+        impl std::fmt::Write for Prefix {
+            fn write_str(&mut self, text: &str) -> std::fmt::Result {
+                for character in text.chars() {
+                    if self.0.len() + character.len_utf8() > 1024 {
+                        return Err(std::fmt::Error);
+                    }
+                    self.0.push(character);
+                }
+                Ok(())
+            }
+        }
+        let mut detail = Prefix(String::with_capacity(1024));
+        let _ = std::fmt::write(&mut detail, format_args!("{error}"));
+        detail.0
+    }
+
+    #[cfg(feature = "solver-ipopt")]
+    #[tokio::test]
+    async fn affine_accuracy_goals_prepare_source_rows_with_solver_presolve_off() {
+        let rows = language::parse(
+            "package p { def Root { var x:Scalar; var z:Scalar; var y:Scalar; eq anchor:x==0; eq chain:z==x; eq nonlinear:y*y+x==4; annotation bounds x(0,10); annotation bounds z(0,10); annotation bounds y(0.1,10); annotation start x(0); annotation start z(0); annotation start y(1.5); annotation accuracy_goal y(selected_output,steady,resolution=0.1,required_class=estimated,use_policy=assess,refine=false); } }",
+            SemanticId::NIL, IdentityPolicy::Named, ParseBudget::default(),
+        ).unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let runtime = fixture::runtime();
+        let package = runtime
+            .modeling_package(rows, fixture::physical())
+            .await
+            .unwrap();
+        // These original two-sided boxes require Ipopt; KINSOL's shifted sign
+        // constraints cannot encode them. Keep Value to exercise authored demand.
+        let prepared = package
+            .prepare_solve(
+                &runtime.preparation_services(),
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::Value,
+                fixture::compiler_profile(),
+                SolverProfile {
+                    intent: SolveIntent::Root,
+                    selection: SolverSelection::Explicit(Backend::Ipopt),
+                    presolve: native::presolve::Policy::Off,
+                    ..Default::default()
+                },
+                NumericalInputs::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap_or_else(|error| {
+                panic!(
+                    "bounded source accuracy preparation failed: {}",
+                    bounded_display(&error)
+                );
+            });
+        assert!(matches!(
+            prepared.solve.profile.presolve,
+            native::presolve::Policy::Off
+        ));
+        assert!(prepared.solve.required_order() >= DerivativeOrder::First);
+        let Representation::Algebraic(case) = &prepared.solve.representation else {
+            panic!("original algebraic square");
+        };
+        let compiled = case.prepared.compiled();
+        assert!(compiled.presolve.matches(&compiled.plan, &case.values));
+        assert_eq!(
+            compiled
+                .presolve
+                .affine
+                .iter()
+                .filter(|row| row.is_some())
+                .count(),
+            2
+        );
+        assert!(matches!(
+            compiled.presolve.class_status,
+            pse_math::presolve::ClassStatus::Unassessed
+        ));
+        let finished = runtime
+            .native()
+            .solve(prepared.solve.clone())
+            .unwrap()
+            .finish()
+            .await
+            .unwrap();
+        let point = match &finished.outcome {
+            Outcome::Native(report) => {
+                assert!(report.quality.as_ref().unwrap().feasible());
+                report.candidate.as_ref().unwrap().primal.clone()
+            }
+            Outcome::Rejected(error) => panic!("native root rejected: {}", bounded_display(error)),
+            Outcome::Constant(report) => {
+                // Automatic composition can completely reconstruct this small
+                // source. Its original coordinates and stronger producer proof
+                // are legitimate outcomes; do not fabricate a native report.
+                assert!(report.quality.feasible());
+                assert_eq!(report.coordinates.len(), compiled.plan.columns().len());
+                let coordinates = report
+                    .coordinates
+                    .iter()
+                    .copied()
+                    .collect::<BTreeMap<_, _>>();
+                assert_eq!(coordinates.len(), report.coordinates.len());
+                compiled
+                    .plan
+                    .columns()
+                    .iter()
+                    .map(|id| coordinates[id])
+                    .collect()
+            }
+        };
+        let mut values = case.values.as_ref().clone();
+        for (id, value) in compiled.plan.columns().iter().zip(&point) {
+            values.scalars.insert(*id, *value);
+        }
+        let goal = &prepared.solve.numerics.policy.goals[0];
+        assert!((values.scalars[&goal.target_id] - 2.0).abs() < 0.01);
+        let scope = pse_kernels::ExecutionScope::new(Cancellation::default(), None);
+        let budget = WorkerBudget::new(64 << 20);
+        let assessed = prepared
+            .solve
+            .coordinate_accuracy(
+                runtime.native(),
+                &finished.outcome,
+                &values,
+                &scope,
+                &budget,
+            )
+            .unwrap();
+        let evidence = assessed[0]
+            .evidence
+            .as_ref()
+            .expect("original source accuracy evidence");
+        // The authored requirement is at least Estimated. A producer-issued
+        // Certified reconstruction satisfies it without weaker reassessment.
+        assert!(matches!(
+            evidence.accuracy.class,
+            pse_model::strategy::AccuracyClass::Estimated
+                | pse_model::strategy::AccuracyClass::Certified
+        ));
+        assert!(
+            evidence
+                .accuracy
+                .error
+                .is_some_and(|error| error.is_finite())
+        );
+        assert_eq!(budget.used(), 0);
+    }
 
     #[tokio::test]
     async fn selected_scalar_observable_has_actual_first_arithmetic_and_report_only_is_pure() {

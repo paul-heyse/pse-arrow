@@ -181,7 +181,9 @@ async fn execute_journey(
             services.preparation(),
             &declared,
             &outcome,
-        )?;
+            &cancel,
+        )
+        .await?;
     }
     recycle_tests::retain_declared(
         recording,

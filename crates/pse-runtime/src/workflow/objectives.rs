@@ -313,6 +313,7 @@ impl ModelingPackage {
                 resolution.model.case.clone(),
                 resolution.model.values.clone(),
                 &resolution.solver,
+                &resolution.solver.numerics.goals,
             )
             .await?;
         let decision = resolution.assess_route(Some(single_nonzero))?;

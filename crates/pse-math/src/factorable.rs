@@ -4518,12 +4518,15 @@ mod exact_constant_tests {
                     MaterializationPurpose::RequiredCondition,
                 )
             } else {
+                // Compare with an independent unknown threshold, rather than
+                // pinning a missing simplification of a constant Boolean bound.
+                let threshold = Value::Node(builder.push(Node::Var(1)).unwrap());
                 (
                     nested_predicate_select(
                         &mut builder,
                         Comparison::Le,
                         indicator,
-                        one.clone(),
+                        threshold,
                         one,
                         zero,
                     ),

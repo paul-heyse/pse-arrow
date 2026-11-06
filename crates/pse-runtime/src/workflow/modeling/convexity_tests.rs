@@ -305,6 +305,7 @@ async fn numerical_psd_only_under_explicit_policy() {
             prepared.model.case.clone(),
             prepared.model.values.clone(),
             &profile(highs, ConvexityPolicy::Exact),
+            &[],
         )
         .await
         .unwrap();
