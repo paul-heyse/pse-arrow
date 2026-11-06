@@ -1858,7 +1858,7 @@ pub(crate) fn check_declaration(
                     ("criterion_upper", &goal.criterion_upper, Some(&target)),
                 ] {
                     let Some(_expression) = expression else {
-                        return Ok(());
+                        continue;
                     };
                     let expression =
                         p.expression_at(*id, &format!("annotation.accuracy_goal.{role}"), 0)?;

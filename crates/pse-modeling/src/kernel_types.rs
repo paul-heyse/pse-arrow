@@ -49,6 +49,36 @@ pub(crate) fn try_source(text: &str) -> Result<Vec<Declaration>> {
 }
 
 #[test]
+fn steady_accuracy_goals_check_each_present_physical_member_without_sample_time() {
+    let (registry, _) = physical();
+    let prerequisites =
+        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
+            .unwrap();
+    let context = TypeContext {
+        admissions: None,
+        formula_authority: None,
+        quantities: &registry,
+        preconditions: &prerequisites,
+        scope: &PhysicalScope::default(),
+    };
+    for member in [
+        "resolution=0.1{K}",
+        "criterion_lower=273.15{K}",
+        "criterion_upper=373.15{K}",
+    ] {
+        let text = format!(
+            "package p {{ def Root {{ var temperature: Temperature; annotation accuracy_goal temperature(selected_output,steady,{member},required_class=estimated,use_policy=assess,refine=true); }} }}"
+        );
+        assert!(crate::check(&source(&text), &context).is_ok(), "{member}");
+        let invalid = text.replace("{K}", "{m}");
+        assert!(
+            crate::check(&source(&invalid), &context).is_err(),
+            "{member} must be checked even when earlier optional members are absent"
+        );
+    }
+}
+
+#[test]
 fn physical_intermediates_cross_polymorphic_calls_without_quantity_ids() {
     let (registry, _) = physical();
     let prerequisites =

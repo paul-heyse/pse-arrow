@@ -291,6 +291,66 @@ impl schemars::JsonSchema for Scheme {
 }
 
 #[cfg(test)]
+mod engineering_resolution_controls {
+    use super::*;
+    #[test]
+    fn caloric_resolution_requires_same_datum_point_difference() {
+        let registry = crate::generated::standard_registry().unwrap();
+        let facts =
+            crate::PhysicalPreconditions::new(crate::generated::standard_preconditions()).unwrap();
+        let named = |name| {
+            Scheme::Concrete(
+                registry
+                    .quantity_types()
+                    .find(|q| q.name.as_deref() == Some(name))
+                    .unwrap()
+                    .id,
+            )
+        };
+        let power_error = Scheme::Delta(Box::new(named("Power")));
+        let resolution = Scheme::Quotient(Box::new(power_error), Box::new(named("Flow")));
+        let target = Scheme::Delta(Box::new(named("MolarEnthalpy")));
+        let resolve = |scheme: &Scheme| {
+            scheme
+                .resolve_contract_with_evidence(&registry, &Default::default(), &facts)
+                .unwrap()
+        };
+        let actual = resolve(&resolution);
+        let point = resolve(&named("MolarEnthalpy"));
+        let expected = resolve(&target);
+        assert!(actual.same_meaning(&point));
+        assert!(
+            !actual.same_meaning(&expected),
+            "transported power divided by flow retains its point meaning"
+        );
+        let half_power = Scheme::Quotient(
+            Box::new(named("Power")),
+            Box::new(Scheme::Concrete(registry.neutral_dimensionless().unwrap())),
+        );
+        let half = resolve(&Scheme::Quotient(
+            Box::new(half_power),
+            Box::new(named("Flow")),
+        ));
+        let span = crate::resolved::infer_operation(
+            &OpRequest::Sub,
+            &[actual, half],
+            None,
+            &registry,
+            &facts,
+        )
+        .unwrap();
+        assert!(span.result.same_meaning(&expected));
+        let relative = Scheme::Quotient(Box::new(named("Power")), Box::new(named("Power")));
+        assert!(
+            relative
+                .resolve_contract_with_evidence(&registry, &Default::default(), &facts)
+                .is_err(),
+            "an affine-point ratio is not a substitute for the actual same-datum difference"
+        );
+    }
+}
+
+#[cfg(test)]
 mod passive_projection_controls {
     use super::*;
     use crate::boundary::BoundaryDocument;

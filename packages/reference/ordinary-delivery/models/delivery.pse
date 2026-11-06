@@ -23,6 +23,9 @@ use references @"1.0.0";
 
 // Reuse the process definitions and original topology; change scientific selections.
 fn component_h(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy=if p==chemistry.liquid then ordinary_bt.liquid_h(T,j) else ordinary_bt.vapor_h(T,j);
+// Compare full and half power allocations at the same positive throughput.
+// Their transported same-datum point difference is exactly the allocated P/(2C).
+fn caloric_output_resolution(exposure:Flow)->Delta<MolarEnthalpy> valid(exposure>0{mol/s})=numerical_policy.power/exposure-(numerical_policy.power/2)/exposure;
 interface RecycleModel extends recycle_flash.RecycleLoop {
 override param liquid_caloric_span:Fn()->Delta<MolarEnthalpy>=ordinary_bt.liquid_enthalpy_span;
 override param vapor_caloric_span:Fn()->Delta<MolarEnthalpy>=ordinary_bt.vapor_enthalpy_span;
@@ -120,10 +123,10 @@ annotation energy_context exchanger.cold.outlet.enthalpy_binding(numerical_polic
 // Request the original caloric output resolution before execution. The source
 // power/flow allocation matches the existing consuming enthalpy context; it does
 // not replace the unchanged physical residual or independent comparison budgets.
-annotation accuracy_goal exchanger.hot.inlet.h(selected_output,steady,resolution=numerical_policy.power/(2*recycle_flash.exposure_bound(exchanger.hot.inlet.flow,numerical_policy.molar_flow)),required_class=estimated,use_policy=assess,refine=true);
-annotation accuracy_goal exchanger.hot.outlet.h(selected_output,steady,resolution=numerical_policy.power/(2*recycle_flash.exposure_bound(exchanger.hot.inlet.flow,numerical_policy.molar_flow)),required_class=estimated,use_policy=assess,refine=true);
-annotation accuracy_goal exchanger.cold.inlet.h(selected_output,steady,resolution=numerical_policy.power/(2*recycle_flash.exposure_bound(exchanger.cold.inlet.flow,numerical_policy.molar_flow)),required_class=estimated,use_policy=assess,refine=true);
-annotation accuracy_goal exchanger.cold.outlet.h(selected_output,steady,resolution=numerical_policy.power/(2*recycle_flash.exposure_bound(exchanger.cold.inlet.flow,numerical_policy.molar_flow)),required_class=estimated,use_policy=assess,refine=true);
+annotation accuracy_goal exchanger.hot.inlet.h(selected_output,steady,resolution=caloric_output_resolution(recycle_flash.exposure_bound(exchanger.hot.inlet.flow,numerical_policy.molar_flow)),required_class=estimated,use_policy=assess,refine=true);
+annotation accuracy_goal exchanger.hot.outlet.h(selected_output,steady,resolution=caloric_output_resolution(recycle_flash.exposure_bound(exchanger.hot.inlet.flow,numerical_policy.molar_flow)),required_class=estimated,use_policy=assess,refine=true);
+annotation accuracy_goal exchanger.cold.inlet.h(selected_output,steady,resolution=caloric_output_resolution(recycle_flash.exposure_bound(exchanger.cold.inlet.flow,numerical_policy.molar_flow)),required_class=estimated,use_policy=assess,refine=true);
+annotation accuracy_goal exchanger.cold.outlet.h(selected_output,steady,resolution=caloric_output_resolution(recycle_flash.exposure_bound(exchanger.cold.inlet.flow,numerical_policy.molar_flow)),required_class=estimated,use_policy=assess,refine=true);
 annotation report exchanger.hot.heat("ordinary hot duty");
 annotation report exchanger.cold.heat("ordinary cold duty");
 annotation report exchanger.coefficient("ordinary heat transfer coefficient");
