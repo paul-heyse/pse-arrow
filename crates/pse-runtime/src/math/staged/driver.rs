@@ -199,10 +199,35 @@ impl<D: Dispatch> StepDriver<'_, D> {
                 result.2 = self.accuracy_stopped_trace(&result.2, reason)?;
                 break;
             }
+            // Actual reconstructed coordinates are not a native attempt. Retain their
+            // finite projection through the existing goal-work preparation only.
+            let reconstructed_point = if let math::solves::Outcome::Constant(report) = &result.0 {
+                let bytes = report
+                    .coordinates
+                    .len()
+                    .checked_mul(size_of::<f64>())
+                    .ok_or_else(|| ProblemError::memory("accuracy reconstructed point extent"))?;
+                let charge = self.dispatcher.reserve(
+                    &self.service,
+                    "math:accuracy-reconstructed-point",
+                    bytes,
+                )?;
+                let point = report
+                    .coordinates
+                    .iter()
+                    .map(|(_, value)| *value)
+                    .collect::<Vec<_>>();
+                Some((point, charge))
+            } else {
+                None
+            };
             let point = match &result.0 {
                 math::solves::Outcome::Native(report) => {
                     report.candidate.as_ref().map(|c| c.primal.as_slice())
                 }
+                math::solves::Outcome::Constant(_) => reconstructed_point
+                    .as_ref()
+                    .map(|(point, _)| point.as_slice()),
                 _ => None,
             };
             let Some(point) = point else {
@@ -239,6 +264,7 @@ impl<D: Dispatch> StepDriver<'_, D> {
                     break;
                 }
             };
+            drop(reconstructed_point);
             if refined.backend() != step.backend()
                 || refined.numerics().key != step.numerics().key
                 || refined.original_identity()? != step.original_identity()?

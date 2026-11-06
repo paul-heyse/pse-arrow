@@ -117,6 +117,13 @@ annotation energy_context exchanger.cold.inlet.h(numerical_policy.power,recycle_
 annotation energy_context exchanger.cold.inlet.enthalpy_binding(numerical_policy.power,recycle_flash.exposure_bound(exchanger.cold.inlet.flow,numerical_policy.molar_flow),exchanger.cold.inlet.energy_flow,exchanger.cold.inlet.flow);
 annotation energy_context exchanger.cold.outlet.h(numerical_policy.power,recycle_flash.exposure_bound(exchanger.cold.inlet.flow,numerical_policy.molar_flow),exchanger.cold.outlet.energy_flow,exchanger.cold.outlet.flow);
 annotation energy_context exchanger.cold.outlet.enthalpy_binding(numerical_policy.power,recycle_flash.exposure_bound(exchanger.cold.inlet.flow,numerical_policy.molar_flow),exchanger.cold.outlet.energy_flow,exchanger.cold.outlet.flow);
+// Request the original caloric output resolution before execution. The source
+// power/flow allocation matches the existing consuming enthalpy context; it does
+// not replace the unchanged physical residual or independent comparison budgets.
+annotation accuracy_goal exchanger.hot.inlet.h(selected_output,steady,resolution=numerical_policy.power/(2*recycle_flash.exposure_bound(exchanger.hot.inlet.flow,numerical_policy.molar_flow)),required_class=estimated,use_policy=assess,refine=true);
+annotation accuracy_goal exchanger.hot.outlet.h(selected_output,steady,resolution=numerical_policy.power/(2*recycle_flash.exposure_bound(exchanger.hot.inlet.flow,numerical_policy.molar_flow)),required_class=estimated,use_policy=assess,refine=true);
+annotation accuracy_goal exchanger.cold.inlet.h(selected_output,steady,resolution=numerical_policy.power/(2*recycle_flash.exposure_bound(exchanger.cold.inlet.flow,numerical_policy.molar_flow)),required_class=estimated,use_policy=assess,refine=true);
+annotation accuracy_goal exchanger.cold.outlet.h(selected_output,steady,resolution=numerical_policy.power/(2*recycle_flash.exposure_bound(exchanger.cold.inlet.flow,numerical_policy.molar_flow)),required_class=estimated,use_policy=assess,refine=true);
 annotation report exchanger.hot.heat("ordinary hot duty");
 annotation report exchanger.cold.heat("ordinary cold duty");
 annotation report exchanger.coefficient("ordinary heat transfer coefficient");
