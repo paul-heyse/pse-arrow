@@ -742,8 +742,9 @@ Root-definition/attribution restoration and the generated private NativeRoot v4 
 now integrated on main. The child restores the parent's existing compiled execution under an
 attempt-bound actual parent-pool grant; source/receipt replay and its production process-message
 authority are removed. The targeted receiving selection passes 76/76, including actual
-self-executable solve/refusal, wire-depth and allocation/cancellation controls; exact deployed
-lane qualification is separate. The detailed mechanisms, evidence limits and remaining admission
+self-executable solve/refusal, wire-depth and allocation/cancellation controls. The subsequent
+November 6 receiving selection also passes the actual deployed-lane control under matching
+four-profile fixtures and ordinary incremental/sccache defaults. The detailed mechanisms, evidence limits and remaining admission
 obligations stay in [65k](65k-scientific-artifacts-and-native-reconstruction.md#integrated-compiled-root-handoff).
 
 Authored Buf worlds also use the same typed Buffa/Connect/validator composition as source-owned
@@ -759,8 +760,12 @@ owns those obligations. The reviewed correction `d4f2cdd4e` is now merged on mai
 feasible constant-reconstruction coordinates and original observations enter the existing
 selected-output accuracy assessment and admitted refinement. Exchanger caloric resolution
 goals are declared before execution from the original power/flow allocation; physical residual
-and independent comparison allowances are unchanged. Its functional qualification remains
-pending. All three implementation worktrees are fully merged and removed; delegated tasks have
+and independent comparison allowances are unchanged. Its actual original-square/reconstruction
+control now passes. The source checker also checks every present steady-goal member independently
+of optional sample time; three physical typing/goal controls pass. The complete exchanger rerun
+still withholds output accuracy as `regularity`, so those scientific cases remain unaccepted;
+[64h](64h-reference-coverage-and-qualification.md#receiving-scientific-comparison-checkpoint--november-5)
+owns the original evidence and remaining correction. All three implementation worktrees are fully merged and removed; delegated tasks have
 concluded. An intervening full filesystem stopped combined test discovery before test bodies
 and initially prevented Git merge. The maintainer supplied space with `cargo clean`; source
 integration then completed. New verification uses normal incremental/compiler-cache defaults,

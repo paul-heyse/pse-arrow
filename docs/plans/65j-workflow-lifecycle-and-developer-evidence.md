@@ -638,8 +638,13 @@ with the construction/reentry, changed-context and compiler-cache-profile contro
 incremental/sccache defaults. `just ready` succeeds, and the subsequent matching four-profile
 `scripts/pse-host fixture prepare runtime` completes its original capsule/lane construction and
 final validation successfully. The earlier refused preparation remains recorded. Consuming
-default-context execution is separate from preparation and the earlier cache-off 111-control
-result; full J05 remains open.
+default-context execution has now run: the November 6 combined receiving selection passes
+the fixture construction/reentry and changed-context controls, plus the actual deployed native
+lane, under matching four-profile preparation and normal incremental/sccache defaults.
+[65h](65h-integration-and-qualification.md#wrap-up-verification--november-6) owns the complete
+127/130 outcome and its three separate scientific-source failures. This replaces the pending
+consumption boundary, while the earlier cache-off 111-control result retains its conditions.
+Full J05 remains open.
 
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.

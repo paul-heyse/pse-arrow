@@ -22,7 +22,7 @@ doc_topics: [current-work, design, validation]
 **Execution authorization — 2026-11-03:** the maintainer authorized all remaining 64d–64g
 packages, including the necessary enabling 64h inventory/reference and 64a contract slices.
 The existing companion tables remain their status owners. This authorization does not close
-H01's unenumerated population or qualify broader 64h/Plan58h work. Initial execution joins the
+H01's unenumerated population or qualify broader 64h assembled/deployment work. Initial execution joins the
 finite required-population inventory, state-coordinate and reaction foundations, and G08's
 atomic capture replacement. Proposed ADR-0230 and blueprint revision344 record the capture
 target before its production migration.
@@ -179,8 +179,9 @@ their historical scope. No new rule exception or Rust optimization-level increas
 
 The integrated native work combines C09/retention observations, C02 selection corrections,
 C01/64b reads and B/C08 context. C06 consumes their policy/report slices for numerical
-selection and native acceptance. Existing Plans40/53/54/58 retain their responsibilities; the
-collective dependency upgrade, H02/H03 references and wider qualification remain separate.
+selection and native acceptance. Remaining diagnostic, fixture, build and operational changes
+belong to the applicable Plan64/65 owners; the collective dependency upgrade, H02/H03 references
+and wider 64h/65h qualification remain separate.
 
 ## Complete recommendation and investigation coverage
 
@@ -211,11 +212,20 @@ dispositions, not progress. Do not duplicate these states in a second review led
 | §11 external substitution and assembled execution | 64d–64g capability decisions, 64h measurements/qualification; library availability is not feasibility or achieved benefit. |
 | §12 target, rule impacts and limits | Accepted RC decisions above, A01/A02 routing, shared completion below. |
 
-## Existing plan interfaces
+## Current implementation and qualification interfaces
 
-Plans28/32/40/53/54/58/58h retain their status and acceptance. Consume actual publication/revision/control contracts from 28, lifecycle metadata from 32, relevant observations from 40, scientific assurance/fixture/reference contracts from 53, supported build preparation from 54 and native operations from 58. Plan58h remains a separate assembled native/deployment qualification owner; this series does not declare it complete. Reuse an applicable receipt only with its original configuration and scope.
+Only Plan64 and Plan65 are active. Existing publication/revision/control, lifecycle,
+observation, assurance/fixture, build-preparation and native-operation mechanisms are current
+implementation inputs, not obligations delegated to past plans. Their architecture and
+developer documents own enduring contracts. Remaining selected changes belong to 65c storage,
+65d/65j lifecycle, 65f diagnostics/results and the applicable scientific companion; assembled
+scientific/operational and supported deployment qualification belongs to 64h/65h. Reuse earlier
+evidence only with its original source, configuration and scope.
 
-No active-plan reference by the scoped DA-062/DA-063 IDs was found during preparation. A04 must inspect semantic overlap with existing plan packets before allocating repair. If already owned, name the exact packet and consume its evidence; if unowned and applicable to selected scope, establish one explicit owner here or in that existing plan through its authorized route. Do not silently absorb unrelated numerical or canonical work.
+A04 resolves DA-062/DA-063 applicability against current source and the Plan64/65 packages.
+Assign each applicable repair to one of those current owners and consume its exact evidence;
+past plan packets neither own nor defer it. Numerical and canonical changes still need an
+explicit relationship to the accepted target and their current package owner.
 
 ## Verification and completion
 
@@ -290,11 +300,15 @@ The current integration checkpoint merges compiled-root delegation, typed author
 composition and actual reconstruction-output accuracy work on main; all implementation worktrees
 are removed after merge. [Plan65k](65k-scientific-artifacts-and-native-reconstruction.md#integrated-compiled-root-handoff)
 owns the root mechanism and its scoped evidence. [64h](64h-reference-coverage-and-qualification.md#receiving-scientific-comparison-checkpoint--november-5)
-owns three passing ordinary comparisons, the two genuine design/arithmetic disagreements and
-the integrated, still-unqualified accuracy repair. Physical/reference allowances remain
-unchanged. A full filesystem stopped the next combined test build before bodies; the maintainer
-then supplied space with `cargo clean`. Cold reconstruction and remaining Clippy/functional
-qualification are pending under normal cache/incremental defaults. Neither series is complete.
+owns the earlier three passing ordinary comparisons and two genuine design/arithmetic
+disagreements. The actual original-square/reconstruction accuracy control now passes; the
+subsequent exchanger rerun with typed caloric goals still withholds accuracy as `regularity`.
+Physical/reference allowances remain unchanged. After the maintainer supplied space with
+`cargo clean`, cold host and matching fixture reconstruction completed. The combined receiving
+selection passes 127/130, including the actual deployed native lane; its three scientific-source
+failures were repaired before the separate exchanger rerun. Current Clippy and detailed
+functional accounting live in [65h](65h-integration-and-qualification.md#wrap-up-verification--november-6).
+New commands retain normal cache/incremental defaults. Neither series is complete.
 
 ### Completed B/C evidence checkpoint — 2026-11-03
 
@@ -382,7 +396,7 @@ and Clippy/targeted-test campaign is recorded in
 its scoped results supersede this historical deferral only for the modes actually exercised.
 
 At that closeout, all task-owned build/test/debug sessions were terminal. Worktrees were
-reconciled and removed; the unused unintegrated Plan59 parser-provenance draft is preserved on its
+reconciled and removed; the unused unintegrated parser-provenance draft is preserved on its
 original branch at `3d7096c15`, rather than reintroducing retired production code.
 The shared sccache daemon was left running for other agents; it is not an active test
 or build. Resume the recorded failures and pending targeted checks before starting

@@ -113,7 +113,7 @@ Run matched native/reference cases only after the selected physics and route con
 
 **Proposed verification:** owner-local tests first establish storage allocation, signed transfer, boundary and reset semantics; negative controls expose wrong sign, missing phase allocation, double-counted internal transfer, incompatible initial conditions and incomplete coverage. Independent hand-derived storage cases and matched reference trajectories challenge production transformations rather than recomputing expectations through them.
 
-Use the repository's targeted compile/test routes during implementation. Selected assembled scientific/reference journeys and scope-end checks occur at the owning integration boundary, coordinated with 64h and existing Plan58h. No broad campaign repeats per package. Measure cold preparation, reused value-only cases or longer trajectories only for a corresponding performance claim under matched scientific quality.
+Use the repository's targeted compile/test routes during implementation. Selected assembled scientific/reference journeys and scope-end checks occur at the owning integration boundary, coordinated with 64h/65h. No broad campaign repeats per package. Measure cold preparation, reused value-only cases or longer trajectories only for a corresponding performance claim under matched scientific quality.
 
 **Outcome: Partial implementation.** E01/E02 remain in progress; no E package or finite
 P4 population is complete. Later P5/P6 consumers may use an accepted subset without

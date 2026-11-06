@@ -4,7 +4,7 @@ title: "Current work and plans"
 
 # Current work and plans
 
-Plan64 and Plan65 now execute under one coordinator, with Proto delivery first and scientific
+Only Plan64 and Plan65 are active. They execute under one coordinator, with Proto delivery first and scientific
 input fixes/census progressing where needed for its acceptance. Native package tables own current status and remaining decisions. Index inclusion does not
 resume stopped work or establish implementation, qualification or measured benefit.
 
@@ -16,19 +16,16 @@ The current wrap-up integrates compiled-root handoff and authored Buf compositio
 [65k](65k-scientific-artifacts-and-native-reconstruction.md#integrated-compiled-root-handoff)
 owns private transfer limits and [64h](64h-reference-coverage-and-qualification.md#receiving-scientific-comparison-checkpoint--november-5)
 owns the still-open scientific comparisons. Earlier targeted passes do not establish full-series
-qualification. New builds retain normal incremental/compiler-cache defaults.
+qualification. The [November 6 wrap-up](65h-integration-and-qualification.md#wrap-up-verification--november-6)
+records receiving-main functional/Clippy results, actual deployed-lane acceptance, remaining
+exchanger accuracy refusal and completed worktree consolidation. New builds retain normal
+incremental/compiler-cache defaults.
 
 | Plan | Work and status owner |
 | --- | --- |
 | [65: Integrated Proto target](65-proto-integrated-target.md#joint-execution-resumed-after-the-stop-checkpoint) | Both series execute together: receiving retirement/receipt verification, integrated original-file evidence delivery, checked scientific execution prerequisites and required scientific population closure. The coordinator and 65h own evidence limits; companion tables retain remaining delivery. |
 | [64: Process-simulator target](64-process-simulator-target.md) | Entire remaining P0–P7 scope resumed under the joint Proto-first execution. Finite configuration/input closure proceeds alongside receiving verification and Proto implementation. The [completion checkpoint](64-process-simulator-target.md#current-completion-and-remaining-scope--2026-11-04) distinguishes completed native B/C delivery from remaining scientific integration and qualification; companions own package state. |
 | [64i: Engineering contracts](64i-engineering-contracts-and-validation.md), [64j: Services and clients](64j-engineering-services-and-clients.md), [64k: Scientific workers](64k-prepared-scientific-workers.md) | Active Proto implementation. Owning checkpoints distinguish tested source foundations/generated delivery, the narrow client and actual worker process controls from open full Study integration and remaining scientific journeys. Coordinator owns review dispositions. |
-| [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
-| [54: Rust build reuse](54-rust-build-reuse.md) | Compiler-cache/reuse work and its separately owned qualification handoff. |
-| [53: Test architecture](53-test-architecture-target.md) | Test architecture and existing remaining qualification/decision scope. |
-| [40: Simulation diagnostics](40-simulation-performance-diagnostics.md) | Native simulation diagnostics and its independent campaign status. |
-| [32: Workspace content lifecycle](32-workspace-content-lifecycle.md) | Document metadata, retention and native scope interpretation. |
-| [28: Unified simulation substrate](28-surrealdb-unified-substrate.md#current-checkpoint) | Canonical substrate and its independently authorized remaining work. |
 
 Plan65 companions: [contracts and generation](65a-contract-foundations-and-generation.md),
 [representation and validation](65b-representation-validation-and-interpretation.md),
@@ -42,51 +39,15 @@ Plan65 companions: [contracts and generation](65a-contract-foundations-and-gener
 [workflow lifecycle/developer evidence](65j-workflow-lifecycle-and-developer-evidence.md), and
 [scientific artifacts/native reconstruction](65k-scientific-artifacts-and-native-reconstruction.md).
 
-[Plan63: Code-intelligence and CLI robustness](63-code-intelligence-cli-robustness.md#outcome)
-is complete. Its coordinator owns O01–O08 disposition, integrated qualification and deliberate
-limits; companions retain source-detail, recovery and native evidence plus the C03 symbol-search
-decision. It remains the current code-intelligence qualification reference.
-Blueprint §21.7 owns enduring contracts and §24.2 the evidence boundary. Retention authorizes no new work.
-
-[Plan60: Engineering code intelligence](60-engineering-code-intelligence.md#outcome) is complete.
-Its coordinator owns integrated acceptance and resolved source/review dispositions; companions
-retain their original evidence. Selected local Linux functional/native/API/lifetime, static,
-feature, governance and document checks passed, with the existing copyright-header exclusion
-kept explicit. The series and its source reviews remain while proposed ADR-0235 and qualification
-readers depend on them. Conditional bulk/modeling/compiler/index/schema/remote options retain
-their owners and triggers; completed records authorize no new work. Blueprint §21.7 owns the
-enduring contract and §24.2 the qualification basis.
-
-[Plan62: Code-intelligence capability expansion](62-code-intelligence-capability-expansion.md#outcome)
-is complete and retained as support for subsequent intelligence
-consumers and proposed ADR-0233/0235. The coordinator owns O01–O13 dispositions and local Linux
-qualification, including corrected affected reruns and the operator-excluded copyright-header
-check. Its four companions retain completed package state and conditional revisit triggers.
-
-[Plan61: Code-intelligence foundations](61-code-intelligence-foundations.md#outcome) is complete
-and retained as a foundation for Plan60/62 and proposed ADR-0235.
-Its [schema/payload Outcome](61d-schema-payload-and-contract-investigation.md#outcome) and
-coordinator own implementation, assembled acceptance and evidence limits. Formal ADR acceptance
-and the independent plans below retain their own authority.
-
-Plan60's [dependencies and execution route](60-engineering-code-intelligence.md#dependencies-and-execution-route)
-retains the package graph and original prerequisite-readiness table. Its Outcome records
-delivery and selected acceptance; deferred options do not become compulsory prototypes or
-adoption gates. It does not reopen completed Plan59 scope.
-
-[Plan59: Agent CLI](59-agent-cli.md#current-state-and-next-step) is complete and retained
-with its companions and original qualification evidence. Creation/listing are delivered;
-CLI worktree removal is explicitly deferred under R-56, with native Git administration retained.
-Plan58, Plan60 and proposed ADR consumers retain their independent scope and qualification.
-
-Completed companions: [foundation](59a-cli-foundation.md), [runs](59b-runs-and-continuity.md),
-[tests](59c-tests-and-fixtures.md), [workflow readers](59d-knowledge-and-workflow-verbs.md),
-[adoption](59e-environment-and-adoption.md), [observation](59f-simulation-observability-and-diagnostics.md),
-[semantics](59g-rust-semantic-intelligence.md), [APIs](59h-api-and-dependency-intelligence.md),
-[compiler](59i-compiler-investigations.md), [syntax/proposals](59j-source-queries-and-change-proposals.md),
-[query foundations](59k-query-and-result-foundations.md),
-[repository/content](59l-repository-discovery-and-content-search.md),
-[composed investigations](59m-composed-rust-investigations.md).
+Retained historical foundations include
+[CLI delivery](59-agent-cli.md#current-state-and-next-step),
+[code intelligence](60-engineering-code-intelligence.md#outcome),
+[contract/schema foundations](61-code-intelligence-foundations.md#outcome),
+[capability expansion](62-code-intelligence-capability-expansion.md#outcome) and
+[robustness qualification](63-code-intelligence-cli-robustness.md#outcome).
+Their evidence retains its original source, conditions, exclusions and scope. These records
+assign no active implementation, prerequisite or qualification obligation. Remaining work
+belongs to Plan64/65; enduring contracts belong to the architecture and retained decisions.
 
 For supported implementation and historical qualification, use
 [blueprint §24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2).

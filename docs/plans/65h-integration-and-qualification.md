@@ -460,6 +460,82 @@ Clippy was not run at that boundary. The maintainer then ran `cargo clean`, supp
 all subsequent qualification requires cold native-host reconstruction and fresh source-matching
 fixtures. The original captures and earlier scoped passes remain outside the cleaned build tree.
 
+### Wrap-up verification — November 6
+
+**Implemented:** all three implementation worktrees are merged into `main`, conflicts
+reconciled, and the clean merged worktrees removed. Required source and retained original
+scientific evidence survive. The unrelated storage-lifecycle review remains outside this
+change. No cache deletion or cache-off/incremental override is part of the resumed checks;
+configured unbounded placement and the selected native provider contexts remain explicit.
+Only Plan64 and Plan65 own remaining work; historical plans provide no prerequisites or
+outstanding qualification obligations.
+
+Clippy corrections remove the underlying redundant/legacy patterns: transfer validation carries
+its enclosing frame in `ProgramContext`, recursive restoration no longer forwards an unused
+slot declaration, variant dispatch remains valid with and without compiled evaluators, and
+initial counts are constructed directly. Redundant borrows/qualifications and a forbidden
+unreachable test branch are removed. No lint suppression or numerical acceptance relaxation
+was introduced. The steady-goal checker now checks each present physical member after an
+absent optional sample time, and the authored caloric resolution preserves its full difference
+quantity contract.
+
+**Tested, receiving scope; failure baseline zero:**
+
+- `just clippy`: both default and no-default workspace/all-target modes pass with
+  `-D warnings`, zero errors/warnings. The final source-checker controls initially exposed two
+  redundant qualifications; they were removed. The later typed-cause forwarding also replaces
+  a trivial trait-object cast with coercion. Both modes were rerun successfully after these
+  corrections and the full-original First/cause-retention additions.
+- Expanded native `scripts/cargo-bin/cargo-pse-correctness clippy --keep-going --no-deps
+  --workspace --all-targets --locked --features
+  xtask/full-codegen,pse-runtime/engineering-service,pse-runtime/property-coolprop,pse-runtime/native-solvers,pse-runtime/native-study-tests,pse-runtime/canonical-tests,pse-runtime/compiled-evaluator,pse-tests-conformance/native-acceptance,pse-benches/native-process
+  -- -D warnings` passes with zero errors/warnings. Its explicit native context is
+  compiler/KLU/solver/isolation/UNO/PETSc; this is separate from runtime fixture preparation.
+  The final run includes the full-original First demand and typed withholding-cause changes.
+- `just codegen-check` passes its complete generated-output comparison, with zero failed
+  targets and no supplier accessor warning. The earlier fourteen-target publication and this
+  final comparison retain the source-owned `enters_boundary` correction and private v4 schema.
+- `scripts/pse test pse-runtime pse-math pse-compiler pse-ids pse-host pse-modeling --lib
+  --profile local --features pse-runtime/compiled-evaluator,pse-runtime/solver-ipopt,pse-runtime/solver-kinsol,pse-runtime/solver-root-isolation,pse-runtime/canonical-tests,pse-math/compiled-evaluator`
+  with the native-child/protocol, execution/implicit transfer, scientific replay, typed
+  portability, code-intelligence descriptor/schema/RPC, fixture-context, transfer-orientation,
+  original-square accuracy and ordinary-reference selectors executes **130 tests: 127 pass,
+  3 fail**, with zero retries/incomplete records. This includes the actual deployed private
+  NativeRoot v4 lane, original-square/constant-reconstruction accuracy, ideal recycle and
+  overheated intended failure. The three exchanger failures are source physical typing before
+  the subsequent correction, not child-transfer failures or scalar-comparison failures.
+- `scripts/pse test pse-modeling pse-quantity --lib --profile local` selecting steady-goal
+  member checking, authored accuracy and caloric-resolution quantity controls passes **3/3**.
+- The later four-test original-square/exchanger selection passes the original-square control
+  and fails all three exchanger cases at unresolved original output accuracy (`regularity`).
+  [64h](64h-reference-coverage-and-qualification.md#receiving-scientific-comparison-checkpoint--november-5)
+  owns the original scientific context, exact selector, unchanged allowances and next correction.
+
+All these receiving commands use normal incremental/sccache defaults. Fresh
+`scripts/pse-host fixture prepare runtime` and consuming tests use the same **four** native
+profiles: compiler/KLU/solver/isolation. A preceding six-profile-preparation/four-profile-test
+attempt correctly refused loader-context reuse before any test body; that attempt is neither
+a test pass nor 130 test failures. The earlier disk-full discovery attempt likewise executed
+zero test bodies. Original capture and settlement are complete for the executed receiving
+selections, including their failures; the originals remain outside the cleaned build tree.
+
+A subsequent narrow accuracy-preparation correction propagates full-original First demand
+through the existing admitted `MathService::prepare_order`, because component First support
+does not supply the whole-original Jacobian. The two Value-start accuracy controls pass;
+all three exchanger cases still fail qualification. The final diagnostic selection over those
+two controls, optional-failure custody, typed square withholding and the arithmetic comparison
+passes **4/5**, with the arithmetic case still failing. Its retained original cause establishes
+the later inactive-physical-bound neighborhood gate. [64h](64h-reference-coverage-and-qualification.md#receiving-scientific-comparison-checkpoint--november-5)
+owns boundary-aware assessment/reconstruction investigation and remaining scientific acceptance.
+No bound/tolerance was relaxed. The original typed cause and its charged shared owner replace
+the former erased regularity failure.
+
+No whole-series completion, scientific acceptance for failed cases, full-process memory bound
+or measured speedup follows from these focused results. H01–H04 remain open.
+Root `just turn-end` also passes its ADR-index and formatting recipes. Broader hygiene,
+powerset, independent scientific and performance campaigns remain the current series' scope-end
+work; they are not established by this requested Clippy/targeted-test wrap-up.
+
 ## Completion and enduring meaning
 
 Series completion requires every selected actual consumer, all required failure controls,

@@ -237,8 +237,8 @@ Preserve existing explicit methods until a replacement passes the same scientifi
 Separate build/fixture preparation, boundary/provider/admission wait, preparation, realization,
 native execution, original assessment, publication/export and teardown. Trace unexplained
 launch waits through existing host owners; reuse the captured executable/profile within a
-campaign and account for artifact growth. Consume Plans40/53/54/58 rather than create a
-runner or automatic cleanup mechanism. Scheduling changes require actual harmful-overlap
+campaign and account for artifact growth. Reuse existing observation, fixture, build and native
+execution owners; remaining changes and acceptance belong to 64h and 65d/65h/65j. Scheduling changes require actual harmful-overlap
 evidence and preserve independent work's host capacity.
 
 At functional scope end, exercise default recycle success, intended rejection/restoration,

@@ -53,10 +53,10 @@ Reuse existing case/source declarations, conformance/reference exchange and reta
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | H01 | in-progress | Accepted RC01 scope and current case/register sources | [Source/configuration crosswalk](64h-required-process-population.md) supplies D–G selections and gaps; full inherited/parameterized population, recursive closure and exact executable environment remain open |
-| H02 | in-progress | H01 first-case slice; ordinary-data and formulation selection from 64b/64c | Independent ordinary property, three exchanger and recycle/intended-failure references tested; rating/recycle/intended-failure comparisons pass, design/arithmetic expose genuine scalar disagreements under original allowances. Full correspondence remains open. |
-| H03 | in-progress | H02; complete native A–C journeys and consumed F01/F02/F03 contracts | Original canonical intake/protected report readback passes on the isolated comparison baseline. All five contracts support independent mismatch controls; design/arithmetic scientific agreement and final integrated-source qualification remain open. |
+| H02 | in-progress | H01 first-case slice; ordinary-data and formulation selection from 64b/64c | Independent ordinary property, three exchanger and recycle/intended-failure references tested. Earlier rating/recycle/intended-failure comparisons pass; design/arithmetic expose genuine scalar disagreements. After added caloric goals, all three exchanger reruns withhold output accuracy as regularity. Original allowances and full correspondence remain open. |
+| H03 | in-progress | H02; complete native A–C journeys and consumed F01/F02/F03 contracts | Original canonical intake/protected report readback passes on the isolated comparison baseline. All five contracts support independent mismatch controls; actual original-square/reconstruction control passes. Complete exchanger accuracy, scientific agreement and final integrated-source qualification remain open. |
 | H04 | planned | H01 population; selected 64d–64g scientific capabilities | Configuration, property, unit, workflow and extension acceptance closes each delivered family at its actual scope |
-| H05 | planned | Selected H03/H04 outcomes; applicable C07/G08 corrections; original execution/persistence owners | Relevant assembled native/operational journeys, interruption and deployment support claims are qualified without duplicating other plans' status |
+| H05 | planned | Selected H03/H04 outcomes; applicable C07/G08 corrections; original execution/persistence mechanisms | Relevant assembled native/operational journeys, interruption and supported deployment claims are qualified here with 65h; all remaining obligations belong to Plan64/65 |
 | H06 | planned | Selected quality-equivalent cases and a concrete benefit/capacity question | Representative cold/reuse/structural/study/trajectory measurements answer the claim with original failures and conditions retained |
 | H07 | planned | All required population rows and consumed owner obligations | Scope-end checks, final claim/evidence reconciliation and enduring publication complete with zero unresolved required variants |
 
@@ -941,10 +941,90 @@ admits its projected point and consumes the same sensitivity-derived row-work re
 not fabricate a native report or change original backend/numerics/identity guards. Four authored
 caloric assess/refine goals request the original power divided by twice inlet-flow exposure
 before execution. Native physical tolerances, independent comparison allowances and bound/
-regularity refusal remain unchanged. Independent review found no material issue; actual mechanism
-and design/arithmetic reruns remain pending after the maintainer's disk-space/cold-build reset.
+regularity refusal remain unchanged. Independent review found no material issue. The subsequent
+November 6 mechanism control passes; the complete exchanger rerun still withholds accuracy as
+described below.
 These earlier comparison results precede the new compiled-root handoff and do not qualify all
 H02/H03 or the expanded H01 population.
+
+The specific reusable calls are [`classify` and `refinement_allowance`](../../crates/pse-math/src/engineering_accuracy.rs)
+for original goal/evidence classification and a representable positive output allowance;
+[`estimate_square`](../../crates/pse-backend-native/src/engineering_accuracy.rs) for the
+source-keyed factor/residual/validity and output-gradient assessment; and
+[`BackendExecution::residual_work_tolerance`](../../crates/pse-backend-native/src/execution.rs)
+for mapping physical row allowances through the existing original row scales into work precision.
+[`selected_coordinate_accuracy` and `refine_coordinate_accuracy`](../../crates/pse-runtime/src/math/solves/engineering_accuracy.rs)
+retain their original point/evidence checks, while the
+[staged driver](../../crates/pse-runtime/src/math/staged/driver.rs) owns the admitted retry and
+unchanged backend/numerics/original-identity comparison. These are one existing assessment and
+execution path shared by actual native and reconstructed outcomes, not a second accuracy policy.
+
+**Receiving update, November 6 — Implemented and Tested:** steady accuracy-goal checking now
+continues past absent optional sample time and checks every present resolution/criterion member.
+The source type check correctly distinguishes point `MolarEnthalpy` from its same-datum
+difference. The authored resolution uses the lawful same-throughput difference
+`P/exposure - (P/2)/exposure`, exactly `P/(2C)`; `Power/Power` normalization is correctly refused
+by the existing affine quantity contract. No retagging, new physical operation, datum or
+comparison allowance was introduced. The targeted `pse-modeling`/`pse-quantity` selection over
+`steady_accuracy_goals_check_each_present_physical_member_without_sample_time`,
+`authored_accuracy_goal` and `caloric_resolution_requires_same_datum_point_difference`
+passes **3/3**, against zero failures, under normal incremental/sccache defaults.
+
+The combined receiving selection in [65h](65h-integration-and-qualification.md#wrap-up-verification--november-6)
+passes **127/130**, including actual deployed-root execution and
+`authored_original_square_goal_drives_same_contract_tighter_native_attempt`. Its three
+exchanger failures preceded the type correction and occurred at source admission. After that
+correction, `scripts/pse test pse-runtime --lib --profile local --features
+compiled-evaluator,solver-ipopt,solver-kinsol,solver-root-isolation,canonical-tests
+-E 'test(authored_original_square_goal_drives_same_contract_tighter_native_attempt) |
+test(ordinary_reference_exchanger_)'` executes four tests: **1 passes, 3 fail**, against zero.
+Actual source admission and solving now succeed, but all four caloric goals are unavailable
+as `regularity`; original permission is `seed_only` with `accuracy_unresolved`. Design and
+arithmetic fail before independent scalar comparison; rating's auxiliary design likewise
+cannot establish a permitted start. These are qualification failures, not demonstrated new
+scalar disagreements or a passing rating comparison on this baseline.
+
+Original context is retained under the selected external artifact directory
+`ordinary-caloric-tJ6lU1`; its arithmetic result has 230 original rows/coordinates and complete
+original observations. Investigation found a separate full-original derivative-demand gap:
+declared execution starts at Value, causal preparation can defer a refused outer native route,
+and component First support does not supply the original Jacobian. Eligible steady selected
+variable/observable goals now request available First support through
+[`MathService::prepare_order`](../../crates/pse-runtime/src/math/products.rs), with its existing
+`support_upgrade_allocation_bound`, admitted immutable construction and retained ownership.
+The [solve owner](../../crates/pse-runtime/src/math/solves.rs) propagates that demand and the
+[workflow owner](../../crates/pse-runtime/src/workflow/modeling/cases.rs) refreshes provider
+registrations when the required order rises. Sources without First availability and goalless
+preparations retain their existing path. Independent review found no material issue.
+
+The subsequent five-test selection adds the selected-observable control and starts both
+accuracy controls at Value: **2 pass, 3 exchanger cases still fail** at `regularity`, with
+complete capture/settlement. Full-original preparation is necessary but does not establish
+matching, inactive-bound neighborhood or numerical rank. The original typed square withholding
+cause is now retained rather than erased into that single classification. Do not discard
+coordinates, relax physical bounds, claim a derivative not prepared, or increase comparison
+allowances to obtain a pass. Complete supported original-output assessment/refinement and rerun
+all five comparisons plus original readback before H02/H03 acceptance.
+
+**Final diagnostic evidence:** the targeted runtime/backend selection over the two Value-start
+accuracy controls, optional-failure storage/terminal precedence, typed square withholding and
+arithmetic reference case executes **5 tests: 4 pass, 1 fails**, against zero, with complete
+capture/settlement. The original arithmetic context in `ordinary-cause-hy7URC` now retains
+`Withheld::Neighborhood`: `fresh sparse response requires inactive physical bounds`, for all
+four goals. This is the actual later sparse-factor admission gate, not missing First or failed
+matching. Its check rejects any original coordinate whose bound margin is at most its physical
+tolerance. The [typed source cause](../../crates/pse-backend-native/src/square_response.rs) and
+its retained extent survive the existing `GoalFailure` owner; native structural/neighborhood
+classification is not inferred by parsing that rendered explanation.
+
+H02/H03 must establish a supported boundary-aware original-output assessment or a sound
+reconstruction/reduction under the same original constraints, quantities, point and policy.
+Investigate exact constitutively fixed boundary coordinates and existing reconstruction
+evidence before choosing the mechanism; arbitrary row/coordinate deletion or inactive-bound
+assertions cannot discharge it. This work belongs here, with 65e/65k's scientific execution
+owners supplying applicable preparation/receipt capabilities. The whole-square interior
+estimator remains explicitly unsupported at this tested boundary. No scientific pass is
+claimed for the three exchanger cases.
 
 ## H04 — Close configurations and scientific workflows
 
@@ -956,7 +1036,16 @@ For inference/control/surrogate/grid cases consume 64g's precise statistical, ph
 
 ## H05/H06 — Assembled operation and measured benefit
 
-Plans28/32/40/53/54/58 and 58h retain their independent status, packages and evidence. Identify the exact prerequisite slice consumed: protected publication/readback and durable liveness, lifecycle ownership, scientific diagnostics, independent assurance/fixtures, build environment, and native cutover/deployment qualification. Link the original owner and applicability evidence rather than copying its current status. A passing Plan64 case cannot close unrelated remaining obligations.
+Plan64 and Plan65 own all remaining work. Consume the implemented publication, lifecycle,
+diagnostic, fixture and build mechanisms under their current architecture and developer
+contracts; older plans supply no prerequisites or outstanding obligations. Within these two
+series, [65c](65c-storage-projections-and-history.md) owns selected storage/history changes,
+[65d](65d-local-operations-and-services.md) and
+[65j](65j-workflow-lifecycle-and-developer-evidence.md) own lifecycle/developer changes, and
+[65f](65f-diagnostics-and-result-delivery.md) owns diagnostic/result delivery. H05 owns the
+selected assembled scientific/operational and supported deployment acceptance here, coordinated
+with [65h](65h-integration-and-qualification.md). Reuse earlier evidence only for its original
+source, configuration and scope; a focused pass does not close other current packages.
 
 Exercise selected end-to-end author/edit/prepare/execute/inspect/readback journeys with original scientific assessments. Where the claim includes recorded execution, qualify interruption, lost acknowledgement, cancellation, retained-result scope and actual drain through existing owners. DA-062's interval semantics and DA-063's unrelated capture/liveness concern retain their original disposition; expose applicable correction or qualification as a prerequisite, without blanket bound relaxation or weakened capture completeness.
 
@@ -970,7 +1059,7 @@ H06 begins only for an identified benefit or capacity decision. Separate first p
 
 Final completion requires every mandatory capability/configuration/case row to have accepted evidence, no unresolved required variant, zero failures in the selected acceptance population, complete required output coverage and public scope matching actual support. Preserve unavailable, failed and unattempted outcomes; do not shrink scope to improve a percentage. Publish enduring contracts through their established architecture/decision owners and retire replaced paths and completed planning material under the repository lifecycle policy.
 
-**Outcome:** Interface-checked source/configuration handoff only. No builds, tests,
+**Original source-investigation Outcome (historical):** Interface-checked source/configuration handoff only. No builds, tests,
 solver/reference runs or measurements were performed for this investigation. H01's
 remaining denominator/environment/input-closure work is identified in the linked
 crosswalk; H02/H03 still require matched references and actual native/reference

@@ -117,7 +117,7 @@ Retained evidence identifies all configured science and actual route products. A
 
 **Proposed verification:** scientific owners supply independent property/reaction/constitutive checks, equipment owners supply original balances and specification controls, and configured flowsheets supply matched independent-reference evidence. Reference reproduction and intentional scientific improvement have separate evidence. No shared native calculation may manufacture both the claimed result and its independent expectation.
 
-During implementation, use targeted owner compile/tests under repository execution rules. Join configured family/native/reference journeys at the selected integration boundary with 64h; consume applicable existing Plan53/58h obligations without changing their status. Performance measurements are needed only for stated benefit claims and must retain scientific-quality, configuration and workload conditions.
+During implementation, use targeted owner compile/tests under repository execution rules. Join configured family/native/reference journeys at the selected integration boundary with 64h/65h; these current owners carry the required assurance, fixture and assembled native acceptance. Performance measurements are needed only for stated benefit claims and must retain scientific-quality, configuration and workload conditions.
 
 **Outcome: Partial implementation.** F01/F02 remain in progress and F03–F07 remain
 planned. No configured specialist family, matched parity population or measured benefit

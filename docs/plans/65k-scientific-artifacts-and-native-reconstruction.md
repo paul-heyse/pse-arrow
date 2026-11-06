@@ -103,7 +103,7 @@ no execution pass. Controls proposed here do not assert support for new scientif
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
 | E02 | in progress | E01; narrow working 65a/65b and receiving operation from 65i I02 | First remove kernel portable descriptor mirrors while retaining contextual receipt replay and truthful interpretation changes. Generate portable scientific records/adapters and migrate existing producers/readers. Buffa generation and supported `Validate` discharge local correspondence; native reconstruction and completion-owned selectors discharge scientific admission/use. Cover ordering, exact bits, missing/unknown alternatives, scope/coverage and refusal classes. Remove migrated capture/restore pairs and duplicated shape declarations; retain qualification. Test changed native variants against independent known meaning. |
-| E03 | in progress | Parent-admitted closed-root preparation; working generated envelope; 65d transport/settlement primitives | Compiled unknown Value/First transfer, checked supplier f64 loading, complete root/attribution restoration and the attempt-bound parent grant are integrated; old private source replay/production process authority is deleted. Targeted receiving controls pass 76/76. Complete matching deployed-lane acceptance and remaining actual context/substitution/settlement population, preserving provider-free restrictions, original verification and numerical policy; canonical/source E02 remains separate. |
+| E03 | in progress | Parent-admitted closed-root preparation; working generated envelope; 65d transport/settlement primitives | Compiled unknown Value/First transfer, checked supplier f64 loading, complete root/attribution restoration and the attempt-bound parent grant are integrated; old private source replay/production process authority is deleted. The November 6 receiving selection passes the deployed-lane control and all selected transfer/refusal controls. Complete remaining actual context/substitution/settlement population, preserving provider-free restrictions, original verification and numerical policy; canonical/source E02 remains separate. |
 
 E02/E03 retain their previous labels. Old 65e anchors redirect here; this table alone owns
 their progress. The detailed historical assessments below supply preserved prerequisites and
@@ -994,6 +994,24 @@ excluded pending fresh matching fixture preparation. The selection includes actu
 self-executable child solve/refusal, wrong-grant/attempt, denied-growth, cancellation/deadline,
 owner lifetime and malformed snapshot controls. It does not establish deployed-lane acceptance,
 whole-series scientific qualification, whole-process memory bounds or measured acceleration.
+
+**Receiving update, November 6 — Tested:** fresh runtime capsule/lane preparation and
+consumption use matching compiler/KLU/solver/isolation profiles with normal incremental and
+sccache defaults. The combined 130-control selection recorded in
+[65h](65h-integration-and-qualification.md#wrap-up-verification--november-6) passes **127/130**,
+including the actual deployed NativeRoot v4 lane, self-executable solve/refusal, snapshot,
+wire-depth, original replay/portability and fixture-context controls. Its three failures are
+ordinary exchanger source admission, subsequently repaired and rerun under 64h; they do not
+erase the actual deployed control's pass. This supersedes the earlier deployed-lane exclusion
+only for that tested control. E03's remaining population and benefit obligations remain open.
+
+**Source-established build investigation:** the vendored Symbolica
+[`get_git_version` and `git_metadata_paths`](../../vendor/symbolica/build.rs) walk outward to
+the enclosing checkout's Git metadata. Main-branch commits can therefore change the supplier
+version environment and invalidate compilation while supplier source is unchanged. Investigate
+binding the vendored release to its actual supplier identity through the maintained patch and
+source-reproduction route before reuse measurements. No vendor change or measured build-speed
+improvement is claimed here; ordinary caching remains enabled.
 
 Sources: [parent preparation and child path](../../crates/pse-runtime/src/math/native_child.rs),
 [compiled stages/order selection/worker](../../crates/pse-math/src/execution.rs),

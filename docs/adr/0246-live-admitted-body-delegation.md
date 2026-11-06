@@ -8,7 +8,7 @@ level: decision
 principles: [AP-02, AP-04, AP-05, AP-07, DP-01, DP-24, PS-01, PS-10, PS-13]
 blueprint: [§14.3, §18.8]
 review: "not-required: bounded delegation within the existing original-parent authority; independent source assessment and activation obligations are retained in Plan65k. Formal acceptance remains separate."
-evidence: Interface-checked
+evidence: Implemented
 supersedes: []
 superseded-by: null
 revisit: A selected root needs additional derivative products, unsupported evaluator instructions or external functions, another recipient or durable recovery.
@@ -144,10 +144,15 @@ and tests together. Canonical replay retains its separate owner.
 
 Independent assessment follows actual KINSOL residual/Jacobian/JVP callbacks and `Problem::verify`
 to the unknown worker; selected-partials compilation includes Value through First. The fixed
-numeric stage engine does not need the original symbolic body. This is Interface-checked
-support, not implementation. Checked supplier loading, native execution/preparation separation,
-complete restore, child activation, complete memory bounds, scientific qualification and measured
-benefit remain unproven. Plan65k owns implementation; formal acceptance remains separate.
+numeric stage engine does not need the original symbolic body. That initial support was
+Interface-checked. The subsequent compiled Value/First snapshot, checked supplier loading,
+attempt-bound parent grant, native restoration and removal of child source replay are
+Implemented. The November 6 receiving selection passes its actual deployed-lane control and
+selected refusal/ownership controls;
+[Plan65k's integrated handoff](../plans/65k-scientific-artifacts-and-native-reconstruction.md#integrated-compiled-root-handoff)
+owns the exact Tested scope and remaining context/substitution/settlement population. Complete
+memory bounds, broader scientific qualification and measured benefit remain unproven. Formal
+ADR acceptance and architecture amendment remain separate.
 
 ## Pros and cons
 
@@ -184,3 +189,6 @@ owns the scope and assessment. Sources: [admission/capture](../../crates/pse-com
   remapping and repeated child preparation; no acceptance or activation is claimed.
 - 2026-11-05: Refined complete attribution framing and actual received-capacity admission.
   These are proposed private handoff controls; formal acceptance and activation remain separate.
+- 2026-11-06: Recorded the integrated implementation and narrow receiving deployed-lane
+  evidence in Plan65k. Status remains proposed; broader qualification and formal acceptance
+  remain separate.

@@ -128,7 +128,7 @@ Keep extraction/database access outside scalar property callbacks. Prepare immut
 
 **Planned verification:** targeted owner tests during implementation, selected real native/property/unit/reference integrations at scope end, and 64h assembled finite-population acceptance. Preserve original failed, unavailable and not-run evidence. Performance/robustness gains remain unmeasured until a matched-quality campaign establishes them. No current new scientific conformance status follows from this plan.
 
-Next work is D01's dependency investigation alongside ready 64b/64c first-delivery work. New generic contracts use the existing decision route and migrate their actual consumers together; replaced mechanisms, callers, tests and fixtures retire once their target replacements pass. This companion neither reopens completed solver machinery nor absorbs existing Plan53/58h qualification.
+Next work is D01's dependency investigation alongside ready 64b/64c first-delivery work. New generic contracts use the existing decision route and migrate their actual consumers together; replaced mechanisms, callers, tests and fixtures retire once their target replacements pass. Reuse completed solver machinery under its current contracts; remaining scientific, fixture and assembled native acceptance is owned by this series with 64h/65h.
 
 ### Stopped implementation checkpoint
 

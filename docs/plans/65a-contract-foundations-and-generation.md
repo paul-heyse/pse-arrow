@@ -666,7 +666,7 @@ The remaining receiving option/feature population still owns A04 acceptance. No 
 benefit has been measured.
 
 The authored Buf cutover `24f2fd25f` is integrated on main. Both production intelligence and
-the Plan61 fixture call `ProjectionGeneration::new` with the actual complete compiler FDS,
+the code-intelligence fixture call `ProjectionGeneration::new` with the actual complete compiler FDS,
 explicit targets and their per-file `CodeGenConfig`; they preserve `file_per_package=false`.
 [`ProjectionGeneration::support`](../../crates/pse-codegen/src/codegen/boundary_projection.rs)
 uses Buffa 0.9.2 `generate_module_tree`, `shared_descriptor_root_module` and
@@ -727,6 +727,15 @@ Receiving regeneration completed all fourteen targets; independent engineering c
 also passed after its declared generator repaired a malformed on-disk token. The authentic
 Recipe `into` owned-accessor warning remains visible;
 this is not a zero-warning generation claim.
+
+**Subsequent integrated correction, November 6:** the source-owned transfer-refinement
+member is now `enters_boundary`, preserving protobuf tag 2 and its original direction while
+removing the collision with Buffa's owned-view `into` accessor. No warning filtering, dropped
+owned view or old-name alias is used. All fourteen publication targets subsequently generated
+without that accessor warning. This deliberately changes the native/JSON field spelling;
+[65k](65k-scientific-artifacts-and-native-reconstruction.md#integrated-compiled-root-handoff)
+retains E02's historical read/migration obligation. The earlier warning receipts above remain
+accurate for their own source baselines.
 
 The subsequently integrated J04 directory profile adds exactly three emitted messages:
 `CapturedWorkflowDirectoryManifest`, `WorkflowEvidenceDirectoryProfile` and its empty unit
