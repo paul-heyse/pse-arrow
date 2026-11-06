@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 358
+revision: 359
 date: 2026-11-06
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 359 | 2026-11-06 | Propose source-owned generated selected-result observation metadata with exact bounded serialization and pre-map duplicate refusal (§19.2, §20.5). | ADR-0250; authorized Plan65 A06/C02/F04 consumer migration; passive artifact agreement does not grant native read or scientific authority. |
 | 358 | 2026-11-06 | Propose first-class conjunctive range/nonzero predicates with original occurrence fidelity and versioned exact-program identity (§7.3, §7.5). | ADR-0249; authorized Plan64/65 execution; focused independent source assessment; native nonzero handling reused, closed-only relaxation remains explicit. |
 | 357 | 2026-11-06 | Distinguish point-local moving-coordinate interior from physical acceptance budgets for original-output estimates (§15.5.1). | Proposed ADR-0248 refinement before activation; focused source reassessment confirms no correction step or finite-neighborhood theorem; public response admission unchanged. |
 | 356 | 2026-11-06 | Propose source-anchored affine-constant output accuracy in complete original coordinates (§15.5.1). | ADR-0248; authorized joint Plan64/65 execution and focused independent source assessment; Estimated evidence only, public parameter-response admission unchanged. |

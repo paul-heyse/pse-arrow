@@ -533,6 +533,13 @@ mutates package declarations.
 
 ### 19.2 Results, qualification and diagnostics
 
+> Decision: [ADR-0250](../../adr/0250-source-owned-result-selection.md) (proposed): new
+> connected-result Arrow exports carry one versioned, bounded generated observation of the
+> native exact selection and original interpretation. Offline exact serialization comparison
+> establishes artifact/manifest agreement; it grants no protected read or scientific use.
+> Present-invalid or mixed metadata refuses, and IPC preflight rejects duplicate schema/field
+> keys before native map conversion. Explicit predecessor reading serves retained artifacts.
+
 > Decision: [ADR-0227](../../adr/0227-completion-permission-and-operation-facts.md) (proposed; maintainer-authorized Plan56b completion, operation-fact and explicit-service amendment).
 
 > Decision: [ADR-0224](../../adr/0224-native-result-inspection.md) (proposed;
