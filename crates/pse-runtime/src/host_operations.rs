@@ -2,8 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Typed native project operation contracts.
 
-/// Explicit local service over the shared native engineering handlers.
-#[cfg(feature = "engineering-service")]
+/// Pure generated contract products and the explicitly selected local service.
 pub mod engineering;
 /// Always-available source declarations for engineering boundary generation.
 pub mod engineering_contract;

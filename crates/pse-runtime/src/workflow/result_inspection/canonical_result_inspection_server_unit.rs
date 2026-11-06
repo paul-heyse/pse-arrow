@@ -1675,7 +1675,24 @@ async fn canonical_protected_permission_retains_original_refusal_despite_valid_d
     );
     let mut forged = selection.clone();
     forged.usability = PackScientificState::Usable;
-    assert!(reader.validate_pack_selection(&forged).await.is_err());
+    let output = tempfile::tempdir().unwrap();
+    let path = output.path().join("forged.arrow");
+    let mut acknowledged = 0;
+    assert!(
+        reader
+            .export_ipc_acknowledged(
+                &path,
+                1 << 20,
+                &CancellationToken::new(),
+                &mut acknowledged,
+                &forged
+            )
+            .await
+            .is_err()
+    );
+    assert_eq!(acknowledged, 0);
+    assert!(!path.exists());
+    assert!(!output.path().join("forged.arrow.incomplete").exists());
     let mut diagnostic_rows = 0;
     while let Some(batch) = reader.next_relation_batch().await.unwrap() {
         diagnostic_rows += batch.batch().num_rows();

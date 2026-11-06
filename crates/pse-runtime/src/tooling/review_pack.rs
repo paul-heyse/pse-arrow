@@ -1138,16 +1138,11 @@ impl PackSession {
         let mut acknowledged = 0;
         let result = (async {
             self.checkpoint()?;
-            reader
-                .validate_pack_selection(
-                    self.index.members[pos]
-                        .selection
-                        .result
-                        .as_ref()
-                        .ok_or_else(|| invalid("not a result selection"))?,
-                )
-                .await
-                .map_err(|e| invalid(e.to_string()))?;
+            let selection = self.index.members[pos]
+                .selection
+                .result
+                .as_ref()
+                .ok_or_else(|| invalid("not a result selection"))?;
             let staging = self.root.join(".staging").join(id);
             let bytes = reader
                 .export_ipc_acknowledged(
@@ -1158,6 +1153,7 @@ impl PackSession {
                         .saturating_sub(self.written),
                     &self.cancel,
                     &mut acknowledged,
+                    selection,
                 )
                 .await
                 .map_err(|e| invalid(e.to_string()))?;
@@ -1180,16 +1176,11 @@ impl PackSession {
         let mut acknowledged = 0;
         let result = (async {
             self.checkpoint()?;
-            reader
-                .validate_pack_selection(
-                    self.index.members[pos]
-                        .selection
-                        .result
-                        .as_ref()
-                        .ok_or_else(|| invalid("not a result selection"))?,
-                )
-                .await
-                .map_err(|e| invalid(e.to_string()))?;
+            let selection = self.index.members[pos]
+                .selection
+                .result
+                .as_ref()
+                .ok_or_else(|| invalid("not a result selection"))?;
             let staging = self.root.join(".staging").join(id);
             let bytes = reader
                 .export_ipc_acknowledged(
@@ -1200,6 +1191,7 @@ impl PackSession {
                         .saturating_sub(self.written),
                     &self.cancel,
                     &mut acknowledged,
+                    selection,
                 )
                 .await
                 .map_err(|e| invalid(e.to_string()))?;

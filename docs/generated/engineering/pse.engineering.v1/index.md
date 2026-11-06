@@ -6689,6 +6689,67 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `rounds` | 1 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
 | `proof_cells` | 2 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
 
+## `RecordedResultContext`
+
+Rust owner: `pse_runtime::workflow::result_selection::PackResultContext`. Source: `crates/pse-runtime/src/workflow/result_selection.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `problem` | 1 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `revision` | 2 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `manifest` | 3 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `interpretation` | 4 | `Scalar(String)` | `Output` | `[]` | `{}` |
+
+## `RecordedResultPredicate`
+
+Rust owner: `pse_runtime::workflow::result_selection::PackResultPredicate`. Source: `crates/pse-runtime/src/workflow/result_selection.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `output` | 1 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `partition` | 2 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `minimum_bits` | 3 | `Optional(Scalar(U64))` | `Output` | `[]` | `{}` |
+| `maximum_bits` | 4 | `Optional(Scalar(U64))` | `Output` | `[]` | `{}` |
+| `missing` | 5 | `Optional(Scalar(Bool))` | `Output` | `[]` | `{}` |
+
+## `RecordedResultSelection`
+
+Rust owner: `pse_runtime::workflow::result_selection::PackResultSelection`. Source: `crates/pse-runtime/src/workflow/result_selection.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `run` | 1 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `attempt` | 2 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `relation` | 3 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `schema_version` | 4 | `Scalar(U32)` | `Output` | `[]` | `{}` |
+| `row_start` | 5 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `row_end` | 6 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `field` | 7 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `terminal_class` | 8 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `predicate` | 9 | `Optional(Named("RecordedResultPredicate"))` | `Output` | `[]` | `{}` |
+| `usability` | 10 | `Named("RecordedScientificUsability")` | `Output` | `[]` | `{}` |
+| `context` | 11 | `Optional(Named("RecordedResultContext"))` | `Output` | `[]` | `{}` |
+
+## `RecordedScientificUsability`
+
+Rust owner: `pse_runtime::workflow::result_selection::PackScientificState`. Source: `crates/pse-runtime/src/workflow/result_selection.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Unknown` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Usable` | 2 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Partial` | 3 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Failed` | 4 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Unusable` | 5 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+
 ## `ReferenceCondition`
 
 Rust owner: `pse_quantity::reference_state::ReferenceCondition`. Source: `crates/pse-quantity/src/reference_state.rs`. Interpretation version: 1. Direction: `Both`.

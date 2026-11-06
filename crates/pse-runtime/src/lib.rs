@@ -63,6 +63,8 @@ pub mod peak;
 pub mod preparation_projection;
 /// Runtime presentation retaining original shared projection failures.
 pub mod projection_diagnostics;
+/// Passive selected-result metadata over the shared generated engineering world.
+pub(crate) mod recorded_result_projection;
 /// Source-derived interchange for independently constructed scientific references.
 pub mod reference_exchange;
 /// Explicit local process placement for coherent scientific providers.

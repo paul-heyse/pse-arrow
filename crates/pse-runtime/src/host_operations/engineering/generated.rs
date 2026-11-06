@@ -10,11 +10,12 @@ pub mod pb;
 #[allow(unused_qualifications, elided_lifetimes_in_paths, trivial_numeric_casts, unreachable_pub, missing_docs, reason = "Pinned validator generator spelling and packaging modules")]
 mod validation;
 /// Generated typed service and independent client; importing this starts no listener.
+#[cfg(feature = "engineering-service")]
 #[rustfmt::skip]
 #[allow(unused_qualifications, elided_lifetimes_in_paths, trivial_numeric_casts, missing_debug_implementations, missing_docs, reason = "Pinned service generator surface")]
 #[allow(clippy::match_single_binding, reason = "Pinned service generator emits empty streaming branches")]
 pub mod services {
     include!("../../generated/engineering/services/pse.engineering.v1.mod.rs");
 }
-/// Complete immutable descriptor identity for the actual compiled service projection.
+/// Complete immutable descriptor identity for the shared engineering contract world.
 pub const DESCRIPTORS: &[u8] = include_bytes!("../../generated/engineering/descriptor.bin");

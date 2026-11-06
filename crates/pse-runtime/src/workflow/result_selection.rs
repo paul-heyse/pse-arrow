@@ -199,28 +199,141 @@ impl ValuePredicate {
     }
 }
 
-/// Borrowed view of the canonical export metadata. It formats the same keys and
-/// exact endpoint bits for publication and selected-lineage validation.
-pub(super) struct ScientificMetadata<'a> {
-    pub run: &'a str,
-    pub attempt: &'a str,
-    pub relation: &'a str,
-    pub schema_version: u32,
-    pub row_start: u64,
-    pub row_end: u64,
-    pub field: Option<&'a str>,
-    pub terminal_class: &'a str,
-    pub predicate: Option<PredicateMetadata<'a>>,
-    pub extra: Option<&'a PackResultContext>,
+pub(super) const SELECTION_METADATA_KEY: &str = "pse.canonical.selection.proto.v1";
+const SELECTION_METADATA_PREFIX: &str = "pse.canonical.selection.proto.";
+const MAX_SELECTION_BYTES: u32 = 65_536;
+const LEGACY_KEYS: [&str; 17] = [
+    "pse.canonical.run",
+    "pse.canonical.attempt",
+    "pse.canonical.relation",
+    "pse.canonical.relation-version",
+    "pse.canonical.row-start",
+    "pse.canonical.row-end",
+    "pse.canonical.terminal-class",
+    "pse.canonical.field",
+    "pse.canonical.output",
+    "pse.canonical.partition",
+    "pse.canonical.minimum-bits",
+    "pse.canonical.maximum-bits",
+    "pse.canonical.missing",
+    "pse.canonical.problem",
+    "pse.canonical.revision",
+    "pse.canonical.manifest",
+    "pse.canonical.interpretation",
+];
+
+fn metadata_error(error: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::InvalidData, error)
 }
-pub(super) struct PredicateMetadata<'a> {
-    pub output: &'a str,
-    pub partition: &'a str,
-    pub minimum_bits: Option<u64>,
-    pub maximum_bits: Option<u64>,
-    pub missing: Option<bool>,
+fn maximum_selection_text() -> std::io::Result<usize> {
+    base64::encoded_len(MAX_SELECTION_BYTES as usize, true)
+        .ok_or_else(|| metadata_error("selected-result text extent overflow"))
 }
-impl<'a> From<&'a PackResultSelection> for ScientificMetadata<'a> {
+/// ADR-0250's exact local representation, not general Protobuf canonicalization.
+/// Buffa checks its size/cache and budget before writing any encoded output.
+pub(super) fn selection_metadata(selection: &PackResultSelection) -> std::io::Result<String> {
+    use base64::Engine as _;
+    use buffa::Message as _;
+    if selection.context.is_none() {
+        return Err(metadata_error(
+            "versioned selected-result metadata requires original context",
+        ));
+    }
+    let wire = crate::recorded_result_projection::encode_recorded_result_selection(selection)
+        .map_err(metadata_error)?;
+    let mut bytes = Vec::new();
+    wire.try_encode_bounded(MAX_SELECTION_BYTES, &mut bytes)
+        .map_err(metadata_error)?;
+    let length = base64::encoded_len(bytes.len(), true)
+        .ok_or_else(|| metadata_error("selected-result text extent overflow"))?;
+    if length > maximum_selection_text()? {
+        return Err(metadata_error(
+            "selected-result metadata outside text allowance",
+        ));
+    }
+    Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
+}
+/// New exports retain unrelated metadata but replace every reserved predecessor key.
+pub(super) fn publish_selection_metadata(
+    metadata: &mut std::collections::HashMap<String, String>,
+    selection: &PackResultSelection,
+) -> std::io::Result<()> {
+    if metadata
+        .keys()
+        .any(|key| key != SELECTION_METADATA_KEY && key.starts_with(SELECTION_METADATA_PREFIX))
+    {
+        return Err(metadata_error(
+            "unsupported inherited selected-result metadata interpretation",
+        ));
+    }
+    let encoded = selection_metadata(selection)?;
+    metadata.retain(|key, _| !LEGACY_KEYS.contains(&key.as_str()) && key != SELECTION_METADATA_KEY);
+    metadata.insert(SELECTION_METADATA_KEY.into(), encoded);
+    Ok(())
+}
+/// Exact passive artifact/manifest agreement. This constructs no native owner and
+/// never falls back after observing a present versioned representation.
+pub(super) fn validate_selection_metadata(
+    metadata: &std::collections::HashMap<String, String>,
+    selection: &PackResultSelection,
+) -> std::io::Result<()> {
+    if let Some(encoded) = metadata.get(SELECTION_METADATA_KEY) {
+        if encoded.len() > maximum_selection_text()?
+            || metadata.keys().any(|key| {
+                LEGACY_KEYS.contains(&key.as_str())
+                    || key != SELECTION_METADATA_KEY && key.starts_with(SELECTION_METADATA_PREFIX)
+            })
+        {
+            return Err(metadata_error(
+                "selected-result metadata extent or mixed interpretations",
+            ));
+        }
+        if encoded != &selection_metadata(selection)? {
+            return Err(metadata_error(
+                "IPC selection observation differs from original manifest",
+            ));
+        }
+        return Ok(());
+    }
+    if metadata
+        .keys()
+        .any(|key| key.starts_with(SELECTION_METADATA_PREFIX))
+    {
+        return Err(metadata_error(
+            "unsupported selected-result metadata interpretation",
+        ));
+    }
+    for (key, expected) in LegacyScientificMetadata::from(selection).entries() {
+        if metadata.get(key) != expected.as_ref() {
+            return Err(metadata_error(format!(
+                "historical IPC lineage differs from selected {key}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Deliberate reader for retained predecessor artifacts, with no production writer.
+struct LegacyScientificMetadata<'a> {
+    run: &'a str,
+    attempt: &'a str,
+    relation: &'a str,
+    schema_version: u32,
+    row_start: u64,
+    row_end: u64,
+    field: Option<&'a str>,
+    terminal_class: &'a str,
+    predicate: Option<PredicateMetadata<'a>>,
+    extra: Option<&'a PackResultContext>,
+}
+struct PredicateMetadata<'a> {
+    output: &'a str,
+    partition: &'a str,
+    minimum_bits: Option<u64>,
+    maximum_bits: Option<u64>,
+    missing: Option<bool>,
+}
+impl<'a> From<&'a PackResultSelection> for LegacyScientificMetadata<'a> {
     fn from(value: &'a PackResultSelection) -> Self {
         Self {
             run: &value.run,
@@ -242,57 +355,45 @@ impl<'a> From<&'a PackResultSelection> for ScientificMetadata<'a> {
         }
     }
 }
-impl ScientificMetadata<'_> {
-    pub(super) fn entries(&self) -> Vec<(&'static str, Option<String>)> {
+impl LegacyScientificMetadata<'_> {
+    fn entries(&self) -> Vec<(&'static str, Option<String>)> {
         let mut out = Vec::with_capacity(17);
         out.extend([
-            ("pse.canonical.run", Some(self.run.to_owned())),
-            ("pse.canonical.attempt", Some(self.attempt.to_owned())),
-            ("pse.canonical.relation", Some(self.relation.to_owned())),
-            (
-                "pse.canonical.relation-version",
-                Some(self.schema_version.to_string()),
-            ),
-            ("pse.canonical.row-start", Some(self.row_start.to_string())),
-            ("pse.canonical.row-end", Some(self.row_end.to_string())),
-            (
-                "pse.canonical.terminal-class",
-                Some(self.terminal_class.to_owned()),
-            ),
-            ("pse.canonical.field", self.field.map(str::to_owned)),
+            (LEGACY_KEYS[0], Some(self.run.to_owned())),
+            (LEGACY_KEYS[1], Some(self.attempt.to_owned())),
+            (LEGACY_KEYS[2], Some(self.relation.to_owned())),
+            (LEGACY_KEYS[3], Some(self.schema_version.to_string())),
+            (LEGACY_KEYS[4], Some(self.row_start.to_string())),
+            (LEGACY_KEYS[5], Some(self.row_end.to_string())),
+            (LEGACY_KEYS[6], Some(self.terminal_class.to_owned())),
+            (LEGACY_KEYS[7], self.field.map(str::to_owned)),
         ]);
         if let Some(predicate) = &self.predicate {
             out.extend([
-                ("pse.canonical.output", Some(predicate.output.to_owned())),
+                (LEGACY_KEYS[8], Some(predicate.output.to_owned())),
+                (LEGACY_KEYS[9], Some(predicate.partition.to_owned())),
                 (
-                    "pse.canonical.partition",
-                    Some(predicate.partition.to_owned()),
-                ),
-                (
-                    "pse.canonical.minimum-bits",
+                    LEGACY_KEYS[10],
                     predicate.minimum_bits.map(|bits| bits.to_string()),
                 ),
                 (
-                    "pse.canonical.maximum-bits",
+                    LEGACY_KEYS[11],
                     predicate.maximum_bits.map(|bits| bits.to_string()),
                 ),
                 (
-                    "pse.canonical.missing",
+                    LEGACY_KEYS[12],
                     predicate.missing.map(|missing| missing.to_string()),
                 ),
             ]);
         } else {
-            out.push(("pse.canonical.output", None));
+            out.push((LEGACY_KEYS[8], None));
         }
         if let Some(extra) = &self.extra {
             out.extend([
-                ("pse.canonical.problem", Some(extra.problem.to_owned())),
-                ("pse.canonical.revision", Some(extra.revision.to_owned())),
-                ("pse.canonical.manifest", Some(extra.manifest.to_owned())),
-                (
-                    "pse.canonical.interpretation",
-                    Some(extra.interpretation.to_owned()),
-                ),
+                (LEGACY_KEYS[13], Some(extra.problem.to_owned())),
+                (LEGACY_KEYS[14], Some(extra.revision.to_owned())),
+                (LEGACY_KEYS[15], Some(extra.manifest.to_owned())),
+                (LEGACY_KEYS[16], Some(extra.interpretation.to_owned())),
             ]);
         }
         out
@@ -376,9 +477,8 @@ mod tests {
             assert!(ValuePredicate::new(false, minimum, maximum, missing).is_err());
         }
     }
-    #[test]
-    fn metadata_codec_preserves_declared_keys_and_exact_predicate_bits() {
-        let selected = PackResultSelection {
+    fn selected_observation() -> PackResultSelection {
+        PackResultSelection {
             run: "run".into(),
             attempt: "attempt".into(),
             relation: "runtime.fit_parameters".into(),
@@ -401,8 +501,12 @@ mod tests {
                 manifest: "manifest".into(),
                 interpretation: "original-policy".into(),
             }),
-        };
-        let values = ScientificMetadata::from(&selected)
+        }
+    }
+    #[test]
+    fn historical_metadata_preserves_declared_keys_and_exact_predicate_bits() {
+        let selected = selected_observation();
+        let values = LegacyScientificMetadata::from(&selected)
             .entries()
             .into_iter()
             .filter_map(|(key, value)| value.map(|value| (key, value)))
@@ -438,10 +542,188 @@ mod tests {
         assert!(historical.context.is_none());
         assert_ne!(historical, selected);
         assert!(
-            !ScientificMetadata::from(&historical)
+            !LegacyScientificMetadata::from(&historical)
                 .entries()
                 .iter()
                 .any(|(key, _)| *key == "pse.canonical.interpretation")
+        );
+        let mut metadata = LegacyScientificMetadata::from(&historical)
+            .entries()
+            .into_iter()
+            .filter_map(|(key, value)| value.map(|value| (key.into(), value)))
+            .collect::<std::collections::HashMap<_, _>>();
+        validate_selection_metadata(&metadata, &historical).unwrap();
+        metadata.insert(
+            SELECTION_METADATA_KEY.into(),
+            "invalid-present-version".into(),
+        );
+        assert!(validate_selection_metadata(&metadata, &historical).is_err());
+    }
+    #[test]
+    fn versioned_selection_metadata_keeps_exact_bytes_and_replaces_only_reserved_keys() {
+        use base64::Engine as _;
+        use buffa::Message as _;
+        let selected = selected_observation();
+        let mut metadata = LEGACY_KEYS
+            .into_iter()
+            .map(|key| (key.into(), "inherited-old-value".into()))
+            .collect::<std::collections::HashMap<_, _>>();
+        metadata.insert("pse.canonical.annotation".into(), "retained".into());
+        publish_selection_metadata(&mut metadata, &selected).unwrap();
+        assert_eq!(metadata.len(), 2);
+        assert_eq!(metadata["pse.canonical.annotation"], "retained");
+        validate_selection_metadata(&metadata, &selected).unwrap();
+        let original = metadata.clone();
+        let encoded = metadata[SELECTION_METADATA_KEY].clone();
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(&encoded)
+            .unwrap();
+        assert!(bytes.len() <= MAX_SELECTION_BYTES as usize);
+        // Each alternate has the same selected known fields or an original valid
+        // prefix. Version one promises the producer's exact local encoding.
+        for suffix in [
+            &[0x0a, 3, b'r', b'u', b'n'][..],
+            &[0x98, 0x06, 1][..],
+            &[0][..],
+        ] {
+            let mut alternative = bytes.clone();
+            alternative.extend_from_slice(suffix);
+            metadata.insert(
+                SELECTION_METADATA_KEY.into(),
+                base64::engine::general_purpose::STANDARD.encode(alternative),
+            );
+            assert!(validate_selection_metadata(&metadata, &selected).is_err());
+        }
+        for alternate in [
+            format!(" {encoded}"),
+            String::new(),
+            "?".repeat(8),
+            "A".repeat(maximum_selection_text().unwrap() + 1),
+        ] {
+            metadata.insert(SELECTION_METADATA_KEY.into(), alternate);
+            assert!(validate_selection_metadata(&metadata, &selected).is_err());
+        }
+        metadata = original.clone();
+        for key in LEGACY_KEYS {
+            metadata.insert(key.into(), "present".into());
+            assert!(validate_selection_metadata(&metadata, &selected).is_err());
+            metadata.remove(key);
+        }
+        for coordinate in 0..4 {
+            let mut changed = selected.clone();
+            let context = changed.context.as_mut().unwrap();
+            match coordinate {
+                0 => context.problem.push('x'),
+                1 => context.revision.push('x'),
+                2 => context.manifest.push('x'),
+                _ => context.interpretation.push('x'),
+            }
+            assert!(validate_selection_metadata(&metadata, &changed).is_err());
+        }
+        let mut missing_presence = selected.clone();
+        missing_presence.predicate.as_mut().unwrap().minimum_bits = None;
+        assert!(validate_selection_metadata(&metadata, &missing_presence).is_err());
+        let mut absent_context = selected.clone();
+        absent_context.context = None;
+        assert!(selection_metadata(&absent_context).is_err());
+        assert!(validate_selection_metadata(&metadata, &absent_context).is_err());
+        let mut missing_context_wire = Vec::new();
+        crate::recorded_result_projection::encode_recorded_result_selection(&absent_context)
+            .unwrap()
+            .try_encode_bounded(MAX_SELECTION_BYTES, &mut missing_context_wire)
+            .unwrap();
+        metadata.insert(
+            SELECTION_METADATA_KEY.into(),
+            base64::engine::general_purpose::STANDARD.encode(missing_context_wire),
+        );
+        assert!(
+            validate_selection_metadata(&metadata, &absent_context).is_err(),
+            "exact bytes cannot replace original context"
+        );
+        metadata = original.clone();
+        let mut empty_field = selected.clone();
+        empty_field.field = Some(String::new());
+        let mut absent_field = empty_field.clone();
+        absent_field.field = None;
+        assert_ne!(
+            selection_metadata(&empty_field).unwrap(),
+            selection_metadata(&absent_field).unwrap()
+        );
+        let mut other_zero = selected.clone();
+        other_zero.predicate.as_mut().unwrap().minimum_bits = Some(0);
+        assert!(validate_selection_metadata(&metadata, &other_zero).is_err());
+        metadata.insert("pse.canonical.selection.proto.v2".into(), "future".into());
+        assert!(validate_selection_metadata(&metadata, &selected).is_err());
+        assert!(publish_selection_metadata(&mut metadata, &selected).is_err());
+        metadata.remove(SELECTION_METADATA_KEY);
+        assert!(validate_selection_metadata(&metadata, &selected).is_err());
+        let mut oversized = selected.clone();
+        oversized.run = "x".repeat(MAX_SELECTION_BYTES as usize);
+        assert!(selection_metadata(&oversized).is_err());
+        metadata = original;
+        let unchanged = metadata.clone();
+        assert!(publish_selection_metadata(&mut metadata, &oversized).is_err());
+        assert_eq!(metadata, unchanged);
+    }
+    #[test]
+    fn recorded_selection_binary_reflection_preserves_extent_presence_and_original_context() {
+        use base64::Engine as _;
+        use buffa_descriptor::{DescriptorPool, DynamicMessage, Value};
+        let mut selected = selected_observation();
+        selected.row_start = u64::MAX - 1;
+        selected.row_end = u64::MAX;
+        selected.field = Some(String::new());
+        selected.usability = PackScientificState::Unusable;
+        let encoded = selection_metadata(&selected).unwrap();
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .unwrap();
+        let world = std::sync::Arc::new(
+            DescriptorPool::decode(crate::host_operations::engineering::generated::DESCRIPTORS)
+                .unwrap(),
+        );
+        let message = world
+            .message_index("pse.engineering.v1.RecordedResultSelection")
+            .unwrap();
+        let independent = DynamicMessage::decode(world, message, &bytes).unwrap();
+        assert_eq!(
+            independent.field_by_number(5),
+            Some(&Value::U64(u64::MAX - 1))
+        );
+        assert_eq!(independent.field_by_number(6), Some(&Value::U64(u64::MAX)));
+        assert_eq!(
+            independent.field_by_number(7),
+            Some(&Value::String(String::new()))
+        );
+        let Some(Value::Message(usability)) = independent.field_by_number(10) else {
+            panic!("recorded usability must retain its source-owned alternative");
+        };
+        assert!(matches!(
+            usability.field_by_number(5),
+            Some(Value::Message(_))
+        ));
+        for alternative in 1..5 {
+            assert_eq!(usability.field_by_number(alternative), None);
+        }
+        let Some(Value::Message(predicate)) = independent.field_by_number(9) else {
+            panic!("original predicate missing");
+        };
+        assert_eq!(
+            predicate.field_by_number(3),
+            Some(&Value::U64((-0.0f64).to_bits()))
+        );
+        assert_eq!(predicate.field_by_number(4), Some(&Value::U64(0)));
+        assert_eq!(predicate.field_by_number(5), Some(&Value::Bool(false)));
+        let Some(Value::Message(context)) = independent.field_by_number(11) else {
+            panic!("original context missing");
+        };
+        assert_eq!(
+            context.field_by_number(3),
+            Some(&Value::String("manifest".into()))
+        );
+        assert_eq!(
+            context.field_by_number(4),
+            Some(&Value::String("original-policy".into()))
         );
     }
     #[test]

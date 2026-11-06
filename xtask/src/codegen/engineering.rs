@@ -113,41 +113,50 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         }
     }
     let adapter_roots = adapter_roots.into_iter().collect::<Vec<_>>();
-    let adapters = boundary_projection::native_adapters(
-        &graph,
-        &adapter_roots,
-        "crate::host_operations::engineering::generated::pb::pse::engineering::v1",
-        "pse_runtime",
-    )?;
-    insert(
-        &mut engineering,
-        Path::new("crates/pse-runtime/src/generated/engineering"),
-        "native-adapters.rs",
-        adapters.as_bytes(),
-    )?;
-    for name in adapter_roots {
-        let owner = graph
-            .definitions()
-            .get(name)
-            .context("native adapter owner absent from its graph")?;
-        engineering
-            .relationships
-            .push(provenance::SourceRelationship {
-                declaration_key: owner.name.clone(),
-                declaration_kind: "native_projection_adapter".into(),
-                source_path: Some(owner.source.into()),
-                source_symbol: Some(owner.rust_type.into()),
-                source_role: "adapter_root".into(),
-                source_identity: None,
-                generator_path: "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs"
-                    .into(),
-                generator_symbol: "native_adapters".into(),
-                output_path: "crates/pse-runtime/src/generated/engineering/native-adapters.rs"
-                    .into(),
-                direction: Some(format!("{:?}", owner.direction)),
-                contract_sections: vec!["blueprint §4.7".into()],
-                basis: "declared".into(),
-            });
+    for (roots, filename, visibility) in [
+        (
+            adapter_roots.as_slice(),
+            "native-adapters.rs",
+            boundary_projection::AdapterVisibility::Public,
+        ),
+        (
+            ["RecordedResultSelection"].as_slice(),
+            "recorded-result-adapters.rs",
+            boundary_projection::AdapterVisibility::Crate,
+        ),
+    ] {
+        let adapters = boundary_projection::native_adapters_scoped(
+            &graph,
+            roots,
+            "crate::host_operations::engineering::generated::pb::pse::engineering::v1",
+            "pse_runtime",
+            visibility,
+        )?;
+        let destination = Path::new("crates/pse-runtime/src/generated/engineering");
+        insert(&mut engineering, destination, filename, adapters.as_bytes())?;
+        for name in roots {
+            let owner = graph
+                .definitions()
+                .get(*name)
+                .context("native adapter owner absent from its graph")?;
+            engineering
+                .relationships
+                .push(provenance::SourceRelationship {
+                    declaration_key: owner.name.clone(),
+                    declaration_kind: "native_projection_adapter".into(),
+                    source_path: Some(owner.source.into()),
+                    source_symbol: Some(owner.rust_type.into()),
+                    source_role: "adapter_root".into(),
+                    source_identity: None,
+                    generator_path:
+                        "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs".into(),
+                    generator_symbol: "native_adapters_scoped".into(),
+                    output_path: destination.join(filename).to_string_lossy().into_owned(),
+                    direction: Some(format!("{:?}", owner.direction)),
+                    contract_sections: vec!["blueprint §4.7".into()],
+                    basis: "declared".into(),
+                });
+        }
     }
     engineering.files.extend(
         provenance::sidecar(&producer("pse.engineering.v1"), &engineering.relationships)?.files,
@@ -230,6 +239,7 @@ fn engineering_graph() -> Result<ProjectionGraph> {
     graph.register::<pse_model::generated::runtime::canonical_result_batches::Row>()?;
     graph.register::<pse_model::generated::runtime::canonical_result_block_outputs::Row>()?;
     graph.register::<pse_operations::canonical_results::ResultRead>()?;
+    graph.register::<pse_runtime::workflow::PackResultSelection>()?;
     graph.register::<pse_runtime::workflow::ModelingDeclarationRequest>()?;
     graph.register::<pse_runtime::workflow::PreparationDiscoveryReport>()?;
     graph.register::<pse_runtime::workflow::PhysicalInspectionRequest>()?;
@@ -280,6 +290,70 @@ mod tests {
         assert!(adapters.contains("fn encode_canonical_protected_result_snapshot"));
         assert!(!adapters.contains("fn decode_canonical_protected_result_snapshot"));
         assert!(!adapters.contains("ReadOwner"));
+    }
+
+    #[test]
+    fn recorded_result_selection_keeps_original_context_without_native_adoption() {
+        use pse_contract::boundary_projection::{ConstructionRole, Direction, Shape};
+        let graph = engineering_graph().unwrap();
+        for owner in [
+            "RecordedResultSelection",
+            "RecordedResultPredicate",
+            "RecordedResultContext",
+        ] {
+            let definition = &graph.definitions()[owner];
+            assert_eq!(definition.direction, Direction::Output);
+            assert_eq!(definition.construction, ConstructionRole::ObservationOnly);
+        }
+        let Shape::Record(fields) = &graph.definitions()["RecordedResultSelection"].shape else {
+            panic!("recorded selection must be a record")
+        };
+        assert_eq!(
+            fields
+                .iter()
+                .find(|field| field.name == "context")
+                .unwrap()
+                .tag,
+            11
+        );
+        let adapters = boundary_projection::native_adapters_scoped(
+            &graph,
+            &["RecordedResultSelection"],
+            "crate::pb",
+            "pse_runtime",
+            boundary_projection::AdapterVisibility::Crate,
+        )
+        .unwrap();
+        assert!(adapters.contains("pub(crate) fn encode_recorded_result_selection"));
+        for name in [
+            "recorded_result_selection",
+            "recorded_result_predicate",
+            "recorded_result_context",
+            "recorded_scientific_usability",
+        ] {
+            assert!(!adapters.contains(&format!("fn decode_{name}")));
+        }
+    }
+
+    #[test]
+    fn recorded_result_adapter_has_one_generated_owner_outside_service_adoption() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let tree = generate(root).unwrap();
+        let directory = Path::new("crates/pse-runtime/src/generated/engineering");
+        let passive =
+            std::str::from_utf8(&tree.files[&directory.join("recorded-result-adapters.rs")])
+                .unwrap();
+        let service =
+            std::str::from_utf8(&tree.files[&directory.join("native-adapters.rs")]).unwrap();
+        assert!(passive.contains("pub(crate) fn encode_recorded_result_selection"));
+        assert!(!passive.contains("fn decode_recorded_"));
+        assert!(!service.contains("RecordedResultSelection"));
+        assert!(tree.relationships.iter().any(|relationship| {
+            relationship.declaration_key == "RecordedResultSelection"
+                && relationship
+                    .output_path
+                    .ends_with("/recorded-result-adapters.rs")
+        }));
     }
 
     #[test]

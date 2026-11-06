@@ -636,6 +636,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/workflow/result_selection.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/workflow/simulation_request/declarations.rs",
           "kind": "file"
         },
@@ -1401,6 +1405,10 @@
         },
         {
           "path": "crates/pse-runtime/src/workflow/research.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/result_selection.rs",
           "kind": "file"
         },
         {

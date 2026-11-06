@@ -180,10 +180,5 @@ pub(crate) fn validate_scientific_lineage(
         )
         .map_err(|error| invalid(error.to_string()))?;
     }
-    for (key, expected) in super::result_selection::ScientificMetadata::from(result).entries() {
-        if schema.metadata().get(key) != expected.as_ref() {
-            return Err(invalid(format!("IPC lineage differs from selected {key}")));
-        }
-    }
-    Ok(())
+    super::result_selection::validate_selection_metadata(schema.metadata(), result)
 }

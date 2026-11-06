@@ -275,12 +275,6 @@ impl CanonicalResultReader {
     pub async fn pack_selection(&self) -> Result<super::PackResultSelection, WorkflowError> {
         self.reader.pack_selection().await
     }
-    pub(crate) async fn validate_pack_selection(
-        &self,
-        selection: &super::PackResultSelection,
-    ) -> Result<(), WorkflowError> {
-        self.reader.validate_pack_selection(selection).await
-    }
     /// Export the unread protected selection with a finite output allowance and
     /// an independent caller cancellation token. No final file on failure.
     pub async fn export_ipc_bounded(
@@ -299,9 +293,16 @@ impl CanonicalResultReader {
         maximum_bytes: u64,
         cancel: &CancellationToken,
         acknowledged: &mut u64,
+        selection: &super::PackResultSelection,
     ) -> Result<u64, WorkflowError> {
         self.reader
-            .export_ipc_with_prefix(destination, maximum_bytes, cancel, Some(acknowledged))
+            .export_ipc_with_prefix(
+                destination,
+                maximum_bytes,
+                cancel,
+                Some(acknowledged),
+                Some(selection),
+            )
             .await
     }
     /// Decode and admit the next selected native Arrow batch.
@@ -444,12 +445,6 @@ impl SelectedResultReader {
     pub async fn pack_selection(&self) -> Result<super::PackResultSelection, WorkflowError> {
         self.reader.pack_selection().await
     }
-    pub(crate) async fn validate_pack_selection(
-        &self,
-        selection: &super::PackResultSelection,
-    ) -> Result<(), WorkflowError> {
-        self.reader.validate_pack_selection(selection).await
-    }
     /// Export the unread protected selection with a finite output allowance and
     /// an independent caller cancellation token. No final file on failure.
     pub async fn export_ipc_bounded(
@@ -468,9 +463,16 @@ impl SelectedResultReader {
         maximum_bytes: u64,
         cancel: &CancellationToken,
         acknowledged: &mut u64,
+        selection: &super::PackResultSelection,
     ) -> Result<u64, WorkflowError> {
         self.reader
-            .export_ipc_with_prefix(destination, maximum_bytes, cancel, Some(acknowledged))
+            .export_ipc_with_prefix(
+                destination,
+                maximum_bytes,
+                cancel,
+                Some(acknowledged),
+                Some(selection),
+            )
             .await
     }
     /// Decode and admit the next selected native Arrow batch.
@@ -738,19 +740,6 @@ impl ResultReader {
             context: Some(super::PackResultContext::from_read(&self.read)),
         })
     }
-    async fn validate_pack_selection(
-        &self,
-        selection: &super::PackResultSelection,
-    ) -> Result<(), WorkflowError> {
-        let original = self.pack_selection().await?;
-        if !same_pack_selection(&original, selection) {
-            return Err(contract(
-                "declared review selection differs from protected result coordinates",
-            ));
-        }
-        Ok(())
-    }
-
     async fn scientific_usability(
         &self,
         projection: Option<&Arc<pse_relations::validate::PreparedInspectionProjection>>,
@@ -1138,7 +1127,7 @@ impl ResultReader {
         maximum_bytes: u64,
         cancel: &CancellationToken,
     ) -> Result<u64, WorkflowError> {
-        self.export_ipc_with_prefix(destination, maximum_bytes, cancel, None)
+        self.export_ipc_with_prefix(destination, maximum_bytes, cancel, None, None)
             .await
     }
     async fn export_ipc_with_prefix(
@@ -1147,9 +1136,19 @@ impl ResultReader {
         maximum_bytes: u64,
         cancel: &CancellationToken,
         mut acknowledged: Option<&mut u64>,
+        expected_selection: Option<&super::PackResultSelection>,
     ) -> Result<u64, WorkflowError> {
         if self.consumed {
             return Err(contract("export requires an unread complete selection"));
+        }
+        let selected = cancel
+            .until_cancelled(self.pack_selection())
+            .await
+            .map_err(pse_engine::EngineError::from)??;
+        if expected_selection.is_some_and(|expected| !same_pack_selection(expected, &selected)) {
+            return Err(contract(
+                "declared review selection differs from protected result coordinates",
+            ));
         }
         let mut staging = destination.as_os_str().to_os_string();
         staging.push(".incomplete");
@@ -1158,52 +1157,15 @@ impl ResultReader {
             op: "publish canonical result IPC export".into(),
             source: Box::new(source),
         };
+        let mut metadata = self.schema.metadata().clone();
+        super::result_selection::publish_selection_metadata(&mut metadata, &selected)
+            .map_err(io)?;
+        let schema = Arc::new(self.schema.as_ref().clone().with_metadata(metadata));
         let file = std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
             .open(&staging)
             .map_err(io)?;
-        let mut metadata = self.schema.metadata().clone();
-        let relation = self
-            .services
-            .registry()
-            .relation_by_id(self.relation)
-            .ok_or_else(|| contract("selected relation absent"))?;
-        let relation_name = relation.key.qualified_name();
-        let terminal = self
-            .read
-            .attempt()
-            .outcome
-            .map(|value| value.as_str())
-            .ok_or_else(|| contract("terminal result class absent"))?;
-        let original_context = super::PackResultContext::from_read(&self.read);
-        let lineage = super::result_selection::ScientificMetadata {
-            run: &self.read.run().key,
-            attempt: &self.read.attempt().key,
-            relation: &relation_name,
-            schema_version: relation.key.version,
-            row_start: self.start,
-            row_end: self.end,
-            field: self.output.as_ref().map(|filter| filter.field.as_str()),
-            terminal_class: terminal,
-            predicate: self.output.as_ref().map(|filter| {
-                super::result_selection::PredicateMetadata {
-                    output: &filter.output,
-                    partition: &filter.partition,
-                    minimum_bits: filter.predicate.minimum().map(f64::to_bits),
-                    maximum_bits: filter.predicate.maximum().map(f64::to_bits),
-                    missing: filter.predicate.missing(),
-                }
-            }),
-            extra: Some(&original_context),
-        };
-        metadata.extend(
-            lineage
-                .entries()
-                .into_iter()
-                .filter_map(|(key, value)| value.map(|value| (key.into(), value))),
-        );
-        let schema = Arc::new(self.schema.as_ref().clone().with_metadata(metadata));
         let mut writer = datafusion::arrow::ipc::writer::StreamWriter::try_new(
             BufWriter::new(BoundedExportFile {
                 file,
@@ -3420,10 +3382,15 @@ mod canonical_connected_results_server_unit {
             (0, 65)
         );
         assert_eq!(original_window.usability, PackScientificState::Unknown);
-        continued.validate_pack_selection(&original_window).await.unwrap();
         let mut forged_window = original_window.clone();
         forged_window.usability = PackScientificState::Usable;
-        assert!(continued.validate_pack_selection(&forged_window).await.is_err());
+        let output = tempfile::tempdir().unwrap();
+        let rejected = output.path().join("forged-window.arrow");
+        let mut acknowledged = 0;
+        let error = continued.export_ipc_acknowledged(&rejected, 1 << 20, &CancellationToken::new(), &mut acknowledged, &forged_window).await.unwrap_err();
+        assert!(error.to_string().contains("declared review selection differs"));
+        assert_eq!(acknowledged, 0);
+        assert!(!rejected.exists());
         for coordinate in [63, 64] {
             let batch = continued.next_batch().await.unwrap().unwrap();
             let values = batch
@@ -4592,6 +4559,17 @@ mod canonical_connected_results_server_unit {
                     None,
                 )
                 .unwrap();
+                let declared = portable
+                    .index()
+                    .members
+                    .iter()
+                    .find(|member| member.selection.id == "selected")
+                    .unwrap()
+                    .selection
+                    .result
+                    .as_ref()
+                    .unwrap();
+                assert_eq!(declared.field.as_deref(), Some("value"));
                 let mut times = Vec::new();
                 for batch in stream {
                     let batch = batch.unwrap();
@@ -4604,15 +4582,22 @@ mod canonical_connected_results_server_unit {
                     for i in 0..batch.num_rows() {
                         times.push(time.value(i));
                     }
-                    // Portable streams retain canonical transport metadata in addition
-                    // to the original relation fields. Inspect those fields directly.
-                    assert_eq!(
+                    super::super::portable_payload::validate_scientific_lineage(
+                        batch.schema().as_ref(),
+                        declared,
+                    )
+                    .unwrap();
+                    assert!(
                         batch
                             .schema()
                             .metadata()
-                            .get("pse.canonical.field")
-                            .map(String::as_str),
-                        Some("value")
+                            .contains_key(super::super::result_selection::SELECTION_METADATA_KEY,)
+                    );
+                    assert!(
+                        !batch
+                            .schema()
+                            .metadata()
+                            .contains_key("pse.canonical.field")
                     );
                     let symbols = batch
                         .column_by_name("symbol_id")
@@ -4867,7 +4852,7 @@ mod canonical_connected_results_server_unit {
         let original_context = recorded.context.as_ref().unwrap();
         assert_eq!(original_context.problem, "problem");
         assert_eq!(original_context.revision, source.key);
-        assert_eq!(original_context.manifest, manifest.digest());
+        assert_eq!(original_context.manifest, manifest.row().digest);
         assert_eq!(original_context.interpretation, pse_operations::generated::surreal::INTERPRETATION);
         assert_eq!(
             reader
@@ -4917,6 +4902,7 @@ mod canonical_connected_results_server_unit {
             )
             .await
             .unwrap();
+        let exported_selection = export.pack_selection().await.unwrap();
         export.export_ipc(&destination).await.unwrap();
         assert!(destination.is_file());
         assert!(!directory.path().join("results.arrow.incomplete").exists());
@@ -4925,10 +4911,27 @@ mod canonical_connected_results_server_unit {
             None,
         )
         .unwrap();
-        assert_eq!(
-            file.schema().metadata().get("pse.canonical.attempt"),
-            Some(&fence.attempt().to_owned())
-        );
+        assert!(!file.schema().metadata().contains_key("pse.canonical.attempt"));
+        super::super::result_selection::validate_selection_metadata(file.schema().metadata(), &exported_selection).unwrap();
+        super::super::portable_payload::validate_scientific_lineage(
+            file.schema().as_ref(), &exported_selection,
+        ).unwrap();
+        {
+            use base64::Engine as _;
+            use buffa_descriptor::{DescriptorPool, DynamicMessage, Value};
+            let schema = file.schema();
+            let encoded = &schema.metadata()[super::super::result_selection::SELECTION_METADATA_KEY];
+            let bytes = base64::engine::general_purpose::STANDARD.decode(encoded).unwrap();
+            let world = Arc::new(DescriptorPool::decode(crate::host_operations::engineering::generated::DESCRIPTORS).unwrap());
+            let message = world.message_index("pse.engineering.v1.RecordedResultSelection").unwrap();
+            let independent = DynamicMessage::decode(world, message, &bytes).unwrap();
+            assert_eq!(independent.field_by_number(1), Some(&Value::String("run".into())));
+            assert_eq!(independent.field_by_number(2), Some(&Value::String(fence.attempt().into())));
+            assert_eq!(independent.field_by_number(6), Some(&Value::U64(4)));
+            let Some(Value::Message(context)) = independent.field_by_number(11) else { panic!("original interpretation context absent"); };
+            assert_eq!(context.field_by_number(3), Some(&Value::String(manifest.row().digest.clone())));
+            assert_eq!(context.field_by_number(4), Some(&Value::String(pse_operations::generated::surreal::INTERPRETATION.into())));
+        }
         assert_eq!(file.next().unwrap().unwrap().num_rows(), 4);
         assert!(file.next().is_none());
         // The pack uses this actual protected selected exporter, with exact
@@ -5036,22 +5039,13 @@ mod canonical_connected_results_server_unit {
                 None,
             )
             .unwrap();
-            assert_eq!(
-                stream
-                    .schema()
-                    .metadata()
-                    .get("pse.canonical.row-start")
-                    .map(String::as_str),
-                Some("1")
-            );
-            assert_eq!(
-                stream
-                    .schema()
-                    .metadata()
-                    .get("pse.canonical.row-end")
-                    .map(String::as_str),
-                Some("3")
-            );
+            let original_selection = scientific.selection.result.as_ref().unwrap();
+            assert_eq!((original_selection.row_start, original_selection.row_end), (1, 3));
+            super::super::portable_payload::validate_scientific_lineage(
+                stream.schema().as_ref(), original_selection,
+            ).unwrap();
+            assert!(!stream.schema().metadata().contains_key("pse.canonical.row-start"));
+            assert!(!stream.schema().metadata().contains_key("pse.canonical.row-end"));
             let batch = stream.next().unwrap().unwrap();
             assert_eq!(batch.num_rows(), 2);
             let selected = batch
@@ -5081,10 +5075,8 @@ mod canonical_connected_results_server_unit {
         assert!(interrupted.export_ipc(&missing).await.is_err());
         assert!(!missing.exists());
         assert!(
-            directory
-                .path()
-                .join("cancelled.arrow.incomplete")
-                .is_file()
+            !directory.path().join("cancelled.arrow.incomplete").exists(),
+            "cancellation before selection preflight must precede staging effects"
         );
         let original = std::fs::read(&destination).unwrap();
         let mut overwrite = runtime

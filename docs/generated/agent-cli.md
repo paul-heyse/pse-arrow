@@ -5179,6 +5179,7 @@ Commands:
   payload                    Explain selected binary, JSON or textproto payloads without invoking an RPC
   developer-evidence         Export source-generated observations from original private workflow evidence
   developer-evidence-bundle  Verify a portable directory bundle and optionally return a bounded member range
+  developer-evidence-member  Publish one whole verified original directory member through bounded sequential I/O
   outline                    Read written declarations or document headings without semantic preparation
   declaration                Read a known declaration, literal item, position or exact original range
   origin                     Inspect the declared authored owner of an exact generated-source hit
@@ -5471,8 +5472,18 @@ Options:
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
+      --semantic-file <SEMANTIC_FILE>
+          Original file to assess semantically; repeat for a bounded explicit selection
+
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --semantic-policy <SEMANTIC_POLICY>
+          Available native semantic policy; acquired options cannot nominate native coverage
+
+          Possible values:
+          - core:               Understand core metadata only; native source coverage remains unavailable
+          - developer-evidence: Current independent-host developer evidence source policy and generated coverage
 
   -h, --help
           Print help (see a summary with '-h')
@@ -5665,6 +5676,50 @@ Options:
 
       --length <LENGTH>
           [default: 4096]
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect developer-evidence-member`
+
+~~~~text
+Publish one whole verified original directory member through bounded sequential I/O
+
+Usage: pse inspect developer-evidence-member [OPTIONS] --member <MEMBER> --output <OUTPUT> <INPUT>
+
+Arguments:
+  <INPUT>
+
+
+Options:
+  -C <checkout>
+
+
+      --member <MEMBER>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --output <OUTPUT>
+
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
