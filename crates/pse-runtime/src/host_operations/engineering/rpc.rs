@@ -688,17 +688,11 @@ impl AsRef<[u8]> for AccountedBytes {
         &self.bytes
     }
 }
-impl<M: protovalidate_buffa::Validate + connectrpc::Encodable<M>> connectrpc::Encodable<M>
+impl<M: buffa::Message + serde::Serialize + protovalidate_buffa::Validate> connectrpc::Encodable<M>
     for AccountedResponse<M>
 {
     fn encode(&self, codec: connectrpc::CodecFormat) -> Result<bytes::Bytes, ConnectError> {
-        outgoing::validate(&self.message)?;
-        let bytes = self.message.encode(codec)?;
-        if bytes.len() > self.maximum_bytes {
-            return Err(ConnectError::resource_exhausted(
-                "selected complete response exceeds its original byte allowance",
-            ));
-        }
+        let bytes = outgoing::encode_bounded(&self.message, codec, self.maximum_bytes)?;
         Ok(bytes::Bytes::from_owner(AccountedBytes {
             bytes,
             _reservation: self.reservation.clone(),

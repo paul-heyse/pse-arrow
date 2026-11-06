@@ -163,8 +163,8 @@ separate. Exact sources are `vendor/buffa/src/message.rs`, `encode_sink.rs`, `ps
 |---|---|---|---|
 | B01 | in-progress | Existing source declarations, typed supplier composition and current exact pins | Consumer-scoped generation and source bootstrap work; ordinary result adapters and complete inspection fields are generated in the one world, duplicate broad roots/implementations are removed, default and service receiving closures compile. |
 | B02 | in-progress | Existing metadata/checker; native semantic owners for each selected crossing | All selected crossings carry explicit presence/unknown/interpretation/local-rule/adoption policy; semantic comparison is consumable independently; stale and foreign worlds cannot acquire native authority. |
-| B03 | in-progress | B01 closure needed by each consumer, B02 policy needed at its boundary | Common engineering service callers are migrating to their already-generated native adapters; handwritten request/result/ID/progress and source-edit maps are removed in the candidate. Receiving remains pending. Complete other finite worker/reference/host/developer/storage families with their actual callers and deletions; this service slice does not close the population. |
-| B04 | planned | Actual large producer/consumer and B03 mapping for that family | Selected production boundaries perform early selection and bounded encoding, retain validation/ownership through segmented output where useful, and remove redundant materialization without weakening extents. |
+| B03 | in-progress | B01 closure needed by each consumer, B02 policy needed at its boundary | Common engineering service callers use their source-generated adapters on main; handwritten request/result/ID/progress and source-edit maps are deleted. Selected service/result receiving passes. Complete other finite worker/reference/host/developer/storage families with their actual callers and deletions; this service slice does not close the population. |
+| B04 | in-progress | Actual large producer/consumer and B03 mapping for that family | Main's AccountedResponse enforces binary limits before writing and JSON limits through the existing typed sink, retaining original ownership through the last byte consumer. Thirty-eight selected service/result controls pass with zero failures/build warnings. Producer selection, other finite response families and any justified segmented consumer remain open. |
 | B05 | planned | Each delivered B01–B04 family, its outcome-owned consumer | Cross-representation/evolution/extension controls and surviving-source inventories cover the complete selected population; remaining assembled verification is handed to L with explicit omissions. |
 
 ### B01 — Deliver useful generation closures and reproducible bootstrap
@@ -210,11 +210,11 @@ behavior; C owns admission and settlement; B supplies reusable generation once.
 
 ### B04 — Preserve producer selection and encoding capabilities
 
-The first concrete transport consumer is engineering RPC's `AccountedResponse`: its current
-generic encoding allocates the whole response before checking `maximum_bytes`. For its owned
-Buffa messages, use `Message::try_encode_bounded_with_cache` (or the selected pool equivalent)
-so the binary size pass refuses before writing the body. For the existing ProtoJSON path,
-feed Serde's serializer through the existing `pse_ids::sink::BoundedSink`, retaining its typed
+The first delivered transport consumer is engineering RPC's `AccountedResponse`: its replaced
+generic encoding allocated the whole response before checking `maximum_bytes`. Its owned
+Buffa messages now use `Message::try_encode_bounded_with_cache`
+so the binary size pass refuses before writing the body. The existing ProtoJSON path
+feeds Serde's serializer through the existing `pse_ids::sink::BoundedSink`, retaining its typed
 `SinkFailure` cause instead of classifying rendered errors. Keep response/allocation ownership
 through the returned bytes. This bounds logical encoded output, not native adoption, allocator
 capacity or RSS. The selected bodies hold owned `Vec`/`String` fields; Connectrpc0.9.1's
@@ -223,6 +223,14 @@ shared payload. Preserve contiguous output here; select segmented wrappers only 
 backed-view/`Bytes` producer. Sources: [maintained bounded encode](../../vendor/buffa/src/message.rs),
 [existing bounded sink](../../crates/pse-ids/src/sink.rs), and
 [Connectrpc0.9.1 response contract](https://docs.rs/connectrpc/0.9.1/src/connectrpc/response.rs.html).
+
+**Tested, targeted:** native `scripts/pse test pse-runtime --lib` with
+`engineering-service,native-study-tests` and the selected RPC/lifecycle, recorded-selection,
+fixture-inspection and protected canonical/project export/read controls passed **38 tests,
+zero failures/pending/build warnings** on main (invocation `01a1b275-01e1-7736-8001-6ffc6f660992`).
+Original capture and settlement completed. New exact-limit binary/JSON and last-consumer release
+controls pass; serializer prose resembling a limit remains an internal error without a typed
+sink refusal. This does not measure RSS or qualify all response/producer families.
 
 Choose expensive real inspection/result/progress responses using source and consumer evidence.
 Preflight selected extents before nested copies, validate once at the correct owner, and enforce
