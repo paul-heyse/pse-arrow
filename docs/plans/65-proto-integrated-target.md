@@ -13,6 +13,44 @@ doc_topics: [current-work, design, libraries, validation]
 
 ## Purpose and authorization
 
+**Temporary execution pause — November 6:** the maintainer requested an immediate pause
+for approximately forty minutes. Root and all three executors have stopped or confirmed
+settlement of their builds/tests; resume requires the maintainer's instruction. Worktrees,
+caches, original artifacts and unfinished edits are retained. No scope is completed by this
+pause, and no formatting/hygiene or new qualification runs are started during it.
+
+Main integrates generic reentrant supervision, unique surrogate retirement, retained compiler
+cache bridges, duplicate IPC metadata protection, descriptor-search selection, aggregate
+fixture prerequisite reporting, selected-result source context and original fixture inspection
+source. The KINSOL/compiled-evaluator retirement selection passes 44/44 at its earlier source
+boundary (`01a1b182-2bda-7281-bc6b-6ea03cdd2f0c`). The later main host/columnar receiving run
+finished successfully before cancellation arrived (`01a1b18f-f6bc-701c-82e1-12152fe78520`,
+capture and physical settlement complete). These receipts do not qualify the unfinished
+generated/scientific consumers below.
+
+Resume from the existing workstream table, in this order where dependencies apply:
+
+- Contracts worktree: preserve its uncommitted single-world recorded-result adapter split
+  in `xtask/src/codegen/engineering.rs`. The latest generation retry refused before effects
+  on compiler-cache bridge context. Resolve the exact selected compiler context, then
+  regenerate against original source `8a23783dc` and `a860539c9`. Prior `1e0acb390` is the
+  older generated population; it excludes the new inspection fields and adapter split.
+- Persistence worktree: its uncommitted default-feature recorded-result facade/Arrow
+  exporter/portable-reader cutover needs that matching generated adapter. Do not compile
+  against mismatched artifacts or claim acceptance. Source, duplicate IPC and prerequisite
+  reporting commits are already integrated on main. ADR-0250 precedes the metadata cutover.
+- Science worktree: retain the uncommitted FeedFlash source and six controls. The latest
+  native discovery build failed with exit101 before test execution and settled completely
+  (`01a1b18d-d2ff-7592-a100-4c250321a9cd`); diagnosis remains for resume. Earlier one-pass/four-fail
+  physical selection drove constructor and exact-fixture repair, whose acceptance remains
+  open. Preserve both source-built capsules. Original fixture-inspection source is on main;
+  generated/independent-reader acceptance remains open. The E03 aqueous spatial inventory
+  feasibility is the next substantive science slice; no E03 implementation has begun.
+- Root: integrate matching generator/consumer contributions on main, receive affected
+  default/service/scientific consumers, and implement the separately decided ADR-0251 native
+  provider-observation seam. No kernel code for ADR-0251 has been changed. Continue the full
+  dependency-ordered Plan64/65 workstreams; only remove worktrees once fully integrated.
+
 The operator authorized execution of the entire Plan65 series on 2026-11-04 while Plan64
 remains incomplete, including replacement of overlapping mechanisms and any breaking changes
 needed for the selected target. Actual working capabilities replace the original blanket
