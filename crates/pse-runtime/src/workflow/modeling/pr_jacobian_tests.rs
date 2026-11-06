@@ -192,6 +192,13 @@ pub(super) fn documents(root: &Path) -> TestResult<BTreeMap<String, Vec<u8>>> {
     documents_with(root, &mut |path| Ok(std::fs::read(path)?))
 }
 
+fn authored_document(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|extension| extension.to_str()),
+        Some("toml" | "yaml" | "yml" | "pse" | "parquet")
+    )
+}
+
 /// Walk the same admitted document population with an explicit original-byte reader.
 pub(super) fn documents_with(
     root: &Path,
@@ -211,10 +218,7 @@ pub(super) fn documents_with(
             let path = entry.path();
             if path.is_dir() {
                 visit(root, &path, out, read)?;
-            } else if matches!(
-                path.extension().and_then(|s| s.to_str()),
-                Some("toml" | "yaml" | "yml" | "pse" | "parquet")
-            ) {
+            } else if authored_document(&path) {
                 let relative = path
                     .strip_prefix(root)?
                     .to_str()
@@ -237,15 +241,15 @@ type CapturedDocuments<'a> = (
     &'a mut Option<Arc<pse_columnar::AllocationLease>>,
 );
 
-/// Select package-relative views of the captured checkout bytes without filesystem reads.
+/// Select the same authored documents as the live owner from captured checkout bytes.
 pub(super) fn captured_package_sources<'a>(
     files: &'a BTreeMap<String, Vec<u8>>,
     name: &str,
 ) -> impl Iterator<Item = (&'a str, &'a [u8])> + Clone + use<'a> {
     let prefix = format!("packages/reference/{name}/");
     files.iter().filter_map(move |(path, bytes)| {
-        path.strip_prefix(prefix.as_str())
-            .map(|relative| (relative, bytes.as_slice()))
+        let relative = path.strip_prefix(prefix.as_str())?;
+        authored_document(Path::new(relative)).then_some((relative, bytes.as_slice()))
     })
 }
 

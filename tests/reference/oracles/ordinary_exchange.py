@@ -95,10 +95,33 @@ def _message(parent: Message, field: str) -> Message:
     return cast("Message", getattr(parent, field))
 
 
+_IDENTITY_OWNERS = {
+    "pse.reference.v1.QuantityType": "pse.reference.v1.QuantityTypeId",
+    "pse.reference.v1.PhysicalQuantityKind": "pse.reference.v1.QuantityKindId",
+    "pse.reference.v1.PhysicalUnit": "pse.reference.v1.UnitId",
+    "pse.reference.v1.PhysicalBasis": "pse.reference.v1.BasisId",
+    "pse.reference.v1.PhysicalEntityKind": "pse.reference.v1.EntityKindId",
+    "pse.reference.v1.ReferenceState": "pse.reference.v1.ReferenceStateId",
+}
+_IDENTITY_WRAPPERS = frozenset(_IDENTITY_OWNERS.values())
+# Original selected subject owner: physical/models/chemistry.pse, entity kind species.
+_SPECIES_KIND_ID = bytes.fromhex("1c998211e5d74955863f377662f56526")
+
+
 def _identity(owner: Message) -> bytes:
-    if not owner.HasField("id"):
+    """Project only the generated physical owners and their declared ID wrappers."""
+    name = owner.DESCRIPTOR.full_name
+    if name in _IDENTITY_OWNERS:
+        identity_owner = _message(owner, "id")
+        if identity_owner.DESCRIPTOR.full_name != _IDENTITY_OWNERS[name]:
+            raise ValueError("original physical owner has a different identity type")
+    elif name in _IDENTITY_WRAPPERS:
+        identity_owner = owner
+    else:
+        raise ValueError(f"unsupported original physical identity owner: {name}")
+    if not identity_owner.HasField("id"):
         raise ValueError("original physical identity is absent")
-    identity = bytes(owner.id)
+    identity = bytes(identity_owner.id)
     if len(identity) != 16 or identity == bytes(16):
         raise ValueError("original physical identity is malformed or nil")
     return identity
@@ -217,7 +240,9 @@ def _type_for_key(key: str) -> str:
         return "Flow"
     if key.endswith(".h"):
         return "MolarEnthalpy"
-    if key.endswith((".energy", ".energy_flow", ".duty")):
+    if key.endswith(".duty"):
+        return "EnergyTransferRate"
+    if key.endswith((".energy", ".energy_flow")):
         return "Power"
     if key == "exchanger.coefficient":
         return "HeatTransferCoefficient"
@@ -243,6 +268,7 @@ def _reference_unit(type_name: str) -> NumericValue:
         "MoleFraction": units.dimensionless,
         "MolarEnthalpy": units.J / units.mol,
         "Power": units.W,
+        "EnergyTransferRate": units.W,
         "HeatTransferCoefficient": units.W / units.m**2 / units.K,
         "Area": units.m**2,
         "Scalar": units.dimensionless,
@@ -260,6 +286,7 @@ def _reference_symbol(type_name: str) -> str:
         "MoleFraction": "1",
         "MolarEnthalpy": "J/mol",
         "Power": "W",
+        "EnergyTransferRate": "W",
         "HeatTransferCoefficient": "W/(K*m^2)",
         "Area": "m^2",
         "Scalar": "1",
@@ -275,7 +302,7 @@ def _validate_physical(physical: Message, type_name: str) -> None:
     representation = _message(physical, "representation_unit")
     if not quantity.HasField("name") or quantity.name != type_name:
         raise ValueError(
-            "original quantity type does not match the independent scientific role"
+            f"original quantity type {quantity.name!r} does not match independent role {type_name!r}"
         )
     _identity(quantity)
     if _identity(_message(key, "kind")) != _identity(kind):
@@ -342,7 +369,15 @@ def _validate_physical(physical: Message, type_name: str) -> None:
     ):
         raise ValueError("physical additive/origin-sensitive arithmetic differs")
     if bool(kind.extensive) != (
-        type_name in {"Flow", "ComponentFlow", "Power", "Area", "CapitalCost"}
+        type_name
+        in {
+            "Flow",
+            "ComponentFlow",
+            "Power",
+            "EnergyTransferRate",
+            "Area",
+            "CapitalCost",
+        }
     ) or kind.HasField("category"):
         raise ValueError("physical extensive/discrete convention differs")
     if len(key.shape) or len(physical.shape):
@@ -373,7 +408,7 @@ def _validate_physical(physical: Message, type_name: str) -> None:
         subject = _message(physical, "subject")
         if (
             _optional_identity(key, "subject_kind") != _identity(subject)
-            or subject.name != "chemistry.species"
+            or _identity(subject) != _SPECIES_KIND_ID
         ):
             raise ValueError("original species subject meaning differs")
     datum = type_name in {"Power", "MolarEnthalpy"}
