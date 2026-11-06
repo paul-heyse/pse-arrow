@@ -4,7 +4,26 @@
 
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#structures::{
-    LocalValidity, ModelingCellValueReferencesPathsItem, ModelingCellValueReferences,
+    FitExperimentAssessmentFailureObservationsItemContractsItemIndicesItem,
+    FitExperimentAssessmentFailureObservationsItemContractsItem,
+    FitExperimentAssessmentFailureObservationsItem,
+    FitExperimentAssessmentFailureLocationsItem, FitExperimentAssessmentFailureValidity,
+    FitExperimentAssessmentFailureApplicabilityItemClaim,
+    FitExperimentAssessmentFailureApplicabilityItemInputsItem,
+    FitExperimentAssessmentFailureApplicabilityItemPermissionsItem,
+    FitExperimentAssessmentFailureApplicabilityItem,
+    FitExperimentAssessmentFailureCausesItemObservationsItemContractsItemIndicesItem,
+    FitExperimentAssessmentFailureCausesItemObservationsItemContractsItem,
+    FitExperimentAssessmentFailureCausesItemObservationsItem,
+    FitExperimentAssessmentFailureCausesItemLocationsItem,
+    FitExperimentAssessmentFailureCausesItemValidity,
+    FitExperimentAssessmentFailureCausesItemApplicabilityItemClaim,
+    FitExperimentAssessmentFailureCausesItemApplicabilityItemInputsItem,
+    FitExperimentAssessmentFailureCausesItemApplicabilityItemPermissionsItem,
+    FitExperimentAssessmentFailureCausesItemApplicabilityItem,
+    FitExperimentAssessmentFailureCausesItem, FitExperimentAssessmentFailure,
+    FitExperimentAssessmentObservation, FitOriginalAssessmentObservation, LocalValidity,
+    ModelingCellValueReferencesPathsItem, ModelingCellValueReferences,
     ModelingCellValueRow, ModelingCellValue, ModelingCellValueSelected,
     ModelingCellUncertainty, ModelingCell, ModelingCellValueBoolean,
     ModelingCellValueIdentifier, ModelingCellValueInteger, ModelingCellValueQuantity,
@@ -16,6 +35,2316 @@ pub use pse_model::generated::r#structures::{
     ModelingTypeArenaNode, ModelingUnitFactor, ScientificArtifactCoordinate,
     ScientificCoordinateValue, ScopedPropagationUse, VersionRequirement,
 };
+impl crate::columnar::ArrowValue
+for FitExperimentAssessmentFailureObservationsItemContractsItemIndicesItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#bound_index,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#kind, children[2usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#bound_index: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#domain: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#kind: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for FitExperimentAssessmentFailureObservationsItemContractsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#quantity,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#indices, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Vec<
+            FitExperimentAssessmentFailureObservationsItemContractsItemIndicesItem,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#quantity: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#indices: <Vec<
+                FitExperimentAssessmentFailureObservationsItemContractsItemIndicesItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for FitExperimentAssessmentFailureObservationsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#kind, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#real, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#real_kind,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#integer, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#boolean, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#text, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#quantity,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#unit, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#context, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#contracts,
+            children[10usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <crate::generated::enums::DiagnosticObservationKind as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            crate::generated::enums::ModelingRealValueKind,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            bool,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            pse_ids::ContentHash,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Vec<
+            FitExperimentAssessmentFailureObservationsItemContractsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#kind: <crate::generated::enums::DiagnosticObservationKind as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#real: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#real_kind: <Option<
+                crate::generated::enums::ModelingRealValueKind,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#integer: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#boolean: <Option<
+                bool,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#text: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#quantity: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#unit: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#context: <Option<
+                pse_ids::ContentHash,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#contracts: <Vec<
+                FitExperimentAssessmentFailureObservationsItemContractsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for FitExperimentAssessmentFailureLocationsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#source_id,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#revision,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#document,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#occurrence_role,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#occurrence_position,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#path, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#name, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#start, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#end, children[8usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            pse_ids::ContentHash,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#source_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#revision: <Option<
+                pse_ids::ContentHash,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#document: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#occurrence_role: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#occurrence_position: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#path: <String as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#name: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#start: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#end: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for FitExperimentAssessmentFailureValidity {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#layer, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#source_id,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#form_id, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#set_ids, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#variables,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#member_ids,
+            children[5usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Vec<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#layer: <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#source_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#form_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#set_ids: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#variables: <Vec<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#member_ids: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for FitExperimentAssessmentFailureApplicabilityItemClaim {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#id, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#coverage,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#owner, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#owner_lineage,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#form, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#call, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#records, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#dependencies,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#layer, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#basis, children[10usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#reason, children[11usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[5usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[6usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::append_null(
+            children[9usize].as_mut(),
+        )?;
+        <Option<
+            crate::generated::enums::ModelingApplicabilityBasis,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#coverage: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#owner: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#owner_lineage: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#evidence: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#form: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#call: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#records: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#dependencies: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#layer: <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#basis: <Option<
+                crate::generated::enums::ModelingApplicabilityBasis,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#reason: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for FitExperimentAssessmentFailureApplicabilityItemInputsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#value, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#real_kind,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#quantity_type,
+            children[3usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <crate::generated::enums::ModelingRealValueKind as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#value: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#real_kind: <crate::generated::enums::ModelingRealValueKind as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#quantity_type: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for FitExperimentAssessmentFailureApplicabilityItemPermissionsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#id, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#scope, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#target_kind,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#targets, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#allow_unknown,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#allow_extrapolation,
+            children[5usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <crate::generated::enums::ModelingPermissionTarget as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#scope: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#target_kind: <crate::generated::enums::ModelingPermissionTarget as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#targets: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#allow_unknown: <bool as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#allow_extrapolation: <bool as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for FitExperimentAssessmentFailureApplicabilityItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#claim, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#instance,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#inputs, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outcome, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#required,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#permissions,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#unknown_allowed,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#extrapolation_allowed,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#admitted,
+            children[8usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <FitExperimentAssessmentFailureApplicabilityItemClaim as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Vec<
+            FitExperimentAssessmentFailureApplicabilityItemInputsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <crate::generated::enums::ModelingApplicabilityOutcome as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Vec<
+            FitExperimentAssessmentFailureApplicabilityItemPermissionsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#claim: <FitExperimentAssessmentFailureApplicabilityItemClaim as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#instance: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#inputs: <Vec<
+                FitExperimentAssessmentFailureApplicabilityItemInputsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#outcome: <crate::generated::enums::ModelingApplicabilityOutcome as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#required: <bool as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#permissions: <Vec<
+                FitExperimentAssessmentFailureApplicabilityItemPermissionsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#unknown_allowed: <bool as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#extrapolation_allowed: <bool as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#admitted: <bool as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for FitExperimentAssessmentFailureCausesItemObservationsItemContractsItemIndicesItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#bound_index,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#kind, children[2usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#bound_index: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#domain: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#kind: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for FitExperimentAssessmentFailureCausesItemObservationsItemContractsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#quantity,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#indices, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Vec<
+            FitExperimentAssessmentFailureCausesItemObservationsItemContractsItemIndicesItem,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#quantity: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#indices: <Vec<
+                FitExperimentAssessmentFailureCausesItemObservationsItemContractsItemIndicesItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for FitExperimentAssessmentFailureCausesItemObservationsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#kind, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#real, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#real_kind,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#integer, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#boolean, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#text, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#quantity,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#unit, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#context, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#contracts,
+            children[10usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <crate::generated::enums::DiagnosticObservationKind as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            crate::generated::enums::ModelingRealValueKind,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            bool,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            pse_ids::ContentHash,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Vec<
+            FitExperimentAssessmentFailureCausesItemObservationsItemContractsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#kind: <crate::generated::enums::DiagnosticObservationKind as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#real: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#real_kind: <Option<
+                crate::generated::enums::ModelingRealValueKind,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#integer: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#boolean: <Option<
+                bool,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#text: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#quantity: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#unit: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#context: <Option<
+                pse_ids::ContentHash,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#contracts: <Vec<
+                FitExperimentAssessmentFailureCausesItemObservationsItemContractsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for FitExperimentAssessmentFailureCausesItemLocationsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#source_id,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#revision,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#document,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#occurrence_role,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#occurrence_position,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#path, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#name, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#start, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#end, children[8usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            pse_ids::ContentHash,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#source_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#revision: <Option<
+                pse_ids::ContentHash,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#document: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#occurrence_role: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#occurrence_position: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#path: <String as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#name: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#start: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#end: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for FitExperimentAssessmentFailureCausesItemValidity {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#layer, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#source_id,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#form_id, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#set_ids, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#variables,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#member_ids,
+            children[5usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Vec<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#layer: <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#source_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#form_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#set_ids: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#variables: <Vec<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#member_ids: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for FitExperimentAssessmentFailureCausesItemApplicabilityItemClaim {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#id, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#coverage,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#owner, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#owner_lineage,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#form, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#call, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#records, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#dependencies,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#layer, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#basis, children[10usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#reason, children[11usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[5usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[6usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::append_null(
+            children[9usize].as_mut(),
+        )?;
+        <Option<
+            crate::generated::enums::ModelingApplicabilityBasis,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#coverage: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#owner: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#owner_lineage: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#evidence: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#form: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#call: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#records: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#dependencies: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#layer: <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#basis: <Option<
+                crate::generated::enums::ModelingApplicabilityBasis,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#reason: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for FitExperimentAssessmentFailureCausesItemApplicabilityItemInputsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#value, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#real_kind,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#quantity_type,
+            children[3usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <crate::generated::enums::ModelingRealValueKind as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#value: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#real_kind: <crate::generated::enums::ModelingRealValueKind as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#quantity_type: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for FitExperimentAssessmentFailureCausesItemApplicabilityItemPermissionsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#id, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#scope, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#target_kind,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#targets, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#allow_unknown,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#allow_extrapolation,
+            children[5usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <crate::generated::enums::ModelingPermissionTarget as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#scope: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#target_kind: <crate::generated::enums::ModelingPermissionTarget as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#targets: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#allow_unknown: <bool as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#allow_extrapolation: <bool as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for FitExperimentAssessmentFailureCausesItemApplicabilityItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#claim, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#instance,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#inputs, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outcome, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#required,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#permissions,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#unknown_allowed,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#extrapolation_allowed,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#admitted,
+            children[8usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <FitExperimentAssessmentFailureCausesItemApplicabilityItemClaim as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Vec<
+            FitExperimentAssessmentFailureCausesItemApplicabilityItemInputsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <crate::generated::enums::ModelingApplicabilityOutcome as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Vec<
+            FitExperimentAssessmentFailureCausesItemApplicabilityItemPermissionsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#claim: <FitExperimentAssessmentFailureCausesItemApplicabilityItemClaim as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#instance: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#inputs: <Vec<
+                FitExperimentAssessmentFailureCausesItemApplicabilityItemInputsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#outcome: <crate::generated::enums::ModelingApplicabilityOutcome as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#required: <bool as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#permissions: <Vec<
+                FitExperimentAssessmentFailureCausesItemApplicabilityItemPermissionsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#unknown_allowed: <bool as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#extrapolation_allowed: <bool as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#admitted: <bool as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for FitExperimentAssessmentFailureCausesItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#tree_path,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#code, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#class, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#severity,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#stage, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#rule, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#sources, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#observations,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#locations,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#validity,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#applicability,
+            children[10usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <Vec<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <crate::generated::enums::DiagnosticCode as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <crate::generated::enums::NativeBoundaryClass as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <crate::generated::enums::DiagnosticSeverity as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
+        <crate::generated::enums::DiagnosticStage as crate::columnar::ArrowValue>::append_null(
+            children[4usize].as_mut(),
+        )?;
+        <crate::generated::enums::DiagnosticRule as crate::columnar::ArrowValue>::append_null(
+            children[5usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Vec<
+            FitExperimentAssessmentFailureCausesItemObservationsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Vec<
+            FitExperimentAssessmentFailureCausesItemLocationsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            FitExperimentAssessmentFailureCausesItemValidity,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Vec<
+            FitExperimentAssessmentFailureCausesItemApplicabilityItem,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#tree_path: <Vec<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#code: <crate::generated::enums::DiagnosticCode as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#class: <crate::generated::enums::NativeBoundaryClass as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#severity: <crate::generated::enums::DiagnosticSeverity as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#stage: <crate::generated::enums::DiagnosticStage as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#rule: <crate::generated::enums::DiagnosticRule as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#sources: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#observations: <Vec<
+                FitExperimentAssessmentFailureCausesItemObservationsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#locations: <Vec<
+                FitExperimentAssessmentFailureCausesItemLocationsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#validity: <Option<
+                FitExperimentAssessmentFailureCausesItemValidity,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#applicability: <Vec<
+                FitExperimentAssessmentFailureCausesItemApplicabilityItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for FitExperimentAssessmentFailure {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#code, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#class, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#severity,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#stage, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#rule, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#sources, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#observations,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#locations,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#validity,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#applicability,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#causes, children[10usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::DiagnosticCode as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <crate::generated::enums::NativeBoundaryClass as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <crate::generated::enums::DiagnosticSeverity as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <crate::generated::enums::DiagnosticStage as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
+        <crate::generated::enums::DiagnosticRule as crate::columnar::ArrowValue>::append_null(
+            children[4usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Vec<
+            FitExperimentAssessmentFailureObservationsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Vec<
+            FitExperimentAssessmentFailureLocationsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            FitExperimentAssessmentFailureValidity,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Vec<
+            FitExperimentAssessmentFailureApplicabilityItem,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Vec<
+            FitExperimentAssessmentFailureCausesItem,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#code: <crate::generated::enums::DiagnosticCode as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#class: <crate::generated::enums::NativeBoundaryClass as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#severity: <crate::generated::enums::DiagnosticSeverity as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#stage: <crate::generated::enums::DiagnosticStage as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#rule: <crate::generated::enums::DiagnosticRule as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#sources: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#observations: <Vec<
+                FitExperimentAssessmentFailureObservationsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#locations: <Vec<
+                FitExperimentAssessmentFailureLocationsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#validity: <Option<
+                FitExperimentAssessmentFailureValidity,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#applicability: <Vec<
+                FitExperimentAssessmentFailureApplicabilityItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#causes: <Vec<
+                FitExperimentAssessmentFailureCausesItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for FitExperimentAssessmentObservation {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#experiment_id,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#state, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#check_start,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#check_end,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#report_start,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#report_end,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#failure, children[6usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::identities::InstanceId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <crate::generated::enums::FitExperimentAssessmentState as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            FitExperimentAssessmentFailure,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#experiment_id: <crate::generated::identities::InstanceId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#state: <crate::generated::enums::FitExperimentAssessmentState as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#check_start: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#check_end: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#report_start: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#report_end: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#failure: <Option<
+                FitExperimentAssessmentFailure,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for FitOriginalAssessmentObservation {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#complete,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#experiments,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#interruption,
+            children[2usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <bool as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Vec<
+            FitExperimentAssessmentObservation,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            FitExperimentAssessmentFailure,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#complete: <bool as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#experiments: <Vec<
+                FitExperimentAssessmentObservation,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#interruption: <Option<
+                FitExperimentAssessmentFailure,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 impl crate::columnar::ArrowValue for LocalValidity {
     fn append(
         &self,

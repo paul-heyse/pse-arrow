@@ -633,8 +633,8 @@ impl super::RunResult {
                         .native_reports
                         .extend(report.solve.iter().map(|native| (0, native)));
                     facts.terminal = report
-                        .validation_error
-                        .as_ref()
+                        .assessment
+                        .failure()
                         .map(|diagnostic| crate::math::strategy::boundary_failure(diagnostic.class))
                         .or_else(|| {
                             report
@@ -650,6 +650,7 @@ impl super::RunResult {
                     fit_constraints::RELATION_ID,
                     fit_parameters::RELATION_ID,
                     fit_observations::RELATION_ID,
+                    fit_experiment_assessments::RELATION_ID,
                     response_sensitivities::RELATION_ID,
                     solve_metrics::RELATION_ID,
                     infeasibility_certificates::RELATION_ID,

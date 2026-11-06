@@ -900,6 +900,10 @@ pub struct RuntimeProfilePointsRow {
     pub r#callback_terminal_failure: Option<bool>,
     ///failures
     pub r#failures: Vec<RuntimeProfilePointsFieldFailuresItem>,
+    ///Original assessment of this exact pin: derived completeness, declared-order experiment evidence, and only an assessment-wide interruption. Member ranges refer to this pin's retained native check/report buffers. Absent historical records remain unavailable; this observation grants no use permission.
+    pub r#original_assessment: Option<
+        crate::generated::structures::FitOriginalAssessmentObservation,
+    >,
     ///The pinned fit's objective f, half the weighted residual sum of squares.
     pub r#objective: Option<f64>,
     ///√(2·max(f - f*, 0)) against the estimate's objective f*.
@@ -928,7 +932,10 @@ impl crate::SemanticEq for RuntimeProfilePointsRow {
                 &self.r#callback_terminal_failure,
                 &other.r#callback_terminal_failure,
             ) && crate::SemanticEq::semantic_eq(&self.r#failures, &other.r#failures)
-            && crate::SemanticEq::semantic_eq(&self.r#objective, &other.r#objective)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#original_assessment,
+                &other.r#original_assessment,
+            ) && crate::SemanticEq::semantic_eq(&self.r#objective, &other.r#objective)
             && crate::SemanticEq::semantic_eq(&self.r#statistic, &other.r#statistic)
             && crate::SemanticEq::semantic_eq(&self.r#accepted, &other.r#accepted)
             && crate::SemanticEq::semantic_eq(&self.r#detail, &other.r#detail)
@@ -1607,6 +1614,8 @@ impl crate::SemanticFrame for RuntimeProfilePointsRow {
         crate::SemanticFrame::frame(&self.r#callback_terminal_failure, hash);
         hash.str(stringify!(r#failures));
         crate::SemanticFrame::frame(&self.r#failures, hash);
+        hash.str(stringify!(r#original_assessment));
+        crate::SemanticFrame::frame(&self.r#original_assessment, hash);
         hash.str(stringify!(r#objective));
         crate::SemanticFrame::frame(&self.r#objective, hash);
         hash.str(stringify!(r#statistic));
@@ -1633,6 +1642,7 @@ impl crate::HeapUsage for RuntimeProfilePointsRow {
                 crate::HeapUsage::heap_bytes(&self.r#callback_terminal_failure),
             )
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#failures))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#original_assessment))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#objective))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#statistic))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#accepted))

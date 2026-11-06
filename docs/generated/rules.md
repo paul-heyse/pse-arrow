@@ -215,6 +215,7 @@
 | `runtime.diagnostics_findings` | `unique:pk` | `SELECT s."finding_id" FROM "runtime"."diagnostics_findings" s GROUP BY s."finding_id" HAVING COUNT(*) > 1` |
 | `runtime.execution_statistics` | `unique:pk` | `SELECT s."name" FROM "runtime"."execution_statistics" s GROUP BY s."name" HAVING COUNT(*) > 1` |
 | `runtime.fit_constraints` | `unique:pk` | `SELECT s."run_id", s."experiment_id", s."row_id" FROM "runtime"."fit_constraints" s GROUP BY s."run_id", s."experiment_id", s."row_id" HAVING COUNT(*) > 1` |
+| `runtime.fit_experiment_assessments` | `unique:pk` | `SELECT s."run_id", s."experiment_id" FROM "runtime"."fit_experiment_assessments" s GROUP BY s."run_id", s."experiment_id" HAVING COUNT(*) > 1` |
 | `runtime.fit_observations` | `unique:pk` | `SELECT s."run_id", s."observation_id" FROM "runtime"."fit_observations" s GROUP BY s."run_id", s."observation_id" HAVING COUNT(*) > 1` |
 | `runtime.fit_parameters` | `unique:pk` | `SELECT s."run_id", s."parameter_id" FROM "runtime"."fit_parameters" s GROUP BY s."run_id", s."parameter_id" HAVING COUNT(*) > 1` |
 | `runtime.fit_variables` | `unique:pk` | `SELECT s."run_id", s."experiment_id", s."symbol_id" FROM "runtime"."fit_variables" s GROUP BY s."run_id", s."experiment_id", s."symbol_id" HAVING COUNT(*) > 1` |

@@ -1040,7 +1040,7 @@ async fn review_qualification_durable_fit_preserves_original_response_and_rows()
         assert!((actual - expected).abs() <= 0.001 * expected.abs().max(1.));
     }
     assert_eq!(fitted.predictions.len(), 4);
-    assert!(fitted.checks_complete);
+    assert!(fitted.assessment.complete());
     assert!(fitted.responses.is_some());
     let invocation = result.invocation_evidence().unwrap();
     assert_eq!(invocation.run_id, result.run_id);

@@ -425,7 +425,27 @@ impl RunResult {
                             diagnostic
                         }),
                 )
-                .chain(r.validation_error.clone())
+                .chain(r.assessment.failures().map(|(experiment, error)| {
+                    let mut diagnostic = error.clone();
+                    if let Some(experiment) = experiment {
+                        diagnostic.observations.insert("fit.experiment".into(), Observation::Text(experiment.to_string()));
+                    }
+                    diagnostic
+                }))
+                .chain(r.profiles.as_ref().and_then(|profiles| profiles.as_ref().ok()).into_iter().flatten().flat_map(|chain| {
+                    chain.points.iter().enumerate().flat_map(move |(point, observed)| {
+                        observed.assessment.failures().map(move |(experiment, error)| {
+                            let mut diagnostic = error.clone();
+                            if let Some(experiment) = experiment {
+                                diagnostic.observations.insert("fit.experiment".into(), Observation::Text(experiment.to_string()));
+                            }
+                            diagnostic.observations.insert("profile.parameter".into(), Observation::Text(chain.parameter.to_string()));
+                            diagnostic.observations.insert("profile.end".into(), Observation::Text(match chain.end { pse_model::generated::enums::IntervalEnd::Lower => "lower", pse_model::generated::enums::IntervalEnd::Upper => "upper" }.into()));
+                            diagnostic.observations.insert("profile.point".into(), Observation::Text(point.to_string()));
+                            diagnostic
+                        })
+                    })
+                }))
                 .collect(),
         };
         let mut seen = Vec::<std::sync::Arc<pse_model::diagnostic::DiagnosticCause>>::new();

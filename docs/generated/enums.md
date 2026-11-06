@@ -1158,6 +1158,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `responses` | `` | false |
 | `gradient` | `` | false |
 
+## `FitExperimentAssessmentState`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `completed` | `` | false |
+| `failed` | `` | false |
+| `unattempted` | `` | false |
+
 ## `HessianMode`
 
 | Member | IDAES name | Deprecated |

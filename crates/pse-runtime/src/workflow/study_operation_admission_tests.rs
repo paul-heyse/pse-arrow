@@ -1473,7 +1473,7 @@ async fn durable_origin_local_fit_keeps_original_regression_without_recording() 
         assert!((actual - expected).abs() < 1e-6);
     }
     assert_eq!(fit.predictions.len(), 4);
-    assert!(fit.checks_complete);
+    assert!(fit.assessment.complete());
     assert!(runtime.canonical_store().unwrap().admit_activity().is_err());
 }
 

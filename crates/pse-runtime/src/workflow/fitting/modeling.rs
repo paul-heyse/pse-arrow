@@ -1526,8 +1526,8 @@ impl PreparedFit {
             },
             |report, observed| {
                 let original_failure = report
-                    .validation_error
-                    .as_ref()
+                    .assessment
+                    .failure()
                     .map(crate::math::strategy::target::assessment_failure)
                     .or_else(|| {
                         report
@@ -1545,8 +1545,8 @@ impl PreparedFit {
                 let original = super::super::numerics::original_completion(
                     report.candidate_use(policy),
                     super::super::numerics::CompletionEvidence::point(
-                        &report.checks,
-                        report.checks_complete && report.validation_error.is_none(),
+                        report.assessment.checks(),
+                        report.assessment.complete(),
                         self.required_closure_checks(),
                     ),
                     policy,
@@ -1607,14 +1607,7 @@ impl PreparedFit {
             report.completion = Some(self.assess_completion(&report));
             return Ok(report);
         };
-        match self.assess_candidate(run_id, candidate, &report.trajectories, &scope) {
-            Ok((checks, reports)) => {
-                report.checks = checks;
-                report.reports = reports;
-                report.checks_complete = true;
-            }
-            Err(error) => report.validation_error = Some(error.boundary_diagnostic()),
-        }
+        report.assessment = self.assess_candidate(run_id, candidate, &report.trajectories, &scope);
         report.completion = Some(self.assess_completion(&report));
         if let Some(uncertainty) = &self.problem.profile.uncertainty
             && let Some(controls) = &uncertainty.profile
@@ -1642,16 +1635,32 @@ impl PreparedFit {
         candidate: &[f64],
         trajectories: &BTreeMap<InstanceId, Arc<native::dynamics::Report>>,
         scope: &pse_kernels::ExecutionScope,
-    ) -> Result<
-        (
-            Vec<super::super::ModelingCheck>,
-            Vec<super::super::ModelingReport>,
-        ),
-        WorkflowError,
-    > {
+    ) -> FitAssessment {
+        let mut assessment = FitAssessment::unattempted(
+            self.problem
+                .declaration
+                .experiments
+                .iter()
+                .map(|experiment| experiment.experiment_id),
+        );
+        let mut member_failure_returned = false;
         let assess = || {
-            if self.assessments.len() != self.problem.experiments.len() {
+            if self.assessments.len() != self.problem.experiments.len()
+                || self.assessments.len() != self.problem.declaration.experiments.len()
+            {
                 return Err(contract("fit assessment sources are incomplete"));
+            }
+            let mut declared = BTreeSet::new();
+            if !self
+                .problem
+                .declaration
+                .experiments
+                .iter()
+                .all(|experiment| declared.insert(experiment.experiment_id))
+            {
+                return Err(contract(
+                    "fit assessment experiment identities are ambiguous",
+                ));
             }
             let checkpoint = || {
                 scope.check().map_err(|error| {
@@ -1660,112 +1669,154 @@ impl PreparedFit {
                     ))
                 })
             };
+            if candidate.len() != self.problem.initial.len() {
+                return Err(contract(
+                    "fit assessment candidate extent differs from original coordinates",
+                ));
+            }
             checkpoint()?;
-            let mut rows = Vec::new();
-            let mut reports = Vec::new();
             for (ei, (source, experiment)) in self
                 .assessments
                 .iter()
                 .zip(&self.problem.experiments)
                 .enumerate()
             {
-                match (source, experiment) {
-                    (
-                        Assessment::Steady {
-                            model,
-                            program,
-                            numerics,
-                        },
-                        Experiment::Steady(s),
-                    ) => {
-                        let mut values = s.values.clone();
-                        for (id, col) in &s.coordinates {
-                            values.scalars.insert(*id, candidate[col.get()]);
+                checkpoint()?;
+                let mut rows = Vec::new();
+                let mut reports = Vec::new();
+                let member = (|| {
+                    match (source, experiment) {
+                        (
+                            Assessment::Steady {
+                                model,
+                                program,
+                                numerics,
+                            },
+                            Experiment::Steady(s),
+                        ) => {
+                            let mut values = s.values.clone();
+                            for (id, col) in &s.coordinates {
+                                values.scalars.insert(*id, candidate[col.get()]);
+                            }
+                            let mut applicability = Vec::new();
+                            let observed = if let Some(program) = program {
+                                let providers = crate::math::attempt_providers(&s.providers, scope)
+                                    .map_err(|e| {
+                                        WorkflowError::from(crate::math::MathRuntimeError::from(
+                                            native::ProblemError::Provider(e),
+                                        ))
+                                    })?;
+                                let mut worker =
+                                    program.assembly.worker_scoped(providers, scope.clone());
+                                let assessed =
+                                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                        let outputs = worker.constraints(&values).map_err(math)?;
+                                        let observed = program
+                                            .assembly
+                                            .structure()
+                                            .rows()
+                                            .iter()
+                                            .map(|r| r.id)
+                                            .zip(outputs.iter().copied())
+                                            .collect();
+                                        Ok((observed, worker.applicability_observations()))
+                                    }))
+                                    .unwrap_or_else(
+                                        |payload| {
+                                            Err(WorkflowError::from(
+                                                crate::math::MathRuntimeError::Panic(
+                                                    pse_diagnostics::panic::settle_payload(
+                                                        payload,
+                                                        "fit assessment panic with opaque payload",
+                                                    ),
+                                                ),
+                                            ))
+                                        },
+                                    );
+                                let (observed, observations) =
+                                    WorkflowError::settle(assessed, worker.finish().map_err(math))?;
+                                applicability = observations;
+                                observed
+                            } else {
+                                BTreeMap::new()
+                            };
+                            let (checks, observations) = checks::assess_observations(
+                                run_id,
+                                model.compiled(),
+                                &values,
+                                &observed,
+                                &applicability,
+                                numerics,
+                                &self.problem.quantities,
+                                true,
+                                None,
+                                None,
+                            )?;
+                            rows.extend(checks);
+                            reports.extend(observations);
                         }
-                        let mut applicability = Vec::new();
-                        let observed = if let Some(program) = program {
-                            let providers = crate::math::attempt_providers(&s.providers, scope)
-                                .map_err(|e| {
-                                    WorkflowError::from(crate::math::MathRuntimeError::from(
-                                        native::ProblemError::Provider(e),
-                                    ))
-                                })?;
-                            let mut worker =
-                                program.assembly.worker_scoped(providers, scope.clone());
-                            let assessed =
-                                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                                    let outputs = worker.constraints(&values).map_err(math)?;
-                                    let observed = program
-                                        .assembly
-                                        .structure()
-                                        .rows()
-                                        .iter()
-                                        .map(|r| r.id)
-                                        .zip(outputs.iter().copied())
-                                        .collect();
-                                    Ok((observed, worker.applicability_observations()))
-                                }))
-                                .unwrap_or_else(|payload| {
-                                    Err(WorkflowError::from(crate::math::MathRuntimeError::Panic(
-                                        pse_diagnostics::panic::settle_payload(
-                                            payload,
-                                            "fit assessment panic with opaque payload",
-                                        ),
-                                    )))
-                                });
-                            let (observed, observations) =
-                                WorkflowError::settle(assessed, worker.finish().map_err(math))?;
-                            applicability = observations;
-                            observed
-                        } else {
-                            BTreeMap::new()
-                        };
-                        let (checks, observations) = checks::assess_observations(
-                            run_id,
-                            model.compiled(),
-                            &values,
-                            &observed,
-                            &applicability,
-                            numerics,
-                            &self.problem.quantities,
-                            true,
-                            None,
-                            None,
-                        )?;
-                        rows.extend(checks);
-                        reports.extend(observations);
+                        (Assessment::Transient(simulation), Experiment::Transient(s)) => {
+                            let mut parameters = s.parameters.clone();
+                            for binding in &s.bindings {
+                                let value = self.problem.parameter_columns[binding.parameter]
+                                    .map_or(
+                                        self.problem.declaration.parameters[binding.parameter]
+                                            .value,
+                                        |col| candidate[col.get()],
+                                    );
+                                parameters[binding.local] =
+                                    value * binding.conversion.scale + binding.conversion.offset;
+                            }
+                            let trajectory = trajectories
+                                .get(&self.problem.declaration.experiments[ei].experiment_id)
+                                .ok_or_else(|| contract("final original trajectory unavailable"))?;
+                            let checks =
+                                simulation.check_samples(run_id, trajectory, &parameters, scope);
+                            rows.extend(checks.rows);
+                            reports.extend(checks.reports);
+                            if let Some(error) = checks.error {
+                                return Err(WorkflowError::Boundary(Box::new(error)));
+                            }
+                            if !checks.complete {
+                                return Err(contract("original trajectory assessment incomplete"));
+                            }
+                        }
+                        _ => return Err(contract("fit assessment source mismatch")),
                     }
-                    (Assessment::Transient(simulation), Experiment::Transient(s)) => {
-                        let mut parameters = s.parameters.clone();
-                        for binding in &s.bindings {
-                            let value = self.problem.parameter_columns[binding.parameter].map_or(
-                                self.problem.declaration.parameters[binding.parameter].value,
-                                |col| candidate[col.get()],
-                            );
-                            parameters[binding.local] =
-                                value * binding.conversion.scale + binding.conversion.offset;
-                        }
-                        let trajectory = trajectories
-                            .get(&self.problem.declaration.experiments[ei].experiment_id)
-                            .ok_or_else(|| contract("final original trajectory unavailable"))?;
-                        let checks =
-                            simulation.check_samples(run_id, trajectory, &parameters, scope);
-                        if let Some(error) = checks.error {
-                            return Err(WorkflowError::Boundary(Box::new(error)));
-                        }
-                        if !checks.complete {
-                            return Err(contract("original trajectory assessment incomplete"));
-                        }
-                        rows.extend(checks.rows);
-                        reports.extend(checks.reports);
-                    }
-                    _ => return Err(contract("fit assessment source mismatch")),
+                    Ok(())
+                })();
+                assessment.record(
+                    ei,
+                    rows,
+                    reports,
+                    member
+                        .as_ref()
+                        .err()
+                        .map(WorkflowError::boundary_diagnostic),
+                );
+                if let Err(error) = member
+                    && !crate::math::strategy::permits_numerical_continuation(
+                        crate::math::strategy::workflow_failure(&error),
+                    )
+                {
+                    member_failure_returned = true;
+                    return Err(error);
                 }
             }
             checkpoint()?;
-            Ok((rows, reports))
+            if let Some(error) = assessment.failure() {
+                member_failure_returned = true;
+                return Err(WorkflowError::Boundary(Box::new(error.clone())));
+            }
+            Ok(())
         };
-        crate::workflow::dynamics::analysis("fit.original_physical_checks", assess)
+        let result = crate::workflow::dynamics::analysis("fit.original_physical_checks", assess);
+        if let Err(error) = result
+            && !member_failure_returned
+        {
+            assessment.interrupt(error.boundary_diagnostic());
+        }
+        assessment
     }
 }
 

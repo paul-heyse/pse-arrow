@@ -228,7 +228,14 @@ async fn native_residual_lm_reports_actual_stopping_and_original_fit_qualificati
         );
         assert!(residual.parameter_updates <= stopping.parameter_update_limit);
         assert!(residual.jacobian_evaluations > 0);
-        assert!(report.checks_complete && report.checks.iter().all(|check| check.satisfied));
+        assert!(
+            report.assessment.complete()
+                && report
+                    .assessment
+                    .checks()
+                    .iter()
+                    .all(|check| check.satisfied)
+        );
         assert!(report.estimate_qualified());
         assert!(result.completion().unwrap().diagnostics.is_empty());
         assert_eq!(

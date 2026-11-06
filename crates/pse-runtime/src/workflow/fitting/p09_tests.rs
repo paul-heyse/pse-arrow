@@ -869,7 +869,7 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
             assert!(!trajectory.events.is_empty());
         }
         assert!(
-            report.checks_complete && report.checks.iter().all(|c| c.satisfied),
+            report.assessment.complete() && report.assessment.checks().iter().all(|c| c.satisfied),
             "{report:?}"
         );
         assert!(report.estimate_qualified(), "mode {mode}: {report:?}");
@@ -1940,10 +1940,13 @@ pub(super) fn candidate_fit_report(problem: &FitProblem, candidate: Vec<f64>) ->
         residual: None,
         completion: None,
         strategy: None,
-        checks: Vec::new(),
-        reports: Vec::new(),
-        checks_complete: false,
-        validation_error: None,
+        assessment: FitAssessment::unattempted(
+            problem
+                .declaration
+                .experiments
+                .iter()
+                .map(|experiment| experiment.experiment_id),
+        ),
         solve: None,
         hessian: problem.profile.solver.controls.hessian,
         derivatives: problem.profile.derivatives,
@@ -1973,6 +1976,213 @@ fn integration_field<'a>(
         .find(|field| field.name == name)
         .unwrap()
         .value
+}
+
+/// Actual final assessment retains earlier experiments and the failing member's
+/// partial rows without supplying any local trajectory or estimate use permission.
+#[tokio::test]
+async fn fitting_experiment_assessment_keeps_original_siblings_and_partial_failure_exports() {
+    use crate::workflow::{
+        FitExperimentAssessmentState as State, RunOutcome, RunReport, RunResult,
+    };
+    use pse_relations::columnar::RelationRow;
+    use pse_relations::generated::runtime::{
+        fit_experiment_assessments, modeling_checks, modeling_reports,
+    };
+    let runtime = crate::workflow::tests::runtime_with_workspace(64 << 20);
+    let services = runtime.execution_services();
+    let (package, profile) = source(&runtime, true, 73.).await;
+    let mut declarations = package
+        .fit_declarations(services.preparation())
+        .await
+        .unwrap();
+    let declaration = &mut declarations.fits[0];
+    for parameter in &mut declaration.parameters {
+        parameter.fixed = true;
+    }
+    // The same original steady case is resolved under two genuinely declared
+    // instance identities. Neither result positions nor aliases supply identity.
+    let mut third = declaration.experiments[1].clone();
+    third.experiment_id = InstanceId::from(id(76));
+    declaration.experiments.swap(0, 1);
+    declaration.experiments.push(third);
+    let package = package
+        .with_fit_declarations(&runtime.source_services(), declarations)
+        .await
+        .unwrap();
+    let prepared = package
+        .prepare_fit(
+            services.preparation(),
+            FitId::from(id(73)),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let original = prepared.start(&services).unwrap().wait().await.unwrap();
+    let RunReport::Fit(report) = original.report().unwrap() else {
+        panic!("original fit missing")
+    };
+    assert!(report.assessment.complete(), "{report:?}");
+    let ids = [
+        InstanceId::from(id(75)),
+        InstanceId::from(id(74)),
+        InstanceId::from(id(76)),
+    ];
+    assert_eq!(
+        report
+            .assessment
+            .experiments()
+            .map(|member| member.experiment_id())
+            .collect::<Vec<_>>(),
+        ids
+    );
+    assert!(
+        report
+            .assessment
+            .experiments()
+            .all(|member| member.state() == State::Completed)
+    );
+    assert_ne!(
+        report.assessment.experiment(ids[0]).unwrap().checks()[0].target_id,
+        report.assessment.experiment(ids[2]).unwrap().checks()[0].target_id
+    );
+    assert!(
+        report
+            .assessment
+            .experiment(InstanceId::from(id(99)))
+            .is_none()
+    );
+    let expected_completed_checks = report
+        .assessment
+        .experiment(ids[0])
+        .unwrap()
+        .checks()
+        .to_vec();
+    // This current-thread test's supervisor publishes and drops its sender in one
+    // synchronous poll; the temporary public handle has also been dropped.
+    let original = Arc::try_unwrap(original).expect("sole completed native result owner");
+    let run_id = original.run_id;
+    let owner = original._owner.clone();
+    // Transfer the native report with all of its owners; Report intentionally has
+    // no Clone operation and no caller map can manufacture its joined selection.
+    let RunOutcome::Fit {
+        request,
+        result: Ok(mut report),
+    } = original.outcome
+    else {
+        panic!("owned fit missing")
+    };
+    let trajectory = report.trajectories.remove(&ids[1]).unwrap();
+    let mut invalid =
+        Arc::try_unwrap(trajectory).expect("joined final trajectory has no callback-cache aliases");
+    assert_eq!(invalid.samples[1].time, 161.);
+    invalid.samples[1].mode = usize::MAX;
+    // The native checker prefers its retained endpoint and original live inputs
+    // over the equal-time sampled view. Challenge that actual selected point too.
+    let endpoint = invalid.endpoint.as_mut().unwrap();
+    assert_eq!(endpoint.point.time, 161.);
+    endpoint.point.mode = usize::MAX;
+    report.trajectories.insert(ids[1], Arc::new(invalid));
+    let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None);
+    let assessment = prepared.assess_candidate(
+        run_id,
+        report.candidate.as_deref().unwrap(),
+        &report.trajectories,
+        &scope,
+    );
+    assert!(!assessment.complete());
+    let members = assessment.experiments().collect::<Vec<_>>();
+    assert_eq!(
+        members
+            .iter()
+            .map(|member| member.state())
+            .collect::<Vec<_>>(),
+        [State::Completed, State::Failed, State::Unattempted]
+    );
+    assert_eq!(members[0].checks(), expected_completed_checks.as_slice());
+    assert!(
+        !members[1].checks().is_empty(),
+        "original initial/sample evidence preceding the bad mode survives"
+    );
+    assert!(members[1].checks().iter().any(|row| row.time == Some(160.)));
+    assert!(members[1].failure().is_some());
+    assert!(members[2].checks().is_empty() && members[2].failure().is_none());
+    report.assessment = assessment;
+    report.completion = Some(prepared.assess_completion(&report));
+    assert!(!report.completion.as_ref().unwrap().permits_use());
+    let controlled = RunResult::joined(
+        run_id,
+        services.clone(),
+        RunOutcome::Fit {
+            request,
+            result: Ok(report),
+        },
+        owner,
+    )
+    .completed();
+    assert!(!controlled.usable());
+    let selected = controlled.fit_trajectory(ids[1]).unwrap();
+    assert!(selected.belongs_to(&controlled));
+    assert_eq!(selected.assessment().experiment_id(), ids[1]);
+    assert_eq!(selected.assessment().state(), State::Failed);
+    assert_eq!(selected.report().samples[1].mode, usize::MAX);
+    assert!(controlled.capture_diagnostics().iter().any(|diagnostic| matches!(diagnostic.observations.get("fit.experiment"), Some(pse_model::diagnostic::Observation::Text(value)) if value == &ids[1].to_string())));
+    let exported = fit_experiment_assessments::Row::rows(
+        &controlled
+            .table("runtime.fit_experiment_assessments")
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        exported
+            .iter()
+            .map(|row| (row.experiment_id, row.state))
+            .collect::<Vec<_>>(),
+        ids.into_iter()
+            .zip([State::Completed, State::Failed, State::Unattempted])
+            .collect::<Vec<_>>()
+    );
+    let checks =
+        modeling_checks::Row::rows(&controlled.table("runtime.modeling_checks").unwrap()).unwrap();
+    let reports =
+        modeling_reports::Row::rows(&controlled.table("runtime.modeling_reports").unwrap())
+            .unwrap();
+    let RunReport::Fit(partial) = controlled.report().unwrap() else {
+        panic!("partial fit missing")
+    };
+    assert_eq!(checks, partial.assessment.checks());
+    assert_eq!(reports, partial.assessment.reports());
+    assert_eq!(exported[1].check_end as usize, checks.len());
+    assert!(exported[1].failure.is_some() && exported[2].failure.is_none());
+    // Cancellation and malformed extent refuse before indexed reads and create
+    // no invented per-member failures, including when a final report is available.
+    let report = partial;
+    let flag = pse_diagnostics::Cancellation::new(true);
+    let cancelled = prepared.assess_candidate(
+        run_id,
+        report.candidate.as_deref().unwrap(),
+        &report.trajectories,
+        &pse_kernels::ExecutionScope::new(flag, None),
+    );
+    assert!(
+        cancelled
+            .experiments()
+            .all(|member| member.state() == State::Unattempted && member.failure().is_none())
+    );
+    assert_eq!(
+        cancelled.failure().unwrap().class,
+        pse_model::diagnostic::BoundaryClass::Cancelled
+    );
+    let wrong_extent = prepared.assess_candidate(run_id, &[1.], &report.trajectories, &scope);
+    assert!(
+        wrong_extent
+            .experiments()
+            .all(|member| member.state() == State::Unattempted)
+    );
+    assert!(wrong_extent.failure().is_some());
 }
 
 /// The actual production final assessment is fresh relative to the callback oracle,

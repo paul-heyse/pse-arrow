@@ -1091,9 +1091,14 @@ async fn fitting_residual_production_matches_native_complete_operations_at_origi
                 let elapsed = started.elapsed();
                 let report = regression::report(&result);
                 assert!(
-                    report.checks_complete && report.checks.iter().all(|check| check.satisfied)
+                    report.assessment.complete()
+                        && report
+                            .assessment
+                            .checks()
+                            .iter()
+                            .all(|check| check.satisfied)
                 );
-                assert!(report.validation_error.is_none(), "{report:?}");
+                assert!(report.assessment.failure().is_none(), "{report:?}");
                 assert!(report.quality.as_ref().unwrap().feasible(), "{report:?}");
                 let covariance = report.covariance.as_ref().unwrap();
                 assert!(
@@ -1715,6 +1720,7 @@ async fn fitting_lm_recorded_criteria_bind_replay_and_actual_profile_identity() 
 
 #[tokio::test]
 async fn fitting_lm_profile_chains_record_actual_criteria_and_effective_caps() {
+    use pse_relations::{columnar::RelationRow, generated::runtime::profile_points};
     let runtime = crate::workflow::tests::runtime();
     let services = runtime.execution_services();
     let seed = fixture(&runtime, "linear", [1., 2.]).await.unwrap();
@@ -1728,6 +1734,8 @@ async fn fitting_lm_profile_chains_record_actual_criteria_and_effective_caps() {
     let updates = prepared.problem.profile.solver.controls.iterations as usize;
     let result = prepared.start(&services).unwrap().wait().await.unwrap();
     let report = regression::report(&result);
+    let batch = result.table("runtime.profile_points").unwrap();
+    let exported = profile_points::Row::rows(&batch).unwrap();
     let estimate = report.residual.as_ref().unwrap().stopping.unwrap();
     assert_eq!(estimate.criteria, ResidualLmCriteria::current());
     assert_eq!(estimate.parameter_update_limit, updates);
@@ -1737,7 +1745,35 @@ async fn fitting_lm_profile_chains_record_actual_criteria_and_effective_caps() {
     );
     for chain in report.profiles.as_ref().unwrap().as_ref().unwrap() {
         assert!(!chain.points.is_empty());
-        for point in &chain.points {
+        for (ordinal, point) in chain.points.iter().enumerate() {
+            assert!(point.assessment.complete(), "{point:?}");
+            assert_eq!(
+                point
+                    .assessment
+                    .experiments()
+                    .map(|member| member.experiment_id())
+                    .collect::<Vec<_>>(),
+                prepared
+                    .declaration()
+                    .experiments
+                    .iter()
+                    .map(|experiment| experiment.experiment_id)
+                    .collect::<Vec<_>>()
+            );
+            let row = exported
+                .iter()
+                .find(|row| {
+                    row.parameter_id == chain.parameter
+                        && row.end == chain.end
+                        && row.point == ordinal as i64
+                })
+                .unwrap();
+            assert_eq!(
+                row.original_assessment,
+                Some(point.assessment.observation().unwrap())
+            );
+            let document = serde_json::to_value(point).unwrap();
+            assert_eq!(document["original_assessment"]["complete"], true);
             let residual = point.residual.as_ref().unwrap();
             let stopping = residual.stopping.unwrap();
             assert_eq!(stopping.criteria, estimate.criteria);
@@ -1754,6 +1790,37 @@ async fn fitting_lm_profile_chains_record_actual_criteria_and_effective_caps() {
         panic!("actual residual method");
     };
     assert_eq!(execution.stopping, Some(estimate));
+    // An explicitly unavailable observation remains unavailable even when the
+    // pin itself was accepted. Missing old Arrow fields are not upgraded by the
+    // current generated native reader merely because the new field is optional.
+    let mut unavailable = exported[0].clone();
+    unavailable.original_assessment = None;
+    let registry = pse_schema::registry().unwrap();
+    let validation = pse_relations::validate::ValidationContext::local(registry).unwrap();
+    let mut builder = profile_points::Row::builder(registry, 1, &validation).unwrap();
+    profile_points::Row::push(&mut builder, unavailable).unwrap();
+    let unavailable = profile_points::Row::finish(builder).unwrap();
+    assert!(
+        profile_points::Row::rows(&unavailable).unwrap()[0]
+            .original_assessment
+            .is_none()
+    );
+    let fields = batch.batch().schema();
+    let indices = fields
+        .fields()
+        .iter()
+        .enumerate()
+        .filter_map(|(index, field)| (field.name() != "original_assessment").then_some(index))
+        .collect::<Vec<_>>();
+    let historical_shape = batch.batch().project(&indices).unwrap();
+    assert_eq!(historical_shape.num_rows(), batch.batch().num_rows());
+    assert!(
+        historical_shape
+            .schema()
+            .field_with_name("original_assessment")
+            .is_err()
+    );
+    assert!(profile_points::View::try_from_batch(&historical_shape, &validation).is_err());
 }
 
 /// SC01-SC03: authored affine calibration, immutable research selection, actual LM,

@@ -49,6 +49,10 @@ use std::sync::{
 pub struct ProfilePoint {
     /// Applicability and closure limitations of this independently checked pin.
     pub qualifiers: Vec<CandidateQualifier>,
+    /// Original per-experiment assessment, independently of acceptance of this pin.
+    #[serde(rename = "original_assessment")]
+    #[schemars(with = "pse_model::generated::structures::FitOriginalAssessmentObservation")]
+    pub assessment: FitAssessment,
     /// Actual residual-native evidence for this pin; absent for a native NLP pin.
     pub residual: Option<FitResidualReport>,
     /// The pinned parameter value, in the parameter's unit.
@@ -397,7 +401,8 @@ impl ProfileChain {
                 .points
                 .iter()
                 .map(|p| {
-                    p.qualifiers.capacity() * size_of::<CandidateQualifier>()
+                    p.assessment.bytes()
+                        + p.qualifiers.capacity() * size_of::<CandidateQualifier>()
                         + p.detail.as_ref().map_or(0, String::capacity)
                         + p.failures.capacity() * size_of::<ProfileFailure>()
                         + p.failures.iter().map(ProfileFailure::bytes).sum::<usize>()
@@ -461,6 +466,7 @@ fn original_failure(error: WorkflowError) -> PinFailure {
 }
 /// An accepted pinned fit.
 struct Solution {
+    assessment: Option<FitAssessment>,
     residual: Option<FitResidualReport>,
     objective: f64,
     primal: Vec<f64>,
@@ -470,6 +476,7 @@ struct Solution {
 }
 /// A failed pinned solve retains report state independently from its original causes.
 struct PinFailure {
+    assessment: Option<FitAssessment>,
     residual: Option<Box<FitResidualReport>>,
     qualification: Option<Qualification>,
     termination: Option<Termination>,
@@ -479,6 +486,7 @@ struct PinFailure {
 impl From<ProblemError> for PinFailure {
     fn from(error: ProblemError) -> Self {
         Self {
+            assessment: None,
             residual: None,
             qualification: None,
             termination: None,
@@ -538,6 +546,7 @@ impl PinFailure {
         let qualification = report.qualification;
         let termination = report.termination.category;
         let mut failure = Self {
+            assessment: None,
             residual: None,
             qualification: Some(qualification),
             termination: Some(termination),
@@ -586,6 +595,7 @@ impl PinFailure {
             .filter(|f| f.is_finite());
         match (report.candidate, objective) {
             (Some(candidate), Some(objective)) => Ok(Solution {
+                assessment: None,
                 residual: None,
                 qualifiers: decision.qualifiers,
                 objective,
@@ -604,6 +614,19 @@ impl PinFailure {
         }
     }
 }
+fn attach_assessment(
+    mut result: Result<Solution, PinFailure>,
+    assessment: Option<FitAssessment>,
+) -> Result<Solution, PinFailure> {
+    if let Some(assessment) = assessment {
+        match &mut result {
+            Ok(solution) => solution.assessment = Some(assessment),
+            Err(failure) => failure.assessment = Some(assessment),
+        }
+    }
+    result
+}
+
 /// What every chain of one fit shares.
 #[derive(Clone, Copy)]
 struct Chains<'a> {
@@ -665,6 +688,7 @@ impl Chains<'_> {
                         })
                     });
                     return Err(PinFailure {
+                        assessment: None,
                         qualification: Some(Qualification::Unqualified),
                         termination: Some(category),
                         residual: Some(Box::new(evidence)),
@@ -693,20 +717,24 @@ impl Chains<'_> {
                 } else {
                     Qualification::Unqualified
                 };
-                let (checks, _) = self
-                    .prepared
-                    .assess_candidate(
-                        self.run_id,
-                        &candidate,
-                        &observed.trajectories,
-                        &self.execution.scope().map_err(PinFailure::from)?,
-                    )
-                    .map_err(|error| original_failure(error).with_residual(&evidence))?;
+                let assessment = self.prepared.assess_candidate(
+                    self.run_id,
+                    &candidate,
+                    &observed.trajectories,
+                    &self.execution.scope().map_err(PinFailure::from)?,
+                );
+                if let Some(error) = assessment.failure() {
+                    let mut failure =
+                        original_failure(WorkflowError::Boundary(Box::new(error.clone())))
+                            .with_residual(&evidence);
+                    failure.assessment = Some(assessment);
+                    return Err(failure);
+                }
                 let decision = pin_acceptance(
                     NativeEvidence::residual(&evidence, Some(&candidate), Some(&observed.quality)),
                     CompletionEvidence::point(
-                        &checks,
-                        true,
+                        assessment.checks(),
+                        assessment.complete(),
                         self.prepared.required_closure_checks(),
                     ),
                     &p.numerics.policy,
@@ -718,6 +746,7 @@ impl Chains<'_> {
                         decision.reason()
                     )));
                     return Err(PinFailure {
+                        assessment: Some(assessment),
                         qualification: Some(evidence.qualification),
                         termination: Some(evidence.termination_category()),
                         residual: Some(Box::new(evidence)),
@@ -728,6 +757,7 @@ impl Chains<'_> {
                 evidence.stationarity = Some(gradient);
                 evidence.qualification = Qualification::Stationary;
                 return Ok(Solution {
+                    assessment: Some(assessment),
                     objective: observed.objective,
                     qualifiers: decision.qualifiers,
                     primal: candidate,
@@ -826,28 +856,33 @@ impl Chains<'_> {
                         ))
                         .with_native(&report));
                     }
-                    let (checks, _) = self
-                        .prepared
-                        .assess_candidate(
-                            self.run_id,
-                            &candidate.primal,
-                            &observed.trajectories,
-                            &self.execution.scope().map_err(PinFailure::from)?,
-                        )
-                        .map_err(|error| original_failure(error).with_native(&report))?;
-                    Some(checks)
+                    let assessment = self.prepared.assess_candidate(
+                        self.run_id,
+                        &candidate.primal,
+                        &observed.trajectories,
+                        &self.execution.scope().map_err(PinFailure::from)?,
+                    );
+                    if let Some(error) = assessment.failure() {
+                        let mut failure =
+                            original_failure(WorkflowError::Boundary(Box::new(error.clone())))
+                                .with_native(&report);
+                        failure.assessment = Some(assessment);
+                        return Err(failure);
+                    }
+                    Some(assessment)
                 } else {
                     None
                 };
-                PinFailure::assess(
+                let outcome = PinFailure::assess(
                     report,
                     CompletionEvidence::point(
-                        original.as_deref().unwrap_or(&[]),
-                        original.is_some(),
+                        original.as_ref().map_or(&[], FitAssessment::checks),
+                        original.as_ref().is_some_and(FitAssessment::complete),
                         self.prepared.required_closure_checks(),
                     ),
                     &p.numerics.policy,
-                )
+                );
+                attach_assessment(outcome, original)
             })()
         })();
         if result.is_err() {
@@ -886,6 +921,12 @@ impl Chains<'_> {
             let column = task.column.get();
             let variable = &p.contract.variables[column];
             ChainPolicy {
+                unattempted: FitAssessment::unattempted(
+                    p.declaration
+                        .experiments
+                        .iter()
+                        .map(|experiment| experiment.experiment_id),
+                ),
                 parameter: p.declaration.parameters[task.parameter].symbol_id,
                 column,
                 end: task.end,
@@ -977,6 +1018,7 @@ fn retire_chain(mut chain: ProfileChain, retirement: Result<(), ProblemError>) -
 }
 /// Statistical target and bracketing policy, independent of problem/native startup.
 struct ChainPolicy<'a> {
+    unattempted: FitAssessment,
     parameter: SemanticId,
     column: usize,
     end: IntervalEnd,
@@ -1116,6 +1158,9 @@ impl ChainPolicy<'_> {
                     }
                     let detail = failure.detail();
                     chain.points.push(ProfilePoint {
+                        assessment: failure
+                            .assessment
+                            .unwrap_or_else(|| self.unattempted.clone()),
                         qualifiers: Vec::new(),
                         residual: failure.residual.map(|residual| *residual),
                         value,
@@ -1148,6 +1193,9 @@ impl ChainPolicy<'_> {
                         context.boolean("profile.point_accepted", !below);
                     }
                     chain.points.push(ProfilePoint {
+                        assessment: solution
+                            .assessment
+                            .unwrap_or_else(|| self.unattempted.clone()),
                         qualifiers: solution.qualifiers.clone(),
                         residual: solution.residual.clone(),
                         value,
@@ -1496,6 +1544,7 @@ mod worker_tests {
 
     fn policy(execution: &Execution) -> ChainPolicy<'_> {
         ChainPolicy {
+            unattempted: FitAssessment::unattempted([]),
             parameter: SemanticId::NIL,
             column: 0,
             end: IntervalEnd::Upper,
@@ -1519,6 +1568,7 @@ mod worker_tests {
     }
     fn solution(value: f64) -> Solution {
         Solution {
+            assessment: None,
             residual: None,
             objective: value * value / 2.0,
             primal: vec![value],
@@ -1786,6 +1836,7 @@ mod worker_tests {
         let chain = policy(&execution).run(|value, _| {
             pins.push(value);
             Err(PinFailure {
+                assessment: None,
                 residual: None,
                 qualification: Some(Qualification::Unqualified),
                 termination: Some(Termination::Evaluation),
@@ -2240,6 +2291,7 @@ async fn residual_profile_pin_preserves_literal_callback_failure_before_independ
         let Err(failed)=chains.solve(&mut native::execution::Retained::default(),OriginalCol::new(0),-1.,
             &estimate,oracle::neutral::FitScratch::new(&problem,&math)) else {panic!("invalid current pin unexpectedly succeeded");};
         assert!(failed.callback_terminal_failure);
+        assert!(failed.assessment.is_none(),"the assessment stage never began; the original callback failure must not invent assessment evidence");
         assert!(!failed.subdivides(),"a latched callback owner cannot masquerade as an unlatched numerical trial");
         let literal=failed.residual.as_ref().unwrap();
         assert!(matches!(literal.termination,FitResidualTermination::User {..}));

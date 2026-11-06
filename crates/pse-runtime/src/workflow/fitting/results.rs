@@ -581,7 +581,41 @@ impl RunResult {
         states.finish().await.map_err(relation)?;
         constraints.finish().await.map_err(relation)?;
         certificates.finish().await.map_err(relation)?;
+        use pse_relations::generated::runtime::fit_experiment_assessments;
         use pse_relations::generated::runtime::{modeling_checks, modeling_reports};
+        let mut experiment_assessments = crate::workflow::result_export::Rows::<
+            fit_experiment_assessments::Row,
+        >::new(
+            request, registry, &pool, &cancel, &validation
+        )
+        .map_err(relation)?;
+        if request.wants(fit_experiment_assessments::RELATION_ID)
+            && let Some(report) = report
+        {
+            // Source-sized metadata only: the check/report values are exported once below.
+            for member in report.assessment.experiments() {
+                if experiment_assessments.skip_next() {
+                    continue;
+                }
+                let _copy =
+                    experiment_assessments.working(&[(member.observation_working_bytes(), 2)])?;
+                let observation = member.observation()?;
+                experiment_assessments
+                    .push(fit_experiment_assessments::Row {
+                        run_id: self.run_id,
+                        experiment_id: observation.experiment_id,
+                        state: observation.state,
+                        check_start: observation.check_start,
+                        check_end: observation.check_end,
+                        report_start: observation.report_start,
+                        report_end: observation.report_end,
+                        failure: observation.failure,
+                    })
+                    .await
+                    .map_err(relation)?;
+            }
+        }
+        experiment_assessments.finish().await.map_err(relation)?;
         let mut checks = crate::workflow::result_export::Rows::<modeling_checks::Row>::new(
             request,
             registry,
@@ -600,7 +634,7 @@ impl RunResult {
         .map_err(relation)?;
         if let Some(report) = report {
             if request.wants(modeling_checks::RELATION_ID) {
-                for row in &report.checks {
+                for row in report.assessment.checks() {
                     if checks.skip_next() {
                         continue;
                     }
@@ -609,7 +643,7 @@ impl RunResult {
             }
 
             if request.wants(modeling_reports::RELATION_ID) {
-                for row in &report.reports {
+                for row in report.assessment.reports() {
                     if reports.skip_next() {
                         continue;
                     }
@@ -903,7 +937,11 @@ async fn uncertainty(
                         continue;
                     }
                     let detail = point.detail.as_ref().map_or(0, String::len);
-                    let _copy = points.working(&[(detail, 1), (point.failures.len(), 8192)])?;
+                    let _copy = points.working(&[
+                        (detail, 1),
+                        (point.failures.len(), 8192),
+                        (point.assessment.observation_working_bytes(), 2),
+                    ])?;
                     let ordinal =
                         |k: usize| i64::try_from(k).map_err(|_| contract("profile point ordinal"));
                     points
@@ -927,6 +965,7 @@ async fn uncertainty(
                                     )
                                 })
                                 .collect(),
+                            original_assessment: Some(point.assessment.observation()?),
                             objective: point.objective,
                             statistic: point.statistic,
                             accepted: point.accepted,

@@ -946,7 +946,7 @@ impl RunResult {
                 row.response_condition = r.and_then(super::FitReport::response_condition);
                 row.validation_error = native
                     .and_then(|s| s.validation_failure().map(ToString::to_string))
-                    .or_else(|| r.and_then(|r| r.validation_error.as_ref().map(|d| d.to_string())));
+                    .or_else(|| r.and_then(|r| r.assessment.failure().map(|d| d.to_string())));
                 row.error = row
                     .error
                     .or_else(|| {

@@ -599,6 +599,19 @@
       ],
       "type": "string"
     },
+    "DiagnosticObservationKind": {
+      "enum": [
+        "missing",
+        "real",
+        "nonfinite",
+        "physical",
+        "integer",
+        "boolean",
+        "text",
+        "contracts"
+      ],
+      "type": "string"
+    },
     "DiagnosticRule": {
       "enum": [
         "authoring.budget",
@@ -804,6 +817,1410 @@
         "test"
       ],
       "type": "string"
+    },
+    "FitExperimentAssessmentFailure": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "applicability": {
+          "description": "applicability",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentFailureApplicabilityItem"
+          },
+          "type": "array"
+        },
+        "causes": {
+          "description": "causes",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentFailureCausesItem"
+          },
+          "type": "array"
+        },
+        "class": {
+          "$ref": "#/$defs/NativeBoundaryClass",
+          "description": "class"
+        },
+        "code": {
+          "$ref": "#/$defs/DiagnosticCode",
+          "description": "code"
+        },
+        "locations": {
+          "description": "locations",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentFailureLocationsItem"
+          },
+          "type": "array"
+        },
+        "observations": {
+          "description": "observations",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentFailureObservationsItem"
+          },
+          "type": "array"
+        },
+        "rule": {
+          "$ref": "#/$defs/DiagnosticRule",
+          "description": "rule"
+        },
+        "severity": {
+          "$ref": "#/$defs/DiagnosticSeverity",
+          "description": "severity"
+        },
+        "sources": {
+          "description": "sources",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        },
+        "stage": {
+          "$ref": "#/$defs/DiagnosticStage",
+          "description": "stage"
+        },
+        "validity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FitExperimentAssessmentFailureValidity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "validity"
+        }
+      },
+      "required": [
+        "code",
+        "class",
+        "severity",
+        "stage",
+        "rule",
+        "sources",
+        "observations",
+        "locations",
+        "validity",
+        "applicability",
+        "causes"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureApplicabilityItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "admitted": {
+          "description": "admitted",
+          "type": "boolean"
+        },
+        "claim": {
+          "$ref": "#/$defs/FitExperimentAssessmentFailureApplicabilityItemClaim",
+          "description": "claim"
+        },
+        "extrapolation_allowed": {
+          "description": "extrapolation_allowed",
+          "type": "boolean"
+        },
+        "inputs": {
+          "description": "inputs",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentFailureApplicabilityItemInputsItem"
+          },
+          "type": "array"
+        },
+        "instance": {
+          "description": "instance",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "outcome": {
+          "$ref": "#/$defs/ModelingApplicabilityOutcome",
+          "description": "outcome"
+        },
+        "permissions": {
+          "description": "permissions",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentFailureApplicabilityItemPermissionsItem"
+          },
+          "type": "array"
+        },
+        "required": {
+          "description": "required",
+          "type": "boolean"
+        },
+        "unknown_allowed": {
+          "description": "unknown_allowed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "claim",
+        "instance",
+        "inputs",
+        "outcome",
+        "required",
+        "permissions",
+        "unknown_allowed",
+        "extrapolation_allowed",
+        "admitted"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureApplicabilityItemClaim": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "basis": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingApplicabilityBasis"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "basis"
+        },
+        "call": {
+          "description": "call",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "coverage": {
+          "description": "coverage",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "dependencies": {
+          "description": "dependencies",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        },
+        "evidence": {
+          "description": "evidence",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "form": {
+          "description": "form",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "id": {
+          "description": "id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "layer": {
+          "$ref": "#/$defs/ModelingValidityLayer",
+          "description": "layer"
+        },
+        "owner": {
+          "description": "owner",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "owner_lineage": {
+          "description": "owner_lineage",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        },
+        "reason": {
+          "description": "reason",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "records": {
+          "description": "records",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "coverage",
+        "owner",
+        "owner_lineage",
+        "evidence",
+        "form",
+        "call",
+        "records",
+        "dependencies",
+        "layer",
+        "basis",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureApplicabilityItemInputsItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "name": {
+          "description": "name",
+          "type": "string"
+        },
+        "quantity_type": {
+          "description": "quantity_type",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "real_kind": {
+          "$ref": "#/$defs/ModelingRealValueKind",
+          "description": "real_kind"
+        },
+        "value": {
+          "description": "value",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "real_kind",
+        "quantity_type"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureApplicabilityItemPermissionsItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "allow_extrapolation": {
+          "description": "allow_extrapolation",
+          "type": "boolean"
+        },
+        "allow_unknown": {
+          "description": "allow_unknown",
+          "type": "boolean"
+        },
+        "id": {
+          "description": "id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "scope": {
+          "description": "scope",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "target_kind": {
+          "$ref": "#/$defs/ModelingPermissionTarget",
+          "description": "target_kind"
+        },
+        "targets": {
+          "description": "targets",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "target_kind",
+        "targets",
+        "allow_unknown",
+        "allow_extrapolation"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureCausesItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "applicability": {
+          "description": "applicability",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentFailureCausesItemApplicabilityItem"
+          },
+          "type": "array"
+        },
+        "class": {
+          "$ref": "#/$defs/NativeBoundaryClass",
+          "description": "class"
+        },
+        "code": {
+          "$ref": "#/$defs/DiagnosticCode",
+          "description": "code"
+        },
+        "locations": {
+          "description": "locations",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentFailureCausesItemLocationsItem"
+          },
+          "type": "array"
+        },
+        "observations": {
+          "description": "observations",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentFailureCausesItemObservationsItem"
+          },
+          "type": "array"
+        },
+        "rule": {
+          "$ref": "#/$defs/DiagnosticRule",
+          "description": "rule"
+        },
+        "severity": {
+          "$ref": "#/$defs/DiagnosticSeverity",
+          "description": "severity"
+        },
+        "sources": {
+          "description": "sources",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        },
+        "stage": {
+          "$ref": "#/$defs/DiagnosticStage",
+          "description": "stage"
+        },
+        "tree_path": {
+          "description": "tree_path",
+          "items": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "validity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FitExperimentAssessmentFailureCausesItemValidity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "validity"
+        }
+      },
+      "required": [
+        "tree_path",
+        "code",
+        "class",
+        "severity",
+        "stage",
+        "rule",
+        "sources",
+        "observations",
+        "locations",
+        "validity",
+        "applicability"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureCausesItemApplicabilityItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "admitted": {
+          "description": "admitted",
+          "type": "boolean"
+        },
+        "claim": {
+          "$ref": "#/$defs/FitExperimentAssessmentFailureCausesItemApplicabilityItemClaim",
+          "description": "claim"
+        },
+        "extrapolation_allowed": {
+          "description": "extrapolation_allowed",
+          "type": "boolean"
+        },
+        "inputs": {
+          "description": "inputs",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentFailureCausesItemApplicabilityItemInputsItem"
+          },
+          "type": "array"
+        },
+        "instance": {
+          "description": "instance",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "outcome": {
+          "$ref": "#/$defs/ModelingApplicabilityOutcome",
+          "description": "outcome"
+        },
+        "permissions": {
+          "description": "permissions",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentFailureCausesItemApplicabilityItemPermissionsItem"
+          },
+          "type": "array"
+        },
+        "required": {
+          "description": "required",
+          "type": "boolean"
+        },
+        "unknown_allowed": {
+          "description": "unknown_allowed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "claim",
+        "instance",
+        "inputs",
+        "outcome",
+        "required",
+        "permissions",
+        "unknown_allowed",
+        "extrapolation_allowed",
+        "admitted"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureCausesItemApplicabilityItemClaim": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "basis": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingApplicabilityBasis"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "basis"
+        },
+        "call": {
+          "description": "call",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "coverage": {
+          "description": "coverage",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "dependencies": {
+          "description": "dependencies",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        },
+        "evidence": {
+          "description": "evidence",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "form": {
+          "description": "form",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "id": {
+          "description": "id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "layer": {
+          "$ref": "#/$defs/ModelingValidityLayer",
+          "description": "layer"
+        },
+        "owner": {
+          "description": "owner",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "owner_lineage": {
+          "description": "owner_lineage",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        },
+        "reason": {
+          "description": "reason",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "records": {
+          "description": "records",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "coverage",
+        "owner",
+        "owner_lineage",
+        "evidence",
+        "form",
+        "call",
+        "records",
+        "dependencies",
+        "layer",
+        "basis",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureCausesItemApplicabilityItemInputsItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "name": {
+          "description": "name",
+          "type": "string"
+        },
+        "quantity_type": {
+          "description": "quantity_type",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "real_kind": {
+          "$ref": "#/$defs/ModelingRealValueKind",
+          "description": "real_kind"
+        },
+        "value": {
+          "description": "value",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "real_kind",
+        "quantity_type"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureCausesItemApplicabilityItemPermissionsItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "allow_extrapolation": {
+          "description": "allow_extrapolation",
+          "type": "boolean"
+        },
+        "allow_unknown": {
+          "description": "allow_unknown",
+          "type": "boolean"
+        },
+        "id": {
+          "description": "id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "scope": {
+          "description": "scope",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "target_kind": {
+          "$ref": "#/$defs/ModelingPermissionTarget",
+          "description": "target_kind"
+        },
+        "targets": {
+          "description": "targets",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "target_kind",
+        "targets",
+        "allow_unknown",
+        "allow_extrapolation"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureCausesItemLocationsItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "document": {
+          "description": "document",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "end": {
+          "description": "end",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "name",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "occurrence_position": {
+          "description": "occurrence_position",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "occurrence_role": {
+          "description": "occurrence_role",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "description": "path",
+          "type": "string"
+        },
+        "revision": {
+          "description": "revision",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "ContentHash"
+        },
+        "source_id": {
+          "description": "source_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "start": {
+          "description": "start",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "source_id",
+        "revision",
+        "document",
+        "occurrence_role",
+        "occurrence_position",
+        "path",
+        "name",
+        "start",
+        "end"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureCausesItemObservationsItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "boolean": {
+          "description": "boolean",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "context": {
+          "description": "context",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "ContentHash"
+        },
+        "contracts": {
+          "description": "contracts",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentFailureCausesItemObservationsItemContractsItem"
+          },
+          "type": "array"
+        },
+        "integer": {
+          "description": "integer",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "kind": {
+          "$ref": "#/$defs/DiagnosticObservationKind",
+          "description": "kind"
+        },
+        "name": {
+          "description": "name",
+          "type": "string"
+        },
+        "quantity": {
+          "description": "quantity",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "real": {
+          "description": "real",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "real_kind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingRealValueKind"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "real_kind"
+        },
+        "text": {
+          "description": "text",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "unit": {
+          "description": "unit",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "real",
+        "real_kind",
+        "integer",
+        "boolean",
+        "text",
+        "quantity",
+        "unit",
+        "context",
+        "contracts"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureCausesItemObservationsItemContractsItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "indices": {
+          "description": "indices",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentFailureCausesItemObservationsItemContractsItemIndicesItem"
+          },
+          "type": "array"
+        },
+        "quantity": {
+          "description": "quantity",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        }
+      },
+      "required": [
+        "quantity",
+        "indices"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureCausesItemObservationsItemContractsItemIndicesItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "bound_index": {
+          "description": "bound_index",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "domain": {
+          "description": "domain",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "kind": {
+          "description": "kind",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        }
+      },
+      "required": [
+        "bound_index",
+        "domain",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureCausesItemValidity": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "form_id": {
+          "description": "form_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "layer": {
+          "$ref": "#/$defs/ModelingValidityLayer",
+          "description": "layer"
+        },
+        "member_ids": {
+          "description": "member_ids",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        },
+        "set_ids": {
+          "description": "set_ids",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        },
+        "source_id": {
+          "description": "source_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "variables": {
+          "description": "variables",
+          "items": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "layer",
+        "source_id",
+        "form_id",
+        "set_ids",
+        "variables",
+        "member_ids"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureLocationsItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "document": {
+          "description": "document",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "end": {
+          "description": "end",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "name",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "occurrence_position": {
+          "description": "occurrence_position",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "occurrence_role": {
+          "description": "occurrence_role",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "description": "path",
+          "type": "string"
+        },
+        "revision": {
+          "description": "revision",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "ContentHash"
+        },
+        "source_id": {
+          "description": "source_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "start": {
+          "description": "start",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "source_id",
+        "revision",
+        "document",
+        "occurrence_role",
+        "occurrence_position",
+        "path",
+        "name",
+        "start",
+        "end"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureObservationsItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "boolean": {
+          "description": "boolean",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "context": {
+          "description": "context",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "ContentHash"
+        },
+        "contracts": {
+          "description": "contracts",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentFailureObservationsItemContractsItem"
+          },
+          "type": "array"
+        },
+        "integer": {
+          "description": "integer",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "kind": {
+          "$ref": "#/$defs/DiagnosticObservationKind",
+          "description": "kind"
+        },
+        "name": {
+          "description": "name",
+          "type": "string"
+        },
+        "quantity": {
+          "description": "quantity",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "real": {
+          "description": "real",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "real_kind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingRealValueKind"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "real_kind"
+        },
+        "text": {
+          "description": "text",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "unit": {
+          "description": "unit",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "real",
+        "real_kind",
+        "integer",
+        "boolean",
+        "text",
+        "quantity",
+        "unit",
+        "context",
+        "contracts"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureObservationsItemContractsItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "indices": {
+          "description": "indices",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentFailureObservationsItemContractsItemIndicesItem"
+          },
+          "type": "array"
+        },
+        "quantity": {
+          "description": "quantity",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        }
+      },
+      "required": [
+        "quantity",
+        "indices"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureObservationsItemContractsItemIndicesItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "bound_index": {
+          "description": "bound_index",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "domain": {
+          "description": "domain",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "kind": {
+          "description": "kind",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        }
+      },
+      "required": [
+        "bound_index",
+        "domain",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentFailureValidity": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "form_id": {
+          "description": "form_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "layer": {
+          "$ref": "#/$defs/ModelingValidityLayer",
+          "description": "layer"
+        },
+        "member_ids": {
+          "description": "member_ids",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        },
+        "set_ids": {
+          "description": "set_ids",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        },
+        "source_id": {
+          "description": "source_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "variables": {
+          "description": "variables",
+          "items": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "layer",
+        "source_id",
+        "form_id",
+        "set_ids",
+        "variables",
+        "member_ids"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentObservation": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "check_end": {
+          "description": "check_end",
+          "format": "int64",
+          "type": "integer"
+        },
+        "check_start": {
+          "description": "check_start",
+          "format": "int64",
+          "type": "integer"
+        },
+        "experiment_id": {
+          "description": "experiment_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "InstanceId"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FitExperimentAssessmentFailure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "failure"
+        },
+        "report_end": {
+          "description": "report_end",
+          "format": "int64",
+          "type": "integer"
+        },
+        "report_start": {
+          "description": "report_start",
+          "format": "int64",
+          "type": "integer"
+        },
+        "state": {
+          "$ref": "#/$defs/FitExperimentAssessmentState",
+          "description": "state"
+        }
+      },
+      "required": [
+        "experiment_id",
+        "state",
+        "check_start",
+        "check_end",
+        "report_start",
+        "report_end",
+        "failure"
+      ],
+      "type": "object"
+    },
+    "FitExperimentAssessmentState": {
+      "enum": [
+        "completed",
+        "failed",
+        "unattempted"
+      ],
+      "type": "string"
+    },
+    "FitOriginalAssessmentObservation": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "complete": {
+          "description": "complete",
+          "type": "boolean"
+        },
+        "experiments": {
+          "description": "experiments",
+          "items": {
+            "$ref": "#/$defs/FitExperimentAssessmentObservation"
+          },
+          "type": "array"
+        },
+        "interruption": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FitExperimentAssessmentFailure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "interruption"
+        }
+      },
+      "required": [
+        "complete",
+        "experiments",
+        "interruption"
+      ],
+      "type": "object"
     },
     "FitResidualReport": {
       "additionalProperties": false,
@@ -1098,6 +2515,15 @@
       "enum": [
         "records",
         "families"
+      ],
+      "type": "string"
+    },
+    "ModelingRealValueKind": {
+      "enum": [
+        "finite",
+        "negative_infinity",
+        "positive_infinity",
+        "indeterminate"
       ],
       "type": "string"
     },
@@ -1634,6 +3060,10 @@
             "null"
           ]
         },
+        "original_assessment": {
+          "$ref": "#/$defs/FitOriginalAssessmentObservation",
+          "description": "Original per-experiment assessment, independently of acceptance of this pin."
+        },
         "qualification": {
           "anyOf": [
             {
@@ -1699,6 +3129,7 @@
       },
       "required": [
         "qualifiers",
+        "original_assessment",
         "residual",
         "value",
         "seed",
@@ -2047,8 +3478,8 @@
       "description": "No profile request was made.",
       "properties": {
         "document_version": {
-          "const": 2,
-          "default": 2,
+          "const": 3,
+          "default": 3,
           "type": "integer"
         },
         "status": {
@@ -2074,8 +3505,8 @@
           "type": "array"
         },
         "document_version": {
-          "const": 2,
-          "default": 2,
+          "const": 3,
+          "default": 3,
           "type": "integer"
         },
         "status": {
@@ -2099,8 +3530,8 @@
           "type": "string"
         },
         "document_version": {
-          "const": 2,
-          "default": 2,
+          "const": 3,
+          "default": 3,
           "type": "integer"
         },
         "reason": {
@@ -2123,8 +3554,8 @@
   ],
   "properties": {
     "document_version": {
-      "const": 2,
-      "default": 2,
+      "const": 3,
+      "default": 3,
       "type": "integer"
     }
   },

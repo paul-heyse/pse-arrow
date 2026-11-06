@@ -203,6 +203,7 @@ mod boundary_unit {
             detail: Some("stopped after terminal failure".into()),
             points: vec![
                 ProfilePoint {
+                    assessment: super::super::FitAssessment::unattempted([]),
                     qualifiers: Vec::new(),
                     residual: None,
                     value: 1.,
@@ -217,6 +218,7 @@ mod boundary_unit {
                     detail: Some("trial trajectory".into()),
                 },
                 ProfilePoint {
+                    assessment: super::super::FitAssessment::unattempted([]),
                     qualifiers: Vec::new(),
                     residual: None,
                     value: 1.5,

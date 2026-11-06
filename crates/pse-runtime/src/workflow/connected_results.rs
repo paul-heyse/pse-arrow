@@ -3494,7 +3494,7 @@ mod canonical_connected_results_server_unit {
                 let mut profile = profile_points::Builder::with_registry(runtime.registry(), 2, &validation).unwrap();
                 let profile_run = pse_operations::mint_id();
                 for point in 0..2 {
-                    profile.push(profile_points::Row {run_id: profile_run, parameter_id: parameter,
+                    profile.push(profile_points::Row {run_id: profile_run, parameter_id: parameter, original_assessment: None,
                         end: IntervalEnd::Lower, point, value: point as f64, seed: None,
                         qualification: (point == 0).then_some(NativeQualification::Stationary), qualifiers: vec![],
                         termination: (point == 0).then_some(NativeTermination::Success), callback_terminal_failure: None,

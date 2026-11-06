@@ -784,7 +784,7 @@ impl RunResult {
                         .map(|_| pse_model::generated::enums::NativeCandidateKind::FinalIterate);
                     row.validated = Some(
                         report.quality.is_some()
-                            && report.validation_error.is_none()
+                            && report.assessment.failure().is_none()
                             && residual.failure.is_none(),
                     );
                 }

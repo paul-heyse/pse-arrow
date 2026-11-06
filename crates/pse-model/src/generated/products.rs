@@ -340,7 +340,7 @@ const REQUIRED_LOCAL_ANALYSIS_MODELING: [ScientificRelation; 15usize] = [
         name: "runtime.modeling_checks",
     },
 ];
-const REQUIRED_LOCAL_ANALYSIS_FIT: [ScientificRelation; 17usize] = [
+const REQUIRED_LOCAL_ANALYSIS_FIT: [ScientificRelation; 18usize] = [
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([
             38u8, 238u8, 176u8, 153u8, 79u8, 7u8, 108u8, 167u8, 177u8, 103u8, 240u8,
@@ -371,13 +371,6 @@ const REQUIRED_LOCAL_ANALYSIS_FIT: [ScientificRelation; 17usize] = [
     },
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([
-            75u8, 7u8, 126u8, 86u8, 98u8, 215u8, 132u8, 249u8, 40u8, 123u8, 180u8, 151u8,
-            216u8, 160u8, 99u8, 196u8,
-        ]),
-        name: "runtime.profile_points",
-    },
-    ScientificRelation {
-        id: pse_ids::SemanticId::from_bytes([
             80u8, 155u8, 154u8, 158u8, 146u8, 23u8, 67u8, 159u8, 46u8, 196u8, 223u8,
             153u8, 229u8, 52u8, 130u8, 193u8,
         ]),
@@ -389,6 +382,13 @@ const REQUIRED_LOCAL_ANALYSIS_FIT: [ScientificRelation; 17usize] = [
             18u8, 33u8, 246u8, 30u8,
         ]),
         name: "runtime.propagated_covariances",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            108u8, 186u8, 111u8, 73u8, 142u8, 242u8, 242u8, 121u8, 21u8, 171u8, 185u8,
+            60u8, 242u8, 26u8, 182u8, 34u8,
+        ]),
+        name: "runtime.fit_experiment_assessments",
     },
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([
@@ -445,6 +445,13 @@ const REQUIRED_LOCAL_ANALYSIS_FIT: [ScientificRelation; 17usize] = [
             30u8, 88u8, 98u8, 233u8,
         ]),
         name: "runtime.parameter_intervals",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            176u8, 173u8, 76u8, 186u8, 66u8, 31u8, 245u8, 19u8, 17u8, 93u8, 127u8, 37u8,
+            166u8, 150u8, 164u8, 244u8,
+        ]),
+        name: "runtime.profile_points",
     },
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([

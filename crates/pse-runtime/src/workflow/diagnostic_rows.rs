@@ -195,6 +195,38 @@ mod profile {
     }
 }
 
+mod fit_assessment {
+    use super::*;
+    use pse_model::generated::structures::{
+        FitExperimentAssessmentFailure as Envelope,
+        FitExperimentAssessmentFailureApplicabilityItem as ApplicabilityRow,
+        FitExperimentAssessmentFailureApplicabilityItemClaim as ClaimRow,
+        FitExperimentAssessmentFailureApplicabilityItemInputsItem as InputRow,
+        FitExperimentAssessmentFailureApplicabilityItemPermissionsItem as PermissionRow,
+        FitExperimentAssessmentFailureCausesItem as Cause,
+        FitExperimentAssessmentFailureCausesItemApplicabilityItem as CauseApplicabilityRow,
+        FitExperimentAssessmentFailureCausesItemApplicabilityItemClaim as CauseClaimRow,
+        FitExperimentAssessmentFailureCausesItemApplicabilityItemInputsItem as CauseInputRow,
+        FitExperimentAssessmentFailureCausesItemApplicabilityItemPermissionsItem as CausePermissionRow,
+        FitExperimentAssessmentFailureCausesItemLocationsItem as CauseLocationRow,
+        FitExperimentAssessmentFailureCausesItemObservationsItem as CauseObservationRow,
+        FitExperimentAssessmentFailureCausesItemObservationsItemContractsItem as CauseContractRow,
+        FitExperimentAssessmentFailureCausesItemObservationsItemContractsItemIndicesItem as CauseAxisRow,
+        FitExperimentAssessmentFailureCausesItemValidity as CauseValidityRow,
+        FitExperimentAssessmentFailureLocationsItem as LocationRow,
+        FitExperimentAssessmentFailureObservationsItem as ObservationRow,
+        FitExperimentAssessmentFailureObservationsItemContractsItem as ContractRow,
+        FitExperimentAssessmentFailureObservationsItemContractsItemIndicesItem as AxisRow,
+        FitExperimentAssessmentFailureValidity as ValidityRow,
+    };
+    pub(super) fn project(f: &BoundaryDiagnostic) -> Envelope {
+        let mut flattened = Vec::new();
+        flatten(&f.causes, &mut Vec::new(), &mut flattened);
+        let causes = flattened.into_iter().map(|(tree_path, cause)| envelope!(cause, Cause, CauseObservationRow, CauseContractRow, CauseAxisRow, CauseLocationRow, CauseValidityRow, CauseApplicabilityRow, CauseClaimRow, CauseInputRow, CausePermissionRow; tree_path: tree_path)).collect();
+        envelope!(f, Envelope, ObservationRow, ContractRow, AxisRow, LocationRow, ValidityRow, ApplicabilityRow, ClaimRow, InputRow, PermissionRow;  causes: causes)
+    }
+}
+
 mod strategy {
     use super::*;
     use pse_model::generated::runtime::solve_strategy_events::{
@@ -253,6 +285,13 @@ pub(crate) fn profile_failure(
     diagnostic: &BoundaryDiagnostic,
 ) -> pse_model::generated::runtime::profile_points::RuntimeProfilePointsFieldFailuresItem {
     profile::project(diagnostic)
+}
+
+/// Original per-experiment failures retain the same registry-owned diagnostic envelope.
+pub(crate) fn fit_experiment_assessment_failure(
+    diagnostic: &BoundaryDiagnostic,
+) -> pse_model::generated::structures::FitExperimentAssessmentFailure {
+    fit_assessment::project(diagnostic)
 }
 
 /// Strategy failures use the same semantic envelope and ordered cause-tree projection.
@@ -418,6 +457,7 @@ mod tests {
         child.causes = vec![leaf];
         diagnostic.causes = vec![child];
         let row = profile_points::Row {
+            original_assessment: None,
             run_id: RunId::from(source),
             parameter_id: source,
             end: IntervalEnd::Lower,

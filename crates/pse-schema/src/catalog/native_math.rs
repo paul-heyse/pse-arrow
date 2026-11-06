@@ -29,6 +29,49 @@ fn ordinal() -> T {
 fn record(fields: Vec<(&'static str, T)>) -> T {
     T::structure(fields.into_iter().map(|(n, t)| t.with_name(n)).collect())
 }
+/// One passive field shape for final-estimate rows and original profile-pin members.
+fn fit_experiment_assessment_fields() -> Vec<T> {
+    vec![
+        documented(
+            "experiment_id",
+            T::id(),
+            "Exact originally declared fit experiment instance; never a result row alias.",
+        )
+        .with_identity("instance"),
+        documented(
+            "state",
+            T::enumeration("FitExperimentAssessmentState"),
+            "Original assessment coverage, independent of satisfaction or scientific use permission.",
+        ),
+        documented(
+            "check_start",
+            T::nonnegative(i64::MAX),
+            "Inclusive original check coordinate in this candidate's sole assessment buffer.",
+        ),
+        documented(
+            "check_end",
+            T::nonnegative(i64::MAX),
+            "Exclusive original check coordinate; includes partial evidence from a failed assessment.",
+        ),
+        documented(
+            "report_start",
+            T::nonnegative(i64::MAX),
+            "Inclusive original report coordinate in this candidate's sole assessment buffer.",
+        ),
+        documented(
+            "report_end",
+            T::nonnegative(i64::MAX),
+            "Exclusive original report coordinate; includes partial evidence from a failed assessment.",
+        ),
+        documented(
+            "failure",
+            T::structure(super::modeling_analysis::diagnostic_fields_with_causes())
+                .named("FitExperimentAssessmentFailure"),
+            "Original structured failure, present exactly when this member's assessment failed.",
+        )
+        .optional(),
+    ]
+}
 /// The model a row belongs to: the specialized definition, typed `declaration`. Its
 /// derivations live in `pse_model::lineage`; these column documents own the meaning.
 fn model_id(doc: &'static str) -> T {
@@ -54,6 +97,22 @@ fn fit_id(doc: &'static str) -> T {
 }
 pub(super) fn declare(b: &mut RegistryBuilder) {
     declare_physical_boundary(b);
+    enumeration(
+        b,
+        "FitExperimentAssessmentState",
+        ["completed", "failed", "unattempted"],
+    );
+    let mut experiment_assessment_columns = vec![run_id()];
+    experiment_assessment_columns.extend(fit_experiment_assessment_fields());
+    relation(
+        b,
+        N::Runtime,
+        "fit_experiment_assessments",
+        S::Derived,
+        &["run_id", "experiment_id"],
+        experiment_assessment_columns,
+        "Original final-candidate per-experiment assessment evidence. Ranges select the original ordered modeling_checks/modeling_reports population, not physical point identity. Completed records coverage even when a check is unsatisfied; failed retains partial rows; unattempted invents no error. This observation grants no scientific use permission.",
+    );
     let coordinate = record(vec![
         ("id", T::id()),
         ("quantity_id", T::id()),
@@ -2309,7 +2368,7 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder, local_validity: T) {
         b,
         N::Runtime,
         "profile_points",
-        3,
+        4,
         S::Derived,
         &["run_id", "parameter_id", "end", "point"],
         vec![
@@ -2337,6 +2396,11 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder, local_validity: T) {
             column("termination", T::enumeration("NativeTermination")).optional(),
             documented("callback_terminal_failure", flag(), "An actual terminal callback latch, absent in historical records that did not observe it.").optional(),
             column("failures", T::list(T::structure(super::modeling_analysis::diagnostic_fields_with_causes()))),
+            documented("original_assessment", record(vec![
+                ("complete", flag()),
+                ("experiments", T::list(T::structure(fit_experiment_assessment_fields()).named("FitExperimentAssessmentObservation"))),
+                ("interruption", T::structure(super::modeling_analysis::diagnostic_fields_with_causes()).named("FitExperimentAssessmentFailure").optional()),
+            ]).named("FitOriginalAssessmentObservation"), "Original assessment of this exact pin: derived completeness, declared-order experiment evidence, and only an assessment-wide interruption. Member ranges refer to this pin's retained native check/report buffers. Absent historical records remain unavailable; this observation grants no use permission.").optional(),
             documented(
                 "objective",
                 real(),

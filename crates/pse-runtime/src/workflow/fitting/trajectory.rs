@@ -13,7 +13,7 @@ use pse_model::generated::identities::RunId;
 #[derive(Clone, Copy, Debug)]
 pub struct FitTrajectory<'a> {
     producer: &'a RunResult,
-    experiment: InstanceId,
+    assessment: super::FitExperimentAssessment<'a>,
     report: &'a native::dynamics::Report,
 }
 
@@ -36,7 +36,12 @@ impl FitTrajectory<'_> {
 
     /// Original experiment, not an ordinal or a trajectory-map position.
     pub fn experiment_id(&self) -> InstanceId {
-        self.experiment
+        self.assessment.experiment_id()
+    }
+
+    /// Original local assessment evidence. Completion is not a scientific use grant.
+    pub fn assessment(&self) -> super::FitExperimentAssessment<'_> {
+        self.assessment
     }
 
     /// Already-produced raw trajectory, including incomplete or unusable evidence.
@@ -93,7 +98,7 @@ impl RunResult {
         }
         Some(FitTrajectory {
             producer: self,
-            experiment,
+            assessment: report.assessment.experiment(experiment)?,
             report: report.trajectories.get(&experiment)?.as_ref(),
         })
     }

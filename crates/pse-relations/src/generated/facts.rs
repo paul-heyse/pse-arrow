@@ -1803,6 +1803,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            108u8, 186u8, 111u8, 73u8, 142u8, 242u8, 242u8, 121u8, 21u8, 171u8, 185u8,
+            60u8, 242u8, 26u8, 182u8, 34u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeFitExperimentAssessments(
+                super::r#runtime::r#fit_experiment_assessments::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             72u8, 80u8, 229u8, 187u8, 141u8, 59u8, 124u8, 11u8, 116u8, 112u8, 248u8,
             108u8, 61u8, 88u8, 247u8, 71u8,
         ])
@@ -2151,8 +2163,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            75u8, 7u8, 126u8, 86u8, 98u8, 215u8, 132u8, 249u8, 40u8, 123u8, 180u8, 151u8,
-            216u8, 160u8, 99u8, 196u8,
+            176u8, 173u8, 76u8, 186u8, 66u8, 31u8, 245u8, 19u8, 17u8, 93u8, 127u8, 37u8,
+            166u8, 150u8, 164u8, 244u8,
         ])
     {
         return Ok(
@@ -2899,6 +2911,9 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeFitConstraints(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeFitExperimentAssessments(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeFitObservations(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }

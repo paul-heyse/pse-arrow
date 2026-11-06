@@ -457,6 +457,10 @@ pub enum FactBatch {
     r#RuntimeExecutionStatistics(Vec<super::r#runtime::r#execution_statistics::Row>),
     #[doc = stringify!(r#RuntimeFitConstraints)]
     r#RuntimeFitConstraints(Vec<super::r#runtime::r#fit_constraints::Row>),
+    #[doc = stringify!(r#RuntimeFitExperimentAssessments)]
+    r#RuntimeFitExperimentAssessments(
+        Vec<super::r#runtime::r#fit_experiment_assessments::Row>,
+    ),
     #[doc = stringify!(r#RuntimeFitObservations)]
     r#RuntimeFitObservations(Vec<super::r#runtime::r#fit_observations::Row>),
     #[doc = stringify!(r#RuntimeFitParameters)]
@@ -1486,6 +1490,12 @@ impl FactBatch {
                     194u8, 39u8, 79u8, 44u8, 26u8, 116u8,
                 ])
             }
+            Self::r#RuntimeFitExperimentAssessments(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    108u8, 186u8, 111u8, 73u8, 142u8, 242u8, 242u8, 121u8, 21u8, 171u8,
+                    185u8, 60u8, 242u8, 26u8, 182u8, 34u8,
+                ])
+            }
             Self::r#RuntimeFitObservations(_) => {
                 pse_ids::SemanticId::from_bytes([
                     72u8, 80u8, 229u8, 187u8, 141u8, 59u8, 124u8, 11u8, 116u8, 112u8,
@@ -1662,8 +1672,8 @@ impl FactBatch {
             }
             Self::r#RuntimeProfilePoints(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    75u8, 7u8, 126u8, 86u8, 98u8, 215u8, 132u8, 249u8, 40u8, 123u8,
-                    180u8, 151u8, 216u8, 160u8, 99u8, 196u8,
+                    176u8, 173u8, 76u8, 186u8, 66u8, 31u8, 245u8, 19u8, 17u8, 93u8,
+                    127u8, 37u8, 166u8, 150u8, 164u8, 244u8,
                 ])
             }
             Self::r#RuntimePropagatedCovariances(_) => {
@@ -1958,6 +1968,7 @@ impl FactBatch {
             Self::r#RuntimeDiagnosticsFindings(rows) => rows.len(),
             Self::r#RuntimeExecutionStatistics(rows) => rows.len(),
             Self::r#RuntimeFitConstraints(rows) => rows.len(),
+            Self::r#RuntimeFitExperimentAssessments(rows) => rows.len(),
             Self::r#RuntimeFitObservations(rows) => rows.len(),
             Self::r#RuntimeFitParameters(rows) => rows.len(),
             Self::r#RuntimeFitVariables(rows) => rows.len(),
@@ -2764,6 +2775,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeFitConstraints(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeFitExperimentAssessments(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -3732,6 +3748,12 @@ impl FactBatch {
             Self::r#RuntimeFitConstraints(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeFitConstraints(vec![row.clone()]))
+            }
+            Self::r#RuntimeFitExperimentAssessments(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeFitExperimentAssessments(
+                        vec![row.clone()],
+                    ))
             }
             Self::r#RuntimeFitObservations(rows) => {
                 rows.get(index)
@@ -5551,6 +5573,17 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeFitExperimentAssessments(left),
+                Self::r#RuntimeFitExperimentAssessments(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeFitObservations(left),
                 Self::r#RuntimeFitObservations(right),
             ) => {
@@ -7143,6 +7176,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeFitConstraints(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeFitExperimentAssessments(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -9313,6 +9353,21 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeFitExperimentAssessments(left),
+                Self::r#RuntimeFitExperimentAssessments(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#experiment_id,
+                                &right.r#experiment_id,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeFitObservations(left),
                 Self::r#RuntimeFitObservations(right),
             ) => {
@@ -10840,6 +10895,11 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#experiment_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#row_id, &mut hash);
             }
+            Self::r#RuntimeFitExperimentAssessments(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#experiment_id, &mut hash);
+            }
             Self::r#RuntimeFitObservations(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
@@ -12166,6 +12226,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeFitExperimentAssessments(left),
+                Self::r#RuntimeFitExperimentAssessments(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeFitObservations(left),
                 Self::r#RuntimeFitObservations(mut right),
             ) => {
@@ -12877,6 +12944,9 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeFitConstraints(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeFitExperimentAssessments(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeFitObservations(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeFitParameters(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeFitVariables(rows) => crate::HeapUsage::heap_bytes(rows),

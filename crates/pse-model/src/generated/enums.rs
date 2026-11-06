@@ -10003,6 +10003,154 @@ impl FitDerivatives {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum FitExperimentAssessmentState {
+    ///completed
+    #[serde(rename = "completed")]
+    #[strum(serialize = "completed")]
+    Completed,
+    ///failed
+    #[serde(rename = "failed")]
+    #[strum(serialize = "failed")]
+    Failed,
+    ///unattempted
+    #[serde(rename = "unattempted")]
+    #[strum(serialize = "unattempted")]
+    Unattempted,
+}
+impl pse_contract::boundary_projection::ProjectionType for FitExperimentAssessmentState {
+    fn projection(
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "FitExperimentAssessmentState",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                pse_contract::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        pse_contract::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_contract::boundary_projection::ValidateProjection
+for FitExperimentAssessmentState {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
+impl crate::SemanticEq for FitExperimentAssessmentState {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl FitExperimentAssessmentState {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Completed => 0usize,
+            Self::Failed => 1usize,
+            Self::Unattempted => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Completed => None,
+            Self::Failed => None,
+            Self::Unattempted => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for FitExperimentAssessmentState {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(FitExperimentAssessmentState))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(FitExperimentAssessmentState)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["completed", "failed", "unattempted"] }
+        )
+    }
+}
+impl FitExperimentAssessmentState {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(FitExperimentAssessmentState),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum HessianMode {
     ///Resolve a supported concrete curvature mode before adapter admission.
     #[serde(rename = "auto")]
@@ -36124,9 +36272,10 @@ macro_rules! for_each_registry_enum {
         DiffsolMethod, DualQualification, DynamicSensitivity, DynamicsMethod,
         EndpointPolicy, EngineeringScaleKind, EntityKind, EventDirection,
         EvidenceUnavailableReason, ExecutorRole, ExternalDerivativeSource, FailureClass,
-        FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives, HessianMode,
-        HighsMethod, IdPolicy, IdasInitialization, IncumbentPolicy, InputConsumptionKind,
-        IntervalEnd, IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
+        FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives,
+        FitExperimentAssessmentState, HessianMode, HighsMethod, IdPolicy,
+        IdasInitialization, IncumbentPolicy, InputConsumptionKind, IntervalEnd,
+        IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
         KinsolOrthogonalization, KinsolStrategy, LiveSimulationEventKind, MigrationOp,
         ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingAnnotationKind,
         ModelingApplicabilityBasis, ModelingApplicabilityKind,
@@ -36796,6 +36945,16 @@ impl crate::HeapUsage for FitDerivatives {
     }
 }
 impl crate::SemanticFrame for FitDerivatives {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for FitExperimentAssessmentState {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for FitExperimentAssessmentState {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

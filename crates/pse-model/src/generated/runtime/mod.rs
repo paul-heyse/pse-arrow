@@ -213,6 +213,8 @@ pub mod r#execution_statistics;
 ///Generated relation contract.
 pub mod r#fit_constraints;
 ///Generated relation contract.
+pub mod r#fit_experiment_assessments;
+///Generated relation contract.
 pub mod r#fit_observations;
 ///Generated relation contract.
 pub mod r#fit_parameters;

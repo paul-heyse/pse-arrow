@@ -24,34 +24,35 @@ pub use pse_model::generated::r#enums::{
     DiffsolLinear, DiffsolMethod, DualQualification, DynamicSensitivity, DynamicsMethod,
     EndpointPolicy, EngineeringScaleKind, EntityKind, EventDirection,
     EvidenceUnavailableReason, ExecutorRole, ExternalDerivativeSource, FailureClass,
-    FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives, HessianMode,
-    HighsMethod, IdPolicy, IdasInitialization, IncumbentPolicy, InputConsumptionKind,
-    IntervalEnd, IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
-    KinsolOrthogonalization, KinsolStrategy, LiveSimulationEventKind, MigrationOp,
-    ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingAnnotationKind,
-    ModelingApplicabilityBasis, ModelingApplicabilityKind, ModelingApplicabilityOutcome,
-    ModelingCellKind, ModelingCheckBasis, ModelingCheckKind, ModelingConformanceKind,
-    ModelingConformanceStatus, ModelingContributionRole, ModelingDataFacet,
-    ModelingDeclarationKind, ModelingDiagnosticSampleStop, ModelingDiagonalPolicy,
-    ModelingDiscreteInitialization, ModelingElasticObservation, ModelingEnvelopeExtent,
-    ModelingFactNamespace, ModelingFixtureBinding, ModelingInitializationStep,
-    ModelingKeyCellKind, ModelingKindFacet, ModelingKnowledgeValueKind,
-    ModelingLineageKind, ModelingMissingPolicy, ModelingObjectiveRoute,
-    ModelingPermissionTarget, ModelingProcedure, ModelingRealValueKind,
-    ModelingRealizationPolicy, ModelingStructuralRequirement, ModelingTransferDirection,
-    ModelingTypeNode, ModelingUncertaintyKind, ModelingValidityLayer,
-    ModelingVariableDomain, ModelingVersionOperator, MuStrategy, MumpsOrdering,
-    Namespace, NativeArtifactDemand, NativeAssessmentState, NativeAssurance,
-    NativeBackend, NativeBoundaryClass, NativeCandidateKind, NativeCertificateAccuracy,
-    NativeCertificateKind, NativeConstraintForm, NativeDerivativeCapability,
-    NativeEvidenceDemand, NativeIneligibility, NativeInfeasibilityWitness,
-    NativeLexicographicDegradation, NativeLexicographicRealization, NativeMetricKind,
-    NativeObjectiveSense, NativePetscLinear, NativePetscMethod,
-    NativePetscPreconditioner, NativePrimalCoordinateRole, NativeProblemClass,
-    NativeQualification, NativeRayCoordinate, NativeRepresentation, NativeRouteKind,
-    NativeRouteRefusal, NativeRouteSelection, NativeRunState, NativeSolveIntent,
-    NativeStartPolicy, NativeStructuralMode, NativeStructuralPolicy, NativeTaskClass,
-    NativeTermination, NativeUnoMethod, NativeWarmCapability, NextObservation, NonFinite,
+    FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives,
+    FitExperimentAssessmentState, HessianMode, HighsMethod, IdPolicy, IdasInitialization,
+    IncumbentPolicy, InputConsumptionKind, IntervalEnd, IntervalMethod, IntervalOutcome,
+    InvariantKind, IpoptLinearSolver, KinsolOrthogonalization, KinsolStrategy,
+    LiveSimulationEventKind, MigrationOp, ModelingAccumulatorMode, ModelingAnalysisRoute,
+    ModelingAnnotationKind, ModelingApplicabilityBasis, ModelingApplicabilityKind,
+    ModelingApplicabilityOutcome, ModelingCellKind, ModelingCheckBasis,
+    ModelingCheckKind, ModelingConformanceKind, ModelingConformanceStatus,
+    ModelingContributionRole, ModelingDataFacet, ModelingDeclarationKind,
+    ModelingDiagnosticSampleStop, ModelingDiagonalPolicy, ModelingDiscreteInitialization,
+    ModelingElasticObservation, ModelingEnvelopeExtent, ModelingFactNamespace,
+    ModelingFixtureBinding, ModelingInitializationStep, ModelingKeyCellKind,
+    ModelingKindFacet, ModelingKnowledgeValueKind, ModelingLineageKind,
+    ModelingMissingPolicy, ModelingObjectiveRoute, ModelingPermissionTarget,
+    ModelingProcedure, ModelingRealValueKind, ModelingRealizationPolicy,
+    ModelingStructuralRequirement, ModelingTransferDirection, ModelingTypeNode,
+    ModelingUncertaintyKind, ModelingValidityLayer, ModelingVariableDomain,
+    ModelingVersionOperator, MuStrategy, MumpsOrdering, Namespace, NativeArtifactDemand,
+    NativeAssessmentState, NativeAssurance, NativeBackend, NativeBoundaryClass,
+    NativeCandidateKind, NativeCertificateAccuracy, NativeCertificateKind,
+    NativeConstraintForm, NativeDerivativeCapability, NativeEvidenceDemand,
+    NativeIneligibility, NativeInfeasibilityWitness, NativeLexicographicDegradation,
+    NativeLexicographicRealization, NativeMetricKind, NativeObjectiveSense,
+    NativePetscLinear, NativePetscMethod, NativePetscPreconditioner,
+    NativePrimalCoordinateRole, NativeProblemClass, NativeQualification,
+    NativeRayCoordinate, NativeRepresentation, NativeRouteKind, NativeRouteRefusal,
+    NativeRouteSelection, NativeRunState, NativeSolveIntent, NativeStartPolicy,
+    NativeStructuralMode, NativeStructuralPolicy, NativeTaskClass, NativeTermination,
+    NativeUnoMethod, NativeWarmCapability, NextObservation, NonFinite,
     NumericalAccuracyClass, NumericalAttemptObservation, NumericalBranchPolicy,
     NumericalCompositionPolicy, NumericalCoordinates, NumericalEventKind,
     NumericalMechanism, NumericalOriginalConclusion, NumericalPathEventKind,
@@ -2290,6 +2291,35 @@ impl crate::columnar::ArrowValue for FitDerivatives {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(FitDerivatives).to_owned(),
                 enumeration: stringify!(FitDerivatives).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for FitExperimentAssessmentState {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(FitExperimentAssessmentState).to_owned(),
+                enumeration: stringify!(FitExperimentAssessmentState).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value

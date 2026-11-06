@@ -894,9 +894,15 @@ async fn public_integrated_fit_preserves_analytic_rate_response_and_observation_
         assert_eq!(report.derivatives, FitDerivatives::Responses);
         assert_eq!(report.hessian, HessianMode::LimitedMemory);
         assert!(report.estimate_qualified());
-        assert!(report.checks_complete && !report.checks.is_empty());
-        assert!(report.checks.iter().all(|check| check.satisfied));
-        assert!(report.validation_error.is_none());
+        assert!(report.assessment.complete() && !report.assessment.checks().is_empty());
+        assert!(
+            report
+                .assessment
+                .checks()
+                .iter()
+                .all(|check| check.satisfied)
+        );
+        assert!(report.assessment.failure().is_none());
         let parameters = fit_parameters::Row::rows(&result.table("runtime.fit_parameters")?)?;
         let [parameter] = parameters.as_slice() else {
             panic!("one fitted rate")

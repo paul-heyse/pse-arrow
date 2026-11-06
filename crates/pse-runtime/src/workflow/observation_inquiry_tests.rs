@@ -328,7 +328,7 @@ async fn actual_steady_and_fit() -> Science {
     let RunReport::Fit(report) = fit.report().unwrap() else {
         panic!("actual fit report");
     };
-    assert!(report.validation_error.is_none());
+    assert!(report.assessment.failure().is_none());
     let fit_values = report.candidate.as_ref().unwrap();
     let covariance = report.covariance.as_ref().unwrap().values.as_ref().unwrap();
     assert!(

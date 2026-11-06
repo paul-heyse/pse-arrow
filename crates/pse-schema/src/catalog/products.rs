@@ -86,6 +86,7 @@ pub(super) fn declare_profiles(builder: &mut RegistryBuilder) {
         "runtime.computation_runs",
         "runtime.fit_parameters",
         "runtime.fit_observations",
+        "runtime.fit_experiment_assessments",
         "runtime.local_validity",
         "runtime.response_sensitivities",
         "runtime.parameter_covariances",

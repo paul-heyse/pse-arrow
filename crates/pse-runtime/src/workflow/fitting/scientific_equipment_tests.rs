@@ -197,13 +197,18 @@ fn independent_point(
 fn assert_original_physics(executed: &Executed) -> Result<(), WorkflowError> {
     let fitted = report(&executed.result)?;
     assert!(
-        fitted.checks_complete && fitted.validation_error.is_none(),
+        fitted.assessment.complete() && fitted.assessment.failure().is_none(),
         "{fitted:?}"
     );
     assert!(
-        !fitted.checks.is_empty() && fitted.checks.iter().all(|check| check.satisfied),
+        !fitted.assessment.checks().is_empty()
+            && fitted
+                .assessment
+                .checks()
+                .iter()
+                .all(|check| check.satisfied),
         "{:?}",
-        fitted.checks
+        fitted.assessment.checks()
     );
     assert!(
         fitted
@@ -216,7 +221,8 @@ fn assert_original_physics(executed: &Executed) -> Result<(), WorkflowError> {
     );
     let closure_count = |source: &str| {
         fitted
-            .checks
+            .assessment
+            .checks()
             .iter()
             .filter(|check| {
                 check.kind == ModelingCheckKind::Closure && check.source_id.to_string() == source
@@ -263,7 +269,8 @@ fn assert_original_physics(executed: &Executed) -> Result<(), WorkflowError> {
         }
         let case = ["experiment_one.", "experiment_two."][index];
         let reported = fitted
-            .reports
+            .assessment
+            .reports()
             .iter()
             .find(|value| value.label == "transferred heat" && value.path.starts_with(case))
             .ok_or_else(|| {

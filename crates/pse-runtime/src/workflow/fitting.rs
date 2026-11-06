@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Shared-parameter experiment compilation. Trial values never enter Salsa queries.
+mod assessment;
+pub use assessment::{FitAssessment, FitExperimentAssessment, FitExperimentAssessmentState};
 mod covariance;
 pub(in crate::workflow) mod documents;
 mod experiments;
@@ -376,14 +378,8 @@ pub struct FitReport {
     pub(crate) completion: Option<super::numerics::Completed>,
     /// Actual shared numerical-driver events, owned independently of result copies.
     pub strategy: Option<Arc<crate::math::strategy::Trace>>,
-    /// Original authored checks evaluated at the final physical candidate.
-    pub checks: Vec<super::ModelingCheck>,
-    /// Original authored reports, including completed terminal integrals.
-    pub reports: Vec<super::ModelingReport>,
-    /// Every requested experiment received its original-model checks.
-    pub checks_complete: bool,
-    /// Typed cause when original-model assessment could not complete.
-    pub validation_error: Option<pse_model::diagnostic::BoundaryDiagnostic>,
+    /// Original experiment assessments, including evidence retained before later failure.
+    pub assessment: FitAssessment,
     /// Ordinary native NLP report, absent for all-fixed evaluation.
     pub solve: Option<native::solve::SolveReport>,
     /// Actual residual-native report, absent for NLP and all-fixed evaluation.
@@ -486,9 +482,7 @@ impl FitReport {
                             })
                     }).sum::<usize>()
             })
-            + self.checks.capacity() * size_of::<super::ModelingCheck>()
-            + self.reports.iter().map(pse_model::HeapUsage::owned_bytes).sum::<usize>()
-            + self.validation_error.as_ref().map_or(0, pse_model::HeapUsage::owned_bytes)
+            + self.assessment.bytes()
             + self.residual.as_ref().and_then(|r| r.failure.as_ref()).map_or(0, |f| f.cause().retained_bytes())
             + self.residual.as_ref().map_or(0, |_| 512)
             + self.predictions.capacity() * size_of::<Option<f64>>()
@@ -552,9 +546,8 @@ impl FitReport {
     /// A stationary feasible estimate with locally identifiable free parameters.
     /// This establishes neither global optimality nor a statistical confidence interval.
     pub fn estimate_qualified(&self) -> bool {
-        self.checks_complete
-            && self.checks.iter().all(|c| c.satisfied)
-            && self.validation_error.is_none()
+        self.assessment.complete()
+            && self.assessment.checks().iter().all(|c| c.satisfied)
             && (self
                 .residual
                 .as_ref()
@@ -784,8 +777,8 @@ impl PreparedFit {
             })
             .collect::<Vec<_>>();
         let mut evidence = super::numerics::CompletionEvidence::point(
-            &report.checks,
-            report.checks_complete && report.validation_error.is_none(),
+            report.assessment.checks(),
+            report.assessment.complete(),
             self.required_closure_checks(),
         );
         evidence.accuracy = &accuracy;
@@ -847,8 +840,11 @@ fn observe_report(report: &FitReport) {
         );
     }
     context.boolean("fit.candidate_available", report.candidate.is_some());
-    context.boolean("fit.original_checks_complete", report.checks_complete);
-    context.boolean("fit.validation_failed", report.validation_error.is_some());
+    context.boolean("fit.original_checks_complete", report.assessment.complete());
+    context.boolean(
+        "fit.validation_failed",
+        report.assessment.failure().is_some(),
+    );
     context.boolean("fit.responses_available", report.responses.is_some());
     if let Some(rank) = report.rank {
         context.gauge("fit.response_rank", "rank", rank as f64);

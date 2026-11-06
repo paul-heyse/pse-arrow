@@ -1343,10 +1343,12 @@ impl FitProblem {
         let mut report = FitReport {
             completion: None,
             strategy: None,
-            checks: vec![],
-            reports: vec![],
-            checks_complete: false,
-            validation_error: None,
+            assessment: FitAssessment::unattempted(
+                self.declaration
+                    .experiments
+                    .iter()
+                    .map(|experiment| experiment.experiment_id),
+            ),
             solve,
             residual,
             hessian: solver.controls.hessian,
@@ -3455,7 +3457,14 @@ mod tests {
             panic!()
         };
         assert!(report.quality.as_ref().unwrap().feasible());
-        assert!(report.checks_complete && report.checks.iter().any(|check| !check.satisfied));
+        assert!(
+            report.assessment.complete()
+                && report
+                    .assessment
+                    .checks()
+                    .iter()
+                    .any(|check| !check.satisfied)
+        );
         assert!(
             report.covariance.as_ref().unwrap().values.is_ok(),
             "retain completed computation evidence"
@@ -3638,7 +3647,14 @@ mod tests {
             panic!("actual fit report");
         };
         assert!(report.quality.as_ref().unwrap().feasible());
-        assert!(report.checks_complete && report.checks.iter().any(|check| !check.satisfied));
+        assert!(
+            report.assessment.complete()
+                && report
+                    .assessment
+                    .checks()
+                    .iter()
+                    .any(|check| !check.satisfied)
+        );
         let expected = report
             .covariance
             .as_ref()
@@ -3734,8 +3750,8 @@ mod tests {
             panic!()
         };
         assert!(report.quality.as_ref().unwrap().feasible());
-        assert!(report.checks_complete);
-        assert!(report.checks.iter().any(|c| !c.satisfied));
+        assert!(report.assessment.complete());
+        assert!(report.assessment.checks().iter().any(|c| !c.satisfied));
         assert!(!result.usable());
         let trace = report.strategy.as_ref().unwrap();
         let final_event = trace.events.last().unwrap();
