@@ -24,7 +24,7 @@ pub struct Primal<'a> {
     /// Only affine elimination is consumed; no NLP pass is implicitly enabled.
     pub policy: &'a Policy,
 }
-pub(super) fn plan(
+pub(crate) fn plan(
     contract: &OracleContract,
     input: &Primal<'_>,
 ) -> Result<Option<EliminationPlan>, ProblemError> {

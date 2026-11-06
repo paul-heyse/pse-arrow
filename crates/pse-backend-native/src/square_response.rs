@@ -100,6 +100,33 @@ pub struct SquareScope {
         std::sync::Arc<std::sync::Mutex<Option<std::sync::Arc<dyn pse_math::AllocationOwner>>>>,
 }
 impl SquareScope {
+    /// Report every bound that prevents an original-coordinate interior action.
+    /// Keep original identities and physical values together: a numerical ordinal
+    /// alone cannot distinguish a fixed constitutive input from a free boundary.
+    fn bound_neighborhood(&self, point: &[f64], tolerances: &[f64]) -> Option<String> {
+        use std::fmt::Write;
+        let mut detail = String::new();
+        for ((variable, value), tolerance) in
+            self.contract.variables.iter().zip(point).zip(tolerances)
+        {
+            let lower_margin = value - variable.lower;
+            let upper_margin = variable.upper - value;
+            if lower_margin <= *tolerance || upper_margin <= *tolerance {
+                if detail.is_empty() {
+                    detail.push_str("original physical bounds lack an interior:");
+                }
+                // Writing to String cannot fail. Keep every offender, including
+                // a coordinate simultaneously adjacent to both bounds.
+                let _ = write!(
+                    detail,
+                    " [coordinate={}, value={value:?}, lower={:?}, upper={:?}, tolerance={tolerance:?}, lower_margin={lower_margin:?}, upper_margin={upper_margin:?}]",
+                    variable.id, variable.lower, variable.upper
+                );
+            }
+        }
+        (!detail.is_empty()).then_some(detail)
+    }
+
     /// Share a symbolic preparation only for the same original support and order.
     /// Scaling and fixed library settings are checked by the factor producer.
     pub fn reuse_symbolic_from(&mut self, previous: &Self) -> bool {
@@ -470,15 +497,11 @@ fn admit_response(request: &Request<'_>) -> Result<(), Withheld> {
             "original equality residual exceeds its physical budget".into(),
         ));
     }
-    if c.variables
-        .iter()
-        .zip(request.point)
-        .zip(&request.tolerances.variables)
-        .any(|((v, x), t)| (*x - v.lower) <= *t || (v.upper - *x) <= *t)
+    if let Some(detail) = request
+        .scope
+        .bound_neighborhood(request.point, &request.tolerances.variables)
     {
-        return Err(Withheld::Neighborhood(
-            "active or exterior state bound".into(),
-        ));
+        return Err(Withheld::Neighborhood(detail));
     }
     if np == 0
         || request
@@ -567,6 +590,63 @@ fn spectrum(a: &Mat<f64>, bytes: usize) -> Result<Vec<f64>, ProblemError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn boundary_refusal_retains_every_original_coordinate_and_physical_margin() {
+        let mut scope = scope();
+        scope.contract.variables[0].lower = 2.;
+        scope.contract.variables[1].upper = 1.;
+        let tolerance = crate::quality::Tolerances {
+            variables: vec![1e-8, 2e-8],
+            rows: vec![1e-8; 2],
+            integrality: 1e-8,
+        };
+        let scale = pse_math::normalization::Normalization::identity(2, 2);
+        let point = [2., 1.];
+        let detail = scope
+            .bound_neighborhood(&point, &tolerance.variables)
+            .unwrap();
+        for id in [id(1), id(2)] {
+            assert!(detail.contains(&format!("coordinate={id}")));
+        }
+        assert_eq!(detail.matches("coordinate=").count(), 2);
+        assert!(
+            detail.contains("value=2.0, lower=2.0, upper=100.0, tolerance=1e-8, lower_margin=0.0")
+        );
+        assert!(detail.contains("value=1.0, lower=-100.0, upper=1.0, tolerance=2e-8"));
+        let params = [id(5)];
+        let request = Request {
+            scope: &scope,
+            point: &point,
+            residual_values: &[0.; 2],
+            tolerances: &tolerance,
+            normalization: &scale,
+            parameters: &params,
+            parameter_scales: &[1.],
+            rank_tolerance: 1e-10,
+            bytes: 1 << 20,
+        };
+        let source = key(&request);
+        assert!(
+            matches!(public_response(request, || panic!("bound admission must precede derivatives")), Err(Withheld::Neighborhood(actual)) if actual == detail)
+        );
+        let sparse = SparseRequest {
+            scope: &scope,
+            point: &point,
+            values: &[0.; 2],
+            tolerances: &tolerance,
+            normalization: &scale,
+            key: source,
+            bytes: 1 << 20,
+        };
+        assert!(
+            matches!(SparseFactor::check(&sparse), Err(Withheld::Neighborhood(actual)) if actual == detail)
+        );
+        assert!(
+            scope
+                .bound_neighborhood(&[3., 0.], &tolerance.variables)
+                .is_none()
+        );
+    }
     #[test]
     fn square_withholding_preserves_original_structural_and_neighborhood_causes() {
         use pse_model::diagnostic::DiagnosticProjection;

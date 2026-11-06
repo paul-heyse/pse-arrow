@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Local regular-square output estimates using an already admitted sparse factor.
 //! This is an evidence operation, not a nonlinear solver or a forward certificate.
+mod affine;
 mod kkt;
 mod producers;
 use crate::{
@@ -9,6 +10,7 @@ use crate::{
     solve::Execution,
     square_response::{ActionEvidence, SparseFactor},
 };
+pub use affine::{SquareAccuracyFactor, SquareAccuracyFrame};
 pub(crate) use kkt::defer_kkt;
 pub use kkt::{
     DeferredKktAccuracy, KktEstimates, KktOutput, KktOutputObserver, KktOutputs,
@@ -26,12 +28,16 @@ use pse_model::{
     strategy::{AccuracyClass, AccuracyEvidence, SemanticProductKey},
 };
 
-/// Actual caller-admitted local interior/branch witness at the factor point.
+/// Actual caller-admitted pointwise First/branch eligibility at the factor point.
+/// The caller retains its admission profile: the private fixed-parameter estimate
+/// requires strict moving-coordinate interior, while public response admission
+/// retains its physical tolerance margins. This witness does not establish a
+/// finite neighborhood or correction-endpoint feasibility.
 #[derive(Clone, Copy, Debug)]
 pub struct SquareValidity {
     /// Mathematical dependencies of the witness; must match the factor exactly.
     pub source: SemanticProductKey,
-    /// Identity of the real neighborhood/branch admission, never a placeholder.
+    /// Identity of the actual point/branch admission, never a placeholder.
     pub witness: ContentHash,
 }
 

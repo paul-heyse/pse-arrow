@@ -92,6 +92,18 @@ impl SparseFactor {
     ) -> Result<Self, Withheld> {
         execution.check().map_err(partial)?;
         let allowance = Self::admit(&request, execution)?;
+        Self::prepare_admitted(request, allowance, evaluate, execution)
+    }
+    // Only the sealed output-accuracy frame may admit a constant-coordinate
+    // exemption. This common factor construction never escapes that frame.
+    pub(crate) fn prepare_admitted(
+        request: SparseRequest<'_>,
+        allowance: usize,
+        evaluate: impl FnOnce() -> Result<SparseColMat<usize, f64>, ProblemError>,
+        execution: &Execution,
+    ) -> Result<Self, Withheld> {
+        execution.check().map_err(partial)?;
+        admit_storage(execution).map_err(partial)?;
         let n = request.scope.contract.variables.len();
         let physical = evaluate().map_err(partial)?;
         execution.check().map_err(partial)?;
@@ -200,6 +212,16 @@ impl SparseFactor {
     /// # Errors
     /// Physical feasibility, neighborhood, consumed key or allowance refusal.
     pub fn check(request: &SparseRequest<'_>) -> Result<usize, Withheld> {
+        let allowance = Self::check_original(request)?;
+        if let Some(detail) = request
+            .scope
+            .bound_neighborhood(request.point, &request.tolerances.variables)
+        {
+            return Err(Withheld::Neighborhood(detail));
+        }
+        Ok(allowance)
+    }
+    fn check_original(request: &SparseRequest<'_>) -> Result<usize, Withheld> {
         let n = request.scope.contract.variables.len();
         request
             .tolerances
@@ -233,19 +255,6 @@ impl SparseFactor {
                 "fresh sparse response original physical residual".into(),
             ));
         }
-        if request
-            .scope
-            .contract
-            .variables
-            .iter()
-            .zip(request.point)
-            .zip(&request.tolerances.variables)
-            .any(|((variable, x), tol)| *x - variable.lower <= *tol || variable.upper - *x <= *tol)
-        {
-            return Err(Withheld::Neighborhood(
-                "fresh sparse response requires inactive physical bounds".into(),
-            ));
-        }
         if request.key.point != Some(point_key(request.point))
             || request.key.normalization != Some(request.normalization.key())
             || request.key.accuracy.is_none()
@@ -264,6 +273,97 @@ impl SparseFactor {
     /// Physical/key/allowance mismatch or an unsupported strict opaque-fill producer.
     pub fn admit(request: &SparseRequest<'_>, execution: &Execution) -> Result<usize, Withheld> {
         let allowance = Self::check(request)?;
+        admit_storage(execution).map_err(partial)?;
+        Ok(allowance)
+    }
+    pub(crate) fn admit_accuracy(
+        request: &SparseRequest<'_>,
+        constants: &[bool],
+        original: &crate::OracleContract,
+        original_bounds: &[(f64, f64)],
+        original_pattern: faer::sparse::SymbolicSparseColMatRef<'_, usize>,
+        execution: &Execution,
+    ) -> Result<usize, Withheld> {
+        use std::fmt::Write;
+        let allowance = Self::check_original(request)?;
+        if original.identity != request.scope.contract.identity
+            || original.rows != request.scope.contract.rows
+            || original_bounds != request.scope.bounds
+            || original.variables.len() != constants.len()
+            || original.variables.len() != request.scope.contract.variables.len()
+            || original_pattern.nrows() != request.scope.pattern.nrows()
+            || original_pattern.ncols() != request.scope.pattern.ncols()
+            || (0..original_pattern.ncols()).any(|column| {
+                !original_pattern.row_idx_of_col(column).eq(request
+                    .scope
+                    .pattern
+                    .as_ref()
+                    .row_idx_of_col(column))
+            })
+            || original
+                .variables
+                .iter()
+                .zip(&request.scope.contract.variables)
+                .any(|(a, b)| {
+                    a.id != b.id
+                        || a.lower.to_bits() != b.lower.to_bits()
+                        || a.upper.to_bits() != b.upper.to_bits()
+                })
+        {
+            return Err(Withheld::Structural(
+                "output accuracy differs from the original source coordinates".into(),
+            ));
+        }
+        let mut infeasible = String::new();
+        let mut detail = String::new();
+        for (((variable, value), tolerance), constant) in original
+            .variables
+            .iter()
+            .zip(request.point)
+            .zip(&request.tolerances.variables)
+            .zip(constants)
+        {
+            let lower_margin = value - variable.lower;
+            let upper_margin = variable.upper - value;
+            if lower_margin < -*tolerance || upper_margin < -*tolerance {
+                if infeasible.is_empty() {
+                    infeasible.push_str("original physical coordinates violate bounds:");
+                }
+                let _ = write!(
+                    infeasible,
+                    " [coordinate={}, value={value:?}, lower={:?}, upper={:?}, tolerance={tolerance:?}, lower_margin={lower_margin:?}, upper_margin={upper_margin:?}]",
+                    variable.id, variable.lower, variable.upper
+                );
+            }
+            // This private estimate uses First derivatives at the original point;
+            // its physical acceptance budget is not a neighborhood radius.
+            if !constant && !(*value > variable.lower && *value < variable.upper) {
+                if detail.is_empty() {
+                    detail.push_str(
+                        "original moving physical coordinates lack a strict pointwise interior:",
+                    );
+                }
+                let _ = write!(
+                    detail,
+                    " [coordinate={}, value={value:?}, lower={:?}, upper={:?}, tolerance={tolerance:?}, lower_margin={lower_margin:?}, upper_margin={upper_margin:?}]",
+                    variable.id, variable.lower, variable.upper
+                );
+            }
+        }
+        if !infeasible.is_empty() {
+            return Err(Withheld::Infeasible(infeasible));
+        }
+        if !detail.is_empty() {
+            return Err(Withheld::Neighborhood(detail));
+        }
+        admit_storage(execution).map_err(partial)?;
+        Ok(allowance)
+    }
+    pub(crate) fn preflight_accuracy(
+        request: &SparseRequest<'_>,
+        execution: &Execution,
+    ) -> Result<usize, Withheld> {
+        let allowance = Self::check_original(request)?;
         admit_storage(execution).map_err(partial)?;
         Ok(allowance)
     }
