@@ -6,8 +6,8 @@
 @id("66e03000000000000000000000000203") use chem @"1.0.0";
 @id("66e03000000000000000000000000204") use numerical_policy @"1.0.0";
 @id("66e03000000000000000000000000205") use provenance @"1.0.0";
-@id("66e03000000000000000000000000206") entity provenance.source imposed_design {title="Native constant-volume-flow, isothermal dilute aqueous transport design: 300K, water carrier55000mol/m3, ethanol step0to100mol/m3; authored operating inputs, not measured mixture properties or an EOS"}
-@id("66e03000000000000000000000000207") entity provenance.source cascade_reference {title="Exact finite-volume/cell-cascade response: equal cell volume V/N, residence V/(NQ), outlet step1-exp(-NQt/V)*sum(k=0..N-1,(NQt/V)^k/k!); independent global input-output-stock balance; not a continuum pipe or reactive-fluid reference"}
+@id("66e03000000000000000000000000206") entity provenance.source imposed_design {title="Native constant-volume-flow, isothermal dilute aqueous transport design: 300K, water carrier55000mol/m3, ethanol initial0or10 and inlet100mol/m3; authored operating inputs, not measured mixture properties or an EOS"}
+@id("66e03000000000000000000000000207") entity provenance.source cascade_reference {title="Exact finite-volume/cell-cascade response: equal cell volume V/N, residence V/(NQ), outlet C0+(Cin-C0)*(1-exp(-NQt/V)*sum(k=0..N-1,(NQt/V)^k/k!)); independent global input-output-stock balance; not a continuum pipe or reactive-fluid reference"}
 @id("66e03000000000000000000000000208") constant carrier:MolarDensity=55000{mol/m^3} provenance(imposed_design,provenance.Role.synthetic);
 @id("66e03000000000000000000000000209") constant tracer:MolarDensity=100{mol/m^3} provenance(imposed_design,provenance.Role.synthetic);
 @id("66e0300000000000000000000000020a") set components:Set<chemistry.species>={chem.water,chem.ethanol};
@@ -30,9 +30,8 @@
 @id("66e03000000000000000000000000226") expect root.outlet_concentration[10{s},chem.ethanol]==99.99967962802195{mol/m^3} tolerance numerical_policy.concentration;
 @id("66e03000000000000000000000000227") expect root.total_component_amount[10{s},chem.water]==55{mol} tolerance numerical_policy.amount;
 }
-// Temporal refinement of the same four physical volumes and original stock.
-// Ten right-Radau elements have31 points; the20-element case retains61,
-// including its separate early5.25s obligation. Physical allowances are identical.
+// Zero-initial boundary case for strict collocation refusal. Its exact Radau
+// stages conflict with C>=0; ordinary physical allowances are a separate demand.
 @id("66e03000000000000000000000000270") test aqueous_four_cell_coarse_nonzero_clock oracle cascade_reference fixture {dof 0;route simultaneous;procedure solve;policy {backend ipopt;limits body_occurrences(10000000);}} {
 @id("66e03000000000000000000000000271") child root:aqueous_inventory.Cascade=aqueous_inventory.Cascade(selected=components,volume=0.001{m^3},volume_flow=0.001{m^3/s},initial=initial,inlet=inlet,finite_elements=4,time_elements=10,first=5{s},last=10{s});
 @id("66e03000000000000000000000000272") expect root.outlet_concentration[5{s},chem.ethanol]==0{mol/m^3} tolerance numerical_policy.concentration;
@@ -40,6 +39,27 @@
 @id("66e03000000000000000000000000274") expect root.outlet_concentration[7{s},chem.ethanol]==95.7619888008316{mol/m^3} tolerance numerical_policy.concentration;
 @id("66e03000000000000000000000000275") expect root.outlet_concentration[10{s},chem.ethanol]==99.99967962802195{mol/m^3} tolerance numerical_policy.concentration;
 @id("66e03000000000000000000000000276") expect root.total_component_amount[10{s},chem.water]==55{mol} tolerance numerical_policy.amount;
+}
+// The interior initialized step admits positive Radau stages. It does not
+// qualify the distinct zero-initial boundary case above at tighter precision.
+@id("66e03000000000000000000000000280") test aqueous_four_cell_coarse_retained_step oracle cascade_reference fixture {dof 0;route simultaneous;procedure solve;policy {backend ipopt;limits body_occurrences(10000000);}} {
+@id("66e03000000000000000000000000281") child root:aqueous_inventory.Cascade=aqueous_inventory.Cascade(selected=components,volume=0.001{m^3},volume_flow=0.001{m^3/s},initial=retained,inlet=inlet,finite_elements=4,time_elements=10,first=5{s},last=10{s});
+@id("66e03000000000000000000000000282") expect root.outlet_concentration[5{s},chem.ethanol]==10{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000283") expect root.outlet_concentration[6{s},chem.ethanol]==60.98768916699621{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000284") expect root.outlet_concentration[7{s},chem.ethanol]==96.18578992074844{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000285") expect root.outlet_concentration[10{s},chem.ethanol]==99.99971166521976{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000286") expect root.total_component_amount[5{s},chem.ethanol]==0.01{mol} tolerance numerical_policy.amount;
+@id("66e03000000000000000000000000287") expect root.total_component_amount[10{s},chem.water]==55{mol} tolerance numerical_policy.amount;
+}
+@id("66e03000000000000000000000000290") test aqueous_four_cell_fine_retained_step oracle cascade_reference fixture {dof 0;route simultaneous;procedure solve;policy {backend ipopt;limits body_occurrences(10000000);}} {
+@id("66e03000000000000000000000000291") child root:aqueous_inventory.Cascade=aqueous_inventory.Cascade(selected=components,volume=0.001{m^3},volume_flow=0.001{m^3/s},initial=retained,inlet=inlet,finite_elements=4,time_elements=20,first=5{s},last=10{s});
+@id("66e03000000000000000000000000292") expect root.outlet_concentration[5{s},chem.ethanol]==10{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000293") expect root.outlet_concentration[5.25{s},chem.ethanol]==11.708934118853846{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000294") expect root.outlet_concentration[6{s},chem.ethanol]==60.98768916699621{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000295") expect root.outlet_concentration[7{s},chem.ethanol]==96.18578992074844{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000296") expect root.outlet_concentration[10{s},chem.ethanol]==99.99971166521976{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000297") expect root.total_component_amount[5{s},chem.ethanol]==0.01{mol} tolerance numerical_policy.amount;
+@id("66e03000000000000000000000000298") expect root.total_component_amount[10{s},chem.water]==55{mol} tolerance numerical_policy.amount;
 }
 @id("66e03000000000000000000000000230") test aqueous_four_cell_zero_flow oracle cascade_reference fixture {dof 0;route simultaneous;procedure solve;policy {backend ipopt;limits body_occurrences(10000000);}} {
 @id("66e03000000000000000000000000231") child root:aqueous_inventory.Cascade=aqueous_inventory.Cascade(selected=components,volume=0.001{m^3},volume_flow=0{m^3/s},initial=retained,inlet=inlet,finite_elements=4,time_elements=20);

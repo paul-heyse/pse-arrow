@@ -97,6 +97,52 @@ async fn conform_precision(name: &str, temporal_refinement: bool) -> ModelingCon
             &report.results.values().next().unwrap().prepared,
             &requirements,
         );
+        if !report.passed() {
+            for result in report.results.values() {
+                if let crate::math::solves::Outcome::Native(native) = &result.outcome {
+                    let mut violations = native
+                        .quality
+                        .iter()
+                        .flat_map(|quality| quality.rows.iter().chain(&quality.bounds))
+                        .collect::<Vec<_>>();
+                    violations.sort_by(|left, right| {
+                        (right.physical / right.tolerance)
+                            .total_cmp(&(left.physical / left.tolerance))
+                    });
+                    violations.truncate(8);
+                    for violation in &violations {
+                        let compiled = result.prepared.model.model.compiled();
+                        let equation = compiled
+                            .model
+                            .equations
+                            .iter()
+                            .find(|equation| equation.id == violation.id);
+                        let row = native.rows.iter().position(|id| *id == violation.id);
+                        eprintln!(
+                            "refinement violation id={} kind={} declaration={:?} instance={:?} row-bounds={:?} value={:?}",
+                            violation.id,
+                            if row.is_some() { "row" } else { "bound" },
+                            equation.map(|equation| equation.lineage.declaration),
+                            equation.map(|equation| equation.lineage.instance),
+                            row.and_then(|row| native.observation.as_ref()?.bounds.get(row)),
+                            row.and_then(|row| native.observation.as_ref()?.values.get(row)),
+                        );
+                    }
+                    eprintln!(
+                        "refinement native termination={:?}; qualification={:?}; original normalized violation={:?}; largest original violations={violations:?}; options={:?}; callback={:?}; validation={:?}",
+                        native.termination,
+                        native.qualification,
+                        native
+                            .quality
+                            .as_ref()
+                            .map(|quality| quality.normalized_max),
+                        native.options,
+                        native.callback_failure().map(ToString::to_string),
+                        native.validation_failure().map(ToString::to_string),
+                    );
+                }
+            }
+        }
     }
     report
 }
@@ -357,14 +403,72 @@ fn original_temporal_reports(
 }
 
 #[cfg(feature = "solver-diffsol")]
+fn independent_first_radau_stages(step: f64, initial: f64) -> [[f64; 4]; 3] {
+    use faer::prelude::Solve as _;
+    // Independent three-stage Radau IIA tableau for dC/dt=4*(upstream-C).
+    // This does not consume the production Jacobi roots/derivative stencils.
+    let q = 6_f64.sqrt();
+    let a = [
+        [
+            (88. - 7. * q) / 360.,
+            (296. - 169. * q) / 1800.,
+            (-2. + 3. * q) / 225.,
+        ],
+        [
+            (296. + 169. * q) / 1800.,
+            (88. + 7. * q) / 360.,
+            (-2. - 3. * q) / 225.,
+        ],
+        [(16. - q) / 36., (16. + q) / 36., 1. / 9.],
+    ];
+    let matrix = faer::Mat::<f64>::from_fn(12, 12, |row, column| {
+        let (stage, component) = (row / 4, row % 4);
+        let (other_stage, other_component) = (column / 4, column % 4);
+        let rate = if component == other_component {
+            -4.
+        } else if component == other_component + 1 {
+            4.
+        } else {
+            0.
+        };
+        (if row == column { 1. } else { 0. }) - step * a[stage][other_stage] * rate
+    });
+    let rhs = faer::Mat::<f64>::from_fn(12, 1, |row, _| {
+        initial
+            + if row % 4 == 0 {
+                400. * step * a[row / 4].iter().sum::<f64>()
+            } else {
+                0.
+            }
+    });
+    let stages = matrix.partial_piv_lu().solve(&rhs);
+    for row in 0..12 {
+        let residual = (0..12)
+            .map(|column| matrix[(row, column)] * stages[(column, 0)])
+            .sum::<f64>()
+            - rhs[(row, 0)];
+        assert!(residual.abs() < 1e-10);
+    }
+    std::array::from_fn(|stage| std::array::from_fn(|component| stages[(4 * stage + component, 0)]))
+}
+
+#[cfg(feature = "solver-diffsol")]
 #[tokio::test]
 async fn aqueous_inventory_temporal_refinement_preserves_complete_original_populations() {
+    for step in [0.5, 0.25] {
+        assert!(
+            independent_first_radau_stages(step, 10.)
+                .iter()
+                .flatten()
+                .all(|c| *c > 0.)
+        );
+    }
     let declaration = |text| SemanticId::parse_hex(text).unwrap().into();
     let ethanol = declaration("01a0e1461e93764398a669f485d31290");
     let mut errors = Vec::new();
     for (name, points) in [
-        ("aqueous_four_cell_coarse_nonzero_clock", 31),
-        ("aqueous_four_cell_nonzero_clock", 61),
+        ("aqueous_four_cell_coarse_retained_step", 31),
+        ("aqueous_four_cell_fine_retained_step", 61),
     ] {
         let report = conform_precision(name, true).await;
         assert_complete(&report);
@@ -398,19 +502,19 @@ async fn aqueous_inventory_temporal_refinement_preserves_complete_original_popul
             assert_eq!(selected.len(), 1, "original common-time member at {time}");
             selected[0].2
         };
-        assert!(concentration(5.).abs() <= 1.);
+        assert!((concentration(5.) - 10.).abs() <= 1.);
         let mut maximum_error = 0_f64;
         for time in [6., 7., 10.] {
             // Exact four-cell cascade response (Q/V=1/s), not continuum flow.
             // Original clock starts at5s; each actual cell holds V/4*C.
             let z: f64 = 4. * (time - 5.);
-            let expected = 100. * (1. - (-z).exp() * (1. + z + z * z / 2. + z * z * z / 6.));
+            let expected = 10. + 90. * (1. - (-z).exp() * (1. + z + z * z / 2. + z * z * z / 6.));
             let error = (concentration(time) - expected).abs();
             assert!(error <= 1., "{name} at {time}: {error}mol/m3");
             maximum_error = maximum_error.max(error);
         }
         if points == 61 {
-            assert!((concentration(5.25) - 1.898815687615385).abs() <= 1.);
+            assert!((concentration(5.25) - 11.708934118853846).abs() <= 1.);
         }
         eprintln!(
             "{name}: {points} original points; common-time maximum concentration error={maximum_error}mol/m3"
@@ -421,6 +525,49 @@ async fn aqueous_inventory_temporal_refinement_preserves_complete_original_popul
     // improvement here. An8x discriminator allows solver roundoff without
     // claiming a general convergence order or widening physical tolerances.
     assert!(errors[1] * 8. < errors[0], "coarse/fine errors: {errors:?}");
+}
+
+#[cfg(feature = "solver-diffsol")]
+#[tokio::test]
+async fn aqueous_inventory_tight_zero_initial_collocation_preserves_original_refusal() {
+    let coarse = independent_first_radau_stages(0.5, 0.);
+    let fine = independent_first_radau_stages(0.25, 0.);
+    assert!(coarse[0][3] < -0.22);
+    assert!(fine[0][2] < -0.019 && fine[0][3] < -0.013);
+    let report = conform_precision("aqueous_four_cell_coarse_nonzero_clock", true).await;
+    assert!(report.complete && !report.passed());
+    assert_eq!(report.results.len(), 1);
+    let result = report.results.values().next().unwrap();
+    let crate::math::solves::Outcome::Native(native) = &result.outcome else {
+        panic!("original native diagnostic candidate required");
+    };
+    assert!(native.candidate.is_some());
+    assert_eq!(
+        native.termination.category,
+        pse_backend_native::solve::Termination::Infeasible
+    );
+    assert_eq!(
+        native.qualification,
+        pse_backend_native::solve::Qualification::Unqualified
+    );
+    let quality = native.quality.as_ref().unwrap();
+    assert!(!quality.feasible());
+    let conservation = SemanticId::parse_hex("66e0300000000000000000000000011b")
+        .unwrap()
+        .into();
+    let model = &result.prepared.model.model.compiled().model;
+    assert!(quality.rows.iter().any(|violation| {
+        violation.physical > violation.tolerance
+            && model.equations.iter().any(|equation| {
+                equation.id == violation.id && equation.lineage.declaration == conservation
+            })
+    }));
+    assert!(
+        report
+            .failures
+            .iter()
+            .any(|failure| failure.class == pse_model::diagnostic::BoundaryClass::TrialRejected)
+    );
 }
 
 #[tokio::test]
