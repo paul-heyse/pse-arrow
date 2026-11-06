@@ -87,6 +87,16 @@ import and foreign-world refusal, plus a source-forward shape change before stal
 compile. This is dependency factoring within the existing source-owned contracts and exact-world
 policy, not a new metadata convention, scientific schema or current permission.
 
+This finite cut is integrated on main. Its owning checkout passed six generator controls,
+eleven ordinary-result controls with `engineering-service` excluded, and eighteen service/result
+controls, all against zero with no build warnings. An actual source-field removal compiled the
+early generation route while the old adapter still described the prior shape; the probe restored
+the original declaration and regenerated before integration. Independent Buf encoding agrees with
+the original recorded-result golden bytes. The early/full descriptor pools remain separate, and
+the finite graph rejects future transitive re-registration outside its supported imported cut.
+General runtime-root bootstrap is still open. Combined main generation and receiving are separate
+from those branch checks.
+
 The existing `xtask/src/codegen/proto_projection/composition.rs` already composes the complete
 typed request, Buffa corpus, maintained validators and service generation. Retain that foundation.
 Buffa0.9.2 `SharedCorpusContext::new` / `CodeGenConfig::shared_corpus_context` reuse complete

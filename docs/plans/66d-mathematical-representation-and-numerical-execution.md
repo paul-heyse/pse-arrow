@@ -90,8 +90,8 @@ This is an operation admission contract, not a new host-wide memory cap.
 
 H03's single aqueous cell reached a 610-coordinate simultaneous formulation and passed its
 2310 derivative comparisons, then refused affine preparation before solving. This is not a
-physical acceptance result. `pse-compiler`'s `ExecutableCase::class_allocation_bound` currently
-reuses the full value-rebind/factorable bound. In `pse-math::factorable`, that bound includes
+physical acceptance result. At that failure, `pse-compiler`'s `ExecutableCase::class_allocation_bound`
+reused the full value-rebind/factorable bound. In `pse-math::factorable`, that bound includes
 dense quadratic curvature storage proportional to `(columns + 1)^2 * (nodes + 1)`.
 `ExecutableCase::prepare_affine_rows` instead calls the existing selected-row
 `CasePlan::affine_row_facts`: it borrows original contribution indexes, resolves only actual
@@ -121,7 +121,14 @@ The 128-coordinate sparse case establishes original coefficients/constants witho
 the unrelated quadratic curvature population; retained product fits its estimate, original
 row/domain/artifact correspondence survives, and work exhaustion/cancellation still refuse.
 The initial control failed because it requested path observations without declaring those
-outputs; explicit source demand corrected the test. Runtime/H receiving remains separate.
+outputs; explicit source demand corrected the test. Runtime all-target compilation subsequently
+passed with `engineering-service,native-study-tests`, zero build warnings. The targeted
+`latest_only_changed_rebinds_plateau_and_escaped_fields_keep_only_their_components` control
+also passed with that closure, zero failures/pending/build warnings. Retained accounting now
+counts both owned `ProblemFacts` vector copies: the current published value and its independent
+payload anchor. Shared certificate allocation remains separately owned. These checks establish
+the selected construction/retention contract, not H's physical receiving or symbolic transient
+allocation bounds.
 
 ## Packages
 
@@ -148,5 +155,5 @@ prove physical validity. Run targeted controls as implementation lands, and rece
 scientific campaigns through L at functional scope end. Performance benefits remain unmeasured.
 
 **Outcome:** the first demanded affine construction correction is implemented with bounded
-compiler controls above. Runtime/H receiving and the remaining mathematical/physical population
+compiler and runtime controls above. H receiving and the remaining mathematical/physical population
 stay open; no whole-plan, canonical reconstruction or physical acceptance is inferred.

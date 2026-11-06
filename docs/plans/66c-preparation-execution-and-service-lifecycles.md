@@ -256,6 +256,15 @@ uses the existing environment activation owner, preserving caller precedence and
 finite class/memory choices. Main's actual receiving confirms ordinary placement. This is
 separate from C01's refreshed immutable compiler receipt and changes no host capacity/cache policy.
 
+Use E07's explicit caller token with the existing `CancellationToken::until_cancelled`
+and DataFusion's cancellation-safe stream/drop contract.
+The one-shot `pse-project observe` entry still creates no externally driven query token;
+ordinary process termination does not establish graceful typed query cancellation. Finish that
+process-root handoff under C05/F05, reusing the existing owned signal/finish behavior in
+`bin/support/signals.rs` rather than installing signals in the public query library or adding
+another manager. Keep the collector's stop-and-drain responsibility distinct from pure stream
+drop, and retain every listener/operation failure through actual finish.
+
 Complete slow/abandoned upload and download, partial progress with terminal stream error,
 deadline-before-admission/after-handoff, observer departure with continued work, lost ACK,
 reconnect, child crash, task panic, listener error and independent native shutdown refusal.
