@@ -152,7 +152,10 @@ errors/warnings. The same-feature assessment/profile/strategy selection passed18
 capture/settlement, including nested terminal causes, positive numerical continuation, actual LM
 chain/point/assessment pointer identity and FlatV3 serialization. Full generation passed15 targets.
 Independent follow-up found no residual material defects in those two repairs. Main integration
-includes the combined generated world; matching main receiving is separate.
+includes the combined generated world. Its selected fitting/service/result/reader receiving,
+also selecting `product-reader` and the product binary/public-reader targets, passed 70/70 with
+zero failures/build warnings, complete capture/settlement and no pending native lifetime.
+This receives the selected controls, not every A02 consumer or the new member-permission candidate.
 
 **Outcome:** implementation is active with the bounded assessment delivery above. Shared operation
 selection, native member/trajectory use, remaining physical contracts and full consumer population

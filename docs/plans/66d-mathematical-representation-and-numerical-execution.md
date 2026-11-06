@@ -173,12 +173,41 @@ payload anchor. Shared certificate allocation remains separately owned. These ch
 the selected construction/retention contract, not H's physical receiving or symbolic transient
 allocation bounds.
 
+### Numerical demand exposed by temporal refinement
+
+The integrated H03 discriminator compares the same original four-cell physical problem at
+31/61 temporal points. Ordinary physical allowances pass, but their engineering row floors
+mask the expected temporal signal: the initial common-time maximum errors were approximately
+0.187/0.177 mol/m³. Tightening scalar solver fractions alone left those observations unchanged.
+This is not convergence evidence or proof that the native numerical request was tightened.
+
+Use existing Analysis `NumericalPolicy.requirements`, resolved by
+[`pse_math::numerics`](../../crates/pse-math/src/numerics.rs), for an actual target-keyed demand.
+The selected owner is `PreparedCase.plan.structure().rows()`, not the whole admitted modeling
+population. Preserve original equation/instance lineage, canonical unit, scope and frozen
+conditioning; assert the resolved Analysis provenance and native physical tolerance inventory.
+[`Normalization::with_row_budgets`](../../crates/pse-math/src/normalization.rs) transports these
+demands to the native representation; original-coordinate
+[`quality`](../../crates/pse-backend-native/src/quality.rs) independently checks the returned
+candidate. A numerical request is distinct from the authored physical acceptance allowance.
+
+The first explicit request, capped at `1e-10 * original nominal` per actual row, reached all
+1240 selected coarse rows with matching units/provenance/budgets before execution and in the
+retained result. That coarse solve returned an infeasible/unqualified diagnostic candidate;
+the fine solve was not reached. Its focused control failed 1/1 with zero warnings and complete
+settlement against the zero baseline. Keep the strict discriminator and original failed evidence.
+D01/D02 now inspect actual native options, original violations, conditioning and presolve before
+choosing a defensible output-driven precision demand or correcting its realization. No physical
+tolerance widening, successful-refinement claim or new accuracy mechanism follows from the request
+being accepted. The original source control is
+[`aqueous_inventory_tests`](../../crates/pse-runtime/src/workflow/modeling/aqueous_inventory_tests.rs).
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| D01 | in-progress | Actual remaining G/H/I/J blocks; current source-owned evaluator/accuracy contracts | H03 exposed a full quadratic/rebind construction estimate used for selected affine-row proof. Resolve that actual representation/demand mismatch, then select further representations and precision by demanded products with original-coordinate recovery and guarded validity. |
-| D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Investigate the selected affine producer's exact construction contract before changing its receiving allowance. Integrate chosen evaluator/batch/layout changes through preparation, native demand, product/error reporting and transfer; canonical reconstruction's separate preallocation gate and other consumer migrations remain open. |
+| D01 | in-progress | Actual remaining G/H/I/J blocks; current source-owned evaluator/accuracy contracts | Selected affine construction and actual shared-allocation accounting corrections are integrated. H03 now exposes numerical demand versus physical row floors and an unqualified native coarse solve under verified tighter Analysis requirements; resolve that actual demand/realization before claiming temporal refinement. |
+| D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Selected affine producer/retention corrections are implemented. Integrate the next justified precision/representation correction through native options, original-coordinate quality and H03 refinement, then other demanded evaluator/batch/layout consumers. Canonical reconstruction's separate preallocation gate remains open. |
 | D03 | planned | A selected large-response consumer; current direct factor/SVD route | Decide factors versus faer actions using correctness, convergence/preconditioner, scratch and whole-operation evidence. Deliver the action route only if justified; otherwise retain factors with the comparison and revisit trigger. |
 | D04 | planned | Changed maintained arithmetic/provider consumers | Complete receiving controls for actual SCIP/Diffsol/KINSOL/NLP/native-root closures affected by changes; add missing invocation-bound regime/selection observation under ADR-0251's selected contract. Source/preparation logs cannot stand in for winning observations. |
 | D05 | planned | D02–D04 selected deliveries; family consumers | Retire replaced numeric paths after targeted controls and caller migration; supply complete-operation comparisons and enduring mathematical contracts to L. |

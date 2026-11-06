@@ -276,9 +276,16 @@ its owning checkout; original stock/clock, actual coordinate/quadrature attribut
 prefix closure are distinct from terminal authored whole-domain reports. F/E's first actual
 developer-evidence analytical consumer is integrated on explicitly selected original members.
 Eleven targeted controls and actual product-reader success/failure/FIFO journeys passed in its
-owning checkout, without scientific association or verdict authority. Main combined receiving
-is in progress. A's next unit preserves original per-experiment fit assessment and profile-point
-outcomes rather than discarding completed evidence on later member failure.
+owning checkout, without scientific association or verdict authority. Main combined
+fitting/service/result/product-reader receiving subsequently passed 70/70 with zero failures/build
+warnings, complete capture/settlement and no pending lifetime. Its library53, product-command8 and
+public-reader9 are selected populations, not whole-series acceptance. A's original experiment
+assessment is integrated; its next unit supplies actual native member permission with original
+attempt/input custody. C03's actual-child pending-Close receiving unit is integrated, retaining the
+existing lifecycle machinery. H's strict temporal-refinement request and discriminator are integrated
+too; D owns the currently failing tighter-demand coarse solve while the science lane advances Water
+equipment protected delivery. E/F advances original typed prerequisite facts and the corresponding
+finite analytical reader.
 
 L01 supplied initial source/input distinctions to the scientific lane: ordinary-BT admits
 separate physical data/conventions; the FeedFlash seed and existing ControlledCSTR oracle-input
@@ -291,8 +298,8 @@ for the selected clients. E09 records retention of the current publication witne
 immutable archive and native immediate-neighborhood queries, with concrete reopening triggers.
 These bounded decisions add no mandatory platform or claim of new measured benefit.
 
-The first result unit will leave general future recorded-root shape bootstrap explicitly open
-if it establishes only current source-forward generation. An additive feature that disables
+The first result unit leaves general future recorded-root shape bootstrap explicitly open:
+it establishes current source-forward generation. An additive feature that disables
 production adapters across the unified workspace is not an acceptable shortcut. No full
 qualification, Clippy or performance campaign has started.
 

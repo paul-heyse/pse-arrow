@@ -182,7 +182,7 @@ and physical-settlement population; no new shutdown test or memory benefit is cl
 |---|---|---|---|
 | C01 | complete | Existing retained bridge/provider identities and explicit native preparation | Stale standalone compiler receipt explicitly refreshed with the existing immutable-cache implementation. Root compiler/solver selection and nested reentry succeed; the separate results checkout passes the same selection and engineering generation. Nine targeted native identity/cache controls pass with complete capture/settlement, including cross-checkout survival and changed-context refusal. This closes the reproduced preparation gap without relaxed checks or a new cache path; broader C acceptance remains separate. |
 | C02 | in-progress | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Common RPC mapping removal is integrated with contextual effects/authentication retained; selected main service/result receiving passes. Complete remaining typed effects, reconnect and original identity consumers with their replaced maps deleted. |
-| C03 | planned | Existing queue/retirement owners; C02 selected operations; D's provider support | Every selected prepared-worker/session path has transactional handoff, per-handle cancellation/close and result-bearing physical finish; true native batch behavior is integrated where selected. |
+| C03 | in-progress | Existing queue/retirement owners; C02 selected operations; D's provider support | Actual-child Close during an in-flight fill is now received: no early acknowledgement/retirement, independent surviving handle remains usable, then explicit native/process/I/O/admission finish. Existing prepared-worker mechanisms are retained. Complete actual abandoned-Prepare RPC-method departure and remaining session/batch receiving. |
 | C04 | planned | Complete passive recipe and admitted-body foundations; A/D operation-specific permission; D's preallocation-bounded canonical reconstruction gate | Remaining selected live/receiving/reference contexts use exact native permission and original memberships; canonical binary activation requires bounded native reconstruction or a qualified alternative, and obsolete routes retire only with their actual consumers. |
 | C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | Checkout activation and process-root observer token/nonblocking I/O/native-error retention are integrated. Actual prepared main reader succeeds and refuses nonregular input; selected host/product controls pass with corrected expectations and complete settlement. Preserve original interrupted/OOM evidence. Complete canonical cancellation/drain, broader transport/process failures, independent sessions and retained response lifetime. |
 
@@ -224,6 +224,17 @@ native error plus retirement error, child exit and uncertain reap. Preserve all 
 failures and keep resource ownership until physical completion. Add genuine batch support only
 with existing native provider semantics and a real consumer; coordinate exact point-demand and
 outcome shape with A/D/B. Remove scalar RPC loops only when that replacement is complete.
+
+**Tested, targeted in the owning checkout:** `scripts/pse test pse-runtime --lib --features
+property-coolprop` with prepared `compiler,klu,solver,isolation` passed four selected controls
+(actual pending Close, existing action/survivor transport, active native batch Stop and independent
+native-close failures), zero failures/warnings and complete capture/settlement. After hardening
+the exact queued-generation witness, the changed Close control passed 1/1 independently. The
+integrated test-only witness observes actual committed queue handoff; production Close still drains
+rather than signals Stop, and explicit finish still owns reap, endpoint removal, I/O join and
+admission release. This is a controlled native provider in a real child, not foreign-library TLS,
+new scientific accuracy or full C03/C05 qualification. Losing a local observer is distinct from
+abandoning the server's Prepare method; that real RPC-departure contract remains separate work.
 
 ### C04 — Finish selected reconstruction and execution contexts
 
